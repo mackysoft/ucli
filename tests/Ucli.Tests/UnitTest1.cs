@@ -1,4 +1,4 @@
-﻿namespace uCLI.Tests;
+﻿namespace Ucli.Tests;
 
 public class UnitTest1
 {
