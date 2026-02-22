@@ -1,8 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/uCLI/uCLI.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/uCLI.Tests/uCLI.Tests.csproj" />
-  </Folder>
-</Solution>
