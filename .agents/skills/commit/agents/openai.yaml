@@ -1,0 +1,6 @@
+interface:
+  display_name: "Commit"
+  short_description: "責務単位で分割し、包括的メッセージでコミットする"
+  default_prompt: "Use $commit to split changes by responsibility and create conventional commits with comprehensive bodies."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Start Work"
+  short_description: "Issue→サイズ判定→分割→ブランチ→Documents/agents 初期化"
+  default_prompt: "Use $start-work to initialize Issue, branch, and Documents/agents artifacts for a new task."
+policy:
+  allow_implicit_invocation: false

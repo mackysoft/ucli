@@ -1,0 +1,6 @@
+interface:
+  display_name: "Verification Gate"
+  short_description: "挙動確認/PR前の検証ゲートを実行し、結果を log.md に記録する"
+  default_prompt: "Use $verification-gate to run verification checks and record PASS/FAIL in log.md."
+policy:
+  allow_implicit_invocation: true

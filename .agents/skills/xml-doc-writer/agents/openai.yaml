@@ -1,0 +1,6 @@
+interface:
+  display_name: "XML Doc Writer"
+  short_description: "XMLドキュメントを契約ベースで執筆・更新する"
+  default_prompt: "Use $xml-doc-writer to write or revise XML documentation comments for APIs following AGENTS.md rules."
+policy:
+  allow_implicit_invocation: true
