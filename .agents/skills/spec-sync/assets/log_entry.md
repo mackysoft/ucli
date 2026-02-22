@@ -1,0 +1,16 @@
+## <YYYY-MM-DD HH:MM> Spec sync
+- Context:
+  - Issue: <ISSUE_URL> (#<N>)
+  - Reason (trigger): <What|How|Acceptance Criteria|Out of Scope|Risk>
+- Changes (issue):
+  - What:
+  - How:
+  - Acceptance Criteria:
+  - Out of Scope:
+  - Risk/Questions:
+- Actions:
+  - Updated Issue: <Yes/No>（Noの場合は理由を明記）
+  - Mirrored Issue → spec.md: Yes
+- Files Changed:
+  - Documents/agents/<BRANCH_DIR>/spec.md
+  - Documents/agents/<BRANCH_DIR>/log.md

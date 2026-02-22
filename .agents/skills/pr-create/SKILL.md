@@ -1,0 +1,84 @@
+---
+name: pr-create
+description: PR作成依頼を受けたときに、検証・コミット・push・PR作成までを一気通貫で実行する。Issueがある場合はIssueを優先して本文とbaseを決定し、Issueがない即興タスクでは継続/起票/中断を都度確認して進める。既存Open PRがある場合は更新か新規作成を確認する。
+---
+
+# 目的
+- PR作成手順を固定し、検証漏れ・push漏れ・本文品質のばらつきを防ぐ。
+- Issue起点タスクとIssueなし即興タスクの両方で、安全にPR作成できる状態を作る。
+
+# 使うタイミング
+- 「PRを作成して」「PRまで進めて」のように、PR作成完了が要求されたとき
+
+# 参照
+- 状態分岐ルール: [references/state-rules.md](references/state-rules.md)
+- 本文生成ルール: [references/body-generation.md](references/body-generation.md)
+- テンプレ:
+  - PR本文: [assets/pr_body_template.md](assets/pr_body_template.md)
+
+# 入力（任意。無くても推定して進める）
+- Issue番号/URL
+- Base branch
+- PRタイトル
+- 既存Open PRがあるときの方針（更新/新規）
+
+# 出力
+- 検証結果（PASS/FAIL）
+- 作成したコミットとpush結果
+- 作成または更新したPR URL
+
+# 手順
+
+## 1. 前提を確認する
+1. `git status --porcelain` で未コミット差分の有無を確認する（停止条件には使わない）。
+2. `gh auth status` を確認する。失敗したら停止する。
+
+## 2. Issueとbase branchを確定する
+1. Issue番号は次の優先順で解決する。
+   - 明示入力
+   - `spec.md` が存在する場合は `Issue Number` / `Issue URL`
+   - ブランチ名の `issue-<N>-...`
+2. Issueが解決できた場合は、Issue本文の `Base branch` 指定を優先して base を確定する。
+3. Issueが解決できない場合は、ユーザーへ次の3択を確認する。
+   - Issueなしで継続
+   - Issueを起票して継続
+   - 中断
+4. base branch が確定できない場合は、リポジトリ既定ブランチを採用する。
+5. PR対象差分を確認する。
+   - `git rev-list --count <base_branch>..HEAD` でコミット差分を確認する。
+   - コミット差分が `0` かつ `git status --porcelain` も空なら、PR対象差分が無いので停止する。
+
+## 3. 既存Open PR有無を確認する
+1. `gh pr list --state open --head <current_branch>` を実行する。
+2. Open PRがある場合は、ユーザーへ「既存PR更新 / 新規PR作成」を確認して分岐する。
+
+## 4. 検証を実行する
+1. `$verification-gate` を `PR前` 用途で実行する。
+2. FAILなら停止し、PRを作成しない。
+
+## 5. コミットとpushを実行する
+1. `$commit` を呼び、責務単位でコミットを作成する。
+2. `git push` を実行する。
+   - upstream が無い場合は `git push -u origin <current_branch>` を使う。
+
+## 6. PR本文を生成する
+1. `references/body-generation.md` に従い、差分・コミット履歴・検証結果から本文を生成する。
+2. Issueありの場合は本文末尾に `Closes #<N>` を入れる。
+3. Issueなしで継続した場合は、`Closes` を入れずに「Issueなし運用」を明記する。
+
+## 7. PRを作成または更新する
+1. PR種別は次で決める。
+   - Issueがあり、`verification-gate` PASS かつ IssueのAcceptance Criteriaが全完了: 通常PR
+   - Issueがあり、Acceptance Criteriaが未完了または未定義: Draft PR
+   - Issueなしで継続し、`verification-gate` PASS: 通常PR
+2. 新規作成分岐なら `gh pr create` を実行する。
+   - Draft PR の場合は `--draft` を付ける。
+3. 既存更新分岐なら `gh pr edit` で本文/タイトル/base を更新する。
+4. 既存更新分岐では `gh pr view --json isDraft` で現在状態を確認し、必要なときだけ Draft 状態を同期する。
+   - 判定が Draft PR で現在が通常PRなら `gh pr ready --undo` を実行する。
+   - 判定が通常PRで現在が Draft PRなら `gh pr ready` を実行する。
+
+# Definition of Done
+- `verification-gate` FAIL時に停止できる
+- commit / push / PR作成または更新が完了している
+- Issueあり/なしの分岐ルールに従って本文が生成されている

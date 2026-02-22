@@ -1,0 +1,13 @@
+## <YYYY-MM-DD HH:MM> <短い見出し>
+- Context:
+  - <このブロックで起きたことの背景>
+- Plan:
+  - <このブロックでやること>
+- Done:
+  - <このブロックで完了したこと>
+- Next:
+  - <次にやること>
+- Risk/Questions:
+  - <残リスク・未確定事項>
+- Files Changed:
+  - <代表ファイル or diff stat summary>

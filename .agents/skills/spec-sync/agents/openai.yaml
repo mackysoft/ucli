@@ -1,0 +1,6 @@
+interface:
+  display_name: "Spec Sync"
+  short_description: "Issue（Source of Truth）→ spec.md（ミラー）→ log.md（記録）を同期する"
+  default_prompt: "Use $spec-sync to update Issue, mirror it to spec.md, and record the sync in log.md."
+policy:
+  allow_implicit_invocation: true
