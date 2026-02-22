@@ -1,0 +1,21 @@
+## <YYYY-MM-DD HH:MM> Verification gate (<Smoke|Standard|Full>)
+- Context:
+  - Branch: <TYPE>/<BRANCH_NAME>
+  - Issue: <ISSUE_URL> (#<N>)
+  - Purpose: <挙動確認|PR前|最終>
+- Snapshot (before):
+  - HEAD: <SHA>
+  - Diff: <files changed / insertions / deletions>
+  - Working tree clean: <Yes/No>
+- Gates:
+  - Diff budget: <PASS/FAIL> (waiver: <Yes/No>)
+  - Spec drift: <PASS/FAIL/Skipped>
+  - Format: <PASS/FAIL> (changed files: <Yes/No>)
+  - Tests:  <PASS/FAIL> (scope: <suite/category/filter>)
+- Failures / Triage:
+  - <分類と原因、次の最短再実行手順>
+- Actions:
+  - Invoked `$log-update`: Yes
+  - Checklist updated: <Yes/No>（新しい失敗パターンがあればYes）
+- Files Changed:
+  - <list>

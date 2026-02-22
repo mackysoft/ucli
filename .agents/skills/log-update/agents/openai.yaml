@@ -1,0 +1,6 @@
+interface:
+  display_name: "Log Update"
+  short_description: "作業ログ（log.md）を、トリガーに応じて追記する"
+  default_prompt: "Use $log-update to append a concise, traceable entry to log.md."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,15 @@
+## <YYYY-MM-DD HH:MM> Commit execution
+- Context:
+  - Branch: <branch>
+  - Purpose: <why commit now>
+- Plan:
+  - Split strategy: <responsibility-based>
+- Done:
+  - Created commits:
+    - <sha> <subject>
+- Next:
+  - <remaining actions>
+- Risk/Questions:
+  - <if any>
+- Files Changed:
+  - <list>

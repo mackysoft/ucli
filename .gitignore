@@ -1,8 +1,24 @@
-.vs/**
-.vscode/**
+# Build outputs
+bin/
+obj/
 
-# Agents
-.worktrees/**
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.sln.iml
+*.DotSettings.user
 
-# Claude local settings
-.claude/settings.local.json
+# Test and run artifacts
+TestResults/
+*.trx
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db

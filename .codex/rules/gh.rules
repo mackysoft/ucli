@@ -1,0 +1,24 @@
+prefix_rule(pattern=["gh", "auth", "status"], decision="allow")
+
+prefix_rule(pattern=["gh", "repo", "view"], decision="allow")
+
+prefix_rule(pattern=["gh", "issue", "list"], decision="allow")
+prefix_rule(pattern=["gh", "issue", "view"], decision="allow")
+prefix_rule(pattern=["gh", "issue", "edit"], decision="allow")
+prefix_rule(pattern=["gh", "issue", "status"], decision="allow")
+
+prefix_rule(pattern=["gh", "pr", "list"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "view"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "edit"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "status"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "diff"], decision="allow")
+prefix_rule(pattern=["gh", "pr", "checks"], decision="allow")
+
+prefix_rule(pattern=["gh", "search", "issues"], decision="allow")
+prefix_rule(pattern=["gh", "search", "prs"], decision="allow")
+
+prefix_rule(pattern=["gh", "run", "list"], decision="allow")
+prefix_rule(pattern=["gh", "run", "view"], decision="allow")
+
+prefix_rule(pattern=["gh", "workflow", "list"], decision="allow")
+prefix_rule(pattern=["gh", "workflow", "view"], decision="allow")

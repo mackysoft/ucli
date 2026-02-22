@@ -1,0 +1,6 @@
+interface:
+  display_name: "Branch Create"
+  short_description: "Issueから規約準拠ブランチを作成または再利用する"
+  default_prompt: "Use $branch-create to resolve branch naming policy and create or reuse a compliant branch from an Issue."
+policy:
+  allow_implicit_invocation: true
