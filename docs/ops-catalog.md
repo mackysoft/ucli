@@ -1,0 +1,71 @@
+# Ops Catalog
+
+## asset
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.asset.create` | mutation | advanced | mvp-core | ScriptableObjectなどのAssetを新規作成する。 | 予定 |
+| `ucli.asset.schema` | query | safe | mvp-support | Asset型または対象Assetの設定可能項目を取得する。 | 予定 |
+| `ucli.asset.set` | mutation | advanced | mvp-core | Assetのシリアライズ値を更新する。 | 予定 |
+
+## assets
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.assets.find` | query | safe | mvp-support | 条件に一致するAssetを検索する。 | 予定 |
+
+## comp
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.comp.ensure` | mutation | advanced | mvp-core | 対象に指定コンポーネントが存在する状態を保証する。 | 予定 |
+| `ucli.comp.schema` | query | safe | mvp-support | コンポーネント型の設定可能項目を取得する。 | 予定 |
+| `ucli.comp.set` | mutation | advanced | mvp-core | 対象コンポーネントのシリアライズ値を更新する。 | 予定 |
+
+## cs
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.cs.invoke` | mutation | dangerous | experimental | 指定エントリポイントの任意コードを呼び出す。 | 予定 |
+
+## go
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.go.create` | mutation | advanced | mvp-core | 指定親配下にGameObjectを作成する。 | 予定 |
+| `ucli.go.describe` | query | safe | mvp-support | GameObjectの構造とコンポーネント情報を取得する。 | 予定 |
+
+## prefab
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.prefab.create` | mutation | advanced | mvp-core | GameObjectからPrefabを新規作成する。 | 予定 |
+| `ucli.prefab.open` | query | safe | mvp-core | 指定Prefabを編集コンテキストとして開く。 | 予定 |
+| `ucli.prefab.save` | mutation | advanced | mvp-core | 編集中のPrefabを保存する。 | 予定 |
+
+## project
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.project.refresh` | mutation | advanced | mvp-support | AssetDatabase更新やインポートを実行する。 | 予定 |
+| `ucli.project.save` | mutation | advanced | mvp-support | プロジェクト内の未保存変更を保存する。 | 予定 |
+
+## resolve
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.resolve` | query | safe | mvp-core | セレクタを対象オブジェクト参照へ解決する。 | 予定 |
+
+## scene
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.scene.open` | query | safe | mvp-core | 指定Sceneを開いて編集対象にする。 | 予定 |
+| `ucli.scene.save` | mutation | advanced | mvp-core | 指定Sceneの変更を保存する。 | 予定 |
+| `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。 | 予定 |
+
+## scenes
+
+| op | kind | policy | status | 概要 | argsSchema |
+| --- | --- | --- | --- | --- | --- |
+| `ucli.scenes.findComponents` | query | safe | mvp-support | 複数Sceneを横断して対象コンポーネントを検索する。 | 予定 |
