@@ -461,11 +461,11 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
 別ディレクトリのworktreeは別fingerprintの別デーモンでなければならない。  
 同一ディレクトリであれば同一デーモンとする。
 
-### runtime保存
-- `.ucli/runtime/` はGit管理対象外とする（`.ucli/.gitignore` で除外）
+### local保存
+- `.ucli/local/` はGit管理対象外とする（`.ucli/.gitignore` で除外）
 - `planToken` 本体は通常非永続化（呼び出し側のメモリ受け渡し）
 - 永続化するのは署名鍵のみ
-  - パス：`<projectRoot>/.ucli/runtime/<projectFingerprint>/plan-token.key`
+  - パス：`<projectRoot>/.ucli/local/<projectFingerprint>/plan-token.key`
   - 鍵は遅延生成（`ucli init` では生成しない）
 
 ### 識別
