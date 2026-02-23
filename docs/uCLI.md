@@ -46,6 +46,13 @@
 - `protocolVersion` はリクエスト・レスポンス双方で必須
 - 互換性判定は `protocolVersion` で行う
 
+### CLI出力契約
+- `stdout` は常にJSONレスポンス1件のみを出力する
+- 進行ログと診断ログは `stderr` に出力する
+- 終了コードは `status` と連動する
+  - `status=ok` のとき `exit code = 0`
+  - `status=error` のとき `exit code != 0`
+
 ### `protocolVersion` 規則
 - 初版はメジャーバージョン整数のみを使用する（例：`1`）
 - 受信したメジャーバージョンがサーバー対応値と一致しない場合は、処理を実行せずJSONエラーを返す
@@ -86,20 +93,28 @@
 ### `opResults`（1要素）の最小構造
 - `opId`：対応するリクエスト `ops[].id`（必須）
 - `op`：オペレーション名（必須）
-- `phase`：`validate | plan | call`（必須）
-- `effect`：`notApplied | appliedNoChange | appliedChanged`（必須）
-- `touched`：影響した永続化単位の配列（必須）
-  - 例：Scene / Prefab / Asset / ProjectSettings のパスまたは識別子
-  - v1ではオブジェクト単位（GlobalObjectId）や値パス（SerializedProperty path）は含めない
+- `phase`：`validate | plan | call | skipped`（必須）
+- `applied`：適用されたかどうか（必須）
+- `changed`：変更が発生したかどうか（必須）
+- `touched`：影響した永続化単位オブジェクトの配列（必須）
+  - `kind`：`scene | prefab | asset | projectSettings`（必須）
+  - `path`：プロジェクトルート相対パス（必須）
+  - `guid`：取得可能な場合に付与（任意）
+  - オブジェクト単位（GlobalObjectId）や値パス（SerializedProperty path）は含めない
 
 ```json
 {
   "opId": "setSpawner",
   "op": "ucli.comp.set",
   "phase": "call",
-  "effect": "appliedChanged",
+  "applied": true,
+  "changed": true,
   "touched": [
-    "Assets/Scenes/Main.unity"
+    {
+      "kind": "scene",
+      "path": "Assets/Scenes/Main.unity",
+      "guid": "11111111111111111111111111111111"
+    }
   ]
 }
 ```
@@ -135,6 +150,11 @@
   - `call` は実行前に `plan` 相当（validate/resolve/差分計算/実行可能性確認）の検証を挟む
   - uCLIでの操作による永続化は `call` でのみ可能
 
+### 失敗時実行方針
+- `fail-fast` 固定とする
+- `call` で失敗した場合、失敗したop以降は実行しない
+- 未実行opは `phase=skipped`、`applied=false`、`changed=false` として返す
+
 ### `planToken` とドリフト検知
 - `plan` はレスポンスに `planToken` を返す
 - `call` は `planToken` がある場合に、署名・有効期限・リクエスト一致・状態一致を検証する
@@ -163,7 +183,10 @@
   - `configDigest`（`operationPolicy` / `operationAllowlist` / `planTokenMode`）
   - `touchedDigest`（永続化単位のみ）
 - `touchedDigest` は `touched` の各要素を正規化して算出する
-  - 対象項目：`kind`, `path`, `guid(任意)`, `exists`, `size`, `lastWriteUtcTicks`
+  - 対象項目：`kind`, `path`, `guid(任意)` と、サーバーが計測した `exists`, `size`, `lastWriteUtcTicks`
+
+- `plan` は `Assets/` と `ProjectSettings/` への永続化を書き込まない
+- 観測に伴う副作用（`didCompile` / `didReimport` / `domainReloadOccurred`）は `planObservations` に記録する
 
 #### `planToken` に含める値と用途
 - `v`：トークン形式バージョン
@@ -452,7 +475,7 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
   - CWDか `--projectPath` でプロジェクト指定
   - `--mode` の実行可能性を判定してJSONで返す（`mode`, `unityVersion`, `ucliUnityVersion`, `compileState` 等）
 - `ucli daemon`：常駐サーバ管理
-  - `start`：デーモンを起動（ヘッドレス/GUIインスタンスへのattach方針は実装で規定）
+  - `start`：対象 `projectFingerprint` のデーモンを起動
   - `stop`：デーモンを停止
   - `status`：デーモン状態を取得
   - `logs`：デーモンログを取得
@@ -461,6 +484,7 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
 ## サーバー
 別ディレクトリのworktreeは別fingerprintの別デーモンでなければならない。  
 同一ディレクトリであれば同一デーモンとする。
+- デーモンの同一性は `projectFingerprint` で判定する。
 
 ### local保存
 - `.ucli/local/` はGit管理対象外とする（`.ucli/.gitignore` で除外）
@@ -477,6 +501,16 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
 OSごとに最適なローカルIPCを選ぶ。
 - Windows：NamedPipe
 - Mac / Linux：Unix domain socket
+
+### IPC認可境界
+- 接続は同一ユーザーに限定する
+  - Windows：NamedPipe ACL
+  - Mac / Linux：UDSのディレクトリ/ソケット権限
+- 接続時に `sessionToken` を必須照合する
+  - 保管先：`<projectRoot>/.ucli/local/<projectFingerprint>/session.json`
+  - 生成：`ucli daemon start` 時
+  - 破棄：`ucli daemon stop` 時
+  - 異常終了時：次回 `ucli daemon start` で上書き再生成し、旧トークンを無効化する
 
 ### デーモン起動
 #### CLI
