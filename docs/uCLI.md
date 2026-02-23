@@ -13,6 +13,7 @@
 - CLI起動、ユーザー起動のGUIインスタンス、両方でデーモンは起動する
 - 変更は Unity Editor API（AssetDatabase / Scene / Prefab / SerializedObject 等）に限定する。YAML直編集を前提にしない
 - すべての入出力はJSONを基本にする
+- Unity Test Framework の実行と結果正規化を、`ucli test` として統合提供する予定である
 
 ## アーキテクチャ
 - コア：.NET製 CLI（`ucli`）
@@ -43,22 +44,51 @@
 
 ## 入出力のJSON契約
 - すべてのコマンドの成功・失敗レスポンスはJSONで返す
-- `protocolVersion` はリクエスト・レスポンス双方で必須
+- 進行ログと診断ログは `stderr` に出力する
+- `stdout` は常にJSONレスポンス1件のみを出力する
+- `protocolVersion` はすべてのレスポンスで必須
+- JSONリクエストを受け取るコマンド（`validate` / `plan` / `call` / `resolve` / `query` / `refresh`）では、リクエストにも `protocolVersion` を必須とする
 - 互換性判定は `protocolVersion` で行う
 
 ### CLI出力契約
-- `stdout` は常にJSONレスポンス1件のみを出力する
-- 進行ログと診断ログは `stderr` に出力する
-- 終了コードは `status` と連動する
-  - `status=ok` のとき `exit code = 0`
-  - `status=error` のとき `exit code != 0`
+- `status` は `ok | error` を使用する
+  - `ok`：コマンドが契約どおり完了した
+  - `error`：入力不正、インフラ障害、外部ツール障害などで完了できなかった
+- 終了コードはコマンド別契約に従う
+  - JSONリクエスト系コマンドは `status=ok` のとき `exit code = 0`、`status=error` のとき `exit code != 0`
+  - `ucli test run` は `status=ok` かつ `payload.result=fail` の場合に `exit code = 1` を返す
+
+### コマンドレスポンス共通エンベロープ
+`init` / `ops` / `status` / `daemon` / `test` は、次の共通エンベロープでレスポンスを返す。
+
+- `protocolVersion`：プロトコルメジャーバージョン整数（必須）
+- `command`：コマンド識別子（必須、例：`test.run`）
+- `status`：`ok | error`（必須）
+- `exitCode`：プロセス終了コード（必須）
+- `message`：説明（必須）
+- `payload`：コマンド固有結果（必須）
+- `errors`：エラー配列（必須、正常時は空配列）
+
+```json
+{
+  "protocolVersion": 1,
+  "command": "test.run",
+  "status": "ok",
+  "exitCode": 1,
+  "message": "Unity test execution completed with failed tests.",
+  "payload": {
+    "result": "fail"
+  },
+  "errors": []
+}
+```
 
 ### `protocolVersion` 規則
 - 初版はメジャーバージョン整数のみを使用する（例：`1`）
 - 受信したメジャーバージョンがサーバー対応値と一致しない場合は、処理を実行せずJSONエラーを返す
 - 推奨エラーコード：`PROTOCOL_VERSION_MISMATCH`
 
-### リクエスト最小構造
+### JSONリクエスト系コマンドのリクエスト最小構造
 - `protocolVersion`：プロトコルメジャーバージョン整数（必須）
 - `requestId`：追跡用UUID（必須）
 - `ops`：実行するオペレーション配列（必須、順次実行）
@@ -71,7 +101,7 @@
 }
 ```
 
-### レスポンス最小構造
+### JSONリクエスト系コマンドのレスポンス最小構造
 - `protocolVersion`：リクエストと同じ値（必須）
 - `requestId`：リクエストと同じ値（必須）
 - `status`：`ok | error`（必須）
@@ -474,12 +504,122 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
 - `ucli status`：
   - CWDか `--projectPath` でプロジェクト指定
   - `--mode` の実行可能性を判定してJSONで返す（`mode`, `unityVersion`, `ucliUnityVersion`, `compileState` 等）
+- `ucli test`：Unity Test Framework 実行と結果正規化
+  - `run`：Unityテストを実行し、正規化結果をJSONで返す
+  - `profile init`：`test` 実行用のプロファイルJSON雛形を生成する
 - `ucli daemon`：常駐サーバ管理
   - `start`：対象 `projectFingerprint` のデーモンを起動
   - `stop`：デーモンを停止
   - `status`：デーモン状態を取得
   - `logs`：デーモンログを取得
   - `--projectPath <path>`：対象Unityプロジェクト指定
+
+## test コマンド（統合仕様）
+本節は、旧 `uni-test-hub` の機能を uCLI へ統合するための仕様を示す（現時点では未実装）。
+旧仕様と背景情報は `docs/uni-test-hub.md` にアーカイブしている。
+
+### `ucli test run`
+Unity を `-batchmode -nographics -runTests` で起動し、実行結果を正規化して返す。
+
+#### `run` options
+
+| Option | Short | Description |
+| --- | --- | --- |
+| `--projectPath <string?>` | `-p` | Unity project root path |
+| `--profilePath <string?>` | `-c` | Profile configuration path |
+| `--mode <string?>` | - | `auto` (default), `daemon`, or `oneshot` |
+| `--unityVersion <string?>` | `-u` | Unity editor version |
+| `--unityEditorPath <string?>` | - | Unity editor executable path or editor directory path |
+| `--testPlatform <string?>` | - | `editmode` or `playmode` |
+| `--buildTarget <string?>` | `-t` | Build target used when `testPlatform=playmode` |
+| `--testFilter <string?>` | `-f` | Test name filter pattern |
+| `--testCategory <string[]?>` | - | Test categories (repeat or comma-separated) |
+| `--assemblyName <string[]?>` | `-a` | Assembly names (repeat or comma-separated) |
+| `--testSettingsPath <string?>` | `-s` | Path to `TestSettings.json` |
+| `--outputDir <string?>` | `-o` | Artifact output root directory (default: `<projectRoot>/.ucli/local/artifacts`) |
+| `--timeoutSeconds <int?>` | - | Timeout in seconds (`1..86400`) |
+
+#### `run` の `payload` 契約
+- `result`：`pass | fail`（`status=error` の場合は `null`）
+- `errorKind`：`invalidInput | infraError | toolError | null`
+- `runId`：実行ID
+- `artifactsDir`：成果物ディレクトリ
+- `summaryJsonPath`：サマリーJSONのパス
+
+#### `run` の終了コード
+| Code | Meaning |
+| --- | --- |
+| `0` | pass |
+| `1` | fail |
+| `2` | infraError |
+| `3` | invalidInput |
+| `4` | toolError |
+
+#### `run` 実行例
+```bash
+ucli test run \
+  --projectPath ./UnityProject \
+  --testPlatform editmode \
+  --assemblyName MyGame.Tests.EditMode
+```
+
+### `ucli test profile init`
+`test` 実行用のプロファイルJSON雛形を作成する。
+
+#### `profile init` options
+
+| Option | Short | Description |
+| --- | --- | --- |
+| `--outputPath <string?>` | `-o` | Output path for profile JSON (default: `.ucli/test.profile.json`) |
+| `--force` | `-f` | Overwrite existing file |
+
+#### 生成テンプレート
+```json
+{
+  "schemaVersion": 1,
+  "projectPath": ".",
+  "unityVersion": null,
+  "unityEditorPath": null,
+  "testPlatform": "editmode",
+  "buildTarget": null,
+  "testFilter": null,
+  "testCategories": [],
+  "assemblyNames": [],
+  "testSettingsPath": null,
+  "outputDir": ".ucli/local/artifacts",
+  "timeoutSeconds": 1800
+}
+```
+
+### `test` 設定解決順序
+- `CLI options > profile.json > defaults`
+
+### UnityバージョンとEditor解決順序
+`unityVersion` は次の順で解決する。
+
+1. `--unityVersion`
+2. `profile.json` `unityVersion`
+3. `ProjectSettings/ProjectVersion.txt` (`m_EditorVersion`)
+
+`unityEditorPath` は次の順で解決する。
+
+1. `--unityEditorPath`
+2. `profile.json` `unityEditorPath`
+3. 既定の検索ルートで、解決済み `unityVersion` に一致するEditorを探索
+
+### Artifacts layout
+各実行の成果物は次の構造で保存する。
+
+`<outputDir>/test/<runId>/`
+
+```text
+<outputDir>/test/<runId>/
+  meta.json
+  results.xml
+  editor.log
+  results.json
+  summary.json
+```
 
 ## サーバー
 別ディレクトリのworktreeは別fingerprintの別デーモンでなければならない。  
@@ -488,6 +628,7 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
 
 ### local保存
 - `.ucli/local/` はGit管理対象外とする（`.ucli/.gitignore` で除外）
+- テスト成果物の既定出力先は `<projectRoot>/.ucli/local/artifacts/` とする
 - `planToken` 本体は通常非永続化（呼び出し側のメモリ受け渡し）
 - 永続化するのは署名鍵のみ
   - パス：`<projectRoot>/.ucli/local/<projectFingerprint>/plan-token.key`
