@@ -206,6 +206,7 @@
 ## オペレーション
 オペレーションは、JSONの `ops[]` に並ぶ **最小ステップ** の処理単位。  
 `plan` と `call` は同じ `ops[]` を、実行フェーズ（plan/call）だけ変えて回す。
+一覧は [`ops-catalog.md`](./ops-catalog.md) を参照。
 
 ### 命名規約
 - コア：`ucli.<domain>.<verb>`（例：`ucli.scene.open`, `ucli.comp.set`）
