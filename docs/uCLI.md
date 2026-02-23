@@ -67,9 +67,11 @@
 ### レスポンス最小構造
 - `protocolVersion`：リクエストと同じ値（必須）
 - `requestId`：リクエストと同じ値（必須）
-- `status`：`ok | partial | error`（必須）
+- `status`：`ok | error`（必須）
 - `opResults`：各opの結果配列（必須）
 - `errors`：エラー配列（必須、正常時は空配列）
+
+`status=error` であっても、先行opが適用済みである場合がある。適用状況は `opResults` で機械判定する。
 
 ```json
 {
@@ -78,6 +80,27 @@
   "status": "ok",
   "opResults": [],
   "errors": []
+}
+```
+
+### `opResults`（1要素）の最小構造
+- `opId`：対応するリクエスト `ops[].id`（必須）
+- `op`：オペレーション名（必須）
+- `phase`：`validate | plan | call`（必須）
+- `effect`：`notApplied | appliedNoChange | appliedChanged`（必須）
+- `touched`：影響した永続化単位の配列（必須）
+  - 例：Scene / Prefab / Asset / ProjectSettings のパスまたは識別子
+  - v1ではオブジェクト単位（GlobalObjectId）や値パス（SerializedProperty path）は含めない
+
+```json
+{
+  "opId": "setSpawner",
+  "op": "ucli.comp.set",
+  "phase": "call",
+  "effect": "appliedChanged",
+  "touched": [
+    "Assets/Scenes/Main.unity"
+  ]
 }
 ```
 
@@ -112,11 +135,73 @@
   - `call` は実行前に `plan` 相当（validate/resolve/差分計算/実行可能性確認）の検証を挟む
   - uCLIでの操作による永続化は `call` でのみ可能
 
+### `planToken` とドリフト検知
+- `plan` はレスポンスに `planToken` を返す
+- `call` は `planToken` がある場合に、署名・有効期限・リクエスト一致・状態一致を検証する
+- `planToken` は `ucli call --planToken <token>` で渡す（JSONリクエスト本体には含めない）
+- 検証エラー例
+  - `PLAN_TOKEN_REQUIRED`
+  - `PLAN_TOKEN_INVALID`
+  - `PLAN_TOKEN_EXPIRED`
+  - `PLAN_TOKEN_REQUEST_MISMATCH`
+  - `STATE_CHANGED_SINCE_PLAN`
+
+#### `requestDigest` の生成
+- Unityサーバー側で生成する
+- 対象は `protocolVersion` と `ops`（`requestId` は対象外）
+- 同一内容で同一値になるように正規化してハッシュ化する（実装詳細はサーバー実装で統一）
+
+#### `stateFingerprint` の生成
+- Unityサーバー側で生成する
+  - `plan` 実行時に作成し、`planToken` に埋め込む
+  - `call` 実行時に再計算し、`planToken` の値と比較する
+- 安定動作の範囲で次を含める
+  - `projectFingerprint`
+  - `unityVersion`
+  - `compileState`
+  - `domainReloadGeneration`
+  - `configDigest`（`operationPolicy` / `operationAllowlist` / `planTokenMode`）
+  - `touchedDigest`（永続化単位のみ）
+- `touchedDigest` は `touched` の各要素を正規化して算出する
+  - 対象項目：`kind`, `path`, `guid(任意)`, `exists`, `size`, `lastWriteUtcTicks`
+
+#### `planToken` に含める値と用途
+- `v`：トークン形式バージョン
+- `kid`：署名鍵識別子
+- `projectFingerprint`：プロジェクト取り違え防止
+- `requestDigest`：リクエスト一致判定
+- `stateFingerprint`：状態ドリフト判定
+- `issuedAtUtc`：発行時刻
+- `expiresAtUtc`：有効期限
+- `nonce`：トークン一意化
+
+#### `planToken` の有効期限
+- 既定TTLは 15 分
+- 許容時計ずれは ±30 秒
+- 有効期限を超過した `planToken` は `PLAN_TOKEN_EXPIRED` で失敗する
+
+### `planTokenMode`（設定）
+- `optional`（既定）
+  - `planToken` がある場合は検証して実行する
+  - `planToken` がない場合は `call` 内部で `plan` 相当検証を実行して適用する
+- `required`
+  - `call` で `planToken` を必須にする
+  - `planToken` がない場合は `PLAN_TOKEN_REQUIRED` で失敗する
+
+### `requestId` の冪等性（デーモン）
+- デーモンモードでは `requestId` を冪等キーとして扱う
+- 同一 `requestId` かつ同一内容は再実行せず、前回レスポンスを返す
+- 同一 `requestId` かつ異なる内容は `REQUEST_ID_CONFLICT` で拒否する
+- 保持先はデーモン単位のメモリ内キャッシュ（ディスク永続化しない）
+- キャッシュ保持項目は `requestId`、`requestDigest`、`response`、`createdAt`、`expiresAt`
+- 既定値は TTL 24時間、最大 10,000 件（超過時は古い順に破棄）
+
 ## 入力方法（CLI）
 - 基本：**stdin のJSONを読む**
   - `ucli plan < request.json`
   - `ucli call < request.json`
 - オプション：`--requestPath <jsonPath>` で JSONリクエストファイルを指定可能
+- `call` の `planToken` は `--planToken <token>` で指定する
 
 ## オペレーション
 オペレーションは、JSONの `ops[]` に並ぶ **最小ステップ** の処理単位。  
@@ -132,6 +217,7 @@
 - `dangerous` は既定で無効
 - `operationAllowlist` は使用可能opを定義し、正規表現を使用可能
 - `ucli.*` は既定で許可対象
+- `call` で `dangerous` opを実行する場合は、`operationPolicy` が `dangerous` を許可し、`operationAllowlist` に一致し、かつ `--allowDangerous` が明示指定されている場合にのみ許可する（AND条件）
 
 ### 設定ファイル配置
 - パス：`<projectRoot>/.ucli/config.json`
@@ -142,6 +228,7 @@
 {
   "schemaVersion": 1,
   "operationPolicy": "safe",
+  "planTokenMode": "optional",
   "operationAllowlist": [
     "^ucli\\."
   ]
@@ -251,7 +338,7 @@ public sealed record TypeRef(string Name, string? Assembly = null, bool ExpectUn
 - セレクタは `ucli.resolve` の `args` として表現し、`plan` 時点で一意化する運用を基本とする
 
 ### 任意コード呼び出し（`dangerous`）
-`ucli.cs.invoke` は `policy=dangerous` のopとして扱う。実行可否は `operationPolicy` と `operationAllowlist` の判定に従う。  
+`ucli.cs.invoke` は `policy=dangerous` のopとして扱う。実行可否はガード節の判定条件に従う。  
 コンパイルと運用の観点から、`ucli.cs.invoke` は `--mode oneshot` を基本推奨とする。
 
 ```cs
@@ -342,9 +429,16 @@ public static class RebuildNavmesh
 ## コマンド
 CWDがUnityプロジェクトと判定可能な場合はそれを使う。そうでない場合は `--projectPath` 指定が必要。
 
+- `ucli init`：`.ucli` 雛形を作成する
+  - 生成対象：`.ucli/config.json`, `.ucli/.gitignore`
+  - `--force`：既存設定を上書き
 - `ucli validate`：JSONリクエストの静的検証（スキーマ/必須項目/許可op等）
+  - 保証範囲：形式・スキーマ・許可判定まで（実在確認や差分見積りは含まない）
 - `ucli plan`：対象解決・差分見積り（実変更なし、または最小）を返す
+  - `planToken` を返す
 - `ucli call`：Unityへリクエストを送って実行し、保存する（実行前にplan相当の検証を挟む）
+  - `--planToken <token>`：`plan` が返したトークンを指定する
+  - `dangerous` opを含む場合は `--allowDangerous` 必須
   - `--withPlan`：callレスポンスにplan相当（resolved/diff等）を同梱する（任意）
 - `ucli resolve`：セレクタ（例：scene+hierarchyPath 等）を GlobalObjectId 等へ解決する
 - `ucli query`：検索・構造取得・スキーマ取得（規定操作）
@@ -367,6 +461,13 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
 別ディレクトリのworktreeは別fingerprintの別デーモンでなければならない。  
 同一ディレクトリであれば同一デーモンとする。
 
+### local保存
+- `.ucli/local/` はGit管理対象外とする（`.ucli/.gitignore` で除外）
+- `planToken` 本体は通常非永続化（呼び出し側のメモリ受け渡し）
+- 永続化するのは署名鍵のみ
+  - パス：`<projectRoot>/.ucli/local/<projectFingerprint>/plan-token.key`
+  - 鍵は遅延生成（`ucli init` では生成しない）
+
 ### 識別
 - `projectRoot = realpath(CWD or --projectPath)`
 - `projectFingerprint = SHA256(normalize(projectRoot))`（OS差分を吸収した正規化を必須）
@@ -375,7 +476,6 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
 OSごとに最適なローカルIPCを選ぶ。
 - Windows：NamedPipe
 - Mac / Linux：Unix domain socket
-- フォールバック：TCP
 
 ### デーモン起動
 #### CLI
