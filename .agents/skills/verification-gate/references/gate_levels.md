@@ -1,8 +1,8 @@
 # Gate Levels（検証の強さ）
 
 ## Smoke（挙動確認・短時間）
-- format（apply + verify）
-- テスト（絞れるなら最小）
+- `Run` 判定になった format を最小範囲で実行
+- `Run` 判定になったテストを最小範囲で実行
 - spec drift は「明確にズレがある場合のみ止める」（Issueが特定できない場合は参考扱い）
 
 用途:
@@ -12,15 +12,15 @@
 ## Standard（PR前の基本）
 - Diff Budget ゲート（必須）
 - Spec drift ゲート（必須：Issueが取れるなら厳格）
-- format（apply + verify）
-- テスト（影響範囲）＋必要なら追加テスト（影響が実行時挙動に及ぶ場合）
+- `Run` 判定になった format（apply + verify）
+- `Run` 判定になったテスト（影響範囲）＋必要なら追加テスト（影響が実行時挙動に及ぶ場合）
 
 用途:
 - 通常のPR前
 
 ## Full（最終/高リスク）
 - Standard の全て
-- テストを広く（原則フル）
+- `Run` 判定になったテストを広く実行（原則フル）
 
 用途:
 - 高リスク変更

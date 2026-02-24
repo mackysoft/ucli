@@ -1,0 +1,6 @@
+interface:
+  display_name: "Push"
+  short_description: "必要ならコミットして現在ブランチを安全にpushする"
+  default_prompt: "Use $push to create commits when needed and push the current branch safely with upstream-first behavior."
+policy:
+  allow_implicit_invocation: true
