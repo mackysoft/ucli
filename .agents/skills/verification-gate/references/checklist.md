@@ -15,7 +15,3 @@
 ## Tests
 - [ ] tests が Run の場合のみ、影響範囲のテストを実行した
 - [ ] tests が Run かつ失敗した場合、原因分類・再実行手順が log に残っている
-
-## Artifacts
-- [ ] `$log-update` を呼び出して log.md に検証ログを追記した
-- [ ] 新しい失敗パターンが出たら、この checklist 自体を更新した
