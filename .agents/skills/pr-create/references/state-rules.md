@@ -2,8 +2,7 @@
 
 ## Issue state
 1. Issueが特定できる場合は Issue優先で進める。
-2. Issueが特定できない場合は、必ずユーザーへ `継続/起票/中断` を確認する。
-3. `中断` が選択された場合は、PR作成処理へ進まない。
+2. Issueが特定できない場合は、確認せず Issueなし運用で継続する。
 
 ## Existing PR state
 1. 同一headのOpen PRが無ければ新規作成する。

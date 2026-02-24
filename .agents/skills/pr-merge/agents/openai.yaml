@@ -1,0 +1,6 @@
+interface:
+  display_name: "PR Merge"
+  short_description: "現在ブランチのPRを状態分岐して安全にマージする"
+  default_prompt: "Use $pr-merge to merge the current branch pull request safely, creating it with $pr-create only when no open PR exists and using $push only when an existing PR has local or unpushed changes."
+policy:
+  allow_implicit_invocation: true
