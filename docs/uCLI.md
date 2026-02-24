@@ -49,6 +49,7 @@
 - `protocolVersion` はすべてのレスポンスで必須
 - JSONリクエストを受け取るコマンド（`validate` / `plan` / `call` / `resolve` / `query` / `refresh`）では、リクエストにも `protocolVersion` を必須とする
 - 互換性判定は `protocolVersion` で行う
+- ただし、CLIフレームワーク（ConsoleAppFramework）の既定経路（`--help` / `help` / `--version` など）は、既定のテキスト出力を返す。これらは本JSON契約の適用対象外とする
 
 ### CLI出力契約
 - `status` は `ok | error` を使用する

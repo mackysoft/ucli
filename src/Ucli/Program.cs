@@ -1,22 +1,126 @@
-﻿using ConsoleAppFramework;
-using Microsoft.Extensions.DependencyInjection;
+using ConsoleAppFramework;
+using MackySoft.Ucli.Cli;
 
-var services = new ServiceCollection()
-    .AddSingleton<GreetingService>();
-
-using var provider = services.BuildServiceProvider();
-
-var app = ConsoleApp.Create();
-
-app.Add("hello", (string name) =>
+namespace MackySoft.Ucli
 {
-    var greeter = provider.GetRequiredService<GreetingService>();
-    Console.WriteLine(greeter.Greet(name));
-});
+    internal static class Program
+    {
+        private const string HelpCommandName = "help";
 
-app.Run(args);
+        /// <summary> Executes the CLI command pipeline and emits JSON command results. </summary>
+        /// <param name="args"> The command-line arguments passed to the process. </param>
+        /// <returns> The process exit code determined by command execution. </returns>
+        private static async Task<int> Main (string[] args)
+        {
+            ParseErrorBuffer.Clear();
+            CommandExecutionState.Reset();
 
-sealed class GreetingService
-{
-    public string Greet (string name) => $"Hello, {name}!";
+            ConsoleApp.LogError = message =>
+            {
+                ParseErrorBuffer.Add(message);
+                Console.Error.WriteLine(message);
+            };
+
+            if (TryHandleUnknownCommand(args))
+            {
+                return Environment.ExitCode;
+            }
+
+            var app = ConsoleApp.Create();
+            app.Add<InitCommand>();
+            app.Add<StatusCommand>();
+
+            try
+            {
+                await app.RunAsync(args);
+            }
+            catch (Exception exception)
+            {
+                var internalErrorResult = CommandResult.InternalError(CliProtocol.RootCommand, exception.Message);
+                CommandResultWriter.WriteToStandardOutput(internalErrorResult);
+                Environment.ExitCode = internalErrorResult.ExitCode;
+                return Environment.ExitCode;
+            }
+
+            // NOTE:
+            // ConsoleAppFramework can fail before command handlers start when parsing options.
+            // Emit JSON contract output in that path to keep stdout machine-readable.
+            if (!CommandExecutionState.HasStarted && ParseErrorBuffer.HasAny)
+            {
+                var commandName = ResolveCommandName(args);
+                var parseErrorMessage = string.Join(" ", ParseErrorBuffer.Messages);
+                var parseErrorResult = CommandResult.InvalidArgument(commandName, parseErrorMessage);
+                CommandResultWriter.WriteToStandardOutput(parseErrorResult);
+                Environment.ExitCode = parseErrorResult.ExitCode;
+            }
+
+            return Environment.ExitCode;
+        }
+
+        /// <summary> Handles unknown command names before framework dispatch starts. </summary>
+        /// <param name="args"> The command-line arguments passed to the process. </param>
+        /// <returns>
+        /// <para> <see langword="true" /> when this method writes an error response and sets <see cref="Environment.ExitCode" />. </para>
+        /// <para> Otherwise, <see langword="false" />. </para>
+        /// </returns>
+        private static bool TryHandleUnknownCommand (string[] args)
+        {
+            if (args.Length == 0)
+            {
+                return false;
+            }
+
+            var firstArgument = args[0];
+            if (string.IsNullOrWhiteSpace(firstArgument) || firstArgument.StartsWith("-", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (IsRegisteredCommand(firstArgument)
+                || string.Equals(firstArgument, HelpCommandName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var result = CommandResult.InvalidArgument(
+                command: CliProtocol.RootCommand,
+                message: $"Command '{firstArgument}' is not recognized.");
+            CommandResultWriter.WriteToStandardOutput(result);
+            Environment.ExitCode = result.ExitCode;
+            return true;
+        }
+
+        /// <summary> Resolves the command name used for parse error results. </summary>
+        /// <param name="args"> The command-line arguments passed to the process. </param>
+        /// <returns>
+        /// <para> The normalized command name for parse errors. </para>
+        /// <para> Returns <see cref="CliProtocol.RootCommand" /> when no known command can be identified. </para>
+        /// </returns>
+        private static string ResolveCommandName (string[] args)
+        {
+            if (args.Length == 0)
+            {
+                return CliProtocol.RootCommand;
+            }
+
+            var firstArgument = args[0];
+            if (string.IsNullOrWhiteSpace(firstArgument) || firstArgument.StartsWith("-", StringComparison.Ordinal))
+            {
+                return CliProtocol.RootCommand;
+            }
+
+            if (IsRegisteredCommand(firstArgument))
+            {
+                return firstArgument;
+            }
+
+            return CliProtocol.RootCommand;
+        }
+
+        private static bool IsRegisteredCommand (string commandName)
+        {
+            return string.Equals(commandName, InitCommand.CommandName, StringComparison.Ordinal)
+                || string.Equals(commandName, StatusCommand.CommandName, StringComparison.Ordinal);
+        }
+    }
 }
