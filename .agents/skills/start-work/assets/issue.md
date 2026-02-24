@@ -5,4 +5,5 @@
 - 受け入れ条件（Acceptance Criteria）:
   - [ ]
 - ベースブランチ（Base branch）:
-- タスクサイズ（Task Size）:
+- タスク性質（Task Nature）: Issue-based
+- タスクサイズ（Task Size）: <Small|Medium|Large>

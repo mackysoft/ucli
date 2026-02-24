@@ -10,7 +10,6 @@
   - Risk/Questions:
 - Actions:
   - Updated Issue: <Yes/No>（Noの場合は理由を明記）
-  - Mirrored Issue → spec.md: Yes
-- Files Changed:
-  - Documents/agents/<BRANCH_DIR>/spec.md
-  - Documents/agents/<BRANCH_DIR>/log.md
+  - Mirrored Issue → spec.md: <Yes/Skipped>
+  - Appended log.md: <Yes/Skipped>
+  - Skip Reason (if any):
