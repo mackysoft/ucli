@@ -20,5 +20,5 @@
    - 未完了作業・レビュー観点をチェックボックスで列挙する。
 
 ## Footer
-- Issueあり: `Closes #<N>`
+- Issueあり: 本文末尾に `Closes #<N>` を1行で出力する（Development連携用）
 - Issueなし: `Issue: none (ad-hoc task)`

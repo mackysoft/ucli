@@ -18,4 +18,4 @@
 ## Checklist
 - [ ] <未完了タスク>
 
-<Closes #N | Issue: none (ad-hoc task)>
+{{ISSUE_FOOTER}}
