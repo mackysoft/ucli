@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - contracts/*
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: "SemVer package version (e.g. 0.1.0)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -22,15 +28,21 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Resolve package version from tag
+      - name: Resolve package version
         id: version
         shell: bash
+        env:
+          DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
         run: |
-          tag_name="${GITHUB_REF_NAME}"
-          package_version="${tag_name#contracts/}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            package_version="${DISPATCH_VERSION}"
+          else
+            tag_name="${GITHUB_REF_NAME}"
+            package_version="${tag_name#contracts/}"
+          fi
 
           if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Tag must use contracts/<major>.<minor>.<patch> format. Actual: ${tag_name}" >&2
+            echo "Package version must use <major>.<minor>.<patch> format. Actual: ${package_version}" >&2
             exit 1
           fi
 
