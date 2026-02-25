@@ -1,0 +1,51 @@
+name: contracts-publish
+
+on:
+  push:
+    tags:
+      - contracts/*
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Resolve package version from tag
+        id: version
+        shell: bash
+        run: |
+          tag_name="${GITHUB_REF_NAME}"
+          package_version="${tag_name#contracts/}"
+
+          if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag must use contracts/<major>.<minor>.<patch> format. Actual: ${tag_name}" >&2
+            exit 1
+          fi
+
+          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Pack contracts
+        run: >-
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj
+          --configuration Release
+          -p:PackageVersion=${{ steps.version.outputs.package_version }}
+          --output artifacts/packages
+
+      - name: Publish to GitHub Packages
+        run: >-
+          dotnet nuget push "artifacts/packages/*.nupkg"
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --skip-duplicate

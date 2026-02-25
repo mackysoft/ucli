@@ -1,0 +1,29 @@
+name: contracts-ci
+
+on:
+  pull_request:
+    paths:
+      - src/Ucli.Contracts/**
+      - .github/workflows/contracts-ci.yml
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore contracts
+        run: dotnet restore src/Ucli.Contracts/Ucli.Contracts.csproj
+
+      - name: Build contracts
+        run: dotnet build src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-restore
+
+      - name: Pack contracts
+        run: dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-build --output artifacts/packages
