@@ -13,74 +13,63 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator StartAsync_WhenEndpointIsNull_ThrowsArgumentNullException ()
+        public IEnumerator StartAsync_WhenEndpointIsNull_ThrowsArgumentNullException () => UniTask.ToCoroutine(async () =>
         {
             var server = new UnityIpcServer();
-
-            return UniTask.ToCoroutine(async () =>
+            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentNullException>(async () =>
             {
-                var exception = await CaptureExceptionAsync<ArgumentNullException>(async () =>
-                {
-                    await server.StartAsync(null).AsUniTask();
-                });
-
-                Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
+                await server.StartAsync(null).AsUniTask();
             });
-        }
+
+            Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
+        });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator StartAsync_WhenAddressIsWhitespace_ThrowsArgumentException ()
+        public IEnumerator StartAsync_WhenAddressIsWhitespace_ThrowsArgumentException () => UniTask.ToCoroutine(async () =>
         {
             var server = new UnityIpcServer();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, " ");
-
-            return UniTask.ToCoroutine(async () =>
+            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
-                var exception = await CaptureExceptionAsync<ArgumentException>(async () =>
-                {
-                    await server.StartAsync(endpoint).AsUniTask();
-                });
-
-                Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
+                await server.StartAsync(endpoint).AsUniTask();
             });
-        }
+
+            Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
+        });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator StartAsync_ThenStopAsync_TransitionsRunningState ()
+        public IEnumerator StartAsync_ThenStopAsync_TransitionsRunningState () => UniTask.ToCoroutine(async () =>
         {
             var server = new UnityIpcServer();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test");
+            await server.StartAsync(endpoint).AsUniTask();
+            Assert.That(server.IsRunning, Is.True);
 
-            return UniTask.ToCoroutine(async () =>
-            {
-                await server.StartAsync(endpoint).AsUniTask();
-                Assert.That(server.IsRunning, Is.True);
-
-                await server.StopAsync().AsUniTask();
-                Assert.That(server.IsRunning, Is.False);
-            });
-        }
+            await server.StopAsync().AsUniTask();
+            Assert.That(server.IsRunning, Is.False);
+        });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator StopAsync_WhenCanceled_ThrowsOperationCanceledException ()
+        public IEnumerator StopAsync_WhenCanceled_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var server = new UnityIpcServer();
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
-            return UniTask.ToCoroutine(async () =>
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await CaptureExceptionAsync<OperationCanceledException>(async () =>
-                {
-                    await server.StopAsync(cancellationTokenSource.Token).AsUniTask();
-                });
+                await server.StopAsync(cancellationTokenSource.Token).AsUniTask();
             });
-        }
+        });
+    }
 
-        private static async UniTask<TException> CaptureExceptionAsync<TException> (Func<UniTask> action)
+    internal static class AsyncExceptionCapture
+    {
+
+        public static async UniTask<TException> CaptureAsync<TException> (Func<UniTask> action)
             where TException : Exception
         {
             try
