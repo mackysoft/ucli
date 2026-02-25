@@ -1,6 +1,5 @@
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 
@@ -15,9 +14,9 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var server = new UnityIpcServer();
 
-            Assert.ThrowsAsync<ArgumentNullException>(async () =>
+            Assert.Throws<ArgumentNullException>(() =>
             {
-                await server.StartAsync(null);
+                server.StartAsync(null).GetAwaiter().GetResult();
             });
         }
 
@@ -28,23 +27,23 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = new UnityIpcServer();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, " ");
 
-            Assert.ThrowsAsync<ArgumentException>(async () =>
+            Assert.Throws<ArgumentException>(() =>
             {
-                await server.StartAsync(endpoint);
+                server.StartAsync(endpoint).GetAwaiter().GetResult();
             });
         }
 
         [Test]
         [Category("Size.Small")]
-        public async Task StartAsync_ThenStopAsync_TransitionsRunningState ()
+        public void StartAsync_ThenStopAsync_TransitionsRunningState ()
         {
             var server = new UnityIpcServer();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test");
 
-            await server.StartAsync(endpoint);
+            server.StartAsync(endpoint).GetAwaiter().GetResult();
             Assert.That(server.IsRunning, Is.True);
 
-            await server.StopAsync();
+            server.StopAsync().GetAwaiter().GetResult();
             Assert.That(server.IsRunning, Is.False);
         }
 
@@ -56,9 +55,9 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
-            Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            Assert.Throws<OperationCanceledException>(() =>
             {
-                await server.StopAsync(cancellationTokenSource.Token);
+                server.StopAsync(cancellationTokenSource.Token).GetAwaiter().GetResult();
             });
         }
     }
