@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.Ipc;
 /// <summary> Implements transport-level IPC communication with Unity daemon endpoints. </summary>
 internal sealed class UnityIpcClient : IUnityIpcClient
 {
+    private static readonly TimeSpan NamedPipeConnectTimeout = TimeSpan.FromSeconds(3);
+
     private readonly IIpcEndpointResolver endpointResolver;
 
     /// <summary> Initializes a new instance of the <see cref="UnityIpcClient" /> class. </summary>
@@ -25,6 +27,7 @@ internal sealed class UnityIpcClient : IUnityIpcClient
     /// <returns> The response returned by Unity daemon. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="TimeoutException"> Thrown when endpoint connection exceeds the transport timeout. </exception>
     public async ValueTask<IpcResponse> SendAsync (
         string projectRoot,
         string projectFingerprint,
@@ -69,6 +72,7 @@ internal sealed class UnityIpcClient : IUnityIpcClient
     /// <param name="pipeName"> The named pipe name. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The connected named pipe stream. </returns>
+    /// <exception cref="TimeoutException"> Thrown when connection to the named pipe exceeds <see cref="NamedPipeConnectTimeout" />. </exception>
     private static async ValueTask<Stream> ConnectNamedPipeAsync (
         string pipeName,
         CancellationToken cancellationToken)
@@ -79,8 +83,26 @@ internal sealed class UnityIpcClient : IUnityIpcClient
             direction: PipeDirection.InOut,
             options: PipeOptions.Asynchronous);
 
-        await stream.ConnectAsync(cancellationToken);
-        return stream;
+        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellationTokenSource.CancelAfter(NamedPipeConnectTimeout);
+        try
+        {
+            await stream.ConnectAsync(timeoutCancellationTokenSource.Token);
+            return stream;
+        }
+        catch (OperationCanceledException exception)
+            when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
+        {
+            stream.Dispose();
+            throw new TimeoutException(
+                $"Failed to connect to named pipe '{pipeName}' within {NamedPipeConnectTimeout.TotalSeconds:0.#} seconds.",
+                exception);
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
     }
 
     /// <summary> Connects a Unix domain socket stream to the server socket. </summary>
