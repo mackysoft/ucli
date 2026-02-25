@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>MackySoft.Ucli.Contracts</AssemblyName>
+    <RootNamespace>MackySoft.Ucli.Contracts</RootNamespace>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>MackySoft.Ucli.Contracts</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Shared contract types for uCLI IPC protocol.</Description>
+    <RepositoryUrl>https://github.com/mackysoft/ucli</RepositoryUrl>
+    <PackageTags>ucli;unity;ipc</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>

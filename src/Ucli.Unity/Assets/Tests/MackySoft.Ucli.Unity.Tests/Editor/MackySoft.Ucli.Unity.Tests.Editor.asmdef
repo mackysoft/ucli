@@ -1,8 +1,9 @@
 {
-    "name": "MackySoft.Ucli.Unity.Editor",
-    "rootNamespace": "MackySoft.Ucli.Unity",
+    "name": "MackySoft.Ucli.Unity.Tests.Editor",
+    "rootNamespace": "MackySoft.Ucli.Unity.Tests",
     "references": [
-        "MackySoft.Ucli.Contracts"
+        "MackySoft.Ucli.Unity.Editor",
+        "UniTask"
     ],
     "includePlatforms": [
         "Editor"
@@ -11,8 +12,11 @@
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
-    "autoReferenced": true,
+    "autoReferenced": false,
     "defineConstraints": [],
     "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
     "noEngineReferences": false
 }

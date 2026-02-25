@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Ucli.Contracts/Ucli.Contracts.csproj" />
     <Project Path="src/Ucli/Ucli.csproj" />
   </Folder>
   <Folder Name="/tests/">
