@@ -30,7 +30,7 @@ internal sealed class JsonAssertion
 
     public JsonAssertion HasProperty (string propertyName)
     {
-        _ = ResolveOrThrow(propertyName);
+        ResolveOrThrow(propertyName);
         return this;
     }
 
@@ -50,7 +50,7 @@ internal sealed class JsonAssertion
 
     public JsonAssertion HasIndex (int index)
     {
-        _ = ResolveIndexOrThrow(index);
+        ResolveIndexOrThrow(index);
         return this;
     }
 
@@ -70,7 +70,7 @@ internal sealed class JsonAssertion
 
         foreach (var propertyName in propertyNames)
         {
-            _ = ResolveOrThrow(propertyName);
+            ResolveOrThrow(propertyName);
         }
 
         return this;
