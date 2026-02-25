@@ -1,0 +1,21 @@
+{
+    "name": "MackySoft.Ucli.Unity.Tests.Editor",
+    "rootNamespace": "MackySoft.Ucli.Unity.Tests",
+    "references": [
+        "MackySoft.Ucli.Unity.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}
