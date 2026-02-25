@@ -5,8 +5,6 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class IpcEndpointResolverTests
 {
-    private const int UnixDomainSocketPathMaxBytes = 103;
-
     [Fact]
     [Trait("Size", "Small")]
     public void Resolve_WithEmptyProjectRoot_ThrowsArgumentException ()
@@ -44,9 +42,9 @@ public sealed class IpcEndpointResolverTests
         var preferredPath = Path.Combine(projectRoot, ".ucli", "local", "abc123", "ipc.sock");
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
-        Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= UnixDomainSocketPathMaxBytes);
+        Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
 
-        if (Encoding.UTF8.GetByteCount(preferredPath) <= UnixDomainSocketPathMaxBytes)
+        if (Encoding.UTF8.GetByteCount(preferredPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
         {
             Assert.Equal(preferredPath, endpoint.Address);
             return;
@@ -78,6 +76,6 @@ public sealed class IpcEndpointResolverTests
         Assert.Equal(endpoint1.Address, endpoint2.Address);
         Assert.StartsWith("/tmp/ucli-", endpoint1.Address);
         Assert.EndsWith(".sock", endpoint1.Address);
-        Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= UnixDomainSocketPathMaxBytes);
+        Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
     }
 }

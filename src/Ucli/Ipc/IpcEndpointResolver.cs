@@ -20,8 +20,6 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
 
     private const string UnixSocketFallbackFileExtension = ".sock";
 
-    private const int UnixDomainSocketPathMaxBytes = 103;
-
     /// <summary> Resolves the transport endpoint for the given project identity. </summary>
     /// <param name="projectRoot"> The Unity project root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -57,7 +55,7 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
             normalizedProjectFingerprint,
             SocketFileName);
 
-        if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= UnixDomainSocketPathMaxBytes)
+        if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
         {
             return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, preferredSocketPath);
         }
