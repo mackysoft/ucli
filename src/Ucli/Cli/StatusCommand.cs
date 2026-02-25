@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Cli
         internal const string CommandName = "status";
 
         /// <summary> Writes the placeholder result for the <c>status</c> command. </summary>
-        /// <param name="projectPath"> Reserved option for target project path selection. The current implementation ignores this value. </param>
+        /// <param name="projectPath">--projectPath, Reserved option for target UnityProject path selection. The current implementation ignores this value. </param>
         /// <param name="mode"> Reserved option for status output mode selection. The current implementation ignores this value. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
         /// <returns> The exit code contained in the emitted command result. </returns>
@@ -22,9 +22,6 @@ namespace MackySoft.Ucli.Cli
             cancellationToken.ThrowIfCancellationRequested();
 
             CommandExecutionState.MarkStarted();
-
-            _ = projectPath;
-            _ = mode;
 
             var result = CommandResult.NotImplemented(CommandName);
             CommandResultWriter.WriteToStandardOutput(result);

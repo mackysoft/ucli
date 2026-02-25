@@ -12,11 +12,11 @@ namespace MackySoft.Ucli.Tests
         public static TheoryData<object, string, int, string, string> ErrorCaseData => new()
         {
             {
-                CommandResult.NotImplemented(InitCommand.CommandName),
-                InitCommand.CommandName,
+                CommandResult.NotImplemented(StatusCommand.CommandName),
+                StatusCommand.CommandName,
                 (int)CliExitCode.ToolError,
                 ErrorCodes.CommandNotImplemented,
-                $"Command '{InitCommand.CommandName}' is not implemented yet."
+                $"Command '{StatusCommand.CommandName}' is not implemented yet."
             },
             {
                 CommandResult.InvalidArgument(StatusCommand.CommandName, UnknownOptionMessage),

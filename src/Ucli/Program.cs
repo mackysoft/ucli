@@ -1,5 +1,10 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Cli;
+using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Init;
+using MackySoft.Ucli.UnityProject;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli
 {
@@ -10,8 +15,11 @@ namespace MackySoft.Ucli
         /// <summary> Executes the CLI command pipeline and emits JSON command results. </summary>
         /// <param name="args"> The command-line arguments passed to the process. </param>
         /// <returns> The process exit code determined by command execution. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
         private static async Task<int> Main (string[] args)
         {
+            ArgumentNullException.ThrowIfNull(args);
+
             ParseErrorBuffer.Clear();
             CommandExecutionState.Reset();
 
@@ -26,7 +34,14 @@ namespace MackySoft.Ucli
                 return Environment.ExitCode;
             }
 
-            var app = ConsoleApp.Create();
+            var app = ConsoleApp.Create()
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton<IUnityProjectResolver, UnityProjectResolver>();
+                    services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
+                    services.AddSingleton<IInitStatusContextResolver, InitStatusContextResolver>();
+                    services.AddSingleton<IInitService, InitService>();
+                });
             app.Add<InitCommand>();
             app.Add<StatusCommand>();
 
@@ -63,8 +78,11 @@ namespace MackySoft.Ucli
         /// <para> <see langword="true" /> when this method writes an error response and sets <see cref="Environment.ExitCode" />. </para>
         /// <para> Otherwise, <see langword="false" />. </para>
         /// </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
         private static bool TryHandleUnknownCommand (string[] args)
         {
+            ArgumentNullException.ThrowIfNull(args);
+
             if (args.Length == 0)
             {
                 return false;
@@ -96,8 +114,11 @@ namespace MackySoft.Ucli
         /// <para> The normalized command name for parse errors. </para>
         /// <para> Returns <see cref="CliProtocol.RootCommand" /> when no known command can be identified. </para>
         /// </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
         private static string ResolveCommandName (string[] args)
         {
+            ArgumentNullException.ThrowIfNull(args);
+
             if (args.Length == 0)
             {
                 return CliProtocol.RootCommand;

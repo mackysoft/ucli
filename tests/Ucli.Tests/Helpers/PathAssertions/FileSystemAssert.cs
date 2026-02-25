@@ -56,7 +56,7 @@ internal sealed class DirectoryAssertion : PathAssertionBase<DirectoryAssertion>
     {
         ArgumentNullException.ThrowIfNull(assertion);
 
-        _ = HasDirectory(childName);
+        HasDirectory(childName);
         var childPath = ResolveChildPath(childName);
         assertion(new DirectoryAssertion(childPath));
         return this;
@@ -80,7 +80,7 @@ internal sealed class DirectoryAssertion : PathAssertionBase<DirectoryAssertion>
     {
         ArgumentNullException.ThrowIfNull(assertion);
 
-        _ = HasFile(childName);
+        HasFile(childName);
         var childPath = ResolveChildPath(childName);
         assertion(new FileAssertion(childPath));
         return this;

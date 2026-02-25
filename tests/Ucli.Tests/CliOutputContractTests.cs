@@ -7,21 +7,33 @@ namespace MackySoft.Ucli.Tests
 {
     public sealed class CliOutputContractTests
     {
+        private const string ConfigFileName = "config.json";
+
+        private const string GitIgnoreFileName = ".gitignore";
+
+        private const string LegacyConfigJson = """{"schemaVersion":999}""";
+
+        private const string LegacyGitIgnoreContent = "legacy/";
+
+        private const string UcliDirectoryName = ".ucli";
+
+        private const string UnityProjectDirectoryName = "UnityProject";
+
+        private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
+
         private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(15);
 
-        [Theory]
+        [Fact]
         [Trait("Size", "Medium")]
-        [InlineData(InitCommand.CommandName)]
-        [InlineData(StatusCommand.CommandName)]
-        public async Task PlaceholderCommand_ReturnsNotImplementedErrorAsSingleJson (string command)
+        public async Task Status_ReturnsNotImplementedErrorAsSingleJson ()
         {
-            var result = await RunToolAsync(command);
+            var result = await RunToolAsync(StatusCommand.CommandName);
 
             using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
             Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
             AssertCommandResultCommon(
                 outputJson.RootElement,
-                command: command,
+                command: StatusCommand.CommandName,
                 status: CliProtocol.StatusError,
                 exitCode: (int)CliExitCode.ToolError);
             AssertSingleError(
@@ -29,11 +41,125 @@ namespace MackySoft.Ucli.Tests
                 expectedCode: ErrorCodes.CommandNotImplemented);
         }
 
+        [Theory]
+        [Trait("Size", "Medium")]
+        [InlineData(false, "init-success")]
+        [InlineData(true, "init-force-success")]
+        public async Task Init_ReturnsSuccessJsonContractAsSingleJson (bool force, string scopeName)
+        {
+            using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
+            var (unityProjectPath, configPath, gitIgnorePath) = CreateUnityProjectPaths(scope);
+            if (force)
+            {
+                PrepareLegacyTemplateFiles(scope, configPath, gitIgnorePath);
+            }
+
+            var result = await RunInitAsync(unityProjectPath, force);
+
+            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+            AssertCommandResultCommon(
+                outputJson.RootElement,
+                command: InitCommand.CommandName,
+                status: CliProtocol.StatusOk,
+                exitCode: (int)CliExitCode.Success);
+            AssertNoErrors(outputJson.RootElement);
+            JsonAssert.For(outputJson.RootElement)
+                .HasProperty("payload", payload => payload
+                    .HasString("projectPath", unityProjectPath)
+                    .HasValueKind("projectFingerprint", JsonValueKind.String)
+                    .HasString("configPath", configPath)
+                    .HasString("gitignorePath", gitIgnorePath));
+        }
+
+        [Theory]
+        [Trait("Size", "Medium")]
+        [InlineData(true, "init-config-file")]
+        [InlineData(false, "init-gitignore-file")]
+        public async Task Init_WithProjectPath_CreatesTemplateFiles (bool isConfigFile, string scopeName)
+        {
+            using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
+            var (unityProjectPath, _, _) = CreateUnityProjectPaths(scope);
+            var templateFilePath = isConfigFile
+                ? GetConfigPath(unityProjectPath)
+                : GetGitIgnorePath(unityProjectPath);
+
+            await RunInitAsync(unityProjectPath);
+
+            FileSystemAssert.ForFile(templateFilePath).Exists();
+        }
+
+        [Theory]
+        [Trait("Size", "Medium")]
+        [InlineData(false, "init-default-config-values")]
+        [InlineData(true, "init-force-config-overwrite")]
+        public async Task Init_WritesDefaultConfigValues (bool force, string scopeName)
+        {
+            using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
+            var (unityProjectPath, configPath, _) = CreateUnityProjectPaths(scope);
+            if (force)
+            {
+                PrepareLegacyTemplateFiles(scope, configPath, GetGitIgnorePath(unityProjectPath));
+            }
+
+            await RunInitAsync(unityProjectPath, force);
+
+            AssertDefaultConfigValues(configPath);
+        }
+
+        [Theory]
+        [Trait("Size", "Medium")]
+        [InlineData(false, "init-gitignore-contents")]
+        [InlineData(true, "init-force-gitignore-overwrite")]
+        public async Task Init_WritesLocalOnlyGitIgnoreContents (bool force, string scopeName)
+        {
+            using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
+            var (unityProjectPath, _, gitIgnorePath) = CreateUnityProjectPaths(scope);
+            if (force)
+            {
+                PrepareLegacyTemplateFiles(scope, GetConfigPath(unityProjectPath), gitIgnorePath);
+            }
+
+            await RunInitAsync(unityProjectPath, force);
+
+            Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
+        }
+
+        [Theory]
+        [Trait("Size", "Medium")]
+        [InlineData(true, LegacyConfigJson, "init-existing-config")]
+        [InlineData(false, LegacyGitIgnoreContent, "init-existing-gitignore")]
+        public async Task Init_WithoutForce_WhenTemplateFileExists_ReturnsInvalidArgumentErrorAsSingleJson (
+            bool isConfigFile,
+            string existingContent,
+            string scopeName)
+        {
+            using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
+            var (unityProjectPath, _, _) = CreateUnityProjectPaths(scope);
+            var existingTemplateFilePath = isConfigFile
+                ? GetConfigPath(unityProjectPath)
+                : GetGitIgnorePath(unityProjectPath);
+            WriteFileUnderScope(scope, existingTemplateFilePath, existingContent);
+
+            var result = await RunInitAsync(unityProjectPath);
+
+            using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+            Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+            AssertCommandResultCommon(
+                outputJson.RootElement,
+                command: InitCommand.CommandName,
+                status: CliProtocol.StatusError,
+                exitCode: (int)CliExitCode.InvalidArgument);
+            AssertSingleError(
+                outputJson.RootElement,
+                expectedCode: ErrorCodes.InvalidArgument);
+        }
+
         [Fact]
         [Trait("Size", "Medium")]
         public async Task Status_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
         {
-            var result = await RunToolAsync(StatusCommand.CommandName, "--unknown");
+            var result = await RunToolAsync(StatusCommand.CommandName, UcliContractConstants.CliOption.Unknown);
 
             using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
             Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -45,7 +171,7 @@ namespace MackySoft.Ucli.Tests
             AssertSingleError(
                 outputJson.RootElement,
                 expectedCode: ErrorCodes.InvalidArgument);
-            Assert.Contains("Argument '--unknown' is not recognized.", result.StdErr, StringComparison.Ordinal);
+            Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -80,6 +206,12 @@ namespace MackySoft.Ucli.Tests
                 .HasValueKind("message", JsonValueKind.String)
                 .HasValueKind("payload", JsonValueKind.Object)
                 .HasValueKind("errors", JsonValueKind.Array);
+        }
+
+        private static void AssertNoErrors (JsonElement root)
+        {
+            JsonAssert.For(root)
+                .HasArrayLength("errors", 0);
         }
 
         private static void AssertSingleError (JsonElement root, string expectedCode)
@@ -138,6 +270,68 @@ namespace MackySoft.Ucli.Tests
                 ExitCode: process.ExitCode,
                 StdOut: await stdOutTask,
                 StdErr: await stdErrTask);
+        }
+
+        private static async Task<CommandExecutionResult> RunInitAsync (string unityProjectPath, bool force = false)
+        {
+            if (force)
+            {
+                return await RunToolAsync(
+                    InitCommand.CommandName,
+                    UcliContractConstants.CliOption.ProjectPath,
+                    unityProjectPath,
+                    UcliContractConstants.CliOption.Force);
+            }
+
+            return await RunToolAsync(InitCommand.CommandName, UcliContractConstants.CliOption.ProjectPath, unityProjectPath);
+        }
+
+        private static (string UnityProjectPath, string ConfigPath, string GitIgnorePath) CreateUnityProjectPaths (TestDirectoryScope scope)
+        {
+            var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, UnityProjectDirectoryName);
+            var configPath = GetConfigPath(unityProjectPath);
+            var gitIgnorePath = GetGitIgnorePath(unityProjectPath);
+            return (unityProjectPath, configPath, gitIgnorePath);
+        }
+
+        private static string GetConfigPath (string unityProjectPath)
+        {
+            return Path.Combine(unityProjectPath, UcliDirectoryName, ConfigFileName);
+        }
+
+        private static string GetGitIgnorePath (string unityProjectPath)
+        {
+            return Path.Combine(unityProjectPath, UcliDirectoryName, GitIgnoreFileName);
+        }
+
+        private static void AssertDefaultConfigValues (string configPath)
+        {
+            using var configJson = JsonDocument.Parse(File.ReadAllText(configPath));
+            JsonAssert.For(configJson.RootElement)
+                .HasInt32("schemaVersion", UcliContractConstants.Config.SchemaVersion)
+                .HasString("operationPolicy", UcliContractConstants.Config.OperationPolicySafe)
+                .HasString("planTokenMode", UcliContractConstants.Config.PlanTokenModeOptional)
+                .HasArrayLength("operationAllowlist", 1)
+                .HasProperty("operationAllowlist", 0, static allowlistValue => allowlistValue
+                    .HasString(UcliContractConstants.Config.DefaultOperationAllowlistPattern));
+        }
+
+        private static void PrepareLegacyTemplateFiles (
+            TestDirectoryScope scope,
+            string configPath,
+            string gitIgnorePath)
+        {
+            WriteFileUnderScope(scope, configPath, LegacyConfigJson);
+            WriteFileUnderScope(scope, gitIgnorePath, LegacyGitIgnoreContent);
+        }
+
+        private static void WriteFileUnderScope (
+            TestDirectoryScope scope,
+            string absolutePath,
+            string contents)
+        {
+            var relativePath = Path.GetRelativePath(scope.FullPath, absolutePath);
+            scope.WriteFile(relativePath, contents);
         }
 
         private readonly record struct CommandExecutionResult (
