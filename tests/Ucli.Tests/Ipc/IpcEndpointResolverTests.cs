@@ -42,9 +42,9 @@ public sealed class IpcEndpointResolverTests
         var preferredPath = Path.Combine(projectRoot, ".ucli", "local", "abc123", "ipc.sock");
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
-        Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= 104);
+        Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= 103);
 
-        if (Encoding.UTF8.GetByteCount(preferredPath) <= 104)
+        if (Encoding.UTF8.GetByteCount(preferredPath) <= 103)
         {
             Assert.Equal(preferredPath, endpoint.Address);
             return;
@@ -76,6 +76,6 @@ public sealed class IpcEndpointResolverTests
         Assert.Equal(endpoint1.Address, endpoint2.Address);
         Assert.StartsWith("/tmp/ucli-", endpoint1.Address);
         Assert.EndsWith(".sock", endpoint1.Address);
-        Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= 104);
+        Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= 103);
     }
 }
