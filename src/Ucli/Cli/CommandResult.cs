@@ -22,8 +22,8 @@ namespace MackySoft.Ucli.Cli
         private static readonly IReadOnlyList<CommandError> EmptyErrors = Array.Empty<CommandError>();
 
         /// <summary> Creates a successful command result. </summary>
-        /// <param name="command"> The command name written to the result. Whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
-        /// <param name="message"> The success message written to the result. Whitespace values are replaced by a fallback message. </param>
+        /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+        /// <param name="message"> The success message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
         /// <param name="payload"> The command payload. When <see langword="null" />, an empty payload object is used. </param>
         /// <returns> A command result with <c>ok</c> status and the success exit code. </returns>
         public static CommandResult Success (string command, string message, object? payload = null)
@@ -41,7 +41,7 @@ namespace MackySoft.Ucli.Cli
         }
 
         /// <summary> Creates a placeholder error result for a command that is not implemented yet. </summary>
-        /// <param name="command"> The command name written to the result. Whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+        /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
         /// <param name="message"> The optional custom message. When <see langword="null" />, a default not-implemented message is generated. </param>
         /// <returns> A command result with <c>error</c> status and the <c>COMMAND_NOT_IMPLEMENTED</c> error code. </returns>
         public static CommandResult NotImplemented (string command, string? message = null)
@@ -56,8 +56,8 @@ namespace MackySoft.Ucli.Cli
         }
 
         /// <summary> Creates an error result for invalid command arguments. </summary>
-        /// <param name="command"> The command name written to the result. Whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
-        /// <param name="message"> The argument validation message written to the result. Whitespace values are replaced by a fallback message. </param>
+        /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+        /// <param name="message"> The argument validation message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
         /// <returns> A command result with <c>error</c> status and the invalid-argument exit code. </returns>
         public static CommandResult InvalidArgument (string command, string message)
         {
@@ -69,8 +69,8 @@ namespace MackySoft.Ucli.Cli
         }
 
         /// <summary> Creates an error result for unexpected runtime failures. </summary>
-        /// <param name="command"> The command name written to the result. Whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
-        /// <param name="message"> The failure message written to the result. Whitespace values are replaced by a fallback message. </param>
+        /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+        /// <param name="message"> The failure message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
         /// <returns> A command result with <c>error</c> status and the tool-error exit code. </returns>
         public static CommandResult InternalError (string command, string message)
         {
@@ -111,7 +111,7 @@ namespace MackySoft.Ucli.Cli
 
         /// <summary> Normalizes the command name used in command results. </summary>
         /// <param name="command"> The command name to normalize. </param>
-        /// <returns> The input command name, or <see cref="CliProtocol.RootCommand" /> when the input is empty or whitespace. </returns>
+        /// <returns> The input command name, or <see cref="CliProtocol.RootCommand" /> when the input is <see langword="null" />, empty, or whitespace. </returns>
         private static string NormalizeCommand (string command)
         {
             return string.IsNullOrWhiteSpace(command) ? CliProtocol.RootCommand : command;
@@ -119,7 +119,7 @@ namespace MackySoft.Ucli.Cli
 
         /// <summary> Normalizes the message value used in command results. </summary>
         /// <param name="message"> The message to normalize. </param>
-        /// <returns> The input message, or a fallback error message when the input is empty or whitespace. </returns>
+        /// <returns> The input message, or a fallback error message when the input is <see langword="null" />, empty, or whitespace. </returns>
         private static string NormalizeMessage (string message)
         {
             return string.IsNullOrWhiteSpace(message) ? "An unknown error occurred." : message;

@@ -15,9 +15,12 @@ namespace MackySoft.Ucli.Cli
         public static bool HasAny => !MessagesCore.IsEmpty;
 
         /// <summary> Adds a parse error message to the buffer. </summary>
-        /// <param name="message"> The parse error message to store. </param>
+        /// <param name="message"> The parse error message to store. Must not be <see langword="null" />. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="message" /> is <see langword="null" />. </exception>
         public static void Add (string message)
         {
+            ArgumentNullException.ThrowIfNull(message);
+
             MessagesCore.Enqueue(message);
         }
 

@@ -1,4 +1,6 @@
 using ConsoleAppFramework;
+using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Init;
 
 namespace MackySoft.Ucli.Cli
 {
@@ -8,24 +10,64 @@ namespace MackySoft.Ucli.Cli
         /// <summary> Gets the command name used by this command handler. </summary>
         internal const string CommandName = "init";
 
-        /// <summary> Writes the placeholder result for the <c>init</c> command. </summary>
-        /// <param name="force"> Reserved option for future overwrite behavior. The current implementation ignores this value. </param>
+        private readonly IInitService initService;
+
+        /// <summary> Initializes a new instance of the <see cref="InitCommand" /> class. </summary>
+        /// <param name="initService"> The init service dependency. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="initService" /> is <see langword="null" />. </exception>
+        public InitCommand (IInitService initService)
+        {
+            this.initService = initService ?? throw new ArgumentNullException(nameof(initService));
+        }
+
+        /// <summary> Executes the <c>init</c> command and emits the JSON result contract. </summary>
+        /// <param name="force"> Whether existing template files can be overwritten. </param>
+        /// <param name="projectPath"> --projectPath, Optional UnityProject root path. When omitted, empty, or whitespace, the current working directory is used. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
         /// <returns> The exit code contained in the emitted command result. </returns>
         [Command(CommandName)]
         public int Init (
             bool force = false,
+            string? projectPath = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             CommandExecutionState.MarkStarted();
 
-            _ = force;
-
-            var result = CommandResult.NotImplemented(CommandName);
+            var executionResult = initService.Execute(force, projectPath, cancellationToken);
+            var result = CreateCommandResult(executionResult);
             CommandResultWriter.WriteToStandardOutput(result);
             return result.ExitCode;
+        }
+
+        /// <summary> Creates the command-level JSON result from an init service execution result. </summary>
+        /// <param name="executionResult"> The init service execution result. </param>
+        /// <returns> The command result serialized to stdout. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
+        private static CommandResult CreateCommandResult (InitExecutionResult executionResult)
+        {
+            ArgumentNullException.ThrowIfNull(executionResult);
+
+            if (executionResult.IsSuccess)
+            {
+                var output = executionResult.Output!;
+                return CommandResult.Success(
+                    command: CommandName,
+                    message: "uCLI initialization completed.",
+                    payload: new
+                    {
+                        projectPath = output.ProjectPath,
+                        projectFingerprint = output.ProjectFingerprint,
+                        configPath = output.ConfigPath,
+                        gitignorePath = output.GitIgnorePath,
+                    });
+            }
+
+            var error = executionResult.Error!;
+            return error.Kind == ExecutionErrorKind.InvalidArgument
+                ? CommandResult.InvalidArgument(CommandName, error.Message)
+                : CommandResult.InternalError(CommandName, error.Message);
         }
     }
 }
