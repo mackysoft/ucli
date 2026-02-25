@@ -1,0 +1,16 @@
+{
+    "name": "MackySoft.Ucli.Unity.Editor",
+    "rootNamespace": "MackySoft.Ucli.Unity",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
