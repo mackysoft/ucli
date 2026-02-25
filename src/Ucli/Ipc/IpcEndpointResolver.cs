@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace MackySoft.Ucli.Ipc;
 
 /// <summary> Resolves daemon IPC endpoints from project identity values. </summary>
@@ -10,6 +13,14 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
     private const string SocketFileName = "ipc.sock";
 
     private const string PipeNamePrefix = "ucli-";
+
+    private const string UnixSocketFallbackDirectoryPath = "/tmp";
+
+    private const string UnixSocketFallbackFilePrefix = "ucli-";
+
+    private const string UnixSocketFallbackFileExtension = ".sock";
+
+    private const int UnixDomainSocketPathMaxBytes = 104;
 
     /// <summary> Resolves the transport endpoint for the given project identity. </summary>
     /// <param name="projectRoot"> The Unity project root path. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -39,12 +50,36 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
             return new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName);
         }
 
-        var socketPath = Path.Combine(
+        var preferredSocketPath = Path.Combine(
             normalizedProjectRoot,
             UcliDirectoryName,
             LocalDirectoryName,
             normalizedProjectFingerprint,
             SocketFileName);
-        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, socketPath);
+
+        if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= UnixDomainSocketPathMaxBytes)
+        {
+            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, preferredSocketPath);
+        }
+
+        // NOTE:
+        // Unix domain socket endpoint path is platform-limited (104 bytes on macOS).
+        // Prefer the project-local path, but fall back to a deterministic short path when needed.
+        var fallbackSocketPath = BuildFallbackUnixSocketPath(
+            normalizedProjectRoot,
+            normalizedProjectFingerprint);
+        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackSocketPath);
+    }
+
+    private static string BuildFallbackUnixSocketPath (
+        string normalizedProjectRoot,
+        string normalizedProjectFingerprint)
+    {
+        var hashSource = $"{normalizedProjectRoot}\n{normalizedProjectFingerprint}";
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(hashSource));
+        var shortHash = Convert.ToHexString(hashBytes.AsSpan(0, 16)).ToLowerInvariant();
+        return Path.Combine(
+            UnixSocketFallbackDirectoryPath,
+            UnixSocketFallbackFilePrefix + shortHash + UnixSocketFallbackFileExtension);
     }
 }

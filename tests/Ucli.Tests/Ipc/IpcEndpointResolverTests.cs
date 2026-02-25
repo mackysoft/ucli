@@ -1,3 +1,4 @@
+using System.Text;
 using MackySoft.Ucli.Ipc;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -38,9 +39,43 @@ public sealed class IpcEndpointResolverTests
             return;
         }
 
+        var preferredPath = Path.Combine(projectRoot, ".ucli", "local", "abc123", "ipc.sock");
+
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
-        Assert.Equal(
-            Path.Combine(projectRoot, ".ucli", "local", "abc123", "ipc.sock"),
-            endpoint.Address);
+        Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= 104);
+
+        if (Encoding.UTF8.GetByteCount(preferredPath) <= 104)
+        {
+            Assert.Equal(preferredPath, endpoint.Address);
+            return;
+        }
+
+        Assert.StartsWith("/tmp/ucli-", endpoint.Address);
+        Assert.EndsWith(".sock", endpoint.Address);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_WithLongUnixSocketCandidate_ReturnsShortDeterministicFallbackPath ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var resolver = new IpcEndpointResolver();
+        var projectRoot = Path.GetFullPath(Path.Combine(
+            "/tmp",
+            "ucli-tests",
+            new string('a', 140)));
+
+        var endpoint1 = resolver.Resolve(projectRoot, "abc123");
+        var endpoint2 = resolver.Resolve(projectRoot, "abc123");
+
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
+        Assert.Equal(endpoint1.Address, endpoint2.Address);
+        Assert.StartsWith("/tmp/ucli-", endpoint1.Address);
+        Assert.EndsWith(".sock", endpoint1.Address);
+        Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= 104);
     }
 }
