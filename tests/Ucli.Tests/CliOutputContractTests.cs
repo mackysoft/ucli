@@ -9,29 +9,15 @@ namespace MackySoft.Ucli.Tests
     {
         private const string ConfigFileName = "config.json";
 
-        private const string DefaultOperationAllowlistPattern = "^ucli\\.";
-
-        private const string DefaultOperationPolicy = "safe";
-
-        private const string DefaultPlanTokenMode = "optional";
-
-        private const string ForceOption = "--force";
-
         private const string GitIgnoreFileName = ".gitignore";
 
         private const string LegacyConfigJson = """{"schemaVersion":999}""";
 
         private const string LegacyGitIgnoreContent = "legacy/";
 
-        private const string LocalDirectoryIgnoreEntry = "local/";
-
-        private const string ProjectPathOption = "--projectPath";
-
         private const string UcliDirectoryName = ".ucli";
 
         private const string UnityProjectDirectoryName = "UnityProject";
-
-        private const string UnknownOption = "--unknown";
 
         private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
@@ -136,7 +122,7 @@ namespace MackySoft.Ucli.Tests
 
             await RunInitAsync(unityProjectPath, force);
 
-            Assert.Equal(LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
+            Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
         }
 
         [Theory]
@@ -173,7 +159,7 @@ namespace MackySoft.Ucli.Tests
         [Trait("Size", "Medium")]
         public async Task Status_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
         {
-            var result = await RunToolAsync(StatusCommand.CommandName, UnknownOption);
+            var result = await RunToolAsync(StatusCommand.CommandName, UcliContractConstants.CliOption.Unknown);
 
             using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
             Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -290,10 +276,14 @@ namespace MackySoft.Ucli.Tests
         {
             if (force)
             {
-                return await RunToolAsync(InitCommand.CommandName, ProjectPathOption, unityProjectPath, ForceOption);
+                return await RunToolAsync(
+                    InitCommand.CommandName,
+                    UcliContractConstants.CliOption.ProjectPath,
+                    unityProjectPath,
+                    UcliContractConstants.CliOption.Force);
             }
 
-            return await RunToolAsync(InitCommand.CommandName, ProjectPathOption, unityProjectPath);
+            return await RunToolAsync(InitCommand.CommandName, UcliContractConstants.CliOption.ProjectPath, unityProjectPath);
         }
 
         private static (string UnityProjectPath, string ConfigPath, string GitIgnorePath) CreateUnityProjectPaths (TestDirectoryScope scope)
@@ -318,12 +308,12 @@ namespace MackySoft.Ucli.Tests
         {
             using var configJson = JsonDocument.Parse(File.ReadAllText(configPath));
             JsonAssert.For(configJson.RootElement)
-                .HasInt32("schemaVersion", 1)
-                .HasString("operationPolicy", DefaultOperationPolicy)
-                .HasString("planTokenMode", DefaultPlanTokenMode)
+                .HasInt32("schemaVersion", UcliContractConstants.Config.SchemaVersion)
+                .HasString("operationPolicy", UcliContractConstants.Config.OperationPolicySafe)
+                .HasString("planTokenMode", UcliContractConstants.Config.PlanTokenModeOptional)
                 .HasArrayLength("operationAllowlist", 1)
                 .HasProperty("operationAllowlist", 0, static allowlistValue => allowlistValue
-                    .HasString(DefaultOperationAllowlistPattern));
+                    .HasString(UcliContractConstants.Config.DefaultOperationAllowlistPattern));
         }
 
         private static void PrepareLegacyTemplateFiles (

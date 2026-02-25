@@ -21,10 +21,10 @@ public sealed class UcliConfigStoreTests
         Assert.Null(result.Error);
         Assert.Equal(ConfigSource.Default, result.Source);
         var config = Assert.IsType<UcliConfig>(result.Config);
-        Assert.Equal(1, config.SchemaVersion);
+        Assert.Equal(UcliContractConstants.Config.SchemaVersion, config.SchemaVersion);
         Assert.Equal(OperationPolicy.Safe, config.OperationPolicy);
         Assert.Equal(PlanTokenMode.Optional, config.PlanTokenMode);
-        Assert.Equal(new[] { "^ucli\\." }, config.OperationAllowlist);
+        Assert.Equal(new[] { UcliContractConstants.Config.DefaultOperationAllowlistPattern }, config.OperationAllowlist);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class UcliConfigStoreTests
             PlanTokenMode: PlanTokenMode.Required,
             OperationAllowlist:
             [
-                "^ucli\\.",
+                UcliContractConstants.Config.DefaultOperationAllowlistPattern,
                 "^mylab\\.",
             ]);
 
@@ -61,9 +61,9 @@ public sealed class UcliConfigStoreTests
         var configPath = configStore.GetConfigPath(unityProjectPath);
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(configPath));
         JsonAssert.For(jsonDocument.RootElement)
-            .HasInt32("schemaVersion", 1)
-            .HasString("operationPolicy", "dangerous")
-            .HasString("planTokenMode", "required")
+            .HasInt32("schemaVersion", UcliContractConstants.Config.SchemaVersion)
+            .HasString("operationPolicy", UcliContractConstants.Config.OperationPolicyDangerous)
+            .HasString("planTokenMode", UcliContractConstants.Config.PlanTokenModeRequired)
             .HasArrayLength("operationAllowlist", 2);
     }
 
@@ -96,16 +96,17 @@ public sealed class UcliConfigStoreTests
         var configStore = new UcliConfigStore();
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
+        var invalidSchemaConfigJson = JsonSerializer.Serialize(
+            new
+            {
+                schemaVersion = 2,
+                operationPolicy = UcliContractConstants.Config.OperationPolicySafe,
+                planTokenMode = UcliContractConstants.Config.PlanTokenModeOptional,
+                operationAllowlist = new[] { UcliContractConstants.Config.DefaultOperationAllowlistPattern },
+            });
         scope.WriteFile(
             relativeConfigPath,
-            """
-            {
-              "schemaVersion": 2,
-              "operationPolicy": "safe",
-              "planTokenMode": "optional",
-              "operationAllowlist": ["^ucli\\."]
-            }
-            """);
+            invalidSchemaConfigJson);
 
         var result = configStore.Load(unityProjectPath);
 
