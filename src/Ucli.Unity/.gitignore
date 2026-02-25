@@ -68,3 +68,10 @@ crashlytics-build.properties
 # Addressables
 /[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/Windows.meta
 /[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/Windows/*
+
+# NuGetForUnity generated files
+/[Aa]ssets/[Pp]ackages.meta
+/[Aa]ssets/[Pp]ackages/*
+/.nuget-cache/
+/.nuget-packages/
+/[Pp]ackages/nuget-local-source/
