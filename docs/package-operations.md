@@ -26,7 +26,7 @@
 ```bash
 dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
   --configuration Release \
-  -p:PackageVersion=1.0.0 \
+  -p:PackageVersion=0.1.0 \
   --output src/Ucli.Unity/Packages/nuget-local-source
 ```
 
@@ -36,6 +36,6 @@ dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
 `contracts/<major>.<minor>.<patch>` タグを push すると、`contracts-publish` workflow が GitHub Packages へ公開する。
 
 ```bash
-git tag contracts/1.0.0
-git push origin contracts/1.0.0
+git tag contracts/0.1.0
+git push origin contracts/0.1.0
 ```
