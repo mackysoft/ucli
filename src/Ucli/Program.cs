@@ -3,6 +3,7 @@ using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Init;
+using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -41,6 +42,8 @@ namespace MackySoft.Ucli
                     services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
                     services.AddSingleton<IInitStatusContextResolver, InitStatusContextResolver>();
                     services.AddSingleton<IInitService, InitService>();
+                    services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
+                    services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
                 });
             app.Add<InitCommand>();
             app.Add<StatusCommand>();
