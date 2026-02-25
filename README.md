@@ -37,6 +37,36 @@ ucli test run \
 
 テスト成果物は既定で `./.ucli/local/artifacts/` 配下に出力されます。
 
+## Contracts / NuGetForUnity 運用
+- 共通DTOは `src/Ucli.Contracts` で定義します。
+- CLI（`src/Ucli`）は `ProjectReference` で `Ucli.Contracts` を参照します。
+- Unityプラグイン（`src/Ucli.Unity`）は NuGetForUnity + `packages.config` で `MackySoft.Ucli.Contracts` を参照します。
+- NuGetForUnity の復元成果物 `src/Ucli.Unity/Assets/Packages/` は生成物として Git 追跡しません。
+
+### GitHub Packages 認証
+`src/Ucli.Unity/Assets/NuGet.config` は `https://nuget.pkg.github.com/mackysoft/index.json` を参照します。  
+認証情報はリポジトリに含めず、各開発環境の `~/.nuget/NuGet/NuGet.Config` に設定してください。
+
+### 未公開版をローカルで使う手順
+`MackySoft.Ucli.Contracts` の公開前バージョンを Unity で検証する場合のみ、ローカルフィードへ pack します。
+
+```bash
+dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
+  --configuration Release \
+  -p:PackageVersion=1.0.0 \
+  --output src/Ucli.Unity/Packages/nuget-local-source
+```
+
+その後、Unity を batchmode で開くと NuGetForUnity が `packages.config` を復元します。
+
+### パッケージ公開（CI）
+`contracts/<major>.<minor>.<patch>` タグを push すると、`contracts-publish` workflow が GitHub Packages へ公開します。
+
+```bash
+git tag contracts/1.0.0
+git push origin contracts/1.0.0
+```
+
 ## Commands
 - `ucli init`
 - `ucli validate`
