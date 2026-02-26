@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Configuration;
-using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Init;
 
@@ -9,50 +7,45 @@ namespace MackySoft.Ucli.Init;
 internal sealed class InitService : IInitService
 {
     private const string UcliDirectoryName = ".ucli";
+    private const string LocalDirectoryName = "local";
+    private const string ConfigFileName = "config.json";
     private const string GitIgnoreFileName = ".gitignore";
     private const string GitIgnoreContents = "local/";
 
-    private readonly IUnityProjectResolver unityProjectResolver;
-    private readonly IInitStatusContextResolver contextResolver;
     private readonly IUcliConfigStore configStore;
 
     /// <summary> Initializes a new instance of the <see cref="InitService" /> class. </summary>
-    /// <param name="unityProjectResolver"> The UnityProject resolver dependency. </param>
-    /// <param name="contextResolver"> The init/status context resolver dependency. </param>
     /// <param name="configStore"> The config store dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProjectResolver" />, <paramref name="contextResolver" />, or <paramref name="configStore" /> is <see langword="null" />. </exception>
-    public InitService (
-        IUnityProjectResolver unityProjectResolver,
-        IInitStatusContextResolver contextResolver,
-        IUcliConfigStore configStore)
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="configStore" /> is <see langword="null" />. </exception>
+    public InitService (IUcliConfigStore configStore)
     {
-        this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
-        this.contextResolver = contextResolver ?? throw new ArgumentNullException(nameof(contextResolver));
         this.configStore = configStore ?? throw new ArgumentNullException(nameof(configStore));
     }
 
     /// <summary> Executes initialization to create or overwrite <c>.ucli/config.json</c> and <c>.ucli/.gitignore</c>. </summary>
     /// <param name="force"> Whether existing files can be overwritten. </param>
-    /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the init execution result that contains generated file paths on success or a structured error on failure. </returns>
     public async ValueTask<InitExecutionResult> Execute (
         bool force,
-        string? projectPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var unityProjectResult = unityProjectResolver.Resolve(projectPath);
-        if (!unityProjectResult.IsSuccess)
+        string currentDirectoryPath;
+        try
         {
-            return InitExecutionResult.Failure(unityProjectResult.Error!);
+            currentDirectoryPath = Path.GetFullPath(Environment.CurrentDirectory);
+        }
+        catch (Exception ex) when (IsPathFormatException(ex))
+        {
+            return InitExecutionResult.Failure(CreateInvalidArgument(
+                $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}"));
         }
 
-        var unityProjectContext = unityProjectResult.Context!;
-        var unityProjectRoot = unityProjectContext.UnityProjectRoot;
-        var ucliDirectoryPath = Path.Combine(unityProjectRoot, UcliDirectoryName);
-        var configPath = unityProjectContext.ConfigPath;
+        var ucliDirectoryPath = Path.Combine(currentDirectoryPath, UcliDirectoryName);
+        var localDirectoryPath = Path.Combine(ucliDirectoryPath, LocalDirectoryName);
+        var configPath = Path.Combine(ucliDirectoryPath, ConfigFileName);
         var gitIgnorePath = Path.Combine(ucliDirectoryPath, GitIgnoreFileName);
         var existingPaths = CollectExistingTemplatePaths(configPath, gitIgnorePath);
 
@@ -63,26 +56,15 @@ internal sealed class InitService : IInitService
                 $"Initialization failed because template files already exist. Use --force to overwrite: {joinedPaths}"));
         }
 
-        if (!force)
-        {
-            // NOTE:
-            // Keep init and status using the same context pipeline.
-            // This ensures config parse/validation behavior stays consistent across command foundations.
-            var contextResult = await contextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
-            if (!contextResult.IsSuccess)
-            {
-                return InitExecutionResult.Failure(contextResult.Error!);
-            }
-        }
-
         try
         {
             Directory.CreateDirectory(ucliDirectoryPath);
+            Directory.CreateDirectory(localDirectoryPath);
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
             return InitExecutionResult.Failure(CreateInvalidArgument(
-                $"UnityProject path is invalid: {unityProjectRoot}. {ex.Message}"));
+                $"uCLI directory path is invalid: {ucliDirectoryPath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
@@ -93,7 +75,7 @@ internal sealed class InitService : IInitService
         cancellationToken.ThrowIfCancellationRequested();
 
         var defaultConfig = UcliConfig.CreateDefault();
-        var configSaveResult = await configStore.Save(unityProjectRoot, defaultConfig, cancellationToken).ConfigureAwait(false);
+        var configSaveResult = await configStore.Save(currentDirectoryPath, defaultConfig, cancellationToken).ConfigureAwait(false);
         if (!configSaveResult.IsSuccess)
         {
             return InitExecutionResult.Failure(configSaveResult.Error!);
@@ -115,8 +97,6 @@ internal sealed class InitService : IInitService
         }
 
         var output = new InitExecutionOutput(
-            ProjectPath: unityProjectRoot,
-            ProjectFingerprint: unityProjectContext.ProjectFingerprint,
             ConfigPath: configPath,
             GitIgnorePath: gitIgnorePath);
         return InitExecutionResult.Success(output);

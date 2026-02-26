@@ -497,10 +497,11 @@ public static class RebuildNavmesh
 ```
 
 ## コマンド
-CWDがUnityプロジェクトと判定可能な場合はそれを使う。そうでない場合は `--projectPath` 指定が必要。
+Unityプロジェクトを対象に実行するコマンドは、CWDがUnityプロジェクトと判定可能な場合はそれを使う。そうでない場合は `--projectPath` を指定する。
 
 - `ucli init`：`.ucli` 雛形を作成する
-  - 生成対象：`.ucli/config.json`, `.ucli/.gitignore`
+  - 生成先：実行時CWD直下（`<cwd>/.ucli`）
+  - 生成対象：`.ucli/local/`, `.ucli/config.json`, `.ucli/.gitignore`
   - `--force`：既存設定を上書き
 - `ucli validate`：JSONリクエストの静的検証（スキーマ/必須項目/許可op等）
   - 保証範囲：形式・スキーマ・許可判定まで（実在確認や差分見積りは含まない）
@@ -541,6 +542,32 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
   - `status`：デーモン状態を取得
   - `logs`：デーモンログを取得
   - `--projectPath <path>`：対象Unityプロジェクト指定
+
+### `ucli init`
+`ucli init` は常に実行時CWDを対象として `.ucli` 雛形を生成する。
+
+生成対象は `.ucli/local/`, `.ucli/config.json`, `.ucli/.gitignore`。
+
+#### `init` options
+| Option | Short | Description |
+| --- | --- | --- |
+| `--force` | - | 既存の `.ucli/config.json` と `.ucli/.gitignore` を上書きする |
+
+#### `init` の `payload` 契約
+- `configPath`：生成した `.ucli/config.json` の絶対パス
+- `gitignorePath`：生成した `.ucli/.gitignore` の絶対パス
+
+```json
+{
+  "configPath": "/path/to/current-working-directory/.ucli/config.json",
+  "gitignorePath": "/path/to/current-working-directory/.ucli/.gitignore"
+}
+```
+
+#### `init` のエラー契約
+- `INVALID_ARGUMENT`
+  - 既存テンプレートファイルがあり `--force` 未指定
+- `INTERNAL_ERROR`
 
 ## readIndex（読取索引基盤）
 readIndex は、Unity未接続時でも観測系情報をローカル参照できるようにするための読取索引基盤である。  

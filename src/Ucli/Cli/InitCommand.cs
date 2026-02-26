@@ -22,20 +22,18 @@ internal sealed class InitCommand
 
     /// <summary> Executes the <c>init</c> command and emits the JSON result contract. </summary>
     /// <param name="force"> Whether existing template files can be overwritten. </param>
-    /// <param name="projectPath"> --projectPath, Optional UnityProject root path. When omitted, empty, or whitespace, the current working directory is used. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(CommandName)]
     public async Task<int> Init (
         bool force = false,
-        string? projectPath = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         CommandExecutionState.MarkStarted();
 
-        var executionResult = await initService.Execute(force, projectPath, cancellationToken).ConfigureAwait(false);
+        var executionResult = await initService.Execute(force, cancellationToken).ConfigureAwait(false);
         var result = CreateCommandResult(executionResult);
         CommandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;
@@ -57,8 +55,6 @@ internal sealed class InitCommand
                 message: "uCLI initialization completed.",
                 payload: new
                 {
-                    projectPath = output.ProjectPath,
-                    projectFingerprint = output.ProjectFingerprint,
                     configPath = output.ConfigPath,
                     gitignorePath = output.GitIgnorePath,
                 });
