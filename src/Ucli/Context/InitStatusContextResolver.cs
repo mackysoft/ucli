@@ -24,21 +24,21 @@ namespace MackySoft.Ucli.Context
         /// <summary> Resolves UnityProject and config values into a shared init/status context. </summary>
         /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
         /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
-        /// <returns> The context-resolution result that contains either a fully resolved context or a structured error. </returns>
-        public InitStatusContextResolutionResult Resolve (
+        /// <returns> A task that resolves to the context-resolution result that contains either a fully resolved context or a structured error. </returns>
+        public async ValueTask<InitStatusContextResolutionResult> Resolve (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var unityProjectResult = unityProjectResolver.Resolve(projectPath, cancellationToken);
+            var unityProjectResult = unityProjectResolver.Resolve(projectPath);
             if (!unityProjectResult.IsSuccess)
             {
                 return InitStatusContextResolutionResult.Failure(unityProjectResult.Error!);
             }
 
             var unityProjectContext = unityProjectResult.Context!;
-            var configLoadResult = configStore.Load(unityProjectContext.UnityProjectRoot, cancellationToken);
+            var configLoadResult = await configStore.Load(unityProjectContext.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
             if (!configLoadResult.IsSuccess)
             {
                 return InitStatusContextResolutionResult.Failure(configLoadResult.Error!);
