@@ -69,6 +69,19 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (operationRequest is null)
+            {
+                errors.Add(new ValidationError(
+                    Code: ValidationErrorCodes.OpIdRequired,
+                    Message: "opId is required.",
+                    OpId: null));
+                errors.Add(new ValidationError(
+                    Code: ValidationErrorCodes.OpNameRequired,
+                    Message: "op is required.",
+                    OpId: null));
+                continue;
+            }
+
             var normalizedOpId = Normalize(operationRequest.OpId);
             if (normalizedOpId is null)
             {

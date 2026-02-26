@@ -34,6 +34,24 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Validate_AddsRequiredErrors_WhenOpsContainsNullElement ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            ops:
+            [
+                null,
+            ]);
+
+        var result = await validator.Validate(request, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, ValidationErrorCodes.OpIdRequired);
+        AssertContainsError(result, ValidationErrorCodes.OpNameRequired);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Validate_ReturnsValidResult_WhenRequestSatisfiesAllChecks ()
     {
         var validator = CreateValidator();
@@ -60,7 +78,7 @@ public sealed class RequestStaticValidatorTests
     private static ValidateRequest CreateRequest (
         int protocolVersion = CliProtocol.CurrentVersion,
         string? requestId = null,
-        IReadOnlyList<ValidateRequestOperation>? ops = null)
+        IReadOnlyList<ValidateRequestOperation?>? ops = null)
     {
         return new ValidateRequest(
             ProtocolVersion: protocolVersion,
