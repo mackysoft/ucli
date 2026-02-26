@@ -64,4 +64,45 @@ public sealed class IpcContractSerializationTests
         Assert.Equal(IpcErrorCodes.CommandNotImplemented, roundTrip.Errors[0].Code);
         Assert.Equal("Not implemented", roundTrip.Errors[0].Message);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcErrorCodes_ContainsInvalidArgumentConstant ()
+    {
+        Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteCommandNames_ExposeExpectedCommandLiterals ()
+    {
+        Assert.Equal("validate", IpcExecuteCommandNames.Validate);
+        Assert.Equal("plan", IpcExecuteCommandNames.Plan);
+        Assert.Equal("call", IpcExecuteCommandNames.Call);
+        Assert.Equal("resolve", IpcExecuteCommandNames.Resolve);
+        Assert.Equal("query", IpcExecuteCommandNames.Query);
+        Assert.Equal("refresh", IpcExecuteCommandNames.Refresh);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteCommandNames_ClassifiesKnownAndOperationPipelineCommands ()
+    {
+        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Validate));
+        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Plan));
+        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Call));
+        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Resolve));
+        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Query));
+        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Refresh));
+        Assert.False(IpcExecuteCommandNames.IsKnown("unknown"));
+
+        Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Validate));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Plan));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Call));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Resolve));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Query));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Refresh));
+        Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand("unknown"));
+    }
+
 }

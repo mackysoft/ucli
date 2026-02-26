@@ -388,7 +388,20 @@ public sealed record TypeRef(string Name, string? Assembly = null, bool ExpectUn
 - `op`：op名（例：`ucli.scene.open`）
 - `args`：op引数（`ops describe` が返すschemaで検証）
 - `as`：後続参照用の変数名（任意）
-- `expect`：件数・成功条件（特に `resolve/query` 系で誤爆防止）
+- `expect`：opの主要アウトプットに対する共通制約（任意）
+
+### `expect`（共通制約）
+- `expect` は各opが返す主要アウトプットに対して評価する
+- 形式（任意項目）:
+  - `nonNull`：`true` の場合、主要アウトプットが `null` でないことを要求する
+  - `count`：件数の完全一致（`>= 0` の整数）
+  - `min`：件数下限（`>= 0` の整数）
+  - `max`：件数上限（`>= 0` の整数）
+- ルール:
+  - `count` と `min`/`max` の同時指定は禁止
+  - `min` と `max` を同時指定する場合は `min <= max` を必須とする
+  - `expect` は空オブジェクトを許可しない（少なくとも1項目を指定する）
+  - 非コレクション出力に `count`/`min`/`max` を指定した場合は入力不正とする
 
 ### 参照表現
 - 変数参照：`{ "var": "<name>" }`（例：`{ "var": "go" }`）
@@ -491,6 +504,7 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
   - `--force`：既存設定を上書き
 - `ucli validate`：JSONリクエストの静的検証（スキーマ/必須項目/許可op等）
   - 保証範囲：形式・スキーマ・許可判定まで（実在確認や差分見積りは含まない）
+  - Unity実体への接続や解決は行わない（ローカル静的検証のみ）
   - `--noReadIndex`：readIndexを使わずに検証する
   - `--requireFreshReadIndex`：`fresh` なreadIndexが得られない場合は失敗する
 - `ucli plan`：対象解決・差分見積り（実変更なし、または最小）を返す
