@@ -70,8 +70,9 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
             return AllowlistMatchResult.NotMatched();
         }
 
-        foreach (var pattern in allowlistPatterns)
+        for (var i = 0; i < allowlistPatterns.Count; i++)
         {
+            var pattern = allowlistPatterns[i];
             if (string.IsNullOrWhiteSpace(pattern))
             {
                 continue;

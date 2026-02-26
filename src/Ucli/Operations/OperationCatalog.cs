@@ -103,8 +103,9 @@ internal sealed class OperationCatalog : IOperationCatalog
         }
 
         var operationsByName = new Dictionary<string, UcliOperationDescriptor>(StringComparer.Ordinal);
-        foreach (var operation in loadedOperations)
+        for (var i = 0; i < loadedOperations.Count; i++)
         {
+            var operation = loadedOperations[i];
             cancellationToken.ThrowIfCancellationRequested();
 
             if (operation is null)
