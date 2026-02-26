@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests
 
         private const string UnhandledExceptionMessage = "Unhandled exception.";
 
+        private const string CanceledMessage = "Command execution was canceled.";
+
         public static TheoryData<object, string, int, string, string> ErrorCaseData => new()
         {
             {
@@ -24,6 +26,13 @@ namespace MackySoft.Ucli.Tests
                 (int)CliExitCode.InvalidArgument,
                 ErrorCodes.InvalidArgument,
                 UnknownOptionMessage
+            },
+            {
+                CommandResult.Canceled(StatusCommand.CommandName, CanceledMessage),
+                StatusCommand.CommandName,
+                (int)CliExitCode.ToolError,
+                ErrorCodes.Canceled,
+                CanceledMessage
             },
             {
                 CommandResult.InternalError(StatusCommand.CommandName, UnhandledExceptionMessage),
