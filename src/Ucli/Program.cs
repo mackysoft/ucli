@@ -4,6 +4,7 @@ using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
+using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.UnityProject;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,12 @@ namespace MackySoft.Ucli;
 
 internal static class Program
 {
+    private const string HelpCommandName = "help";
+
+    private const string InternalErrorMessage = "An unexpected internal error occurred.";
+
+    private const string CanceledMessage = "Command execution was canceled.";
+
     /// <summary> Executes the CLI command pipeline and emits JSON command results. </summary>
     /// <param name="args"> The command-line arguments passed to the process. </param>
     /// <returns> The process exit code determined by command execution. </returns>
@@ -42,7 +49,12 @@ internal static class Program
                 services.AddSingleton<IInitService, InitService>();
                 services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
                 services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
+                services.AddSingleton<IOperationCatalogProvider, InMemoryOperationCatalogProvider>();
+                services.AddSingleton<IOperationCatalog, OperationCatalog>();
+                services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
+                services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
             });
+        app.UseFilter<OperationCatalogWarmupFilter>();
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
 
@@ -50,9 +62,16 @@ internal static class Program
         {
             await app.RunAsync(args);
         }
-        catch (Exception exception)
+        catch (OperationCanceledException)
         {
-            var internalErrorResult = CommandResult.InternalError(CliProtocol.RootCommand, exception.Message);
+            var canceledResult = CommandResult.Canceled(CliProtocol.RootCommand, CanceledMessage);
+            CommandResultWriter.WriteToStandardOutput(canceledResult);
+            Environment.ExitCode = canceledResult.ExitCode;
+            return Environment.ExitCode;
+        }
+        catch (Exception)
+        {
+            var internalErrorResult = CommandResult.InternalError(CliProtocol.RootCommand, InternalErrorMessage);
             CommandResultWriter.WriteToStandardOutput(internalErrorResult);
             Environment.ExitCode = internalErrorResult.ExitCode;
             return Environment.ExitCode;
@@ -96,7 +115,7 @@ internal static class Program
         }
 
         if (IsRegisteredCommand(firstArgument)
-            || string.Equals(firstArgument, UcliCommandNames.Help, StringComparison.Ordinal))
+            || string.Equals(firstArgument, HelpCommandName, StringComparison.Ordinal))
         {
             return false;
         }
@@ -141,6 +160,7 @@ internal static class Program
 
     private static bool IsRegisteredCommand (string commandName)
     {
-        return UcliCommandNames.IsRegistered(commandName);
+        return string.Equals(commandName, InitCommand.CommandName, StringComparison.Ordinal)
+            || string.Equals(commandName, StatusCommand.CommandName, StringComparison.Ordinal);
     }
 }

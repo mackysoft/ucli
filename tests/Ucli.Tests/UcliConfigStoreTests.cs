@@ -9,13 +9,13 @@ public sealed class UcliConfigStoreTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Load_ReturnsDefaultConfig_WhenConfigFileDoesNotExist ()
+    public async Task Load_ReturnsDefaultConfig_WhenConfigFileDoesNotExist ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "load-default");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var configStore = new UcliConfigStore();
 
-        var result = configStore.Load(unityProjectPath);
+        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -29,7 +29,7 @@ public sealed class UcliConfigStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Save_ThenLoad_RoundTripsConfigValues ()
+    public async Task Save_ThenLoad_RoundTripsConfigValues ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "save-round-trip");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -44,12 +44,12 @@ public sealed class UcliConfigStoreTests
                 "^mylab\\.",
             ]);
 
-        var saveResult = configStore.Save(unityProjectPath, config);
+        var saveResult = await configStore.Save(unityProjectPath, config, CancellationToken.None);
 
         Assert.True(saveResult.IsSuccess);
         Assert.Null(saveResult.Error);
 
-        var loadResult = configStore.Load(unityProjectPath);
+        var loadResult = await configStore.Load(unityProjectPath, CancellationToken.None);
         Assert.True(loadResult.IsSuccess);
         Assert.Equal(ConfigSource.File, loadResult.Source);
         var loadedConfig = Assert.IsType<UcliConfig>(loadResult.Config);
@@ -69,7 +69,7 @@ public sealed class UcliConfigStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Load_ReturnsInvalidArgument_WhenConfigJsonIsMalformed ()
+    public async Task Load_ReturnsInvalidArgument_WhenConfigJsonIsMalformed ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "malformed-json");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -78,7 +78,7 @@ public sealed class UcliConfigStoreTests
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         scope.WriteFile(relativeConfigPath, "{");
 
-        var result = configStore.Load(unityProjectPath);
+        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
@@ -89,7 +89,7 @@ public sealed class UcliConfigStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Load_ReturnsInvalidArgument_WhenSchemaVersionDoesNotMatch ()
+    public async Task Load_ReturnsInvalidArgument_WhenSchemaVersionDoesNotMatch ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-config-store", "schema-version-mismatch");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -108,12 +108,66 @@ public sealed class UcliConfigStoreTests
             relativeConfigPath,
             invalidSchemaConfigJson);
 
-        var result = configStore.Load(unityProjectPath);
+        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Config);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("schemaVersion", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Load_ReturnsInvalidArgument_WhenOperationAllowlistPatternIsInvalid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-allowlist-load");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var configStore = new UcliConfigStore();
+        var configPath = configStore.GetConfigPath(unityProjectPath);
+        var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
+        var invalidAllowlistConfigJson = JsonSerializer.Serialize(
+            new
+            {
+                schemaVersion = UcliContractConstants.Config.SchemaVersion,
+                operationPolicy = UcliContractConstants.Config.OperationPolicySafe,
+                planTokenMode = UcliContractConstants.Config.PlanTokenModeOptional,
+                operationAllowlist = new[] { "[" },
+            });
+        scope.WriteFile(relativeConfigPath, invalidAllowlistConfigJson);
+
+        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Config);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("operationAllowlist", error.Message, StringComparison.Ordinal);
+        Assert.Contains("regex", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Save_ReturnsInvalidArgument_WhenOperationAllowlistPatternIsInvalid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-allowlist-save");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var configStore = new UcliConfigStore();
+        var invalidConfig = new UcliConfig(
+            SchemaVersion: UcliContractConstants.Config.SchemaVersion,
+            OperationPolicy: OperationPolicy.Safe,
+            PlanTokenMode: PlanTokenMode.Optional,
+            OperationAllowlist:
+            [
+                "[",
+            ]);
+
+        var saveResult = await configStore.Save(unityProjectPath, invalidConfig, CancellationToken.None);
+
+        Assert.False(saveResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(saveResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("operationAllowlist", error.Message, StringComparison.Ordinal);
+        Assert.Contains("regex", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 }
