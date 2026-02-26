@@ -497,7 +497,7 @@ public static class RebuildNavmesh
 ```
 
 ## コマンド
-`ucli init` を除く Unity 依存コマンドは、CWDがUnityプロジェクトと判定可能な場合はそれを使う。そうでない場合は `--projectPath` 指定が必要。
+Unityプロジェクトを対象に実行するコマンドは、CWDがUnityプロジェクトと判定可能な場合はそれを使う。そうでない場合は `--projectPath` を指定する。
 
 - `ucli init`：`.ucli` 雛形を作成する
   - 生成先：実行時CWD直下（`<cwd>/.ucli`）
@@ -546,6 +546,8 @@ public static class RebuildNavmesh
 ### `ucli init`
 `ucli init` は常に実行時CWDを対象として `.ucli` 雛形を生成する。
 
+生成対象は `.ucli/local/`, `.ucli/config.json`, `.ucli/.gitignore`。
+
 #### `init` options
 | Option | Short | Description |
 | --- | --- | --- |
@@ -566,7 +568,6 @@ public static class RebuildNavmesh
 - `INVALID_ARGUMENT`
   - 既存テンプレートファイルがあり `--force` 未指定
 - `INTERNAL_ERROR`
-  - ディレクトリ/ファイル作成時のI/O障害
 
 ## readIndex（読取索引基盤）
 readIndex は、Unity未接続時でも観測系情報をローカル参照できるようにするための読取索引基盤である。  
