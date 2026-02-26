@@ -3,6 +3,9 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Defines machine-readable error code values shared by IPC requests and responses. </summary>
 public static class IpcErrorCodes
 {
+    /// <summary> Gets the error code emitted when request arguments are invalid. </summary>
+    public const string InvalidArgument = "INVALID_ARGUMENT";
+
     /// <summary> Gets the error code emitted when protocol versions are incompatible. </summary>
     public const string ProtocolVersionMismatch = "PROTOCOL_VERSION_MISMATCH";
 
