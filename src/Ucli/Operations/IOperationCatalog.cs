@@ -1,0 +1,19 @@
+namespace MackySoft.Ucli.Operations;
+
+/// <summary> Provides lookup and listing over registered operation metadata. </summary>
+internal interface IOperationCatalog
+{
+    /// <summary> Asynchronously gets one operation descriptor by operation name. </summary>
+    /// <param name="name"> The operation name to resolve. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns>
+    /// <para> A task that resolves to the operation descriptor. </para>
+    /// <para> Returns <see langword="null" /> when the operation does not exist. </para>
+    /// </returns>
+    ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default);
+
+    /// <summary> Asynchronously gets all registered operation descriptors. </summary>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
+    ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default);
+}

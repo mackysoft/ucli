@@ -10,13 +10,13 @@ public sealed class InitStatusContextResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_ReturnsContextWithDefaultConfig_WhenConfigFileDoesNotExist ()
+    public async Task Resolve_ReturnsContextWithDefaultConfig_WhenConfigFileDoesNotExist ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "default-config");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(unityProjectPath);
+        var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -29,12 +29,12 @@ public sealed class InitStatusContextResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_ReturnsContextWithFileConfig_WhenConfigFileExists ()
+    public async Task Resolve_ReturnsContextWithFileConfig_WhenConfigFileExists ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "file-config");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var configStore = new UcliConfigStore();
-        var saveResult = configStore.Save(
+        var saveResult = await configStore.Save(
             unityProjectPath,
             new UcliConfig(
                 SchemaVersion: 1,
@@ -44,12 +44,13 @@ public sealed class InitStatusContextResolverTests
                 [
                     "^ucli\\.",
                     "^extension\\.",
-                ]));
+                ]),
+            CancellationToken.None);
         Assert.True(saveResult.IsSuccess);
 
         var resolver = new InitStatusContextResolver(new UnityProjectResolver(), configStore);
 
-        var result = resolver.Resolve(unityProjectPath);
+        var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<InitStatusContext>(result.Context);
@@ -61,13 +62,13 @@ public sealed class InitStatusContextResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_ReturnsInvalidArgument_WhenUnityProjectIsInvalid ()
+    public async Task Resolve_ReturnsInvalidArgument_WhenUnityProjectIsInvalid ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "invalid-unity-project");
         var invalidPath = scope.GetPath("MissingUnityProject");
         var resolver = CreateResolver();
 
-        var result = resolver.Resolve(invalidPath);
+        var result = await resolver.Resolve(invalidPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);
@@ -77,7 +78,7 @@ public sealed class InitStatusContextResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_ReturnsInvalidArgument_WhenConfigFileIsInvalid ()
+    public async Task Resolve_ReturnsInvalidArgument_WhenConfigFileIsInvalid ()
     {
         using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "invalid-config");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -87,7 +88,7 @@ public sealed class InitStatusContextResolverTests
         scope.WriteFile(relativeConfigPath, "{");
         var resolver = new InitStatusContextResolver(new UnityProjectResolver(), configStore);
 
-        var result = resolver.Resolve(unityProjectPath);
+        var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);

@@ -15,14 +15,9 @@ namespace MackySoft.Ucli.UnityProject
 
         /// <summary> Resolves UnityProject context from command options and validates required project markers. </summary>
         /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
-        /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
         /// <returns> The resolution result containing either a validated UnityProject context or a structured error. </returns>
-        public UnityProjectResolutionResult Resolve (
-            string? projectPath,
-            CancellationToken cancellationToken = default)
+        public UnityProjectResolutionResult Resolve (string? projectPath)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             var pathSource = string.IsNullOrWhiteSpace(projectPath)
                 ? UnityProjectPathSource.CurrentDirectory
                 : UnityProjectPathSource.CommandOption;
@@ -151,25 +146,25 @@ namespace MackySoft.Ucli.UnityProject
             /// <summary> Gets a value indicating whether path normalization succeeded. </summary>
             public bool IsSuccess => !string.IsNullOrWhiteSpace(Path) && Error is null;
 
-        /// <summary> Creates a successful path normalization result. </summary>
-        /// <param name="path"> The normalized absolute path. </param>
-        /// <returns> The successful result. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="path" /> is <see langword="null" />. </exception>
-        public static PathNormalizationResult Success (string path)
-        {
-            ArgumentNullException.ThrowIfNull(path);
-            return new PathNormalizationResult(path, null);
-        }
+            /// <summary> Creates a successful path normalization result. </summary>
+            /// <param name="path"> The normalized absolute path. </param>
+            /// <returns> The successful result. </returns>
+            /// <exception cref="ArgumentNullException"> Thrown when <paramref name="path" /> is <see langword="null" />. </exception>
+            public static PathNormalizationResult Success (string path)
+            {
+                ArgumentNullException.ThrowIfNull(path);
+                return new PathNormalizationResult(path, null);
+            }
 
-        /// <summary> Creates a failed path normalization result. </summary>
-        /// <param name="error"> The structured error. </param>
-        /// <returns> The failed result. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
-        public static PathNormalizationResult Failure (ExecutionError error)
-        {
-            ArgumentNullException.ThrowIfNull(error);
-            return new PathNormalizationResult(null, error);
-        }
+            /// <summary> Creates a failed path normalization result. </summary>
+            /// <param name="error"> The structured error. </param>
+            /// <returns> The failed result. </returns>
+            /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
+            public static PathNormalizationResult Failure (ExecutionError error)
+            {
+                ArgumentNullException.ThrowIfNull(error);
+                return new PathNormalizationResult(null, error);
+            }
         }
     }
 }

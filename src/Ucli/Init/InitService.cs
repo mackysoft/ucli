@@ -35,15 +35,15 @@ namespace MackySoft.Ucli.Init
         /// <param name="force"> Whether existing files can be overwritten. </param>
         /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
         /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
-        /// <returns> The init execution result that contains generated file paths on success or a structured error on failure. </returns>
-        public InitExecutionResult Execute (
+        /// <returns> A task that resolves to the init execution result that contains generated file paths on success or a structured error on failure. </returns>
+        public async ValueTask<InitExecutionResult> Execute (
             bool force,
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var unityProjectResult = unityProjectResolver.Resolve(projectPath, cancellationToken);
+            var unityProjectResult = unityProjectResolver.Resolve(projectPath);
             if (!unityProjectResult.IsSuccess)
             {
                 return InitExecutionResult.Failure(unityProjectResult.Error!);
@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Init
                 // NOTE:
                 // Keep init and status using the same context pipeline.
                 // This ensures config parse/validation behavior stays consistent across command foundations.
-                var contextResult = contextResolver.Resolve(projectPath, cancellationToken);
+                var contextResult = await contextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
                 if (!contextResult.IsSuccess)
                 {
                     return InitExecutionResult.Failure(contextResult.Error!);
@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Init
             cancellationToken.ThrowIfCancellationRequested();
 
             var defaultConfig = UcliConfig.CreateDefault();
-            var configSaveResult = configStore.Save(unityProjectRoot, defaultConfig, cancellationToken);
+            var configSaveResult = await configStore.Save(unityProjectRoot, defaultConfig, cancellationToken).ConfigureAwait(false);
             if (!configSaveResult.IsSuccess)
             {
                 return InitExecutionResult.Failure(configSaveResult.Error!);
@@ -101,7 +101,7 @@ namespace MackySoft.Ucli.Init
 
             try
             {
-                File.WriteAllText(gitIgnorePath, GitIgnoreContents + Environment.NewLine);
+                await File.WriteAllTextAsync(gitIgnorePath, GitIgnoreContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (IsPathFormatException(ex))
             {

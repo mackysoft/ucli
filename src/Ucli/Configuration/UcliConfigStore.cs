@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Configuration
@@ -33,8 +34,8 @@ namespace MackySoft.Ucli.Configuration
         /// <summary> Loads configuration values for a UnityProject root. </summary>
         /// <param name="unityProjectRoot"> The UnityProject root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
         /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
-        /// <returns> The config-load result. When <c>.ucli/config.json</c> does not exist, default config values are returned with <see cref="ConfigSource.Default" />. </returns>
-        public UcliConfigLoadResult Load (
+        /// <returns> A task that resolves to the config-load result. When <c>.ucli/config.json</c> does not exist, default config values are returned with <see cref="ConfigSource.Default" />. </returns>
+        public async ValueTask<UcliConfigLoadResult> Load (
             string unityProjectRoot,
             CancellationToken cancellationToken = default)
         {
@@ -64,7 +65,7 @@ namespace MackySoft.Ucli.Configuration
             string json;
             try
             {
-                json = File.ReadAllText(configPath);
+                json = await File.ReadAllTextAsync(configPath, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (IsPathFormatException(ex))
             {
@@ -107,9 +108,9 @@ namespace MackySoft.Ucli.Configuration
         /// <param name="unityProjectRoot"> The UnityProject root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
         /// <param name="config"> The config values to persist. </param>
         /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
-        /// <returns> The config-save result. </returns>
+        /// <returns> A task that resolves to the config-save result. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="config" /> is <see langword="null" />. </exception>
-        public UcliConfigSaveResult Save (
+        public async ValueTask<UcliConfigSaveResult> Save (
             string unityProjectRoot,
             UcliConfig config,
             CancellationToken cancellationToken = default)
@@ -161,7 +162,7 @@ namespace MackySoft.Ucli.Configuration
             try
             {
                 Directory.CreateDirectory(configDirectoryPath);
-                File.WriteAllText(configPath, json + Environment.NewLine);
+                await File.WriteAllTextAsync(configPath, json + Environment.NewLine, cancellationToken).ConfigureAwait(false);
                 return UcliConfigSaveResult.Success();
             }
             catch (Exception ex) when (IsPathFormatException(ex))
@@ -217,7 +218,14 @@ namespace MackySoft.Ucli.Configuration
                         $"Config operationAllowlist contains an empty pattern: {configPath}."));
                 }
 
-                normalizedAllowlist.Add(pattern.Trim());
+                var normalizedPattern = pattern.Trim();
+                if (!TryValidateRegexPattern(normalizedPattern, out var patternErrorMessage))
+                {
+                    return ConfigParseResult.Failure(CreateInvalidArgument(
+                        $"Config operationAllowlist contains an invalid regex pattern: {normalizedPattern}. {patternErrorMessage}"));
+                }
+
+                normalizedAllowlist.Add(normalizedPattern);
             }
 
             var config = new UcliConfig(
@@ -255,9 +263,36 @@ namespace MackySoft.Ucli.Configuration
                     return ConfigValidationResult.Failure(CreateInvalidArgument(
                         $"Config operationAllowlist contains an empty pattern: {configPath}."));
                 }
+
+                if (!TryValidateRegexPattern(pattern, out var patternErrorMessage))
+                {
+                    return ConfigValidationResult.Failure(CreateInvalidArgument(
+                        $"Config operationAllowlist contains an invalid regex pattern: {pattern}. {patternErrorMessage}"));
+                }
             }
 
             return ConfigValidationResult.Success();
+        }
+
+        /// <summary> Validates whether a value can be compiled as a regular expression pattern. </summary>
+        /// <param name="pattern"> The regex pattern string to validate. </param>
+        /// <param name="errorMessage"> The parser error message when the pattern is invalid. </param>
+        /// <returns> <see langword="true" /> when the pattern is valid; otherwise <see langword="false" />. </returns>
+        private static bool TryValidateRegexPattern (
+            string pattern,
+            out string? errorMessage)
+        {
+            try
+            {
+                new Regex(pattern, RegexOptions.CultureInvariant);
+                errorMessage = null;
+                return true;
+            }
+            catch (ArgumentException exception)
+            {
+                errorMessage = exception.Message;
+                return false;
+            }
         }
 
         /// <summary> Converts typed config values into serializable JSON DTO values. </summary>

@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Cli
         /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
         /// <returns> The exit code contained in the emitted command result. </returns>
         [Command(CommandName)]
-        public int Init (
+        public async Task<int> Init (
             bool force = false,
             string? projectPath = null,
             CancellationToken cancellationToken = default)
@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Cli
 
             CommandExecutionState.MarkStarted();
 
-            var executionResult = initService.Execute(force, projectPath, cancellationToken);
+            var executionResult = await initService.Execute(force, projectPath, cancellationToken).ConfigureAwait(false);
             var result = CreateCommandResult(executionResult);
             CommandResultWriter.WriteToStandardOutput(result);
             return result.ExitCode;
