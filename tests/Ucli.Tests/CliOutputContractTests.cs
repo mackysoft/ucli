@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Cli;
@@ -17,9 +17,11 @@ public sealed class CliOutputContractTests
 
     private const string UcliDirectoryName = ".ucli";
 
-    private const string UnityProjectDirectoryName = "UnityProject";
+    private const string LocalDirectoryName = "local";
 
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
+
+    private const string InitProjectPathOptionMessage = "Argument '--projectPath' is not recognized.";
 
     private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(15);
 
@@ -48,13 +50,13 @@ public sealed class CliOutputContractTests
     public async Task Init_ReturnsSuccessJsonContractAsSingleJson (bool force, string scopeName)
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
-        var (unityProjectPath, configPath, gitIgnorePath) = CreateUnityProjectPaths(scope);
+        var (workingDirectoryPath, _, localDirectoryPath, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
         if (force)
         {
             PrepareLegacyTemplateFiles(scope, configPath, gitIgnorePath);
         }
 
-        var result = await RunInitAsync(unityProjectPath, force);
+        var result = await RunInitAsync(force, workingDirectoryPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -66,27 +68,54 @@ public sealed class CliOutputContractTests
         AssertNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("projectPath", unityProjectPath)
-                .HasValueKind("projectFingerprint", JsonValueKind.String)
-                .HasString("configPath", configPath)
-                .HasString("gitignorePath", gitIgnorePath));
+                .HasValueKind("configPath", JsonValueKind.String)
+                .HasValueKind("gitignorePath", JsonValueKind.String));
+
+        var payload = outputJson.RootElement.GetProperty("payload");
+        var payloadPropertyCount = 0;
+        foreach (var _ in payload.EnumerateObject())
+        {
+            payloadPropertyCount++;
+        }
+
+        Assert.Equal(2, payloadPropertyCount);
+        FileSystemAssert.ForPath(payload
+            .GetProperty("configPath")
+            .GetString()!)
+            .IsRooted()
+            .HasFileName(ConfigFileName);
+        FileSystemAssert.ForFile(payload
+            .GetProperty("configPath")
+            .GetString()!)
+            .Exists();
+        FileSystemAssert.ForPath(payload
+            .GetProperty("gitignorePath")
+            .GetString()!)
+            .IsRooted()
+            .HasFileName(GitIgnoreFileName);
+        FileSystemAssert.ForFile(payload
+            .GetProperty("gitignorePath")
+            .GetString()!)
+            .Exists();
+
+        FileSystemAssert.ForDirectory(localDirectoryPath).Exists();
+        FileSystemAssert.ForFile(configPath).Exists();
+        FileSystemAssert.ForFile(gitIgnorePath).Exists();
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Medium")]
-    [InlineData(true, "init-config-file")]
-    [InlineData(false, "init-gitignore-file")]
-    public async Task Init_WithProjectPath_CreatesTemplateFiles (bool isConfigFile, string scopeName)
+    public async Task Init_AlwaysCreatesUnderCurrentWorkingDirectory ()
     {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
-        var (unityProjectPath, _, _) = CreateUnityProjectPaths(scope);
-        var templateFilePath = isConfigFile
-            ? GetConfigPath(unityProjectPath)
-            : GetGitIgnorePath(unityProjectPath);
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-cwd");
+        var (workingDirectoryPath, ucliDirectoryPath, localDirectoryPath, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
 
-        await RunInitAsync(unityProjectPath);
+        await RunInitAsync(force: false, workingDirectoryPath);
 
-        FileSystemAssert.ForFile(templateFilePath).Exists();
+        FileSystemAssert.ForDirectory(ucliDirectoryPath).Exists();
+        FileSystemAssert.ForDirectory(localDirectoryPath).Exists();
+        FileSystemAssert.ForFile(configPath).Exists();
+        FileSystemAssert.ForFile(gitIgnorePath).Exists();
     }
 
     [Theory]
@@ -96,13 +125,13 @@ public sealed class CliOutputContractTests
     public async Task Init_WritesDefaultConfigValues (bool force, string scopeName)
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
-        var (unityProjectPath, configPath, _) = CreateUnityProjectPaths(scope);
+        var (workingDirectoryPath, _, _, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
         if (force)
         {
-            PrepareLegacyTemplateFiles(scope, configPath, GetGitIgnorePath(unityProjectPath));
+            PrepareLegacyTemplateFiles(scope, configPath, gitIgnorePath);
         }
 
-        await RunInitAsync(unityProjectPath, force);
+        await RunInitAsync(force, workingDirectoryPath);
 
         AssertDefaultConfigValues(configPath);
     }
@@ -114,13 +143,13 @@ public sealed class CliOutputContractTests
     public async Task Init_WritesLocalOnlyGitIgnoreContents (bool force, string scopeName)
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
-        var (unityProjectPath, _, gitIgnorePath) = CreateUnityProjectPaths(scope);
+        var (workingDirectoryPath, _, _, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
         if (force)
         {
-            PrepareLegacyTemplateFiles(scope, GetConfigPath(unityProjectPath), gitIgnorePath);
+            PrepareLegacyTemplateFiles(scope, configPath, gitIgnorePath);
         }
 
-        await RunInitAsync(unityProjectPath, force);
+        await RunInitAsync(force, workingDirectoryPath);
 
         Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
     }
@@ -135,13 +164,13 @@ public sealed class CliOutputContractTests
         string scopeName)
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
-        var (unityProjectPath, _, _) = CreateUnityProjectPaths(scope);
+        var (workingDirectoryPath, _, _, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
         var existingTemplateFilePath = isConfigFile
-            ? GetConfigPath(unityProjectPath)
-            : GetGitIgnorePath(unityProjectPath);
+            ? configPath
+            : gitIgnorePath;
         WriteFileUnderScope(scope, existingTemplateFilePath, existingContent);
 
-        var result = await RunInitAsync(unityProjectPath);
+        var result = await RunInitAsync(force: false, workingDirectoryPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -153,6 +182,32 @@ public sealed class CliOutputContractTests
         AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Init_WithProjectPathOption_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-project-path-option");
+        var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
+
+        var result = await RunToolWithWorkingDirectoryAsync(
+            workingDirectoryPath,
+            UcliCommandNames.Init,
+            UcliContractConstants.CliOption.ProjectPath,
+            workingDirectoryPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        AssertCommandResultCommon(
+            outputJson.RootElement,
+            command: UcliCommandNames.Init,
+            status: CliProtocol.StatusError,
+            exitCode: (int)CliExitCode.InvalidArgument);
+        AssertSingleError(
+            outputJson.RootElement,
+            expectedCode: ErrorCodes.InvalidArgument);
+        Assert.Contains(InitProjectPathOptionMessage, result.StdErr, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -224,7 +279,21 @@ public sealed class CliOutputContractTests
                 .IsNull("opId"));
     }
 
-    private static async Task<CommandExecutionResult> RunToolAsync (params string[] args)
+    private static Task<CommandExecutionResult> RunToolAsync (params string[] args)
+    {
+        return RunToolCoreAsync(args, null);
+    }
+
+    private static Task<CommandExecutionResult> RunToolWithWorkingDirectoryAsync (
+        string workingDirectory,
+        params string[] args)
+    {
+        return RunToolCoreAsync(args, workingDirectory);
+    }
+
+    private static async Task<CommandExecutionResult> RunToolCoreAsync (
+        string[] args,
+        string? workingDirectory)
     {
         // NOTE:
         // This test validates the process-level CLI contract (stdout JSON, stderr, exit code).
@@ -239,6 +308,11 @@ public sealed class CliOutputContractTests
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
         startInfo.CreateNoWindow = true;
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            startInfo.WorkingDirectory = workingDirectory;
+        }
+
         startInfo.ArgumentList.Add(toolPath);
         foreach (var arg in args)
         {
@@ -272,36 +346,52 @@ public sealed class CliOutputContractTests
             StdErr: await stdErrTask);
     }
 
-    private static async Task<CommandExecutionResult> RunInitAsync (string unityProjectPath, bool force = false)
+    private static async Task<CommandExecutionResult> RunInitAsync (
+        bool force = false,
+        string? workingDirectory = null)
     {
-        if (force)
+        if (string.IsNullOrWhiteSpace(workingDirectory))
         {
-            return await RunToolAsync(
-                UcliCommandNames.Init,
-                UcliContractConstants.CliOption.ProjectPath,
-                unityProjectPath,
-                UcliContractConstants.CliOption.Force);
+            return force
+                ? await RunToolAsync(UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
+                : await RunToolAsync(UcliCommandNames.Init);
         }
 
-        return await RunToolAsync(UcliCommandNames.Init, UcliContractConstants.CliOption.ProjectPath, unityProjectPath);
+        return force
+            ? await RunToolWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
+            : await RunToolWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init);
     }
 
-    private static (string UnityProjectPath, string ConfigPath, string GitIgnorePath) CreateUnityProjectPaths (TestDirectoryScope scope)
+    private static (string WorkingDirectoryPath, string UcliDirectoryPath, string LocalDirectoryPath, string ConfigPath, string GitIgnorePath) CreateInitTargetPaths (
+        TestDirectoryScope scope,
+        string targetDirectoryName)
     {
-        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, UnityProjectDirectoryName);
-        var configPath = GetConfigPath(unityProjectPath);
-        var gitIgnorePath = GetGitIgnorePath(unityProjectPath);
-        return (unityProjectPath, configPath, gitIgnorePath);
+        var workingDirectoryPath = scope.CreateDirectory(targetDirectoryName);
+        var ucliDirectoryPath = GetUcliDirectoryPath(workingDirectoryPath);
+        var localDirectoryPath = GetLocalDirectoryPath(workingDirectoryPath);
+        var configPath = GetConfigPath(workingDirectoryPath);
+        var gitIgnorePath = GetGitIgnorePath(workingDirectoryPath);
+        return (workingDirectoryPath, ucliDirectoryPath, localDirectoryPath, configPath, gitIgnorePath);
     }
 
-    private static string GetConfigPath (string unityProjectPath)
+    private static string GetUcliDirectoryPath (string workingDirectoryPath)
     {
-        return Path.Combine(unityProjectPath, UcliDirectoryName, ConfigFileName);
+        return Path.Combine(workingDirectoryPath, UcliDirectoryName);
     }
 
-    private static string GetGitIgnorePath (string unityProjectPath)
+    private static string GetLocalDirectoryPath (string workingDirectoryPath)
     {
-        return Path.Combine(unityProjectPath, UcliDirectoryName, GitIgnoreFileName);
+        return Path.Combine(GetUcliDirectoryPath(workingDirectoryPath), LocalDirectoryName);
+    }
+
+    private static string GetConfigPath (string workingDirectoryPath)
+    {
+        return Path.Combine(GetUcliDirectoryPath(workingDirectoryPath), ConfigFileName);
+    }
+
+    private static string GetGitIgnorePath (string workingDirectoryPath)
+    {
+        return Path.Combine(GetUcliDirectoryPath(workingDirectoryPath), GitIgnoreFileName);
     }
 
     private static void AssertDefaultConfigValues (string configPath)
