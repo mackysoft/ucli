@@ -10,8 +10,14 @@
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "MackySoft.Ucli.Contracts.dll",
+        "System.Text.Json.dll",
+        "System.Text.Encodings.Web.dll",
+        "Microsoft.Bcl.AsyncInterfaces.dll",
+        "System.Runtime.CompilerServices.Unsafe.dll"
+    ],
     "autoReferenced": false,
     "defineConstraints": [],
     "versionDefines": [],

@@ -4,92 +4,98 @@ using System.Text.Json;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.Unity.Execution.Requests;
+#nullable enable
 
-/// <summary> Validates and normalizes execute request payloads into strict contract models. </summary>
-internal sealed class ExecuteRequestNormalizer : IExecuteRequestNormalizer
+namespace MackySoft.Ucli.Unity.Execution.Requests
 {
-    private static readonly HashSet<string> AllowedRequestProperties = new(StringComparer.Ordinal)
+    /// <summary> Validates and normalizes execute request payloads into strict contract models. </summary>
+    internal sealed class ExecuteRequestNormalizer : IExecuteRequestNormalizer
     {
-        "protocolVersion",
-        "requestId",
-        "ops",
-    };
-
-    private static readonly HashSet<string> AllowedOperationProperties = new(StringComparer.Ordinal)
-    {
-        "id",
-        "op",
-        "args",
-        "as",
-        "expect",
-    };
-
-    private static readonly HashSet<string> AllowedExpectationProperties = new(StringComparer.Ordinal)
-    {
-        "nonNull",
-        "count",
-        "min",
-        "max",
-    };
-
-    /// <summary> Validates and normalizes one execute request payload. </summary>
-    /// <param name="request"> The execute request payload. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
-    /// <returns> The normalization result that contains either normalized request data or one structured error. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-    public ExecuteRequestNormalizationResult Normalize (
-        IpcExecuteRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!IpcExecuteCommandNames.IsOperationPipelineCommand(request.Command))
+        private static readonly HashSet<string> AllowedRequestProperties = new(StringComparer.Ordinal)
         {
-            return ExecuteRequestNormalizationResult.Failure(CreateInvalidArgument(
-                message: $"Execute command is not supported: {request.Command}.",
-                opId: null));
-        }
+            "protocolVersion",
+            "requestId",
+            "ops",
+        };
 
-        if (request.Arguments.ValueKind != JsonValueKind.Object)
+        private static readonly HashSet<string> AllowedOperationProperties = new(StringComparer.Ordinal)
         {
-            return ExecuteRequestNormalizationResult.Failure(CreateInvalidArgument(
-                message: "Request arguments must be a JSON object.",
-                opId: null));
-        }
+            "id",
+            "op",
+            "args",
+            "as",
+            "expect",
+        };
 
-        var unknownRequestProperty = FindUnknownProperty(request.Arguments, AllowedRequestProperties);
-        if (unknownRequestProperty is not null)
+        private static readonly HashSet<string> AllowedExpectationProperties = new(StringComparer.Ordinal)
         {
-            return ExecuteRequestNormalizationResult.Failure(CreateInvalidArgument(
-                message: $"Request contains an unknown property: {unknownRequestProperty}.",
-                opId: null));
-        }
+            "nonNull",
+            "count",
+            "min",
+            "max",
+        };
 
-        if (!TryReadProtocolVersion(request.Arguments, out var protocolVersion, out var protocolVersionError))
+        /// <summary> Validates and normalizes one execute request payload. </summary>
+        /// <param name="request"> The execute request payload. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <returns> The normalization result that contains either normalized request data or one structured error. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
+        public ExecuteRequestNormalizationResult Normalize (
+            IpcExecuteRequest request,
+            CancellationToken cancellationToken = default)
         {
-            return ExecuteRequestNormalizationResult.Failure(protocolVersionError!);
-        }
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
-        if (!TryReadRequestId(request.Arguments, out var requestId, out var requestIdError))
-        {
-            return ExecuteRequestNormalizationResult.Failure(requestIdError!);
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        if (!TryReadOperations(request.Arguments, cancellationToken, out var operations, out var operationsError))
-        {
-            return ExecuteRequestNormalizationResult.Failure(operationsError!);
-        }
+            if (!IpcExecuteCommandNames.IsOperationPipelineCommand(request.Command))
+            {
+                return ExecuteRequestNormalizationResult.Failure(CreateInvalidArgument(
+                    message: $"Execute command is not supported: {request.Command}.",
+                    opId: null));
+            }
 
-        var canonicalPayload = CanonicalRequestWriter.WriteDigestPayload(protocolVersion, operations);
-        var normalizedRequest = new NormalizedExecuteRequest(
-            ProtocolVersion: protocolVersion,
-            RequestId: requestId,
-            Ops: operations,
-            CanonicalDigestPayloadUtf8: canonicalPayload);
-        return ExecuteRequestNormalizationResult.Success(normalizedRequest);
-    }
+            if (request.Arguments.ValueKind != JsonValueKind.Object)
+            {
+                return ExecuteRequestNormalizationResult.Failure(CreateInvalidArgument(
+                    message: "Request arguments must be a JSON object.",
+                    opId: null));
+            }
+
+            var unknownRequestProperty = FindUnknownProperty(request.Arguments, AllowedRequestProperties);
+            if (unknownRequestProperty is not null)
+            {
+                return ExecuteRequestNormalizationResult.Failure(CreateInvalidArgument(
+                    message: $"Request contains an unknown property: {unknownRequestProperty}.",
+                    opId: null));
+            }
+
+            if (!TryReadProtocolVersion(request.Arguments, out var protocolVersion, out var protocolVersionError))
+            {
+                return ExecuteRequestNormalizationResult.Failure(protocolVersionError!);
+            }
+
+            if (!TryReadRequestId(request.Arguments, out var requestId, out var requestIdError))
+            {
+                return ExecuteRequestNormalizationResult.Failure(requestIdError!);
+            }
+
+            if (!TryReadOperations(request.Arguments, cancellationToken, out var operations, out var operationsError))
+            {
+                return ExecuteRequestNormalizationResult.Failure(operationsError!);
+            }
+
+            var canonicalPayload = CanonicalRequestWriter.WriteDigestPayload(protocolVersion, operations);
+            var normalizedRequest = new NormalizedExecuteRequest(
+                ProtocolVersion: protocolVersion,
+                RequestId: requestId,
+                Ops: operations,
+                CanonicalDigestPayloadUtf8: canonicalPayload);
+            return ExecuteRequestNormalizationResult.Success(normalizedRequest);
+        }
 
     /// <summary> Reads and validates protocol version. </summary>
     /// <param name="requestArguments"> The request arguments object. </param>
@@ -538,7 +544,7 @@ internal sealed class ExecuteRequestNormalizer : IExecuteRequestNormalizer
             return null;
         }
 
-        if (!propertyElement.TryGetInt32(out var parsedValue))
+        if (propertyElement.ValueKind != JsonValueKind.Number || !propertyElement.TryGetInt32(out var parsedValue))
         {
             error = CreateInvalidArgument(
                 $"Operation '{operationId}' property 'expect.{propertyName}' must be an integer.",
@@ -588,13 +594,14 @@ internal sealed class ExecuteRequestNormalizer : IExecuteRequestNormalizer
     /// <param name="message"> The error message. </param>
     /// <param name="opId"> The related operation identifier. </param>
     /// <returns> The normalization error. </returns>
-    private static ExecuteRequestNormalizationError CreateInvalidArgument (
-        string message,
-        string? opId)
-    {
-        return new ExecuteRequestNormalizationError(
-            Code: IpcErrorCodes.InvalidArgument,
-            Message: message,
-            OpId: opId);
+        private static ExecuteRequestNormalizationError CreateInvalidArgument (
+            string message,
+            string? opId)
+        {
+            return new ExecuteRequestNormalizationError(
+                Code: IpcErrorCodes.InvalidArgument,
+                Message: message,
+                OpId: opId);
+        }
     }
 }
