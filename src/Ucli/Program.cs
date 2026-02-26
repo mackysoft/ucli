@@ -4,6 +4,7 @@ using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
+using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.UnityProject;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,6 +45,10 @@ namespace MackySoft.Ucli
                     services.AddSingleton<IInitService, InitService>();
                     services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
                     services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
+                    services.AddSingleton<IOperationCatalogProvider, InMemoryOperationCatalogProvider>();
+                    services.AddSingleton<IOperationCatalog, OperationCatalog>();
+                    services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
+                    services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
                 });
             app.Add<InitCommand>();
             app.Add<StatusCommand>();
