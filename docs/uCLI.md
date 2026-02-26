@@ -260,7 +260,7 @@
 ## オペレーション
 オペレーションは、JSONの `ops[]` に並ぶ **最小ステップ** の処理単位。  
 `plan` と `call` は同じ `ops[]` を、実行フェーズ（plan/call）だけ変えて回す。
-一覧は [`ops-catalog.md`](./ops-catalog.md) を参照。
+`ops-catalog.md` は開発中のTODO参照であり、公開契約の正本は本ドキュメントを優先する。
 
 ### 命名規約
 - コア：`ucli.<domain>.<verb>`（例：`ucli.scene.open`, `ucli.comp.set`）
@@ -284,6 +284,8 @@
   "schemaVersion": 1,
   "operationPolicy": "safe",
   "planTokenMode": "optional",
+  "readIndexEnabled": true,
+  "readIndexRequireFreshDefault": false,
   "operationAllowlist": [
     "^ucli\\."
   ]
@@ -489,19 +491,30 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
   - `--force`：既存設定を上書き
 - `ucli validate`：JSONリクエストの静的検証（スキーマ/必須項目/許可op等）
   - 保証範囲：形式・スキーマ・許可判定まで（実在確認や差分見積りは含まない）
+  - `--noReadIndex`：readIndexを使わずに検証する
+  - `--requireFreshReadIndex`：`fresh` なreadIndexが得られない場合は失敗する
 - `ucli plan`：対象解決・差分見積り（実変更なし、または最小）を返す
   - `planToken` を返す
+  - `--noReadIndex`：readIndexを使わずにplan相当検証する
+  - `--requireFreshReadIndex`：`fresh` なreadIndexが得られない場合は失敗する
 - `ucli call`：Unityへリクエストを送って実行し、保存する（実行前にplan相当の検証を挟む）
   - `--planToken <token>`：`plan` が返したトークンを指定する
   - `dangerous` opを含む場合は `--allowDangerous` 必須
   - `--withPlan`：callレスポンスにplan相当（resolved/diff等）を同梱する（任意）
+  - `call` は readIndex に依存せず、Unity実体で再解決・再検証して実行する
 - `ucli resolve`：セレクタ（例：scene+hierarchyPath 等）を GlobalObjectId 等へ解決する
+  - `--noReadIndex`：readIndexを使わずに解決する
+  - `--requireFreshReadIndex`：`fresh` なreadIndexが得られない場合は失敗する
 - `ucli query`：検索・構造取得・スキーマ取得（規定操作）
   - 例：`scene.tree` / `go.describe` / `comp.schema` / `asset.schema` / `assets.find` / `scenes.findComponents`
+  - `--noReadIndex`：readIndexを使わずに問い合わせる
+  - `--requireFreshReadIndex`：`fresh` なreadIndexが得られない場合は失敗する
 - `ucli refresh`：AssetDatabase更新、インポート、コンパイル等でプロジェクトを最新化する
 - `ucli ops`：利用可能なオペレーション一覧・詳細
   - `list`：利用可能なオペレーション一覧
   - `describe <opName>`：特定オペレーションの引数スキーマ
+  - `--noReadIndex`：readIndexを使わずに参照する
+  - `--requireFreshReadIndex`：`fresh` なreadIndexが得られない場合は失敗する
 - `ucli status`：
   - CWDか `--projectPath` でプロジェクト指定
   - `--mode` の実行可能性を判定してJSONで返す（`mode`, `unityVersion`, `ucliUnityVersion`, `compileState` 等）
@@ -514,6 +527,121 @@ CWDがUnityプロジェクトと判定可能な場合はそれを使う。そう
   - `status`：デーモン状態を取得
   - `logs`：デーモンログを取得
   - `--projectPath <path>`：対象Unityプロジェクト指定
+
+## readIndex（読取索引基盤）
+readIndex は、Unity未接続時でも観測系情報をローカル参照できるようにするための読取索引基盤である。  
+主目的は「観測→生成→検証ループをオフラインでも決定論的に回すこと」であり、単なる高速化ではない。
+
+### 役割
+- 接続コスト分離：`ops` / `type` / `schema` / `scene` / `asset` の観測情報をローカルで参照できるようにする
+- 生成品質向上：引数スキーマや型候補を事前参照し、無駄な試行錯誤を減らす
+- 決定論強化：`freshness` を機械判定可能にし、実行可否判断を自動化する
+- 静的検証強化：`validate` / `plan` が同じ索引を再利用し、事前検証精度を高める
+
+### 適用対象
+- 対象コマンド：`ops` / `resolve` / `query` / `validate` / `plan`
+- 対象データ：
+  - `ops` カタログ
+  - 型カタログ（`types.find` 相当、`SerializeReference` 候補）
+  - スキーマ地図（`comp.schema` / `asset.schema`）
+  - `assets.find` 索引
+  - `GUID <-> Path` 変換索引
+  - `scenes.findComponents` 索引
+  - `scene.tree` 軽量版索引
+- 非対象：`call`
+  - `call` は readIndex を参照せず、Unity実体で再解決・再検証して実行する
+
+### freshness
+`payload.readIndex.freshness` は次のいずれかを返す。
+
+- `fresh`：現在入力と索引入力ハッシュが一致している
+- `probable`：接続不可や入力不足により推定最新扱いである
+- `stale`：入力差分が検出され、古い可能性が高い
+
+### payload 契約
+`ops` / `resolve` / `query` / `validate` / `plan` は、`payload.readIndex` を常時含める。
+
+```json
+{
+  "readIndex": {
+    "used": true,
+    "hit": true,
+    "source": "index",
+    "freshness": "fresh",
+    "generatedAtUtc": "2026-02-26T00:00:00Z",
+    "fallbackReason": null
+  }
+}
+```
+
+### エラーコード
+- `READ_INDEX_BOOTSTRAP_FAILED`
+- `READ_INDEX_FORMAT_INVALID`
+- `READ_INDEX_FRESH_REQUIRED`
+
+### 実行ポリシー
+- 既定は `readIndexEnabled=true`
+- 未生成または失効時は遅延生成し、必要な索引のみ更新する
+- 索引で解決できない要求はUnityへフォールバックする
+- 既存索引があり再生成不能な場合は `stale` で継続する
+- `--requireFreshReadIndex`（または `readIndexRequireFreshDefault=true`）時は `fresh` でないと失敗する
+
+### ディレクトリ構造
+```text
+<projectRoot>/.ucli/local/<projectFingerprint>/index/
+  manifest.json
+  catalogs/
+    ops.catalog.json
+    types.catalog.json
+    schemas.catalog.json
+  lookups/
+    asset-search/
+      manifest.json
+      shards/<queryHash>.json
+    guid-path/
+      manifest.json
+      shards/<bucket>.json
+    scene-components/
+      manifest.json
+      scenes/<sceneGuid>.json
+    scene-tree-lite/
+      manifest.json
+      scenes/<sceneGuid>.json
+  inputs/
+    manifest.json
+    hashes/
+      assemblies.hash.json
+      assets.hash.json
+      packages.hash.json
+```
+
+### manifest 想定
+- `index/manifest.json`
+  - 全体バージョン
+  - 生成時刻
+  - `projectFingerprint`
+  - `catalogs` / `lookups` の一覧
+  - `inputs/manifest.json` 参照と入力ハッシュ
+- `lookups/*/manifest.json`
+  - パーティション名
+  - `sourceInputsHash`
+  - シャード戦略
+  - シャード一覧（`path/hash/itemCount/generatedAtUtc`）
+- `inputs/manifest.json`
+  - `assemblies` / `packages` / `assets` ごとの入力ハッシュと件数
+
+### 無効化（stale）ルール
+- `types/schema`
+  - `Library/ScriptAssemblies`
+  - `Packages/manifest.json`
+  - `Packages/packages-lock.json`
+  - `.asmdef/.asmref`
+- `asset-search/guid-path`
+  - `Assets/` 配下の追加・削除・移動・改名
+- `scene-components/scene-tree-lite`
+  - 対象シーン変更時にシーン単位で再構築
+- 判定不能変更
+  - 全体再構築ではなく、該当パーティションのみ再構築
 
 ## test コマンド（統合仕様）
 本節は、旧 `uni-test-hub` の機能を uCLI へ統合するための仕様を示す（現時点では未実装）。
@@ -630,6 +758,8 @@ ucli test run \
 ### local保存
 - `.ucli/local/` はGit管理対象外とする（`.ucli/.gitignore` で除外）
 - テスト成果物の既定出力先は `<projectRoot>/.ucli/local/artifacts/` とする
+- readIndex は `<projectRoot>/.ucli/local/<projectFingerprint>/index/` に保存する
+- `refresh` は readIndex 更新トリガーに使わない（読取コマンド実行時の遅延更新を採用する）
 - `planToken` 本体は通常非永続化（呼び出し側のメモリ受け渡し）
 - 永続化するのは署名鍵のみ
   - パス：`<projectRoot>/.ucli/local/<projectFingerprint>/plan-token.key`
