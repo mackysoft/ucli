@@ -25,6 +25,14 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
         "expect",
     };
 
+    private static readonly HashSet<string> AllowedExpectationProperties = new(StringComparer.Ordinal)
+    {
+        "nonNull",
+        "count",
+        "min",
+        "max",
+    };
+
     /// <summary> Parses request JSON into a validation model. </summary>
     /// <param name="requestJson"> The raw request JSON string. </param>
     /// <returns> The parse result. </returns>
@@ -145,9 +153,31 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
                 return false;
             }
 
-            var operationId = ReadStringProperty(operationElement, "id");
-            var operationName = ReadStringProperty(operationElement, "op");
+            if (!TryReadOperationStringProperty(operationElement, operationIndex, "id", out var operationId, out error))
+            {
+                operations = null;
+                return false;
+            }
+
+            if (!TryReadOperationStringProperty(operationElement, operationIndex, "op", out var operationName, out error))
+            {
+                operations = null;
+                return false;
+            }
+
             if (!TryReadArgs(operationElement, operationIndex, out var args, out error))
+            {
+                operations = null;
+                return false;
+            }
+
+            if (!TryValidateOperationAlias(operationElement, operationIndex, out error))
+            {
+                operations = null;
+                return false;
+            }
+
+            if (!TryValidateExpectation(operationElement, operationIndex, out error))
             {
                 operations = null;
                 return false;
@@ -195,6 +225,218 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
         return true;
     }
 
+    /// <summary> Reads one optional operation string property. </summary>
+    /// <param name="operationElement"> The operation object element. </param>
+    /// <param name="operationIndex"> The operation index in <c>ops</c>. </param>
+    /// <param name="propertyName"> The property name. </param>
+    /// <param name="value"> The parsed property value, or <see langword="null" /> when missing or non-string. </param>
+    /// <param name="error"> The parse error on failure. </param>
+    /// <returns> <see langword="true" /> when property contract is valid; otherwise <see langword="false" />. </returns>
+    private static bool TryReadOperationStringProperty (
+        JsonElement operationElement,
+        int operationIndex,
+        string propertyName,
+        out string? value,
+        out ExecutionError? error)
+    {
+        value = null;
+        error = null;
+
+        if (!operationElement.TryGetProperty(propertyName, out var propertyElement))
+        {
+            return true;
+        }
+
+        if (propertyElement.ValueKind != JsonValueKind.String)
+        {
+            return true;
+        }
+
+        var parsedValue = propertyElement.GetString()!;
+        if (HasOuterWhitespace(parsedValue))
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Operation at index {operationIndex} property '{propertyName}' must not contain leading or trailing whitespace.");
+            return false;
+        }
+
+        value = parsedValue;
+        return true;
+    }
+
+    /// <summary> Validates one optional operation alias property. </summary>
+    /// <param name="operationElement"> The operation object element. </param>
+    /// <param name="operationIndex"> The operation index in <c>ops</c>. </param>
+    /// <param name="error"> The parse error on failure. </param>
+    /// <returns> <see langword="true" /> when alias contract is valid; otherwise <see langword="false" />. </returns>
+    private static bool TryValidateOperationAlias (
+        JsonElement operationElement,
+        int operationIndex,
+        out ExecutionError? error)
+    {
+        error = null;
+
+        if (!operationElement.TryGetProperty("as", out var aliasElement))
+        {
+            return true;
+        }
+
+        if (aliasElement.ValueKind != JsonValueKind.String)
+        {
+            error = ExecutionError.InvalidArgument($"Operation at index {operationIndex} property 'as' must be a string when specified.");
+            return false;
+        }
+
+        var alias = aliasElement.GetString()!;
+        if (string.IsNullOrWhiteSpace(alias) || HasOuterWhitespace(alias))
+        {
+            error = ExecutionError.InvalidArgument($"Operation at index {operationIndex} property 'as' must not be empty or contain outer whitespace.");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary> Validates one optional expectation object. </summary>
+    /// <param name="operationElement"> The operation object element. </param>
+    /// <param name="operationIndex"> The operation index in <c>ops</c>. </param>
+    /// <param name="error"> The parse error on failure. </param>
+    /// <returns> <see langword="true" /> when expectation contract is valid; otherwise <see langword="false" />. </returns>
+    private static bool TryValidateExpectation (
+        JsonElement operationElement,
+        int operationIndex,
+        out ExecutionError? error)
+    {
+        error = null;
+        if (!operationElement.TryGetProperty("expect", out var expectationElement))
+        {
+            return true;
+        }
+
+        if (expectationElement.ValueKind != JsonValueKind.Object)
+        {
+            error = ExecutionError.InvalidArgument($"Operation at index {operationIndex} property 'expect' must be an object when specified.");
+            return false;
+        }
+
+        var unknownExpectationProperty = FindUnknownProperty(expectationElement, AllowedExpectationProperties);
+        if (unknownExpectationProperty is not null)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Operation at index {operationIndex} property 'expect' contains an unknown property: {unknownExpectationProperty}.");
+            return false;
+        }
+
+        if (!expectationElement.EnumerateObject().MoveNext())
+        {
+            error = ExecutionError.InvalidArgument($"Operation at index {operationIndex} property 'expect' must contain at least one constraint.");
+            return false;
+        }
+
+        var nonNull = TryReadOptionalBooleanConstraint(expectationElement, "nonNull", operationIndex, out error);
+        if (error is not null)
+        {
+            return false;
+        }
+
+        var count = TryReadOptionalNonNegativeIntegerConstraint(expectationElement, "count", operationIndex, out error);
+        if (error is not null)
+        {
+            return false;
+        }
+
+        var min = TryReadOptionalNonNegativeIntegerConstraint(expectationElement, "min", operationIndex, out error);
+        if (error is not null)
+        {
+            return false;
+        }
+
+        var max = TryReadOptionalNonNegativeIntegerConstraint(expectationElement, "max", operationIndex, out error);
+        if (error is not null)
+        {
+            return false;
+        }
+
+        if (count.HasValue && (min.HasValue || max.HasValue))
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Operation at index {operationIndex} property 'expect' cannot combine 'count' with 'min' or 'max'.");
+            return false;
+        }
+
+        if (min.HasValue && max.HasValue && min.Value > max.Value)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Operation at index {operationIndex} property 'expect' requires 'min' to be less than or equal to 'max'.");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary> Reads one optional boolean expectation constraint. </summary>
+    /// <param name="expectationElement"> The expectation object. </param>
+    /// <param name="propertyName"> The property name. </param>
+    /// <param name="operationIndex"> The operation index in <c>ops</c>. </param>
+    /// <param name="error"> The parse error on failure. </param>
+    /// <returns> The parsed value, or <see langword="null" /> when property is absent. </returns>
+    private static bool? TryReadOptionalBooleanConstraint (
+        JsonElement expectationElement,
+        string propertyName,
+        int operationIndex,
+        out ExecutionError? error)
+    {
+        error = null;
+        if (!expectationElement.TryGetProperty(propertyName, out var propertyElement))
+        {
+            return null;
+        }
+
+        if (propertyElement.ValueKind != JsonValueKind.True && propertyElement.ValueKind != JsonValueKind.False)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Operation at index {operationIndex} property 'expect.{propertyName}' must be a boolean.");
+            return null;
+        }
+
+        return propertyElement.GetBoolean();
+    }
+
+    /// <summary> Reads one optional non-negative integer expectation constraint. </summary>
+    /// <param name="expectationElement"> The expectation object. </param>
+    /// <param name="propertyName"> The property name. </param>
+    /// <param name="operationIndex"> The operation index in <c>ops</c>. </param>
+    /// <param name="error"> The parse error on failure. </param>
+    /// <returns> The parsed value, or <see langword="null" /> when property is absent. </returns>
+    private static int? TryReadOptionalNonNegativeIntegerConstraint (
+        JsonElement expectationElement,
+        string propertyName,
+        int operationIndex,
+        out ExecutionError? error)
+    {
+        error = null;
+        if (!expectationElement.TryGetProperty(propertyName, out var propertyElement))
+        {
+            return null;
+        }
+
+        if (propertyElement.ValueKind != JsonValueKind.Number || !propertyElement.TryGetInt32(out var parsedValue))
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Operation at index {operationIndex} property 'expect.{propertyName}' must be an integer.");
+            return null;
+        }
+
+        if (parsedValue < 0)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Operation at index {operationIndex} property 'expect.{propertyName}' must be greater than or equal to 0.");
+            return null;
+        }
+
+        return parsedValue;
+    }
+
     /// <summary> Reads one optional string property from an object element. </summary>
     /// <param name="element"> The source object element. </param>
     /// <param name="propertyName"> The property name. </param>
@@ -211,6 +453,19 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
         return propertyElement.ValueKind == JsonValueKind.String
             ? propertyElement.GetString()
             : null;
+    }
+
+    /// <summary> Determines whether value contains leading or trailing whitespace. </summary>
+    /// <param name="value"> The source value. </param>
+    /// <returns> <see langword="true" /> when leading or trailing whitespace exists; otherwise <see langword="false" />. </returns>
+    private static bool HasOuterWhitespace (string value)
+    {
+        if (value.Length == 0)
+        {
+            return false;
+        }
+
+        return char.IsWhiteSpace(value[0]) || char.IsWhiteSpace(value[value.Length - 1]);
     }
 
     /// <summary> Finds one unknown property name in a JSON object. </summary>
