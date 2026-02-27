@@ -18,7 +18,7 @@ internal sealed class TestProfileInitCommand
     }
 
     /// <summary> Executes the <c>test profile init</c> command and emits the JSON result contract. </summary>
-    /// <param name="outputPath"> -o, Output path for profile JSON. Defaults to <c>test.profile.json</c> when omitted. </param>
+    /// <param name="outputPath"> -o|--outputPath, Output path for profile JSON. Defaults to <c>test.profile.json</c> when omitted. </param>
     /// <param name="force"> -f, Whether existing profile files can be overwritten. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
