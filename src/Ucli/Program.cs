@@ -5,6 +5,7 @@ using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.UnityProject;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,8 +13,6 @@ namespace MackySoft.Ucli;
 
 internal static class Program
 {
-    private const string HelpCommandName = "help";
-
     private const string InternalErrorMessage = "An unexpected internal error occurred.";
 
     private const string CanceledMessage = "Command execution was canceled.";
@@ -53,10 +52,12 @@ internal static class Program
                 services.AddSingleton<IOperationCatalog, OperationCatalog>();
                 services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
                 services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
+                services.AddSingleton<ITestProfileInitService, TestProfileInitService>();
             });
         app.UseFilter<OperationCatalogWarmupFilter>();
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
+        app.Add<TestProfileInitCommand>("test profile");
 
         try
         {
@@ -114,8 +115,8 @@ internal static class Program
             return false;
         }
 
-        if (IsRegisteredCommand(firstArgument)
-            || string.Equals(firstArgument, HelpCommandName, StringComparison.Ordinal))
+        if (UcliCommandNames.IsRegistered(firstArgument)
+            || string.Equals(firstArgument, UcliCommandNames.Help, StringComparison.Ordinal))
         {
             return false;
         }
@@ -137,30 +138,6 @@ internal static class Program
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
     private static string ResolveCommandName (string[] args)
     {
-        ArgumentNullException.ThrowIfNull(args);
-
-        if (args.Length == 0)
-        {
-            return CliProtocol.RootCommand;
-        }
-
-        var firstArgument = args[0];
-        if (string.IsNullOrWhiteSpace(firstArgument) || firstArgument.StartsWith("-", StringComparison.Ordinal))
-        {
-            return CliProtocol.RootCommand;
-        }
-
-        if (IsRegisteredCommand(firstArgument))
-        {
-            return firstArgument;
-        }
-
-        return CliProtocol.RootCommand;
-    }
-
-    private static bool IsRegisteredCommand (string commandName)
-    {
-        return string.Equals(commandName, InitCommand.CommandName, StringComparison.Ordinal)
-            || string.Equals(commandName, StatusCommand.CommandName, StringComparison.Ordinal);
+        return UcliCommandNames.ResolveResultCommandName(args);
     }
 }

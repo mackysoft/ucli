@@ -743,6 +743,9 @@ ucli test run \
 | `--outputPath <string?>` | `-o` | Output path for profile JSON (default: `.ucli/test.profile.json`) |
 | `--force` | `-f` | Overwrite existing file |
 
+`--outputPath` が `.json` で終わらない場合は、末尾に `.json` を補完して保存する。  
+`--outputPath` が `/` または `\` で終わるディレクトリ形式の場合は `invalidInput` として失敗する。
+
 #### 生成テンプレート
 ```json
 {
