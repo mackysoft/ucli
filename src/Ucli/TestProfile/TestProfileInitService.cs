@@ -30,19 +30,19 @@ internal sealed class TestProfileInitService : ITestProfileInitService
         var outputPathResolution = ResolveOutputPath(outputPath);
         if (!outputPathResolution.IsSuccess)
         {
-            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(outputPathResolution.ErrorMessage!));
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(outputPathResolution.ErrorMessage!));
         }
 
         var resolvedOutputPath = outputPathResolution.OutputPath!;
         if (Directory.Exists(resolvedOutputPath))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path must be a file path, but a directory exists: {resolvedOutputPath}"));
         }
 
         if (File.Exists(resolvedOutputPath) && !force)
         {
-            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path already exists: {resolvedOutputPath}. Use --force to overwrite."));
         }
 
@@ -53,19 +53,19 @@ internal sealed class TestProfileInitService : ITestProfileInitService
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
         }
 
         if (string.IsNullOrWhiteSpace(parentDirectoryPath))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInternalError(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InternalError(
                 $"Failed to resolve parent directory from output path: {resolvedOutputPath}"));
         }
 
         if (File.Exists(parentDirectoryPath))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output directory path points to a file: {parentDirectoryPath}"));
         }
 
@@ -75,12 +75,12 @@ internal sealed class TestProfileInitService : ITestProfileInitService
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInternalError(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InternalError(
                 $"Failed to prepare output directory: {parentDirectoryPath}. {ex.Message}"));
         }
 
@@ -97,12 +97,12 @@ internal sealed class TestProfileInitService : ITestProfileInitService
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInternalError(
+            return TestProfileInitExecutionResult.Failure(ExecutionError.InternalError(
                 $"Failed to write profile template file: {resolvedOutputPath}. {ex.Message}"));
         }
 
@@ -175,22 +175,6 @@ internal sealed class TestProfileInitService : ITestProfileInitService
 
         // NOTE: Keep rejecting Windows-style trailing separator on non-Windows runtimes.
         return pathValue.EndsWith("\\", StringComparison.Ordinal);
-    }
-
-    /// <summary> Creates an invalid-argument error value. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured invalid-argument error. </returns>
-    private static ExecutionError CreateInvalidArgument (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InvalidArgument, message);
-    }
-
-    /// <summary> Creates an internal-error value. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured internal-error value. </returns>
-    private static ExecutionError CreateInternalError (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InternalError, message);
     }
 
     /// <summary> Determines whether an exception indicates invalid path formatting. </summary>

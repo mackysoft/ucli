@@ -39,7 +39,7 @@ internal sealed class InitService : IInitService
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return InitExecutionResult.Failure(CreateInvalidArgument(
+            return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}"));
         }
 
@@ -52,7 +52,7 @@ internal sealed class InitService : IInitService
         if (!force && existingPaths.Count > 0)
         {
             var joinedPaths = string.Join(", ", existingPaths);
-            return InitExecutionResult.Failure(CreateInvalidArgument(
+            return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Initialization failed because template files already exist. Use --force to overwrite: {joinedPaths}"));
         }
 
@@ -63,12 +63,12 @@ internal sealed class InitService : IInitService
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return InitExecutionResult.Failure(CreateInvalidArgument(
+            return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"uCLI directory path is invalid: {ucliDirectoryPath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return InitExecutionResult.Failure(CreateInternalError(
+            return InitExecutionResult.Failure(ExecutionError.InternalError(
                 $"Failed to create .ucli directory: {ucliDirectoryPath}. {ex.Message}"));
         }
 
@@ -87,12 +87,12 @@ internal sealed class InitService : IInitService
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return InitExecutionResult.Failure(CreateInvalidArgument(
+            return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Git ignore path is invalid: {gitIgnorePath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return InitExecutionResult.Failure(CreateInternalError(
+            return InitExecutionResult.Failure(ExecutionError.InternalError(
                 $"Failed to write git ignore file: {gitIgnorePath}. {ex.Message}"));
         }
 
@@ -122,22 +122,6 @@ internal sealed class InitService : IInitService
         }
 
         return existingPaths;
-    }
-
-    /// <summary> Creates an invalid-argument error value. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured invalid-argument error. </returns>
-    private static ExecutionError CreateInvalidArgument (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InvalidArgument, message);
-    }
-
-    /// <summary> Creates an internal-error value. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured internal-error value. </returns>
-    private static ExecutionError CreateInternalError (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InternalError, message);
     }
 
     /// <summary> Determines whether an exception indicates invalid path formatting. </summary>
