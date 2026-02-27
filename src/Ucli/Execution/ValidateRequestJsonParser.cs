@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Operations;
@@ -7,6 +9,15 @@ namespace MackySoft.Ucli.Execution;
 /// <summary> Parses request JSON into <see cref="ValidateRequest" /> values for static validation. </summary>
 internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 {
+    private static readonly HashSet<string> AllowedOperationProperties = new(StringComparer.Ordinal)
+    {
+        "id",
+        "op",
+        "args",
+        "as",
+        "expect",
+    };
+
     /// <summary> Parses request JSON into a validation model. </summary>
     /// <param name="requestJson"> The raw request JSON string. </param>
     /// <returns> The parse result. </returns>
@@ -112,6 +123,14 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
                 continue;
             }
 
+            var unknownOperationProperty = FindUnknownProperty(operationElement, AllowedOperationProperties);
+            if (unknownOperationProperty is not null)
+            {
+                error = ExecutionError.InvalidArgument($"Operation at index {operationIndex} contains an unknown property: {unknownOperationProperty}.");
+                operations = null;
+                return false;
+            }
+
             var operationId = ReadStringProperty(operationElement, "id");
             var operationName = ReadStringProperty(operationElement, "op");
             if (!TryReadArgs(operationElement, operationIndex, out var args, out error))
@@ -178,5 +197,24 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
         return propertyElement.ValueKind == JsonValueKind.String
             ? propertyElement.GetString()
             : null;
+    }
+
+    /// <summary> Finds one unknown property name in a JSON object. </summary>
+    /// <param name="jsonObject"> The source JSON object. </param>
+    /// <param name="allowedPropertyNames"> The allowed property-name set. </param>
+    /// <returns> The first unknown property name; otherwise <see langword="null" />. </returns>
+    private static string? FindUnknownProperty (
+        JsonElement jsonObject,
+        IReadOnlySet<string> allowedPropertyNames)
+    {
+        foreach (var property in jsonObject.EnumerateObject())
+        {
+            if (!allowedPropertyNames.Contains(property.Name))
+            {
+                return property.Name;
+            }
+        }
+
+        return null;
     }
 }

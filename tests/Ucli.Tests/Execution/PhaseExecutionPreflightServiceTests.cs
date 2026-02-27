@@ -170,6 +170,42 @@ public sealed class PhaseExecutionPreflightServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationContainsUnknownProperty ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-unknown-property");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": {},
+                  "unknown": 1
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("unknown", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Prepare_ReturnsValidationErrors_WhenStaticValidationFails ()
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "static-validation-fail");
