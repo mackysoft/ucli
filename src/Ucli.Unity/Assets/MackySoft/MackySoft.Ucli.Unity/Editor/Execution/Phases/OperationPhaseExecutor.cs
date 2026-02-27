@@ -105,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var validateStepResult = await ExecutePhaseStep(
                 operation,
                 OperationPhase.Validate,
-                token => phaseOperation.Validate(operation, token),
+                ct => phaseOperation.Validate(operation, ct),
                 cancellationToken);
             MergeTouched(touched, validateStepResult.Touched);
             if (!validateStepResult.IsSuccess)
@@ -124,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var planStepResult = await ExecutePhaseStep(
                 operation,
                 OperationPhase.Plan,
-                token => phaseOperation.Plan(operation, token),
+                ct => phaseOperation.Plan(operation, ct),
                 cancellationToken);
             MergeTouched(touched, planStepResult.Touched);
             if (!planStepResult.IsSuccess)
@@ -155,7 +155,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var callStepResult = await ExecutePhaseStep(
                 operation,
                 OperationPhase.Call,
-                token => phaseOperation.Call(operation, token),
+                ct => phaseOperation.Call(operation, ct),
                 cancellationToken);
             MergeTouched(touched, callStepResult.Touched);
             if (!callStepResult.IsSuccess)
