@@ -12,7 +12,6 @@ public sealed class TestProfileInitServiceTests
     public async Task Execute_WithOutputPathWithoutJson_AppendsJsonExtensionAndWritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-extension");
-        scope.CreateDirectory("profiles");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile"));
         var expectedProfilePath = outputPath + ".json";
         var service = new TestProfileInitService();
@@ -34,7 +33,6 @@ public sealed class TestProfileInitServiceTests
     public async Task Execute_WithOutputPathAlreadyJson_WritesTemplateWithoutAddingExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "preserve-json-extension");
-        scope.CreateDirectory("profiles");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile.json"));
         var service = new TestProfileInitService();
 
@@ -53,7 +51,6 @@ public sealed class TestProfileInitServiceTests
     public async Task Execute_WithCustomExtension_AppendsJsonExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-to-custom-extension");
-        scope.CreateDirectory("profiles");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile.txt"));
         var expectedProfilePath = outputPath + ".json";
         var service = new TestProfileInitService();
@@ -128,7 +125,7 @@ public sealed class TestProfileInitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenParentDirectoryDoesNotExist_ReturnsInvalidArgument ()
+    public async Task Execute_WhenParentDirectoryDoesNotExist_CreatesDirectoryAndWritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "parent-directory-not-found");
         var outputPath = scope.GetPath(Path.Combine("profiles", "missing-parent-profile.json"));
@@ -136,7 +133,12 @@ public sealed class TestProfileInitServiceTests
 
         var result = await service.Execute(outputPath, force: false, CancellationToken.None);
 
-        AssertInvalidArgumentError(result);
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<TestProfileInitExecutionOutput>(result.Output);
+        FileSystemAssert.ForPath(output.ProfilePath).EqualsNormalized(outputPath);
+        FileSystemAssert.ForDirectory(Path.GetDirectoryName(outputPath)!).Exists();
+        FileSystemAssert.ForFile(outputPath).Exists();
+        AssertProfileTemplate(outputPath);
     }
 
     private static ExecutionError AssertInvalidArgumentError (TestProfileInitExecutionResult result)

@@ -69,10 +69,19 @@ internal sealed class TestProfileInitService : ITestProfileInitService
                 $"Output directory path points to a file: {parentDirectoryPath}"));
         }
 
-        if (!Directory.Exists(parentDirectoryPath))
+        try
+        {
+            Directory.CreateDirectory(parentDirectoryPath);
+        }
+        catch (Exception ex) when (IsPathFormatException(ex))
         {
             return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
-                $"Output directory does not exist: {parentDirectoryPath}"));
+                $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
+        }
+        catch (Exception ex) when (IsIoFailure(ex))
+        {
+            return TestProfileInitExecutionResult.Failure(CreateInternalError(
+                $"Failed to prepare output directory: {parentDirectoryPath}. {ex.Message}"));
         }
 
         cancellationToken.ThrowIfCancellationRequested();

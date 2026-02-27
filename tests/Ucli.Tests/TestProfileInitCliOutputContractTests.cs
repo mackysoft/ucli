@@ -52,7 +52,6 @@ public sealed class TestProfileInitCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-output");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
-        scope.CreateDirectory(Path.Combine("workspace", "profiles"));
         var expectedProfilePath = Path.Combine(
             workingDirectoryPath,
             expectedRelativePath.Replace('/', Path.DirectorySeparatorChar));
