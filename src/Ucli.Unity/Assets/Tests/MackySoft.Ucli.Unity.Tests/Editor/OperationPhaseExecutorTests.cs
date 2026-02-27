@@ -1,13 +1,16 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 #nullable enable
 
@@ -15,28 +18,28 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class OperationPhaseExecutorTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenCommandIsPlan_ExecutesValidateAndPlanOnly ()
+        public IEnumerator Execute_WhenCommandIsPlan_ExecutesValidateAndPlanOnly () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
                 operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Success(changed: true),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: true),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", "ucli.resolve");
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Plan, request);
+            var trace = await executor.Execute(PhaseExecutionCommand.Plan, request).AsUniTask();
 
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenCommandIsCall_ExecutesValidatePlanAndCall ()
+        public IEnumerator Execute_WhenCommandIsCall_ExecutesValidatePlanAndCall () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
                 operationName: "ucli.resolve",
@@ -46,16 +49,16 @@ namespace MackySoft.Ucli.Unity.Tests
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", "ucli.resolve");
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request);
+            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
 
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped ()
+        public IEnumerator Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
                 operationName: "ucli.resolve",
@@ -76,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request);
+            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
@@ -85,11 +88,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[1].Applied, Is.False);
             Assert.That(trace.OperationTraces[1].Changed, Is.False);
             Assert.That(skippedOperation.CalledPhases.Count, Is.EqualTo(0));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenPlanFails_MarksRemainingOperationsAsSkipped ()
+        public IEnumerator Execute_WhenPlanFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
                 operationName: "ucli.resolve",
@@ -110,17 +113,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request);
+            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
             Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Skipped));
             Assert.That(skippedOperation.CalledPhases.Count, Is.EqualTo(0));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenCallFails_MarksRemainingOperationsAsSkipped ()
+        public IEnumerator Execute_WhenCallFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
                 operationName: "ucli.resolve",
@@ -141,17 +144,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request);
+            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
             Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Skipped));
             Assert.That(skippedOperation.CalledPhases.Count, Is.EqualTo(0));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Execute_WhenCancellationRequested_ThrowsOperationCanceledException ()
+        public IEnumerator Execute_WhenCancellationRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
                 operationName: "ucli.resolve",
@@ -163,11 +166,11 @@ namespace MackySoft.Ucli.Unity.Tests
             cancellationTokenSource.Cancel();
             var request = CreateRequest("op-1", "ucli.resolve");
 
-            Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await executor.Execute(PhaseExecutionCommand.Call, request, cancellationTokenSource.Token);
+                await executor.Execute(PhaseExecutionCommand.Call, request, cancellationTokenSource.Token).AsUniTask();
             });
-        }
+        });
 
         private static OperationPhaseExecutor CreateExecutor (IPhaseOperation operation)
         {

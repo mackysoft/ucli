@@ -1,12 +1,16 @@
+using System;
+using System.Collections;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 #nullable enable
 
@@ -14,11 +18,87 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestDispatcherTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        [TestCase(IpcExecuteCommandNames.Plan, PhaseExecutionCommand.Plan)]
-        [TestCase(IpcExecuteCommandNames.Call, PhaseExecutionCommand.Call)]
-        public async Task Dispatch_WhenCommandIsPlanOrCall_DelegatesToPhaseExecutor (
+        public IEnumerator Dispatch_WhenCommandIsPlan_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
+        {
+            await AssertDelegatesToPhaseExecutor(IpcExecuteCommandNames.Plan, PhaseExecutionCommand.Plan);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCommandIsCall_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
+        {
+            await AssertDelegatesToPhaseExecutor(IpcExecuteCommandNames.Call, PhaseExecutionCommand.Call);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCommandIsResolve_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
+        {
+            await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Resolve);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCommandIsQuery_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
+        {
+            await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Query);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCommandIsRefresh_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
+        {
+            await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Refresh);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenNormalizationFails_ReturnsNormalizationError () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
+                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "invalid request", "op-1")));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCancellationRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.Cancel();
+
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await dispatcher.Dispatch(request, context, cancellationTokenSource.Token).AsUniTask();
+            });
+        });
+
+        private static async UniTask AssertDelegatesToPhaseExecutor (
             string commandName,
             PhaseExecutionCommand expectedCommand)
         {
@@ -35,19 +115,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(commandName);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None);
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(phaseExecutor.ReceivedCommand, Is.EqualTo(expectedCommand));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
         }
 
-        [Test]
-        [Category("Size.Small")]
-        [TestCase(IpcExecuteCommandNames.Resolve)]
-        [TestCase(IpcExecuteCommandNames.Query)]
-        [TestCase(IpcExecuteCommandNames.Refresh)]
-        public async Task Dispatch_WhenCommandIsNotImplemented_ReturnsCommandNotImplementedError (string commandName)
+        private static async UniTask AssertReturnsCommandNotImplementedError (string commandName)
         {
             var normalizedRequest = CreateNormalizedRequest();
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
@@ -59,57 +134,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(commandName);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None);
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.CommandNotImplemented));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public async Task Dispatch_WhenNormalizationFails_ReturnsNormalizationError ()
-        {
-            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
-                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "invalid request", "op-1")));
-            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: IpcProtocol.CurrentVersion,
-                requestId: "req-1",
-                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
-            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
-
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None);
-
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
-            Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
-            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Dispatch_WhenCancellationRequested_ThrowsOperationCanceledException ()
-        {
-            var normalizedRequest = CreateNormalizedRequest();
-            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
-            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
-                protocolVersion: IpcProtocol.CurrentVersion,
-                requestId: "req-1",
-                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
-            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
-            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
-            using var cancellationTokenSource = new CancellationTokenSource();
-            cancellationTokenSource.Cancel();
-
-            Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            {
-                await dispatcher.Dispatch(request, context, cancellationTokenSource.Token);
-            });
         }
 
         private static IpcExecuteRequest CreateExecuteRequest (string commandName)
