@@ -29,7 +29,11 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 
             var protocolVersion = ReadProtocolVersion(document.RootElement);
             var requestId = ReadRequestId(document.RootElement);
-            var operations = ReadOperations(document.RootElement);
+            if (!TryReadOperations(document.RootElement, out var operations, out var operationsError))
+            {
+                return ValidateRequestJsonParseResult.Failure(operationsError!);
+            }
+
             var parsedRequest = new ValidateRequest(
                 ProtocolVersion: protocolVersion,
                 RequestId: requestId,
@@ -75,40 +79,87 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 
     /// <summary> Reads operation array from request JSON. </summary>
     /// <param name="root"> The request root object. </param>
-    /// <returns> Parsed operation collection, or <see langword="null" /> when unavailable. </returns>
-    private static IReadOnlyList<ValidateRequestOperation?>? ReadOperations (JsonElement root)
+    /// <param name="operations"> Parsed operation collection, or <see langword="null" /> when unavailable. </param>
+    /// <param name="error"> The parse error on failure. </param>
+    /// <returns> <see langword="true" /> when operation array is valid; otherwise <see langword="false" />. </returns>
+    private static bool TryReadOperations (
+        JsonElement root,
+        out IReadOnlyList<ValidateRequestOperation?>? operations,
+        out ExecutionError? error)
     {
+        error = null;
+
         if (!root.TryGetProperty("ops", out var operationsElement))
         {
-            return null;
+            operations = null;
+            return true;
         }
 
         if (operationsElement.ValueKind != JsonValueKind.Array)
         {
-            return null;
+            operations = null;
+            return true;
         }
 
-        var operations = new List<ValidateRequestOperation?>();
+        var parsedOperations = new List<ValidateRequestOperation?>();
+        var operationIndex = 0;
         foreach (var operationElement in operationsElement.EnumerateArray())
         {
             if (operationElement.ValueKind != JsonValueKind.Object)
             {
-                operations.Add(null);
+                parsedOperations.Add(null);
+                operationIndex++;
                 continue;
             }
 
             var operationId = ReadStringProperty(operationElement, "id");
             var operationName = ReadStringProperty(operationElement, "op");
-            var args = operationElement.TryGetProperty("args", out var argsElement)
-                ? argsElement.Clone()
-                : default;
-            operations.Add(new ValidateRequestOperation(
+            if (!TryReadArgs(operationElement, operationIndex, out var args, out error))
+            {
+                operations = null;
+                return false;
+            }
+
+            parsedOperations.Add(new ValidateRequestOperation(
                 OpId: operationId,
                 Op: operationName,
                 Args: args));
+            operationIndex++;
         }
 
-        return operations;
+        operations = parsedOperations;
+        return true;
+    }
+
+    /// <summary> Reads one operation arguments object from operation JSON. </summary>
+    /// <param name="operationElement"> The operation object element. </param>
+    /// <param name="operationIndex"> The operation index in <c>ops</c>. </param>
+    /// <param name="args"> The parsed args object. </param>
+    /// <param name="error"> The parse error on failure. </param>
+    /// <returns> <see langword="true" /> when args is valid; otherwise <see langword="false" />. </returns>
+    private static bool TryReadArgs (
+        JsonElement operationElement,
+        int operationIndex,
+        out JsonElement args,
+        out ExecutionError? error)
+    {
+        args = default;
+        error = null;
+
+        if (!operationElement.TryGetProperty("args", out var argsElement))
+        {
+            error = ExecutionError.InvalidArgument($"Operation at index {operationIndex} property 'args' is required.");
+            return false;
+        }
+
+        if (argsElement.ValueKind != JsonValueKind.Object)
+        {
+            error = ExecutionError.InvalidArgument($"Operation at index {operationIndex} property 'args' must be an object.");
+            return false;
+        }
+
+        args = argsElement.Clone();
+        return true;
     }
 
     /// <summary> Reads one optional string property from an object element. </summary>
