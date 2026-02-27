@@ -18,6 +18,50 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class OperationPhaseExecutorTests
     {
+        [Test]
+        [Category("Size.Small")]
+        public void InMemoryRegistry_WhenOperationNameIsDuplicated_ThrowsArgumentException ()
+        {
+            var first = new RecordingPhaseOperation(
+                operationName: "ucli.resolve",
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success());
+            var second = new RecordingPhaseOperation(
+                operationName: "ucli.resolve",
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success());
+
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
+                {
+                    first,
+                    second,
+                });
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void InMemoryRegistry_WhenOperationNameContainsOuterWhitespace_ThrowsArgumentException ()
+        {
+            var operation = new RecordingPhaseOperation(
+                operationName: "ucli.resolve ",
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success());
+
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
+                {
+                    operation,
+                });
+            });
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsPlan_ExecutesValidateAndPlanOnly () => UniTask.ToCoroutine(async () =>
