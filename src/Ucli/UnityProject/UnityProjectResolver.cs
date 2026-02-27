@@ -33,7 +33,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         var unityProjectRoot = fullPathResult.Path!;
         if (!Directory.Exists(unityProjectRoot))
         {
-            return UnityProjectResolutionResult.Failure(CreateInvalidArgument(
+            return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject path does not exist: {unityProjectRoot}"));
         }
 
@@ -43,7 +43,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             ProjectVersionFileName);
         if (!File.Exists(projectVersionPath))
         {
-            return UnityProjectResolutionResult.Failure(CreateInvalidArgument(
+            return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject is invalid. Missing file: {projectVersionPath}"));
         }
 
@@ -106,7 +106,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return PathNormalizationResult.Failure(CreateInvalidArgument(
+            return PathNormalizationResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject path is invalid: {pathValue}"));
         }
     }
@@ -122,14 +122,6 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         return exception is ArgumentException
             or NotSupportedException
             or PathTooLongException;
-    }
-
-    /// <summary> Creates an invalid-argument foundation error. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured invalid-argument error. </returns>
-    private static ExecutionError CreateInvalidArgument (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InvalidArgument, message);
     }
 
     /// <summary> Gets the path comparison mode for the current operating system. </summary>

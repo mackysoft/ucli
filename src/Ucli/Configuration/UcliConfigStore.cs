@@ -43,7 +43,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
         if (string.IsNullOrWhiteSpace(unityProjectRoot))
         {
-            return UcliConfigLoadResult.Failure(CreateInvalidArgument("UnityProject root path must not be empty."));
+            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument("UnityProject root path must not be empty."));
         }
 
         string configPath;
@@ -53,7 +53,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return UcliConfigLoadResult.Failure(CreateInvalidArgument(
+            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject root path is invalid: {unityProjectRoot}"));
         }
 
@@ -69,12 +69,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return UcliConfigLoadResult.Failure(CreateInvalidArgument(
+            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"Config path is invalid: {configPath}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return UcliConfigLoadResult.Failure(CreateInternalError(
+            return UcliConfigLoadResult.Failure(ExecutionError.InternalError(
                 $"Failed to read config file: {configPath}. {ex.Message}"));
         }
 
@@ -85,13 +85,13 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
         catch (JsonException ex)
         {
-            return UcliConfigLoadResult.Failure(CreateInvalidArgument(
+            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"Config JSON is invalid: {configPath}. {ex.Message}"));
         }
 
         if (document is null)
         {
-            return UcliConfigLoadResult.Failure(CreateInvalidArgument(
+            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"Config JSON is invalid: {configPath}."));
         }
 
@@ -119,7 +119,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
         if (string.IsNullOrWhiteSpace(unityProjectRoot))
         {
-            return UcliConfigSaveResult.Failure(CreateInvalidArgument("UnityProject root path must not be empty."));
+            return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument("UnityProject root path must not be empty."));
         }
 
         ArgumentNullException.ThrowIfNull(config);
@@ -131,7 +131,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return UcliConfigSaveResult.Failure(CreateInvalidArgument(
+            return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject root path is invalid: {unityProjectRoot}"));
         }
 
@@ -149,13 +149,13 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return UcliConfigSaveResult.Failure(CreateInvalidArgument(
+            return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument(
                 $"Config path is invalid: {configPath}. {ex.Message}"));
         }
 
         if (string.IsNullOrWhiteSpace(configDirectoryPath))
         {
-            return UcliConfigSaveResult.Failure(CreateInternalError(
+            return UcliConfigSaveResult.Failure(ExecutionError.InternalError(
                 $"Config directory path could not be determined: {configPath}"));
         }
 
@@ -167,12 +167,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
-            return UcliConfigSaveResult.Failure(CreateInvalidArgument(
+            return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument(
                 $"Config path is invalid: {configPath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return UcliConfigSaveResult.Failure(CreateInternalError(
+            return UcliConfigSaveResult.Failure(ExecutionError.InternalError(
                 $"Failed to write config file: {configPath}. {ex.Message}"));
         }
     }
@@ -187,25 +187,25 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     {
         if (document.SchemaVersion != SupportedSchemaVersion)
         {
-            return ConfigParseResult.Failure(CreateInvalidArgument(
+            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config schemaVersion must be {SupportedSchemaVersion}. Actual: {document.SchemaVersion}."));
         }
 
         if (!TryParseOperationPolicy(document.OperationPolicy, out var operationPolicy))
         {
-            return ConfigParseResult.Failure(CreateInvalidArgument(
+            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config operationPolicy is invalid: {document.OperationPolicy}."));
         }
 
         if (!TryParsePlanTokenMode(document.PlanTokenMode, out var planTokenMode))
         {
-            return ConfigParseResult.Failure(CreateInvalidArgument(
+            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config planTokenMode is invalid: {document.PlanTokenMode}."));
         }
 
         if (document.OperationAllowlist is null)
         {
-            return ConfigParseResult.Failure(CreateInvalidArgument(
+            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config operationAllowlist must be an array: {configPath}."));
         }
 
@@ -214,14 +214,14 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         {
             if (string.IsNullOrWhiteSpace(pattern))
             {
-                return ConfigParseResult.Failure(CreateInvalidArgument(
+                return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                     $"Config operationAllowlist contains an empty pattern: {configPath}."));
             }
 
             var normalizedPattern = pattern.Trim();
             if (!TryValidateRegexPattern(normalizedPattern, out var patternErrorMessage))
             {
-                return ConfigParseResult.Failure(CreateInvalidArgument(
+                return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                     $"Config operationAllowlist contains an invalid regex pattern: {normalizedPattern}. {patternErrorMessage}"));
             }
 
@@ -246,13 +246,13 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     {
         if (config.SchemaVersion != SupportedSchemaVersion)
         {
-            return ConfigValidationResult.Failure(CreateInvalidArgument(
+            return ConfigValidationResult.Failure(ExecutionError.InvalidArgument(
                 $"Config schemaVersion must be {SupportedSchemaVersion}. Actual: {config.SchemaVersion}."));
         }
 
         if (config.OperationAllowlist is null)
         {
-            return ConfigValidationResult.Failure(CreateInvalidArgument(
+            return ConfigValidationResult.Failure(ExecutionError.InvalidArgument(
                 $"Config operationAllowlist must not be null: {configPath}."));
         }
 
@@ -260,13 +260,13 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         {
             if (string.IsNullOrWhiteSpace(pattern))
             {
-                return ConfigValidationResult.Failure(CreateInvalidArgument(
+                return ConfigValidationResult.Failure(ExecutionError.InvalidArgument(
                     $"Config operationAllowlist contains an empty pattern: {configPath}."));
             }
 
             if (!TryValidateRegexPattern(pattern, out var patternErrorMessage))
             {
-                return ConfigValidationResult.Failure(CreateInvalidArgument(
+                return ConfigValidationResult.Failure(ExecutionError.InvalidArgument(
                     $"Config operationAllowlist contains an invalid regex pattern: {pattern}. {patternErrorMessage}"));
             }
         }
@@ -387,22 +387,6 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
         planTokenMode = default;
         return false;
-    }
-
-    /// <summary> Creates an invalid-argument error. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured invalid-argument error. </returns>
-    private static ExecutionError CreateInvalidArgument (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InvalidArgument, message);
-    }
-
-    /// <summary> Creates an internal-error value. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured internal-error value. </returns>
-    private static ExecutionError CreateInternalError (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InternalError, message);
     }
 
     /// <summary> Determines whether an exception should be treated as invalid path formatting. </summary>
