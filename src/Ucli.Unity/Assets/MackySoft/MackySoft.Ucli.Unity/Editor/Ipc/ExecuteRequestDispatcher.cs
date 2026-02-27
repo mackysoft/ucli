@@ -64,6 +64,15 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (!TryResolveExecutionCommand(request.Command, out var executionCommand))
+            {
+                return CreateErrorResponse(
+                    context,
+                    IpcErrorCodes.CommandNotImplemented,
+                    $"Execute command '{request.Command}' is not implemented.",
+                    null);
+            }
+
             var normalizationResult = requestNormalizer.Normalize(request, cancellationToken);
             if (!normalizationResult.IsSuccess)
             {
@@ -73,15 +82,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     normalizationError.Code,
                     normalizationError.Message,
                     normalizationError.OpId);
-            }
-
-            if (!TryResolveExecutionCommand(request.Command, out var executionCommand))
-            {
-                return CreateErrorResponse(
-                    context,
-                    IpcErrorCodes.CommandNotImplemented,
-                    $"Execute command '{request.Command}' is not implemented.",
-                    null);
             }
 
             try

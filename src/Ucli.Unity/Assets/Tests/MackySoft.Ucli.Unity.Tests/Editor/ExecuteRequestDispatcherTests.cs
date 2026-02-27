@@ -124,8 +124,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static async UniTask AssertReturnsCommandNotImplementedError (string commandName)
         {
-            var normalizedRequest = CreateNormalizedRequest();
-            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
+                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "normalizer should not run", null)));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: "req-1",
@@ -139,6 +139,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.CommandNotImplemented));
+            Assert.That(normalizer.CallCount, Is.EqualTo(0));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
         }
 
@@ -193,6 +194,27 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                return normalizationResult;
+            }
+        }
+
+        private sealed class SpyExecuteRequestNormalizer : IExecuteRequestNormalizer
+        {
+            private readonly ExecuteRequestNormalizationResult normalizationResult;
+
+            public SpyExecuteRequestNormalizer (ExecuteRequestNormalizationResult normalizationResult)
+            {
+                this.normalizationResult = normalizationResult;
+            }
+
+            public int CallCount { get; private set; }
+
+            public ExecuteRequestNormalizationResult Normalize (
+                IpcExecuteRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CallCount++;
                 return normalizationResult;
             }
         }
