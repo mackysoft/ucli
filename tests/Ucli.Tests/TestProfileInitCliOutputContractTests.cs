@@ -6,8 +6,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestProfileInitCliOutputContractTests
 {
-    private const string UcliDirectoryName = ".ucli";
-
     private const string TestProfileFileName = "test.profile.json";
 
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
@@ -18,7 +16,7 @@ public sealed class TestProfileInitCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-default");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
-        var expectedProfilePath = Path.Combine(workingDirectoryPath, UcliDirectoryName, TestProfileFileName);
+        var expectedProfilePath = Path.Combine(workingDirectoryPath, TestProfileFileName);
 
         var result = await RunTestProfileInit(workingDirectory: workingDirectoryPath);
 
@@ -54,6 +52,7 @@ public sealed class TestProfileInitCliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-output");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
+        scope.CreateDirectory(Path.Combine("workspace", "profiles"));
         var expectedProfilePath = Path.Combine(
             workingDirectoryPath,
             expectedRelativePath.Replace('/', Path.DirectorySeparatorChar));

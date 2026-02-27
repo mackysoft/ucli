@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.TestProfile;
 /// <summary> Implements profile initialization flow that generates test profile template JSON files. </summary>
 internal sealed class TestProfileInitService : ITestProfileInitService
 {
-    private const string DefaultOutputPath = ".ucli/test.profile.json";
+    private const string DefaultOutputPath = "test.profile.json";
     private const string JsonExtension = ".json";
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -63,19 +63,16 @@ internal sealed class TestProfileInitService : ITestProfileInitService
                 $"Failed to resolve parent directory from output path: {resolvedOutputPath}"));
         }
 
-        try
-        {
-            Directory.CreateDirectory(parentDirectoryPath);
-        }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        if (File.Exists(parentDirectoryPath))
         {
             return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
-                $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
+                $"Output directory path points to a file: {parentDirectoryPath}"));
         }
-        catch (Exception ex) when (IsIoFailure(ex))
+
+        if (!Directory.Exists(parentDirectoryPath))
         {
-            return TestProfileInitExecutionResult.Failure(CreateInternalError(
-                $"Failed to prepare output directory: {parentDirectoryPath}. {ex.Message}"));
+            return TestProfileInitExecutionResult.Failure(CreateInvalidArgument(
+                $"Output directory does not exist: {parentDirectoryPath}"));
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -161,8 +158,14 @@ internal sealed class TestProfileInitService : ITestProfileInitService
     private static bool IsDirectoryPathDefinition (string pathValue)
     {
         ArgumentNullException.ThrowIfNull(pathValue);
-        return pathValue.EndsWith("/", StringComparison.Ordinal)
-            || pathValue.EndsWith("\\", StringComparison.Ordinal);
+
+        if (Path.EndsInDirectorySeparator(pathValue))
+        {
+            return true;
+        }
+
+        // NOTE: Keep rejecting Windows-style trailing separator on non-Windows runtimes.
+        return pathValue.EndsWith("\\", StringComparison.Ordinal);
     }
 
     /// <summary> Creates an invalid-argument error value. </summary>

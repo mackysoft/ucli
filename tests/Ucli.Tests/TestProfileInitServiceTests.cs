@@ -12,6 +12,7 @@ public sealed class TestProfileInitServiceTests
     public async Task Execute_WithOutputPathWithoutJson_AppendsJsonExtensionAndWritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-extension");
+        scope.CreateDirectory("profiles");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile"));
         var expectedProfilePath = outputPath + ".json";
         var service = new TestProfileInitService();
@@ -33,6 +34,7 @@ public sealed class TestProfileInitServiceTests
     public async Task Execute_WithOutputPathAlreadyJson_WritesTemplateWithoutAddingExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "preserve-json-extension");
+        scope.CreateDirectory("profiles");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile.json"));
         var service = new TestProfileInitService();
 
@@ -51,6 +53,7 @@ public sealed class TestProfileInitServiceTests
     public async Task Execute_WithCustomExtension_AppendsJsonExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-to-custom-extension");
+        scope.CreateDirectory("profiles");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile.txt"));
         var expectedProfilePath = outputPath + ".json";
         var service = new TestProfileInitService();
@@ -119,6 +122,19 @@ public sealed class TestProfileInitServiceTests
         var service = new TestProfileInitService();
 
         var result = await service.Execute(directoryStylePath, force: false, CancellationToken.None);
+
+        AssertInvalidArgumentError(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenParentDirectoryDoesNotExist_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "parent-directory-not-found");
+        var outputPath = scope.GetPath(Path.Combine("profiles", "missing-parent-profile.json"));
+        var service = new TestProfileInitService();
+
+        var result = await service.Execute(outputPath, force: false, CancellationToken.None);
 
         AssertInvalidArgumentError(result);
     }
