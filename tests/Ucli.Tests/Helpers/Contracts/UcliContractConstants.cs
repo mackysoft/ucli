@@ -6,6 +6,8 @@ internal static class UcliContractConstants
     {
         public const string Force = "--force";
 
+        public const string OutputPath = "--outputPath";
+
         public const string ProjectPath = "--projectPath";
 
         public const string Unknown = "--unknown";
@@ -24,6 +26,19 @@ internal static class UcliContractConstants
         public const string PlanTokenModeOptional = "optional";
 
         public const string PlanTokenModeRequired = "required";
+    }
+
+    internal static class TestProfile
+    {
+        public const int SchemaVersion = 1;
+
+        public const string ProjectPath = ".";
+
+        public const string TestPlatformEditMode = "editmode";
+
+        public const string OutputDir = ".ucli/local/artifacts";
+
+        public const int TimeoutSeconds = 1800;
     }
 
     public const string LocalDirectoryIgnoreEntry = "local/";
