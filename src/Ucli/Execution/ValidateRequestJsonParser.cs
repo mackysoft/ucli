@@ -131,7 +131,8 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
         if (operationsElement.ValueKind != JsonValueKind.Array)
         {
             operations = null;
-            return true;
+            error = ExecutionError.InvalidArgument("Request property 'ops' must be an array.");
+            return false;
         }
 
         var parsedOperations = new List<ValidateRequestOperation?>();
