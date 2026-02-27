@@ -108,7 +108,7 @@ public sealed class FileSystemAssertTests
         var symbolicLinkDirectoryPath = Path.Combine(rootScope.FullPath, "alias");
         if (!TryCreateDirectorySymbolicLink(symbolicLinkDirectoryPath, targetDirectoryPath))
         {
-            return;
+            throw SkipException.ForSkip("Skipping because symbolic link creation is not available in this environment.");
         }
 
         var linkedFilePath = Path.Combine(symbolicLinkDirectoryPath, "profile.json");
