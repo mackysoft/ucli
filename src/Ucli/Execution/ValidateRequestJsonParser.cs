@@ -438,24 +438,6 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
         return parsedValue;
     }
 
-    /// <summary> Reads one optional string property from an object element. </summary>
-    /// <param name="element"> The source object element. </param>
-    /// <param name="propertyName"> The property name. </param>
-    /// <returns> The property string value, or <see langword="null" /> when unavailable. </returns>
-    private static string? ReadStringProperty (
-        JsonElement element,
-        string propertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var propertyElement))
-        {
-            return null;
-        }
-
-        return propertyElement.ValueKind == JsonValueKind.String
-            ? propertyElement.GetString()
-            : null;
-    }
-
     /// <summary> Determines whether value contains leading or trailing whitespace. </summary>
     /// <param name="value"> The source value. </param>
     /// <returns> <see langword="true" /> when leading or trailing whitespace exists; otherwise <see langword="false" />. </returns>
