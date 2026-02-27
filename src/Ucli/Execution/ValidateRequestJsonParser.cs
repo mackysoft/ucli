@@ -9,6 +9,13 @@ namespace MackySoft.Ucli.Execution;
 /// <summary> Parses request JSON into <see cref="ValidateRequest" /> values for static validation. </summary>
 internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
 {
+    private static readonly HashSet<string> AllowedRequestProperties = new(StringComparer.Ordinal)
+    {
+        "protocolVersion",
+        "requestId",
+        "ops",
+    };
+
     private static readonly HashSet<string> AllowedOperationProperties = new(StringComparer.Ordinal)
     {
         "id",
@@ -36,6 +43,13 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
             {
                 return ValidateRequestJsonParseResult.Failure(ExecutionError.InvalidArgument(
                     "Request JSON root must be an object."));
+            }
+
+            var unknownRequestProperty = FindUnknownProperty(document.RootElement, AllowedRequestProperties);
+            if (unknownRequestProperty is not null)
+            {
+                return ValidateRequestJsonParseResult.Failure(ExecutionError.InvalidArgument(
+                    $"Request contains an unknown property: {unknownRequestProperty}."));
             }
 
             var protocolVersion = ReadProtocolVersion(document.RootElement);
