@@ -12,6 +12,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="request"> The normalized request. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The request-level execution trace. </returns>
+        /// <exception cref="System.OperationCanceledException"> Thrown when execution is canceled. </exception>
         Task<PhaseExecutionTrace> Execute (
             PhaseExecutionCommand command,
             NormalizedExecuteRequest request,

@@ -10,7 +10,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Initializes a new instance of the <see cref="InMemoryPhaseOperationRegistry" /> class. </summary>
         /// <param name="operations"> The operation implementation collection. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operations" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operations" /> is <see langword="null" /> or contains a <see langword="null" /> operation. </exception>
+        /// <exception cref="ArgumentException"> Thrown when operation name is null, empty, or whitespace. </exception>
         public InMemoryPhaseOperationRegistry (IReadOnlyList<IPhaseOperation> operations)
         {
             if (operations == null)

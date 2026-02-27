@@ -46,6 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The response envelope for the incoming request. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> or <paramref name="context" /> is <see langword="null" />. </exception>
+        /// <exception cref="System.OperationCanceledException"> Thrown when dispatch is canceled. </exception>
         public async Task<IpcResponse> Dispatch (
             IpcExecuteRequest request,
             ExecuteDispatchContext context,
