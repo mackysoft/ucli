@@ -325,7 +325,9 @@ internal abstract class PathAssertionBase<TSelf>
         }
 
         var fullPath = Path.GetFullPath(inputPath);
-        return TrimTrailingDirectorySeparators(fullPath);
+        var resolvedPath = ResolveSymbolicLinks(fullPath);
+        var aliasNormalizedPath = NormalizeUnixPrivateAlias(resolvedPath);
+        return TrimTrailingDirectorySeparators(aliasNormalizedPath);
     }
 
     protected static void EnsureDirectoryExists (string directoryPath)
@@ -364,6 +366,103 @@ internal abstract class PathAssertionBase<TSelf>
         }
 
         return fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static string ResolveSymbolicLinks (string fullPath)
+    {
+        var root = Path.GetPathRoot(fullPath);
+        if (string.IsNullOrEmpty(root))
+        {
+            return fullPath;
+        }
+
+        var relativePath = fullPath[root.Length..];
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return root;
+        }
+
+        var pathSegments = relativePath.Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries);
+        var currentPath = root;
+
+        for (var i = 0; i < pathSegments.Length; i++)
+        {
+            var candidatePath = Path.Combine(currentPath, pathSegments[i]);
+            if (PathExists(candidatePath))
+            {
+                currentPath = ResolveSymbolicLinkTarget(candidatePath);
+                continue;
+            }
+
+            currentPath = candidatePath;
+            for (var j = i + 1; j < pathSegments.Length; j++)
+            {
+                currentPath = Path.Combine(currentPath, pathSegments[j]);
+            }
+
+            break;
+        }
+
+        return currentPath;
+    }
+
+    private static string ResolveSymbolicLinkTarget (string path)
+    {
+        FileSystemInfo fileSystemInfo;
+        if (Directory.Exists(path))
+        {
+            fileSystemInfo = new DirectoryInfo(path);
+        }
+        else if (File.Exists(path))
+        {
+            fileSystemInfo = new FileInfo(path);
+        }
+        else
+        {
+            return path;
+        }
+
+        if (string.IsNullOrEmpty(fileSystemInfo.LinkTarget))
+        {
+            return path;
+        }
+
+        try
+        {
+            var finalTarget = fileSystemInfo.ResolveLinkTarget(returnFinalTarget: true);
+            return finalTarget == null
+                ? path
+                : Path.GetFullPath(finalTarget.FullName);
+        }
+        catch (IOException)
+        {
+            return path;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return path;
+        }
+    }
+
+    private static string NormalizeUnixPrivateAlias (string path)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return path;
+        }
+
+        const string UnixPrivatePrefix = "/private/";
+        if (!path.StartsWith(UnixPrivatePrefix, StringComparison.Ordinal))
+        {
+            return path;
+        }
+
+        var pathWithoutPrivatePrefix = path[(UnixPrivatePrefix.Length - 1)..];
+        return PathExists(pathWithoutPrivatePrefix)
+            ? pathWithoutPrivatePrefix
+            : path;
     }
 }
 

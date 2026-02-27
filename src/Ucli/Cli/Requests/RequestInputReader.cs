@@ -50,7 +50,7 @@ internal sealed class RequestInputReader : IRequestInputReader
 
         if (hasRequestPath && hasRedirectedStandardInput)
         {
-            return RequestInputReadResult.Failure(CreateInvalidArgument(
+            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 "Request input source is ambiguous. Specify either --requestPath or redirected standard input."));
         }
 
@@ -61,7 +61,7 @@ internal sealed class RequestInputReader : IRequestInputReader
 
         if (!hasRedirectedStandardInput)
         {
-            return RequestInputReadResult.Failure(CreateInvalidArgument(
+            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 "Request input was not provided. Use redirected standard input or --requestPath."));
         }
 
@@ -80,7 +80,7 @@ internal sealed class RequestInputReader : IRequestInputReader
         }
         catch (IOException exception)
         {
-            return RequestInputReadResult.Failure(CreateInternalError(
+            return RequestInputReadResult.Failure(ExecutionError.InternalError(
                 $"Failed to read request JSON from standard input. {exception.Message}"));
         }
 
@@ -102,22 +102,22 @@ internal sealed class RequestInputReader : IRequestInputReader
         }
         catch (Exception exception) when (IsPathFormatException(exception))
         {
-            return RequestInputReadResult.Failure(CreateInvalidArgument(
+            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Request path is invalid: {requestPath}."));
         }
         catch (FileNotFoundException)
         {
-            return RequestInputReadResult.Failure(CreateInvalidArgument(
+            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Request file was not found: {requestPath}."));
         }
         catch (DirectoryNotFoundException)
         {
-            return RequestInputReadResult.Failure(CreateInvalidArgument(
+            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Request directory was not found: {requestPath}."));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
-            return RequestInputReadResult.Failure(CreateInternalError(
+            return RequestInputReadResult.Failure(ExecutionError.InternalError(
                 $"Failed to read request JSON from file: {requestPath}. {exception.Message}"));
         }
 
@@ -136,7 +136,7 @@ internal sealed class RequestInputReader : IRequestInputReader
     {
         if (string.IsNullOrWhiteSpace(json))
         {
-            return RequestInputReadResult.Failure(CreateInvalidArgument(
+            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Request JSON from {sourceLabel} must not be empty."));
         }
 
@@ -146,7 +146,7 @@ internal sealed class RequestInputReader : IRequestInputReader
         }
         catch (JsonException exception)
         {
-            return RequestInputReadResult.Failure(CreateInvalidArgument(
+            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Request JSON from {sourceLabel} is invalid. {exception.Message}"));
         }
 
@@ -173,19 +173,4 @@ internal sealed class RequestInputReader : IRequestInputReader
             || exception is SecurityException;
     }
 
-    /// <summary> Creates an invalid-argument error for request input failures. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured invalid-argument error. </returns>
-    private static ExecutionError CreateInvalidArgument (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InvalidArgument, message);
-    }
-
-    /// <summary> Creates an internal error for request input failures. </summary>
-    /// <param name="message"> The error message. </param>
-    /// <returns> The structured internal error. </returns>
-    private static ExecutionError CreateInternalError (string message)
-    {
-        return new ExecutionError(ExecutionErrorKind.InternalError, message);
-    }
 }
