@@ -7,19 +7,19 @@ internal static class CliProcessRunner
 {
     private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(15);
 
-    public static Task<CommandExecutionResult> RunAsync (params string[] args)
+    public static Task<CommandExecutionResult> RunCommand (params string[] args)
     {
-        return RunCoreAsync(args, null);
+        return RunCommandCore(args, null);
     }
 
-    public static Task<CommandExecutionResult> RunWithWorkingDirectoryAsync (
+    public static Task<CommandExecutionResult> RunCommandWithWorkingDirectory (
         string workingDirectory,
         params string[] args)
     {
-        return RunCoreAsync(args, workingDirectory);
+        return RunCommandCore(args, workingDirectory);
     }
 
-    private static async Task<CommandExecutionResult> RunCoreAsync (
+    private static async Task<CommandExecutionResult> RunCommandCore (
         string[] args,
         string? workingDirectory)
     {

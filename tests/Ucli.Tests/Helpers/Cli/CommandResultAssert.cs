@@ -5,7 +5,7 @@ using MackySoft.Ucli.Cli;
 
 internal static class CommandResultAssert
 {
-    public static void AssertCommandResultCommon (
+    public static void HasStandardEnvelope (
         JsonElement root,
         string command,
         string status,
@@ -21,13 +21,13 @@ internal static class CommandResultAssert
             .HasValueKind("errors", JsonValueKind.Array);
     }
 
-    public static void AssertNoErrors (JsonElement root)
+    public static void HasNoErrors (JsonElement root)
     {
         JsonAssert.For(root)
             .HasArrayLength("errors", 0);
     }
 
-    public static void AssertSingleError (JsonElement root, string expectedCode)
+    public static void HasSingleError (JsonElement root, string expectedCode)
     {
         JsonAssert.For(root)
             .HasArrayLength("errors", 1)
