@@ -11,6 +11,7 @@ public sealed class RequestStaticValidatorTests
     {
         { "protocol-version-mismatch", ValidationErrorCodes.ProtocolVersionMismatch },
         { "request-id-invalid", ValidationErrorCodes.RequestIdInvalid },
+        { "request-id-not-canonical-d", ValidationErrorCodes.RequestIdInvalid },
         { "ops-required", ValidationErrorCodes.OpsRequired },
         { "op-id-duplicated", ValidationErrorCodes.OpIdDuplicated },
         { "operation-not-found", ValidationErrorCodes.OperationNotFound },
@@ -95,6 +96,7 @@ public sealed class RequestStaticValidatorTests
         {
             "protocol-version-mismatch" => CreateRequest(protocolVersion: CliProtocol.CurrentVersion + 1),
             "request-id-invalid" => CreateRequest(requestId: "invalid-request-id"),
+            "request-id-not-canonical-d" => CreateRequest(requestId: Guid.NewGuid().ToString("B")),
             "ops-required" => new ValidateRequest(
                 ProtocolVersion: CliProtocol.CurrentVersion,
                 RequestId: Guid.NewGuid().ToString(),
