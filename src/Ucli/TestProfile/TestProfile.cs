@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.TestProfile;
 
-/// <summary> Represents template JSON values used by <c>ucli test profile init</c>. </summary>
+/// <summary> Represents JSON values used by <c>ucli test profile init</c>. </summary>
 /// <param name="SchemaVersion"> The profile schema version. </param>
 /// <param name="ProjectPath"> The Unity project path value. </param>
 /// <param name="UnityVersion"> The optional Unity version. </param>
@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.TestProfile;
 /// <param name="TestSettingsPath"> The optional test settings path. </param>
 /// <param name="OutputDir"> The artifact output root directory path. </param>
 /// <param name="TimeoutSeconds"> The timeout value in seconds. </param>
-internal sealed record TestProfileTemplate (
+internal sealed record TestProfile (
     int SchemaVersion,
     string ProjectPath,
     string? UnityVersion,
@@ -33,11 +33,11 @@ internal sealed record TestProfileTemplate (
     private const string DefaultOutputDir = ".ucli/local/artifacts";
     private const int DefaultTimeoutSeconds = 1800;
 
-    /// <summary> Creates the default template values defined by the test-command specification. </summary>
-    /// <returns> The default template values. </returns>
-    public static TestProfileTemplate CreateDefault ()
+    /// <summary> Creates default values defined by the test-command specification. </summary>
+    /// <returns> The default profile values. </returns>
+    public static TestProfile CreateDefault ()
     {
-        return new TestProfileTemplate(
+        return new TestProfile(
             SchemaVersion: CurrentSchemaVersion,
             ProjectPath: DefaultProjectPath,
             UnityVersion: null,

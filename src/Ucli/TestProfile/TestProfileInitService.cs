@@ -80,7 +80,7 @@ internal sealed class TestProfileInitService : ITestProfileInitService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var templateJson = JsonSerializer.Serialize(TestProfileTemplate.CreateDefault(), SerializerOptions);
+        var templateJson = JsonSerializer.Serialize(TestProfile.CreateDefault(), SerializerOptions);
         try
         {
             await File.WriteAllTextAsync(
