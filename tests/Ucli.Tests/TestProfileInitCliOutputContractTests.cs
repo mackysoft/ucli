@@ -24,12 +24,12 @@ public sealed class TestProfileInitCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CliContractAssertions.AssertCommandResultCommon(
+        CommandResultAssert.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.TestProfileInit,
             status: CliProtocol.StatusOk,
             exitCode: (int)CliExitCode.Success);
-        CliContractAssertions.AssertNoErrors(outputJson.RootElement);
+        CommandResultAssert.AssertNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasValueKind("profilePath", JsonValueKind.String));
@@ -64,12 +64,12 @@ public sealed class TestProfileInitCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CliContractAssertions.AssertCommandResultCommon(
+        CommandResultAssert.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.TestProfileInit,
             status: CliProtocol.StatusOk,
             exitCode: (int)CliExitCode.Success);
-        CliContractAssertions.AssertNoErrors(outputJson.RootElement);
+        CommandResultAssert.AssertNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasValueKind("profilePath", JsonValueKind.String));
@@ -98,12 +98,12 @@ public sealed class TestProfileInitCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CliContractAssertions.AssertCommandResultCommon(
+        CommandResultAssert.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.TestProfileInit,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        CliContractAssertions.AssertSingleError(
+        CommandResultAssert.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
 
@@ -125,12 +125,12 @@ public sealed class TestProfileInitCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CliContractAssertions.AssertCommandResultCommon(
+        CommandResultAssert.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.TestProfileInit,
             status: CliProtocol.StatusOk,
             exitCode: (int)CliExitCode.Success);
-        CliContractAssertions.AssertNoErrors(outputJson.RootElement);
+        CommandResultAssert.AssertNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasValueKind("profilePath", JsonValueKind.String));
@@ -158,12 +158,12 @@ public sealed class TestProfileInitCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CliContractAssertions.AssertCommandResultCommon(
+        CommandResultAssert.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.TestProfileInit,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        CliContractAssertions.AssertSingleError(
+        CommandResultAssert.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
     }
@@ -183,12 +183,12 @@ public sealed class TestProfileInitCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CliContractAssertions.AssertCommandResultCommon(
+        CommandResultAssert.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.TestProfileInit,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        CliContractAssertions.AssertSingleError(
+        CommandResultAssert.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
     }
@@ -197,7 +197,7 @@ public sealed class TestProfileInitCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliToolRunner.RunAsync(
+        var result = await CliProcessRunner.RunAsync(
             UcliCommandNames.Test,
             UcliCommandNames.Profile,
             UcliCommandNames.InitSubcommand,
@@ -205,12 +205,12 @@ public sealed class TestProfileInitCliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CliContractAssertions.AssertCommandResultCommon(
+        CommandResultAssert.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.TestProfileInit,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        CliContractAssertions.AssertSingleError(
+        CommandResultAssert.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
@@ -240,8 +240,8 @@ public sealed class TestProfileInitCliOutputContractTests
         }
 
         return string.IsNullOrWhiteSpace(workingDirectory)
-            ? await CliToolRunner.RunAsync(args.ToArray())
-            : await CliToolRunner.RunWithWorkingDirectoryAsync(workingDirectory, args.ToArray());
+            ? await CliProcessRunner.RunAsync(args.ToArray())
+            : await CliProcessRunner.RunWithWorkingDirectoryAsync(workingDirectory, args.ToArray());
     }
 
     private static void AssertDefaultTestProfileValues (string profilePath)

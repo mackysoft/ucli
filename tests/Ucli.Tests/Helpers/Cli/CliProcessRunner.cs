@@ -3,7 +3,7 @@ namespace MackySoft.Tests;
 using System.Diagnostics;
 using MackySoft.Ucli.Cli;
 
-internal static class CliToolRunner
+internal static class CliProcessRunner
 {
     private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(15);
 

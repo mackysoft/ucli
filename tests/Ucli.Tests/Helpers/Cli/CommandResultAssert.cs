@@ -3,7 +3,7 @@ namespace MackySoft.Tests;
 using System.Text.Json;
 using MackySoft.Ucli.Cli;
 
-internal static class CliContractAssertions
+internal static class CommandResultAssert
 {
     public static void AssertCommandResultCommon (
         JsonElement root,
