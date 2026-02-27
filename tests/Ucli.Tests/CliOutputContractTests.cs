@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Cli;
@@ -19,28 +18,24 @@ public sealed class CliOutputContractTests
 
     private const string LocalDirectoryName = "local";
 
-    private const string TestProfileFileName = "test.profile.json";
-
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     private const string InitProjectPathOptionMessage = "Argument '--projectPath' is not recognized.";
-
-    private static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(15);
 
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Status_ReturnsNotImplementedErrorAsSingleJson ()
     {
-        var result = await RunToolAsync(UcliCommandNames.Status);
+        var result = await CliToolRunner.RunAsync(UcliCommandNames.Status);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
-        AssertCommandResultCommon(
+        CliContractAssertions.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.Status,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.ToolError);
-        AssertSingleError(
+        CliContractAssertions.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.CommandNotImplemented);
     }
@@ -62,12 +57,12 @@ public sealed class CliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        AssertCommandResultCommon(
+        CliContractAssertions.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.Init,
             status: CliProtocol.StatusOk,
             exitCode: (int)CliExitCode.Success);
-        AssertNoErrors(outputJson.RootElement);
+        CliContractAssertions.AssertNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasValueKind("configPath", JsonValueKind.String)
@@ -176,12 +171,12 @@ public sealed class CliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
+        CliContractAssertions.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.Init,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
+        CliContractAssertions.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
     }
@@ -193,7 +188,7 @@ public sealed class CliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-project-path-option");
         var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
 
-        var result = await RunToolWithWorkingDirectoryAsync(
+        var result = await CliToolRunner.RunWithWorkingDirectoryAsync(
             workingDirectoryPath,
             UcliCommandNames.Init,
             UcliContractConstants.CliOption.ProjectPath,
@@ -201,12 +196,12 @@ public sealed class CliOutputContractTests
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
+        CliContractAssertions.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.Init,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
+        CliContractAssertions.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
         Assert.Contains(InitProjectPathOptionMessage, result.StdErr, StringComparison.Ordinal);
@@ -214,222 +209,18 @@ public sealed class CliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task TestProfileInit_WithDefaultOutputPath_CreatesTemplateAndReturnsSuccessJson ()
-    {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-default");
-        var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
-        var expectedProfilePath = Path.Combine(workingDirectoryPath, UcliDirectoryName, TestProfileFileName);
-
-        var result = await RunTestProfileInitAsync(workingDirectory: workingDirectoryPath);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        AssertCommandResultCommon(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestProfileInit,
-            status: CliProtocol.StatusOk,
-            exitCode: (int)CliExitCode.Success);
-        AssertNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasValueKind("profilePath", JsonValueKind.String));
-
-        var actualProfilePath = outputJson.RootElement.GetProperty("payload").GetProperty("profilePath").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(actualProfilePath));
-        FileSystemAssert.ForPath(actualProfilePath!)
-            .IsRooted()
-            .EqualsNormalized(expectedProfilePath)
-            .Exists();
-        AssertDefaultTestProfileValues(expectedProfilePath);
-    }
-
-    [Theory]
-    [Trait("Size", "Medium")]
-    [InlineData("profiles/custom-profile", "profiles/custom-profile.json")]
-    [InlineData("profiles/custom-profile.json", "profiles/custom-profile.json")]
-    [InlineData("profiles/custom-profile.txt", "profiles/custom-profile.txt.json")]
-    public async Task TestProfileInit_WithOutputPath_NormalizesJsonExtension (
-        string outputPath,
-        string expectedRelativePath)
-    {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-output");
-        var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
-        var expectedProfilePath = Path.Combine(
-            workingDirectoryPath,
-            expectedRelativePath.Replace('/', Path.DirectorySeparatorChar));
-
-        var result = await RunTestProfileInitAsync(
-            workingDirectory: workingDirectoryPath,
-            outputPath: outputPath);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        AssertCommandResultCommon(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestProfileInit,
-            status: CliProtocol.StatusOk,
-            exitCode: (int)CliExitCode.Success);
-        AssertNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasValueKind("profilePath", JsonValueKind.String));
-
-        var actualProfilePath = outputJson.RootElement.GetProperty("payload").GetProperty("profilePath").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(actualProfilePath));
-        FileSystemAssert.ForPath(actualProfilePath!)
-            .IsRooted()
-            .EqualsNormalized(expectedProfilePath)
-            .Exists();
-        AssertDefaultTestProfileValues(expectedProfilePath);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task TestProfileInit_WithoutForce_WhenTargetFileExists_ReturnsInvalidArgumentError ()
-    {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-existing-no-force");
-        var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
-        var existingProfilePath = scope.WriteFile(Path.Combine("workspace", "profiles", "existing-profile.json"), "{\"legacy\":true}");
-
-        var result = await RunTestProfileInitAsync(
-            workingDirectory: workingDirectoryPath,
-            outputPath: existingProfilePath,
-            force: false);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestProfileInit,
-            status: CliProtocol.StatusError,
-            exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
-            outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
-
-        Assert.Equal("{\"legacy\":true}", File.ReadAllText(existingProfilePath));
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task TestProfileInit_WithForce_WhenTargetFileExists_OverwritesTemplate ()
-    {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-existing-force");
-        var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
-        var existingProfilePath = scope.WriteFile(Path.Combine("workspace", "profiles", "existing-profile.json"), "{\"legacy\":true}");
-
-        var result = await RunTestProfileInitAsync(
-            workingDirectory: workingDirectoryPath,
-            outputPath: existingProfilePath,
-            force: true);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        AssertCommandResultCommon(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestProfileInit,
-            status: CliProtocol.StatusOk,
-            exitCode: (int)CliExitCode.Success);
-        AssertNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasValueKind("profilePath", JsonValueKind.String));
-
-        var actualProfilePath = outputJson.RootElement.GetProperty("payload").GetProperty("profilePath").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(actualProfilePath));
-        FileSystemAssert.ForPath(actualProfilePath!)
-            .IsRooted()
-            .EqualsNormalized(existingProfilePath)
-            .Exists();
-        AssertDefaultTestProfileValues(existingProfilePath);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task TestProfileInit_WithDirectoryOutputPath_ReturnsInvalidArgumentError ()
-    {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-directory-path");
-        var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
-        var directoryPath = scope.CreateDirectory(Path.Combine("workspace", "existing-directory.json"));
-
-        var result = await RunTestProfileInitAsync(
-            workingDirectory: workingDirectoryPath,
-            outputPath: directoryPath);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestProfileInit,
-            status: CliProtocol.StatusError,
-            exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
-            outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
-    }
-
-    [Theory]
-    [Trait("Size", "Medium")]
-    [InlineData("profiles/")]
-    [InlineData("profiles\\")]
-    public async Task TestProfileInit_WithDirectoryStyleOutputPath_ReturnsInvalidArgumentError (string outputPath)
-    {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-profile-init-directory-style-output");
-        var (workingDirectoryPath, _, _, _, _) = CreateInitTargetPaths(scope, "workspace");
-
-        var result = await RunTestProfileInitAsync(
-            workingDirectory: workingDirectoryPath,
-            outputPath: outputPath);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestProfileInit,
-            status: CliProtocol.StatusError,
-            exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
-            outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task TestProfileInit_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        var result = await RunToolAsync(
-            UcliCommandNames.Test,
-            UcliCommandNames.Profile,
-            UcliCommandNames.InitSubcommand,
-            UcliContractConstants.CliOption.Unknown);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
-            outputJson.RootElement,
-            command: UcliCommandNames.TestProfileInit,
-            status: CliProtocol.StatusError,
-            exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
-            outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
-        Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Status_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await RunToolAsync(UcliCommandNames.Status, UcliContractConstants.CliOption.Unknown);
+        var result = await CliToolRunner.RunAsync(UcliCommandNames.Status, UcliContractConstants.CliOption.Unknown);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
+        CliContractAssertions.AssertCommandResultCommon(
             outputJson.RootElement,
             command: UcliCommandNames.Status,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
+        CliContractAssertions.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
@@ -439,117 +230,18 @@ public sealed class CliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task UnknownCommand_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await RunToolAsync("unknown");
+        var result = await CliToolRunner.RunAsync("unknown");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        AssertCommandResultCommon(
+        CliContractAssertions.AssertCommandResultCommon(
             outputJson.RootElement,
             command: CliProtocol.RootCommand,
             status: CliProtocol.StatusError,
             exitCode: (int)CliExitCode.InvalidArgument);
-        AssertSingleError(
+        CliContractAssertions.AssertSingleError(
             outputJson.RootElement,
             expectedCode: ErrorCodes.InvalidArgument);
-    }
-
-    private static void AssertCommandResultCommon (
-        JsonElement root,
-        string command,
-        string status,
-        int exitCode)
-    {
-        JsonAssert.For(root)
-            .HasInt32("protocolVersion", CliProtocol.CurrentVersion)
-            .HasString("command", command)
-            .HasString("status", status)
-            .HasInt32("exitCode", exitCode)
-            .HasValueKind("message", JsonValueKind.String)
-            .HasValueKind("payload", JsonValueKind.Object)
-            .HasValueKind("errors", JsonValueKind.Array);
-    }
-
-    private static void AssertNoErrors (JsonElement root)
-    {
-        JsonAssert.For(root)
-            .HasArrayLength("errors", 0);
-    }
-
-    private static void AssertSingleError (JsonElement root, string expectedCode)
-    {
-        JsonAssert.For(root)
-            .HasArrayLength("errors", 1)
-            .HasProperty("errors", 0, error => error
-                .HasString("code", expectedCode)
-                .HasValueKind("message", JsonValueKind.String)
-                .IsNull("opId"));
-    }
-
-    private static Task<CommandExecutionResult> RunToolAsync (params string[] args)
-    {
-        return RunToolCoreAsync(args, null);
-    }
-
-    private static Task<CommandExecutionResult> RunToolWithWorkingDirectoryAsync (
-        string workingDirectory,
-        params string[] args)
-    {
-        return RunToolCoreAsync(args, workingDirectory);
-    }
-
-    private static async Task<CommandExecutionResult> RunToolCoreAsync (
-        string[] args,
-        string? workingDirectory)
-    {
-        // NOTE:
-        // This test validates the process-level CLI contract (stdout JSON, stderr, exit code).
-        // Resolving command instances directly would bypass Program and parser error paths.
-        var toolPath = typeof(CommandResult).Assembly.Location;
-        Assert.True(File.Exists(toolPath), $"CLI assembly was not found: {toolPath}");
-
-        using var process = new Process();
-        var startInfo = process.StartInfo;
-        startInfo.FileName = "dotnet";
-        startInfo.UseShellExecute = false;
-        startInfo.RedirectStandardOutput = true;
-        startInfo.RedirectStandardError = true;
-        startInfo.CreateNoWindow = true;
-        if (!string.IsNullOrWhiteSpace(workingDirectory))
-        {
-            startInfo.WorkingDirectory = workingDirectory;
-        }
-
-        startInfo.ArgumentList.Add(toolPath);
-        foreach (var arg in args)
-        {
-            startInfo.ArgumentList.Add(arg);
-        }
-
-        var started = process.Start();
-        Assert.True(started, "Failed to start ucli process.");
-
-        var stdOutTask = process.StandardOutput.ReadToEndAsync();
-        var stdErrTask = process.StandardError.ReadToEndAsync();
-
-        using var timeoutCts = new CancellationTokenSource(ProcessTimeout);
-        try
-        {
-            await process.WaitForExitAsync(timeoutCts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-
-            throw new TimeoutException($"ucli process timed out after {ProcessTimeout.TotalSeconds} seconds.");
-        }
-
-        return new CommandExecutionResult(
-            ExitCode: process.ExitCode,
-            StdOut: await stdOutTask,
-            StdErr: await stdErrTask);
     }
 
     private static async Task<CommandExecutionResult> RunInitAsync (
@@ -559,41 +251,13 @@ public sealed class CliOutputContractTests
         if (string.IsNullOrWhiteSpace(workingDirectory))
         {
             return force
-                ? await RunToolAsync(UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
-                : await RunToolAsync(UcliCommandNames.Init);
+                ? await CliToolRunner.RunAsync(UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
+                : await CliToolRunner.RunAsync(UcliCommandNames.Init);
         }
 
         return force
-            ? await RunToolWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
-            : await RunToolWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init);
-    }
-
-    private static async Task<CommandExecutionResult> RunTestProfileInitAsync (
-        string? workingDirectory = null,
-        string? outputPath = null,
-        bool force = false)
-    {
-        var args = new List<string>
-        {
-            UcliCommandNames.Test,
-            UcliCommandNames.Profile,
-            UcliCommandNames.InitSubcommand,
-        };
-
-        if (!string.IsNullOrWhiteSpace(outputPath))
-        {
-            args.Add(UcliContractConstants.CliOption.OutputPath);
-            args.Add(outputPath);
-        }
-
-        if (force)
-        {
-            args.Add(UcliContractConstants.CliOption.Force);
-        }
-
-        return string.IsNullOrWhiteSpace(workingDirectory)
-            ? await RunToolAsync(args.ToArray())
-            : await RunToolWithWorkingDirectoryAsync(workingDirectory, args.ToArray());
+            ? await CliToolRunner.RunWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init, UcliContractConstants.CliOption.Force)
+            : await CliToolRunner.RunWithWorkingDirectoryAsync(workingDirectory, UcliCommandNames.Init);
     }
 
     private static (string WorkingDirectoryPath, string UcliDirectoryPath, string LocalDirectoryPath, string ConfigPath, string GitIgnorePath) CreateInitTargetPaths (
@@ -628,24 +292,6 @@ public sealed class CliOutputContractTests
         return Path.Combine(GetUcliDirectoryPath(workingDirectoryPath), GitIgnoreFileName);
     }
 
-    private static void AssertDefaultTestProfileValues (string profilePath)
-    {
-        using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
-        JsonAssert.For(profileJson.RootElement)
-            .HasInt32("schemaVersion", UcliContractConstants.TestProfile.SchemaVersion)
-            .HasString("projectPath", UcliContractConstants.TestProfile.ProjectPath)
-            .IsNull("unityVersion")
-            .IsNull("unityEditorPath")
-            .HasString("testPlatform", UcliContractConstants.TestProfile.TestPlatformEditMode)
-            .IsNull("buildTarget")
-            .IsNull("testFilter")
-            .HasArrayLength("testCategories", 0)
-            .HasArrayLength("assemblyNames", 0)
-            .IsNull("testSettingsPath")
-            .HasString("outputDir", UcliContractConstants.TestProfile.OutputDir)
-            .HasInt32("timeoutSeconds", UcliContractConstants.TestProfile.TimeoutSeconds);
-    }
-
     private static void AssertDefaultConfigValues (string configPath)
     {
         using var configJson = JsonDocument.Parse(File.ReadAllText(configPath));
@@ -675,9 +321,4 @@ public sealed class CliOutputContractTests
         var relativePath = Path.GetRelativePath(scope.FullPath, absolutePath);
         scope.WriteFile(relativePath, contents);
     }
-
-    private readonly record struct CommandExecutionResult (
-        int ExitCode,
-        string StdOut,
-        string StdErr);
 }
