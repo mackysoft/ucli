@@ -1,7 +1,9 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Cli;
+using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Operations;
@@ -52,6 +54,9 @@ internal static class Program
                 services.AddSingleton<IOperationCatalog, OperationCatalog>();
                 services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
                 services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
+                services.AddSingleton<IRequestInputReader, RequestInputReader>();
+                services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
+                services.AddSingleton<IPhaseExecutionPreflightService, PhaseExecutionPreflightService>();
                 services.AddSingleton<ITestProfileInitService, TestProfileInitService>();
             });
         app.UseFilter<OperationCatalogWarmupFilter>();
