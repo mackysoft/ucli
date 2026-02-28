@@ -1,7 +1,5 @@
 using System;
-using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -15,14 +13,10 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Dispatches execute requests to operation-phase execution pipelines. </summary>
     internal sealed class ExecuteRequestDispatcher : IExecuteRequestDispatcher
     {
-        private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions SerializerOptions = new ()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false,
-            Converters =
-            {
-                new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
-            },
         };
 
         private readonly IExecuteRequestNormalizer requestNormalizer;
@@ -64,43 +58,32 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!TryResolveExecutionCommand(request.Command, out var executionCommand))
+            if (!ExecuteRequestCommandResolver.TryResolve(request.Command, out PhaseExecutionCommand executionCommand))
             {
-                return CreateErrorResponse(
+                return ExecuteResponseBuilder.CreateErrorResponse(
                     context,
                     IpcErrorCodes.CommandNotImplemented,
                     $"Execute command '{request.Command}' is not implemented.",
-                    null);
+                    null,
+                    SerializerOptions);
             }
 
             var normalizationResult = requestNormalizer.Normalize(request, cancellationToken);
             if (!normalizationResult.IsSuccess)
             {
                 var normalizationError = normalizationResult.Error!;
-                return CreateErrorResponse(
+                return ExecuteResponseBuilder.CreateErrorResponse(
                     context,
                     normalizationError.Code,
                     normalizationError.Message,
-                    normalizationError.OpId);
+                    normalizationError.OpId,
+                    SerializerOptions);
             }
 
             try
             {
                 var trace = await operationPhaseExecutor.Execute(executionCommand, normalizationResult.Request!, cancellationToken);
-                var payload = JsonSerializer.SerializeToElement(new
-                {
-                    operationTraces = trace.OperationTraces,
-                    errors = trace.Errors,
-                }, SerializerOptions);
-                var errors = trace.Errors
-                    .Select(error => new IpcError(error.Code, error.Message, error.OpId))
-                    .ToArray();
-                return new IpcResponse(
-                    ProtocolVersion: context.ProtocolVersion,
-                    RequestId: context.RequestId,
-                    Status: trace.IsSuccess ? IpcProtocol.StatusOk : IpcProtocol.StatusError,
-                    Payload: payload,
-                    Errors: errors);
+                return ExecuteResponseBuilder.CreateExecutionResponse(context, trace, SerializerOptions);
             }
             catch (OperationCanceledException)
             {
@@ -108,65 +91,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (Exception exception)
             {
-                return CreateErrorResponse(
+                return ExecuteResponseBuilder.CreateErrorResponse(
                     context,
                     IpcErrorCodes.InternalError,
                     $"Unexpected error occurred while dispatching execute request. {exception.Message}",
-                    null);
+                    null,
+                    SerializerOptions);
             }
-        }
-
-        /// <summary> Resolves phase-execution command from execute request command name. </summary>
-        /// <param name="commandName"> The execute request command name. </param>
-        /// <param name="command"> The resolved phase command. </param>
-        /// <returns> <see langword="true" /> when command is supported in this dispatcher; otherwise <see langword="false" />. </returns>
-        private static bool TryResolveExecutionCommand (
-            string commandName,
-            out PhaseExecutionCommand command)
-        {
-            switch (commandName)
-            {
-                case IpcExecuteCommandNames.Plan:
-                    command = PhaseExecutionCommand.Plan;
-                    return true;
-
-                case IpcExecuteCommandNames.Call:
-                    command = PhaseExecutionCommand.Call;
-                    return true;
-
-                case IpcExecuteCommandNames.Resolve:
-                case IpcExecuteCommandNames.Query:
-                case IpcExecuteCommandNames.Refresh:
-                    command = default;
-                    return false;
-
-                default:
-                    command = default;
-                    return false;
-            }
-        }
-
-        /// <summary> Creates an error response with one error entry. </summary>
-        /// <param name="context"> The request-level dispatch context. </param>
-        /// <param name="code"> The error code. </param>
-        /// <param name="message"> The error message. </param>
-        /// <param name="opId"> The related operation identifier. </param>
-        /// <returns> The error response envelope. </returns>
-        private static IpcResponse CreateErrorResponse (
-            ExecuteDispatchContext context,
-            string code,
-            string message,
-            string? opId)
-        {
-            return new IpcResponse(
-                ProtocolVersion: context.ProtocolVersion,
-                RequestId: context.RequestId,
-                Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { }, SerializerOptions),
-                Errors: new[]
-                {
-                    new IpcError(code, message, opId),
-                });
         }
     }
 }
