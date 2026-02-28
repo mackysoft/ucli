@@ -21,7 +21,7 @@ internal static class ReadIndexModeResolver
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        if (string.IsNullOrWhiteSpace(optionValue))
+        if (optionValue is null)
         {
             return ReadIndexModeResolutionResult.Success(config.ReadIndexDefaultMode);
         }
