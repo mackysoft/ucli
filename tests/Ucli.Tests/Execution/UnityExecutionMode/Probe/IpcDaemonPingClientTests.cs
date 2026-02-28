@@ -19,7 +19,7 @@ public sealed class IpcDaemonPingClientTests
         await pingClient.Ping(context, CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
-        Assert.Equal(context.UnityProjectRoot, unityIpcClient.LastProjectRoot);
+        Assert.Equal(context.RepositoryRoot, unityIpcClient.LastStorageRoot);
         Assert.Equal(context.ProjectFingerprint, unityIpcClient.LastProjectFingerprint);
         var request = Assert.IsType<IpcRequest>(unityIpcClient.LastRequest);
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
@@ -47,10 +47,11 @@ public sealed class IpcDaemonPingClientTests
 
     private static ResolvedUnityProjectContext CreateContext ()
     {
-        var projectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
+        var repositoryRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
+        var projectRoot = Path.Combine(repositoryRoot, "UnityProject");
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: projectRoot,
-            RepositoryRoot: projectRoot,
+            RepositoryRoot: repositoryRoot,
             ProjectFingerprint: "fingerprint",
             PathSource: UnityProjectPathSource.CommandOption);
     }
@@ -59,20 +60,20 @@ public sealed class IpcDaemonPingClientTests
     {
         public int CallCount { get; private set; }
 
-        public string? LastProjectRoot { get; private set; }
+        public string? LastStorageRoot { get; private set; }
 
         public string? LastProjectFingerprint { get; private set; }
 
         public IpcRequest? LastRequest { get; private set; }
 
         public ValueTask<IpcResponse> SendAsync (
-            string projectRoot,
+            string storageRoot,
             string projectFingerprint,
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            LastProjectRoot = projectRoot;
+            LastStorageRoot = storageRoot;
             LastProjectFingerprint = projectFingerprint;
             LastRequest = request;
 

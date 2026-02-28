@@ -46,6 +46,8 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.Equal(1, daemonPingClient.CallCount);
         var observedProject = Assert.IsType<ResolvedUnityProjectContext>(daemonPingClient.LastUnityProject);
         Assert.Equal(context.UnityProjectRoot, observedProject.UnityProjectRoot);
+        Assert.Equal(context.RepositoryRoot, endpointResolver.LastStorageRoot);
+        Assert.Equal(context.ProjectFingerprint, endpointResolver.LastProjectFingerprint);
         Assert.Equal(context.ProjectFingerprint, observedProject.ProjectFingerprint);
     }
 
@@ -148,11 +150,32 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.Equal(1, daemonPingClient.CallCount);
     }
 
-    private static ResolvedUnityProjectContext CreateContext (string projectRoot)
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Probe_WithNestedUnityProject_UsesRepositoryRootForEndpointResolution ()
     {
+        var endpointResolver = new StubEndpointResolver(
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-nested-project"));
+        var daemonPingClient = new StubDaemonPingClient(_ => ValueTask.CompletedTask);
+        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var repositoryRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
+        var unityProjectRoot = Path.Combine(repositoryRoot, "UnityProject");
+
+        var result = await probe.Probe(CreateContext(unityProjectRoot, repositoryRoot), CancellationToken.None);
+
+        Assert.True(result.IsRunning);
+        Assert.Equal(repositoryRoot, endpointResolver.LastStorageRoot);
+        Assert.NotEqual(unityProjectRoot, endpointResolver.LastStorageRoot);
+    }
+
+    private static ResolvedUnityProjectContext CreateContext (
+        string projectRoot,
+        string? repositoryRoot = null)
+    {
+        repositoryRoot ??= projectRoot;
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: projectRoot,
-            RepositoryRoot: projectRoot,
+            RepositoryRoot: repositoryRoot,
             ProjectFingerprint: "fingerprint",
             PathSource: UnityProjectPathSource.CommandOption);
     }
@@ -166,10 +189,16 @@ public sealed class IpcDaemonReachabilityProbeTests
             this.endpoint = endpoint;
         }
 
+        public string? LastStorageRoot { get; private set; }
+
+        public string? LastProjectFingerprint { get; private set; }
+
         public IpcEndpoint Resolve (
-            string projectRoot,
+            string storageRoot,
             string projectFingerprint)
         {
+            LastStorageRoot = storageRoot;
+            LastProjectFingerprint = projectFingerprint;
             return endpoint;
         }
     }

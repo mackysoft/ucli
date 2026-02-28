@@ -38,7 +38,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         cancellationToken.ThrowIfCancellationRequested();
 
         var endpoint = endpointResolver.Resolve(
-            unityProject.UnityProjectRoot,
+            unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
 
         // NOTE:

@@ -35,7 +35,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient
         cancellationToken.ThrowIfCancellationRequested();
 
         await unityIpcClient.SendAsync(
-                unityProject.UnityProjectRoot,
+                unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 CreatePingRequest(),
                 cancellationToken)
