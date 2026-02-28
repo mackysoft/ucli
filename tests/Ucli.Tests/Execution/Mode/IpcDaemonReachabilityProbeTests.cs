@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MackySoft.Tests;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -65,13 +66,14 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.Equal(1, daemonPingClient.CallCount);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task Probe_WhenConnectivityExceptionOccurs_ReturnsNotRunning ()
+    [MemberData(nameof(NotRunningConnectivityExceptions))]
+    public async Task Probe_WhenConnectivityExceptionOccurs_ReturnsNotRunning (Exception exception)
     {
         var endpointResolver = new StubEndpointResolver(
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-connectivity"));
-        var daemonPingClient = new StubDaemonPingClient(_ => throw new IOException("io"));
+        var daemonPingClient = new StubDaemonPingClient(_ => throw exception);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
         var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), CancellationToken.None);
@@ -80,6 +82,13 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.False(result.HasError);
         Assert.Null(result.Error);
         Assert.Equal(1, daemonPingClient.CallCount);
+    }
+
+    public static IEnumerable<object[]> NotRunningConnectivityExceptions ()
+    {
+        yield return new object[] { new IOException("io") };
+        yield return new object[] { new SocketException((int)SocketError.ConnectionRefused) };
+        yield return new object[] { new UnauthorizedAccessException("unauthorized") };
     }
 
     [Fact]

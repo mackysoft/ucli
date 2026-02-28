@@ -16,22 +16,22 @@ public sealed class UnityExecutionModeParserTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("", "Auto")]
-    [InlineData(" ", "Auto")]
-    [InlineData("auto", "Auto")]
-    [InlineData("AUTO", "Auto")]
-    [InlineData("Daemon", "Daemon")]
-    [InlineData(" daemon ", "Daemon")]
-    [InlineData("oneshot", "Oneshot")]
-    [InlineData("OnEShOt", "Oneshot")]
+    [InlineData("", (int)UnityExecutionMode.Auto)]
+    [InlineData(" ", (int)UnityExecutionMode.Auto)]
+    [InlineData("auto", (int)UnityExecutionMode.Auto)]
+    [InlineData("AUTO", (int)UnityExecutionMode.Auto)]
+    [InlineData("Daemon", (int)UnityExecutionMode.Daemon)]
+    [InlineData(" daemon ", (int)UnityExecutionMode.Daemon)]
+    [InlineData("oneshot", (int)UnityExecutionMode.Oneshot)]
+    [InlineData("OnEShOt", (int)UnityExecutionMode.Oneshot)]
     public void TryParse_WithSupportedValue_ReturnsParsedMode (
         string value,
-        string expectedMode)
+        int expectedMode)
     {
         var result = UnityExecutionModeParser.TryParse(value, out var mode);
 
         Assert.True(result);
-        Assert.Equal(expectedMode, mode.ToString());
+        Assert.Equal((UnityExecutionMode)expectedMode, mode);
     }
 
     [Theory]
