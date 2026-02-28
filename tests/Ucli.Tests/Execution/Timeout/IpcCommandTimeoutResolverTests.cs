@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Tests.Execution.Timeout;
 
 public sealed class IpcCommandTimeoutResolverTests
 {
-    private const string CommandName = IpcTimeoutCommandNames.Status;
+    private const string CommandName = "status";
 
     [Fact]
     [Trait("Size", "Small")]

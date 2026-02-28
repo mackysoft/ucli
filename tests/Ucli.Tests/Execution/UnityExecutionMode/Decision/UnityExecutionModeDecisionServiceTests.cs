@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 
 public sealed class UnityExecutionModeDecisionServiceTests
 {
-    private const string CommandName = IpcTimeoutCommandNames.Status;
+    private const string CommandName = "status";
 
     [Fact]
     [Trait("Size", "Small")]

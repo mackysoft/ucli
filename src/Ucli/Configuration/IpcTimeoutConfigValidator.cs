@@ -130,6 +130,6 @@ internal static class IpcTimeoutConfigValidator
     /// <returns> The sorted command-key list. </returns>
     private static string GetSupportedCommandNamesDescription ()
     {
-        return string.Join(", ", IpcTimeoutCommandNames.SupportedCommands.OrderBy(static command => command, StringComparer.Ordinal));
+        return string.Join(", ", IpcTimeoutCommandNames.SupportedCommandNames.OrderBy(static command => command, StringComparer.Ordinal));
     }
 }
