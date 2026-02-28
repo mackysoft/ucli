@@ -1,8 +1,6 @@
-using System.Text.Json;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents an <c>execute</c> IPC response payload. </summary>
-/// <param name="Result"> The command execution result payload. </param>
+/// <param name="OpResults"> The per-operation execution results. </param>
 public sealed record IpcExecuteResponse (
-    JsonElement Result);
+    IReadOnlyList<IpcExecuteOperationResult> OpResults);

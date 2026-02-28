@@ -75,6 +75,43 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcExecuteResponse_SerializesWithOpResultsContract ()
+    {
+        var response = new IpcExecuteResponse(new[]
+        {
+            new IpcExecuteOperationResult(
+                OpId: "op-1",
+                Op: "ucli.resolve",
+                Phase: IpcExecuteOperationPhaseNames.Call,
+                Applied: true,
+                Changed: true,
+                Touched: new[]
+                {
+                    new IpcExecuteTouchedResource(
+                        Kind: IpcExecuteTouchedResourceKindNames.Scene,
+                        Path: "Assets/Scenes/Main.unity",
+                        Guid: "11111111111111111111111111111111"),
+                }),
+        });
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(response, SerializerOptions));
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasArrayLength("opResults", 1)
+            .HasProperty("opResults", 0, opResult => opResult
+                .HasString("opId", "op-1")
+                .HasString("op", "ucli.resolve")
+                .HasString("phase", IpcExecuteOperationPhaseNames.Call)
+                .HasBoolean("applied", true)
+                .HasBoolean("changed", true)
+                .HasArrayLength("touched", 1)
+                .HasProperty("touched", 0, touched => touched
+                    .HasString("kind", IpcExecuteTouchedResourceKindNames.Scene)
+                    .HasString("path", "Assets/Scenes/Main.unity")
+                    .HasString("guid", "11111111111111111111111111111111")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteCommandNames_ExposeExpectedCommandLiterals ()
     {
         Assert.Equal("validate", IpcExecuteCommandNames.Validate);
@@ -104,6 +141,26 @@ public sealed class IpcContractSerializationTests
         Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Query));
         Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Refresh));
         Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand("unknown"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteOperationPhaseNames_ExposeExpectedLiterals ()
+    {
+        Assert.Equal("validate", IpcExecuteOperationPhaseNames.Validate);
+        Assert.Equal("plan", IpcExecuteOperationPhaseNames.Plan);
+        Assert.Equal("call", IpcExecuteOperationPhaseNames.Call);
+        Assert.Equal("skipped", IpcExecuteOperationPhaseNames.Skipped);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteTouchedResourceKindNames_ExposeExpectedLiterals ()
+    {
+        Assert.Equal("scene", IpcExecuteTouchedResourceKindNames.Scene);
+        Assert.Equal("prefab", IpcExecuteTouchedResourceKindNames.Prefab);
+        Assert.Equal("asset", IpcExecuteTouchedResourceKindNames.Asset);
+        Assert.Equal("projectSettings", IpcExecuteTouchedResourceKindNames.ProjectSettings);
     }
 
 }
