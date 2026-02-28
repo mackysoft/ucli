@@ -73,7 +73,58 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
             Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
+            AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenPhaseExecutionFails_ReturnsOpResultsAndErrors () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Failure(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "op-1",
+                        "ucli.resolve",
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        new[]
+                        {
+                            new OperationTouch(OperationTouchKind.Scene, "Assets/Scenes/Main.unity", "11111111111111111111111111111111"),
+                        },
+                        new OperationFailure(IpcErrorCodes.InvalidArgument, "call failed", "op-1")),
+                    new OperationPhaseTrace(
+                        "op-2",
+                        "ucli.scene.open",
+                        OperationPhase.Skipped,
+                        false,
+                        false,
+                        System.Array.Empty<OperationTouch>(),
+                        null),
+                },
+                errors: new[]
+                {
+                    new OperationFailure(IpcErrorCodes.InvalidArgument, "call failed", "op-1"),
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(IpcExecuteCommandNames.Call);
+
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
+            Assert.That(response.Payload.TryGetProperty("opResults", out var opResults), Is.True);
+            Assert.That(opResults.GetArrayLength(), Is.EqualTo(2));
+            Assert.That(response.Payload.TryGetProperty("operationTraces", out _), Is.False);
         });
 
         [UnityTest]
@@ -109,7 +160,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestId: "req-1",
                 operationTraces: new[]
                 {
-                    new OperationPhaseTrace("op-1", "ucli.resolve", OperationPhase.Plan, false, false, System.Array.Empty<OperationTouch>(), null),
+                    new OperationPhaseTrace(
+                        "op-1",
+                        "ucli.resolve",
+                        OperationPhase.Plan,
+                        false,
+                        true,
+                        new[]
+                        {
+                            new OperationTouch(OperationTouchKind.Scene, "Assets/Scenes/Main.unity", "11111111111111111111111111111111"),
+                        },
+                        null),
                 }));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
@@ -118,8 +179,26 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors.Count, Is.EqualTo(0));
             Assert.That(phaseExecutor.ReceivedCommand, Is.EqualTo(expectedCommand));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
+            Assert.That(response.Payload.TryGetProperty("opResults", out var opResults), Is.True);
+            Assert.That(opResults.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(response.Payload.TryGetProperty("operationTraces", out _), Is.False);
+
+            var opResult = GetSingleArrayElement(opResults);
+            Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("op-1"));
+            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("ucli.resolve"));
+            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(IpcExecuteOperationPhaseNames.Plan));
+            Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
+            Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.True);
+
+            var touched = opResult.GetProperty("touched");
+            Assert.That(touched.GetArrayLength(), Is.EqualTo(1));
+            var touchedElement = GetSingleArrayElement(touched);
+            Assert.That(touchedElement.GetProperty("kind").GetString(), Is.EqualTo(IpcExecuteTouchedResourceKindNames.Scene));
+            Assert.That(touchedElement.GetProperty("path").GetString(), Is.EqualTo("Assets/Scenes/Main.unity"));
+            Assert.That(touchedElement.GetProperty("guid").GetString(), Is.EqualTo("11111111111111111111111111111111"));
         }
 
         private static async UniTask AssertReturnsCommandNotImplementedError (string commandName)
@@ -139,8 +218,27 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.CommandNotImplemented));
+            AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(normalizer.CallCount, Is.EqualTo(0));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        }
+
+        private static void AssertEmptyOpResultsPayload (JsonElement payload)
+        {
+            Assert.That(payload.ValueKind, Is.EqualTo(JsonValueKind.Object));
+            Assert.That(payload.TryGetProperty("opResults", out var opResults), Is.True);
+            Assert.That(opResults.ValueKind, Is.EqualTo(JsonValueKind.Array));
+            Assert.That(opResults.GetArrayLength(), Is.EqualTo(0));
+            Assert.That(payload.TryGetProperty("operationTraces", out _), Is.False);
+        }
+
+        private static JsonElement GetSingleArrayElement (JsonElement arrayElement)
+        {
+            var enumerator = arrayElement.EnumerateArray();
+            Assert.That(enumerator.MoveNext(), Is.True);
+            var first = enumerator.Current;
+            Assert.That(enumerator.MoveNext(), Is.False);
+            return first;
         }
 
         private static IpcExecuteRequest CreateExecuteRequest (string commandName)
