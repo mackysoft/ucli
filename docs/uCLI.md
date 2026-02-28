@@ -22,6 +22,10 @@
 ### 実行モード（`--mode`）
 `daemon` コマンドを除く各コマンドは `--mode` を受け取る。未指定時の既定値は `auto`。
 
+IPCを利用するコマンドは `--timeout <int>`（ミリ秒）を受け取る。  
+未指定時は `config.json` の `ipcTimeoutMillisecondsByCommand[command]` を優先し、未設定または `null` の場合は `ipcDefaultTimeoutMilliseconds` を使用する。  
+`--timeout` は `1..2147483647` の整数のみ許可し、空文字・空白・非数値・0以下は `INVALID_ARGUMENT` とする。
+
 - `daemon`
   - 既存デーモンへの接続を必須とする
   - デーモン未起動時はエラーを返す
@@ -285,11 +289,26 @@
   "operationPolicy": "safe",
   "planTokenMode": "optional",
   "readIndexDefaultMode": "requireFresh",
+  "ipcDefaultTimeoutMilliseconds": 3000,
+  "ipcTimeoutMillisecondsByCommand": {
+    "status": null,
+    "validate": null,
+    "plan": null,
+    "call": null,
+    "resolve": null,
+    "query": null,
+    "refresh": null,
+    "ops": null,
+    "daemon": null
+  },
   "operationAllowlist": [
     "^ucli\\."
   ]
 }
 ```
+
+- `ipcTimeoutMillisecondsByCommand` は空オブジェクト `{}` でも有効
+- 各値は `null` または `1..2147483647` の整数
 
 ### opのメタデータ
 - `name`：op名（例：`ucli.comp.set`）

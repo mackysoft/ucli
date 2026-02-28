@@ -1,5 +1,4 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Init;
 
 namespace MackySoft.Ucli.Cli;
@@ -60,9 +59,6 @@ internal sealed class InitCommand
                 });
         }
 
-        var error = executionResult.Error!;
-        return error.Kind == ExecutionErrorKind.InvalidArgument
-            ? CommandResult.InvalidArgument(CommandName, error.Message)
-            : CommandResult.InternalError(CommandName, error.Message);
+        return CommandResultFactory.FromExecutionError(CommandName, executionResult.Error!);
     }
 }

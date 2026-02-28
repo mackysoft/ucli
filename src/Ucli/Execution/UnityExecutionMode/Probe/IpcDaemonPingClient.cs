@@ -24,20 +24,25 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient
 
     /// <summary> Sends one ping request and waits for daemon response. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when daemon responds. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask Ping (
         ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
         var response = await unityIpcClient.SendAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 CreatePingRequest(),
+                timeout,
                 cancellationToken)
             .ConfigureAwait(false);
         EnsureSuccessfulPingResponse(response);

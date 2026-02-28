@@ -1,5 +1,4 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestProfile;
 
 namespace MackySoft.Ucli.Cli;
@@ -58,9 +57,8 @@ internal sealed class TestProfileInitCommand
                 });
         }
 
-        var error = executionResult.Error!;
-        return error.Kind == ExecutionErrorKind.InvalidArgument
-            ? CommandResult.InvalidArgument(UcliCommandNames.TestProfileInit, error.Message)
-            : CommandResult.InternalError(UcliCommandNames.TestProfileInit, error.Message);
+        return CommandResultFactory.FromExecutionError(
+            UcliCommandNames.TestProfileInit,
+            executionResult.Error!);
     }
 }

@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 
 public sealed class IpcDaemonPingClientTests
 {
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(3);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Ping_SendsPingRequestWithProbeContract ()
@@ -16,11 +18,12 @@ public sealed class IpcDaemonPingClientTests
         var pingClient = new IpcDaemonPingClient(unityIpcClient);
         var context = CreateContext();
 
-        await pingClient.Ping(context, CancellationToken.None);
+        await pingClient.Ping(context, DefaultTimeout, CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
         Assert.Equal(context.RepositoryRoot, unityIpcClient.LastStorageRoot);
         Assert.Equal(context.ProjectFingerprint, unityIpcClient.LastProjectFingerprint);
+        Assert.Equal(DefaultTimeout, unityIpcClient.LastTimeout);
         var request = Assert.IsType<IpcRequest>(unityIpcClient.LastRequest);
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
         Assert.Equal(IpcMethodNames.Ping, request.Method);
@@ -40,7 +43,7 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), cancellationTokenSource.Token);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationTokenSource.Token);
         });
         Assert.Equal(0, unityIpcClient.CallCount);
     }
@@ -58,7 +61,7 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<IOException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), CancellationToken.None);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
         });
     }
 
@@ -80,8 +83,25 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<IOException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), CancellationToken.None);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
         });
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Ping_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
+    {
+        var unityIpcClient = new StubUnityIpcClient();
+        var pingClient = new IpcDaemonPingClient(unityIpcClient);
+        var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+        {
+            await pingClient.Ping(CreateContext(), timeout, CancellationToken.None);
+        });
+        Assert.Equal(0, unityIpcClient.CallCount);
     }
 
     private static ResolvedUnityProjectContext CreateContext ()
@@ -116,16 +136,20 @@ public sealed class IpcDaemonPingClientTests
 
         public IpcRequest? LastRequest { get; private set; }
 
+        public TimeSpan LastTimeout { get; private set; }
+
         public ValueTask<IpcResponse> SendAsync (
             string storageRoot,
             string projectFingerprint,
             IpcRequest request,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastStorageRoot = storageRoot;
             LastProjectFingerprint = projectFingerprint;
             LastRequest = request;
+            LastTimeout = timeout;
 
             return ValueTask.FromResult(responseFactory(request));
         }
