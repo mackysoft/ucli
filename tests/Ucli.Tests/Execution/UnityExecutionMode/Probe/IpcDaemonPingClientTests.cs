@@ -50,9 +50,9 @@ public sealed class IpcDaemonPingClientTests
         var projectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: projectRoot,
+            RepositoryRoot: projectRoot,
             ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption,
-            ConfigPath: Path.Combine(projectRoot, ".ucli", "config.json"));
+            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private sealed class StubUnityIpcClient : IUnityIpcClient

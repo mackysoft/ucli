@@ -152,9 +152,9 @@ public sealed class IpcDaemonReachabilityProbeTests
     {
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: projectRoot,
+            RepositoryRoot: projectRoot,
             ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption,
-            ConfigPath: Path.Combine(projectRoot, ".ucli", "config.json"));
+            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private sealed class StubEndpointResolver : IIpcEndpointResolver
