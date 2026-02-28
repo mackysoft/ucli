@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Execution;
 /// <param name="Error"> The infrastructure error when decision fails unexpectedly; otherwise <see langword="null" />. </param>
 internal sealed record UnityExecutionModeDecisionResult (
     UnityExecutionModeDecision? Decision,
-    ModeDecisionContractError? ContractError,
+    UnityExecutionModeDecisionContractError? ContractError,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether mode decision succeeded. </summary>
@@ -31,7 +31,7 @@ internal sealed record UnityExecutionModeDecisionResult (
     /// <param name="contractError"> The contract error. </param>
     /// <returns> The contract-failure decision result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="contractError" /> is <see langword="null" />. </exception>
-    public static UnityExecutionModeDecisionResult ContractFailure (ModeDecisionContractError contractError)
+    public static UnityExecutionModeDecisionResult ContractFailure (UnityExecutionModeDecisionContractError contractError)
     {
         ArgumentNullException.ThrowIfNull(contractError);
         return new UnityExecutionModeDecisionResult(null, contractError, null);

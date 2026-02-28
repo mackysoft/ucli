@@ -37,8 +37,8 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.True(result.HasContractError);
         Assert.Null(result.Decision);
         Assert.Null(result.Error);
-        var contractError = Assert.IsType<ModeDecisionContractError>(result.ContractError);
-        Assert.Equal(ModeDecisionErrorCodes.DaemonNotRunning, contractError.Code);
+        var contractError = Assert.IsType<UnityExecutionModeDecisionContractError>(result.ContractError);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, contractError.Code);
         Assert.Equal("Daemon is not running for mode=daemon.", contractError.Message);
     }
 
@@ -87,8 +87,8 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.True(result.HasContractError);
         Assert.Null(result.Decision);
         Assert.Null(result.Error);
-        var contractError = Assert.IsType<ModeDecisionContractError>(result.ContractError);
-        Assert.Equal(ModeDecisionErrorCodes.DaemonRunningOneshotForbidden, contractError.Code);
+        var contractError = Assert.IsType<UnityExecutionModeDecisionContractError>(result.ContractError);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden, contractError.Code);
         Assert.Equal("Daemon is running for mode=oneshot.", contractError.Message);
     }
 

@@ -51,21 +51,21 @@ internal static class UnityExecutionModeDecisionResultFactory
     /// <param name="requestedMode"> The parsed requested mode. </param>
     /// <param name="daemonRunning"> Whether daemon is reachable. </param>
     /// <returns> The contract error when the requested mode is forbidden; otherwise <see langword="null" />. </returns>
-    private static ModeDecisionContractError? ResolveContractError (
+    private static UnityExecutionModeDecisionContractError? ResolveContractError (
         UnityExecutionMode requestedMode,
         bool daemonRunning)
     {
         if (requestedMode == UnityExecutionMode.Daemon && !daemonRunning)
         {
-            return new ModeDecisionContractError(
-                ModeDecisionErrorCodes.DaemonNotRunning,
+            return new UnityExecutionModeDecisionContractError(
+                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                 DaemonNotRunningMessage);
         }
 
         if (requestedMode == UnityExecutionMode.Oneshot && daemonRunning)
         {
-            return new ModeDecisionContractError(
-                ModeDecisionErrorCodes.DaemonRunningOneshotForbidden,
+            return new UnityExecutionModeDecisionContractError(
+                UnityExecutionModeDecisionErrorCodes.DaemonRunningOneshotForbidden,
                 DaemonRunningOneshotForbiddenMessage);
         }
 
