@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return ExecuteRequestNormalizationResult.Failure(requestIdError!);
             }
 
-            if (!ExecuteRequestOperationReader.TryReadOperations(request.Arguments, cancellationToken, out var operations, out var operationsError))
+            if (!ExecuteRequestOperationReader.TryReadOperations(request.Arguments, out var operations, out var operationsError))
             {
                 return ExecuteRequestNormalizationResult.Failure(operationsError!);
             }

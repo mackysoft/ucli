@@ -32,7 +32,7 @@ internal static class OperationContractReader
     /// <returns> <see langword="true" /> when contract is satisfied; otherwise <see langword="false" />. </returns>
     public static bool TryReadOperationId (
         JsonElement operationElement,
-        RequestSchemaPolicy policy,
+        in RequestSchemaPolicy policy,
         out string? operationId,
         out JsonStringReadError error)
     {
@@ -56,7 +56,7 @@ internal static class OperationContractReader
     /// <returns> <see langword="true" /> when contract is satisfied; otherwise <see langword="false" />. </returns>
     public static bool TryReadOperationName (
         JsonElement operationElement,
-        RequestSchemaPolicy policy,
+        in RequestSchemaPolicy policy,
         out string? operationName,
         out JsonStringReadError error)
     {
