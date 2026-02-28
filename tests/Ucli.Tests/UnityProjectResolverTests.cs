@@ -116,4 +116,25 @@ public sealed class UnityProjectResolverTests
         Assert.Equal(repositoryRoot, context.RepositoryRoot);
         Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_WithMultipleUnityProjectsUnderSameRepositoryRoot_ReturnsDifferentFingerprints ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "multiple-projects");
+        var repositoryRoot = scope.CreateDirectory("RepoRoot");
+        scope.CreateDirectory(Path.Combine("RepoRoot", ".git"));
+        var primaryProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "UnityProjectA"));
+        var secondaryProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "Packages", "UnityProjectB"));
+        var resolver = new UnityProjectResolver();
+
+        var primary = resolver.Resolve(primaryProjectPath);
+        var secondary = resolver.Resolve(secondaryProjectPath);
+
+        Assert.True(primary.IsSuccess);
+        Assert.True(secondary.IsSuccess);
+        Assert.Equal(repositoryRoot, primary.Context!.RepositoryRoot);
+        Assert.Equal(repositoryRoot, secondary.Context!.RepositoryRoot);
+        Assert.NotEqual(primary.Context!.ProjectFingerprint, secondary.Context!.ProjectFingerprint);
+    }
 }
