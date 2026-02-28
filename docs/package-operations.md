@@ -38,9 +38,9 @@ dotnet nuget add source "https://nuget.pkg.github.com/mackysoft/index.json" \
 ## Release Workflow
 - `contracts-package-verify`: `src/Ucli.Contracts` または workflow 自体に変更がある PR で、restore/build/pack を検証する。
 - `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグ push、または `workflow_dispatch` の `package_version` 指定で GitHub Packages へ公開する。
-- タグは `v` プレフィックスを付けない（例: `contracts/0.2.1`）。
+- タグは `v` プレフィックスを付けない（例: `contracts/0.2.2`）。
 
 ```bash
-git tag contracts/0.2.1
-git push origin contracts/0.2.1
+git tag contracts/0.2.2
+git push origin contracts/0.2.2
 ```
