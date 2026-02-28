@@ -45,6 +45,45 @@ public sealed class IpcDaemonPingClientTests
         Assert.Equal(0, unityIpcClient.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ping_WhenResponseStatusIsError_ThrowsIOException ()
+    {
+        var unityIpcClient = new StubUnityIpcClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusError,
+                Array.Empty<IpcError>()));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient);
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+        {
+            await pingClient.Ping(CreateContext(), CancellationToken.None);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ping_WhenResponseContainsErrors_ThrowsIOException ()
+    {
+        var unityIpcClient = new StubUnityIpcClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                [
+                    new IpcError(
+                        Code: IpcErrorCodes.InvalidArgument,
+                        Message: "invalid request",
+                        OpId: null),
+                ]));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient);
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+        {
+            await pingClient.Ping(CreateContext(), CancellationToken.None);
+        });
+    }
+
     private static ResolvedUnityProjectContext CreateContext ()
     {
         var repositoryRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
@@ -58,6 +97,17 @@ public sealed class IpcDaemonPingClientTests
 
     private sealed class StubUnityIpcClient : IUnityIpcClient
     {
+        private readonly Func<IpcRequest, IpcResponse> responseFactory;
+
+        public StubUnityIpcClient (Func<IpcRequest, IpcResponse>? responseFactory = null)
+        {
+            this.responseFactory = responseFactory ?? (request =>
+                CreateResponse(
+                    request,
+                    IpcProtocol.StatusOk,
+                    Array.Empty<IpcError>()));
+        }
+
         public int CallCount { get; private set; }
 
         public string? LastStorageRoot { get; private set; }
@@ -77,12 +127,20 @@ public sealed class IpcDaemonPingClientTests
             LastProjectFingerprint = projectFingerprint;
             LastRequest = request;
 
-            return ValueTask.FromResult(new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: request.RequestId,
-                Status: "ok",
-                Payload: JsonDocument.Parse("{}").RootElement.Clone(),
-                Errors: Array.Empty<IpcError>()));
+            return ValueTask.FromResult(responseFactory(request));
         }
+    }
+
+    private static IpcResponse CreateResponse (
+        IpcRequest request,
+        string status,
+        IReadOnlyList<IpcError> errors)
+    {
+        return new IpcResponse(
+            ProtocolVersion: request.ProtocolVersion,
+            RequestId: request.RequestId,
+            Status: status,
+            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            Errors: errors);
     }
 }
