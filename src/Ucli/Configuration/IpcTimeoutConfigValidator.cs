@@ -73,7 +73,10 @@ internal static class IpcTimeoutConfigValidator
     }
 
     /// <summary> Validates command-timeout override values before saving config. </summary>
-    /// <param name="source"> The command-timeout override map in config values. Must not be <see langword="null" />. </param>
+    /// <param name="source">
+    /// <para> The command-timeout override map in config values. </para>
+    /// <para> Must not be <see langword="null" />. </para>
+    /// </param>
     /// <param name="error"> The validation error when validation fails. </param>
     /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
     public static bool TryValidateCommandTimeoutOverrides (

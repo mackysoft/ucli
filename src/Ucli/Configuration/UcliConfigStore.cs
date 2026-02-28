@@ -22,7 +22,10 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     };
 
     /// <summary> Resolves the absolute path to <c>.ucli/config.json</c> for a storage root. </summary>
-    /// <param name="storageRoot"> The storage-root path used as the base directory. Must not be <see langword="null" />. </param>
+    /// <param name="storageRoot">
+    /// <para> The storage-root path used as the base directory. </para>
+    /// <para> Must not be <see langword="null" />. </para>
+    /// </param>
     /// <returns> The absolute config path. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> contains invalid path characters. </exception>
@@ -35,7 +38,10 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     }
 
     /// <summary> Loads configuration values for a storage root. </summary>
-    /// <param name="storageRoot"> The storage-root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
+    /// <param name="storageRoot">
+    /// <para> The storage-root path from command context. </para>
+    /// <para> <see langword="null" />, empty, and whitespace values return an invalid-argument result. </para>
+    /// </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-load result. When <c>.ucli/config.json</c> does not exist, default config values are returned with <see cref="ConfigSource.Default" />. </returns>
     public async ValueTask<UcliConfigLoadResult> Load (
@@ -108,7 +114,10 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     }
 
     /// <summary> Saves configuration values to <c>.ucli/config.json</c>. </summary>
-    /// <param name="storageRoot"> The storage-root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
+    /// <param name="storageRoot">
+    /// <para> The storage-root path from command context. </para>
+    /// <para> <see langword="null" />, empty, and whitespace values return an invalid-argument result. </para>
+    /// </param>
     /// <param name="config"> The config values to persist. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-save result. </returns>
