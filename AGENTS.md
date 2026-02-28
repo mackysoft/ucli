@@ -42,6 +42,7 @@
 
 ## 非同期規約
 - 非同期関数は必ず`CancellationToken`を伝搬させる。特別な理由がない限りは、公開APIの引数に`default`パラメーターを設定する。
+- 同期関数に`CancellationToken`を定義しない。命名プレフィックスに`Async`を用いない。
 - 非同期関数は必ず、適切な箇所で`ThrowIfCancellationRequested`を呼び出し、キャンセル要求を尊重すること。
 
 ## DI規約
@@ -52,7 +53,7 @@
 - `UnityEngine.Object` から派生するオブジェクト・コンポーネントに対しては、`null`評価系の演算子を用いないこと（`??`、`?.`、`?:`、`is null`、`is not null`、etc）
 - Unityオブジェクトの生存判定は `== null` / `!= null` のみを使用する
 - `RequireComponent` を使用する場合、対象コンポーネント参照フィールドには `SerializeField` を付けない（`GetComponent` で解決する）
-- `.meta`ファイルはUnityエディターが生成する。手動での追加・削除は行わないこと。
+- `.meta`ファイルはUnityエディターが生成する。手動での追加は行わないこと。Unityにコードファイルを追加した場合はbatchmodeで起動して、AssetDatabaseを更新すること。
 
 ## テスト実行
 Unityのテストは `-runTests` を使い、`-testPlatform` と `-assemblyNames` を必ず明示する。
