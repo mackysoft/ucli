@@ -108,14 +108,18 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Equal(UnityExecutionTarget.Oneshot, decision.Target);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task Decide_WithInvalidMode_ReturnsInvalidArgumentError ()
+    [InlineData("invalid")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public async Task Decide_WithInvalidMode_ReturnsInvalidArgumentError (string mode)
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.Decide("invalid", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(mode, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);

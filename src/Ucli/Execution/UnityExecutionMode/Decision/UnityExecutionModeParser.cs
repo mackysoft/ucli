@@ -10,16 +10,26 @@ internal static class UnityExecutionModeParser
     private const string OneshotValue = "oneshot";
 
     /// <summary> Parses one <c>--mode</c> option value into <see cref="UnityExecutionMode" />. </summary>
-    /// <param name="value"> The raw CLI option value. <see langword="null" />, empty, and whitespace are normalized to <c>auto</c>. </param>
+    /// <param name="value"> The raw CLI option value. <see langword="null" /> is normalized to <c>auto</c>; empty or whitespace are treated as invalid. </param>
     /// <param name="mode"> The parsed mode when parsing succeeds; otherwise the default enum value. </param>
     /// <returns> <see langword="true" /> when parsing succeeded; otherwise <see langword="false" />. </returns>
     public static bool TryParse (
         string? value,
         out UnityExecutionMode mode)
     {
-        var normalizedValue = string.IsNullOrWhiteSpace(value)
-            ? AutoValue
-            : value.Trim();
+        if (value is null)
+        {
+            mode = UnityExecutionMode.Auto;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            mode = default;
+            return false;
+        }
+
+        var normalizedValue = value.Trim();
         if (string.Equals(normalizedValue, AutoValue, StringComparison.OrdinalIgnoreCase))
         {
             mode = UnityExecutionMode.Auto;
