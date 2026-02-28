@@ -91,8 +91,13 @@ public sealed class IpcDaemonReachabilityProbeTests
 
     public static IEnumerable<object[]> NotRunningConnectivityExceptions ()
     {
-        yield return new object[] { new IOException("io") };
         yield return new object[] { new SocketException((int)SocketError.ConnectionRefused) };
+    }
+
+    public static IEnumerable<object[]> IoFailureExceptions ()
+    {
+        yield return new object[] { new IOException("io") };
+        yield return new object[] { new EndOfStreamException("truncated frame") };
     }
 
     [Fact]
@@ -102,6 +107,43 @@ public sealed class IpcDaemonReachabilityProbeTests
         var endpointResolver = new StubEndpointResolver(
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-failure"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new InvalidOperationException("boom"));
+        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+
+        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+
+        Assert.False(result.IsRunning);
+        Assert.True(result.HasError);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("Failed to probe daemon reachability.", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(IoFailureExceptions))]
+    public async Task Probe_WhenIoFailureOccurs_ReturnsInternalError (Exception exception)
+    {
+        var endpointResolver = new StubEndpointResolver(
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-io-failure"));
+        var daemonPingClient = new StubDaemonPingClient((_, _) => throw exception);
+        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+
+        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+
+        Assert.False(result.IsRunning);
+        Assert.True(result.HasError);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("Failed to probe daemon reachability.", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Probe_WhenPingResponseIsRejected_ReturnsInternalError ()
+    {
+        var endpointResolver = new StubEndpointResolver(
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-ping-response-error"));
+        var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
         var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);

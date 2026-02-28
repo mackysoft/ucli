@@ -13,7 +13,6 @@ internal static class DaemonProbeExceptionClassifier
     {
         ArgumentNullException.ThrowIfNull(exception);
         return exception is TimeoutException
-            or IOException
             or SocketException;
     }
 }

@@ -50,18 +50,18 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient
 
     /// <summary> Validates ping response status and error payload. </summary>
     /// <param name="response"> The response returned from daemon. </param>
-    /// <exception cref="IOException"> Thrown when daemon reports non-success status or error entries. </exception>
+    /// <exception cref="DaemonPingResponseException"> Thrown when daemon reports non-success status or error entries. </exception>
     private static void EnsureSuccessfulPingResponse (IpcResponse response)
     {
         if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal))
         {
-            throw new IOException($"Daemon ping failed with status '{response.Status}'.");
+            throw new DaemonPingResponseException($"Daemon ping failed with status '{response.Status}'.");
         }
 
         if (response.Errors.Count > 0)
         {
             var firstError = response.Errors[0];
-            throw new IOException($"Daemon ping failed with error code '{firstError.Code}'.");
+            throw new DaemonPingResponseException($"Daemon ping failed with error code '{firstError.Code}'.");
         }
     }
 

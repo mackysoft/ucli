@@ -50,7 +50,7 @@ public sealed class IpcDaemonPingClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Ping_WhenResponseStatusIsError_ThrowsIOException ()
+    public async Task Ping_WhenResponseStatusIsError_ThrowsDaemonPingResponseException ()
     {
         var unityIpcClient = new StubUnityIpcClient(request =>
             CreateResponse(
@@ -59,7 +59,7 @@ public sealed class IpcDaemonPingClientTests
                 Array.Empty<IpcError>()));
         var pingClient = new IpcDaemonPingClient(unityIpcClient);
 
-        await Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
         });
@@ -67,7 +67,7 @@ public sealed class IpcDaemonPingClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Ping_WhenResponseContainsErrors_ThrowsIOException ()
+    public async Task Ping_WhenResponseContainsErrors_ThrowsDaemonPingResponseException ()
     {
         var unityIpcClient = new StubUnityIpcClient(request =>
             CreateResponse(
@@ -81,7 +81,7 @@ public sealed class IpcDaemonPingClientTests
                 ]));
         var pingClient = new IpcDaemonPingClient(unityIpcClient);
 
-        await Assert.ThrowsAsync<IOException>(async () =>
+        await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
             await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
         });
