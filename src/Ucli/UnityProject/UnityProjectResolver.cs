@@ -10,9 +10,6 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
     private const string ProjectSettingsDirectoryName = "ProjectSettings";
     private const string ProjectVersionFileName = "ProjectVersion.txt";
 
-    private const string UcliDirectoryName = ".ucli";
-    private const string ConfigFileName = "config.json";
-
     /// <summary> Resolves UnityProject context from command options and validates required project markers. </summary>
     /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
     /// <returns> The resolution result containing either a validated UnityProject context or a structured error. </returns>
@@ -47,32 +44,32 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
                 $"UnityProject is invalid. Missing file: {projectVersionPath}"));
         }
 
-        var projectFingerprint = CreateProjectFingerprint(unityProjectRoot);
-        var configPath = Path.Combine(unityProjectRoot, UcliDirectoryName, ConfigFileName);
+        var repositoryRoot = UcliStorageRootPathResolver.Resolve(unityProjectRoot);
+        var projectFingerprint = CreateProjectFingerprint(repositoryRoot);
         return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,
+            RepositoryRoot: repositoryRoot,
             ProjectFingerprint: projectFingerprint,
-            PathSource: pathSource,
-            ConfigPath: configPath));
+            PathSource: pathSource));
     }
 
-    /// <summary> Creates a deterministic SHA-256 fingerprint for the normalized UnityProject root path. </summary>
-    /// <param name="unityProjectRoot"> The normalized absolute UnityProject root path. </param>
+    /// <summary> Creates a deterministic SHA-256 fingerprint for the normalized storage root path. </summary>
+    /// <param name="storageRoot"> The normalized absolute storage root path. </param>
     /// <returns> The lowercase hexadecimal SHA-256 string. </returns>
-    private static string CreateProjectFingerprint (string unityProjectRoot)
+    private static string CreateProjectFingerprint (string storageRoot)
     {
-        var normalizedPath = NormalizeForFingerprint(unityProjectRoot);
+        var normalizedPath = NormalizeForFingerprint(storageRoot);
         var normalizedBytes = Encoding.UTF8.GetBytes(normalizedPath);
         var hashBytes = SHA256.HashData(normalizedBytes);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
 
-    /// <summary> Normalizes a UnityProject path value to improve fingerprint stability. </summary>
-    /// <param name="unityProjectRoot"> The input UnityProject root path. </param>
+    /// <summary> Normalizes a storage-root path value to improve fingerprint stability. </summary>
+    /// <param name="storageRoot"> The input storage-root path. </param>
     /// <returns> The normalized path value used as fingerprint input. </returns>
-    private static string NormalizeForFingerprint (string unityProjectRoot)
+    private static string NormalizeForFingerprint (string storageRoot)
     {
-        var fullPath = Path.GetFullPath(unityProjectRoot);
+        var fullPath = Path.GetFullPath(storageRoot);
         fullPath = fullPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
         var pathRoot = Path.GetPathRoot(fullPath);
         if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, PathComparison))

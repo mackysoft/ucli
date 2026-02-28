@@ -20,16 +20,16 @@ internal sealed class UnityIpcClient : IUnityIpcClient
     }
 
     /// <summary> Sends one IPC request to the resolved endpoint and returns its response. </summary>
-    /// <param name="projectRoot"> The Unity project root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The Unity project fingerprint. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="request"> The request envelope to send. Must not be <see langword="null" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response returned by Unity daemon. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
     /// <exception cref="TimeoutException"> Thrown when endpoint connection exceeds the transport timeout. </exception>
     public async ValueTask<IpcResponse> SendAsync (
-        string projectRoot,
+        string storageRoot,
         string projectFingerprint,
         IpcRequest request,
         CancellationToken cancellationToken = default)
@@ -37,7 +37,7 @@ internal sealed class UnityIpcClient : IUnityIpcClient
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var endpoint = endpointResolver.Resolve(projectRoot, projectFingerprint);
+        var endpoint = endpointResolver.Resolve(storageRoot, projectFingerprint);
 
         await using var stream = await ConnectAsync(endpoint, cancellationToken);
         await IpcFrameCodec.WriteModelAsync(

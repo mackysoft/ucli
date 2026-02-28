@@ -29,7 +29,7 @@ public sealed class UnityIpcClientTests
 
         var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
         {
-            await client.SendAsync("project-root", "fingerprint", request).AsTask();
+            await client.SendAsync("storage-root", "fingerprint", request).AsTask();
         });
         Assert.Contains("named pipe", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -59,7 +59,7 @@ public sealed class UnityIpcClientTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await client.SendAsync(
-                    "project-root",
+                    "storage-root",
                     "fingerprint",
                     request,
                     cancellationTokenSource.Token)
@@ -77,7 +77,7 @@ public sealed class UnityIpcClientTests
         }
 
         public IpcEndpoint Resolve (
-            string projectRoot,
+            string storageRoot,
             string projectFingerprint)
         {
             return endpoint;

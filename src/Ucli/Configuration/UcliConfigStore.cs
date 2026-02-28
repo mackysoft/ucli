@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.ReadIndex;
 
 namespace MackySoft.Ucli.Configuration;
 
@@ -18,43 +19,43 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         WriteIndented = true,
     };
 
-    /// <summary> Resolves the absolute path to <c>.ucli/config.json</c> for a UnityProject root. </summary>
-    /// <param name="unityProjectRoot"> The UnityProject root path used as the base directory. Must not be <see langword="null" />. </param>
+    /// <summary> Resolves the absolute path to <c>.ucli/config.json</c> for a storage root. </summary>
+    /// <param name="storageRoot"> The storage-root path used as the base directory. Must not be <see langword="null" />. </param>
     /// <returns> The absolute config path. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProjectRoot" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="unityProjectRoot" /> contains invalid path characters. </exception>
-    /// <exception cref="NotSupportedException"> Thrown when <paramref name="unityProjectRoot" /> uses an unsupported path format. </exception>
-    /// <exception cref="PathTooLongException"> Thrown when <paramref name="unityProjectRoot" /> exceeds platform path limits. </exception>
-    public string GetConfigPath (string unityProjectRoot)
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> contains invalid path characters. </exception>
+    /// <exception cref="NotSupportedException"> Thrown when <paramref name="storageRoot" /> uses an unsupported path format. </exception>
+    /// <exception cref="PathTooLongException"> Thrown when <paramref name="storageRoot" /> exceeds platform path limits. </exception>
+    public string GetConfigPath (string storageRoot)
     {
-        var fullPath = Path.GetFullPath(unityProjectRoot);
+        var fullPath = Path.GetFullPath(storageRoot);
         return Path.Combine(fullPath, UcliDirectoryName, ConfigFileName);
     }
 
-    /// <summary> Loads configuration values for a UnityProject root. </summary>
-    /// <param name="unityProjectRoot"> The UnityProject root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
+    /// <summary> Loads configuration values for a storage root. </summary>
+    /// <param name="storageRoot"> The storage-root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-load result. When <c>.ucli/config.json</c> does not exist, default config values are returned with <see cref="ConfigSource.Default" />. </returns>
     public async ValueTask<UcliConfigLoadResult> Load (
-        string unityProjectRoot,
+        string storageRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (string.IsNullOrWhiteSpace(unityProjectRoot))
+        if (string.IsNullOrWhiteSpace(storageRoot))
         {
-            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument("UnityProject root path must not be empty."));
+            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument("Storage root path must not be empty."));
         }
 
         string configPath;
         try
         {
-            configPath = GetConfigPath(unityProjectRoot);
+            configPath = GetConfigPath(storageRoot);
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
             return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject root path is invalid: {unityProjectRoot}"));
+                $"Storage root path is invalid: {storageRoot}"));
         }
 
         if (!File.Exists(configPath))
@@ -105,21 +106,21 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     }
 
     /// <summary> Saves configuration values to <c>.ucli/config.json</c>. </summary>
-    /// <param name="unityProjectRoot"> The UnityProject root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
+    /// <param name="storageRoot"> The storage-root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
     /// <param name="config"> The config values to persist. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-save result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="config" /> is <see langword="null" />. </exception>
     public async ValueTask<UcliConfigSaveResult> Save (
-        string unityProjectRoot,
+        string storageRoot,
         UcliConfig config,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (string.IsNullOrWhiteSpace(unityProjectRoot))
+        if (string.IsNullOrWhiteSpace(storageRoot))
         {
-            return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument("UnityProject root path must not be empty."));
+            return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument("Storage root path must not be empty."));
         }
 
         ArgumentNullException.ThrowIfNull(config);
@@ -127,12 +128,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         string configPath;
         try
         {
-            configPath = GetConfigPath(unityProjectRoot);
+            configPath = GetConfigPath(storageRoot);
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
             return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject root path is invalid: {unityProjectRoot}"));
+                $"Storage root path is invalid: {storageRoot}"));
         }
 
         var configValidationResult = ValidateConfig(config, configPath);
@@ -203,6 +204,14 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                 $"Config planTokenMode is invalid: {document.PlanTokenMode}."));
         }
 
+        var readIndexDefaultModeValue = document.ReadIndexDefaultMode
+            ?? UcliConfigValueConstants.ReadIndexModeRequireFresh;
+        if (!TryParseReadIndexMode(readIndexDefaultModeValue, out var readIndexDefaultMode))
+        {
+            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
+                $"Config readIndexDefaultMode is invalid: {readIndexDefaultModeValue}."));
+        }
+
         if (document.OperationAllowlist is null)
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
@@ -232,6 +241,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             SchemaVersion: document.SchemaVersion,
             OperationPolicy: operationPolicy,
             PlanTokenMode: planTokenMode,
+            ReadIndexDefaultMode: readIndexDefaultMode,
             OperationAllowlist: normalizedAllowlist);
         return ConfigParseResult.Success(config);
     }
@@ -307,6 +317,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             SchemaVersion: config.SchemaVersion,
             OperationPolicy: ToStringValue(config.OperationPolicy),
             PlanTokenMode: ToStringValue(config.PlanTokenMode),
+            ReadIndexDefaultMode: ToStringValue(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray());
     }
 
@@ -336,6 +347,21 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             PlanTokenMode.Optional => UcliConfigValueConstants.PlanTokenModeOptional,
             PlanTokenMode.Required => UcliConfigValueConstants.PlanTokenModeRequired,
             _ => throw new ArgumentOutOfRangeException(nameof(planTokenMode), planTokenMode, "Unsupported planTokenMode."),
+        };
+    }
+
+    /// <summary> Converts <see cref="ReadIndexMode" /> to the config string value. </summary>
+    /// <param name="readIndexMode"> The read-index mode value. </param>
+    /// <returns> The config string representation. </returns>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="readIndexMode" /> is outside supported values. </exception>
+    private static string ToStringValue (ReadIndexMode readIndexMode)
+    {
+        return readIndexMode switch
+        {
+            ReadIndexMode.Disabled => UcliConfigValueConstants.ReadIndexModeDisabled,
+            ReadIndexMode.AllowStale => UcliConfigValueConstants.ReadIndexModeAllowStale,
+            ReadIndexMode.RequireFresh => UcliConfigValueConstants.ReadIndexModeRequireFresh,
+            _ => throw new ArgumentOutOfRangeException(nameof(readIndexMode), readIndexMode, "Unsupported readIndexMode."),
         };
     }
 
@@ -389,6 +415,34 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         return false;
     }
 
+    /// <summary> Parses read-index-mode config values. </summary>
+    /// <param name="value"> The config string value. </param>
+    /// <param name="readIndexMode"> The parsed enum value. </param>
+    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
+    private static bool TryParseReadIndexMode (string? value, out ReadIndexMode readIndexMode)
+    {
+        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeDisabled, StringComparison.OrdinalIgnoreCase))
+        {
+            readIndexMode = ReadIndexMode.Disabled;
+            return true;
+        }
+
+        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeAllowStale, StringComparison.OrdinalIgnoreCase))
+        {
+            readIndexMode = ReadIndexMode.AllowStale;
+            return true;
+        }
+
+        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeRequireFresh, StringComparison.OrdinalIgnoreCase))
+        {
+            readIndexMode = ReadIndexMode.RequireFresh;
+            return true;
+        }
+
+        readIndexMode = default;
+        return false;
+    }
+
     /// <summary> Determines whether an exception should be treated as invalid path formatting. </summary>
     /// <param name="exception"> The exception to classify. </param>
     /// <returns> <see langword="true" /> when invalid path formatting is detected; otherwise <see langword="false" />. </returns>
@@ -412,11 +466,13 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <param name="SchemaVersion"> The config schema version. </param>
     /// <param name="OperationPolicy"> The operation-policy value. </param>
     /// <param name="PlanTokenMode"> The plan-token-mode value. </param>
+    /// <param name="ReadIndexDefaultMode"> The read-index default mode value. </param>
     /// <param name="OperationAllowlist"> The operation-name allowlist. </param>
     private sealed record UcliConfigDocument (
         int SchemaVersion,
         string OperationPolicy,
         string PlanTokenMode,
+        string? ReadIndexDefaultMode,
         string[] OperationAllowlist);
 
     /// <summary> Represents result values from config parse operations. </summary>

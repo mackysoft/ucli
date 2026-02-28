@@ -38,7 +38,7 @@ internal sealed class InitStatusContextResolver : IInitStatusContextResolver
         }
 
         var unityProjectContext = unityProjectResult.Context!;
-        var configLoadResult = await configStore.Load(unityProjectContext.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
+        var configLoadResult = await configStore.Load(unityProjectContext.RepositoryRoot, cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
         {
             return InitStatusContextResolutionResult.Failure(configLoadResult.Error!);
