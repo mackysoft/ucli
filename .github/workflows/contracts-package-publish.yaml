@@ -12,7 +12,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -61,3 +63,27 @@ jobs:
           --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
           --api-key "${{ secrets.GITHUB_TOKEN }}"
           --skip-duplicate
+
+      - name: Sync contracts csproj version
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "${DEFAULT_BRANCH}"
+          git checkout -B "${DEFAULT_BRANCH}" "origin/${DEFAULT_BRANCH}"
+
+          csproj_path="src/Ucli.Contracts/Ucli.Contracts.csproj"
+          current_version="$(sed -n 's#.*<Version>\(.*\)</Version>.*#\1#p' "${csproj_path}" | head -n 1)"
+          if [[ "${current_version}" == "${PACKAGE_VERSION}" ]]; then
+            echo "No csproj version update required."
+            exit 0
+          fi
+
+          sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>${PACKAGE_VERSION}<\/Version>/" "${csproj_path}"
+
+          git add "${csproj_path}"
+          git commit -m "chore(contracts): sync package version to ${PACKAGE_VERSION}"
+          git push origin "HEAD:${DEFAULT_BRANCH}"
