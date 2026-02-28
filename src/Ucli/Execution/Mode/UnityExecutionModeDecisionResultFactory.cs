@@ -32,6 +32,7 @@ internal static class UnityExecutionModeDecisionResultFactory
     /// <param name="requestedMode"> The parsed requested mode. </param>
     /// <param name="daemonRunning"> Whether daemon is reachable. </param>
     /// <returns> The resolved mode decision result. </returns>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="requestedMode" /> is outside supported values. </exception>
     public static UnityExecutionModeDecisionResult FromRequestedMode (
         UnityExecutionMode requestedMode,
         bool daemonRunning)
