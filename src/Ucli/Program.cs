@@ -50,6 +50,8 @@ internal static class Program
                 services.AddSingleton<IInitService, InitService>();
                 services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
                 services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
+                services.AddSingleton<IDaemonReachabilityProbe, IpcDaemonReachabilityProbe>();
+                services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
                 services.AddSingleton<IOperationCatalogProvider, InMemoryOperationCatalogProvider>();
                 services.AddSingleton<IOperationCatalog, OperationCatalog>();
                 services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
