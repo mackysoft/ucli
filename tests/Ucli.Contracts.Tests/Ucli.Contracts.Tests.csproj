@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <AssemblyName>MackySoft.Ucli.Tests</AssemblyName>
-    <RootNamespace>MackySoft.Ucli.Tests</RootNamespace>
+    <AssemblyName>MackySoft.Ucli.Contracts.Tests</AssemblyName>
+    <RootNamespace>MackySoft.Ucli.Contracts.Tests</RootNamespace>
     <LangVersion>13.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -19,7 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Ucli.Contracts/Ucli.Contracts.csproj" />
-    <ProjectReference Include="../../src/Ucli/Ucli.csproj" />
     <ProjectReference Include="../Tests.Helper/Tests.Helper.csproj" />
   </ItemGroup>
 
