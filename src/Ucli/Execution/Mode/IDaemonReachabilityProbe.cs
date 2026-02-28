@@ -10,7 +10,7 @@ internal interface IDaemonReachabilityProbe
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The reachability probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    ValueTask<DaemonReachabilityProbeResult> ProbeAsync (
+    ValueTask<DaemonReachabilityProbeResult> Probe (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

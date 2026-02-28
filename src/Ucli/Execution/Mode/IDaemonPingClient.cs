@@ -10,7 +10,7 @@ internal interface IDaemonPingClient
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when daemon responds. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    ValueTask PingAsync (
+    ValueTask Ping (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

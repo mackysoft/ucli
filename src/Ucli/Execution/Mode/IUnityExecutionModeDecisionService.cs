@@ -11,7 +11,7 @@ internal interface IUnityExecutionModeDecisionService
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mode decision result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    ValueTask<UnityExecutionModeDecisionResult> DecideAsync (
+    ValueTask<UnityExecutionModeDecisionResult> Decide (
         string? mode,
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);

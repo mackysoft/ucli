@@ -28,7 +28,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mode decision result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public async ValueTask<UnityExecutionModeDecisionResult> DecideAsync (
+    public async ValueTask<UnityExecutionModeDecisionResult> Decide (
         string? mode,
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
@@ -41,7 +41,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
             return UnityExecutionModeDecisionResult.Failure(ExecutionError.InvalidArgument(InvalidModeMessage));
         }
 
-        var reachabilityResult = await daemonReachabilityProbe.ProbeAsync(unityProject, cancellationToken).ConfigureAwait(false);
+        var reachabilityResult = await daemonReachabilityProbe.Probe(unityProject, cancellationToken).ConfigureAwait(false);
         if (reachabilityResult.HasError)
         {
             return UnityExecutionModeDecisionResult.Failure(reachabilityResult.Error!);

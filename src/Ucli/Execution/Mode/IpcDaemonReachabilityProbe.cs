@@ -31,7 +31,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon reachability probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public async ValueTask<DaemonReachabilityProbeResult> ProbeAsync (
+    public async ValueTask<DaemonReachabilityProbeResult> Probe (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
@@ -55,7 +55,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         timeoutCancellationTokenSource.CancelAfter(ProbeTimeout);
         try
         {
-            await daemonPingClient.PingAsync(
+            await daemonPingClient.Ping(
                     unityProject,
                     timeoutCancellationTokenSource.Token)
                 .ConfigureAwait(false);
