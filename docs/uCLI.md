@@ -809,7 +809,8 @@ ucli test run \
 
 ### 識別
 - `repoRoot = realpath(Git repository root from CWD or --projectPath)`
-- `projectFingerprint = SHA256(normalize(repoRoot))`（OS差分を吸収した正規化を必須）
+- `projectFingerprint = SHA256(normalize(repoRoot) + "\n" + normalize(relativeUnityProjectPathFromRepoRoot))`
+  - 同一リポジトリ配下に複数Unityプロジェクトが存在しても衝突しない識別子とする
 
 ### エンドポイント
 OSごとに最適なローカルIPCを選ぶ。
