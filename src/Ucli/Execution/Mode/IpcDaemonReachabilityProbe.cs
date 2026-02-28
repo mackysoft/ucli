@@ -1,4 +1,3 @@
-using System.Net.Sockets;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
@@ -61,16 +60,19 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
                 .ConfigureAwait(false);
             return DaemonReachabilityProbeResult.Running();
         }
-        catch (OperationCanceledException)
-            when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
+        catch (OperationCanceledException exception)
+            when (DaemonProbeExceptionClassifier.IsProbeTimeout(
+                exception,
+                cancellationToken,
+                timeoutCancellationTokenSource.Token))
         {
             return DaemonReachabilityProbeResult.NotRunning();
         }
-        catch (TimeoutException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return DaemonReachabilityProbeResult.NotRunning();
+            throw;
         }
-        catch (Exception exception) when (IsConnectivityFailure(exception))
+        catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {
             return DaemonReachabilityProbeResult.NotRunning();
         }
@@ -79,15 +81,5 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             return DaemonReachabilityProbeResult.Failure(
                 ExecutionError.InternalError($"Failed to probe daemon reachability. {exception.Message}"));
         }
-    }
-
-    /// <summary> Determines whether an exception indicates endpoint reachability failure. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when the exception means endpoint is not reachable; otherwise <see langword="false" />. </returns>
-    private static bool IsConnectivityFailure (Exception exception)
-    {
-        return exception is IOException
-            or SocketException
-            or UnauthorizedAccessException;
     }
 }

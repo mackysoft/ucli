@@ -118,6 +118,27 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.Equal(0, daemonPingClient.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Probe_WhenCanceledDuringPing_ThrowsOperationCanceledException ()
+    {
+        var endpointResolver = new StubEndpointResolver(
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-canceled-during-ping"));
+        var daemonPingClient = new StubDaemonPingClient(cancellationToken =>
+            new ValueTask(Task.Delay(Timeout.Infinite, cancellationToken)));
+        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var probeTask = probe.Probe(CreateContext(Path.GetFullPath(".")), cancellationTokenSource.Token).AsTask();
+        cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(50));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await probeTask;
+        });
+        Assert.Equal(1, daemonPingClient.CallCount);
+    }
+
     private static ResolvedUnityProjectContext CreateContext (string projectRoot)
     {
         return new ResolvedUnityProjectContext(
