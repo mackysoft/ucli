@@ -9,13 +9,16 @@ internal interface IUnityIpcClient
     /// <param name="storageRoot"> The storage root used to resolve endpoint paths. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint used to resolve endpoint identity. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="request"> The IPC request envelope. Must not be <see langword="null" />. </param>
+    /// <param name="timeout"> The timeout for one IPC request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response envelope received from Unity daemon. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     ValueTask<IpcResponse> SendAsync (
         string storageRoot,
         string projectFingerprint,
         IpcRequest request,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

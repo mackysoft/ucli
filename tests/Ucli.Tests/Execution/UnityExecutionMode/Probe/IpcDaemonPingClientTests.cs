@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 
 public sealed class IpcDaemonPingClientTests
 {
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(3);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Ping_SendsPingRequestWithProbeContract ()
@@ -16,11 +18,12 @@ public sealed class IpcDaemonPingClientTests
         var pingClient = new IpcDaemonPingClient(unityIpcClient);
         var context = CreateContext();
 
-        await pingClient.Ping(context, CancellationToken.None);
+        await pingClient.Ping(context, DefaultTimeout, CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
-        Assert.Equal(context.UnityProjectRoot, unityIpcClient.LastProjectRoot);
+        Assert.Equal(context.RepositoryRoot, unityIpcClient.LastStorageRoot);
         Assert.Equal(context.ProjectFingerprint, unityIpcClient.LastProjectFingerprint);
+        Assert.Equal(DefaultTimeout, unityIpcClient.LastTimeout);
         var request = Assert.IsType<IpcRequest>(unityIpcClient.LastRequest);
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
         Assert.Equal(IpcMethodNames.Ping, request.Method);
@@ -40,48 +43,128 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), cancellationTokenSource.Token);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationTokenSource.Token);
+        });
+        Assert.Equal(0, unityIpcClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ping_WhenResponseStatusIsError_ThrowsDaemonPingResponseException ()
+    {
+        var unityIpcClient = new StubUnityIpcClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusError,
+                Array.Empty<IpcError>()));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient);
+
+        await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ping_WhenResponseContainsErrors_ThrowsDaemonPingResponseException ()
+    {
+        var unityIpcClient = new StubUnityIpcClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                [
+                    new IpcError(
+                        Code: IpcErrorCodes.InvalidArgument,
+                        Message: "invalid request",
+                        OpId: null),
+                ]));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient);
+
+        await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
+        });
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Ping_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
+    {
+        var unityIpcClient = new StubUnityIpcClient();
+        var pingClient = new IpcDaemonPingClient(unityIpcClient);
+        var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+        {
+            await pingClient.Ping(CreateContext(), timeout, CancellationToken.None);
         });
         Assert.Equal(0, unityIpcClient.CallCount);
     }
 
     private static ResolvedUnityProjectContext CreateContext ()
     {
-        var projectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
+        var repositoryRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
+        var projectRoot = Path.Combine(repositoryRoot, "UnityProject");
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: projectRoot,
+            RepositoryRoot: repositoryRoot,
             ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption,
-            ConfigPath: Path.Combine(projectRoot, ".ucli", "config.json"));
+            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private sealed class StubUnityIpcClient : IUnityIpcClient
     {
+        private readonly Func<IpcRequest, IpcResponse> responseFactory;
+
+        public StubUnityIpcClient (Func<IpcRequest, IpcResponse>? responseFactory = null)
+        {
+            this.responseFactory = responseFactory ?? (request =>
+                CreateResponse(
+                    request,
+                    IpcProtocol.StatusOk,
+                    Array.Empty<IpcError>()));
+        }
+
         public int CallCount { get; private set; }
 
-        public string? LastProjectRoot { get; private set; }
+        public string? LastStorageRoot { get; private set; }
 
         public string? LastProjectFingerprint { get; private set; }
 
         public IpcRequest? LastRequest { get; private set; }
 
+        public TimeSpan LastTimeout { get; private set; }
+
         public ValueTask<IpcResponse> SendAsync (
-            string projectRoot,
+            string storageRoot,
             string projectFingerprint,
             IpcRequest request,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            LastProjectRoot = projectRoot;
+            LastStorageRoot = storageRoot;
             LastProjectFingerprint = projectFingerprint;
             LastRequest = request;
+            LastTimeout = timeout;
 
-            return ValueTask.FromResult(new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: request.RequestId,
-                Status: "ok",
-                Payload: JsonDocument.Parse("{}").RootElement.Clone(),
-                Errors: Array.Empty<IpcError>()));
+            return ValueTask.FromResult(responseFactory(request));
         }
+    }
+
+    private static IpcResponse CreateResponse (
+        IpcRequest request,
+        string status,
+        IReadOnlyList<IpcError> errors)
+    {
+        return new IpcResponse(
+            ProtocolVersion: request.ProtocolVersion,
+            RequestId: request.RequestId,
+            Status: status,
+            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            Errors: errors);
     }
 }

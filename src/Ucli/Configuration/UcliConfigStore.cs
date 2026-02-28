@@ -1,4 +1,6 @@
+using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.ReadIndex;
@@ -20,7 +22,10 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     };
 
     /// <summary> Resolves the absolute path to <c>.ucli/config.json</c> for a storage root. </summary>
-    /// <param name="storageRoot"> The storage-root path used as the base directory. Must not be <see langword="null" />. </param>
+    /// <param name="storageRoot">
+    /// <para> The storage-root path used as the base directory. </para>
+    /// <para> Must not be <see langword="null" />. </para>
+    /// </param>
     /// <returns> The absolute config path. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> contains invalid path characters. </exception>
@@ -33,7 +38,10 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     }
 
     /// <summary> Loads configuration values for a storage root. </summary>
-    /// <param name="storageRoot"> The storage-root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
+    /// <param name="storageRoot">
+    /// <para> The storage-root path from command context. </para>
+    /// <para> <see langword="null" />, empty, and whitespace values return an invalid-argument result. </para>
+    /// </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-load result. When <c>.ucli/config.json</c> does not exist, default config values are returned with <see cref="ConfigSource.Default" />. </returns>
     public async ValueTask<UcliConfigLoadResult> Load (
@@ -106,7 +114,10 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     }
 
     /// <summary> Saves configuration values to <c>.ucli/config.json</c>. </summary>
-    /// <param name="storageRoot"> The storage-root path from command context. <see langword="null" />, empty, and whitespace values return an invalid-argument result. </param>
+    /// <param name="storageRoot">
+    /// <para> The storage-root path from command context. </para>
+    /// <para> <see langword="null" />, empty, and whitespace values return an invalid-argument result. </para>
+    /// </param>
     /// <param name="config"> The config values to persist. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the config-save result. </returns>
@@ -192,6 +203,13 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                 $"Config schemaVersion must be {SupportedSchemaVersion}. Actual: {document.SchemaVersion}."));
         }
 
+        if (document.AdditionalProperties is not null && document.AdditionalProperties.Count > 0)
+        {
+            var unknownPropertyNames = string.Join(", ", document.AdditionalProperties.Keys.OrderBy(static key => key, StringComparer.Ordinal));
+            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
+                $"Config contains unknown properties: {unknownPropertyNames}."));
+        }
+
         if (!TryParseOperationPolicy(document.OperationPolicy, out var operationPolicy))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
@@ -210,6 +228,22 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config readIndexDefaultMode is invalid: {readIndexDefaultModeValue}."));
+        }
+
+        var ipcDefaultTimeoutMillisecondsValue = document.IpcDefaultTimeoutMilliseconds
+            ?? UcliConfig.DefaultIpcTimeoutMilliseconds;
+        if (!IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(ipcDefaultTimeoutMillisecondsValue, out var ipcDefaultTimeoutMilliseconds))
+        {
+            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
+                $"Config ipcDefaultTimeoutMilliseconds is invalid: {ipcDefaultTimeoutMillisecondsValue}."));
+        }
+
+        if (!IpcTimeoutConfigValidator.TryParseCommandTimeoutOverrides(
+                document.IpcTimeoutMillisecondsByCommand,
+                out var ipcTimeoutMillisecondsByCommand,
+                out var ipcTimeoutByCommandError))
+        {
+            return ConfigParseResult.Failure(ipcTimeoutByCommandError!);
         }
 
         if (document.OperationAllowlist is null)
@@ -242,7 +276,11 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             OperationPolicy: operationPolicy,
             PlanTokenMode: planTokenMode,
             ReadIndexDefaultMode: readIndexDefaultMode,
-            OperationAllowlist: normalizedAllowlist);
+            OperationAllowlist: normalizedAllowlist)
+        {
+            IpcDefaultTimeoutMilliseconds = ipcDefaultTimeoutMilliseconds,
+            IpcTimeoutMillisecondsByCommand = ipcTimeoutMillisecondsByCommand,
+        };
         return ConfigParseResult.Success(config);
     }
 
@@ -281,6 +319,19 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             }
         }
 
+        if (!IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(config.IpcDefaultTimeoutMilliseconds, out _))
+        {
+            return ConfigValidationResult.Failure(ExecutionError.InvalidArgument(
+                $"Config ipcDefaultTimeoutMilliseconds must be a positive integer. Actual: {config.IpcDefaultTimeoutMilliseconds}."));
+        }
+
+        if (!IpcTimeoutConfigValidator.TryValidateCommandTimeoutOverrides(
+                config.IpcTimeoutMillisecondsByCommand,
+                out var ipcTimeoutByCommandError))
+        {
+            return ConfigValidationResult.Failure(ipcTimeoutByCommandError!);
+        }
+
         return ConfigValidationResult.Success();
     }
 
@@ -312,13 +363,17 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     private static UcliConfigDocument ToDocument (UcliConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
+        var ipcTimeoutMillisecondsByCommand = IpcTimeoutConfigValidator.CreateSerializableCommandTimeoutOverrides(
+            config.IpcTimeoutMillisecondsByCommand);
 
         return new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
             OperationPolicy: ToStringValue(config.OperationPolicy),
             PlanTokenMode: ToStringValue(config.PlanTokenMode),
             ReadIndexDefaultMode: ToStringValue(config.ReadIndexDefaultMode),
-            OperationAllowlist: config.OperationAllowlist.ToArray());
+            OperationAllowlist: config.OperationAllowlist.ToArray(),
+            IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
+            IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand);
     }
 
     /// <summary> Converts <see cref="OperationPolicy" /> to the config string value. </summary>
@@ -468,12 +523,24 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <param name="PlanTokenMode"> The plan-token-mode value. </param>
     /// <param name="ReadIndexDefaultMode"> The read-index default mode value. </param>
     /// <param name="OperationAllowlist"> The operation-name allowlist. </param>
+    /// <param name="IpcDefaultTimeoutMilliseconds"> The IPC default timeout value in milliseconds. </param>
+    /// <param name="IpcTimeoutMillisecondsByCommand">
+    /// <para> The per-command IPC timeout overrides in milliseconds. </para>
+    /// <para> <see langword="null" /> means that default command entries are generated during parse. </para>
+    /// </param>
     private sealed record UcliConfigDocument (
         int SchemaVersion,
         string OperationPolicy,
         string PlanTokenMode,
         string? ReadIndexDefaultMode,
-        string[] OperationAllowlist);
+        string[] OperationAllowlist,
+        int? IpcDefaultTimeoutMilliseconds,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand)
+    {
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }
+    }
 
     /// <summary> Represents result values from config parse operations. </summary>
     /// <param name="Config"> The parsed config instance. </param>

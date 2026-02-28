@@ -44,13 +44,18 @@ public sealed class ReadIndexModeResolverTests
         Assert.Null(result.Error);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void Resolve_WithUnknownOption_ReturnsInvalidArgument ()
+    [InlineData("invalidMode")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void Resolve_WithInvalidOption_ReturnsInvalidArgument (
+        string optionValue)
     {
         var config = CreateConfig(ReadIndexMode.RequireFresh);
 
-        var result = ReadIndexModeResolver.Resolve("invalidMode", config);
+        var result = ReadIndexModeResolver.Resolve(optionValue, config);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Mode);

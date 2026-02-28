@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Ipc;
 /// <summary> Implements transport-level IPC communication with Unity daemon endpoints. </summary>
 internal sealed class UnityIpcClient : IUnityIpcClient
 {
-    private static readonly TimeSpan NamedPipeConnectTimeout = TimeSpan.FromSeconds(3);
-
     private readonly IIpcEndpointResolver endpointResolver;
 
     /// <summary> Initializes a new instance of the <see cref="UnityIpcClient" /> class. </summary>
@@ -23,32 +21,51 @@ internal sealed class UnityIpcClient : IUnityIpcClient
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The Unity project fingerprint. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="request"> The request envelope to send. Must not be <see langword="null" />. </param>
+    /// <param name="timeout"> The timeout for one IPC request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response returned by Unity daemon. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
-    /// <exception cref="TimeoutException"> Thrown when endpoint connection exceeds the transport timeout. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    /// <exception cref="TimeoutException"> Thrown when one IPC request exceeds <paramref name="timeout" />. </exception>
     public async ValueTask<IpcResponse> SendAsync (
         string storageRoot,
         string projectFingerprint,
         IpcRequest request,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
         var endpoint = endpointResolver.Resolve(storageRoot, projectFingerprint);
 
-        await using var stream = await ConnectAsync(endpoint, cancellationToken);
-        await IpcFrameCodec.WriteModelAsync(
-            stream,
-            request,
-            IpcJsonSerializerOptions.Default,
-            cancellationToken: cancellationToken);
-        return await IpcFrameCodec.ReadModelAsync<IpcResponse>(
-            stream,
-            IpcJsonSerializerOptions.Default,
-            cancellationToken: cancellationToken);
+        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellationTokenSource.CancelAfter(timeout);
+        var ipcCancellationToken = timeoutCancellationTokenSource.Token;
+        try
+        {
+            await using var stream = await ConnectAsync(endpoint, ipcCancellationToken).ConfigureAwait(false);
+            await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    request,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: ipcCancellationToken)
+                .ConfigureAwait(false);
+            return await IpcFrameCodec.ReadModelAsync<IpcResponse>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: ipcCancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception)
+            when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
+                exception);
+        }
     }
 
     /// <summary> Opens a stream connection to the specified endpoint. </summary>
@@ -72,7 +89,6 @@ internal sealed class UnityIpcClient : IUnityIpcClient
     /// <param name="pipeName"> The named pipe name. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The connected named pipe stream. </returns>
-    /// <exception cref="TimeoutException"> Thrown when connection to the named pipe exceeds <see cref="NamedPipeConnectTimeout" />. </exception>
     private static async ValueTask<Stream> ConnectNamedPipeAsync (
         string pipeName,
         CancellationToken cancellationToken)
@@ -83,20 +99,10 @@ internal sealed class UnityIpcClient : IUnityIpcClient
             direction: PipeDirection.InOut,
             options: PipeOptions.Asynchronous);
 
-        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCancellationTokenSource.CancelAfter(NamedPipeConnectTimeout);
         try
         {
-            await stream.ConnectAsync(timeoutCancellationTokenSource.Token);
+            await stream.ConnectAsync(cancellationToken).ConfigureAwait(false);
             return stream;
-        }
-        catch (OperationCanceledException exception)
-            when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
-        {
-            stream.Dispose();
-            throw new TimeoutException(
-                $"Failed to connect to named pipe '{pipeName}' within {NamedPipeConnectTimeout.TotalSeconds:0.#} seconds.",
-                exception);
         }
         catch
         {
@@ -117,7 +123,7 @@ internal sealed class UnityIpcClient : IUnityIpcClient
         try
         {
             var endPoint = new UnixDomainSocketEndPoint(socketPath);
-            await socket.ConnectAsync(endPoint, cancellationToken);
+            await socket.ConnectAsync(endPoint, cancellationToken).ConfigureAwait(false);
             return new NetworkStream(socket, ownsSocket: true);
         }
         catch

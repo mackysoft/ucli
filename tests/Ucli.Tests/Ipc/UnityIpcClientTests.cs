@@ -6,6 +6,8 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityIpcClientTests
 {
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task SendAsync_WhenNamedPipeServerIsMissing_ThrowsTimeoutException ()
@@ -29,9 +31,9 @@ public sealed class UnityIpcClientTests
 
         var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
         {
-            await client.SendAsync("storage-root", "fingerprint", request).AsTask();
+            await client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask();
         });
-        Assert.Contains("named pipe", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("timed out", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -62,8 +64,34 @@ public sealed class UnityIpcClientTests
                     "storage-root",
                     "fingerprint",
                     request,
+                    TimeSpan.FromSeconds(5),
                     cancellationTokenSource.Token)
                 .AsTask();
+        });
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
+    {
+        var endpointResolver = new FixedEndpointResolver(
+            new IpcEndpoint(
+                IpcTransportKind.NamedPipe,
+                $"ucli-invalid-timeout-{Guid.NewGuid():N}"));
+        var client = new UnityIpcClient(endpointResolver);
+        var request = new IpcRequest(
+            IpcProtocol.CurrentVersion,
+            "request-1",
+            "token",
+            IpcMethodNames.Ping,
+            JsonDocument.Parse("{}").RootElement.Clone());
+        var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+        {
+            await client.SendAsync("storage-root", "fingerprint", request, timeout).AsTask();
         });
     }
 

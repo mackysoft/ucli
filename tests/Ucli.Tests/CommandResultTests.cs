@@ -11,6 +11,8 @@ public sealed class CommandResultTests
 
     private const string CanceledMessage = "Command execution was canceled.";
 
+    private const string TimeoutMessage = "IPC request timed out.";
+
     public static TheoryData<object, string, int, string, string> ErrorCaseData => new()
         {
             {
@@ -33,6 +35,13 @@ public sealed class CommandResultTests
                 (int)CliExitCode.ToolError,
                 ErrorCodes.Canceled,
                 CanceledMessage
+            },
+            {
+                CommandResult.Timeout(StatusCommand.CommandName, TimeoutMessage),
+                StatusCommand.CommandName,
+                (int)CliExitCode.ToolError,
+                ErrorCodes.IpcTimeout,
+                TimeoutMessage
             },
             {
                 CommandResult.InternalError(StatusCommand.CommandName, UnhandledExceptionMessage),

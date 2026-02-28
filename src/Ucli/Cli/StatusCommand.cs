@@ -9,13 +9,24 @@ internal sealed class StatusCommand
     internal const string CommandName = "status";
 
     /// <summary> Writes the placeholder result for the <c>status</c> command. </summary>
-    /// <param name="projectPath"> --projectPath, Reserved option for target UnityProject path selection. The current implementation ignores this value. </param>
-    /// <param name="mode"> Reserved option for status output mode selection. The current implementation ignores this value. </param>
+    /// <param name="projectPath">
+    /// <para> --projectPath, Reserved option for target UnityProject path selection. </para>
+    /// <para> The current implementation ignores this value. </para>
+    /// </param>
+    /// <param name="mode">
+    /// <para> Reserved option for status output mode selection. </para>
+    /// <para> The current implementation ignores this value. </para>
+    /// </param>
+    /// <param name="timeout">
+    /// <para> Reserved option for IPC timeout in milliseconds. </para>
+    /// <para> The current implementation ignores this value. </para>
+    /// </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(CommandName)]
     public int Status (
         string? projectPath = null,
-        string? mode = null)
+        string? mode = null,
+        string? timeout = null)
     {
         CommandExecutionState.MarkStarted();
 

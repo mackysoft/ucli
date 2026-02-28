@@ -32,6 +32,26 @@ internal static class UcliContractConstants
         public const string ReadIndexModeAllowStale = "allowStale";
 
         public const string ReadIndexModeRequireFresh = "requireFresh";
+
+        public const int IpcDefaultTimeoutMilliseconds = 3000;
+
+        public const string IpcTimeoutCommandStatus = "status";
+
+        public const string IpcTimeoutCommandValidate = "validate";
+
+        public const string IpcTimeoutCommandPlan = "plan";
+
+        public const string IpcTimeoutCommandCall = "call";
+
+        public const string IpcTimeoutCommandResolve = "resolve";
+
+        public const string IpcTimeoutCommandQuery = "query";
+
+        public const string IpcTimeoutCommandRefresh = "refresh";
+
+        public const string IpcTimeoutCommandOps = "ops";
+
+        public const string IpcTimeoutCommandDaemon = "daemon";
     }
 
     internal static class TestProfile

@@ -24,6 +24,9 @@ internal static class ErrorCodes
     /// <summary> Gets the error code used when command execution is canceled. </summary>
     public const string Canceled = "CANCELED";
 
+    /// <summary> Gets the error code used when IPC execution exceeds configured timeout. </summary>
+    public const string IpcTimeout = "IPC_TIMEOUT";
+
     /// <summary> Gets the error code used when an unexpected runtime failure occurs. </summary>
     public const string InternalError = "INTERNAL_ERROR";
 }

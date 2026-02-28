@@ -16,8 +16,6 @@ public sealed class UnityExecutionModeParserTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("", (int)UnityExecutionMode.Auto)]
-    [InlineData(" ", (int)UnityExecutionMode.Auto)]
     [InlineData("auto", (int)UnityExecutionMode.Auto)]
     [InlineData("AUTO", (int)UnityExecutionMode.Auto)]
     [InlineData("Daemon", (int)UnityExecutionMode.Daemon)]
@@ -36,6 +34,9 @@ public sealed class UnityExecutionModeParserTests
 
     [Theory]
     [Trait("Size", "Small")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
     [InlineData("one-shot")]
     [InlineData("batch")]
     [InlineData("1")]

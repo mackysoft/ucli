@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Execution;
 /// <summary> Probes daemon reachability by attempting an IPC ping call. </summary>
 internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
 {
-    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromMilliseconds(300);
-
     private readonly IIpcEndpointResolver endpointResolver;
 
     private readonly IDaemonPingClient daemonPingClient;
@@ -27,18 +25,22 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
 
     /// <summary> Probes whether daemon for the specified project is reachable. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The probe timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon reachability probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonReachabilityProbeResult> Probe (
         ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
         var endpoint = endpointResolver.Resolve(
-            unityProject.UnityProjectRoot,
+            unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
 
         // NOTE:
@@ -50,23 +52,14 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             return DaemonReachabilityProbeResult.NotRunning();
         }
 
-        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCancellationTokenSource.CancelAfter(ProbeTimeout);
         try
         {
             await daemonPingClient.Ping(
                     unityProject,
-                    timeoutCancellationTokenSource.Token)
+                    timeout,
+                    cancellationToken)
                 .ConfigureAwait(false);
             return DaemonReachabilityProbeResult.Running();
-        }
-        catch (OperationCanceledException exception)
-            when (DaemonProbeExceptionClassifier.IsProbeTimeout(
-                exception,
-                cancellationToken,
-                timeoutCancellationTokenSource.Token))
-        {
-            return DaemonReachabilityProbeResult.NotRunning();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

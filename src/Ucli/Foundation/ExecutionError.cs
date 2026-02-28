@@ -15,6 +15,14 @@ internal sealed record ExecutionError (
         return new ExecutionError(ExecutionErrorKind.InvalidArgument, message);
     }
 
+    /// <summary> Creates a timeout execution error. </summary>
+    /// <param name="message"> The user-facing error message. </param>
+    /// <returns> The timeout execution error. </returns>
+    public static ExecutionError Timeout (string message)
+    {
+        return new ExecutionError(ExecutionErrorKind.Timeout, message);
+    }
+
     /// <summary> Creates an internal execution error. </summary>
     /// <param name="message"> The user-facing error message. </param>
     /// <returns> The internal execution error. </returns>

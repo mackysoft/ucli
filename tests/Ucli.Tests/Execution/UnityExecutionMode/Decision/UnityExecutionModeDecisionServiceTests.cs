@@ -1,19 +1,24 @@
+using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
 
 public sealed class UnityExecutionModeDecisionServiceTests
 {
+    private const string CommandName = "status";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Decide_WithDaemonMode_WhenDaemonIsRunning_ReturnsDaemonTarget ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("daemon", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, "daemon", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -30,8 +35,9 @@ public sealed class UnityExecutionModeDecisionServiceTests
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.NotRunning());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("daemon", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, "daemon", null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasContractError);
@@ -48,8 +54,9 @@ public sealed class UnityExecutionModeDecisionServiceTests
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("auto", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -64,8 +71,9 @@ public sealed class UnityExecutionModeDecisionServiceTests
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.NotRunning());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("auto", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -80,8 +88,9 @@ public sealed class UnityExecutionModeDecisionServiceTests
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("oneshot", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, "oneshot", null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasContractError);
@@ -98,8 +107,9 @@ public sealed class UnityExecutionModeDecisionServiceTests
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.NotRunning());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("oneshot", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, "oneshot", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -108,14 +118,19 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Equal(UnityExecutionTarget.Oneshot, decision.Target);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public async Task Decide_WithInvalidMode_ReturnsInvalidArgumentError ()
+    [InlineData("invalid")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public async Task Decide_WithInvalidMode_ReturnsInvalidArgumentError (string mode)
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("invalid", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, mode, null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -133,8 +148,9 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Failure(
             ExecutionError.InternalError("probe failed")));
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
 
-        var result = await service.Decide("auto", CreateContext(), CancellationToken.None);
+        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -151,12 +167,118 @@ public sealed class UnityExecutionModeDecisionServiceTests
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await service.Decide("auto", CreateContext(), cancellationTokenSource.Token);
+            await service.Decide(CommandName, "auto", null, config, CreateContext(), cancellationTokenSource.Token);
+        });
+        Assert.False(probe.WasCalled);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Decide_WithTimeoutOption_UsesOptionValue ()
+    {
+        var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
+        var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
+
+        var result = await service.Decide(CommandName, "auto", "4500", config, CreateContext(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(4500), probe.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Decide_WithoutTimeoutOption_UsesConfigDefault ()
+    {
+        var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
+        var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3200);
+
+        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(3200), probe.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Decide_WithoutTimeoutOption_UsesCommandSpecificConfigDefault ()
+    {
+        var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
+        var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig(
+            ipcDefaultTimeoutMilliseconds: 3200,
+            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                [CommandName] = 7300,
+            });
+
+        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(7300), probe.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Decide_WithoutTimeoutOption_UsesConfigDefault_WhenCommandSpecificValueIsNull ()
+    {
+        var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
+        var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig(
+            ipcDefaultTimeoutMilliseconds: 3200,
+            ipcTimeoutMillisecondsByCommand: new Dictionary<string, int?>(StringComparer.Ordinal)
+            {
+                [CommandName] = null,
+            });
+
+        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(3200), probe.LastTimeout);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("abc")]
+    [InlineData("0")]
+    public async Task Decide_WithInvalidTimeoutOption_ReturnsInvalidArgumentError (string timeoutOption)
+    {
+        var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
+        var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
+
+        var result = await service.Decide(CommandName, "auto", timeoutOption, config, CreateContext(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasContractError);
+        Assert.Null(result.Decision);
+        Assert.Null(result.ContractError);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
+        Assert.False(probe.WasCalled);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Decide_WithInvalidCommandName_ThrowsArgumentException ()
+    {
+        var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
+        var service = new UnityExecutionModeDecisionService(probe);
+        var config = CreateConfig();
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await service.Decide(" ", "auto", null, config, CreateContext(), CancellationToken.None);
         });
         Assert.False(probe.WasCalled);
     }
@@ -166,9 +288,29 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var projectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: projectRoot,
+            RepositoryRoot: projectRoot,
             ProjectFingerprint: "fingerprint",
-            PathSource: UnityProjectPathSource.CommandOption,
-            ConfigPath: Path.Combine(projectRoot, ".ucli", "config.json"));
+            PathSource: UnityProjectPathSource.CommandOption);
+    }
+
+    private static UcliConfig CreateConfig (
+        int ipcDefaultTimeoutMilliseconds = UcliConfig.DefaultIpcTimeoutMilliseconds,
+        IReadOnlyDictionary<string, int?>? ipcTimeoutMillisecondsByCommand = null)
+    {
+        return new UcliConfig(
+            SchemaVersion: UcliContractConstants.Config.SchemaVersion,
+            OperationPolicy: OperationPolicy.Safe,
+            PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
+            OperationAllowlist:
+            [
+                UcliContractConstants.Config.DefaultOperationAllowlistPattern,
+            ])
+        {
+            IpcDefaultTimeoutMilliseconds = ipcDefaultTimeoutMilliseconds,
+            IpcTimeoutMillisecondsByCommand = ipcTimeoutMillisecondsByCommand
+                ?? new Dictionary<string, int?>(StringComparer.Ordinal),
+        };
     }
 
     private sealed class StubDaemonReachabilityProbe : IDaemonReachabilityProbe
@@ -182,11 +324,15 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         public bool WasCalled { get; private set; }
 
+        public TimeSpan LastTimeout { get; private set; }
+
         public ValueTask<DaemonReachabilityProbeResult> Probe (
             ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             WasCalled = true;
+            LastTimeout = timeout;
             return ValueTask.FromResult(probeResult);
         }
     }

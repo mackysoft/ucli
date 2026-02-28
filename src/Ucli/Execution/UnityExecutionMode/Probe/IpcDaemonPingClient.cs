@@ -24,22 +24,45 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient
 
     /// <summary> Sends one ping request and waits for daemon response. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when daemon responds. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask Ping (
         ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        await unityIpcClient.SendAsync(
-                unityProject.UnityProjectRoot,
+        var response = await unityIpcClient.SendAsync(
+                unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 CreatePingRequest(),
+                timeout,
                 cancellationToken)
             .ConfigureAwait(false);
+        EnsureSuccessfulPingResponse(response);
+    }
+
+    /// <summary> Validates ping response status and error payload. </summary>
+    /// <param name="response"> The response returned from daemon. </param>
+    /// <exception cref="DaemonPingResponseException"> Thrown when daemon reports non-success status or error entries. </exception>
+    private static void EnsureSuccessfulPingResponse (IpcResponse response)
+    {
+        if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal))
+        {
+            throw new DaemonPingResponseException($"Daemon ping failed with status '{response.Status}'.");
+        }
+
+        if (response.Errors.Count > 0)
+        {
+            var firstError = response.Errors[0];
+            throw new DaemonPingResponseException($"Daemon ping failed with error code '{firstError.Code}'.");
+        }
     }
 
     /// <summary> Creates one IPC ping request used for daemon reachability probing. </summary>

@@ -300,6 +300,17 @@ public sealed class CliOutputContractTests
             .HasString("operationPolicy", UcliContractConstants.Config.OperationPolicySafe)
             .HasString("planTokenMode", UcliContractConstants.Config.PlanTokenModeOptional)
             .HasString("readIndexDefaultMode", UcliContractConstants.Config.ReadIndexModeRequireFresh)
+            .HasInt32("ipcDefaultTimeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds)
+            .HasProperty("ipcTimeoutMillisecondsByCommand", timeoutByCommand => timeoutByCommand
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandStatus)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandValidate)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandPlan)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandCall)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandResolve)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandQuery)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandRefresh)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandOps)
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandDaemon))
             .HasArrayLength("operationAllowlist", 1)
             .HasProperty("operationAllowlist", 0, static allowlistValue => allowlistValue
                 .HasString(UcliContractConstants.Config.DefaultOperationAllowlistPattern));

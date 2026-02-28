@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.UnityProject;
@@ -45,50 +43,12 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         }
 
         var repositoryRoot = UcliStorageRootPathResolver.Resolve(unityProjectRoot);
-        var projectFingerprint = CreateProjectFingerprint(repositoryRoot);
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
         return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,
             RepositoryRoot: repositoryRoot,
             ProjectFingerprint: projectFingerprint,
             PathSource: pathSource));
-    }
-
-    /// <summary> Creates a deterministic SHA-256 fingerprint for the normalized storage root path. </summary>
-    /// <param name="storageRoot"> The normalized absolute storage root path. </param>
-    /// <returns> The lowercase hexadecimal SHA-256 string. </returns>
-    private static string CreateProjectFingerprint (string storageRoot)
-    {
-        var normalizedPath = NormalizeForFingerprint(storageRoot);
-        var normalizedBytes = Encoding.UTF8.GetBytes(normalizedPath);
-        var hashBytes = SHA256.HashData(normalizedBytes);
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
-    }
-
-    /// <summary> Normalizes a storage-root path value to improve fingerprint stability. </summary>
-    /// <param name="storageRoot"> The input storage-root path. </param>
-    /// <returns> The normalized path value used as fingerprint input. </returns>
-    private static string NormalizeForFingerprint (string storageRoot)
-    {
-        var fullPath = Path.GetFullPath(storageRoot);
-        fullPath = fullPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-        var pathRoot = Path.GetPathRoot(fullPath);
-        if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, PathComparison))
-        {
-            return NormalizeCase(fullPath);
-        }
-
-        var trimmedPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        return NormalizeCase(trimmedPath);
-    }
-
-    /// <summary> Normalizes path casing for platforms with case-insensitive paths. </summary>
-    /// <param name="path"> The path value to normalize. </param>
-    /// <returns> The normalized path string. </returns>
-    private static string NormalizeCase (string path)
-    {
-        return OperatingSystem.IsWindows()
-            ? path.ToUpperInvariant()
-            : path;
     }
 
     /// <summary> Attempts to normalize a path into an absolute path while converting path format errors to structured output. </summary>
@@ -120,10 +80,6 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             or NotSupportedException
             or PathTooLongException;
     }
-
-    /// <summary> Gets the path comparison mode for the current operating system. </summary>
-    private static StringComparison PathComparison =>
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     /// <summary> Represents the result of path normalization. </summary>
     /// <param name="Path"> The normalized absolute path. </param>

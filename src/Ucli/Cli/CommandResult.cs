@@ -81,6 +81,19 @@ internal sealed record CommandResult (
             errorCode: ErrorCodes.Canceled);
     }
 
+    /// <summary> Creates an error result for infrastructure timeouts. </summary>
+    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+    /// <param name="message"> The timeout message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
+    /// <returns> A command result with <c>error</c> status and the tool-error exit code. </returns>
+    public static CommandResult Timeout (string command, string message)
+    {
+        return CreateError(
+            command: command,
+            message: message,
+            exitCode: CliExitCode.ToolError,
+            errorCode: ErrorCodes.IpcTimeout);
+    }
+
     /// <summary> Creates an error result for unexpected runtime failures. </summary>
     /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
     /// <param name="message"> The failure message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
