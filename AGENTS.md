@@ -41,7 +41,7 @@
 6. その他のインスタンスフィールド
 
 ## 非同期規約
-- 非同期関数は必ず`CancellationToken`を伝搬させる。特別な理由がない限りは、公開APIの引数に`default`パラメーターを設定する。
+- 非同期関数は必ず`CancellationToken`を伝搬させる。`CancellationToken`を渡す場合は、原則として引数の末尾。特別な理由がない限りは、公開APIの引数に`default`パラメーターを設定する。
 - 同期関数に`CancellationToken`を定義しない。命名プレフィックスに`Async`を用いない。
 - 非同期関数は必ず、適切な箇所で`ThrowIfCancellationRequested`を呼び出し、キャンセル要求を尊重すること。
 
@@ -53,7 +53,7 @@
 - `UnityEngine.Object` から派生するオブジェクト・コンポーネントに対しては、`null`評価系の演算子を用いないこと（`??`、`?.`、`?:`、`is null`、`is not null`、etc）
 - Unityオブジェクトの生存判定は `== null` / `!= null` のみを使用する
 - `RequireComponent` を使用する場合、対象コンポーネント参照フィールドには `SerializeField` を付けない（`GetComponent` で解決する）
-- `.meta`ファイルはUnityエディターが生成する。手動での追加は行わないこと。Unityにコードファイルを追加した場合はbatchmodeで起動して、AssetDatabaseを更新すること。
+- Unityにコードファイルを追加・削除した場合は、実装後にbatchmodeで起動して、`meta`を更新すること。Unity正規の生成手順を踏まずに`meta`を触らないこと。
 
 ## テスト実行
 Unityのテストは `-runTests` を使い、`-testPlatform` と `-assemblyNames` を必ず明示する。
@@ -94,7 +94,7 @@ dotnet format "<SOLUTION_OR_PROJECT>" --verbosity diagnostic --include "<TARGET_
 - 変更を加えた場合、依存関係のある全てのコードに対して影響範囲を考慮し、必要に応じて修正を行うこと。
 - コードは責務単位で整理して配置し、関係の薄い型を同一階層へ直置きしない。レイヤー境界を跨ぐ責務を同一ディレクトリへ混在させず、上位レイヤーの契約と下位レイヤーの実装詳細を分離して配置する
 
-## GitHub 運用ルール
-- **URL:** `https://github.com/mackysoft`
-- **ツール:** GitHub操作（接続・起票・閲覧）には必ず `gh` コマンドを使用すること。
-- 接続の失敗は基本的に権限不足
+## コマンド運用
+- GitHub操作（接続・起票・閲覧）には必ず `gh` コマンドを使用すること。
+  - URL：`https://github.com/mackysoft`
+- コマンドの接続失敗やライセンス問題は多くの場合権限不足が原因であるため、権限昇格すること
