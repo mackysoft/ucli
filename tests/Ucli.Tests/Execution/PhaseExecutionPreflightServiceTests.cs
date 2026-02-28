@@ -558,9 +558,9 @@ public sealed class PhaseExecutionPreflightServiceTests
         {
             return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/tmp/project",
+                RepositoryRoot: "/tmp/repository",
                 ProjectFingerprint: "fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption,
-                ConfigPath: "/tmp/project/.ucli/config.json"));
+                PathSource: UnityProjectPathSource.CommandOption));
         }
     }
 
@@ -568,13 +568,13 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         public CancellationToken ReceivedToken { get; private set; }
 
-        public string GetConfigPath (string unityProjectRoot)
+        public string GetConfigPath (string storageRoot)
         {
-            return Path.Combine(unityProjectRoot, ".ucli", "config.json");
+            return Path.Combine(storageRoot, ".ucli", "config.json");
         }
 
         public ValueTask<UcliConfigLoadResult> Load (
-            string unityProjectRoot,
+            string storageRoot,
             CancellationToken cancellationToken = default)
         {
             ReceivedToken = cancellationToken;
@@ -582,7 +582,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         }
 
         public ValueTask<UcliConfigSaveResult> Save (
-            string unityProjectRoot,
+            string storageRoot,
             UcliConfig config,
             CancellationToken cancellationToken = default)
         {

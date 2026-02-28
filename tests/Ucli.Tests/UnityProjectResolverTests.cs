@@ -20,8 +20,8 @@ public sealed class UnityProjectResolverTests
         Assert.Null(result.Error);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
         Assert.Equal(unityProjectPath, context.UnityProjectRoot);
+        Assert.Equal(unityProjectPath, context.RepositoryRoot);
         Assert.Equal(UnityProjectPathSource.CommandOption, context.PathSource);
-        Assert.Equal(Path.Combine(unityProjectPath, ".ucli", "config.json"), context.ConfigPath);
         Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint);
     }
 
@@ -39,6 +39,9 @@ public sealed class UnityProjectResolverTests
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
         FileSystemAssert.ForPath(context.UnityProjectRoot)
+            .IsRooted()
+            .EqualsNormalized(unityProjectPath);
+        FileSystemAssert.ForPath(context.RepositoryRoot)
             .IsRooted()
             .EqualsNormalized(unityProjectPath);
     }
@@ -93,5 +96,24 @@ public sealed class UnityProjectResolverTests
         Assert.True(primary.IsSuccess);
         Assert.True(secondary.IsSuccess);
         Assert.Equal(primary.Context!.ProjectFingerprint, secondary.Context!.ProjectFingerprint);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_WithGitRootOnParentDirectory_UsesRepositoryRootForFingerprint ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "repository-root-parent");
+        var repositoryRoot = scope.CreateDirectory("RepoRoot");
+        scope.CreateDirectory(Path.Combine("RepoRoot", ".git"));
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "UnityProject"));
+        var resolver = new UnityProjectResolver();
+
+        var result = resolver.Resolve(unityProjectPath);
+
+        Assert.True(result.IsSuccess);
+        var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
+        Assert.Equal(unityProjectPath, context.UnityProjectRoot);
+        Assert.Equal(repositoryRoot, context.RepositoryRoot);
+        Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint);
     }
 }

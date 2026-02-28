@@ -67,9 +67,13 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcErrorCodes_ContainsInvalidArgumentConstant ()
+    public void IpcErrorCodes_ExposeCoreAndReadIndexConstants ()
     {
         Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
+        Assert.Equal("NOT_INITIALIZED", IpcErrorCodes.NotInitialized);
+        Assert.Equal("READ_INDEX_BOOTSTRAP_FAILED", IpcErrorCodes.ReadIndexBootstrapFailed);
+        Assert.Equal("READ_INDEX_FORMAT_INVALID", IpcErrorCodes.ReadIndexFormatInvalid);
+        Assert.Equal("READ_INDEX_FRESH_REQUIRED", IpcErrorCodes.ReadIndexFreshRequired);
         Assert.Equal("INTERNAL_ERROR", IpcErrorCodes.InternalError);
     }
 

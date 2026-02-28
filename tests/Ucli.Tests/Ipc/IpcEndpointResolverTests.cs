@@ -7,7 +7,7 @@ public sealed class IpcEndpointResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithEmptyProjectRoot_ThrowsArgumentException ()
+    public void Resolve_WithEmptyStorageRoot_ThrowsArgumentException ()
     {
         var resolver = new IpcEndpointResolver();
 
@@ -28,9 +28,9 @@ public sealed class IpcEndpointResolverTests
     public void Resolve_WithValidInputs_ReturnsPlatformSpecificEndpoint ()
     {
         var resolver = new IpcEndpointResolver();
-        var projectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
+        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
 
-        var endpoint = resolver.Resolve(projectRoot, "abc123");
+        var endpoint = resolver.Resolve(storageRoot, "abc123");
 
         if (OperatingSystem.IsWindows())
         {
@@ -39,7 +39,7 @@ public sealed class IpcEndpointResolverTests
             return;
         }
 
-        var preferredPath = Path.Combine(projectRoot, ".ucli", "local", "abc123", "ipc.sock");
+        var preferredPath = Path.Combine(storageRoot, ".ucli", "local", "fingerprints", "abc123", "ipc.sock");
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
         Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
@@ -64,13 +64,13 @@ public sealed class IpcEndpointResolverTests
         }
 
         var resolver = new IpcEndpointResolver();
-        var projectRoot = Path.GetFullPath(Path.Combine(
+        var storageRoot = Path.GetFullPath(Path.Combine(
             "/tmp",
             "ucli-tests",
             new string('a', 140)));
 
-        var endpoint1 = resolver.Resolve(projectRoot, "abc123");
-        var endpoint2 = resolver.Resolve(projectRoot, "abc123");
+        var endpoint1 = resolver.Resolve(storageRoot, "abc123");
+        var endpoint2 = resolver.Resolve(storageRoot, "abc123");
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
         Assert.Equal(endpoint1.Address, endpoint2.Address);

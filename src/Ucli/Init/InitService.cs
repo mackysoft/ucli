@@ -8,6 +8,7 @@ internal sealed class InitService : IInitService
 {
     private const string UcliDirectoryName = ".ucli";
     private const string LocalDirectoryName = "local";
+    private const string FingerprintsDirectoryName = "fingerprints";
     private const string ConfigFileName = "config.json";
     private const string GitIgnoreFileName = ".gitignore";
     private const string GitIgnoreContents = "local/";
@@ -43,8 +44,10 @@ internal sealed class InitService : IInitService
                 $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}"));
         }
 
-        var ucliDirectoryPath = Path.Combine(currentDirectoryPath, UcliDirectoryName);
+        var repositoryRoot = UcliStorageRootPathResolver.Resolve(currentDirectoryPath);
+        var ucliDirectoryPath = Path.Combine(repositoryRoot, UcliDirectoryName);
         var localDirectoryPath = Path.Combine(ucliDirectoryPath, LocalDirectoryName);
+        var fingerprintsDirectoryPath = Path.Combine(localDirectoryPath, FingerprintsDirectoryName);
         var configPath = Path.Combine(ucliDirectoryPath, ConfigFileName);
         var gitIgnorePath = Path.Combine(ucliDirectoryPath, GitIgnoreFileName);
         var existingPaths = CollectExistingTemplatePaths(configPath, gitIgnorePath);
@@ -60,6 +63,7 @@ internal sealed class InitService : IInitService
         {
             Directory.CreateDirectory(ucliDirectoryPath);
             Directory.CreateDirectory(localDirectoryPath);
+            Directory.CreateDirectory(fingerprintsDirectoryPath);
         }
         catch (Exception ex) when (IsPathFormatException(ex))
         {
@@ -75,7 +79,7 @@ internal sealed class InitService : IInitService
         cancellationToken.ThrowIfCancellationRequested();
 
         var defaultConfig = UcliConfig.CreateDefault();
-        var configSaveResult = await configStore.Save(currentDirectoryPath, defaultConfig, cancellationToken).ConfigureAwait(false);
+        var configSaveResult = await configStore.Save(repositoryRoot, defaultConfig, cancellationToken).ConfigureAwait(false);
         if (!configSaveResult.IsSuccess)
         {
             return InitExecutionResult.Failure(configSaveResult.Error!);

@@ -2,6 +2,7 @@ namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.ReadIndex;
 
 public sealed class OperationAuthorizationServiceTests
 {
@@ -87,6 +88,7 @@ public sealed class OperationAuthorizationServiceTests
             SchemaVersion: UcliContractConstants.Config.SchemaVersion,
             OperationPolicy: operationPolicy,
             PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
             OperationAllowlist: allowlistPatterns);
     }
 

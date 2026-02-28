@@ -67,7 +67,7 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
         }
 
         var unityProjectContext = unityProjectResult.Context!;
-        var configLoadResult = await configStore.Load(unityProjectContext.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
+        var configLoadResult = await configStore.Load(unityProjectContext.RepositoryRoot, cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
         {
             return PhaseExecutionPreflightResult.Failure(configLoadResult.Error!);

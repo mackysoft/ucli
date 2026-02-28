@@ -1,14 +1,18 @@
+using MackySoft.Ucli.ReadIndex;
+
 namespace MackySoft.Ucli.Configuration;
 
 /// <summary> Represents parsed values from <c>.ucli/config.json</c>. </summary>
 /// <param name="SchemaVersion"> The config schema version. </param>
 /// <param name="OperationPolicy"> The allowed operation safety level. </param>
 /// <param name="PlanTokenMode"> The plan token requirement level. </param>
+/// <param name="ReadIndexDefaultMode"> The default read-index mode used when command options do not override mode. </param>
 /// <param name="OperationAllowlist"> The operation-name allowlist patterns. </param>
 internal sealed record UcliConfig (
     int SchemaVersion,
     OperationPolicy OperationPolicy,
     PlanTokenMode PlanTokenMode,
+    ReadIndexMode ReadIndexDefaultMode,
     IReadOnlyList<string> OperationAllowlist)
 {
     private const int CurrentSchemaVersion = 1;
@@ -22,6 +26,7 @@ internal sealed record UcliConfig (
             SchemaVersion: CurrentSchemaVersion,
             OperationPolicy: OperationPolicy.Safe,
             PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
             OperationAllowlist:
             [
                 DefaultAllowlistPattern,

@@ -10,6 +10,8 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
 
     private const string LocalDirectoryName = "local";
 
+    private const string FingerprintsDirectoryName = "fingerprints";
+
     private const string SocketFileName = "ipc.sock";
 
     private const string PipeNamePrefix = "ucli-";
@@ -21,17 +23,17 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
     private const string UnixSocketFallbackFileExtension = ".sock";
 
     /// <summary> Resolves the transport endpoint for the given project identity. </summary>
-    /// <param name="projectRoot"> The Unity project root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The resolved transport endpoint. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
     public IpcEndpoint Resolve (
-        string projectRoot,
+        string storageRoot,
         string projectFingerprint)
     {
-        if (string.IsNullOrWhiteSpace(projectRoot))
+        if (string.IsNullOrWhiteSpace(storageRoot))
         {
-            throw new ArgumentException("Project root must not be empty.", nameof(projectRoot));
+            throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
         if (string.IsNullOrWhiteSpace(projectFingerprint))
@@ -39,7 +41,7 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        var normalizedProjectRoot = Path.GetFullPath(projectRoot);
+        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
         var normalizedProjectFingerprint = projectFingerprint.Trim();
 
         if (OperatingSystem.IsWindows())
@@ -49,9 +51,10 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
         }
 
         var preferredSocketPath = Path.Combine(
-            normalizedProjectRoot,
+            normalizedStorageRoot,
             UcliDirectoryName,
             LocalDirectoryName,
+            FingerprintsDirectoryName,
             normalizedProjectFingerprint,
             SocketFileName);
 
@@ -64,16 +67,16 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
         // Unix domain socket endpoint path is platform-limited (103 bytes usable on macOS).
         // Prefer the project-local path, but fall back to a deterministic short path when needed.
         var fallbackSocketPath = BuildFallbackUnixSocketPath(
-            normalizedProjectRoot,
+            normalizedStorageRoot,
             normalizedProjectFingerprint);
         return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackSocketPath);
     }
 
     private static string BuildFallbackUnixSocketPath (
-        string normalizedProjectRoot,
+        string normalizedStorageRoot,
         string normalizedProjectFingerprint)
     {
-        var hashSource = $"{normalizedProjectRoot}\n{normalizedProjectFingerprint}";
+        var hashSource = $"{normalizedStorageRoot}\n{normalizedProjectFingerprint}";
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(hashSource));
         var shortHash = Convert.ToHexString(hashBytes.AsSpan(0, 16)).ToLowerInvariant();
         return Path.Combine(
