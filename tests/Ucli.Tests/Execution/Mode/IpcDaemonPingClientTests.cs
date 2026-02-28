@@ -10,13 +10,13 @@ public sealed class IpcDaemonPingClientTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task PingAsync_SendsPingRequestWithProbeContract ()
+    public async Task Ping_SendsPingRequestWithProbeContract ()
     {
         var unityIpcClient = new StubUnityIpcClient();
         var pingClient = new IpcDaemonPingClient(unityIpcClient);
         var context = CreateContext();
 
-        await pingClient.PingAsync(context, CancellationToken.None);
+        await pingClient.Ping(context, CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
         Assert.Equal(context.UnityProjectRoot, unityIpcClient.LastProjectRoot);
@@ -31,7 +31,7 @@ public sealed class IpcDaemonPingClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task PingAsync_WhenCanceled_ThrowsOperationCanceledException ()
+    public async Task Ping_WhenCanceled_ThrowsOperationCanceledException ()
     {
         var unityIpcClient = new StubUnityIpcClient();
         var pingClient = new IpcDaemonPingClient(unityIpcClient);
@@ -40,7 +40,7 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await pingClient.PingAsync(CreateContext(), cancellationTokenSource.Token);
+            await pingClient.Ping(CreateContext(), cancellationTokenSource.Token);
         });
         Assert.Equal(0, unityIpcClient.CallCount);
     }

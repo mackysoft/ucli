@@ -8,12 +8,12 @@ public sealed class UnityExecutionModeDecisionServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WithDaemonMode_WhenDaemonIsRunning_ReturnsDaemonTarget ()
+    public async Task Decide_WithDaemonMode_WhenDaemonIsRunning_ReturnsDaemonTarget ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("daemon", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("daemon", CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -26,12 +26,12 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WithDaemonMode_WhenDaemonIsNotRunning_ReturnsContractError ()
+    public async Task Decide_WithDaemonMode_WhenDaemonIsNotRunning_ReturnsContractError ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.NotRunning());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("daemon", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("daemon", CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasContractError);
@@ -44,12 +44,12 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WithAutoMode_WhenDaemonIsRunning_ReturnsDaemonTarget ()
+    public async Task Decide_WithAutoMode_WhenDaemonIsRunning_ReturnsDaemonTarget ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("auto", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("auto", CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -60,12 +60,12 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WithAutoMode_WhenDaemonIsNotRunning_ReturnsOneshotTarget ()
+    public async Task Decide_WithAutoMode_WhenDaemonIsNotRunning_ReturnsOneshotTarget ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.NotRunning());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("auto", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("auto", CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -76,12 +76,12 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WithOneshotMode_WhenDaemonIsRunning_ReturnsContractError ()
+    public async Task Decide_WithOneshotMode_WhenDaemonIsRunning_ReturnsContractError ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("oneshot", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("oneshot", CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasContractError);
@@ -94,12 +94,12 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WithOneshotMode_WhenDaemonIsNotRunning_ReturnsOneshotTarget ()
+    public async Task Decide_WithOneshotMode_WhenDaemonIsNotRunning_ReturnsOneshotTarget ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.NotRunning());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("oneshot", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("oneshot", CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -110,12 +110,12 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WithInvalidMode_ReturnsInvalidArgumentError ()
+    public async Task Decide_WithInvalidMode_ReturnsInvalidArgumentError ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("invalid", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("invalid", CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -128,13 +128,13 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WhenProbeFails_ReturnsProbeError ()
+    public async Task Decide_WhenProbeFails_ReturnsProbeError ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Failure(
             ExecutionError.InternalError("probe failed")));
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.DecideAsync("auto", CreateContext(), CancellationToken.None);
+        var result = await service.Decide("auto", CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -147,7 +147,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task DecideAsync_WhenCanceled_ThrowsOperationCanceledException ()
+    public async Task Decide_WhenCanceled_ThrowsOperationCanceledException ()
     {
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
@@ -156,7 +156,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await service.DecideAsync("auto", CreateContext(), cancellationTokenSource.Token);
+            await service.Decide("auto", CreateContext(), cancellationTokenSource.Token);
         });
         Assert.False(probe.WasCalled);
     }
@@ -182,7 +182,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         public bool WasCalled { get; private set; }
 
-        public ValueTask<DaemonReachabilityProbeResult> ProbeAsync (
+        public ValueTask<DaemonReachabilityProbeResult> Probe (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
