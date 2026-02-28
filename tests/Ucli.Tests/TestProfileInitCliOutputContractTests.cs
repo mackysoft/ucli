@@ -256,7 +256,6 @@ public sealed class TestProfileInitCliOutputContractTests
             .HasArrayLength("testCategories", 0)
             .HasArrayLength("assemblyNames", 0)
             .IsNull("testSettingsPath")
-            .HasString("outputDir", UcliContractConstants.TestProfile.OutputDir)
             .HasInt32("timeoutSeconds", UcliContractConstants.TestProfile.TimeoutSeconds);
     }
 }

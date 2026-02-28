@@ -42,8 +42,6 @@ internal static class UcliContractConstants
 
         public const string TestPlatformEditMode = "editmode";
 
-        public const string OutputDir = ".ucli/local/artifacts";
-
         public const int TimeoutSeconds = 1800;
     }
 

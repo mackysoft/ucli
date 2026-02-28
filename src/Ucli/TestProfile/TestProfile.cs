@@ -11,7 +11,6 @@ namespace MackySoft.Ucli.TestProfile;
 /// <param name="TestCategories"> The test-category list. </param>
 /// <param name="AssemblyNames"> The assembly-name list. </param>
 /// <param name="TestSettingsPath"> The optional test settings path. </param>
-/// <param name="OutputDir"> The artifact output root directory path. </param>
 /// <param name="TimeoutSeconds"> The timeout value in seconds. </param>
 internal sealed record TestProfile (
     int SchemaVersion,
@@ -24,13 +23,11 @@ internal sealed record TestProfile (
     string[] TestCategories,
     string[] AssemblyNames,
     string? TestSettingsPath,
-    string OutputDir,
     int TimeoutSeconds)
 {
     private const int CurrentSchemaVersion = 1;
     private const string DefaultProjectPath = ".";
     private const string DefaultTestPlatform = "editmode";
-    private const string DefaultOutputDir = ".ucli/local/artifacts";
     private const int DefaultTimeoutSeconds = 1800;
 
     /// <summary> Creates default values defined by the test-command specification. </summary>
@@ -48,7 +45,6 @@ internal sealed record TestProfile (
             TestCategories: [],
             AssemblyNames: [],
             TestSettingsPath: null,
-            OutputDir: DefaultOutputDir,
             TimeoutSeconds: DefaultTimeoutSeconds);
     }
 }
