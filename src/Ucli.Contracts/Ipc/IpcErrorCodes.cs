@@ -20,4 +20,7 @@ public static class IpcErrorCodes
 
     /// <summary> Gets the error code emitted when command execution is not yet implemented. </summary>
     public const string CommandNotImplemented = "COMMAND_NOT_IMPLEMENTED";
+
+    /// <summary> Gets the error code emitted when an unexpected internal failure occurs. </summary>
+    public const string InternalError = "INTERNAL_ERROR";
 }

@@ -47,11 +47,11 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         }
 
         if (string.IsNullOrWhiteSpace(request.RequestId)
-            || !Guid.TryParse(request.RequestId, out _))
+            || !Guid.TryParseExact(request.RequestId, "D", out _))
         {
             errors.Add(new ValidationError(
                 Code: ValidationErrorCodes.RequestIdInvalid,
-                Message: "requestId must be a valid UUID.",
+                Message: "requestId must be UUID format 'D'.",
                 OpId: null));
         }
 

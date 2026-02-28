@@ -70,6 +70,7 @@ public sealed class IpcContractSerializationTests
     public void IpcErrorCodes_ContainsInvalidArgumentConstant ()
     {
         Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
+        Assert.Equal("INTERNAL_ERROR", IpcErrorCodes.InternalError);
     }
 
     [Fact]

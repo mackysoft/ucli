@@ -1,0 +1,606 @@
+using System.Text.Json;
+using MackySoft.Tests;
+using MackySoft.Ucli.Cli.Requests;
+using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.UnityProject;
+
+namespace MackySoft.Ucli.Tests;
+
+public sealed class PhaseExecutionPreflightServiceTests
+{
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsPreparedRequest_WhenInputIsValid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "success");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": {}
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var preparedRequest = Assert.IsType<PhaseExecutionPreparedRequest>(result.PreparedRequest);
+        Assert.Equal(RequestInputSource.StandardInput, preparedRequest.InputSource);
+        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", preparedRequest.Request.RequestId);
+        Assert.Equal(unityProjectPath, preparedRequest.UnityProject.UnityProjectRoot);
+        Assert.Empty(result.ValidationErrors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenRequestPathAndRedirectedStandardInputAreBothProvided ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "input-source-conflict");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var requestInputReader = new RequestInputReader(
+            isStandardInputRedirected: static () => true,
+            readStandardInputAsync: static _ => Task.FromResult("""{"from":"stdin"}"""),
+            readRequestFileAsync: static (_, _) => Task.FromResult("""{"from":"file"}"""));
+        var service = CreateService(
+            requestInputReader: requestInputReader,
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: "request.json", projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenRequestJsonIsMalformed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "invalid-json");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var requestInputReader = new RequestInputReader(
+            isStandardInputRedirected: static () => true,
+            readStandardInputAsync: static _ => Task.FromResult("{"),
+            readRequestFileAsync: static (_, _) => Task.FromResult("""{"unused":true}"""));
+        var service = CreateService(
+            requestInputReader: requestInputReader,
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenRequestContainsUnknownTopLevelProperty ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "request-unknown-property");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": {}
+                }
+              ],
+              "unknown": 1
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("unknown", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationArgsPropertyIsMissing ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "args-missing");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open"
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("args", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOpsPropertyIsNotArray ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "ops-invalid-kind");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": {}
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("ops", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationArgsPropertyIsNotObject ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "args-invalid-kind");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": []
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("args", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationContainsUnknownProperty ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-unknown-property");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": {},
+                  "unknown": 1
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("unknown", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationIdContainsOuterWhitespace ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-id-outer-whitespace");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": " op-1 ",
+                  "op": "ucli.scene.open",
+                  "args": {}
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("id", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationNameContainsOuterWhitespace ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-name-outer-whitespace");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": " ucli.scene.open ",
+                  "args": {}
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("op", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationAliasContractIsInvalid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-alias-invalid");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": {},
+                  "as": 123
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("as", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsInvalidArgument_WhenOperationExpectationContractIsInvalid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-expectation-invalid");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": {},
+                  "expect": {
+                    "count": 1,
+                    "min": 0
+                  }
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("expect", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsValidationErrors_WhenStaticValidationFails ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "static-validation-fail");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 999,
+              "requestId": "invalid",
+              "ops": [
+                {
+                  "id": "dup",
+                  "op": "ucli.scene.open",
+                  "args": {}
+                },
+                {
+                  "id": "dup",
+                  "op": "ucli.unknown",
+                  "args": {}
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.HasValidationErrors);
+        Assert.Null(result.Error);
+        Assert.True(result.ValidationErrors.Count >= 2);
+        Assert.Contains(result.ValidationErrors, static x => x.Code == ValidationErrorCodes.ProtocolVersionMismatch);
+        Assert.Contains(result.ValidationErrors, static x => x.Code == ValidationErrorCodes.RequestIdInvalid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_PropagatesCancellationTokenToDependencies ()
+    {
+        var request = new ValidateRequest(
+            ProtocolVersion: 1,
+            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            Ops:
+            [
+                new ValidateRequestOperation("op-1", "ucli.scene.open", JsonSerializer.SerializeToElement(new { })),
+            ]);
+        var requestInputReader = new SpyRequestInputReader();
+        var parser = new StubValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(request));
+        var unityProjectResolver = new StubUnityProjectResolver();
+        var configStore = new SpyConfigStore();
+        var validator = new SpyRequestStaticValidator();
+        var service = CreateService(requestInputReader, parser, unityProjectResolver, configStore, validator);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var token = cancellationTokenSource.Token;
+
+        var result = await service.Prepare(requestPath: null, projectPath: null, token);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(token, requestInputReader.ReceivedToken);
+        Assert.Equal(token, configStore.ReceivedToken);
+        Assert.Equal(token, validator.ReceivedToken);
+    }
+
+    private static PhaseExecutionPreflightService CreateService (
+        IRequestInputReader requestInputReader,
+        IValidateRequestJsonParser requestJsonParser,
+        IUnityProjectResolver unityProjectResolver,
+        IUcliConfigStore configStore,
+        IRequestStaticValidator requestStaticValidator)
+    {
+        return new PhaseExecutionPreflightService(
+            requestInputReader,
+            requestJsonParser,
+            unityProjectResolver,
+            configStore,
+            requestStaticValidator);
+    }
+
+    private static IRequestStaticValidator CreateRequestStaticValidator ()
+    {
+        var operationCatalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+        var authorizationService = new OperationAuthorizationService();
+        return new RequestStaticValidator(operationCatalog, authorizationService);
+    }
+
+    private sealed class StubRequestInputReader : IRequestInputReader
+    {
+        private readonly RequestInputReadResult readResult;
+
+        public StubRequestInputReader (RequestInputReadResult readResult)
+        {
+            this.readResult = readResult ?? throw new ArgumentNullException(nameof(readResult));
+        }
+
+        public ValueTask<RequestInputReadResult> ReadAsync (
+            string? requestPath,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(readResult);
+        }
+    }
+
+    private sealed class SpyRequestInputReader : IRequestInputReader
+    {
+        public CancellationToken ReceivedToken { get; private set; }
+
+        public ValueTask<RequestInputReadResult> ReadAsync (
+            string? requestPath,
+            CancellationToken cancellationToken = default)
+        {
+            ReceivedToken = cancellationToken;
+            return ValueTask.FromResult(RequestInputReadResult.Success(
+                json: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","ops":[{"id":"op-1","op":"ucli.scene.open","args":{}}]}""",
+                source: RequestInputSource.StandardInput));
+        }
+    }
+
+    private sealed class StubValidateRequestJsonParser : IValidateRequestJsonParser
+    {
+        private readonly ValidateRequestJsonParseResult parseResult;
+
+        public StubValidateRequestJsonParser (ValidateRequestJsonParseResult parseResult)
+        {
+            this.parseResult = parseResult ?? throw new ArgumentNullException(nameof(parseResult));
+        }
+
+        public ValidateRequestJsonParseResult Parse (string requestJson)
+        {
+            return parseResult;
+        }
+    }
+
+    private sealed class StubUnityProjectResolver : IUnityProjectResolver
+    {
+        public UnityProjectResolutionResult Resolve (string? projectPath)
+        {
+            return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
+                UnityProjectRoot: "/tmp/project",
+                ProjectFingerprint: "fingerprint",
+                PathSource: UnityProjectPathSource.CommandOption,
+                ConfigPath: "/tmp/project/.ucli/config.json"));
+        }
+    }
+
+    private sealed class SpyConfigStore : IUcliConfigStore
+    {
+        public CancellationToken ReceivedToken { get; private set; }
+
+        public string GetConfigPath (string unityProjectRoot)
+        {
+            return Path.Combine(unityProjectRoot, ".ucli", "config.json");
+        }
+
+        public ValueTask<UcliConfigLoadResult> Load (
+            string unityProjectRoot,
+            CancellationToken cancellationToken = default)
+        {
+            ReceivedToken = cancellationToken;
+            return ValueTask.FromResult(UcliConfigLoadResult.Success(UcliConfig.CreateDefault(), ConfigSource.Default));
+        }
+
+        public ValueTask<UcliConfigSaveResult> Save (
+            string unityProjectRoot,
+            UcliConfig config,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class SpyRequestStaticValidator : IRequestStaticValidator
+    {
+        public CancellationToken ReceivedToken { get; private set; }
+
+        public ValueTask<ValidationResult> Validate (
+            ValidateRequest request,
+            UcliConfig config,
+            CancellationToken cancellationToken = default)
+        {
+            ReceivedToken = cancellationToken;
+            return ValueTask.FromResult(ValidationResult.Success());
+        }
+    }
+}
