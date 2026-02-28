@@ -4,6 +4,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.ReadIndex;
 
 public sealed class RequestStaticValidatorTests
 {
@@ -129,6 +130,7 @@ public sealed class RequestStaticValidatorTests
             SchemaVersion: UcliContractConstants.Config.SchemaVersion,
             OperationPolicy: operationPolicy,
             PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
             OperationAllowlist: allowlistPatterns);
     }
 

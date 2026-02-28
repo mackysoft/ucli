@@ -6,6 +6,9 @@ public static class IpcErrorCodes
     /// <summary> Gets the error code emitted when request arguments are invalid. </summary>
     public const string InvalidArgument = "INVALID_ARGUMENT";
 
+    /// <summary> Gets the error code emitted when required workspace initialization has not been completed. </summary>
+    public const string NotInitialized = "NOT_INITIALIZED";
+
     /// <summary> Gets the error code emitted when protocol versions are incompatible. </summary>
     public const string ProtocolVersionMismatch = "PROTOCOL_VERSION_MISMATCH";
 
@@ -20,6 +23,15 @@ public static class IpcErrorCodes
 
     /// <summary> Gets the error code emitted when command execution is not yet implemented. </summary>
     public const string CommandNotImplemented = "COMMAND_NOT_IMPLEMENTED";
+
+    /// <summary> Gets the error code emitted when read-index bootstrap cannot be completed. </summary>
+    public const string ReadIndexBootstrapFailed = "READ_INDEX_BOOTSTRAP_FAILED";
+
+    /// <summary> Gets the error code emitted when read-index files are malformed. </summary>
+    public const string ReadIndexFormatInvalid = "READ_INDEX_FORMAT_INVALID";
+
+    /// <summary> Gets the error code emitted when a request requires fresh read-index but freshness is not <c>fresh</c>. </summary>
+    public const string ReadIndexFreshRequired = "READ_INDEX_FRESH_REQUIRED";
 
     /// <summary> Gets the error code emitted when an unexpected internal failure occurs. </summary>
     public const string InternalError = "INTERNAL_ERROR";

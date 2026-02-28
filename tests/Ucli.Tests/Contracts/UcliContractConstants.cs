@@ -26,6 +26,12 @@ internal static class UcliContractConstants
         public const string PlanTokenModeOptional = "optional";
 
         public const string PlanTokenModeRequired = "required";
+
+        public const string ReadIndexModeDisabled = "disabled";
+
+        public const string ReadIndexModeAllowStale = "allowStale";
+
+        public const string ReadIndexModeRequireFresh = "requireFresh";
     }
 
     internal static class TestProfile

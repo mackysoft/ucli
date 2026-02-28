@@ -1,0 +1,74 @@
+using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.ReadIndex;
+
+namespace MackySoft.Ucli.Tests.ReadIndex;
+
+public sealed class ReadIndexModeResolverTests
+{
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("RequireFresh")]
+    [InlineData("AllowStale")]
+    [InlineData("Disabled")]
+    public void Resolve_WithoutOption_MapsModeFromConfigDefaults (
+        string defaultModeName)
+    {
+        Assert.True(Enum.TryParse<ReadIndexMode>(defaultModeName, out var defaultMode));
+        var config = CreateConfig(defaultMode);
+
+        var result = ReadIndexModeResolver.Resolve(optionValue: null, config);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(defaultMode, result.Mode);
+        Assert.Null(result.Error);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("disabled", "Disabled")]
+    [InlineData("allowStale", "AllowStale")]
+    [InlineData("requireFresh", "RequireFresh")]
+    [InlineData("DISABLED", "Disabled")]
+    public void Resolve_WithOption_UsesOptionValue (
+        string optionValue,
+        string expectedModeName)
+    {
+        var config = CreateConfig(ReadIndexMode.RequireFresh);
+
+        var result = ReadIndexModeResolver.Resolve(optionValue, config);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(Enum.TryParse<ReadIndexMode>(expectedModeName, out var expectedMode));
+        Assert.Equal(expectedMode, result.Mode);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_WithUnknownOption_ReturnsInvalidArgument ()
+    {
+        var config = CreateConfig(ReadIndexMode.RequireFresh);
+
+        var result = ReadIndexModeResolver.Resolve("invalidMode", config);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Mode);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("readIndexMode", error.Message, StringComparison.Ordinal);
+    }
+
+    private static UcliConfig CreateConfig (ReadIndexMode defaultMode)
+    {
+        return new UcliConfig(
+            SchemaVersion: UcliContractConstants.Config.SchemaVersion,
+            OperationPolicy: OperationPolicy.Safe,
+            PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: defaultMode,
+            OperationAllowlist:
+            [
+                UcliContractConstants.Config.DefaultOperationAllowlistPattern,
+            ]);
+    }
+}

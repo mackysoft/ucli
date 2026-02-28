@@ -4,6 +4,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
 
 public sealed class InitStatusContextResolverTests
@@ -22,9 +23,11 @@ public sealed class InitStatusContextResolverTests
         Assert.Null(result.Error);
         var context = Assert.IsType<InitStatusContext>(result.Context);
         Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot);
+        Assert.Equal(unityProjectPath, context.UnityProject.RepositoryRoot);
         Assert.Equal(ConfigSource.Default, context.ConfigSource);
         Assert.Equal(OperationPolicy.Safe, context.Config.OperationPolicy);
         Assert.Equal(PlanTokenMode.Optional, context.Config.PlanTokenMode);
+        Assert.Equal(ReadIndexMode.RequireFresh, context.Config.ReadIndexDefaultMode);
     }
 
     [Fact]
@@ -40,6 +43,7 @@ public sealed class InitStatusContextResolverTests
                 SchemaVersion: 1,
                 OperationPolicy: OperationPolicy.Advanced,
                 PlanTokenMode: PlanTokenMode.Required,
+                ReadIndexDefaultMode: ReadIndexMode.Disabled,
                 OperationAllowlist:
                 [
                     "^ucli\\.",
@@ -57,6 +61,7 @@ public sealed class InitStatusContextResolverTests
         Assert.Equal(ConfigSource.File, context.ConfigSource);
         Assert.Equal(OperationPolicy.Advanced, context.Config.OperationPolicy);
         Assert.Equal(PlanTokenMode.Required, context.Config.PlanTokenMode);
+        Assert.Equal(ReadIndexMode.Disabled, context.Config.ReadIndexDefaultMode);
         Assert.Equal(new[] { "^ucli\\.", "^extension\\." }, context.Config.OperationAllowlist);
     }
 

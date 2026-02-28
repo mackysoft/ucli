@@ -4,6 +4,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.ReadIndex;
 
 public sealed class UcliConfigStoreTests
 {
@@ -24,6 +25,7 @@ public sealed class UcliConfigStoreTests
         Assert.Equal(UcliContractConstants.Config.SchemaVersion, config.SchemaVersion);
         Assert.Equal(OperationPolicy.Safe, config.OperationPolicy);
         Assert.Equal(PlanTokenMode.Optional, config.PlanTokenMode);
+        Assert.Equal(ReadIndexMode.RequireFresh, config.ReadIndexDefaultMode);
         Assert.Equal(new[] { UcliContractConstants.Config.DefaultOperationAllowlistPattern }, config.OperationAllowlist);
     }
 
@@ -38,6 +40,7 @@ public sealed class UcliConfigStoreTests
             SchemaVersion: 1,
             OperationPolicy: OperationPolicy.Dangerous,
             PlanTokenMode: PlanTokenMode.Required,
+            ReadIndexDefaultMode: ReadIndexMode.AllowStale,
             OperationAllowlist:
             [
                 UcliContractConstants.Config.DefaultOperationAllowlistPattern,
@@ -56,6 +59,7 @@ public sealed class UcliConfigStoreTests
         Assert.Equal(config.SchemaVersion, loadedConfig.SchemaVersion);
         Assert.Equal(config.OperationPolicy, loadedConfig.OperationPolicy);
         Assert.Equal(config.PlanTokenMode, loadedConfig.PlanTokenMode);
+        Assert.Equal(config.ReadIndexDefaultMode, loadedConfig.ReadIndexDefaultMode);
         Assert.Equal(config.OperationAllowlist, loadedConfig.OperationAllowlist);
 
         var configPath = configStore.GetConfigPath(unityProjectPath);
@@ -64,6 +68,7 @@ public sealed class UcliConfigStoreTests
             .HasInt32("schemaVersion", UcliContractConstants.Config.SchemaVersion)
             .HasString("operationPolicy", UcliContractConstants.Config.OperationPolicyDangerous)
             .HasString("planTokenMode", UcliContractConstants.Config.PlanTokenModeRequired)
+            .HasString("readIndexDefaultMode", UcliContractConstants.Config.ReadIndexModeAllowStale)
             .HasArrayLength("operationAllowlist", 2);
     }
 
@@ -102,6 +107,7 @@ public sealed class UcliConfigStoreTests
                 schemaVersion = 2,
                 operationPolicy = UcliContractConstants.Config.OperationPolicySafe,
                 planTokenMode = UcliContractConstants.Config.PlanTokenModeOptional,
+                readIndexDefaultMode = UcliContractConstants.Config.ReadIndexModeRequireFresh,
                 operationAllowlist = new[] { UcliContractConstants.Config.DefaultOperationAllowlistPattern },
             });
         scope.WriteFile(
@@ -132,6 +138,7 @@ public sealed class UcliConfigStoreTests
                 schemaVersion = UcliContractConstants.Config.SchemaVersion,
                 operationPolicy = UcliContractConstants.Config.OperationPolicySafe,
                 planTokenMode = UcliContractConstants.Config.PlanTokenModeOptional,
+                readIndexDefaultMode = UcliContractConstants.Config.ReadIndexModeRequireFresh,
                 operationAllowlist = new[] { "[" },
             });
         scope.WriteFile(relativeConfigPath, invalidAllowlistConfigJson);
@@ -157,6 +164,7 @@ public sealed class UcliConfigStoreTests
             SchemaVersion: UcliContractConstants.Config.SchemaVersion,
             OperationPolicy: OperationPolicy.Safe,
             PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
             OperationAllowlist:
             [
                 "[",
@@ -169,5 +177,34 @@ public sealed class UcliConfigStoreTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("operationAllowlist", error.Message, StringComparison.Ordinal);
         Assert.Contains("regex", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Load_ReturnsInvalidArgument_WhenReadIndexDefaultModeIsInvalid ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-config-store", "invalid-read-index-default-mode");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var configStore = new UcliConfigStore();
+        var configPath = configStore.GetConfigPath(unityProjectPath);
+        var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
+        var invalidConfigJson = JsonSerializer.Serialize(
+            new
+            {
+                schemaVersion = UcliContractConstants.Config.SchemaVersion,
+                operationPolicy = UcliContractConstants.Config.OperationPolicySafe,
+                planTokenMode = UcliContractConstants.Config.PlanTokenModeOptional,
+                readIndexDefaultMode = "unknown",
+                operationAllowlist = new[] { UcliContractConstants.Config.DefaultOperationAllowlistPattern },
+            });
+        scope.WriteFile(relativeConfigPath, invalidConfigJson);
+
+        var result = await configStore.Load(unityProjectPath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Config);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("readIndexDefaultMode", error.Message, StringComparison.Ordinal);
     }
 }

@@ -299,6 +299,7 @@ public sealed class CliOutputContractTests
             .HasInt32("schemaVersion", UcliContractConstants.Config.SchemaVersion)
             .HasString("operationPolicy", UcliContractConstants.Config.OperationPolicySafe)
             .HasString("planTokenMode", UcliContractConstants.Config.PlanTokenModeOptional)
+            .HasString("readIndexDefaultMode", UcliContractConstants.Config.ReadIndexModeRequireFresh)
             .HasArrayLength("operationAllowlist", 1)
             .HasProperty("operationAllowlist", 0, static allowlistValue => allowlistValue
                 .HasString(UcliContractConstants.Config.DefaultOperationAllowlistPattern));
