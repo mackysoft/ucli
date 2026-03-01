@@ -161,6 +161,41 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
+        /// <summary> Waits until the active listener loop terminates. </summary>
+        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <returns> A task that completes when listener loop terminates, or immediately when server has not been started. </returns>
+        /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before listener loop terminates. </exception>
+        public async Task WaitForTermination (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Task? capturedListenerTask;
+            lock (syncRoot)
+            {
+                capturedListenerTask = listenerTask;
+            }
+
+            if (capturedListenerTask == null)
+            {
+                return;
+            }
+
+            if (!cancellationToken.CanBeCanceled)
+            {
+                await capturedListenerTask;
+                return;
+            }
+
+            var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
+            var completedTask = await Task.WhenAny(capturedListenerTask, cancellationTask);
+            if (!ReferenceEquals(completedTask, capturedListenerTask))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            await capturedListenerTask;
+        }
+
         /// <summary> Handles one IPC request through the configured request-handler pipeline. </summary>
         /// <param name="request"> The incoming IPC request envelope. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>

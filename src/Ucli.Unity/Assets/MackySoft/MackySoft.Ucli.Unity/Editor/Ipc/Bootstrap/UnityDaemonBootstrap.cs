@@ -75,7 +75,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             await server.Start(endpoint, CancellationToken.None);
             Debug.Log($"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
 
-            await shutdownSignal.Wait(CancellationToken.None);
+            var shutdownWaitTask = shutdownSignal.Wait(CancellationToken.None);
+            var serverTerminationTask = server.WaitForTermination(CancellationToken.None);
+            var completedTask = await Task.WhenAny(shutdownWaitTask, serverTerminationTask);
+            if (ReferenceEquals(completedTask, serverTerminationTask))
+            {
+                await serverTerminationTask;
+                throw new InvalidOperationException("IPC server loop terminated before shutdown request was received.");
+            }
+
+            await shutdownWaitTask;
             await server.Stop(CancellationToken.None);
             EditorApplication.Exit(0);
         }

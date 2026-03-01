@@ -21,5 +21,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when stop sequence has finished. </returns>
         Task Stop (CancellationToken cancellationToken = default);
+
+        /// <summary> Waits until the active listener loop terminates. </summary>
+        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <returns> A task that completes when listener loop terminates, or immediately when server has not been started. </returns>
+        /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before listener loop terminates. </exception>
+        Task WaitForTermination (CancellationToken cancellationToken = default);
     }
 }

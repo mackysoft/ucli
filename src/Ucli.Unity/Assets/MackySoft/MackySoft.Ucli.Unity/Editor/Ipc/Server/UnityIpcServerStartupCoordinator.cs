@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Coordinates IPC server startup completion and delayed startup-failure propagation. </summary>
     internal sealed class UnityIpcServerStartupCoordinator
     {
+        private static readonly TimeSpan StartupCompletionRaceGracePeriod = TimeSpan.FromMilliseconds(10);
+
         private readonly TaskCompletionSource<bool> startupCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         /// <summary> Marks startup as completed after transport listener begins accept loop. </summary>
@@ -59,14 +61,19 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            var startupTask = startupCompletionSource.Task;
             var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
-            var completedTask = await Task.WhenAny(startupCompletionSource.Task, cancellationTask);
-            if (!ReferenceEquals(completedTask, startupCompletionSource.Task))
+            var completedTask = await Task.WhenAny(startupTask, cancellationTask);
+            if (!ReferenceEquals(completedTask, startupTask) && !startupTask.IsCompleted)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                var raceCompletionTask = await Task.WhenAny(startupTask, Task.Delay(StartupCompletionRaceGracePeriod));
+                if (!ReferenceEquals(raceCompletionTask, startupTask) && !startupTask.IsCompleted)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
             }
 
-            await startupCompletionSource.Task;
+            await startupTask;
         }
     }
 }
