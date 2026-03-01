@@ -143,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
-            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            await ExceptionCapture.Capture<OperationCanceledException>(async () =>
             {
                 await dispatcher.Dispatch(request, context, cancellationTokenSource.Token).AsUniTask();
             });

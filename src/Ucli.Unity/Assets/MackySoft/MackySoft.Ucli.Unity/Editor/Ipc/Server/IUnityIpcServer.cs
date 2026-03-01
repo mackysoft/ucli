@@ -13,13 +13,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes when startup sequence has finished. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpoint" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when endpoint address is empty or whitespace. </exception>
-        Task StartAsync (
+        Task Start (
             IpcEndpoint endpoint,
             CancellationToken cancellationToken = default);
 
         /// <summary> Stops the server listener and releases endpoint resources. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that completes when stop sequence has finished. </returns>
-        Task StopAsync (CancellationToken cancellationToken = default);
+        Task Stop (CancellationToken cancellationToken = default);
     }
 }

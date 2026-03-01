@@ -1,0 +1,74 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.Requests;
+using UnityEditor;
+using UnityEngine;
+
+namespace MackySoft.Ucli.Unity.Ipc
+{
+    /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
+    internal static class UnityDaemonBootstrap
+    {
+        /// <summary> Entry point invoked by Unity <c>-executeMethod</c> to start daemon mode. </summary>
+        public static void Start ()
+        {
+            try
+            {
+                Run().GetAwaiter().GetResult();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                EditorApplication.Exit(1);
+            }
+        }
+
+        /// <summary> Starts IPC server and blocks until shutdown request is received. </summary>
+        /// <returns> A task that completes after process-exit request has been issued. </returns>
+        private static async Task Run ()
+        {
+            IDaemonBootstrapArgumentsParser parser = new DaemonBootstrapArgumentsParser();
+            if (!parser.TryParse(Environment.GetCommandLineArgs(), out var bootstrapArguments, out var parseErrorMessage))
+            {
+                Debug.LogError(parseErrorMessage);
+                EditorApplication.Exit(1);
+                return;
+            }
+
+            if (!UnityIpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
+            {
+                Debug.LogError($"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
+                EditorApplication.Exit(1);
+                return;
+            }
+
+            var shutdownSignalSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var tokenValidator = new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath);
+            var executeDispatcher = CreateExecuteDispatcher();
+            var server = new UnityIpcServer(
+                tokenValidator,
+                executeDispatcher,
+                () => shutdownSignalSource.TrySetResult(true));
+
+            var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
+            await server.Start(endpoint, CancellationToken.None);
+            Debug.Log($"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
+
+            await shutdownSignalSource.Task;
+            await server.Stop(CancellationToken.None);
+            EditorApplication.Exit(0);
+        }
+
+        /// <summary> Creates execute dispatcher for daemon bootstrap. </summary>
+        /// <returns> The execute dispatcher instance. </returns>
+        private static IExecuteRequestDispatcher CreateExecuteDispatcher ()
+        {
+            var normalizer = new ExecuteRequestNormalizer();
+            var operationRegistry = new InMemoryPhaseOperationRegistry(Array.Empty<IPhaseOperation>());
+            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
+            return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+        }
+    }
+}
