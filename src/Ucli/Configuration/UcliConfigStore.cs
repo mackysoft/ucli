@@ -215,7 +215,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                 $"Config operationPolicy is invalid: {document.OperationPolicy}."));
         }
 
-        if (!TryParsePlanTokenMode(document.PlanTokenMode, out var planTokenMode))
+        if (!PlanTokenModeCodec.TryParse(document.PlanTokenMode, out var planTokenMode))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config planTokenMode is invalid: {document.PlanTokenMode}."));
@@ -368,7 +368,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         return new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
             OperationPolicy: ToStringValue(config.OperationPolicy),
-            PlanTokenMode: ToStringValue(config.PlanTokenMode),
+            PlanTokenMode: PlanTokenModeCodec.ToValue(config.PlanTokenMode),
             ReadIndexDefaultMode: ToStringValue(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
@@ -387,20 +387,6 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             OperationPolicy.Advanced => UcliConfigValueConstants.OperationPolicyAdvanced,
             OperationPolicy.Dangerous => UcliConfigValueConstants.OperationPolicyDangerous,
             _ => throw new ArgumentOutOfRangeException(nameof(operationPolicy), operationPolicy, "Unsupported operationPolicy."),
-        };
-    }
-
-    /// <summary> Converts <see cref="PlanTokenMode" /> to the config string value. </summary>
-    /// <param name="planTokenMode"> The plan token mode value. </param>
-    /// <returns> The config string representation. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="planTokenMode" /> is outside supported values. </exception>
-    private static string ToStringValue (PlanTokenMode planTokenMode)
-    {
-        return planTokenMode switch
-        {
-            PlanTokenMode.Optional => PlanTokenModeValues.Optional,
-            PlanTokenMode.Required => PlanTokenModeValues.Required,
-            _ => throw new ArgumentOutOfRangeException(nameof(planTokenMode), planTokenMode, "Unsupported planTokenMode."),
         };
     }
 
@@ -444,28 +430,6 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
 
         operationPolicy = default;
-        return false;
-    }
-
-    /// <summary> Parses plan-token-mode config values. </summary>
-    /// <param name="value"> The config string value. </param>
-    /// <param name="planTokenMode"> The parsed enum value. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParsePlanTokenMode (string? value, out PlanTokenMode planTokenMode)
-    {
-        if (string.Equals(value, PlanTokenModeValues.Optional, StringComparison.OrdinalIgnoreCase))
-        {
-            planTokenMode = PlanTokenMode.Optional;
-            return true;
-        }
-
-        if (string.Equals(value, PlanTokenModeValues.Required, StringComparison.OrdinalIgnoreCase))
-        {
-            planTokenMode = PlanTokenMode.Required;
-            return true;
-        }
-
-        planTokenMode = default;
         return false;
     }
 

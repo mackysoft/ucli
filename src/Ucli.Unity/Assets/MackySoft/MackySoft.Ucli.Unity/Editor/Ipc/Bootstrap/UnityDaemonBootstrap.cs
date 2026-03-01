@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            if (!UnityIpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
+            if (!IpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
             {
                 Debug.LogError($"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
                 EditorApplication.Exit(1);

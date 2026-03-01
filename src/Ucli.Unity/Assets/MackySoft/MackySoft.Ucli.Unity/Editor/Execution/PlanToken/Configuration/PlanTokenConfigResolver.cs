@@ -73,9 +73,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The resolved runtime mode. </returns>
         private static PlanTokenMode ResolveMode (string modeLiteral)
         {
-            return string.Equals(modeLiteral, PlanTokenModeValues.Required, StringComparison.OrdinalIgnoreCase)
-                ? PlanTokenMode.Required
-                : PlanTokenMode.Optional;
+            if (PlanTokenModeCodec.TryParse(modeLiteral, out var planTokenMode))
+            {
+                return planTokenMode;
+            }
+
+            return PlanTokenMode.Optional;
         }
 
         /// <summary> Reads normalized allowlist values from config root. </summary>

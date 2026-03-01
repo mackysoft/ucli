@@ -143,7 +143,7 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint));
         AppendArgument(builder, IpcDaemonBootstrapArgumentNames.EndpointTransportKind);
-        AppendArgument(builder, DaemonSessionTransportKindCodec.ToValue(endpoint.TransportKind));
+        AppendArgument(builder, IpcTransportKindCodec.ToValue(endpoint.TransportKind));
         AppendArgument(builder, IpcDaemonBootstrapArgumentNames.EndpointAddress);
         AppendArgument(builder, endpoint.Address);
         return builder.ToString();
