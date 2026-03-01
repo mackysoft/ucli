@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 using UnityEngine;
@@ -29,7 +31,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static async Task Run ()
         {
             IDaemonBootstrapArgumentsParser parser = new DaemonBootstrapArgumentsParser();
-            IUnityDaemonServiceProviderFactory serviceProviderFactory = new UnityDaemonServiceProviderFactory();
             if (!parser.TryParse(Environment.GetCommandLineArgs(), out var bootstrapArguments, out var parseErrorMessage))
             {
                 Debug.LogError(parseErrorMessage);
@@ -45,9 +46,29 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var shutdownSignalSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var serviceProvider = serviceProviderFactory.Create(
-                bootstrapArguments,
-                () => shutdownSignalSource.TrySetResult(true));
+            var services = new ServiceCollection();
+            services.AddSingleton(bootstrapArguments);
+            services.AddSingleton<Action>(() => shutdownSignalSource.TrySetResult(true));
+            services.AddSingleton<ISessionTokenValidator>(new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath));
+            services.AddSingleton<IExecuteRequestDispatcher>(static _ => CreateExecuteRequestDispatcher());
+            services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
+            services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
+            services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
+            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
+            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
+            services.AddSingleton<IUnityIpcServer>(serviceProvider =>
+            {
+                return new UnityIpcServer(
+                    serviceProvider.GetRequiredService<IUnityIpcRequestHandler>(),
+                    serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
+                    new IUnityIpcTransportListener[]
+                    {
+                        serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
+                        serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
+                    });
+            });
+
+            using var serviceProvider = services.BuildServiceProvider();
             var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
 
             var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
@@ -57,6 +78,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             await shutdownSignalSource.Task;
             await server.Stop(CancellationToken.None);
             EditorApplication.Exit(0);
+        }
+
+        /// <summary> Creates execute-request dispatcher used by Unity daemon mode. </summary>
+        /// <returns> The execute-request dispatcher instance. </returns>
+        private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher ()
+        {
+            var normalizer = new ExecuteRequestNormalizer();
+            var operationRegistry = new InMemoryPhaseOperationRegistry(Array.Empty<IPhaseOperation>());
+            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
+            return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
         }
     }
 }
