@@ -6,16 +6,75 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void GetSearchRoots_OnCaseSensitivePlatform_KeepsCaseVariantLinuxRoots ()
+    public void GetSearchRoots_UsesOnlySupportedSources ()
     {
-        if (OperatingSystem.IsWindows())
+        var provider = new DefaultUnityEditorSearchRootProvider(
+            new IUnityEditorSearchRootSource[]
+            {
+                new StubSearchRootSource(true, "/first"),
+                new StubSearchRootSource(false, "/ignored"),
+                new StubSearchRootSource(true, "/second"),
+            },
+            new StubPathComparerProvider(StringComparer.Ordinal));
+
+        var roots = provider.GetSearchRoots();
+
+        Assert.Equal(
+            new[]
+            {
+                "/first",
+                "/second",
+            },
+            roots);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void GetSearchRoots_DeduplicatesRootsUsingComparerProvider ()
+    {
+        var provider = new DefaultUnityEditorSearchRootProvider(
+            new IUnityEditorSearchRootSource[]
+            {
+                new StubSearchRootSource(true, "/Root", "/Another"),
+                new StubSearchRootSource(true, "/root", "/ANOTHER", string.Empty),
+            },
+            new StubPathComparerProvider(StringComparer.OrdinalIgnoreCase));
+
+        var roots = provider.GetSearchRoots();
+
+        Assert.Equal(
+            new[]
+            {
+                "/Root",
+                "/Another",
+            },
+            roots);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void GetComparer_ReturnsPlatformAwareComparer ()
+    {
+        var provider = new UnityPathComparerProvider();
+
+        var comparer = provider.GetComparer();
+
+        Assert.Equal(OperatingSystem.IsWindows(), comparer.Equals("A", "a"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void LinuxSource_OnLinux_IncludesCaseVariantOptRoots ()
+    {
+        var source = new LinuxUnityEditorSearchRootSource();
+
+        if (!source.IsSupportedCurrentPlatform)
         {
+            Assert.Empty(source.GetSearchRoots());
             return;
         }
 
-        var provider = new DefaultUnityEditorSearchRootProvider();
-
-        var roots = provider.GetSearchRoots();
+        var roots = source.GetSearchRoots();
 
         Assert.Contains("/opt/Unity/Hub/Editor", roots, StringComparer.Ordinal);
         Assert.Contains("/opt/unity/hub/editor", roots, StringComparer.Ordinal);
@@ -23,20 +82,54 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void GetSearchRoots_OnWindows_DeduplicatesCaseVariantLinuxRoots ()
+    public void MacSource_OnMac_IncludesApplicationsRoots ()
     {
-        if (!OperatingSystem.IsWindows())
+        var source = new MacUnityEditorSearchRootSource();
+
+        if (!source.IsSupportedCurrentPlatform)
         {
+            Assert.Empty(source.GetSearchRoots());
             return;
         }
 
-        var provider = new DefaultUnityEditorSearchRootProvider();
+        var roots = source.GetSearchRoots();
 
-        var roots = provider.GetSearchRoots();
-        var caseVariantCount = roots.Count(path =>
-            string.Equals(path, "/opt/Unity/Hub/Editor", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(path, "/opt/unity/hub/editor", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("/Applications/Unity/Hub/Editor", roots, StringComparer.Ordinal);
+        Assert.Contains("/Applications/Unity/Editor", roots, StringComparer.Ordinal);
+    }
 
-        Assert.Equal(1, caseVariantCount);
+    private sealed class StubSearchRootSource : IUnityEditorSearchRootSource
+    {
+        private readonly IReadOnlyList<string> roots;
+
+        public StubSearchRootSource (
+            bool isSupportedCurrentPlatform,
+            params string[] roots)
+        {
+            IsSupportedCurrentPlatform = isSupportedCurrentPlatform;
+            this.roots = roots;
+        }
+
+        public bool IsSupportedCurrentPlatform { get; }
+
+        public IReadOnlyList<string> GetSearchRoots ()
+        {
+            return roots;
+        }
+    }
+
+    private sealed class StubPathComparerProvider : IUnityPathComparerProvider
+    {
+        private readonly StringComparer comparer;
+
+        public StubPathComparerProvider (StringComparer comparer)
+        {
+            this.comparer = comparer;
+        }
+
+        public StringComparer GetComparer ()
+        {
+            return comparer;
+        }
     }
 }
