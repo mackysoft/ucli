@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
@@ -31,6 +32,17 @@ public sealed class IpcCommonContractTests
         Assert.Equal("-ucliSessionPath", IpcDaemonBootstrapArgumentNames.SessionPath);
         Assert.Equal("-ucliEndpointTransportKind", IpcDaemonBootstrapArgumentNames.EndpointTransportKind);
         Assert.Equal("-ucliEndpointAddress", IpcDaemonBootstrapArgumentNames.EndpointAddress);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcJsonSerializerOptions_Default_HasStableConfiguration ()
+    {
+        var options = IpcJsonSerializerOptions.Default;
+
+        Assert.Same(JsonNamingPolicy.CamelCase, options.PropertyNamingPolicy);
+        Assert.True(options.PropertyNameCaseInsensitive);
+        Assert.False(options.WriteIndented);
     }
 
     [Fact]
