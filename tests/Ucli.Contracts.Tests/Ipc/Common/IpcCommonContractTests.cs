@@ -32,4 +32,29 @@ public sealed class IpcCommonContractTests
         Assert.Equal("-ucliEndpointTransportKind", IpcDaemonBootstrapArgumentNames.EndpointTransportKind);
         Assert.Equal("-ucliEndpointAddress", IpcDaemonBootstrapArgumentNames.EndpointAddress);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTransportKindCodec_ToValue_ReturnsStableLiterals ()
+    {
+        Assert.Equal(IpcTransportKindValues.NamedPipe, IpcTransportKindCodec.ToValue(IpcTransportKind.NamedPipe));
+        Assert.Equal(IpcTransportKindValues.UnixDomainSocket, IpcTransportKindCodec.ToValue(IpcTransportKind.UnixDomainSocket));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTransportKindCodec_TryParse_AcceptsKnownValues ()
+    {
+        Assert.True(IpcTransportKindCodec.TryParse(IpcTransportKindValues.NamedPipe, out var namedPipe));
+        Assert.Equal(IpcTransportKind.NamedPipe, namedPipe);
+        Assert.True(IpcTransportKindCodec.TryParse(IpcTransportKindValues.UnixDomainSocket, out var unixDomainSocket));
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, unixDomainSocket);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTransportKindCodec_TryParse_UnknownValue_ReturnsFalse ()
+    {
+        Assert.False(IpcTransportKindCodec.TryParse("unsupported", out _));
+    }
 }
