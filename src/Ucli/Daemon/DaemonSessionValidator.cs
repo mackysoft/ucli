@@ -37,6 +37,12 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
+        if (session.IssuedAtUtc == default)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon session issuedAtUtc is invalid: {sessionPath}");
+            return false;
+        }
+
         if (!DaemonSessionTransportKindCodec.TryParse(session.EndpointTransportKind, out _))
         {
             error = ExecutionError.InvalidArgument(
