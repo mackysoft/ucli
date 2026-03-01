@@ -3,12 +3,14 @@ using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.UnityProject;
+using MackySoft.Ucli.UnityProject.Resolution;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli;
@@ -45,12 +47,33 @@ internal static class Program
             .ConfigureServices(services =>
             {
                 services.AddSingleton<IUnityProjectResolver, UnityProjectResolver>();
+                services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
+                services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
+                services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
                 services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
                 services.AddSingleton<IInitStatusContextResolver, InitStatusContextResolver>();
                 services.AddSingleton<IInitService, InitService>();
                 services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
                 services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
+                services.AddSingleton<IDaemonLifecycleLockProvider, FileSystemDaemonLifecycleLockProvider>();
+                services.AddSingleton<IDaemonSessionFileAccess, DaemonSessionFileAccess>();
+                services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
+                services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
+                services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
+                services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
+                services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
+                services.AddSingleton<IDaemonLogReader, DaemonLogReader>();
+                services.AddSingleton<IUnityDaemonProcessLauncher, UnityDaemonProcessLauncher>();
                 services.AddSingleton<IDaemonPingClient, IpcDaemonPingClient>();
+                services.AddSingleton<IDaemonStartupReadinessProbe, DaemonStartupReadinessProbe>();
+                services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
+                services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
+                services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
+                services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
+                services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
+                services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();
+                services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
+                services.AddSingleton<IDaemonManagementService, DaemonManagementService>();
                 services.AddSingleton<IDaemonReachabilityProbe, IpcDaemonReachabilityProbe>();
                 services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
                 services.AddSingleton<IOperationCatalogProvider, InMemoryOperationCatalogProvider>();

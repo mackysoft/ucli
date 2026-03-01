@@ -15,6 +15,9 @@ public static class IpcErrorCodes
     /// <summary> Gets the error code emitted when a request omits <c>sessionToken</c>. </summary>
     public const string SessionTokenRequired = "SESSION_TOKEN_REQUIRED";
 
+    /// <summary> Gets the error code emitted when a request contains an invalid <c>sessionToken</c>. </summary>
+    public const string SessionTokenInvalid = "SESSION_TOKEN_INVALID";
+
     /// <summary> Gets the error code emitted when an IPC method is not supported. </summary>
     public const string IpcMethodNotSupported = "IPC_METHOD_NOT_SUPPORTED";
 
