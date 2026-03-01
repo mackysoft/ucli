@@ -53,7 +53,8 @@
 - `UnityEngine.Object` から派生するオブジェクト・コンポーネントに対しては、`null`評価系の演算子を用いないこと（`??`、`?.`、`?:`、`is null`、`is not null`、etc）
 - Unityオブジェクトの生存判定は `== null` / `!= null` のみを使用する
 - `RequireComponent` を使用する場合、対象コンポーネント参照フィールドには `SerializeField` を付けない（`GetComponent` で解決する）
-- Unityにコードファイルを追加・削除した場合は、実装後にbatchmodeで起動して、`meta`を更新すること。`meta`の生成はUnity正規の生成を使用すること。
+- Unityにコードファイルを追加・削除したときは、実装後にUnityをbatchmodeで起動して`meta`を更新すること。`meta`の生成はUnity正規の生成を使用すること。
+  - meta更新を回避する目的の設計変更は禁止（例：本来別ファイルの型/責務を1ファイルにまとめる、ファイル追加を避けるための不自然な構造変更）
 
 ## テスト実行
 Unityのテストは `-runTests` を使い、`-testPlatform` と `-assemblyNames` を必ず明示する。
