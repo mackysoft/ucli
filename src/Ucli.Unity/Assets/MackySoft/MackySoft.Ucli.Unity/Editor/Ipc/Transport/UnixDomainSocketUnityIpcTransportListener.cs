@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc

@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 
@@ -12,7 +13,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-issued-at");
         var store = new DaemonSessionStore();
-        var sessionPath = DaemonStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-missing-issued-at");
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-missing-issued-at");
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(
             sessionPath,

@@ -1,4 +1,5 @@
 using System.Text;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
@@ -26,7 +27,7 @@ internal sealed class DaemonLogReader : IDaemonLogReader
         string daemonLogPath;
         try
         {
-            daemonLogPath = DaemonStoragePathResolver.ResolveDaemonLogPath(storageRoot, projectFingerprint);
+            daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(storageRoot, projectFingerprint);
         }
         catch (Exception exception) when (IsPathFormatException(exception))
         {

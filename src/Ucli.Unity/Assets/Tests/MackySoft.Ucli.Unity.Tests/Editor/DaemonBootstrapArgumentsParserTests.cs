@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 
@@ -13,11 +14,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var args = new[]
             {
                 "-batchmode",
-                "-ucliRepositoryRoot",
-                "-ucliProjectFingerprint", "fingerprint",
-                "-ucliSessionPath", "/tmp/session.json",
-                "-ucliEndpointTransportKind", "namedPipe",
-                "-ucliEndpointAddress", "ucli-endpoint",
+                IpcDaemonBootstrapArgumentNames.RepositoryRoot,
+                IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+                IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+                IpcDaemonBootstrapArgumentNames.EndpointTransportKind, "namedPipe",
+                IpcDaemonBootstrapArgumentNames.EndpointAddress, "ucli-endpoint",
             };
 
             var parsed = parser.TryParse(args, out _, out var errorMessage);
@@ -33,11 +34,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var parser = new DaemonBootstrapArgumentsParser();
             var args = new[]
             {
-                "-ucliRepositoryRoot", "-tmp-repository",
-                "-ucliProjectFingerprint", "fingerprint",
-                "-ucliSessionPath", "/tmp/session.json",
-                "-ucliEndpointTransportKind", "namedPipe",
-                "-ucliEndpointAddress", "ucli-endpoint",
+                IpcDaemonBootstrapArgumentNames.RepositoryRoot, "-tmp-repository",
+                IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+                IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+                IpcDaemonBootstrapArgumentNames.EndpointTransportKind, "namedPipe",
+                IpcDaemonBootstrapArgumentNames.EndpointAddress, "ucli-endpoint",
             };
 
             var parsed = parser.TryParse(args, out var bootstrapArguments, out var errorMessage);

@@ -2,6 +2,8 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.ReadIndex;
 
@@ -10,8 +12,6 @@ namespace MackySoft.Ucli.Configuration;
 /// <summary> Provides filesystem-backed access to <c>.ucli/config.json</c>. </summary>
 internal sealed class UcliConfigStore : IUcliConfigStore
 {
-    private const string UcliDirectoryName = ".ucli";
-    private const string ConfigFileName = "config.json";
     private const int SupportedSchemaVersion = 1;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -33,8 +33,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <exception cref="PathTooLongException"> Thrown when <paramref name="storageRoot" /> exceeds platform path limits. </exception>
     public string GetConfigPath (string storageRoot)
     {
-        var fullPath = Path.GetFullPath(storageRoot);
-        return Path.Combine(fullPath, UcliDirectoryName, ConfigFileName);
+        return UcliStoragePathResolver.ResolveConfigPath(storageRoot);
     }
 
     /// <summary> Loads configuration values for a storage root. </summary>
@@ -399,8 +398,8 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     {
         return planTokenMode switch
         {
-            PlanTokenMode.Optional => UcliConfigValueConstants.PlanTokenModeOptional,
-            PlanTokenMode.Required => UcliConfigValueConstants.PlanTokenModeRequired,
+            PlanTokenMode.Optional => PlanTokenModeValues.Optional,
+            PlanTokenMode.Required => PlanTokenModeValues.Required,
             _ => throw new ArgumentOutOfRangeException(nameof(planTokenMode), planTokenMode, "Unsupported planTokenMode."),
         };
     }
@@ -454,13 +453,13 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
     private static bool TryParsePlanTokenMode (string? value, out PlanTokenMode planTokenMode)
     {
-        if (string.Equals(value, UcliConfigValueConstants.PlanTokenModeOptional, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, PlanTokenModeValues.Optional, StringComparison.OrdinalIgnoreCase))
         {
             planTokenMode = PlanTokenMode.Optional;
             return true;
         }
 
-        if (string.Equals(value, UcliConfigValueConstants.PlanTokenModeRequired, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, PlanTokenModeValues.Required, StringComparison.OrdinalIgnoreCase))
         {
             planTokenMode = PlanTokenMode.Required;
             return true;

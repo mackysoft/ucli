@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Configuration;
+namespace MackySoft.Ucli.Contracts.Configuration;
 
 /// <summary> Defines plan-token requirements configured in <c>.ucli/config.json</c>. </summary>
-internal enum PlanTokenMode
+public enum PlanTokenMode
 {
     /// <summary> Allows command execution with or without a plan token. </summary>
     Optional = 0,

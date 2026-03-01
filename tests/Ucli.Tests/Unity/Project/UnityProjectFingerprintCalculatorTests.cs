@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
-using MackySoft.Ucli.UnityProject;
+using MackySoft.Ucli.Contracts.Project;
 
 public sealed class UnityProjectFingerprintCalculatorTests
 {

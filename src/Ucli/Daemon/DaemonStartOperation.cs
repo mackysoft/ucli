@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
@@ -189,7 +190,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return DaemonStartResult.Failure(writeSessionResult.Error!);
         }
 
-        var daemonLogPath = DaemonStoragePathResolver.ResolveDaemonLogPath(
+        var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
         var launchResult = await unityDaemonProcessLauncher.Launch(

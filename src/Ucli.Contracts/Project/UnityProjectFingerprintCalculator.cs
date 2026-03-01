@@ -1,21 +1,30 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace MackySoft.Ucli.UnityProject;
+namespace MackySoft.Ucli.Contracts.Project;
 
 /// <summary> Calculates deterministic Unity-project fingerprints from storage and project paths. </summary>
-internal static class UnityProjectFingerprintCalculator
+public static class UnityProjectFingerprintCalculator
 {
-    /// <summary> Creates a deterministic SHA-256 fingerprint for storage-root and Unity-project identity values. </summary>
+    /// <summary> Creates one deterministic SHA-256 fingerprint for storage-root and Unity-project identity values. </summary>
     /// <param name="storageRoot"> The normalized absolute storage root path. </param>
     /// <param name="unityProjectRoot"> The normalized absolute Unity project root path. </param>
     /// <returns> The lowercase hexadecimal SHA-256 string. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="unityProjectRoot" /> is <see langword="null" />, empty, or whitespace. </exception>
     public static string Create (
         string storageRoot,
         string unityProjectRoot)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+        if (string.IsNullOrWhiteSpace(storageRoot))
+        {
+            throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
+        }
+
+        if (string.IsNullOrWhiteSpace(unityProjectRoot))
+        {
+            throw new ArgumentException("Unity project root must not be empty.", nameof(unityProjectRoot));
+        }
 
         var normalizedStorageRoot = NormalizePath(storageRoot);
         var normalizedUnityProjectRoot = NormalizePath(unityProjectRoot);
@@ -24,8 +33,14 @@ internal static class UnityProjectFingerprintCalculator
             normalizedUnityProjectRoot);
         var fingerprintInput = $"{normalizedStorageRoot}\n{projectPathFragment}";
         var normalizedBytes = Encoding.UTF8.GetBytes(fingerprintInput);
-        var hashBytes = SHA256.HashData(normalizedBytes);
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+
+        byte[] hashBytes;
+        using (var sha256 = SHA256.Create())
+        {
+            hashBytes = sha256.ComputeHash(normalizedBytes);
+        }
+
+        return ToLowerHex(hashBytes);
     }
 
     /// <summary> Builds a stable project-path fragment used for fingerprint input. </summary>
@@ -97,8 +112,8 @@ internal static class UnityProjectFingerprintCalculator
             return false;
         }
 
-        var trailingDirectoryPath = directoryPath.EndsWith(Path.DirectorySeparatorChar)
-            || directoryPath.EndsWith(Path.AltDirectorySeparatorChar)
+        var trailingDirectoryPath = directoryPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+            || directoryPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal)
             ? directoryPath
             : directoryPath + Path.DirectorySeparatorChar;
         return path.StartsWith(trailingDirectoryPath, PathComparison);
@@ -109,12 +124,31 @@ internal static class UnityProjectFingerprintCalculator
     /// <returns> The normalized path string. </returns>
     private static string NormalizeCase (string path)
     {
-        return OperatingSystem.IsWindows()
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? path.ToUpperInvariant()
             : path;
     }
 
     /// <summary> Gets the path comparison mode for the current operating system. </summary>
     private static StringComparison PathComparison =>
-        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    /// <summary> Converts byte array to lowercase hexadecimal text. </summary>
+    /// <param name="bytes"> The source byte array. </param>
+    /// <returns> The lowercase hexadecimal text. </returns>
+    private static string ToLowerHex (byte[] bytes)
+    {
+        const string HexChars = "0123456789abcdef";
+
+        var chars = new char[bytes.Length * 2];
+        var charIndex = 0;
+        foreach (var value in bytes)
+        {
+            chars[charIndex] = HexChars[value >> 4];
+            chars[charIndex + 1] = HexChars[value & 0x0F];
+            charIndex += 2;
+        }
+
+        return new string(chars);
+    }
 }

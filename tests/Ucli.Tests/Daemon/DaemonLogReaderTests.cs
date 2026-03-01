@@ -2,6 +2,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Text;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 
@@ -29,7 +30,7 @@ public sealed class DaemonLogReaderTests
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "tail-bytes");
         var projectFingerprint = "fingerprint-tail";
         var logReader = new DaemonLogReader();
-        var daemonLogPath = DaemonStoragePathResolver.ResolveDaemonLogPath(scope.FullPath, projectFingerprint);
+        var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(daemonLogPath)!);
 
         var content = "line-1\nline-2\nline-3\n";

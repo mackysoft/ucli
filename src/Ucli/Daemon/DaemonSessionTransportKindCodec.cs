@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Ipc;
 
 namespace MackySoft.Ucli.Daemon;
 

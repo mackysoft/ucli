@@ -1,5 +1,5 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -14,7 +14,7 @@ public sealed class UcliStorageRootPathResolverTests
         scope.CreateDirectory(Path.Combine("Repo", ".git"));
         var startPath = scope.CreateDirectory(Path.Combine("Repo", "UnityProject"));
 
-        var resolvedPath = UcliStorageRootPathResolver.Resolve(startPath);
+        var resolvedPath = UcliStoragePathResolver.ResolveStorageRoot(startPath);
 
         Assert.Equal(repositoryRoot, resolvedPath);
     }
@@ -26,7 +26,7 @@ public sealed class UcliStorageRootPathResolverTests
         using var scope = TestDirectories.CreateTempScope("ucli-storage-root-resolver", "fallback-start-path");
         var startPath = scope.CreateDirectory(Path.Combine("Workspace", "UnityProject"));
 
-        var resolvedPath = UcliStorageRootPathResolver.Resolve(startPath);
+        var resolvedPath = UcliStoragePathResolver.ResolveStorageRoot(startPath);
 
         Assert.Equal(Path.GetFullPath(startPath), resolvedPath);
     }

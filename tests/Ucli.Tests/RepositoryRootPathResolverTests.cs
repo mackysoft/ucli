@@ -1,5 +1,5 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -13,7 +13,7 @@ public sealed class RepositoryRootPathResolverTests
         var repositoryRoot = scope.CreateDirectory("Repo");
         scope.CreateDirectory(Path.Combine("Repo", ".git"));
 
-        var resolvedPath = RepositoryRootPathResolver.TryResolve(repositoryRoot);
+        var resolvedPath = UcliStoragePathResolver.TryResolveRepositoryRoot(repositoryRoot);
 
         Assert.Equal(repositoryRoot, resolvedPath);
     }
@@ -27,7 +27,7 @@ public sealed class RepositoryRootPathResolverTests
         scope.WriteFile(Path.Combine("Repo", ".git"), "gitdir: ../.git/worktrees/repo");
         var childPath = scope.CreateDirectory(Path.Combine("Repo", "src", "tool"));
 
-        var resolvedPath = RepositoryRootPathResolver.TryResolve(childPath);
+        var resolvedPath = UcliStoragePathResolver.TryResolveRepositoryRoot(childPath);
 
         Assert.Equal(repositoryRoot, resolvedPath);
     }
@@ -39,7 +39,7 @@ public sealed class RepositoryRootPathResolverTests
         using var scope = TestDirectories.CreateTempScope("repository-root-resolver", "not-found");
         var directoryPath = scope.CreateDirectory("NoGitRepo");
 
-        var resolvedPath = RepositoryRootPathResolver.TryResolve(directoryPath);
+        var resolvedPath = UcliStoragePathResolver.TryResolveRepositoryRoot(directoryPath);
 
         Assert.Null(resolvedPath);
     }

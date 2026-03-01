@@ -1,17 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Ipc;
 
 /// <summary> Resolves daemon IPC endpoints from project identity values. </summary>
 internal sealed class IpcEndpointResolver : IIpcEndpointResolver
 {
-    private const string UcliDirectoryName = ".ucli";
-
-    private const string LocalDirectoryName = "local";
-
-    private const string FingerprintsDirectoryName = "fingerprints";
-
     private const string SocketFileName = "ipc.sock";
 
     private const string PipeNamePrefix = "ucli-";
@@ -51,11 +47,7 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
         }
 
         var preferredSocketPath = Path.Combine(
-            normalizedStorageRoot,
-            UcliDirectoryName,
-            LocalDirectoryName,
-            FingerprintsDirectoryName,
-            normalizedProjectFingerprint,
+            UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, normalizedProjectFingerprint),
             SocketFileName);
 
         if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)

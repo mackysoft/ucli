@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests;
 using System.Text.Json;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.ReadIndex;
 

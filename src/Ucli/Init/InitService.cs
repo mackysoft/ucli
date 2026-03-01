@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Init;
@@ -6,10 +7,6 @@ namespace MackySoft.Ucli.Init;
 /// <summary> Implements init flow that generates the <c>.ucli</c> template files. </summary>
 internal sealed class InitService : IInitService
 {
-    private const string UcliDirectoryName = ".ucli";
-    private const string LocalDirectoryName = "local";
-    private const string FingerprintsDirectoryName = "fingerprints";
-    private const string ConfigFileName = "config.json";
     private const string GitIgnoreFileName = ".gitignore";
     private const string GitIgnoreContents = "local/";
 
@@ -44,11 +41,11 @@ internal sealed class InitService : IInitService
                 $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}"));
         }
 
-        var repositoryRoot = UcliStorageRootPathResolver.Resolve(currentDirectoryPath);
-        var ucliDirectoryPath = Path.Combine(repositoryRoot, UcliDirectoryName);
-        var localDirectoryPath = Path.Combine(ucliDirectoryPath, LocalDirectoryName);
-        var fingerprintsDirectoryPath = Path.Combine(localDirectoryPath, FingerprintsDirectoryName);
-        var configPath = Path.Combine(ucliDirectoryPath, ConfigFileName);
+        var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
+        var ucliDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
+        var localDirectoryPath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.LocalDirectoryName);
+        var fingerprintsDirectoryPath = Path.Combine(localDirectoryPath, UcliStoragePathNames.FingerprintsDirectoryName);
+        var configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
         var gitIgnorePath = Path.Combine(ucliDirectoryPath, GitIgnoreFileName);
         var existingPaths = CollectExistingTemplatePaths(configPath, gitIgnorePath);
 

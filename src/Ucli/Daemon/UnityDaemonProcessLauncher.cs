@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
@@ -132,17 +134,17 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
         AppendArgument(builder, daemonLogPath);
         AppendArgument(builder, "-executeMethod");
         AppendArgument(builder, "MackySoft.Ucli.Unity.Ipc.UnityDaemonBootstrap.Start");
-        AppendArgument(builder, "-ucliRepositoryRoot");
+        AppendArgument(builder, IpcDaemonBootstrapArgumentNames.RepositoryRoot);
         AppendArgument(builder, unityProject.RepositoryRoot);
-        AppendArgument(builder, "-ucliProjectFingerprint");
+        AppendArgument(builder, IpcDaemonBootstrapArgumentNames.ProjectFingerprint);
         AppendArgument(builder, unityProject.ProjectFingerprint);
-        AppendArgument(builder, "-ucliSessionPath");
-        AppendArgument(builder, DaemonStoragePathResolver.ResolveSessionPath(
+        AppendArgument(builder, IpcDaemonBootstrapArgumentNames.SessionPath);
+        AppendArgument(builder, UcliStoragePathResolver.ResolveSessionPath(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint));
-        AppendArgument(builder, "-ucliEndpointTransportKind");
+        AppendArgument(builder, IpcDaemonBootstrapArgumentNames.EndpointTransportKind);
         AppendArgument(builder, DaemonSessionTransportKindCodec.ToValue(endpoint.TransportKind));
-        AppendArgument(builder, "-ucliEndpointAddress");
+        AppendArgument(builder, IpcDaemonBootstrapArgumentNames.EndpointAddress);
         AppendArgument(builder, endpoint.Address);
         return builder.ToString();
     }

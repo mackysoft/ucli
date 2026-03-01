@@ -12,12 +12,6 @@ internal static class UcliConfigValueConstants
     /// <summary> Gets the operation policy value for <see cref="OperationPolicy.Dangerous" />. </summary>
     public const string OperationPolicyDangerous = "dangerous";
 
-    /// <summary> Gets the plan token mode value for <see cref="PlanTokenMode.Optional" />. </summary>
-    public const string PlanTokenModeOptional = "optional";
-
-    /// <summary> Gets the plan token mode value for <see cref="PlanTokenMode.Required" />. </summary>
-    public const string PlanTokenModeRequired = "required";
-
     /// <summary> Gets the read-index default mode value for disabled behavior. </summary>
     public const string ReadIndexModeDisabled = "disabled";
 

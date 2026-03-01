@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Project;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.UnityProject;
@@ -42,7 +44,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
                 $"UnityProject is invalid. Missing file: {projectVersionPath}"));
         }
 
-        var repositoryRoot = UcliStorageRootPathResolver.Resolve(unityProjectRoot);
+        var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
         return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,

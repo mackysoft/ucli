@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Storage;
 
 #nullable enable
 
@@ -10,12 +12,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
     /// <summary> Resolves normalized plan-token configuration values from shared <c>.ucli/config.json</c>. </summary>
     internal static class PlanTokenConfigResolver
     {
-        private const string PlanTokenModeRequired = "required";
-
-        private const string UcliDirectoryName = ".ucli";
-
-        private const string ConfigFileName = "config.json";
-
         private const string NaLiteral = "na";
 
         private static readonly IReadOnlyList<string> FallbackAllowlist = new[]
@@ -41,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
             try
             {
-                var configPath = Path.Combine(repositoryRoot, UcliDirectoryName, ConfigFileName);
+                var configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
                 if (!File.Exists(configPath))
                 {
                     return FallbackSnapshot;
@@ -77,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The resolved runtime mode. </returns>
         private static PlanTokenMode ResolveMode (string modeLiteral)
         {
-            return string.Equals(modeLiteral, PlanTokenModeRequired, StringComparison.OrdinalIgnoreCase)
+            return string.Equals(modeLiteral, PlanTokenModeValues.Required, StringComparison.OrdinalIgnoreCase)
                 ? PlanTokenMode.Required
                 : PlanTokenMode.Optional;
         }

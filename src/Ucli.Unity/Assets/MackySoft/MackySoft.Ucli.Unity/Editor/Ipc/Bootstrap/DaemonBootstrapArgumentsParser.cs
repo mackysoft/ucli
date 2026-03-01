@@ -1,16 +1,11 @@
 using System;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Implements daemon bootstrap command-line argument parsing. </summary>
     internal sealed class DaemonBootstrapArgumentsParser : IDaemonBootstrapArgumentsParser
     {
-        private const string RepositoryRootArgumentName = "-ucliRepositoryRoot";
-        private const string ProjectFingerprintArgumentName = "-ucliProjectFingerprint";
-        private const string SessionPathArgumentName = "-ucliSessionPath";
-        private const string EndpointTransportKindArgumentName = "-ucliEndpointTransportKind";
-        private const string EndpointAddressArgumentName = "-ucliEndpointAddress";
-
         /// <summary> Parses daemon bootstrap command-line arguments. </summary>
         /// <param name="args"> The process command-line arguments. </param>
         /// <param name="bootstrapArguments"> The parsed bootstrap argument model. </param>
@@ -30,11 +25,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!TryGetArgumentValue(args, RepositoryRootArgumentName, out var repositoryRoot)
-                || !TryGetArgumentValue(args, ProjectFingerprintArgumentName, out var projectFingerprint)
-                || !TryGetArgumentValue(args, SessionPathArgumentName, out var sessionPath)
-                || !TryGetArgumentValue(args, EndpointTransportKindArgumentName, out var endpointTransportKind)
-                || !TryGetArgumentValue(args, EndpointAddressArgumentName, out var endpointAddress))
+            if (!TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.RepositoryRoot, out var repositoryRoot)
+                || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
+                || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionPath, out var sessionPath)
+                || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.EndpointTransportKind, out var endpointTransportKind)
+                || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.EndpointAddress, out var endpointAddress))
             {
                 errorMessage = "uCLI daemon bootstrap arguments are missing.";
                 return false;
@@ -95,11 +90,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> <see langword="true" /> when token is a known argument name; otherwise <see langword="false" />. </returns>
         private static bool IsKnownArgumentName (string token)
         {
-            return string.Equals(token, RepositoryRootArgumentName, StringComparison.Ordinal)
-                || string.Equals(token, ProjectFingerprintArgumentName, StringComparison.Ordinal)
-                || string.Equals(token, SessionPathArgumentName, StringComparison.Ordinal)
-                || string.Equals(token, EndpointTransportKindArgumentName, StringComparison.Ordinal)
-                || string.Equals(token, EndpointAddressArgumentName, StringComparison.Ordinal);
+            return string.Equals(token, IpcDaemonBootstrapArgumentNames.RepositoryRoot, StringComparison.Ordinal)
+                || string.Equals(token, IpcDaemonBootstrapArgumentNames.ProjectFingerprint, StringComparison.Ordinal)
+                || string.Equals(token, IpcDaemonBootstrapArgumentNames.SessionPath, StringComparison.Ordinal)
+                || string.Equals(token, IpcDaemonBootstrapArgumentNames.EndpointTransportKind, StringComparison.Ordinal)
+                || string.Equals(token, IpcDaemonBootstrapArgumentNames.EndpointAddress, StringComparison.Ordinal);
         }
     }
 }
