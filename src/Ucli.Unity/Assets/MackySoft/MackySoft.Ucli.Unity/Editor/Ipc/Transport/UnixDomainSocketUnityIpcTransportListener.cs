@@ -25,6 +25,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public void Run (
             string address,
             IUnityIpcConnectionHandler connectionHandler,
+            Action onStarted,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(address))
@@ -35,6 +36,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (connectionHandler == null)
             {
                 throw new ArgumentNullException(nameof(connectionHandler));
+            }
+
+            if (onStarted == null)
+            {
+                throw new ArgumentNullException(nameof(onStarted));
             }
 
             var socketDirectoryPath = Path.GetDirectoryName(address);
@@ -57,6 +63,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 activeListenerSocket = listener;
             }
+
+            onStarted();
 
             try
             {

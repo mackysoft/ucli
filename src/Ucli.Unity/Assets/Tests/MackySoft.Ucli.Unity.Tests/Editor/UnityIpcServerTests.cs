@@ -103,6 +103,60 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Start_WhenListenerThrowsAfterDelayBeforeStartupSignal_ThrowsAndResetsRunningState () => UniTask.ToCoroutine(async () =>
+        {
+            var server = CreateServer(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                new StubDaemonShutdownSignal(),
+                new IUnityIpcTransportListener[]
+                {
+                    new DelayedThrowingTransportListener(
+                        IpcTransportKind.NamedPipe,
+                        "listener failed after delay",
+                        TimeSpan.FromMilliseconds(50)),
+                });
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-delayed-failure");
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: listener failed after delay"));
+
+            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
+            {
+                await server.Start(endpoint).AsUniTask();
+            });
+
+            Assert.That(server.IsRunning, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Start_WhenCanceledBeforeStartupSignal_CancelsListenerLoop () => UniTask.ToCoroutine(async () =>
+        {
+            var blockingListener = new BlockingTransportListener(IpcTransportKind.NamedPipe);
+            var server = CreateServer(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                new StubDaemonShutdownSignal(),
+                new IUnityIpcTransportListener[]
+                {
+                    blockingListener,
+                });
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-start-cancel");
+            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await server.Start(endpoint, cancellationTokenSource.Token).AsUniTask();
+            });
+
+            var completedTask = await Task.WhenAny(
+                blockingListener.CancellationObserved,
+                Task.Delay(TimeSpan.FromSeconds(1)));
+            Assert.That(completedTask, Is.SameAs(blockingListener.CancellationObserved));
+            Assert.That(server.IsRunning, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator HandleRequest_WhenSessionTokenIsMissing_ReturnsSessionTokenRequiredError () => UniTask.ToCoroutine(async () =>
         {
             var server = CreateServerForRequestHandling(
@@ -391,9 +445,82 @@ namespace MackySoft.Ucli.Unity.Tests
             public void Run (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
+                Action onStarted,
                 CancellationToken cancellationToken)
             {
                 throw new InvalidOperationException(message);
+            }
+
+            public void Release ()
+            {
+            }
+        }
+
+        private sealed class DelayedThrowingTransportListener : IUnityIpcTransportListener
+        {
+            private readonly string message;
+
+            private readonly TimeSpan delay;
+
+            public DelayedThrowingTransportListener (
+                IpcTransportKind transportKind,
+                string message,
+                TimeSpan delay)
+            {
+                TransportKind = transportKind;
+                this.message = message;
+                this.delay = delay;
+            }
+
+            public IpcTransportKind TransportKind { get; }
+
+            public void Run (
+                string address,
+                IUnityIpcConnectionHandler connectionHandler,
+                Action onStarted,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Thread.Sleep(delay);
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new InvalidOperationException(message);
+            }
+
+            public void Release ()
+            {
+            }
+        }
+
+        private sealed class BlockingTransportListener : IUnityIpcTransportListener
+        {
+            private readonly TaskCompletionSource<bool> cancellationObserved =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public BlockingTransportListener (IpcTransportKind transportKind)
+            {
+                TransportKind = transportKind;
+            }
+
+            public IpcTransportKind TransportKind { get; }
+
+            public Task CancellationObserved => cancellationObserved.Task;
+
+            public void Run (
+                string address,
+                IUnityIpcConnectionHandler connectionHandler,
+                Action onStarted,
+                CancellationToken cancellationToken)
+            {
+                while (true)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        cancellationObserved.TrySetResult(true);
+                        throw new OperationCanceledException(cancellationToken);
+                    }
+
+                    Thread.Sleep(TimeSpan.FromMilliseconds(5));
+                }
             }
 
             public void Release ()

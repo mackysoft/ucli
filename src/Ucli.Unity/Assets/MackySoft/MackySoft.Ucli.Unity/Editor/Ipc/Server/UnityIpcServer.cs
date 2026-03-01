@@ -69,6 +69,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Endpoint address must not be empty or whitespace.", nameof(endpoint));
             }
 
+            UnityIpcServerStartupCoordinator startupCoordinator;
             lock (syncRoot)
             {
                 if (isRunning)
@@ -78,10 +79,30 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 isRunning = true;
                 listenerCancellationTokenSource = new CancellationTokenSource();
-                listenerTask = Task.Run(() => RunServerLoop(endpoint, listenerCancellationTokenSource.Token));
+                startupCoordinator = new UnityIpcServerStartupCoordinator();
+                listenerTask = Task.Run(() => RunServerLoop(endpoint, startupCoordinator, listenerCancellationTokenSource.Token));
             }
 
-            await ObserveStartupFailure(cancellationToken);
+            try
+            {
+                await startupCoordinator.Wait(cancellationToken);
+            }
+            catch
+            {
+                Task? capturedListenerTask;
+                CancellationTokenSource? capturedCancellationTokenSource;
+                lock (syncRoot)
+                {
+                    isRunning = false;
+                    capturedListenerTask = listenerTask;
+                    capturedCancellationTokenSource = listenerCancellationTokenSource;
+                    listenerTask = null;
+                    listenerCancellationTokenSource = null;
+                }
+
+                await CleanupListenerAfterFailedStart(capturedListenerTask, capturedCancellationTokenSource);
+                throw;
+            }
         }
 
         /// <summary> Stops the IPC server lifecycle and releases endpoint resources. </summary>
@@ -156,71 +177,44 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
         private void RunServerLoop (
             IpcEndpoint endpoint,
+            UnityIpcServerStartupCoordinator startupCoordinator,
             CancellationToken cancellationToken)
         {
             try
             {
                 var listener = ResolveTransportListener(endpoint.TransportKind);
-                listener.Run(endpoint.Address, connectionHandler, cancellationToken);
+                listener.Run(
+                    endpoint.Address,
+                    connectionHandler,
+                    startupCoordinator.Complete,
+                    cancellationToken);
+                startupCoordinator.FailOnUnexpectedExit(cancellationToken.IsCancellationRequested, IsRunning);
             }
             catch (OperationCanceledException) when (!IsRunning || cancellationToken.IsCancellationRequested)
             {
+                startupCoordinator.Cancel();
                 Debug.Log("IPC server loop canceled during shutdown.");
             }
             catch (ObjectDisposedException exception) when (!IsRunning || cancellationToken.IsCancellationRequested)
             {
+                startupCoordinator.Cancel();
                 Debug.Log($"IPC server loop transport disposed during shutdown. {exception.Message}");
             }
             catch (SocketException exception) when (!IsRunning || cancellationToken.IsCancellationRequested)
             {
+                startupCoordinator.Cancel();
                 Debug.Log($"IPC server loop socket closed during shutdown. {exception.SocketErrorCode}");
             }
             catch (Exception exception)
             {
+                startupCoordinator.Fail(exception);
+
                 lock (syncRoot)
                 {
                     isRunning = false;
                 }
 
                 Debug.LogException(exception);
-                throw;
-            }
-        }
-
-        /// <summary> Observes immediate listener failures during startup scheduling. </summary>
-        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
-        /// <returns> A task that completes when immediate startup failure check is done. </returns>
-        private async Task ObserveStartupFailure (CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            await Task.Yield();
-
-            Task? capturedListenerTask;
-            lock (syncRoot)
-            {
-                capturedListenerTask = listenerTask;
-            }
-
-            if (capturedListenerTask == null || !capturedListenerTask.IsCompleted)
-            {
-                return;
-            }
-
-            try
-            {
-                await capturedListenerTask;
-            }
-            catch
-            {
-                lock (syncRoot)
-                {
-                    isRunning = false;
-                    listenerTask = null;
-                    listenerCancellationTokenSource?.Dispose();
-                    listenerCancellationTokenSource = null;
-                }
-
                 throw;
             }
         }
@@ -240,6 +234,51 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             throw new InvalidOperationException($"Unsupported transport kind '{transportKind}'.");
+        }
+
+        /// <summary> Cancels and joins listener resources after start-up failure path. </summary>
+        /// <param name="capturedListenerTask"> The captured listener task from start path. </param>
+        /// <param name="capturedCancellationTokenSource"> The captured cancellation-token source from start path. </param>
+        /// <returns> A task that completes after cleanup steps finish. </returns>
+        private async Task CleanupListenerAfterFailedStart (
+            Task? capturedListenerTask,
+            CancellationTokenSource? capturedCancellationTokenSource)
+        {
+            try
+            {
+                if (capturedCancellationTokenSource != null)
+                {
+                    capturedCancellationTokenSource.Cancel();
+                }
+
+                ReleaseTransportHandles();
+
+                if (capturedListenerTask != null)
+                {
+                    await capturedListenerTask;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log("IPC server start cleanup observed listener cancellation.");
+            }
+            catch (ObjectDisposedException exception)
+            {
+                Debug.Log($"IPC server start cleanup observed disposed transport handle. {exception.Message}");
+            }
+            catch (SocketException exception)
+            {
+                Debug.Log($"IPC server start cleanup observed socket shutdown. {exception.SocketErrorCode}");
+            }
+            catch (Exception exception)
+            {
+                Debug.Log($"IPC server start cleanup observed listener failure. {exception.Message}");
+            }
+            finally
+            {
+                capturedCancellationTokenSource?.Dispose();
+                ReleaseTransportHandles();
+            }
         }
 
         /// <summary> Releases transport handles used by active listener loops. </summary>

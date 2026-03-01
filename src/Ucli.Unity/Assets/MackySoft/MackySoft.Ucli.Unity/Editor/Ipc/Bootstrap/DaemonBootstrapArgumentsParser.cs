@@ -77,11 +77,29 @@ namespace MackySoft.Ucli.Unity.Ipc
                     continue;
                 }
 
-                value = args[i + 1];
+                var nextToken = args[i + 1];
+                if (IsKnownArgumentName(nextToken))
+                {
+                    continue;
+                }
+
+                value = nextToken;
                 return true;
             }
 
             return false;
+        }
+
+        /// <summary> Determines whether one token is a known daemon bootstrap argument name. </summary>
+        /// <param name="token"> The command-line token. </param>
+        /// <returns> <see langword="true" /> when token is a known argument name; otherwise <see langword="false" />. </returns>
+        private static bool IsKnownArgumentName (string token)
+        {
+            return string.Equals(token, RepositoryRootArgumentName, StringComparison.Ordinal)
+                || string.Equals(token, ProjectFingerprintArgumentName, StringComparison.Ordinal)
+                || string.Equals(token, SessionPathArgumentName, StringComparison.Ordinal)
+                || string.Equals(token, EndpointTransportKindArgumentName, StringComparison.Ordinal)
+                || string.Equals(token, EndpointAddressArgumentName, StringComparison.Ordinal);
         }
     }
 }

@@ -77,18 +77,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response envelope. </returns>
         private static IpcResponse HandlePing (IpcRequest request)
         {
-            try
-            {
-                _ = request.Payload.Deserialize<IpcPingRequest>(UnityIpcSerializerOptions.Default)
-                    ?? throw new JsonException("Ping payload is null.");
-            }
-            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
+            if (!TryDeserializePayload(
                     request,
-                    IpcErrorCodes.InvalidArgument,
-                    $"Ping payload is invalid. {exception.Message}",
-                    null);
+                    "Ping",
+                    out IpcPingRequest _,
+                    out var errorResponse))
+            {
+                return errorResponse!;
             }
 
             var payload = new IpcPingResponse(
@@ -106,25 +101,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken)
         {
-            IpcExecuteRequest executeRequest;
-            try
-            {
-                executeRequest = request.Payload.Deserialize<IpcExecuteRequest>(UnityIpcSerializerOptions.Default)
-                    ?? throw new JsonException("Execute payload is null.");
-            }
-            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
+            if (!TryDeserializePayload(
                     request,
-                    IpcErrorCodes.InvalidArgument,
-                    $"Execute payload is invalid. {exception.Message}",
-                    null);
+                    "Execute",
+                    out IpcExecuteRequest? executeRequest,
+                    out var errorResponse))
+            {
+                return errorResponse!;
             }
 
             var context = new ExecuteDispatchContext(
                 RequestId: request.RequestId,
                 ProtocolVersion: request.ProtocolVersion);
-            return await executeRequestDispatcher.Dispatch(executeRequest, context, cancellationToken);
+            return await executeRequestDispatcher.Dispatch(executeRequest!, context, cancellationToken);
         }
 
         /// <summary> Handles one <c>shutdown</c> request. </summary>
@@ -132,24 +121,51 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response envelope. </returns>
         private IpcResponse HandleShutdown (IpcRequest request)
         {
-            try
-            {
-                _ = request.Payload.Deserialize<IpcShutdownRequest>(UnityIpcSerializerOptions.Default)
-                    ?? throw new JsonException("Shutdown payload is null.");
-            }
-            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
+            if (!TryDeserializePayload(
                     request,
-                    IpcErrorCodes.InvalidArgument,
-                    $"Shutdown payload is invalid. {exception.Message}",
-                    null);
+                    "Shutdown",
+                    out IpcShutdownRequest _,
+                    out var errorResponse))
+            {
+                return errorResponse!;
             }
 
             var payload = new IpcShutdownResponse(
                 Accepted: true,
                 Message: "Shutdown request accepted.");
             return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
+        }
+
+        /// <summary> Tries to deserialize one IPC method payload and builds standardized invalid-payload error response when it fails. </summary>
+        /// <typeparam name="TPayload"> The payload model type. </typeparam>
+        /// <param name="request"> The incoming request envelope. </param>
+        /// <param name="methodName"> The method name used for diagnostics. </param>
+        /// <param name="payload"> The deserialized payload when operation succeeds. </param>
+        /// <param name="errorResponse"> The error response when operation fails; otherwise <see langword="null" />. </param>
+        /// <returns> <see langword="true" /> when payload is valid and deserialized; otherwise <see langword="false" />. </returns>
+        private static bool TryDeserializePayload<TPayload> (
+            IpcRequest request,
+            string methodName,
+            out TPayload? payload,
+            out IpcResponse? errorResponse)
+        {
+            try
+            {
+                payload = request.Payload.Deserialize<TPayload>(UnityIpcSerializerOptions.Default)
+                    ?? throw new JsonException($"{methodName} payload is null.");
+                errorResponse = null;
+                return true;
+            }
+            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
+            {
+                payload = default;
+                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcErrorCodes.InvalidArgument,
+                    $"{methodName} payload is invalid. {exception.Message}",
+                    null);
+                return false;
+            }
         }
     }
 }

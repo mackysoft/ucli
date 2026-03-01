@@ -25,6 +25,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public void Run (
             string address,
             IUnityIpcConnectionHandler connectionHandler,
+            Action onStarted,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(address))
@@ -37,6 +38,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(connectionHandler));
             }
 
+            if (onStarted == null)
+            {
+                throw new ArgumentNullException(nameof(onStarted));
+            }
+
+            var started = false;
             while (!cancellationToken.IsCancellationRequested)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -51,6 +58,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lock (syncRoot)
                 {
                     activeServerStream = serverStream;
+                }
+
+                if (!started)
+                {
+                    onStarted();
+                    started = true;
                 }
 
                 try
