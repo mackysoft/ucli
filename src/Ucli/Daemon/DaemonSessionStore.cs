@@ -56,7 +56,8 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         catch (Exception exception) when (IsPathFormatException(exception))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid. {exception.Message}"));
+                $"Daemon session path is invalid. {exception.Message}"),
+                DaemonSessionReadFailureKind.PathInvalid);
         }
 
         string? json;
@@ -64,19 +65,17 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             json = await sessionFileAccess.ReadOrNull(sessionPath, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception exception) when (IsSessionFileMissing(exception))
-        {
-            return DaemonSessionReadResult.Success(null);
-        }
         catch (Exception exception) when (IsPathFormatException(exception))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session path is invalid: {sessionPath}. {exception.Message}"));
+                $"Daemon session path is invalid: {sessionPath}. {exception.Message}"),
+                DaemonSessionReadFailureKind.PathInvalid);
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read daemon session file: {sessionPath}. {exception.Message}"));
+                $"Failed to read daemon session file: {sessionPath}. {exception.Message}"),
+                DaemonSessionReadFailureKind.IoFailure);
         }
 
         if (json == null)
@@ -92,28 +91,34 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         catch (JsonException exception)
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"));
+                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
+                DaemonSessionReadFailureKind.InvalidSession);
         }
         catch (ArgumentException exception)
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"));
+                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
+                DaemonSessionReadFailureKind.InvalidSession);
         }
         catch (Exception exception)
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to deserialize daemon session JSON: {sessionPath}. {exception.Message}"));
+                $"Failed to deserialize daemon session JSON: {sessionPath}. {exception.Message}"),
+                DaemonSessionReadFailureKind.InternalFailure);
         }
 
         if (!sessionValidator.TryValidate(session, sessionPath, out var validationError))
         {
-            return DaemonSessionReadResult.Failure(validationError!);
+            return DaemonSessionReadResult.Failure(
+                validationError!,
+                DaemonSessionReadFailureKind.InvalidSession);
         }
 
         if (!string.Equals(session.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session projectFingerprint mismatch. Requested={projectFingerprint}, Actual={session.ProjectFingerprint}. {sessionPath}"));
+                $"Daemon session projectFingerprint mismatch. Requested={projectFingerprint}, Actual={session.ProjectFingerprint}. {sessionPath}"),
+                DaemonSessionReadFailureKind.InvalidSession);
         }
 
         return DaemonSessionReadResult.Success(session);
@@ -235,12 +240,4 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
             or UnauthorizedAccessException;
     }
 
-    /// <summary> Determines whether one exception indicates that session file disappeared during read race. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when exception indicates missing file state; otherwise <see langword="false" />. </returns>
-    private static bool IsSessionFileMissing (Exception exception)
-    {
-        return exception is FileNotFoundException
-            or DirectoryNotFoundException;
-    }
 }

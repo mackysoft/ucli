@@ -43,6 +43,12 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
+        if (session.ProcessId is int processId && processId <= 0)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon session processId must be greater than zero when specified. Actual: {processId}. {sessionPath}");
+            return false;
+        }
+
         if (!DaemonSessionTransportKindCodec.TryParse(session.EndpointTransportKind, out _))
         {
             error = ExecutionError.InvalidArgument(

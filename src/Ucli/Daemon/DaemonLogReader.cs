@@ -98,6 +98,22 @@ internal sealed class DaemonLogReader : IDaemonLogReader
                 path: daemonLogPath,
                 sizeBytes: sizeBytes);
         }
+        catch (FileNotFoundException)
+        {
+            return DaemonLogReadResult.Success(
+                text: string.Empty,
+                truncated: false,
+                path: daemonLogPath,
+                sizeBytes: 0);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return DaemonLogReadResult.Success(
+                text: string.Empty,
+                truncated: false,
+                path: daemonLogPath,
+                sizeBytes: 0);
+        }
         catch (Exception exception) when (IsPathFormatException(exception))
         {
             return DaemonLogReadResult.Failure(daemonLogPath, ExecutionError.InvalidArgument(

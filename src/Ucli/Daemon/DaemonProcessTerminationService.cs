@@ -127,7 +127,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
         DateTimeOffset expectedIssuedAtUtc,
         out ExecutionError? error)
     {
-        if (process.HasExited)
+        if (HasExited(process))
         {
             error = null;
             return true;
@@ -137,6 +137,11 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
         try
         {
             processStartTimeUtc = process.StartTime.ToUniversalTime();
+        }
+        catch (InvalidOperationException) when (HasExited(process))
+        {
+            error = null;
+            return true;
         }
         catch (Exception exception)
         {
@@ -157,5 +162,20 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
 
         error = null;
         return true;
+    }
+
+    /// <summary> Gets whether target process is already exited while tolerating post-exit access races. </summary>
+    /// <param name="process"> The target process instance. </param>
+    /// <returns> <see langword="true" /> when process already exited; otherwise <see langword="false" />. </returns>
+    private static bool HasExited (Process process)
+    {
+        try
+        {
+            return process.HasExited;
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
+        }
     }
 }

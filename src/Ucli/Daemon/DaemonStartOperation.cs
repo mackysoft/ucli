@@ -8,8 +8,6 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon start workflow orchestration for one project fingerprint. </summary>
 internal sealed class DaemonStartOperation : IDaemonStartOperation
 {
-    private const string SessionPathInvalidErrorPrefix = "Daemon session path is invalid";
-
     private readonly IDaemonLifecycleLockProvider lifecycleLockProvider;
 
     private readonly IDaemonSessionStore daemonSessionStore;
@@ -95,7 +93,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            if (!ShouldRecoverFromSessionReadFailure(readResult.Error!))
+            if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
             {
                 return DaemonStartResult.Failure(readResult.Error!);
             }
@@ -255,18 +253,4 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary> Determines whether one daemon session read failure can be recovered by stale artifact cleanup. </summary>
-    /// <param name="error"> The daemon session read error. </param>
-    /// <returns> <see langword="true" /> when error indicates recoverable stale session payload; otherwise <see langword="false" />. </returns>
-    private static bool ShouldRecoverFromSessionReadFailure (ExecutionError error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        if (error.Kind != ExecutionErrorKind.InvalidArgument)
-        {
-            return false;
-        }
-
-        return !error.Message.StartsWith(SessionPathInvalidErrorPrefix, StringComparison.Ordinal);
-    }
 }

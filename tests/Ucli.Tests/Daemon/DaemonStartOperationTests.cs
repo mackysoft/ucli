@@ -16,7 +16,7 @@ public sealed class DaemonStartOperationTests
         var readError = ExecutionError.InvalidArgument("Daemon session JSON is invalid: /tmp/session.json. malformed.");
         var sessionStore = new StubDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Failure(readError),
+            ReadResult = DaemonSessionReadResult.Failure(readError, DaemonSessionReadFailureKind.InvalidSession),
         };
         var processTerminationService = new StubDaemonProcessTerminationService
         {
@@ -52,7 +52,7 @@ public sealed class DaemonStartOperationTests
         var readError = ExecutionError.InvalidArgument("Daemon session path is invalid: /tmp/session.json. invalid path.");
         var sessionStore = new StubDaemonSessionStore
         {
-            ReadResult = DaemonSessionReadResult.Failure(readError),
+            ReadResult = DaemonSessionReadResult.Failure(readError, DaemonSessionReadFailureKind.PathInvalid),
         };
         var processTerminationService = new StubDaemonProcessTerminationService
         {

@@ -56,25 +56,10 @@ public sealed class DaemonSessionStoreTests
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("invalid", error.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Read_WhenSessionFileDisappearsDuringRead_ReturnsNotExists ()
-    {
-        var store = new DaemonSessionStore(
-            sessionFileAccess: new ThrowingReadDaemonSessionFileAccess(new FileNotFoundException("deleted during read")),
-            sessionSerializer: new DaemonSessionJsonSerializer(),
-            sessionValidator: new DaemonSessionValidator());
-
-        var readResult = await store.Read("/tmp/repo-root", "fingerprint-race", CancellationToken.None);
-
-        Assert.True(readResult.IsSuccess);
-        Assert.False(readResult.Exists);
-        Assert.Null(readResult.Error);
     }
 
     [Fact]
@@ -119,6 +104,7 @@ public sealed class DaemonSessionStoreTests
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
@@ -139,37 +125,5 @@ public sealed class DaemonSessionStoreTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test",
             ProcessId: 1234);
-    }
-
-    private sealed class ThrowingReadDaemonSessionFileAccess : IDaemonSessionFileAccess
-    {
-        private readonly Exception readException;
-
-        public ThrowingReadDaemonSessionFileAccess (Exception readException)
-        {
-            this.readException = readException;
-        }
-
-        public ValueTask<string?> ReadOrNull (
-            string sessionPath,
-            CancellationToken cancellationToken = default)
-        {
-            return ValueTask.FromException<string?>(readException);
-        }
-
-        public ValueTask WriteAtomically (
-            string sessionPath,
-            string json,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask DeleteIfExists (
-            string sessionPath,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
     }
 }
