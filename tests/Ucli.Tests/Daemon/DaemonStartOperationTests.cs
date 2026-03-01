@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using System.Net.Sockets;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -27,7 +28,7 @@ public sealed class DaemonStartOperationTests
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("timeout"))),
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             unityDaemonProcessLauncher: new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(999)),
             startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
             processTerminationService: processTerminationService,
@@ -65,7 +66,7 @@ public sealed class DaemonStartOperationTests
         var launcher = new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(999));
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("timeout"))),
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             unityDaemonProcessLauncher: launcher,
             startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
             processTerminationService: processTerminationService,
@@ -153,6 +154,43 @@ public sealed class DaemonStartOperationTests
         Assert.Contains("CleanupError=cleanup failed", result.Error.Message);
         Assert.Equal(1, processTerminationService.CallCount);
         Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenExistingSessionPingTimesOut_ReturnsTimeoutFailureWithoutCleanupOrLaunch ()
+    {
+        var existingSession = CreateSession(processId: 2020);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(existingSession),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(999));
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
+            unityDaemonProcessLauncher: launcher,
+            startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+        var context = CreateContext("fingerprint-start-timeout");
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+        Assert.Equal(0, launcher.CallCount);
     }
 
     private static DaemonStartOperation CreateOperation (

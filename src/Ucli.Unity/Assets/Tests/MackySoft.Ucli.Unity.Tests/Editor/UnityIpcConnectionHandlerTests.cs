@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
@@ -18,12 +19,39 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenMalformedFrameAndErrorResponseWriteFails_DoesNotThrow () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new StubRequestHandler();
-            var handler = new UnityIpcConnectionHandler(requestHandler);
+            var handler = new UnityIpcConnectionHandler(requestHandler, new StubDaemonShutdownSignal());
             using var stream = new ThrowOnReadAndWriteStream();
 
             await handler.Handle(stream, CancellationToken.None);
 
             Assert.That(requestHandler.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenShutdownResponseWritten_SignalsShutdownAfterWrite () => UniTask.ToCoroutine(async () =>
+        {
+            var shutdownSignal = new StubDaemonShutdownSignal();
+            var requestHandler = new StubRequestHandler();
+            var handler = new UnityIpcConnectionHandler(requestHandler, shutdownSignal);
+            var request = new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "req-shutdown",
+                SessionToken: "token",
+                Method: IpcMethodNames.Shutdown,
+                Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")));
+
+            using var stream = new MemoryStream();
+            await UnityIpcFrameCodec.WriteModel(
+                stream,
+                request,
+                UnityIpcSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            stream.Position = 0;
+
+            await handler.Handle(stream, CancellationToken.None);
+
+            Assert.That(shutdownSignal.SignalCount, Is.EqualTo(1));
         });
 
         private sealed class StubRequestHandler : IUnityIpcRequestHandler
@@ -37,10 +65,26 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 return Task.FromResult(new IpcResponse(
                     ProtocolVersion: IpcProtocol.CurrentVersion,
-                    RequestId: "req",
+                    RequestId: request.RequestId,
                     Status: IpcProtocol.StatusOk,
-                    Payload: default,
+                    Payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                     Errors: Array.Empty<IpcError>()));
+            }
+        }
+
+        private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal
+        {
+            public int SignalCount { get; private set; }
+
+            public void Signal ()
+            {
+                SignalCount++;
+            }
+
+            public Task Wait (CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
             }
         }
 

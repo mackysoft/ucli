@@ -107,6 +107,11 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             {
                 throw;
             }
+            catch (TimeoutException exception)
+            {
+                return DaemonStartResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while probing existing daemon session. {exception.Message}"));
+            }
             catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
             {
                 var stopProcessResult = await processTerminationService.EnsureStopped(

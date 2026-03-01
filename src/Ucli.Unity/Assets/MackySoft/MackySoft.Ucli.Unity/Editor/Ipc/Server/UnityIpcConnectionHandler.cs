@@ -11,12 +11,18 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IUnityIpcRequestHandler requestHandler;
 
+        private readonly IDaemonShutdownSignal daemonShutdownSignal;
+
         /// <summary> Initializes a new instance of the <see cref="UnityIpcConnectionHandler" /> class. </summary>
         /// <param name="requestHandler"> The IPC request-handler dependency. </param>
+        /// <param name="daemonShutdownSignal"> The daemon shutdown signal dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestHandler" /> is <see langword="null" />. </exception>
-        public UnityIpcConnectionHandler (IUnityIpcRequestHandler requestHandler)
+        public UnityIpcConnectionHandler (
+            IUnityIpcRequestHandler requestHandler,
+            IDaemonShutdownSignal daemonShutdownSignal)
         {
             this.requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
+            this.daemonShutdownSignal = daemonShutdownSignal ?? throw new ArgumentNullException(nameof(daemonShutdownSignal));
         }
 
         /// <summary> Handles one request-response exchange over a connected transport stream. </summary>
@@ -71,6 +77,24 @@ namespace MackySoft.Ucli.Unity.Ipc
                 response,
                 UnityIpcSerializerOptions.Default,
                 cancellationToken: cancellationToken);
+
+            if (ShouldSignalShutdown(request, response))
+            {
+                daemonShutdownSignal.Signal();
+            }
+        }
+
+        /// <summary> Determines whether shutdown signal should be emitted for one completed response write. </summary>
+        /// <param name="request"> The handled IPC request envelope. </param>
+        /// <param name="response"> The response that was successfully written. </param>
+        /// <returns> <see langword="true" /> when shutdown signal should be emitted; otherwise <see langword="false" />. </returns>
+        private static bool ShouldSignalShutdown (
+            IpcRequest request,
+            IpcResponse response)
+        {
+            return string.Equals(request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal)
+                && string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal)
+                && response.Errors.Count == 0;
         }
     }
 }

@@ -208,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var payload = response.Payload.Deserialize<IpcShutdownResponse>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.Accepted, Is.True);
-            Assert.That(shutdownSignal.SignalCount, Is.EqualTo(1));
+            Assert.That(shutdownSignal.SignalCount, Is.EqualTo(0));
         });
 
         private static IpcRequest CreatePingRequest (string sessionToken)
@@ -290,9 +290,9 @@ namespace MackySoft.Ucli.Unity.Tests
             IDaemonShutdownSignal shutdownSignal,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
         {
-            var methodDispatcher = new UnityIpcMethodDispatcher(executeRequestDispatcher, shutdownSignal);
+            var methodDispatcher = new UnityIpcMethodDispatcher(executeRequestDispatcher);
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
-            var connectionHandler = new UnityIpcConnectionHandler(requestHandler);
+            var connectionHandler = new UnityIpcConnectionHandler(requestHandler, shutdownSignal);
             return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);
         }
 

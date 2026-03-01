@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using System.Net.Sockets;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -46,7 +47,7 @@ public sealed class DaemonManagementServiceTests
         await sessionStore.Write(scope.FullPath, staleSession, CancellationToken.None);
 
         var pingClient = new StubDaemonPingClient(
-            () => ValueTask.FromException(new TimeoutException("daemon timeout")),
+            () => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)),
             static () => ValueTask.CompletedTask);
         var launcher = new StubUnityDaemonProcessLauncher((_, _) => UnityDaemonLaunchResult.Success(9876));
         var service = CreateService(
