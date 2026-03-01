@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -86,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = await server.HandleRequest(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(response.Errors, Has.Count.EqualTo(1));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.SessionTokenRequired));
         });
 
@@ -103,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = await server.HandleRequest(request);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(response.Errors, Has.Count.EqualTo(1));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.SessionTokenInvalid));
         });
 

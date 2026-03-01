@@ -27,8 +27,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityIpcConnectionHandler connectionHandler,
             CancellationToken cancellationToken)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(address);
-            ArgumentNullException.ThrowIfNull(connectionHandler);
+            if (string.IsNullOrWhiteSpace(address))
+            {
+                throw new ArgumentException("Socket address must not be empty or whitespace.", nameof(address));
+            }
+
+            if (connectionHandler == null)
+            {
+                throw new ArgumentNullException(nameof(connectionHandler));
+            }
 
             var socketDirectoryPath = Path.GetDirectoryName(address);
             if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
