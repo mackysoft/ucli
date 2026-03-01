@@ -13,12 +13,18 @@ internal sealed class DaemonSessionFileAccess : IDaemonSessionFileAccess
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!File.Exists(sessionPath))
+        try
+        {
+            return await File.ReadAllTextAsync(sessionPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (FileNotFoundException)
         {
             return null;
         }
-
-        return await File.ReadAllTextAsync(sessionPath, cancellationToken).ConfigureAwait(false);
+        catch (DirectoryNotFoundException)
+        {
+            return null;
+        }
     }
 
     /// <summary> Writes daemon session JSON text atomically to the target path. </summary>

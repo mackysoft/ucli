@@ -11,6 +11,78 @@ public sealed class DaemonStartOperationTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenSessionReadReturnsMalformedSessionError_CleansArtifactsAndStarts ()
+    {
+        var readError = ExecutionError.InvalidArgument("Daemon session JSON is invalid: /tmp/session.json. malformed.");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Failure(readError),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(999));
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            unityDaemonProcessLauncher: launcher,
+            startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+        var context = CreateContext("fingerprint-start-malformed-session");
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Started, result.Status);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(1, artifactCleaner.CallCount);
+        Assert.Equal(1, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenSessionReadReturnsPathInvalidError_ReturnsFailureWithoutRecovery ()
+    {
+        var readError = ExecutionError.InvalidArgument("Daemon session path is invalid: /tmp/session.json. invalid path.");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Failure(readError),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(999));
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            unityDaemonProcessLauncher: launcher,
+            startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+        var context = CreateContext("fingerprint-start-invalid-session-path");
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(readError, result.Error);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenStaleSessionDetected_StopsPreviousProcessBeforeCleanupAndLaunch ()
     {
         var previousSession = CreateSession(processId: 4242);

@@ -64,6 +64,10 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             json = await sessionFileAccess.ReadOrNull(sessionPath, cancellationToken).ConfigureAwait(false);
         }
+        catch (Exception exception) when (IsSessionFileMissing(exception))
+        {
+            return DaemonSessionReadResult.Success(null);
+        }
         catch (Exception exception) when (IsPathFormatException(exception))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
@@ -229,5 +233,14 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     {
         return exception is IOException
             or UnauthorizedAccessException;
+    }
+
+    /// <summary> Determines whether one exception indicates that session file disappeared during read race. </summary>
+    /// <param name="exception"> The exception to classify. </param>
+    /// <returns> <see langword="true" /> when exception indicates missing file state; otherwise <see langword="false" />. </returns>
+    private static bool IsSessionFileMissing (Exception exception)
+    {
+        return exception is FileNotFoundException
+            or DirectoryNotFoundException;
     }
 }
