@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(serializerOptions));
             }
 
-            var payloadModel = CreateExecutePayload(trace.OperationTraces);
+            var payloadModel = CreateExecutePayload(trace.OperationTraces, trace.PlanToken);
             var errors = CreateErrors(trace.Errors);
             return new IpcResponse(
                 ProtocolVersion: context.ProtocolVersion,
@@ -87,7 +87,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="operationTraces"> The operation traces to map. </param>
         /// <returns> The execute payload contract model. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationTraces" /> is <see langword="null" />. </exception>
-        private static IpcExecuteResponse CreateExecutePayload (IReadOnlyList<OperationPhaseTrace> operationTraces)
+        private static IpcExecuteResponse CreateExecutePayload (
+            IReadOnlyList<OperationPhaseTrace> operationTraces,
+            string? planToken)
         {
             if (operationTraces == null)
             {
@@ -117,7 +119,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     Touched: touchedResources);
             }
 
-            return new IpcExecuteResponse(opResults);
+            return new IpcExecuteResponse(opResults)
+            {
+                PlanToken = planToken,
+            };
         }
 
         /// <summary> Creates one empty execute payload. </summary>

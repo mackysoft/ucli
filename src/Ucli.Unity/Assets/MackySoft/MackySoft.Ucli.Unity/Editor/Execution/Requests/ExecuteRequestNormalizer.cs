@@ -73,10 +73,14 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var canonicalPayload = CanonicalRequestWriter.WriteDigestPayload(protocolVersion, operations);
+            var normalizedPlanToken = string.IsNullOrWhiteSpace(request.PlanToken)
+                ? null
+                : request.PlanToken.Trim();
             var normalizedRequest = new NormalizedExecuteRequest(
                 ProtocolVersion: protocolVersion,
                 RequestId: requestId,
                 Ops: operations,
+                PlanToken: normalizedPlanToken,
                 CanonicalDigestPayloadUtf8: canonicalPayload);
             return ExecuteRequestNormalizationResult.Success(normalizedRequest);
         }
