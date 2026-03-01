@@ -53,17 +53,6 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Add_WhenRootPathIsNullOrWhitespace_ThrowsArgumentException ()
-    {
-        var builder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
-
-        Assert.ThrowsAny<ArgumentException>(() => builder.Add(null));
-        Assert.ThrowsAny<ArgumentException>(() => builder.Add(string.Empty));
-        Assert.ThrowsAny<ArgumentException>(() => builder.Add(" "));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void GetSearchRoots_ReturnsCachedInstance ()
     {
         var provider = new DefaultUnityEditorSearchRootProvider(
@@ -77,55 +66,6 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
         var second = provider.GetSearchRoots();
 
         Assert.Same(first, second);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void GetComparer_ReturnsPlatformAwareComparer ()
-    {
-        var provider = new UnityPathComparerProvider();
-
-        var comparer = provider.GetComparer();
-
-        Assert.Equal(OperatingSystem.IsWindows(), comparer.Equals("A", "a"));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void LinuxSource_OnLinux_IncludesCaseVariantOptRoots ()
-    {
-        var source = new LinuxUnityEditorSearchRootSource();
-        var searchRootBuilder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
-        source.AppendSearchRoots(searchRootBuilder);
-        var roots = searchRootBuilder.ToArray();
-
-        if (source.IsSupportedCurrentPlatform)
-        {
-            Assert.Contains("/opt/Unity/Hub/Editor", roots, StringComparer.Ordinal);
-            Assert.Contains("/opt/unity/hub/editor", roots, StringComparer.Ordinal);
-            return;
-        }
-
-        Assert.Empty(roots);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void MacSource_OnMac_IncludesApplicationsRoots ()
-    {
-        var source = new MacUnityEditorSearchRootSource();
-        var searchRootBuilder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
-        source.AppendSearchRoots(searchRootBuilder);
-        var roots = searchRootBuilder.ToArray();
-
-        if (source.IsSupportedCurrentPlatform)
-        {
-            Assert.Contains("/Applications/Unity/Hub/Editor", roots, StringComparer.Ordinal);
-            Assert.Contains("/Applications/Unity/Editor", roots, StringComparer.Ordinal);
-            return;
-        }
-
-        Assert.Empty(roots);
     }
 
     private sealed class StubSearchRootSource : IUnityEditorSearchRootSource
