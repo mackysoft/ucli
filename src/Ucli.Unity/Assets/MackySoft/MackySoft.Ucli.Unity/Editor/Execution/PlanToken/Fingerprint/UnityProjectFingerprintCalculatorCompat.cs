@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             var normalizedUnityProjectRoot = NormalizePath(unityProjectRoot);
             var projectPathFragment = BuildProjectPathFragment(normalizedStorageRoot, normalizedUnityProjectRoot);
             var fingerprintInput = $"{normalizedStorageRoot}\n{projectPathFragment}";
-            return PlanTokenCoordinator.ComputeSha256Hex(Encoding.UTF8.GetBytes(fingerprintInput));
+            return PlanTokenSha256Hex.Compute(Encoding.UTF8.GetBytes(fingerprintInput));
         }
 
         /// <summary> Builds one stable project-path fragment used in fingerprint input. </summary>

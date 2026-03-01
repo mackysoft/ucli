@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
@@ -121,10 +120,10 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             try
             {
                 var snapshot = environment.Capture();
-                var configuredMode = PlanTokenModeResolver.Resolve(snapshot.RepositoryRoot);
+                var config = PlanTokenConfigResolver.Resolve(snapshot.RepositoryRoot);
                 if (string.IsNullOrWhiteSpace(request.PlanToken))
                 {
-                    if (configuredMode == PlanTokenMode.Required)
+                    if (config.Mode == PlanTokenMode.Required)
                     {
                         return PlanTokenValidationResult.Failed(new OperationFailure(
                             Code: IpcErrorCodes.PlanTokenRequired,
@@ -216,7 +215,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The lowercase hexadecimal digest string. </returns>
         private static string ComputeRequestDigest (NormalizedExecuteRequest request)
         {
-            return ComputeSha256Hex(request.CanonicalDigestPayloadUtf8.Span);
+            return PlanTokenSha256Hex.Compute(request.CanonicalDigestPayloadUtf8.Span);
         }
 
         /// <summary> Creates one invalid-token failure entry. </summary>
@@ -228,36 +227,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 Code: IpcErrorCodes.PlanTokenInvalid,
                 Message: message,
                 OpId: null);
-        }
-
-        /// <summary> Computes SHA-256 digest and returns lowercase hexadecimal text. </summary>
-        /// <param name="bytes"> The input bytes. </param>
-        /// <returns> The lowercase hexadecimal digest string. </returns>
-        public static string ComputeSha256Hex (ReadOnlySpan<byte> bytes)
-        {
-            var inputBytes = bytes.ToArray();
-            using var sha256 = SHA256.Create();
-            var hashBytes = sha256.ComputeHash(inputBytes);
-
-            var chars = new char[hashBytes.Length * 2];
-            var charIndex = 0;
-            for (var i = 0; i < hashBytes.Length; i++)
-            {
-                var value = hashBytes[i];
-                chars[charIndex] = ToHexNibble(value >> 4);
-                chars[charIndex + 1] = ToHexNibble(value & 0x0f);
-                charIndex += 2;
-            }
-
-            return new string(chars);
-        }
-
-        /// <summary> Converts one nibble value to lowercase hexadecimal char. </summary>
-        /// <param name="value"> The nibble value. </param>
-        /// <returns> The lowercase hexadecimal char. </returns>
-        private static char ToHexNibble (int value)
-        {
-            return (char)(value < 10 ? '0' + value : 'a' + (value - 10));
         }
     }
 }

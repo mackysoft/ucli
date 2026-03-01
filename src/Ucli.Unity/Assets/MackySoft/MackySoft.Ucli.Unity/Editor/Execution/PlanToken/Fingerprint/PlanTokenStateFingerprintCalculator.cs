@@ -12,10 +12,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
     /// <summary> Computes state-fingerprint hash values used by plan-token workflows. </summary>
     internal static class PlanTokenStateFingerprintCalculator
     {
-        private const string UcliDirectoryName = ".ucli";
-
-        private const string ConfigFileName = "config.json";
-
         private const string NaLiteral = "na";
 
         /// <summary> Computes deterministic state fingerprint for token payload validation. </summary>
@@ -60,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.Flush();
             }
 
-            return PlanTokenCoordinator.ComputeSha256Hex(stream.ToArray());
+            return PlanTokenSha256Hex.Compute(stream.ToArray());
         }
 
         /// <summary> Computes configuration digest from shared <c>.ucli/config.json</c> fields. </summary>
@@ -73,49 +69,26 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            try
+            var config = PlanTokenConfigResolver.Resolve(repositoryRoot);
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
             {
-                var configFilePath = Path.Combine(repositoryRoot, UcliDirectoryName, ConfigFileName);
-                if (!File.Exists(configFilePath))
+                writer.WriteStartObject();
+                writer.WritePropertyName("operationAllowlist");
+                writer.WriteStartArray();
+                for (var i = 0; i < config.OperationAllowlist.Count; i++)
                 {
-                    return NaLiteral;
+                    writer.WriteStringValue(config.OperationAllowlist[i]);
                 }
 
-                using var document = JsonDocument.Parse(File.ReadAllText(configFilePath));
-                var root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object)
-                {
-                    return NaLiteral;
-                }
-
-                var operationPolicy = PlanTokenJsonUtilities.TryReadString(root, "operationPolicy") ?? NaLiteral;
-                var planTokenMode = PlanTokenJsonUtilities.TryReadString(root, "planTokenMode") ?? NaLiteral;
-                var allowlist = TryReadAllowlist(root);
-
-                using var stream = new MemoryStream();
-                using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
-                {
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("operationAllowlist");
-                    writer.WriteStartArray();
-                    for (var i = 0; i < allowlist.Count; i++)
-                    {
-                        writer.WriteStringValue(allowlist[i]);
-                    }
-
-                    writer.WriteEndArray();
-                    writer.WriteString("operationPolicy", operationPolicy);
-                    writer.WriteString("planTokenMode", planTokenMode);
-                    writer.WriteEndObject();
-                    writer.Flush();
-                }
-
-                return PlanTokenCoordinator.ComputeSha256Hex(stream.ToArray());
+                writer.WriteEndArray();
+                writer.WriteString("operationPolicy", config.OperationPolicy);
+                writer.WriteString("planTokenMode", config.PlanTokenModeLiteral);
+                writer.WriteEndObject();
+                writer.Flush();
             }
-            catch
-            {
-                return NaLiteral;
-            }
+
+            return PlanTokenSha256Hex.Compute(stream.ToArray());
         }
 
         /// <summary> Computes touched-resource digest from normalized touched entries and live file metadata. </summary>
@@ -181,7 +154,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.Flush();
             }
 
-            return PlanTokenCoordinator.ComputeSha256Hex(stream.ToArray());
+            return PlanTokenSha256Hex.Compute(stream.ToArray());
         }
 
         /// <summary> Creates one touched-digest entry from touched operation output. </summary>
@@ -227,39 +200,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 Exists: exists,
                 Size: size,
                 LastWriteUtcTicks: lastWriteUtcTicks);
-        }
-
-        /// <summary> Attempts to read operation allowlist values from config root. </summary>
-        /// <param name="root"> The config root object. </param>
-        /// <returns> The normalized allowlist values. </returns>
-        private static List<string> TryReadAllowlist (JsonElement root)
-        {
-            var values = new List<string>();
-            if (!root.TryGetProperty("operationAllowlist", out var allowlistElement)
-                || allowlistElement.ValueKind != JsonValueKind.Array)
-            {
-                values.Add(NaLiteral);
-                return values;
-            }
-
-            foreach (var allowlistValue in allowlistElement.EnumerateArray())
-            {
-                if (allowlistValue.ValueKind != JsonValueKind.String)
-                {
-                    values.Add(NaLiteral);
-                    return values;
-                }
-
-                var pattern = allowlistValue.GetString();
-                if (string.IsNullOrWhiteSpace(pattern))
-                {
-                    continue;
-                }
-
-                values.Add(pattern.Trim());
-            }
-
-            return values;
         }
 
         /// <summary> Normalizes one string value or returns fallback literal when missing. </summary>
