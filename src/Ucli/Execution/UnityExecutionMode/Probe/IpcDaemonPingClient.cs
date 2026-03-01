@@ -46,9 +46,15 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient
         var sessionTokenResult = await daemonSessionTokenProvider.Resolve(unityProject, cancellationToken).ConfigureAwait(false);
         if (!sessionTokenResult.IsSuccess)
         {
+            if (sessionTokenResult.IsSessionNotAvailable)
+            {
+                throw new DaemonPingResponseException(
+                    "Daemon session token is required.",
+                    IpcErrorCodes.SessionTokenRequired);
+            }
+
             throw new DaemonPingResponseException(
-                "Daemon session token could not be resolved.",
-                IpcErrorCodes.SessionTokenRequired);
+                $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}");
         }
 
         var response = await unityIpcClient.SendAsync(

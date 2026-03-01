@@ -38,6 +38,7 @@ public sealed class DaemonSessionTokenProviderTests
         var resolveResult = await provider.Resolve(context, CancellationToken.None);
 
         Assert.False(resolveResult.IsSuccess);
+        Assert.True(resolveResult.IsSessionNotAvailable);
         var error = Assert.IsType<ExecutionError>(resolveResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("not available", error.Message, StringComparison.OrdinalIgnoreCase);

@@ -82,6 +82,32 @@ public sealed class DaemonSessionStoreTests
         Assert.Contains("endpointTransportKind", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenSessionFingerprintDoesNotMatchRequestedFingerprint_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "fingerprint-mismatch");
+        var store = new DaemonSessionStore();
+        var requestedFingerprint = "fingerprint-requested";
+        var mismatchedSession = CreateSession(projectFingerprint: "fingerprint-other", sessionToken: "token-1");
+
+        var sessionPath = DaemonStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var serializer = new DaemonSessionJsonSerializer();
+        await File.WriteAllTextAsync(
+            sessionPath,
+            serializer.Serialize(mismatchedSession) + Environment.NewLine,
+            CancellationToken.None);
+
+        var readResult = await store.Read(scope.FullPath, requestedFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
+    }
+
     private static DaemonSession CreateSession (
         string projectFingerprint,
         string sessionToken)

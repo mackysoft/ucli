@@ -101,9 +101,18 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 $"Failed to deserialize daemon session JSON: {sessionPath}. {exception.Message}"));
         }
 
-        return sessionValidator.TryValidate(session, sessionPath, out var validationError)
-            ? DaemonSessionReadResult.Success(session)
-            : DaemonSessionReadResult.Failure(validationError!);
+        if (!sessionValidator.TryValidate(session, sessionPath, out var validationError))
+        {
+            return DaemonSessionReadResult.Failure(validationError!);
+        }
+
+        if (!string.Equals(session.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal))
+        {
+            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon session projectFingerprint mismatch. Requested={projectFingerprint}, Actual={session.ProjectFingerprint}. {sessionPath}"));
+        }
+
+        return DaemonSessionReadResult.Success(session);
     }
 
     /// <summary> Writes daemon session metadata to local storage. </summary>

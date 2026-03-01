@@ -97,11 +97,10 @@ public sealed class IpcDaemonPingClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Ping_WhenSessionTokenCannotBeResolved_ThrowsDaemonPingResponseException ()
+    public async Task Ping_WhenSessionIsNotAvailable_ThrowsDaemonPingResponseExceptionWithSessionTokenRequired ()
     {
         var unityIpcClient = new StubUnityIpcClient();
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Failure(
-            ExecutionError.InvalidArgument("missing session")));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.SessionNotAvailable());
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
@@ -110,6 +109,28 @@ public sealed class IpcDaemonPingClientTests
         });
 
         Assert.Equal(IpcErrorCodes.SessionTokenRequired, exception.ErrorCode);
+        Assert.Equal(0, unityIpcClient.CallCount);
+        Assert.Equal(1, sessionTokenProvider.CallCount);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData((int)ExecutionErrorKind.InvalidArgument)]
+    [InlineData((int)ExecutionErrorKind.InternalError)]
+    public async Task Ping_WhenSessionTokenResolutionFailsForLocalError_ThrowsDaemonPingResponseExceptionWithoutTokenErrorCode (int errorKind)
+    {
+        var unityIpcClient = new StubUnityIpcClient();
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Failure(
+            new ExecutionError((ExecutionErrorKind)errorKind, "session token read failed")));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
+        });
+
+        Assert.Null(exception.ErrorCode);
+        Assert.Contains("session token read failed", exception.Message, StringComparison.Ordinal);
         Assert.Equal(0, unityIpcClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
     }

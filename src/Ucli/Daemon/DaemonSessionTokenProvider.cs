@@ -40,8 +40,7 @@ internal sealed class DaemonSessionTokenProvider : IDaemonSessionTokenProvider
 
         if (!readResult.Exists)
         {
-            return DaemonSessionTokenResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "Daemon session is not available."));
+            return DaemonSessionTokenResolutionResult.SessionNotAvailable();
         }
 
         var sessionToken = readResult.Session!.SessionToken;
