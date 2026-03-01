@@ -123,7 +123,12 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         {
             try
             {
-                await daemonPingClient.Ping(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+                await daemonPingClient.Ping(
+                        unityProject,
+                        timeout,
+                        readResult.Session!.SessionToken,
+                        cancellationToken)
+                    .ConfigureAwait(false);
                 return DaemonStartResult.AlreadyRunning(readResult.Session!);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -41,7 +41,11 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await daemonPingClient.Ping(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+                await daemonPingClient.Ping(
+                        unityProject,
+                        timeout,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
                 return DaemonStartupReadinessProbeResult.Ready();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

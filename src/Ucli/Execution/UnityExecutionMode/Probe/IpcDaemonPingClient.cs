@@ -30,37 +30,51 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient
     /// <summary> Sends one ping request and waits for daemon response. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="sessionToken"> Optional pre-resolved daemon session token. When <see langword="null" />, this method resolves token from session storage. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when daemon responds. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
     public async ValueTask Ping (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        string? sessionToken = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var sessionTokenResult = await daemonSessionTokenProvider.Resolve(unityProject, cancellationToken).ConfigureAwait(false);
-        if (!sessionTokenResult.IsSuccess)
+        string effectiveSessionToken;
+        if (sessionToken == null)
         {
-            if (sessionTokenResult.IsSessionNotAvailable)
+            var sessionTokenResult = await daemonSessionTokenProvider.Resolve(unityProject, cancellationToken).ConfigureAwait(false);
+            if (!sessionTokenResult.IsSuccess)
             {
+                if (sessionTokenResult.IsSessionNotAvailable)
+                {
+                    throw new DaemonPingResponseException(
+                        "Daemon session token is required.",
+                        IpcErrorCodes.SessionTokenRequired);
+                }
+
                 throw new DaemonPingResponseException(
-                    "Daemon session token is required.",
-                    IpcErrorCodes.SessionTokenRequired);
+                    $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}");
             }
 
-            throw new DaemonPingResponseException(
-                $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}");
+            effectiveSessionToken = sessionTokenResult.Token!;
+        }
+        else
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+            effectiveSessionToken = sessionToken;
         }
 
         var response = await unityIpcClient.SendAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
-                CreatePingRequest(sessionTokenResult.Token!),
+                CreatePingRequest(effectiveSessionToken),
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);

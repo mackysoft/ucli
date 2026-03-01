@@ -21,7 +21,7 @@ public sealed class IpcDaemonPingClientTests
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
         var context = CreateContext();
 
-        await pingClient.Ping(context, DefaultTimeout, CancellationToken.None);
+        await pingClient.Ping(context, DefaultTimeout, cancellationToken: CancellationToken.None);
 
         Assert.Equal(1, unityIpcClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
@@ -48,10 +48,27 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationTokenSource.Token);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: cancellationTokenSource.Token);
         });
         Assert.Equal(0, unityIpcClient.CallCount);
         Assert.Equal(0, sessionTokenProvider.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Ping_WithProvidedSessionToken_SendsPingWithoutResolvingToken ()
+    {
+        var unityIpcClient = new StubUnityIpcClient();
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+        var context = CreateContext();
+
+        await pingClient.Ping(context, DefaultTimeout, "provided-token", CancellationToken.None);
+
+        Assert.Equal(1, unityIpcClient.CallCount);
+        Assert.Equal(0, sessionTokenProvider.CallCount);
+        var request = Assert.IsType<IpcRequest>(unityIpcClient.LastRequest);
+        Assert.Equal("provided-token", request.SessionToken);
     }
 
     [Fact]
@@ -68,7 +85,7 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
         });
     }
 
@@ -91,7 +108,7 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
         });
     }
 
@@ -105,7 +122,7 @@ public sealed class IpcDaemonPingClientTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
         });
 
         Assert.Equal(IpcErrorCodes.SessionTokenRequired, exception.ErrorCode);
@@ -126,7 +143,7 @@ public sealed class IpcDaemonPingClientTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, CancellationToken.None);
+            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
         });
 
         Assert.Null(exception.ErrorCode);
@@ -148,7 +165,7 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), timeout, CancellationToken.None);
+            await pingClient.Ping(CreateContext(), timeout, cancellationToken: CancellationToken.None);
         });
         Assert.Equal(0, unityIpcClient.CallCount);
         Assert.Equal(0, sessionTokenProvider.CallCount);

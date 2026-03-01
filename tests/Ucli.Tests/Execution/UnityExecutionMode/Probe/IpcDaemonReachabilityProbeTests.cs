@@ -305,6 +305,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         public ValueTask Ping (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
+            string? sessionToken = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;

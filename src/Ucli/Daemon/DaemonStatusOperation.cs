@@ -61,7 +61,12 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
 
         try
         {
-            await daemonPingClient.Ping(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+            await daemonPingClient.Ping(
+                    unityProject,
+                    timeout,
+                    readResult.Session!.SessionToken,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return DaemonStatusResult.Running(readResult.Session!);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

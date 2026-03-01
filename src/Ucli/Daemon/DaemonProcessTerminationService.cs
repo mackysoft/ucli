@@ -33,7 +33,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             return DaemonSessionStoreOperationResult.Success();
         }
 
-        Process? process;
+        Process process;
         try
         {
             process = Process.GetProcessById(processId.Value);
@@ -43,58 +43,61 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             return DaemonSessionStoreOperationResult.Success();
         }
 
-        if (expectedIssuedAtUtc is null)
+        using (process)
         {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
-                $"Daemon process identity could not be verified because expected issuedAtUtc is not available for process '{processId.Value}'."));
-        }
-
-        if (!TryValidateProcessIdentity(process, processId.Value, expectedIssuedAtUtc.Value, out var identityError))
-        {
-            return DaemonSessionStoreOperationResult.Failure(identityError!);
-        }
-
-        var deadlineUtc = DateTimeOffset.UtcNow + timeout;
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (process.HasExited)
+            if (expectedIssuedAtUtc is null)
             {
+                return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
+                    $"Daemon process identity could not be verified because expected issuedAtUtc is not available for process '{processId.Value}'."));
+            }
+
+            if (!TryValidateProcessIdentity(process, processId.Value, expectedIssuedAtUtc.Value, out var identityError))
+            {
+                return DaemonSessionStoreOperationResult.Failure(identityError!);
+            }
+
+            var deadlineUtc = DateTimeOffset.UtcNow + timeout;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (process.HasExited)
+                {
+                    return DaemonSessionStoreOperationResult.Success();
+                }
+
+                if (DateTimeOffset.UtcNow >= deadlineUtc)
+                {
+                    break;
+                }
+
+                await Task.Delay(ProbeRetryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
+                process.Refresh();
+            }
+
+            try
+            {
+                process.Kill(entireProcessTree: true);
+
+                var remainingMilliseconds = GetRemainingWaitMilliseconds(deadlineUtc);
+                var exited = process.WaitForExit(remainingMilliseconds);
+                if (!exited && process.HasExited)
+                {
+                    exited = true;
+                }
+
+                if (!exited)
+                {
+                    return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                        $"Timed out while force-stopping daemon process '{processId.Value}'."));
+                }
+
                 return DaemonSessionStoreOperationResult.Success();
             }
-
-            if (DateTimeOffset.UtcNow >= deadlineUtc)
+            catch (Exception exception)
             {
-                break;
+                return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
+                    $"Failed to force-stop daemon process '{processId.Value}'. {exception.Message}"));
             }
-
-            await Task.Delay(ProbeRetryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
-            process.Refresh();
-        }
-
-        try
-        {
-            process.Kill(entireProcessTree: true);
-
-            var remainingMilliseconds = GetRemainingWaitMilliseconds(deadlineUtc);
-            var exited = process.WaitForExit(remainingMilliseconds);
-            if (!exited && process.HasExited)
-            {
-                exited = true;
-            }
-
-            if (!exited)
-            {
-                return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while force-stopping daemon process '{processId.Value}'."));
-            }
-
-            return DaemonSessionStoreOperationResult.Success();
-        }
-        catch (Exception exception)
-        {
-            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
-                $"Failed to force-stop daemon process '{processId.Value}'. {exception.Message}"));
         }
     }
 
