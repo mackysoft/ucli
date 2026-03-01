@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -84,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
-                static () => { },
+                new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
                     new ThrowingTransportListener(IpcTransportKind.NamedPipe, "listener failed"),
@@ -107,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
-                static () => { });
+                new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: string.Empty);
 
             var response = await server.HandleRequest(request);
@@ -124,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: false),
                 new StubExecuteRequestDispatcher(),
-                static () => { });
+                new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "invalid-token");
 
             var response = await server.HandleRequest(request);
@@ -136,12 +137,29 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator HandleRequest_WhenSessionTokenValidationThrows_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
+        {
+            var server = CreateServerForRequestHandling(
+                new ThrowingSessionTokenValidator(new IOException("session file read failed")),
+                new StubExecuteRequestDispatcher(),
+                new StubDaemonShutdownSignal());
+            var request = CreatePingRequest(sessionToken: "valid-token");
+
+            var response = await server.HandleRequest(request);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InternalError));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator HandleRequest_WhenValidTokenAndPing_ReturnsPingResponse () => UniTask.ToCoroutine(async () =>
         {
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
-                static () => { });
+                new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "valid-token");
 
             var response = await server.HandleRequest(request);
@@ -162,7 +180,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 dispatcher,
-                static () => { });
+                new StubDaemonShutdownSignal());
             var request = CreateExecuteRequest(sessionToken: "valid-token", requestId: "req-execute");
 
             var response = await server.HandleRequest(request);
@@ -177,11 +195,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator HandleRequest_WhenShutdownAccepted_SignalsShutdown () => UniTask.ToCoroutine(async () =>
         {
-            var shutdownSignaled = false;
+            var shutdownSignal = new StubDaemonShutdownSignal();
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
-                () => shutdownSignaled = true);
+                shutdownSignal);
             var request = CreateShutdownRequest(sessionToken: "valid-token", requestId: "req-shutdown");
 
             var response = await server.HandleRequest(request);
@@ -190,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var payload = response.Payload.Deserialize<IpcShutdownResponse>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.Accepted, Is.True);
-            Assert.That(shutdownSignaled, Is.True);
+            Assert.That(shutdownSignal.SignalCount, Is.EqualTo(1));
         });
 
         private static IpcRequest CreatePingRequest (string sessionToken)
@@ -246,7 +264,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
-                static () => { },
+                new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
                     new NamedPipeUnityIpcTransportListener(),
@@ -257,7 +275,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityIpcServer CreateServerForRequestHandling (
             ISessionTokenValidator sessionTokenValidator,
             IExecuteRequestDispatcher executeRequestDispatcher,
-            Action shutdownSignal)
+            IDaemonShutdownSignal shutdownSignal)
         {
             return CreateServer(
                 sessionTokenValidator,
@@ -269,13 +287,29 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityIpcServer CreateServer (
             ISessionTokenValidator sessionTokenValidator,
             IExecuteRequestDispatcher executeRequestDispatcher,
-            Action shutdownSignal,
+            IDaemonShutdownSignal shutdownSignal,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
         {
             var methodDispatcher = new UnityIpcMethodDispatcher(executeRequestDispatcher, shutdownSignal);
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
             var connectionHandler = new UnityIpcConnectionHandler(requestHandler);
             return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);
+        }
+
+        private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal
+        {
+            public int SignalCount { get; private set; }
+
+            public void Signal ()
+            {
+                SignalCount++;
+            }
+
+            public Task Wait (CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            }
         }
 
         private sealed class StubSessionTokenValidator : ISessionTokenValidator
@@ -293,6 +327,24 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.FromResult(accepted);
+            }
+        }
+
+        private sealed class ThrowingSessionTokenValidator : ISessionTokenValidator
+        {
+            private readonly Exception exception;
+
+            public ThrowingSessionTokenValidator (Exception exception)
+            {
+                this.exception = exception;
+            }
+
+            public Task<bool> Validate (
+                string sessionToken,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw exception;
             }
         }
 

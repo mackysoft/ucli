@@ -13,11 +13,11 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal static class UnityDaemonBootstrap
     {
         /// <summary> Entry point invoked by Unity <c>-executeMethod</c> to start daemon mode. </summary>
-        public static void Start ()
+        public static async void Start ()
         {
             try
             {
-                Run().GetAwaiter().GetResult();
+                await Run();
             }
             catch (Exception exception)
             {
@@ -45,10 +45,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            var shutdownSignalSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var services = new ServiceCollection();
             services.AddSingleton(bootstrapArguments);
-            services.AddSingleton<Action>(() => shutdownSignalSource.TrySetResult(true));
+            services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<ISessionTokenValidator>(new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath));
             services.AddSingleton<IExecuteRequestDispatcher>(static _ => CreateExecuteRequestDispatcher());
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
@@ -70,12 +69,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             using var serviceProvider = services.BuildServiceProvider();
             var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+            var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
 
             var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
             await server.Start(endpoint, CancellationToken.None);
             Debug.Log($"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
 
-            await shutdownSignalSource.Task;
+            await shutdownSignal.Wait(CancellationToken.None);
             await server.Stop(CancellationToken.None);
             EditorApplication.Exit(0);
         }

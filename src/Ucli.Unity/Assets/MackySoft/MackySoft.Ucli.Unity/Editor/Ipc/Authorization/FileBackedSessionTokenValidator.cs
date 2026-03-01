@@ -65,10 +65,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 throw;
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
-            {
-                return false;
-            }
         }
 
         /// <summary> Represents JSON fields required for token validation. </summary>

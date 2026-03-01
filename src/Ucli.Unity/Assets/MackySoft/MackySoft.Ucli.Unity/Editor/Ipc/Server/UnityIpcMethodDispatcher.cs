@@ -12,18 +12,19 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher
     {
         private readonly IExecuteRequestDispatcher executeRequestDispatcher;
-        private readonly Action shutdownSignal;
+
+        private readonly IDaemonShutdownSignal daemonShutdownSignal;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcMethodDispatcher" /> class. </summary>
         /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
-        /// <param name="shutdownSignal"> The callback invoked when shutdown request is accepted. </param>
+        /// <param name="daemonShutdownSignal"> The shutdown signal dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
         public UnityIpcMethodDispatcher (
             IExecuteRequestDispatcher executeRequestDispatcher,
-            Action shutdownSignal)
+            IDaemonShutdownSignal daemonShutdownSignal)
         {
             this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
-            this.shutdownSignal = shutdownSignal ?? throw new ArgumentNullException(nameof(shutdownSignal));
+            this.daemonShutdownSignal = daemonShutdownSignal ?? throw new ArgumentNullException(nameof(daemonShutdownSignal));
         }
 
         /// <summary> Dispatches one IPC request envelope by method contract. </summary>
@@ -151,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            shutdownSignal();
+            daemonShutdownSignal.Signal();
             var payload = new IpcShutdownResponse(
                 Accepted: true,
                 Message: "Shutdown request accepted.");
