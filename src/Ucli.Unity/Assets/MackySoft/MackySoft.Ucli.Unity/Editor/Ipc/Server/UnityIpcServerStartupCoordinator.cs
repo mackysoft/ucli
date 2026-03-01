@@ -62,6 +62,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             cancellationToken.ThrowIfCancellationRequested();
 
             var startupTask = startupCompletionSource.Task;
+            if (!cancellationToken.CanBeCanceled)
+            {
+                await startupTask;
+                return;
+            }
+
             var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
             var completedTask = await Task.WhenAny(startupTask, cancellationTask);
             if (!ReferenceEquals(completedTask, startupTask) && !startupTask.IsCompleted)

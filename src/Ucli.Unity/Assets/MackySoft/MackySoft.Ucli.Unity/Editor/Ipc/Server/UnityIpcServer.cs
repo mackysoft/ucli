@@ -11,6 +11,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Hosts Unity-side IPC server lifecycle and delegates transport loops to transport listeners. </summary>
     internal sealed class UnityIpcServer : IUnityIpcServer
     {
+        private static readonly TimeSpan WaitForTerminationRaceGracePeriod = TimeSpan.FromMilliseconds(10);
+
         private readonly object syncRoot = new object();
         private readonly IUnityIpcRequestHandler requestHandler;
         private readonly IUnityIpcConnectionHandler connectionHandler;
@@ -128,6 +130,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 listenerCancellationTokenSource = null;
             }
 
+            var transportReleased = false;
             try
             {
                 if (capturedCancellationTokenSource != null)
@@ -136,6 +139,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 ReleaseTransportHandles();
+                transportReleased = true;
 
                 if (capturedListenerTask != null)
                 {
@@ -157,7 +161,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             finally
             {
                 capturedCancellationTokenSource?.Dispose();
-                ReleaseTransportHandles();
+                if (!transportReleased)
+                {
+                    ReleaseTransportHandles();
+                }
             }
         }
 
@@ -188,9 +195,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
             var completedTask = await Task.WhenAny(capturedListenerTask, cancellationTask);
-            if (!ReferenceEquals(completedTask, capturedListenerTask))
+            if (!ReferenceEquals(completedTask, capturedListenerTask) && !capturedListenerTask.IsCompleted)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                var raceCompletionTask = await Task.WhenAny(capturedListenerTask, Task.Delay(WaitForTerminationRaceGracePeriod));
+                if (!ReferenceEquals(raceCompletionTask, capturedListenerTask) && !capturedListenerTask.IsCompleted)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
             }
 
             await capturedListenerTask;
@@ -279,6 +290,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             Task? capturedListenerTask,
             CancellationTokenSource? capturedCancellationTokenSource)
         {
+            var transportReleased = false;
             try
             {
                 if (capturedCancellationTokenSource != null)
@@ -287,6 +299,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 ReleaseTransportHandles();
+                transportReleased = true;
 
                 if (capturedListenerTask != null)
                 {
@@ -312,7 +325,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             finally
             {
                 capturedCancellationTokenSource?.Dispose();
-                ReleaseTransportHandles();
+                if (!transportReleased)
+                {
+                    ReleaseTransportHandles();
+                }
             }
         }
 

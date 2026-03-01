@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -6,6 +7,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Implements in-process shutdown signal coordination for daemon bootstrap lifecycle. </summary>
     internal sealed class DaemonShutdownSignal : IDaemonShutdownSignal
     {
+        private static readonly TimeSpan ShutdownSignalRaceGracePeriod = TimeSpan.FromMilliseconds(10);
+
         private readonly TaskCompletionSource<bool> signalSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         /// <summary> Signals that daemon shutdown has been requested. </summary>
@@ -34,13 +37,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 completionSource.TrySetResult(true);
             }, cancellationSource);
 
-            var completedTask = await Task.WhenAny(signalSource.Task, cancellationSource.Task);
-            if (!ReferenceEquals(completedTask, signalSource.Task))
+            var signalTask = signalSource.Task;
+            var completedTask = await Task.WhenAny(signalTask, cancellationSource.Task);
+            if (!ReferenceEquals(completedTask, signalTask) && !signalTask.IsCompleted)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                var raceCompletionTask = await Task.WhenAny(signalTask, Task.Delay(ShutdownSignalRaceGracePeriod));
+                if (!ReferenceEquals(raceCompletionTask, signalTask) && !signalTask.IsCompleted)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
             }
 
-            await signalSource.Task;
+            await signalTask;
         }
     }
 }
