@@ -4,10 +4,10 @@ using NUnit.Framework;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
-    internal static class ExceptionCapture
+    internal static class AsyncExceptionCapture
     {
 
-        public static async UniTask<TException> Capture<TException> (Func<UniTask> action)
+        public static async UniTask<TException> CaptureAsync<TException> (Func<UniTask> action)
             where TException : Exception
         {
             try

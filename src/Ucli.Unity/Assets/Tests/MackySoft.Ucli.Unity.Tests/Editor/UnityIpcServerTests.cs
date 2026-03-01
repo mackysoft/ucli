@@ -24,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Start_WhenEndpointIsNull_ThrowsArgumentNullException () => UniTask.ToCoroutine(async () =>
         {
             var server = new UnityIpcServer();
-            var exception = await ExceptionCapture.Capture<ArgumentNullException>(async () =>
+            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentNullException>(async () =>
             {
                 await server.Start(null).AsUniTask();
             });
@@ -38,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var server = new UnityIpcServer();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, " ");
-            var exception = await ExceptionCapture.Capture<ArgumentException>(async () =>
+            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
                 await server.Start(endpoint).AsUniTask();
             });
@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
-            await ExceptionCapture.Capture<OperationCanceledException>(async () =>
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await server.Stop(cancellationTokenSource.Token).AsUniTask();
             });
