@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -7,4 +8,10 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="Arguments"> The command argument payload. </param>
 public sealed record IpcExecuteRequest (
     string Command,
-    JsonElement Arguments);
+    JsonElement Arguments)
+{
+    /// <summary> Gets the optional plan token used for call-time drift validation. </summary>
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PlanToken { get; init; }
+}
