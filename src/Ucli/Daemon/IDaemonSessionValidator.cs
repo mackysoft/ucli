@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
@@ -8,8 +9,10 @@ internal interface IDaemonSessionValidator
     /// <summary> Validates one daemon session model. </summary>
     /// <param name="session"> The daemon session model. </param>
     /// <param name="sessionPath"> The related session JSON path for diagnostics. </param>
-    /// <returns> The structured error when validation fails; otherwise <see langword="null" />. </returns>
-    ExecutionError? Validate (
+    /// <param name="error"> The structured validation error when validation fails; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
+    bool TryValidate (
         DaemonSession session,
-        string sessionPath);
+        string sessionPath,
+        [NotNullWhen(false)] out ExecutionError? error);
 }

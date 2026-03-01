@@ -101,10 +101,9 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 $"Failed to deserialize daemon session JSON: {sessionPath}. {exception.Message}"));
         }
 
-        var validationError = sessionValidator.Validate(session, sessionPath);
-        return validationError == null
+        return sessionValidator.TryValidate(session, sessionPath, out var validationError)
             ? DaemonSessionReadResult.Success(session)
-            : DaemonSessionReadResult.Failure(validationError);
+            : DaemonSessionReadResult.Failure(validationError!);
     }
 
     /// <summary> Writes daemon session metadata to local storage. </summary>
@@ -131,10 +130,9 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 $"Daemon session path is invalid. {exception.Message}"));
         }
 
-        var validationError = sessionValidator.Validate(session, sessionPath);
-        if (validationError != null)
+        if (!sessionValidator.TryValidate(session, sessionPath, out var validationError))
         {
-            return DaemonSessionStoreOperationResult.Failure(validationError);
+            return DaemonSessionStoreOperationResult.Failure(validationError!);
         }
 
         string json;

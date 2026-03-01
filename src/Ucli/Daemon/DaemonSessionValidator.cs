@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
@@ -8,18 +9,21 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
     /// <summary> Validates one daemon session model. </summary>
     /// <param name="session"> The daemon session model. </param>
     /// <param name="sessionPath"> The related session JSON path for diagnostics. </param>
-    /// <returns> The structured error when validation fails; otherwise <see langword="null" />. </returns>
+    /// <param name="error"> The structured validation error when validation fails; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
-    public ExecutionError? Validate (
+    public bool TryValidate (
         DaemonSession session,
-        string sessionPath)
+        string sessionPath,
+        [NotNullWhen(false)] out ExecutionError? error)
     {
         ArgumentNullException.ThrowIfNull(session);
 
         if (session.SchemaVersion != DaemonSession.CurrentSchemaVersion)
         {
-            return ExecutionError.InvalidArgument(
+            error = ExecutionError.InvalidArgument(
                 $"Daemon session schemaVersion must be {DaemonSession.CurrentSchemaVersion}. Actual: {session.SchemaVersion}. {sessionPath}");
+            return false;
         }
 
         if (string.IsNullOrWhiteSpace(session.SessionToken)
@@ -29,15 +33,18 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             || string.IsNullOrWhiteSpace(session.EndpointTransportKind)
             || string.IsNullOrWhiteSpace(session.EndpointAddress))
         {
-            return ExecutionError.InvalidArgument($"Daemon session contains required empty values: {sessionPath}");
+            error = ExecutionError.InvalidArgument($"Daemon session contains required empty values: {sessionPath}");
+            return false;
         }
 
         if (!DaemonSessionTransportKindCodec.TryParse(session.EndpointTransportKind, out _))
         {
-            return ExecutionError.InvalidArgument(
+            error = ExecutionError.InvalidArgument(
                 $"Daemon session endpointTransportKind is invalid: {session.EndpointTransportKind}. {sessionPath}");
+            return false;
         }
 
-        return null;
+        error = null;
+        return true;
     }
 }
