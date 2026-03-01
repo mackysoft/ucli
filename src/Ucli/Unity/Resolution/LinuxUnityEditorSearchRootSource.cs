@@ -6,27 +6,24 @@ internal sealed class LinuxUnityEditorSearchRootSource : IUnityEditorSearchRootS
     /// <summary> Gets a value indicating whether this source supports the current platform. </summary>
     public bool IsSupportedCurrentPlatform => OperatingSystem.IsLinux();
 
-    /// <summary> Gets candidate root directories for Unity editor installations on Linux. </summary>
-    /// <returns> Candidate root directories. </returns>
-    public IReadOnlyList<string> GetSearchRoots ()
+    /// <summary> Appends candidate root directories for Unity editor installations on Linux. </summary>
+    /// <param name="searchRootSet"> The destination set that stores de-duplicated roots. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="searchRootSet" /> is <see langword="null" />. </exception>
+    public void AppendSearchRoots (UnityEditorSearchRootSet searchRootSet)
     {
+        ArgumentNullException.ThrowIfNull(searchRootSet);
+
         if (!IsSupportedCurrentPlatform)
         {
-            return Array.Empty<string>();
+            return;
         }
-
-        var roots = new List<string>
-        {
-            "/opt/Unity/Hub/Editor",
-            "/opt/unity/hub/editor",
-        };
+        searchRootSet.Add("/opt/Unity/Hub/Editor");
+        searchRootSet.Add("/opt/unity/hub/editor");
 
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrWhiteSpace(userProfile))
         {
-            roots.Add(Path.Combine(userProfile, "Unity", "Hub", "Editor"));
+            searchRootSet.Add(Path.Combine(userProfile, "Unity", "Hub", "Editor"));
         }
-
-        return roots;
     }
 }

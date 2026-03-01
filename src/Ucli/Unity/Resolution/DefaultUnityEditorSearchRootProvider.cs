@@ -3,9 +3,7 @@ namespace MackySoft.Ucli.UnityProject.Resolution;
 /// <summary> Provides default Unity editor installation roots for local environments. </summary>
 internal sealed class DefaultUnityEditorSearchRootProvider : IUnityEditorSearchRootProvider
 {
-    private readonly IReadOnlyList<IUnityEditorSearchRootSource> searchRootSources;
-
-    private readonly IUnityPathComparerProvider pathComparerProvider;
+    private readonly string[] cachedSearchRoots;
 
     /// <summary> Initializes a new instance of the <see cref="DefaultUnityEditorSearchRootProvider" /> class. </summary>
     public DefaultUnityEditorSearchRootProvider ()
@@ -39,41 +37,25 @@ internal sealed class DefaultUnityEditorSearchRootProvider : IUnityEditorSearchR
             }
         }
 
-        this.searchRootSources = searchRootSources;
-        this.pathComparerProvider = pathComparerProvider;
+        var searchRootSet = new UnityEditorSearchRootSet(pathComparerProvider.GetComparer());
+        for (var index = 0; index < searchRootSources.Count; index++)
+        {
+            var source = searchRootSources[index];
+            if (!source.IsSupportedCurrentPlatform)
+            {
+                continue;
+            }
+
+            source.AppendSearchRoots(searchRootSet);
+        }
+
+        cachedSearchRoots = searchRootSet.ToArray();
     }
 
     /// <summary> Gets candidate root directory paths used for editor discovery. </summary>
     /// <returns> Candidate root paths in deterministic order. </returns>
     public IReadOnlyList<string> GetSearchRoots ()
     {
-        var comparer = pathComparerProvider.GetComparer();
-        var deduplicatedRoots = new HashSet<string>(comparer);
-        var orderedRoots = new List<string>();
-
-        foreach (var searchRootSource in searchRootSources)
-        {
-            if (!searchRootSource.IsSupportedCurrentPlatform)
-            {
-                continue;
-            }
-
-            var roots = searchRootSource.GetSearchRoots();
-            for (var index = 0; index < roots.Count; index++)
-            {
-                var root = roots[index];
-                if (string.IsNullOrWhiteSpace(root))
-                {
-                    continue;
-                }
-
-                if (deduplicatedRoots.Add(root))
-                {
-                    orderedRoots.Add(root);
-                }
-            }
-        }
-
-        return orderedRoots.ToArray();
+        return cachedSearchRoots;
     }
 }
