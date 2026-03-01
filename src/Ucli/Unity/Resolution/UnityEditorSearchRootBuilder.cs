@@ -20,12 +20,10 @@ internal sealed class UnityEditorSearchRootBuilder
 
     /// <summary> Adds one candidate root path into the builder. </summary>
     /// <param name="rootPath"> The candidate root path value. </param>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="rootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
     public void Add (string? rootPath)
     {
-        if (string.IsNullOrWhiteSpace(rootPath))
-        {
-            return;
-        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(rootPath);
 
         if (deduplicatedRoots.Add(rootPath))
         {

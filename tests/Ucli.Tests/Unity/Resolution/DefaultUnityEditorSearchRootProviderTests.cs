@@ -36,7 +36,7 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
             new IUnityEditorSearchRootSource[]
             {
                 new StubSearchRootSource(true, "/Root", "/Another"),
-                new StubSearchRootSource(true, "/root", "/ANOTHER", string.Empty),
+                new StubSearchRootSource(true, "/root", "/ANOTHER"),
             },
             new StubPathComparerProvider(StringComparer.OrdinalIgnoreCase));
 
@@ -49,6 +49,17 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
                 "/Another",
             },
             roots);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Add_WhenRootPathIsNullOrWhitespace_ThrowsArgumentException ()
+    {
+        var builder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
+
+        Assert.ThrowsAny<ArgumentException>(() => builder.Add(null));
+        Assert.ThrowsAny<ArgumentException>(() => builder.Add(string.Empty));
+        Assert.ThrowsAny<ArgumentException>(() => builder.Add(" "));
     }
 
     [Fact]
