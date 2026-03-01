@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Start_WhenEndpointIsNull_ThrowsArgumentNullException () => UniTask.ToCoroutine(async () =>
         {
-            var server = new UnityIpcServer();
+            var server = CreateServerForLifecycle();
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentNullException>(async () =>
             {
                 await server.Start(null).AsUniTask();
@@ -37,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Start_WhenAddressIsWhitespace_ThrowsArgumentException () => UniTask.ToCoroutine(async () =>
         {
-            var server = new UnityIpcServer();
+            var server = CreateServerForLifecycle();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, " ");
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
@@ -51,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Start_ThenStop_TransitionsRunningState () => UniTask.ToCoroutine(async () =>
         {
-            var server = new UnityIpcServer();
+            var server = CreateServerForLifecycle();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test");
             await server.Start(endpoint).AsUniTask();
             Assert.That(server.IsRunning, Is.True);
@@ -64,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Stop_WhenCanceled_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
-            var server = new UnityIpcServer();
+            var server = CreateServerForLifecycle();
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
@@ -78,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator HandleRequest_WhenSessionTokenIsMissing_ReturnsSessionTokenRequiredError () => UniTask.ToCoroutine(async () =>
         {
-            var server = new UnityIpcServer(
+            var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 static () => { });
@@ -95,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator HandleRequest_WhenSessionTokenIsInvalid_ReturnsSessionTokenInvalidError () => UniTask.ToCoroutine(async () =>
         {
-            var server = new UnityIpcServer(
+            var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: false),
                 new StubExecuteRequestDispatcher(),
                 static () => { });
@@ -112,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator HandleRequest_WhenValidTokenAndPing_ReturnsPingResponse () => UniTask.ToCoroutine(async () =>
         {
-            var server = new UnityIpcServer(
+            var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 static () => { });
@@ -133,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator HandleRequest_WhenValidTokenAndExecute_CallsDispatcher () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new StubExecuteRequestDispatcher();
-            var server = new UnityIpcServer(
+            var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 dispatcher,
                 static () => { });
@@ -152,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator HandleRequest_WhenShutdownAccepted_SignalsShutdown () => UniTask.ToCoroutine(async () =>
         {
             var shutdownSignaled = false;
-            var server = new UnityIpcServer(
+            var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
                 () => shutdownSignaled = true);
@@ -213,6 +214,43 @@ namespace MackySoft.Ucli.Unity.Tests
                 SessionToken: sessionToken,
                 Method: IpcMethodNames.Shutdown,
                 Payload: payload);
+        }
+
+        private static UnityIpcServer CreateServerForLifecycle ()
+        {
+            return CreateServer(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                static () => { },
+                new IUnityIpcTransportListener[]
+                {
+                    new NamedPipeUnityIpcTransportListener(),
+                    new UnixDomainSocketUnityIpcTransportListener(),
+                });
+        }
+
+        private static UnityIpcServer CreateServerForRequestHandling (
+            ISessionTokenValidator sessionTokenValidator,
+            IExecuteRequestDispatcher executeRequestDispatcher,
+            Action shutdownSignal)
+        {
+            return CreateServer(
+                sessionTokenValidator,
+                executeRequestDispatcher,
+                shutdownSignal,
+                Array.Empty<IUnityIpcTransportListener>());
+        }
+
+        private static UnityIpcServer CreateServer (
+            ISessionTokenValidator sessionTokenValidator,
+            IExecuteRequestDispatcher executeRequestDispatcher,
+            Action shutdownSignal,
+            IReadOnlyList<IUnityIpcTransportListener> transportListeners)
+        {
+            var methodDispatcher = new UnityIpcMethodDispatcher(executeRequestDispatcher, shutdownSignal);
+            var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
+            var connectionHandler = new UnityIpcConnectionHandler(requestHandler);
+            return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);
         }
 
         private sealed class StubSessionTokenValidator : ISessionTokenValidator
