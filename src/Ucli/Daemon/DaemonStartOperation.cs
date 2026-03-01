@@ -109,6 +109,16 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             }
             catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
             {
+                var stopProcessResult = await processTerminationService.EnsureStopped(
+                        readResult.Session!.ProcessId,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!stopProcessResult.IsSuccess)
+                {
+                    return DaemonStartResult.Failure(stopProcessResult.Error!);
+                }
+
                 var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
                 if (!cleanupResult.IsSuccess)
                 {

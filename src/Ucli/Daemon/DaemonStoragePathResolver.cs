@@ -13,6 +13,8 @@ internal static class DaemonStoragePathResolver
 
     private const string DaemonLogFileName = "daemon.log";
 
+    private const string LifecycleLockFileName = "lifecycle.lock";
+
     /// <summary> Resolves the fingerprint directory path for daemon artifacts. </summary>
     /// <param name="storageRoot"> The storage root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -64,5 +66,18 @@ internal static class DaemonStoragePathResolver
         return Path.Combine(
             ResolveFingerprintDirectory(storageRoot, projectFingerprint),
             DaemonLogFileName);
+    }
+
+    /// <summary> Resolves the daemon lifecycle lock file path. </summary>
+    /// <param name="storageRoot"> The storage root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute daemon lifecycle lock file path. </returns>
+    public static string ResolveLifecycleLockPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            LifecycleLockFileName);
     }
 }

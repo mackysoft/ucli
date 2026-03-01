@@ -55,7 +55,7 @@ internal static class Program
                 services.AddSingleton<IInitService, InitService>();
                 services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
                 services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
-                services.AddSingleton<IDaemonLifecycleLockProvider, InMemoryDaemonLifecycleLockProvider>();
+                services.AddSingleton<IDaemonLifecycleLockProvider, FileSystemDaemonLifecycleLockProvider>();
                 services.AddSingleton<IDaemonSessionFileAccess, DaemonSessionFileAccess>();
                 services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
                 services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
