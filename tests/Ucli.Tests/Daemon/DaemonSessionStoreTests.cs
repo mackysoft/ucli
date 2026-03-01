@@ -85,6 +85,48 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Write_WhenRuntimeKindIsNotBatchmode_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-runtime-kind");
+        var store = new DaemonSessionStore();
+        var session = CreateSession(
+            projectFingerprint: "fingerprint-invalid-runtime-kind",
+            sessionToken: "token-1") with
+        {
+            RuntimeKind = "gui",
+        };
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("runtimeKind", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenOwnerKindIsNotCli_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-owner-kind");
+        var store = new DaemonSessionStore();
+        var session = CreateSession(
+            projectFingerprint: "fingerprint-invalid-owner-kind",
+            sessionToken: "token-1") with
+        {
+            OwnerKind = "gui",
+        };
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("ownerKind", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenSessionFingerprintDoesNotMatchRequestedFingerprint_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "fingerprint-mismatch");
@@ -108,6 +150,36 @@ public sealed class DaemonSessionStoreTests
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenRuntimeKindIsNotBatchmode_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "read-invalid-runtime-kind");
+        var store = new DaemonSessionStore();
+        var requestedFingerprint = "fingerprint-read-invalid-runtime";
+        var session = CreateSession(projectFingerprint: requestedFingerprint, sessionToken: "token-1") with
+        {
+            RuntimeKind = "gui",
+        };
+
+        var sessionPath = DaemonStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var serializer = new DaemonSessionJsonSerializer();
+        await File.WriteAllTextAsync(
+            sessionPath,
+            serializer.Serialize(session) + Environment.NewLine,
+            CancellationToken.None);
+
+        var readResult = await store.Read(scope.FullPath, requestedFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("runtimeKind", error.Message, StringComparison.Ordinal);
     }
 
     private static DaemonSession CreateSession (

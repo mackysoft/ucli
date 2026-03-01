@@ -49,6 +49,27 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
+        if (!string.Equals(session.RuntimeKind, DaemonSession.RuntimeKindBatchmode, StringComparison.Ordinal))
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Daemon session runtimeKind must be '{DaemonSession.RuntimeKindBatchmode}'. Actual: {session.RuntimeKind}. {sessionPath}");
+            return false;
+        }
+
+        if (!string.Equals(session.OwnerKind, DaemonSession.OwnerKindCli, StringComparison.Ordinal))
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Daemon session ownerKind must be '{DaemonSession.OwnerKindCli}'. Actual: {session.OwnerKind}. {sessionPath}");
+            return false;
+        }
+
+        if (!session.CanShutdownProcess)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Daemon session canShutdownProcess must be true for CLI-owned daemon sessions. {sessionPath}");
+            return false;
+        }
+
         if (!DaemonSessionTransportKindCodec.TryParse(session.EndpointTransportKind, out _))
         {
             error = ExecutionError.InvalidArgument(
