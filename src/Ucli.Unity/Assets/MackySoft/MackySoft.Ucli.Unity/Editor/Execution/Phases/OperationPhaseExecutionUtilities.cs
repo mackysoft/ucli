@@ -1,0 +1,103 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Requests;
+
+#nullable enable
+
+namespace MackySoft.Ucli.Unity.Execution.Phases
+{
+    /// <summary> Provides reusable helpers for phase-pass implementations. </summary>
+    internal static class OperationPhaseExecutionUtilities
+    {
+        /// <summary> Executes one phase step with exception-to-failure translation. </summary>
+        /// <param name="operation"> The normalized operation. </param>
+        /// <param name="phase"> The phase being executed. </param>
+        /// <param name="executor"> The step executor delegate. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
+        /// <returns> The phase-step result. </returns>
+        public static async Task<OperationPhaseStepResult> ExecutePhaseStep (
+            NormalizedOperation operation,
+            OperationPhase phase,
+            Func<CancellationToken, Task<OperationPhaseStepResult>> executor,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var stepResult = await executor(cancellationToken).ConfigureAwait(false);
+                if (stepResult == null)
+                {
+                    return OperationPhaseStepResult.Failed(new OperationFailure(
+                        Code: IpcErrorCodes.InternalError,
+                        Message: $"Operation '{operation.Id}' returned null result at phase '{phase}'.",
+                        OpId: operation.Id));
+                }
+
+                return stepResult;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                return OperationPhaseStepResult.Failed(new OperationFailure(
+                    Code: IpcErrorCodes.InternalError,
+                    Message: $"Unexpected error occurred in operation '{operation.Id}' at phase '{phase}'. {exception.Message}",
+                    OpId: operation.Id));
+            }
+        }
+
+        /// <summary> Merges touched entries into one target list. </summary>
+        /// <param name="target"> The target touched-entry list. </param>
+        /// <param name="source"> The source touched-entry collection. </param>
+        public static void MergeTouched (
+            List<OperationTouch> target,
+            IReadOnlyList<OperationTouch> source)
+        {
+            for (var i = 0; i < source.Count; i++)
+            {
+                target.Add(source[i]);
+            }
+        }
+
+        /// <summary> Creates a skipped trace for operations after fail-fast stopping. </summary>
+        /// <param name="operation"> The skipped operation. </param>
+        /// <returns> The skipped trace entry. </returns>
+        public static OperationPhaseTrace CreateSkippedTrace (NormalizedOperation operation)
+        {
+            return new OperationPhaseTrace(
+                OpId: operation.Id,
+                Op: operation.Op,
+                Phase: OperationPhase.Skipped,
+                Applied: false,
+                Changed: false,
+                Touched: Array.Empty<OperationTouch>(),
+                Failure: null);
+        }
+
+        /// <summary> Counts operation-name usage in one request. </summary>
+        /// <param name="operations"> The normalized operations. </param>
+        /// <returns> The usage count per operation name. </returns>
+        public static Dictionary<string, int> CountOperationUse (IReadOnlyList<NormalizedOperation> operations)
+        {
+            var useCounts = new Dictionary<string, int>(operations.Count, StringComparer.Ordinal);
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operationName = operations[i].Op;
+                if (useCounts.TryGetValue(operationName, out var count))
+                {
+                    useCounts[operationName] = count + 1;
+                }
+                else
+                {
+                    useCounts.Add(operationName, 1);
+                }
+            }
+
+            return useCounts;
+        }
+    }
+}

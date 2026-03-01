@@ -38,6 +38,21 @@ namespace MackySoft.Ucli.Unity.Tests
             await waitTask;
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator StartupCoordinator_Wait_WhenStartupCompletesShortlyAfterCancellation_DoesNotThrow () => UniTask.ToCoroutine(async () =>
+        {
+            var startupCoordinator = new UnityIpcServerStartupCoordinator();
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var waitTask = startupCoordinator.Wait(cancellationTokenSource.Token);
+
+            cancellationTokenSource.Cancel();
+            await UniTask.Yield();
+            startupCoordinator.Complete();
+
+            await waitTask;
+        });
+
         [Test]
         [Category("Size.Small")]
         public void StartupCoordinator_Wait_WhenCanceledWithoutStartup_ThrowsOperationCanceledException ()
