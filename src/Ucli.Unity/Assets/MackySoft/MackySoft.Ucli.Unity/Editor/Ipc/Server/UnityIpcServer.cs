@@ -4,8 +4,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Phases;
-using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -23,42 +21,12 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private bool isRunning;
 
-        /// <summary> Initializes a new instance of the <see cref="UnityIpcServer" /> class with default dependencies. </summary>
-        public UnityIpcServer ()
-            : this(new UnityIpcRequestHandler(
-                new PermitAllSessionTokenValidator(),
-                CreateDefaultExecuteRequestDispatcher(),
-                static () => { }))
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="UnityIpcServer" /> class. </summary>
-        /// <param name="sessionTokenValidator"> The session-token validator dependency. </param>
-        /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
-        /// <param name="shutdownSignal"> The callback invoked when shutdown request is accepted. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-        public UnityIpcServer (
-            ISessionTokenValidator sessionTokenValidator,
-            IExecuteRequestDispatcher executeRequestDispatcher,
-            Action shutdownSignal)
-            : this(new UnityIpcRequestHandler(sessionTokenValidator, executeRequestDispatcher, shutdownSignal))
-        {
-        }
-
-        /// <summary> Initializes a new instance of the <see cref="UnityIpcServer" /> class. </summary>
-        /// <param name="requestHandler"> The request-handler dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestHandler" /> is <see langword="null" />. </exception>
-        internal UnityIpcServer (IUnityIpcRequestHandler requestHandler)
-            : this(requestHandler, new UnityIpcConnectionHandler(requestHandler), CreateDefaultTransportListeners())
-        {
-        }
-
         /// <summary> Initializes a new instance of the <see cref="UnityIpcServer" /> class. </summary>
         /// <param name="requestHandler"> The request-handler dependency. </param>
         /// <param name="connectionHandler"> The connection-handler dependency. </param>
         /// <param name="transportListeners"> The transport-listener dependencies. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
-        internal UnityIpcServer (
+        public UnityIpcServer (
             IUnityIpcRequestHandler requestHandler,
             IUnityIpcConnectionHandler connectionHandler,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
@@ -237,27 +205,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 listener.Release();
             }
-        }
-
-        /// <summary> Creates default execute-request dispatcher used by parameterless constructor. </summary>
-        /// <returns> The dispatcher instance. </returns>
-        private static IExecuteRequestDispatcher CreateDefaultExecuteRequestDispatcher ()
-        {
-            var normalizer = new ExecuteRequestNormalizer();
-            var operationRegistry = new InMemoryPhaseOperationRegistry(Array.Empty<IPhaseOperation>());
-            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
-        }
-
-        /// <summary> Creates default transport listeners used by server constructors. </summary>
-        /// <returns> The transport listener collection. </returns>
-        private static IReadOnlyList<IUnityIpcTransportListener> CreateDefaultTransportListeners ()
-        {
-            return new IUnityIpcTransportListener[]
-            {
-                new NamedPipeUnityIpcTransportListener(),
-                new UnixDomainSocketUnityIpcTransportListener(),
-            };
         }
     }
 }
