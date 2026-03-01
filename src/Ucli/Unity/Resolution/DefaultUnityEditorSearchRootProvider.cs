@@ -29,18 +29,18 @@ internal sealed class DefaultUnityEditorSearchRootProvider : IUnityEditorSearchR
         ArgumentNullException.ThrowIfNull(searchRootSources);
         ArgumentNullException.ThrowIfNull(pathComparerProvider);
 
-        for (var index = 0; index < searchRootSources.Count; index++)
+        for (var i = 0; i < searchRootSources.Count; i++)
         {
-            if (searchRootSources[index] is null)
+            if (searchRootSources[i] is null)
             {
                 throw new ArgumentException("Search root sources must not contain null elements.", nameof(searchRootSources));
             }
         }
 
         var searchRootSet = new UnityEditorSearchRootSet(pathComparerProvider.GetComparer());
-        for (var index = 0; index < searchRootSources.Count; index++)
+        for (var i = 0; i < searchRootSources.Count; i++)
         {
-            var source = searchRootSources[index];
+            var source = searchRootSources[i];
             if (!source.IsSupportedCurrentPlatform)
             {
                 continue;
