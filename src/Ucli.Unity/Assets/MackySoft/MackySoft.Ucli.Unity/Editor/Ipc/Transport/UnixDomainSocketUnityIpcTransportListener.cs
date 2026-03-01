@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
+using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -55,9 +56,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    using var acceptedSocket = listener.Accept();
-                    using var networkStream = new NetworkStream(acceptedSocket, ownsSocket: false);
-                    connectionHandler.Handle(networkStream, cancellationToken).GetAwaiter().GetResult();
+
+                    try
+                    {
+                        using var acceptedSocket = listener.Accept();
+                        using var networkStream = new NetworkStream(acceptedSocket, ownsSocket: false);
+                        connectionHandler.Handle(networkStream, cancellationToken).GetAwaiter().GetResult();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException or SocketException))
+                    {
+                        Debug.LogWarning($"Unix domain socket listener ignored recoverable connection error: {exception.Message}");
+                    }
                 }
             }
             finally

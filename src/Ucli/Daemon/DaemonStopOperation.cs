@@ -83,10 +83,13 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         var shutdownResult = await shutdownClient.SendShutdown(unityProject, session, timeout, cancellationToken).ConfigureAwait(false);
-        if (!shutdownResult.IsSuccess && !shutdownResult.IsNotRunning)
+
+        if (shutdownResult.IsNotRunning)
         {
-            await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
-            return DaemonStopResult.Failure(shutdownResult.Error!);
+            var notRunningCleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+            return notRunningCleanupResult.IsSuccess
+                ? DaemonStopResult.Stopped()
+                : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
         }
 
         var stopProcessResult = await processTerminationService.EnsureStopped(session.ProcessId, timeout, cancellationToken).ConfigureAwait(false);
@@ -96,8 +99,16 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
-        return cleanupResult.IsSuccess
-            ? DaemonStopResult.Stopped()
-            : DaemonStopResult.Failure(cleanupResult.Error!);
+        if (!cleanupResult.IsSuccess)
+        {
+            return DaemonStopResult.Failure(cleanupResult.Error!);
+        }
+
+        if (!shutdownResult.IsSuccess)
+        {
+            return DaemonStopResult.Failure(shutdownResult.Error!);
+        }
+
+        return DaemonStopResult.Stopped();
     }
 }

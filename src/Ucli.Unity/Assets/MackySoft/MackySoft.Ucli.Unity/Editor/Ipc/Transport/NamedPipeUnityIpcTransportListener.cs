@@ -61,6 +61,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     Debug.Log($"Named pipe listener stopped: {exception.Message}");
                     return;
                 }
+                catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException))
+                {
+                    Debug.LogWarning($"Named pipe listener ignored recoverable connection error: {exception.Message}");
+                }
                 finally
                 {
                     lock (syncRoot)
