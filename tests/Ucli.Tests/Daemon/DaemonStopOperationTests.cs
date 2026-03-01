@@ -41,6 +41,7 @@ public sealed class DaemonStopOperationTests
         Assert.Equal(1, shutdownClient.CallCount);
         Assert.Equal(1, processTerminationService.CallCount);
         Assert.Equal(123, processTerminationService.LastProcessId);
+        Assert.Equal(sessionStore.ReadResult.Session!.IssuedAtUtc, processTerminationService.LastExpectedIssuedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
@@ -177,13 +178,17 @@ public sealed class DaemonStopOperationTests
 
         public int? LastProcessId { get; private set; }
 
+        public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
+
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
             int? processId,
+            DateTimeOffset? expectedIssuedAtUtc,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastProcessId = processId;
+            LastExpectedIssuedAtUtc = expectedIssuedAtUtc;
             return ValueTask.FromResult(NextResult);
         }
     }

@@ -40,6 +40,7 @@ public sealed class DaemonStartOperationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(1, processTerminationService.CallCount);
         Assert.Equal(4242, processTerminationService.LastProcessId);
+        Assert.Equal(previousSession.IssuedAtUtc, processTerminationService.LastExpectedIssuedAtUtc);
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
@@ -312,13 +313,17 @@ public sealed class DaemonStartOperationTests
 
         public int? LastProcessId { get; private set; }
 
+        public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
+
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
             int? processId,
+            DateTimeOffset? expectedIssuedAtUtc,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastProcessId = processId;
+            LastExpectedIssuedAtUtc = expectedIssuedAtUtc;
             return ValueTask.FromResult(NextResult);
         }
     }

@@ -92,7 +92,12 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                 : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
         }
 
-        var stopProcessResult = await processTerminationService.EnsureStopped(session.ProcessId, timeout, cancellationToken).ConfigureAwait(false);
+        var stopProcessResult = await processTerminationService.EnsureStopped(
+                session.ProcessId,
+                session.IssuedAtUtc,
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!stopProcessResult.IsSuccess)
         {
             return DaemonStopResult.Failure(stopProcessResult.Error!);

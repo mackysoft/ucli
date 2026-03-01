@@ -111,6 +111,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             {
                 var stopProcessResult = await processTerminationService.EnsureStopped(
                         readResult.Session!.ProcessId,
+                        readResult.Session.IssuedAtUtc,
                         timeout,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -165,7 +166,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             .ConfigureAwait(false);
         if (!launchResult.IsSuccess)
         {
-            var cleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, cancellationToken).ConfigureAwait(false);
+            var cleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, session.IssuedAtUtc, cancellationToken).ConfigureAwait(false);
             if (!cleanupResult.IsSuccess)
             {
                 return DaemonStartResult.Failure(ExecutionError.InternalError(
@@ -185,7 +186,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 .ConfigureAwait(false);
             if (!updateSessionResult.IsSuccess)
             {
-                var cleanupResult = await CleanupAfterFailedStart(unityProject, processId, cancellationToken).ConfigureAwait(false);
+                var cleanupResult = await CleanupAfterFailedStart(unityProject, processId, session.IssuedAtUtc, cancellationToken).ConfigureAwait(false);
                 if (!cleanupResult.IsSuccess)
                 {
                     return DaemonStartResult.Failure(ExecutionError.InternalError(
@@ -202,7 +203,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return DaemonStartResult.Started(session);
         }
 
-        var finalCleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, cancellationToken).ConfigureAwait(false);
+        var finalCleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, session.IssuedAtUtc, cancellationToken).ConfigureAwait(false);
         if (!finalCleanupResult.IsSuccess)
         {
             return DaemonStartResult.Failure(ExecutionError.InternalError(
@@ -215,14 +216,21 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <summary> Cleans stale artifacts and stops process after start operation fails. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="processId"> The launched process identifier when available. </param>
+    /// <param name="expectedIssuedAtUtc"> The expected daemon session issuance timestamp used for identity validation. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup result. </returns>
     private async ValueTask<DaemonSessionStoreOperationResult> CleanupAfterFailedStart (
         ResolvedUnityProjectContext unityProject,
         int? processId,
+        DateTimeOffset? expectedIssuedAtUtc,
         CancellationToken cancellationToken)
     {
-        var stopResult = await processTerminationService.EnsureStopped(processId, TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+        var stopResult = await processTerminationService.EnsureStopped(
+                processId,
+                expectedIssuedAtUtc,
+                TimeSpan.FromSeconds(1),
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!stopResult.IsSuccess)
         {
             return stopResult;

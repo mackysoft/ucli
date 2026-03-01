@@ -5,11 +5,13 @@ internal interface IDaemonProcessTerminationService
 {
     /// <summary> Ensures daemon process is stopped before timeout expires. </summary>
     /// <param name="processId"> The daemon process identifier when available. </param>
+    /// <param name="expectedIssuedAtUtc"> The expected daemon-session issuance timestamp used for process identity verification. </param>
     /// <param name="timeout"> The process termination timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The process termination result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
         int? processId,
+        DateTimeOffset? expectedIssuedAtUtc,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }
