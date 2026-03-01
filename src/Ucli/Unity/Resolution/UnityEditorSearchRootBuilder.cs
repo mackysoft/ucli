@@ -1,16 +1,16 @@
 namespace MackySoft.Ucli.UnityProject.Resolution;
 
-/// <summary> Stores ordered Unity editor search roots with platform-aware de-duplication. </summary>
-internal sealed class UnityEditorSearchRootSet
+/// <summary> Builds ordered Unity editor search roots with platform-aware de-duplication. </summary>
+internal sealed class UnityEditorSearchRootBuilder
 {
     private readonly HashSet<string> deduplicatedRoots;
 
     private readonly List<string> orderedRoots;
 
-    /// <summary> Initializes a new instance of the <see cref="UnityEditorSearchRootSet" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="UnityEditorSearchRootBuilder" /> class. </summary>
     /// <param name="comparer"> The comparer used for de-duplication. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="comparer" /> is <see langword="null" />. </exception>
-    public UnityEditorSearchRootSet (StringComparer comparer)
+    public UnityEditorSearchRootBuilder (StringComparer comparer)
     {
         ArgumentNullException.ThrowIfNull(comparer);
 
@@ -18,7 +18,7 @@ internal sealed class UnityEditorSearchRootSet
         orderedRoots = new List<string>();
     }
 
-    /// <summary> Adds one candidate root path into the set. </summary>
+    /// <summary> Adds one candidate root path into the builder. </summary>
     /// <param name="rootPath"> The candidate root path value. </param>
     public void Add (string? rootPath)
     {

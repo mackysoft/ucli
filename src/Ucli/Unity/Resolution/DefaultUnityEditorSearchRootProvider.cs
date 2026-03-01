@@ -37,7 +37,7 @@ internal sealed class DefaultUnityEditorSearchRootProvider : IUnityEditorSearchR
             }
         }
 
-        var searchRootSet = new UnityEditorSearchRootSet(pathComparerProvider.GetComparer());
+        var searchRootBuilder = new UnityEditorSearchRootBuilder(pathComparerProvider.GetComparer());
         for (var i = 0; i < searchRootSources.Count; i++)
         {
             var source = searchRootSources[i];
@@ -46,10 +46,10 @@ internal sealed class DefaultUnityEditorSearchRootProvider : IUnityEditorSearchR
                 continue;
             }
 
-            source.AppendSearchRoots(searchRootSet);
+            source.AppendSearchRoots(searchRootBuilder);
         }
 
-        cachedSearchRoots = searchRootSet.ToArray();
+        cachedSearchRoots = searchRootBuilder.ToArray();
     }
 
     /// <summary> Gets candidate root directory paths used for editor discovery. </summary>

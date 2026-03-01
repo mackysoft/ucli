@@ -7,7 +7,7 @@ internal interface IUnityEditorSearchRootSource
     bool IsSupportedCurrentPlatform { get; }
 
     /// <summary> Appends candidate root directories for Unity editor installations. </summary>
-    /// <param name="searchRootSet"> The destination set that stores de-duplicated roots. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="searchRootSet" /> is <see langword="null" />. </exception>
-    void AppendSearchRoots (UnityEditorSearchRootSet searchRootSet);
+    /// <param name="searchRootBuilder"> The destination builder that stores de-duplicated roots. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="searchRootBuilder" /> is <see langword="null" />. </exception>
+    void AppendSearchRoots (UnityEditorSearchRootBuilder searchRootBuilder);
 }

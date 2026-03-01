@@ -84,9 +84,9 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
     public void LinuxSource_OnLinux_IncludesCaseVariantOptRoots ()
     {
         var source = new LinuxUnityEditorSearchRootSource();
-        var searchRootSet = new UnityEditorSearchRootSet(StringComparer.Ordinal);
-        source.AppendSearchRoots(searchRootSet);
-        var roots = searchRootSet.ToArray();
+        var searchRootBuilder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
+        source.AppendSearchRoots(searchRootBuilder);
+        var roots = searchRootBuilder.ToArray();
 
         if (source.IsSupportedCurrentPlatform)
         {
@@ -103,9 +103,9 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
     public void MacSource_OnMac_IncludesApplicationsRoots ()
     {
         var source = new MacUnityEditorSearchRootSource();
-        var searchRootSet = new UnityEditorSearchRootSet(StringComparer.Ordinal);
-        source.AppendSearchRoots(searchRootSet);
-        var roots = searchRootSet.ToArray();
+        var searchRootBuilder = new UnityEditorSearchRootBuilder(StringComparer.Ordinal);
+        source.AppendSearchRoots(searchRootBuilder);
+        var roots = searchRootBuilder.ToArray();
 
         if (source.IsSupportedCurrentPlatform)
         {
@@ -131,13 +131,13 @@ public sealed class DefaultUnityEditorSearchRootProviderTests
 
         public bool IsSupportedCurrentPlatform { get; }
 
-        public void AppendSearchRoots (UnityEditorSearchRootSet searchRootSet)
+        public void AppendSearchRoots (UnityEditorSearchRootBuilder searchRootBuilder)
         {
-            ArgumentNullException.ThrowIfNull(searchRootSet);
+            ArgumentNullException.ThrowIfNull(searchRootBuilder);
 
             for (var index = 0; index < roots.Count; index++)
             {
-                searchRootSet.Add(roots[index]);
+                searchRootBuilder.Add(roots[index]);
             }
         }
     }
