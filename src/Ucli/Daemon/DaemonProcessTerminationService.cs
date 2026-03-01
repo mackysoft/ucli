@@ -58,7 +58,13 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
         try
         {
             process.Kill(entireProcessTree: true);
-            process.WaitForExit((int)Math.Max(1, timeout.TotalMilliseconds));
+            var exited = process.WaitForExit((int)Math.Max(1, timeout.TotalMilliseconds));
+            if (!exited)
+            {
+                return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while force-stopping daemon process '{processId.Value}'."));
+            }
+
             return DaemonSessionStoreOperationResult.Success();
         }
         catch (Exception exception)

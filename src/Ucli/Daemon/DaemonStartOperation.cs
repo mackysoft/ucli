@@ -165,7 +165,13 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             .ConfigureAwait(false);
         if (!launchResult.IsSuccess)
         {
-            await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, cancellationToken).ConfigureAwait(false);
+            var cleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, cancellationToken).ConfigureAwait(false);
+            if (!cleanupResult.IsSuccess)
+            {
+                return DaemonStartResult.Failure(ExecutionError.InternalError(
+                    $"Daemon launch failed and cleanup failed. LaunchError={launchResult.Error!.Message} CleanupError={cleanupResult.Error!.Message}"));
+            }
+
             return DaemonStartResult.Failure(launchResult.Error!);
         }
 
@@ -179,7 +185,13 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 .ConfigureAwait(false);
             if (!updateSessionResult.IsSuccess)
             {
-                await CleanupAfterFailedStart(unityProject, processId, cancellationToken).ConfigureAwait(false);
+                var cleanupResult = await CleanupAfterFailedStart(unityProject, processId, cancellationToken).ConfigureAwait(false);
+                if (!cleanupResult.IsSuccess)
+                {
+                    return DaemonStartResult.Failure(ExecutionError.InternalError(
+                        $"Daemon session update failed and cleanup failed. SessionError={updateSessionResult.Error!.Message} CleanupError={cleanupResult.Error!.Message}"));
+                }
+
                 return DaemonStartResult.Failure(updateSessionResult.Error!);
             }
         }
@@ -190,7 +202,13 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return DaemonStartResult.Started(session);
         }
 
-        await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, cancellationToken).ConfigureAwait(false);
+        var finalCleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, cancellationToken).ConfigureAwait(false);
+        if (!finalCleanupResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(ExecutionError.InternalError(
+                $"Daemon startup readiness probe failed and cleanup failed. ProbeError={probeResult.Error!.Message} CleanupError={finalCleanupResult.Error!.Message}"));
+        }
+
         return DaemonStartResult.Failure(probeResult.Error!);
     }
 
@@ -198,13 +216,18 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="processId"> The launched process identifier when available. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> A completed task. </returns>
-    private async ValueTask CleanupAfterFailedStart (
+    /// <returns> The cleanup result. </returns>
+    private async ValueTask<DaemonSessionStoreOperationResult> CleanupAfterFailedStart (
         ResolvedUnityProjectContext unityProject,
         int? processId,
         CancellationToken cancellationToken)
     {
-        await processTerminationService.EnsureStopped(processId, TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
-        await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        var stopResult = await processTerminationService.EnsureStopped(processId, TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+        if (!stopResult.IsSuccess)
+        {
+            return stopResult;
+        }
+
+        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
     }
 }

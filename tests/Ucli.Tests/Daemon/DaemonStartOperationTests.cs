@@ -80,6 +80,80 @@ public sealed class DaemonStartOperationTests
         Assert.Equal(0, launcher.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenLaunchFailsAndCleanupStopFails_ReturnsCombinedFailure ()
+    {
+        var launchError = ExecutionError.InternalError("launch failed");
+        var stopError = ExecutionError.InternalError("stop failed");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(null),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Failure(stopError),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            unityDaemonProcessLauncher: new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Failure(launchError)),
+            startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+        var context = CreateContext("fingerprint-start-launch-fail-cleanup-stop");
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Contains("Daemon launch failed and cleanup failed", result.Error!.Message);
+        Assert.Contains("LaunchError=launch failed", result.Error.Message);
+        Assert.Contains("CleanupError=stop failed", result.Error.Message);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenReadinessProbeFailsAndCleanupFails_ReturnsCombinedFailure ()
+    {
+        var probeError = ExecutionError.Timeout("probe failed");
+        var cleanupError = ExecutionError.InternalError("cleanup failed");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(null),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Failure(cleanupError),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            unityDaemonProcessLauncher: new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(123)),
+            startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Failure(probeError)),
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+        var context = CreateContext("fingerprint-start-probe-fail-cleanup-fail");
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Contains("Daemon startup readiness probe failed and cleanup failed", result.Error!.Message);
+        Assert.Contains("ProbeError=probe failed", result.Error.Message);
+        Assert.Contains("CleanupError=cleanup failed", result.Error.Message);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
     private static DaemonStartOperation CreateOperation (
         IDaemonSessionStore daemonSessionStore,
         IDaemonPingClient daemonPingClient,

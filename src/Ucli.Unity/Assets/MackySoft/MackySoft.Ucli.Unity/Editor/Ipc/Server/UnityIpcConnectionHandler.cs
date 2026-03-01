@@ -43,11 +43,25 @@ namespace MackySoft.Ucli.Unity.Ipc
             catch (Exception exception)
             {
                 var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(exception);
-                await UnityIpcFrameCodec.WriteModel(
-                    stream,
-                    errorResponse,
-                    UnityIpcSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
+                try
+                {
+                    await UnityIpcFrameCodec.WriteModel(
+                        stream,
+                        errorResponse,
+                        UnityIpcSerializerOptions.Default,
+                        cancellationToken: cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception writeException) when (writeException is IOException or ObjectDisposedException or InvalidOperationException)
+                {
+                    // NOTE:
+                    // The peer may already close the connection after sending a malformed frame.
+                    // Treat response-write failures as connection-local and do not escalate to listener loop.
+                }
+
                 return;
             }
 
