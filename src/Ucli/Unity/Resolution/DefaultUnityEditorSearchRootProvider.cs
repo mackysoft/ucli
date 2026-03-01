@@ -35,9 +35,16 @@ internal sealed class DefaultUnityEditorSearchRootProvider : IUnityEditorSearchR
             roots.Add(Path.Combine(userProfile, "Unity", "Hub", "Editor"));
         }
 
+        // NOTE:
+        // Linux/macOS are case-sensitive file systems by default.
+        // Keep case-variant roots as distinct candidates outside Windows.
+        var distinctComparer = OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
+
         return roots
             .Where(static path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Distinct(distinctComparer)
             .ToArray();
     }
 }
