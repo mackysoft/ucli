@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.UnityProject.Resolution;
 
@@ -35,7 +36,7 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
         {
             normalizedProjectPath = Path.GetFullPath(projectPath);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity project path is invalid: {projectPath}"));
@@ -56,7 +57,7 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
         {
             content = File.ReadAllText(projectVersionPath);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"ProjectVersion.txt path is invalid: {projectVersionPath}. {exception.Message}"));
@@ -111,15 +112,5 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
         }
 
         return false;
-    }
-
-    /// <summary> Determines whether one exception indicates invalid path formatting. </summary>
-    /// <param name="exception"> The exception to inspect. </param>
-    /// <returns> <see langword="true" /> when the exception represents invalid path formatting. </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            or NotSupportedException
-            or PathTooLongException;
     }
 }
