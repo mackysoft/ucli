@@ -90,7 +90,14 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
                     "Unity daemon process could not be started.")));
             }
 
-            return ValueTask.FromResult(UnityDaemonLaunchResult.Success(process.Id));
+            try
+            {
+                return ValueTask.FromResult(UnityDaemonLaunchResult.Success(process.Id));
+            }
+            finally
+            {
+                process.Dispose();
+            }
         }
         catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
         {

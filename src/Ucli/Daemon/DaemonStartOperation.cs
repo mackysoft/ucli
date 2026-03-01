@@ -98,6 +98,20 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 return DaemonStartResult.Failure(readResult.Error!);
             }
 
+            if (TryGetRecoverableInvalidSessionStopTarget(readResult, unityProject, out var recoveredProcessId, out var recoveredIssuedAtUtc))
+            {
+                var stopResult = await processTerminationService.EnsureStopped(
+                        recoveredProcessId,
+                        recoveredIssuedAtUtc,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!stopResult.IsSuccess)
+                {
+                    return DaemonStartResult.Failure(stopResult.Error!);
+                }
+            }
+
             var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
             if (!cleanupResult.IsSuccess)
             {
@@ -251,6 +265,47 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         }
 
         return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary> Gets process stop target from invalid session snapshot when identity can be validated safely. </summary>
+    /// <param name="readResult"> The daemon session read result. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="processId"> The process identifier when stop target can be recovered. </param>
+    /// <param name="issuedAtUtc"> The issued-at timestamp when stop target can be recovered. </param>
+    /// <returns> <see langword="true" /> when stop target is recoverable; otherwise <see langword="false" />. </returns>
+    private static bool TryGetRecoverableInvalidSessionStopTarget (
+        DaemonSessionReadResult readResult,
+        ResolvedUnityProjectContext unityProject,
+        out int processId,
+        out DateTimeOffset issuedAtUtc)
+    {
+        processId = default;
+        issuedAtUtc = default;
+
+        var session = readResult.Session;
+        if (session == null)
+        {
+            return false;
+        }
+
+        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (session.ProcessId is not int candidateProcessId || candidateProcessId <= 0)
+        {
+            return false;
+        }
+
+        if (session.IssuedAtUtc == default)
+        {
+            return false;
+        }
+
+        processId = candidateProcessId;
+        issuedAtUtc = session.IssuedAtUtc;
+        return true;
     }
 
 }

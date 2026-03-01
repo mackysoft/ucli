@@ -111,14 +111,16 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             return DaemonSessionReadResult.Failure(
                 validationError!,
-                DaemonSessionReadFailureKind.InvalidSession);
+                DaemonSessionReadFailureKind.InvalidSession,
+                session);
         }
 
         if (!string.Equals(session.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session projectFingerprint mismatch. Requested={projectFingerprint}, Actual={session.ProjectFingerprint}. {sessionPath}"),
-                DaemonSessionReadFailureKind.InvalidSession);
+                DaemonSessionReadFailureKind.InvalidSession,
+                session);
         }
 
         return DaemonSessionReadResult.Success(session);

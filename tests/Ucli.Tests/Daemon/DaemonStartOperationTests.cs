@@ -47,6 +47,93 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenSessionReadReturnsInvalidSessionWithRecoverableProcess_StopsProcessBeforeCleanupAndStarts ()
+    {
+        var context = CreateContext("fingerprint-start-invalid-session-stop");
+        var invalidSession = CreateSession(
+            processId: 3131,
+            projectFingerprint: context.ProjectFingerprint);
+        var readError = ExecutionError.InvalidArgument("Daemon session issuedAtUtc is invalid.");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Failure(
+                readError,
+                DaemonSessionReadFailureKind.InvalidSession,
+                invalidSession),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(999));
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            unityDaemonProcessLauncher: launcher,
+            startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Started, result.Status);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(3131, processTerminationService.LastProcessId);
+        Assert.Equal(invalidSession.IssuedAtUtc, processTerminationService.LastExpectedIssuedAtUtc);
+        Assert.Equal(1, artifactCleaner.CallCount);
+        Assert.Equal(1, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenSessionReadReturnsInvalidSessionAndRecoveredProcessStopFails_ReturnsFailureWithoutCleanup ()
+    {
+        var context = CreateContext("fingerprint-start-invalid-session-stop-fail");
+        var invalidSession = CreateSession(
+            processId: 4141,
+            projectFingerprint: context.ProjectFingerprint);
+        var readError = ExecutionError.InvalidArgument("Daemon session is invalid.");
+        var stopError = ExecutionError.InternalError("stop failed");
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Failure(
+                readError,
+                DaemonSessionReadFailureKind.InvalidSession,
+                invalidSession),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Failure(stopError),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher(UnityDaemonLaunchResult.Success(999));
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            unityDaemonProcessLauncher: launcher,
+            startupReadinessProbe: new StubDaemonStartupReadinessProbe(DaemonStartupReadinessProbeResult.Ready()),
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(stopError, result.Error);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadReturnsPathInvalidError_ReturnsFailureWithoutRecovery ()
     {
         var readError = ExecutionError.InvalidArgument("Daemon session path is invalid: /tmp/session.json. invalid path.");
@@ -295,12 +382,14 @@ public sealed class DaemonStartOperationTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static DaemonSession CreateSession (int? processId)
+    private static DaemonSession CreateSession (
+        int? processId,
+        string projectFingerprint = "fingerprint")
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
             SessionToken: "session-token",
-            ProjectFingerprint: "fingerprint",
+            ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
             OwnerKind: DaemonSession.OwnerKindCli,
