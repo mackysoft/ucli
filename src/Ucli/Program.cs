@@ -9,6 +9,7 @@ using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.UnityProject;
+using MackySoft.Ucli.UnityProject.Resolution;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli;
@@ -45,6 +46,9 @@ internal static class Program
             .ConfigureServices(services =>
             {
                 services.AddSingleton<IUnityProjectResolver, UnityProjectResolver>();
+                services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
+                services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
+                services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
                 services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
                 services.AddSingleton<IInitStatusContextResolver, InitStatusContextResolver>();
                 services.AddSingleton<IInitService, InitService>();

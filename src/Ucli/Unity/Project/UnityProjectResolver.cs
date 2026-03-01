@@ -61,24 +61,11 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             var fullPath = Path.GetFullPath(pathValue);
             return PathNormalizationResult.Success(fullPath);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionHelper.IsPathFormatException(ex))
         {
             return PathNormalizationResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject path is invalid: {pathValue}"));
         }
-    }
-
-    /// <summary> Determines whether an exception represents invalid input path formatting. </summary>
-    /// <param name="exception"> The exception to inspect. </param>
-    /// <returns>
-    /// <para> <see langword="true" /> when the exception should be mapped to <c>INVALID_ARGUMENT</c>. </para>
-    /// <para> Otherwise, <see langword="false" />. </para>
-    /// </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            or NotSupportedException
-            or PathTooLongException;
     }
 
     /// <summary> Represents the result of path normalization. </summary>
