@@ -1,10 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
@@ -17,28 +13,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
     /// <summary> Provides file-backed plan-token issuance and validation services. </summary>
     internal sealed class PlanTokenCoordinator : IPlanTokenCoordinator
     {
-        private const string PlanTokenModeOptional = "optional";
-
-        private const string PlanTokenModeRequired = "required";
-
-        private const string TokenType = "ucli-plan-token";
-
-        private const string TokenAlgorithm = "HS256";
-
-        private const string TokenKeyId = "v1";
-
-        private const int TokenVersion = 1;
-
-        private const string UcliDirectoryName = ".ucli";
-
-        private const string LocalDirectoryName = "local";
-
-        private const string FingerprintsDirectoryName = "fingerprints";
-
-        private const string PlanTokenKeyFileName = "plan-token.key";
-
-        private const string ConfigFileName = "config.json";
-
         private static readonly TimeSpan DefaultTokenTtl = TimeSpan.FromMinutes(15);
 
         private static readonly TimeSpan ClockSkew = TimeSpan.FromSeconds(30);
@@ -84,9 +58,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             {
                 var snapshot = environment.Capture();
                 var requestDigest = ComputeRequestDigest(request);
-                var stateFingerprint = ComputeStateFingerprint(snapshot, operationTraces, cancellationToken);
+                var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);
 
-                if (!TryLoadOrCreateKey(snapshot, out var signingKey, out var keyErrorMessage))
+                if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
                 {
                     return PlanTokenIssueResult.Failed(new OperationFailure(
                         Code: IpcErrorCodes.InternalError,
@@ -97,16 +71,16 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 var issuedAtUtc = environment.UtcNow;
                 var expiresAtUtc = issuedAtUtc.Add(DefaultTokenTtl);
                 var payload = new PlanTokenPayload(
-                    Version: TokenVersion,
-                    KeyId: TokenKeyId,
+                    Version: PlanTokenCompactCodec.TokenVersion,
+                    KeyId: PlanTokenCompactCodec.TokenKeyId,
                     ProjectFingerprint: snapshot.ProjectFingerprint,
                     RequestDigest: requestDigest,
                     StateFingerprint: stateFingerprint,
                     IssuedAtUtc: issuedAtUtc,
                     ExpiresAtUtc: expiresAtUtc,
-                    Nonce: CreateNonce());
+                    Nonce: PlanTokenCompactCodec.CreateNonce());
 
-                var token = CreateSignedToken(signingKey, payload);
+                var token = PlanTokenCompactCodec.CreateSignedToken(signingKey, payload);
                 return PlanTokenIssueResult.Success(token);
             }
             catch (OperationCanceledException)
@@ -147,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             try
             {
                 var snapshot = environment.Capture();
-                var configuredMode = ResolvePlanTokenMode(snapshot.RepositoryRoot);
+                var configuredMode = PlanTokenModeResolver.Resolve(snapshot.RepositoryRoot);
                 if (string.IsNullOrWhiteSpace(request.PlanToken))
                 {
                     if (configuredMode == PlanTokenMode.Required)
@@ -161,38 +135,17 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     return PlanTokenValidationResult.Success();
                 }
 
-                if (!TryParseTokenParts(request.PlanToken, out var headerSegment, out var payloadSegment, out var signatureSegment))
+                if (!PlanTokenCompactCodec.TryDecodeToken(request.PlanToken, out var decodedToken))
                 {
                     return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token format is invalid."));
                 }
 
-                if (!TryDecodeBase64Url(headerSegment, out var headerBytes)
-                    || !TryDecodeBase64Url(payloadSegment, out var payloadBytes)
-                    || !TryDecodeBase64Url(signatureSegment, out var signatureBytes))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token contains invalid base64url segments."));
-                }
-
-                if (!TryReadHeader(headerBytes, out var header))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token header is invalid."));
-                }
-
-                if (!TryReadPayload(payloadBytes, out var payload))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token payload is invalid."));
-                }
-
-                if (!string.Equals(header.Algorithm, TokenAlgorithm, StringComparison.Ordinal)
-                    || !string.Equals(header.Type, TokenType, StringComparison.Ordinal)
-                    || !string.Equals(header.KeyId, TokenKeyId, StringComparison.Ordinal)
-                    || !string.Equals(payload.KeyId, TokenKeyId, StringComparison.Ordinal)
-                    || payload.Version != TokenVersion)
+                if (!PlanTokenCompactCodec.IsSupported(decodedToken))
                 {
                     return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token header values are not supported."));
                 }
 
-                if (!TryLoadOrCreateKey(snapshot, out var signingKey, out var keyErrorMessage))
+                if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
                 {
                     return PlanTokenValidationResult.Failed(new OperationFailure(
                         Code: IpcErrorCodes.InternalError,
@@ -200,13 +153,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                         OpId: null));
                 }
 
-                var signingInput = headerSegment + "." + payloadSegment;
-                var expectedSignature = ComputeSignature(signingInput, signingKey);
-                if (!CryptographicOperations.FixedTimeEquals(expectedSignature, signatureBytes))
+                if (!PlanTokenCompactCodec.VerifySignature(decodedToken, signingKey))
                 {
                     return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token signature is invalid."));
                 }
 
+                var payload = decodedToken.Payload;
                 if (!string.Equals(payload.ProjectFingerprint, snapshot.ProjectFingerprint, StringComparison.Ordinal))
                 {
                     return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token project fingerprint does not match current project."));
@@ -235,7 +187,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                         OpId: null));
                 }
 
-                var stateFingerprint = ComputeStateFingerprint(snapshot, operationTraces, cancellationToken);
+                var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);
                 if (!string.Equals(stateFingerprint, payload.StateFingerprint, StringComparison.Ordinal))
                 {
                     return PlanTokenValidationResult.Failed(new OperationFailure(
@@ -265,695 +217,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         private static string ComputeRequestDigest (NormalizedExecuteRequest request)
         {
             return ComputeSha256Hex(request.CanonicalDigestPayloadUtf8.Span);
-        }
-
-        /// <summary> Computes deterministic state fingerprint for token payload validation. </summary>
-        /// <param name="snapshot"> The runtime environment snapshot. </param>
-        /// <param name="operationTraces"> The operation traces used for touched digest. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
-        /// <returns> The lowercase hexadecimal fingerprint string. </returns>
-        private static string ComputeStateFingerprint (
-            PlanTokenEnvironmentSnapshot snapshot,
-            IReadOnlyList<OperationPhaseTrace> operationTraces,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var unityVersion = NormalizeOrFallback(snapshot.UnityVersion);
-            var compileState = NormalizeOrFallback(snapshot.CompileState);
-            var domainReloadGeneration = NormalizeOrFallback(snapshot.DomainReloadGeneration);
-            var configDigest = ComputeConfigDigest(snapshot.RepositoryRoot, cancellationToken);
-            var touchedDigest = ComputeTouchedDigest(snapshot.ProjectRoot, operationTraces, cancellationToken);
-
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
-            {
-                writer.WriteStartObject();
-                writer.WriteString("compileState", compileState);
-                writer.WriteString("configDigest", configDigest);
-                writer.WriteString("domainReloadGeneration", domainReloadGeneration);
-                writer.WriteString("projectFingerprint", NormalizeOrFallback(snapshot.ProjectFingerprint));
-                writer.WriteString("touchedDigest", touchedDigest);
-                writer.WriteString("unityVersion", unityVersion);
-                writer.WriteEndObject();
-                writer.Flush();
-            }
-
-            return ComputeSha256Hex(stream.ToArray());
-        }
-
-        /// <summary> Computes configuration digest from shared <c>.ucli/config.json</c> fields. </summary>
-        /// <param name="repositoryRoot"> The repository root path. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
-        /// <returns> The lowercase hexadecimal digest string, or <c>na</c> when unavailable. </returns>
-        private static string ComputeConfigDigest (
-            string repositoryRoot,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                var configFilePath = Path.Combine(repositoryRoot, UcliDirectoryName, ConfigFileName);
-                if (!File.Exists(configFilePath))
-                {
-                    return "na";
-                }
-
-                using var document = JsonDocument.Parse(File.ReadAllText(configFilePath));
-                var root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object)
-                {
-                    return "na";
-                }
-
-                var operationPolicy = TryReadString(root, "operationPolicy") ?? "na";
-                var planTokenMode = TryReadString(root, "planTokenMode") ?? "na";
-                var allowlist = TryReadAllowlist(root);
-
-                using var stream = new MemoryStream();
-                using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
-                {
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("operationAllowlist");
-                    writer.WriteStartArray();
-                    for (var i = 0; i < allowlist.Count; i++)
-                    {
-                        writer.WriteStringValue(allowlist[i]);
-                    }
-
-                    writer.WriteEndArray();
-                    writer.WriteString("operationPolicy", operationPolicy);
-                    writer.WriteString("planTokenMode", planTokenMode);
-                    writer.WriteEndObject();
-                    writer.Flush();
-                }
-
-                return ComputeSha256Hex(stream.ToArray());
-            }
-            catch
-            {
-                return "na";
-            }
-        }
-
-        /// <summary> Computes touched-resource digest from normalized touched entries and live file metadata. </summary>
-        /// <param name="projectRoot"> The Unity project root path. </param>
-        /// <param name="operationTraces"> The operation traces to inspect. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
-        /// <returns> The lowercase hexadecimal digest string. </returns>
-        private static string ComputeTouchedDigest (
-            string projectRoot,
-            IReadOnlyList<OperationPhaseTrace> operationTraces,
-            CancellationToken cancellationToken)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var touchedEntries = new List<TouchedDigestEntry>();
-            for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var trace = operationTraces[traceIndex];
-                for (var touchedIndex = 0; touchedIndex < trace.Touched.Count; touchedIndex++)
-                {
-                    var touched = trace.Touched[touchedIndex];
-                    touchedEntries.Add(CreateTouchedDigestEntry(projectRoot, touched));
-                }
-            }
-
-            touchedEntries.Sort(static (x, y) =>
-            {
-                var kind = StringComparer.Ordinal.Compare(x.Kind, y.Kind);
-                if (kind != 0)
-                {
-                    return kind;
-                }
-
-                var path = StringComparer.Ordinal.Compare(x.Path, y.Path);
-                if (path != 0)
-                {
-                    return path;
-                }
-
-                return StringComparer.Ordinal.Compare(x.Guid, y.Guid);
-            });
-
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
-            {
-                writer.WriteStartArray();
-                for (var i = 0; i < touchedEntries.Count; i++)
-                {
-                    var entry = touchedEntries[i];
-                    writer.WriteStartObject();
-                    writer.WriteBoolean("exists", entry.Exists);
-                    writer.WriteString("guid", entry.Guid);
-                    writer.WriteString("kind", entry.Kind);
-                    writer.WriteNumber("lastWriteUtcTicks", entry.LastWriteUtcTicks);
-                    writer.WriteString("path", entry.Path);
-                    writer.WriteNumber("size", entry.Size);
-                    writer.WriteEndObject();
-                }
-
-                writer.WriteEndArray();
-                writer.Flush();
-            }
-
-            return ComputeSha256Hex(stream.ToArray());
-        }
-
-        /// <summary> Creates one touched-digest entry from touched operation output. </summary>
-        /// <param name="projectRoot"> The Unity project root path. </param>
-        /// <param name="touched"> The touched operation output. </param>
-        /// <returns> The digest entry. </returns>
-        private static TouchedDigestEntry CreateTouchedDigestEntry (
-            string projectRoot,
-            OperationTouch touched)
-        {
-            var touchedPath = string.IsNullOrWhiteSpace(touched.Path) ? "na" : touched.Path;
-            var guid = string.IsNullOrWhiteSpace(touched.Guid) ? "na" : touched.Guid;
-            var normalizedPath = touchedPath
-                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-                .Replace('/', Path.DirectorySeparatorChar);
-            var absolutePath = Path.Combine(projectRoot, normalizedPath);
-
-            var exists = File.Exists(absolutePath) || Directory.Exists(absolutePath);
-            long size;
-            long lastWriteUtcTicks;
-            if (File.Exists(absolutePath))
-            {
-                var fileInfo = new FileInfo(absolutePath);
-                size = fileInfo.Length;
-                lastWriteUtcTicks = fileInfo.LastWriteTimeUtc.Ticks;
-            }
-            else if (Directory.Exists(absolutePath))
-            {
-                var directoryInfo = new DirectoryInfo(absolutePath);
-                size = -1;
-                lastWriteUtcTicks = directoryInfo.LastWriteTimeUtc.Ticks;
-            }
-            else
-            {
-                size = -1;
-                lastWriteUtcTicks = 0;
-            }
-
-            return new TouchedDigestEntry(
-                Kind: touched.Kind.ToString().ToLowerInvariant(),
-                Path: touchedPath,
-                Guid: guid,
-                Exists: exists,
-                Size: size,
-                LastWriteUtcTicks: lastWriteUtcTicks);
-        }
-
-        /// <summary> Creates a signed compact token string from payload values. </summary>
-        /// <param name="signingKey"> The HMAC signing key. </param>
-        /// <param name="payload"> The token payload values. </param>
-        /// <returns> The compact token string. </returns>
-        private static string CreateSignedToken (
-            byte[] signingKey,
-            PlanTokenPayload payload)
-        {
-            var headerBytes = CreateHeaderJsonBytes();
-            var payloadBytes = CreatePayloadJsonBytes(payload);
-            var headerSegment = EncodeBase64Url(headerBytes);
-            var payloadSegment = EncodeBase64Url(payloadBytes);
-            var signingInput = headerSegment + "." + payloadSegment;
-            var signature = ComputeSignature(signingInput, signingKey);
-            var signatureSegment = EncodeBase64Url(signature);
-            return signingInput + "." + signatureSegment;
-        }
-
-        /// <summary> Creates compact-token header JSON bytes. </summary>
-        /// <returns> The header JSON bytes. </returns>
-        private static byte[] CreateHeaderJsonBytes ()
-        {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
-            {
-                writer.WriteStartObject();
-                writer.WriteString("alg", TokenAlgorithm);
-                writer.WriteString("kid", TokenKeyId);
-                writer.WriteString("typ", TokenType);
-                writer.WriteEndObject();
-                writer.Flush();
-            }
-
-            return stream.ToArray();
-        }
-
-        /// <summary> Creates compact-token payload JSON bytes. </summary>
-        /// <param name="payload"> The payload values. </param>
-        /// <returns> The payload JSON bytes. </returns>
-        private static byte[] CreatePayloadJsonBytes (PlanTokenPayload payload)
-        {
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
-            {
-                writer.WriteStartObject();
-                writer.WriteNumber("v", payload.Version);
-                writer.WriteString("kid", payload.KeyId);
-                writer.WriteString("projectFingerprint", payload.ProjectFingerprint);
-                writer.WriteString("requestDigest", payload.RequestDigest);
-                writer.WriteString("stateFingerprint", payload.StateFingerprint);
-                writer.WriteString("issuedAtUtc", payload.IssuedAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
-                writer.WriteString("expiresAtUtc", payload.ExpiresAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
-                writer.WriteString("nonce", payload.Nonce);
-                writer.WriteEndObject();
-                writer.Flush();
-            }
-
-            return stream.ToArray();
-        }
-
-        /// <summary> Computes HMAC signature bytes for one compact-token signing input. </summary>
-        /// <param name="signingInput"> The compact signing input text. </param>
-        /// <param name="signingKey"> The signing key bytes. </param>
-        /// <returns> The HMAC-SHA256 signature bytes. </returns>
-        private static byte[] ComputeSignature (
-            string signingInput,
-            byte[] signingKey)
-        {
-            var signingInputBytes = Encoding.UTF8.GetBytes(signingInput);
-            using var hmac = new HMACSHA256(signingKey);
-            return hmac.ComputeHash(signingInputBytes);
-        }
-
-        /// <summary> Resolves configured plan-token mode from shared config. </summary>
-        /// <param name="repositoryRoot"> The repository root path. </param>
-        /// <returns> The resolved plan-token mode. </returns>
-        private static PlanTokenMode ResolvePlanTokenMode (string repositoryRoot)
-        {
-            try
-            {
-                var configPath = Path.Combine(repositoryRoot, UcliDirectoryName, ConfigFileName);
-                if (!File.Exists(configPath))
-                {
-                    return PlanTokenMode.Optional;
-                }
-
-                using var document = JsonDocument.Parse(File.ReadAllText(configPath));
-                var root = document.RootElement;
-                var modeValue = TryReadString(root, "planTokenMode");
-                if (string.Equals(modeValue, PlanTokenModeRequired, StringComparison.OrdinalIgnoreCase))
-                {
-                    return PlanTokenMode.Required;
-                }
-
-                if (string.Equals(modeValue, PlanTokenModeOptional, StringComparison.OrdinalIgnoreCase))
-                {
-                    return PlanTokenMode.Optional;
-                }
-            }
-            catch
-            {
-                // NOTE:
-                // Invalid or unreadable config falls back to optional mode by design.
-            }
-
-            return PlanTokenMode.Optional;
-        }
-
-        /// <summary> Loads one existing signing key or creates a new key file on demand. </summary>
-        /// <param name="snapshot"> The runtime environment snapshot. </param>
-        /// <param name="key"> The loaded or generated key bytes. </param>
-        /// <param name="errorMessage"> The error message when load/create fails. </param>
-        /// <returns> <see langword="true" /> when key is available; otherwise <see langword="false" />. </returns>
-        private static bool TryLoadOrCreateKey (
-            PlanTokenEnvironmentSnapshot snapshot,
-            out byte[] key,
-            out string? errorMessage)
-        {
-            try
-            {
-                var keyFilePath = BuildKeyFilePath(snapshot.RepositoryRoot, snapshot.ProjectFingerprint);
-                var parentDirectory = Path.GetDirectoryName(keyFilePath);
-                if (string.IsNullOrWhiteSpace(parentDirectory))
-                {
-                    key = Array.Empty<byte>();
-                    errorMessage = "Failed to resolve plan-token key directory.";
-                    return false;
-                }
-
-                Directory.CreateDirectory(parentDirectory);
-
-                if (File.Exists(keyFilePath))
-                {
-                    var encodedKey = File.ReadAllText(keyFilePath).Trim();
-                    if (TryDecodeKey(encodedKey, out key))
-                    {
-                        errorMessage = null;
-                        return true;
-                    }
-                }
-
-                key = CreateRandomKey();
-                var encoded = Convert.ToBase64String(key);
-                File.WriteAllText(keyFilePath, encoded);
-                errorMessage = null;
-                return true;
-            }
-            catch (Exception exception)
-            {
-                key = Array.Empty<byte>();
-                errorMessage = $"Failed to initialize plan-token key. {exception.Message}";
-                return false;
-            }
-        }
-
-        /// <summary> Builds plan-token key file path from repository and fingerprint identity. </summary>
-        /// <param name="repositoryRoot"> The repository root path. </param>
-        /// <param name="projectFingerprint"> The project fingerprint value. </param>
-        /// <returns> The key file path. </returns>
-        private static string BuildKeyFilePath (
-            string repositoryRoot,
-            string projectFingerprint)
-        {
-            return Path.Combine(
-                repositoryRoot,
-                UcliDirectoryName,
-                LocalDirectoryName,
-                FingerprintsDirectoryName,
-                projectFingerprint,
-                PlanTokenKeyFileName);
-        }
-
-        /// <summary> Attempts to decode one stored key string. </summary>
-        /// <param name="encoded"> The encoded key string. </param>
-        /// <param name="key"> The decoded key bytes. </param>
-        /// <returns> <see langword="true" /> when decode succeeds and size is valid; otherwise <see langword="false" />. </returns>
-        private static bool TryDecodeKey (
-            string encoded,
-            out byte[] key)
-        {
-            key = Array.Empty<byte>();
-            if (string.IsNullOrWhiteSpace(encoded))
-            {
-                return false;
-            }
-
-            try
-            {
-                var decoded = Convert.FromBase64String(encoded);
-                if (decoded.Length < 32)
-                {
-                    return false;
-                }
-
-                key = decoded;
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary> Creates one new random signing key. </summary>
-        /// <returns> The generated key bytes. </returns>
-        private static byte[] CreateRandomKey ()
-        {
-            var key = new byte[32];
-            RandomNumberGenerator.Fill(key);
-            return key;
-        }
-
-        /// <summary> Creates one random nonce string for token payload uniqueness. </summary>
-        /// <returns> The generated nonce string. </returns>
-        private static string CreateNonce ()
-        {
-            var nonceBytes = new byte[16];
-            RandomNumberGenerator.Fill(nonceBytes);
-            return EncodeBase64Url(nonceBytes);
-        }
-
-        /// <summary> Parses compact-token segment strings. </summary>
-        /// <param name="token"> The compact token string. </param>
-        /// <param name="header"> The header segment. </param>
-        /// <param name="payload"> The payload segment. </param>
-        /// <param name="signature"> The signature segment. </param>
-        /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-        private static bool TryParseTokenParts (
-            string token,
-            out string header,
-            out string payload,
-            out string signature)
-        {
-            header = string.Empty;
-            payload = string.Empty;
-            signature = string.Empty;
-
-            var segments = token.Split('.');
-            if (segments.Length != 3)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(segments[0])
-                || string.IsNullOrWhiteSpace(segments[1])
-                || string.IsNullOrWhiteSpace(segments[2]))
-            {
-                return false;
-            }
-
-            header = segments[0];
-            payload = segments[1];
-            signature = segments[2];
-            return true;
-        }
-
-        /// <summary> Attempts to read token header from JSON bytes. </summary>
-        /// <param name="headerBytes"> The header JSON bytes. </param>
-        /// <param name="header"> The parsed header model. </param>
-        /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-        private static bool TryReadHeader (
-            byte[] headerBytes,
-            out PlanTokenHeader header)
-        {
-            header = default;
-            try
-            {
-                using var document = JsonDocument.Parse(headerBytes);
-                var root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object)
-                {
-                    return false;
-                }
-
-                var alg = TryReadString(root, "alg");
-                var kid = TryReadString(root, "kid");
-                var typ = TryReadString(root, "typ");
-                if (string.IsNullOrWhiteSpace(alg)
-                    || string.IsNullOrWhiteSpace(kid)
-                    || string.IsNullOrWhiteSpace(typ))
-                {
-                    return false;
-                }
-
-                header = new PlanTokenHeader(alg, kid, typ);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary> Attempts to read token payload from JSON bytes. </summary>
-        /// <param name="payloadBytes"> The payload JSON bytes. </param>
-        /// <param name="payload"> The parsed payload model. </param>
-        /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-        private static bool TryReadPayload (
-            byte[] payloadBytes,
-            out PlanTokenPayload payload)
-        {
-            payload = default;
-            try
-            {
-                using var document = JsonDocument.Parse(payloadBytes);
-                var root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object)
-                {
-                    return false;
-                }
-
-                if (!root.TryGetProperty("v", out var versionElement)
-                    || !versionElement.TryGetInt32(out var version))
-                {
-                    return false;
-                }
-
-                var kid = TryReadString(root, "kid");
-                var projectFingerprint = TryReadString(root, "projectFingerprint");
-                var requestDigest = TryReadString(root, "requestDigest");
-                var stateFingerprint = TryReadString(root, "stateFingerprint");
-                var issuedAt = TryReadString(root, "issuedAtUtc");
-                var expiresAt = TryReadString(root, "expiresAtUtc");
-                var nonce = TryReadString(root, "nonce");
-
-                if (string.IsNullOrWhiteSpace(kid)
-                    || string.IsNullOrWhiteSpace(projectFingerprint)
-                    || string.IsNullOrWhiteSpace(requestDigest)
-                    || string.IsNullOrWhiteSpace(stateFingerprint)
-                    || string.IsNullOrWhiteSpace(issuedAt)
-                    || string.IsNullOrWhiteSpace(expiresAt)
-                    || string.IsNullOrWhiteSpace(nonce))
-                {
-                    return false;
-                }
-
-                if (!DateTimeOffset.TryParse(
-                    issuedAt,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                    out var issuedAtUtc))
-                {
-                    return false;
-                }
-
-                if (!DateTimeOffset.TryParse(
-                    expiresAt,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                    out var expiresAtUtc))
-                {
-                    return false;
-                }
-
-                payload = new PlanTokenPayload(
-                    Version: version,
-                    KeyId: kid,
-                    ProjectFingerprint: projectFingerprint,
-                    RequestDigest: requestDigest,
-                    StateFingerprint: stateFingerprint,
-                    IssuedAtUtc: issuedAtUtc,
-                    ExpiresAtUtc: expiresAtUtc,
-                    Nonce: nonce);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary> Attempts to read one optional string property from JSON object. </summary>
-        /// <param name="jsonObject"> The JSON object. </param>
-        /// <param name="propertyName"> The property name. </param>
-        /// <returns> The string value when present and valid; otherwise <see langword="null" />. </returns>
-        private static string? TryReadString (
-            JsonElement jsonObject,
-            string propertyName)
-        {
-            if (!jsonObject.TryGetProperty(propertyName, out var valueElement)
-                || valueElement.ValueKind != JsonValueKind.String)
-            {
-                return null;
-            }
-
-            var value = valueElement.GetString();
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return null;
-            }
-
-            return value.Trim();
-        }
-
-        /// <summary> Attempts to read operation allowlist values from config root. </summary>
-        /// <param name="root"> The config root object. </param>
-        /// <returns> The normalized allowlist values. </returns>
-        private static List<string> TryReadAllowlist (JsonElement root)
-        {
-            var values = new List<string>();
-            if (!root.TryGetProperty("operationAllowlist", out var allowlistElement)
-                || allowlistElement.ValueKind != JsonValueKind.Array)
-            {
-                values.Add("na");
-                return values;
-            }
-
-            foreach (var allowlistValue in allowlistElement.EnumerateArray())
-            {
-                if (allowlistValue.ValueKind != JsonValueKind.String)
-                {
-                    values.Add("na");
-                    return values;
-                }
-
-                var pattern = allowlistValue.GetString();
-                if (string.IsNullOrWhiteSpace(pattern))
-                {
-                    continue;
-                }
-
-                values.Add(pattern.Trim());
-            }
-
-            return values;
-        }
-
-        /// <summary> Encodes bytes as unpadded base64url text. </summary>
-        /// <param name="bytes"> The input bytes. </param>
-        /// <returns> The base64url text. </returns>
-        private static string EncodeBase64Url (byte[] bytes)
-        {
-            return Convert.ToBase64String(bytes)
-                .TrimEnd('=')
-                .Replace('+', '-')
-                .Replace('/', '_');
-        }
-
-        /// <summary> Decodes one base64url text into bytes. </summary>
-        /// <param name="text"> The base64url text. </param>
-        /// <param name="bytes"> The decoded bytes. </param>
-        /// <returns> <see langword="true" /> when decode succeeds; otherwise <see langword="false" />. </returns>
-        private static bool TryDecodeBase64Url (
-            string text,
-            out byte[] bytes)
-        {
-            bytes = Array.Empty<byte>();
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return false;
-            }
-
-            var base64 = text
-                .Replace('-', '+')
-                .Replace('_', '/');
-            var padding = base64.Length % 4;
-            if (padding == 2)
-            {
-                base64 += "==";
-            }
-            else if (padding == 3)
-            {
-                base64 += "=";
-            }
-            else if (padding != 0)
-            {
-                return false;
-            }
-
-            try
-            {
-                bytes = Convert.FromBase64String(base64);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary> Normalizes one string value or returns fallback literal when missing. </summary>
-        /// <param name="value"> The input value. </param>
-        /// <returns> The normalized value. </returns>
-        private static string NormalizeOrFallback (string? value)
-        {
-            return string.IsNullOrWhiteSpace(value) ? "na" : value.Trim();
         }
 
         /// <summary> Creates one invalid-token failure entry. </summary>
@@ -995,56 +258,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         private static char ToHexNibble (int value)
         {
             return (char)(value < 10 ? '0' + value : 'a' + (value - 10));
-        }
-
-        /// <summary> Represents one compact-token header model. </summary>
-        /// <param name="Algorithm"> The signing algorithm identifier. </param>
-        /// <param name="KeyId"> The key identifier. </param>
-        /// <param name="Type"> The token type identifier. </param>
-        private sealed record PlanTokenHeader (
-            string Algorithm,
-            string KeyId,
-            string Type);
-
-        /// <summary> Represents one compact-token payload model. </summary>
-        /// <param name="Version"> The token format version. </param>
-        /// <param name="KeyId"> The key identifier. </param>
-        /// <param name="ProjectFingerprint"> The project fingerprint marker. </param>
-        /// <param name="RequestDigest"> The request digest marker. </param>
-        /// <param name="StateFingerprint"> The state fingerprint marker. </param>
-        /// <param name="IssuedAtUtc"> The token issue time. </param>
-        /// <param name="ExpiresAtUtc"> The token expiration time. </param>
-        /// <param name="Nonce"> The nonce value. </param>
-        private sealed record PlanTokenPayload (
-            int Version,
-            string KeyId,
-            string ProjectFingerprint,
-            string RequestDigest,
-            string StateFingerprint,
-            DateTimeOffset IssuedAtUtc,
-            DateTimeOffset ExpiresAtUtc,
-            string Nonce);
-
-        /// <summary> Represents one touched-digest entry. </summary>
-        /// <param name="Kind"> The touched kind literal. </param>
-        /// <param name="Path"> The touched project-relative path. </param>
-        /// <param name="Guid"> The touched guid value or <c>na</c>. </param>
-        /// <param name="Exists"> Whether touched path exists at observation time. </param>
-        /// <param name="Size"> The touched file size, or <c>-1</c> when unavailable. </param>
-        /// <param name="LastWriteUtcTicks"> The last-write timestamp ticks in UTC, or <c>0</c> when unavailable. </param>
-        private sealed record TouchedDigestEntry (
-            string Kind,
-            string Path,
-            string Guid,
-            bool Exists,
-            long Size,
-            long LastWriteUtcTicks);
-
-        /// <summary> Defines resolved plan-token modes used by call validation. </summary>
-        private enum PlanTokenMode
-        {
-            Optional = 0,
-            Required = 1,
         }
     }
 }

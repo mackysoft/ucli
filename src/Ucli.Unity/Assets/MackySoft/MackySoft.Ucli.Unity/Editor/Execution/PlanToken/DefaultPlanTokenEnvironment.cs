@@ -7,32 +7,6 @@ using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Execution.PlanToken
 {
-    /// <summary> Captures runtime values required for plan-token generation and validation. </summary>
-    internal interface IPlanTokenEnvironment
-    {
-        /// <summary> Captures one runtime environment snapshot. </summary>
-        /// <returns> The captured snapshot. </returns>
-        PlanTokenEnvironmentSnapshot Capture ();
-
-        /// <summary> Gets the current UTC time. </summary>
-        DateTimeOffset UtcNow { get; }
-    }
-
-    /// <summary> Represents one captured runtime snapshot used by plan-token workflows. </summary>
-    /// <param name="ProjectRoot"> The Unity project root path. </param>
-    /// <param name="RepositoryRoot"> The repository root path. </param>
-    /// <param name="ProjectFingerprint"> The deterministic project fingerprint. </param>
-    /// <param name="UnityVersion"> The current Unity version. </param>
-    /// <param name="CompileState"> The current compile state. </param>
-    /// <param name="DomainReloadGeneration"> The current domain-reload generation marker. </param>
-    internal sealed record PlanTokenEnvironmentSnapshot (
-        string ProjectRoot,
-        string RepositoryRoot,
-        string ProjectFingerprint,
-        string UnityVersion,
-        string CompileState,
-        string DomainReloadGeneration);
-
     /// <summary> Default runtime environment provider used by plan-token workflows. </summary>
     internal sealed class DefaultPlanTokenEnvironment : IPlanTokenEnvironment
     {
