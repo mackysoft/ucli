@@ -1,8 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Unity.Execution.Phases;
-using MackySoft.Ucli.Unity.Execution.Requests;
+using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 using UnityEngine;
 
@@ -30,6 +29,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static async Task Run ()
         {
             IDaemonBootstrapArgumentsParser parser = new DaemonBootstrapArgumentsParser();
+            IUnityDaemonServiceProviderFactory serviceProviderFactory = new UnityDaemonServiceProviderFactory();
             if (!parser.TryParse(Environment.GetCommandLineArgs(), out var bootstrapArguments, out var parseErrorMessage))
             {
                 Debug.LogError(parseErrorMessage);
@@ -45,12 +45,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var shutdownSignalSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var tokenValidator = new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath);
-            var executeDispatcher = CreateExecuteDispatcher();
-            var server = new UnityIpcServer(
-                tokenValidator,
-                executeDispatcher,
+            using var serviceProvider = serviceProviderFactory.Create(
+                bootstrapArguments,
                 () => shutdownSignalSource.TrySetResult(true));
+            var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
 
             var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
             await server.Start(endpoint, CancellationToken.None);
@@ -59,16 +57,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             await shutdownSignalSource.Task;
             await server.Stop(CancellationToken.None);
             EditorApplication.Exit(0);
-        }
-
-        /// <summary> Creates execute dispatcher for daemon bootstrap. </summary>
-        /// <returns> The execute dispatcher instance. </returns>
-        private static IExecuteRequestDispatcher CreateExecuteDispatcher ()
-        {
-            var normalizer = new ExecuteRequestNormalizer();
-            var operationRegistry = new InMemoryPhaseOperationRegistry(Array.Empty<IPhaseOperation>());
-            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
         }
     }
 }
