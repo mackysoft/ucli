@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes after listener task has been scheduled. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpoint" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when endpoint address is empty or whitespace. </exception>
-        public Task Start (
+        public async Task Start (
             IpcEndpoint endpoint,
             CancellationToken cancellationToken = default)
         {
@@ -73,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 if (isRunning)
                 {
-                    return Task.CompletedTask;
+                    return;
                 }
 
                 isRunning = true;
@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 listenerTask = Task.Run(() => RunServerLoop(endpoint, listenerCancellationTokenSource.Token));
             }
 
-            return Task.CompletedTask;
+            await ObserveStartupFailure(cancellationToken);
         }
 
         /// <summary> Stops the IPC server lifecycle and releases endpoint resources. </summary>
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationTokenSource? capturedCancellationTokenSource;
             lock (syncRoot)
             {
-                if (!isRunning)
+                if (!isRunning && listenerTask == null)
                 {
                     return;
                 }
@@ -177,7 +177,51 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (Exception exception)
             {
+                lock (syncRoot)
+                {
+                    isRunning = false;
+                }
+
                 Debug.LogException(exception);
+                throw;
+            }
+        }
+
+        /// <summary> Observes immediate listener failures during startup scheduling. </summary>
+        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <returns> A task that completes when immediate startup failure check is done. </returns>
+        private async Task ObserveStartupFailure (CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await Task.Yield();
+
+            Task? capturedListenerTask;
+            lock (syncRoot)
+            {
+                capturedListenerTask = listenerTask;
+            }
+
+            if (capturedListenerTask == null || !capturedListenerTask.IsCompleted)
+            {
+                return;
+            }
+
+            try
+            {
+                await capturedListenerTask;
+            }
+            catch
+            {
+                lock (syncRoot)
+                {
+                    isRunning = false;
+                    listenerTask = null;
+                    listenerCancellationTokenSource?.Dispose();
+                    listenerCancellationTokenSource = null;
+                }
+
+                throw;
             }
         }
 

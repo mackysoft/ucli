@@ -2,12 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
@@ -73,6 +75,29 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 await server.Stop(cancellationTokenSource.Token).AsUniTask();
             });
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Start_WhenListenerThrows_ThrowsAndResetsRunningState () => UniTask.ToCoroutine(async () =>
+        {
+            var server = CreateServer(
+                new PermitAllSessionTokenValidator(),
+                new StubExecuteRequestDispatcher(),
+                static () => { },
+                new IUnityIpcTransportListener[]
+                {
+                    new ThrowingTransportListener(IpcTransportKind.NamedPipe, "listener failed"),
+                });
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-failure");
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: listener failed"));
+
+            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
+            {
+                await server.Start(endpoint).AsUniTask();
+            });
+
+            Assert.That(server.IsRunning, Is.False);
         });
 
         [UnityTest]
@@ -294,6 +319,33 @@ namespace MackySoft.Ucli.Unity.Tests
                     Status: IpcProtocol.StatusOk,
                     Payload: payload,
                     Errors: Array.Empty<IpcError>()));
+            }
+        }
+
+        private sealed class ThrowingTransportListener : IUnityIpcTransportListener
+        {
+            private readonly string message;
+
+            public ThrowingTransportListener (
+                IpcTransportKind transportKind,
+                string message)
+            {
+                TransportKind = transportKind;
+                this.message = message;
+            }
+
+            public IpcTransportKind TransportKind { get; }
+
+            public void Run (
+                string address,
+                IUnityIpcConnectionHandler connectionHandler,
+                CancellationToken cancellationToken)
+            {
+                throw new InvalidOperationException(message);
+            }
+
+            public void Release ()
+            {
             }
         }
     }
