@@ -8,4 +8,7 @@ public static class IpcMethodNames
 
     /// <summary> Gets the method name used for Unity command execution requests. </summary>
     public const string Execute = "execute";
+
+    /// <summary> Gets the method name used for daemon shutdown requests. </summary>
+    public const string Shutdown = "shutdown";
 }
