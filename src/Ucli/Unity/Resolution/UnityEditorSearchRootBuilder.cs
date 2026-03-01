@@ -31,7 +31,7 @@ internal sealed class UnityEditorSearchRootBuilder
         }
     }
 
-    /// <summary> Creates an immutable snapshot of current search roots. </summary>
+    /// <summary> Creates an ordered snapshot of current search roots. </summary>
     /// <returns> The ordered de-duplicated root path array. </returns>
     public string[] ToArray ()
     {

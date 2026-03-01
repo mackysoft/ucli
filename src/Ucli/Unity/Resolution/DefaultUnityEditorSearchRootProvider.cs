@@ -22,6 +22,7 @@ internal sealed class DefaultUnityEditorSearchRootProvider : IUnityEditorSearchR
     /// <param name="searchRootSources"> Search-root sources grouped by platform. </param>
     /// <param name="pathComparerProvider"> Path comparer provider dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="searchRootSources" /> contains <see langword="null" /> elements. </exception>
     internal DefaultUnityEditorSearchRootProvider (
         IReadOnlyList<IUnityEditorSearchRootSource> searchRootSources,
         IUnityPathComparerProvider pathComparerProvider)
