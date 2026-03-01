@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProtocolVersion: request.ProtocolVersion,
                 RequestId: request.RequestId,
                 Status: IpcProtocol.StatusOk,
-                Payload: JsonSerializer.SerializeToElement(payload, UnityIpcSerializerOptions.Default),
+                Payload: JsonSerializer.SerializeToElement(payload, IpcJsonSerializerOptions.Default),
                 Errors: Array.Empty<IpcError>());
         }
 
@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProtocolVersion: request.ProtocolVersion,
                 RequestId: request.RequestId,
                 Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { }, UnityIpcSerializerOptions.Default),
+                Payload: JsonSerializer.SerializeToElement(new { }, IpcJsonSerializerOptions.Default),
                 Errors: new[]
                 {
                     new IpcError(code, message, opId),
@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: string.Empty,
                 Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { }, UnityIpcSerializerOptions.Default),
+                Payload: JsonSerializer.SerializeToElement(new { }, IpcJsonSerializerOptions.Default),
                 Errors: new[]
                 {
                     new IpcError(code, $"IPC request frame is invalid. {exception.Message}", null),

@@ -37,9 +37,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request;
             try
             {
-                request = await UnityIpcFrameCodec.ReadModel<IpcRequest>(
+                request = await IpcFrameCodec.ReadModelAsync<IpcRequest>(
                     stream,
-                    UnityIpcSerializerOptions.Default,
+                    IpcJsonSerializerOptions.Default,
                     cancellationToken: cancellationToken);
             }
             catch (OperationCanceledException)
@@ -51,10 +51,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(exception);
                 try
                 {
-                    await UnityIpcFrameCodec.WriteModel(
+                    await IpcFrameCodec.WriteModelAsync(
                         stream,
                         errorResponse,
-                        UnityIpcSerializerOptions.Default,
+                        IpcJsonSerializerOptions.Default,
                         cancellationToken: cancellationToken);
                 }
                 catch (OperationCanceledException)
@@ -72,10 +72,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var response = await requestHandler.Handle(request, cancellationToken);
-            await UnityIpcFrameCodec.WriteModel(
+            await IpcFrameCodec.WriteModelAsync(
                 stream,
                 response,
-                UnityIpcSerializerOptions.Default,
+                IpcJsonSerializerOptions.Default,
                 cancellationToken: cancellationToken);
 
             if (ShouldSignalShutdown(request, response))

@@ -151,7 +151,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             try
             {
-                payload = request.Payload.Deserialize<TPayload>(UnityIpcSerializerOptions.Default)
+                payload = request.Payload.Deserialize<TPayload>(IpcJsonSerializerOptions.Default)
                     ?? throw new JsonException($"{methodName} payload is null.");
                 errorResponse = null;
                 return true;

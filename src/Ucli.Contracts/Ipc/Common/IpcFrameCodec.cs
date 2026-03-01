@@ -1,10 +1,10 @@
 using System.Buffers.Binary;
 using System.Text.Json;
 
-namespace MackySoft.Ucli.Ipc;
+namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Encodes and decodes IPC frames using <c>length-prefix + UTF-8 JSON</c>. </summary>
-internal static class IpcFrameCodec
+public static class IpcFrameCodec
 {
     /// <summary> Gets the default maximum frame size in bytes. </summary>
     public const int DefaultMaxFrameSizeInBytes = 16 * 1024 * 1024;
@@ -27,9 +27,20 @@ internal static class IpcFrameCodec
         int maxFrameSizeInBytes = DefaultMaxFrameSizeInBytes,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(serializerOptions);
+        if (stream == null)
+        {
+            throw new ArgumentNullException(nameof(stream));
+        }
+
+        if (value == null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        if (serializerOptions == null)
+        {
+            throw new ArgumentNullException(nameof(serializerOptions));
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
         ValidateMaxFrameSize(maxFrameSizeInBytes);
@@ -65,8 +76,15 @@ internal static class IpcFrameCodec
         int maxFrameSizeInBytes = DefaultMaxFrameSizeInBytes,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(serializerOptions);
+        if (stream == null)
+        {
+            throw new ArgumentNullException(nameof(stream));
+        }
+
+        if (serializerOptions == null)
+        {
+            throw new ArgumentNullException(nameof(serializerOptions));
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
         ValidateMaxFrameSize(maxFrameSizeInBytes);
