@@ -118,6 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var operationTraces = new List<OperationPhaseTrace>(request.Ops.Count);
             var errors = new List<OperationFailure>(1);
             var preparedOperations = new List<PreparedOperation>(request.Ops.Count);
+            var operationUseCounts = CountOperationUse(request.Ops);
             var hasFailed = false;
 
             for (var i = 0; i < request.Ops.Count; i++)
@@ -207,7 +208,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 preparedOperations.Add(new PreparedOperation(
                     Operation: operation,
                     PhaseOperation: phaseOperation,
-                    PlanTouched: successfulTouched));
+                    PlanTouched: successfulTouched,
+                    RequiresPreCallPlanReplay: operationUseCounts[operation.Op] > 1));
             }
 
             return new PlanPassResult(
@@ -239,14 +241,44 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
+                var touched = new List<OperationTouch>(preparedOperation.PlanTouched.Count);
+                MergeTouched(touched, preparedOperation.PlanTouched);
+
+                if (preparedOperation.RequiresPreCallPlanReplay)
+                {
+                    // NOTE:
+                    // Duplicate operation names resolve to the same phase-operation instance.
+                    // Replaying Plan immediately before Call keeps per-op planned state adjacent.
+                    var replayedPlanStepResult = await ExecutePhaseStep(
+                        preparedOperation.Operation,
+                        OperationPhase.Plan,
+                        ct => preparedOperation.PhaseOperation.Plan(preparedOperation.Operation, ct),
+                        cancellationToken).ConfigureAwait(false);
+                    MergeTouched(touched, replayedPlanStepResult.Touched);
+
+                    if (!replayedPlanStepResult.IsSuccess)
+                    {
+                        var replayTouchedSnapshot = touched.ToArray();
+                        operationTraces.Add(new OperationPhaseTrace(
+                            OpId: preparedOperation.Operation.Id,
+                            Op: preparedOperation.Operation.Op,
+                            Phase: OperationPhase.Plan,
+                            Applied: replayedPlanStepResult.Applied,
+                            Changed: replayedPlanStepResult.Changed,
+                            Touched: replayTouchedSnapshot,
+                            Failure: replayedPlanStepResult.Failure));
+                        errors.Add(replayedPlanStepResult.Failure!);
+                        hasFailed = true;
+                        continue;
+                    }
+                }
+
                 var callStepResult = await ExecutePhaseStep(
                     preparedOperation.Operation,
                     OperationPhase.Call,
                     ct => preparedOperation.PhaseOperation.Call(preparedOperation.Operation, ct),
                     cancellationToken).ConfigureAwait(false);
 
-                var touched = new List<OperationTouch>(preparedOperation.PlanTouched.Count + callStepResult.Touched.Count);
-                MergeTouched(touched, preparedOperation.PlanTouched);
                 MergeTouched(touched, callStepResult.Touched);
                 var touchedSnapshot = touched.ToArray();
 
@@ -278,6 +310,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return new CallPassResult(
                 OperationTraces: operationTraces,
                 Errors: errors);
+        }
+
+        /// <summary> Counts operation-name usage in one request. </summary>
+        /// <param name="operations"> The normalized operations. </param>
+        /// <returns> The usage count per operation name. </returns>
+        private static Dictionary<string, int> CountOperationUse (IReadOnlyList<NormalizedOperation> operations)
+        {
+            var useCounts = new Dictionary<string, int>(operations.Count, StringComparer.Ordinal);
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operationName = operations[i].Op;
+                if (useCounts.TryGetValue(operationName, out var count))
+                {
+                    useCounts[operationName] = count + 1;
+                }
+                else
+                {
+                    useCounts.Add(operationName, 1);
+                }
+            }
+
+            return useCounts;
         }
 
         /// <summary> Executes one phase step with exception-to-failure translation. </summary>
@@ -350,10 +404,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="Operation"> The normalized operation model. </param>
         /// <param name="PhaseOperation"> The resolved phase operation implementation. </param>
         /// <param name="PlanTouched"> The touched list produced by validate and plan phases. </param>
+        /// <param name="RequiresPreCallPlanReplay"> Whether plan should be replayed immediately before call. </param>
         private sealed record PreparedOperation (
             NormalizedOperation Operation,
             IPhaseOperation PhaseOperation,
-            IReadOnlyList<OperationTouch> PlanTouched);
+            IReadOnlyList<OperationTouch> PlanTouched,
+            bool RequiresPreCallPlanReplay);
 
         /// <summary> Represents one validate/plan pass result. </summary>
         /// <param name="OperationTraces"> The per-operation traces from validate/plan pass. </param>

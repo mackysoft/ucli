@@ -104,6 +104,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallContainsDuplicateOperationNames_ReplaysPlanBeforeEachCall () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new StatefulPhaseOperation("ucli.resolve");
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest(
+                ("op-1", "ucli.resolve"),
+                ("op-2", "ucli.resolve"));
+
+            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.OperationTraces.Count, Is.EqualTo(2));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
+            Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Call));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenPlanSucceeds_IssuesPlanToken () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -698,6 +716,51 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken.ThrowIfCancellationRequested();
                 CalledPhases.Add(OperationPhase.Call);
                 return Task.FromResult(callResult);
+            }
+        }
+
+        private sealed class StatefulPhaseOperation : IPhaseOperation
+        {
+            private string lastPlannedOperationId = string.Empty;
+
+            public StatefulPhaseOperation (string operationName)
+            {
+                OperationName = operationName;
+            }
+
+            public string OperationName { get; }
+
+            public Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                lastPlannedOperationId = operation.Id;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!string.Equals(lastPlannedOperationId, operation.Id, StringComparison.Ordinal))
+                {
+                    return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
+                        Code: IpcErrorCodes.InternalError,
+                        Message: "Call phase was not adjacent to the latest plan of the same operation.",
+                        OpId: operation.Id)));
+                }
+
+                return Task.FromResult(OperationPhaseStepResult.Success());
             }
         }
     }
