@@ -45,14 +45,14 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
                 using var document = JsonDocument.Parse(File.ReadAllText(configPath));
                 var root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object)
+                if (!UcliConfigJsonContractReader.TryReadPlanTokenLoose(root, out var config, out _))
                 {
                     return FallbackSnapshot;
                 }
 
-                var planTokenModeLiteral = NormalizeOrFallback(PlanTokenJsonUtilities.TryReadString(root, "planTokenMode"));
-                var operationPolicy = NormalizeOrFallback(PlanTokenJsonUtilities.TryReadString(root, "operationPolicy"));
-                var operationAllowlist = ReadAllowlist(root);
+                var planTokenModeLiteral = NormalizeOrFallback(config.PlanTokenMode);
+                var operationPolicy = NormalizeOrFallback(config.OperationPolicy);
+                var operationAllowlist = config.OperationAllowlist ?? FallbackAllowlist;
 
                 return new PlanTokenConfigSnapshot(
                     Mode: ResolveMode(planTokenModeLiteral),
@@ -79,37 +79,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             }
 
             return PlanTokenMode.Optional;
-        }
-
-        /// <summary> Reads normalized allowlist values from config root. </summary>
-        /// <param name="root"> The config root object. </param>
-        /// <returns> The normalized allowlist values. </returns>
-        private static IReadOnlyList<string> ReadAllowlist (JsonElement root)
-        {
-            if (!root.TryGetProperty("operationAllowlist", out var allowlistElement)
-                || allowlistElement.ValueKind != JsonValueKind.Array)
-            {
-                return FallbackAllowlist;
-            }
-
-            var values = new List<string>();
-            foreach (var allowlistValue in allowlistElement.EnumerateArray())
-            {
-                if (allowlistValue.ValueKind != JsonValueKind.String)
-                {
-                    return FallbackAllowlist;
-                }
-
-                var pattern = allowlistValue.GetString();
-                if (string.IsNullOrWhiteSpace(pattern))
-                {
-                    continue;
-                }
-
-                values.Add(pattern.Trim());
-            }
-
-            return values.ToArray();
         }
 
         /// <summary> Normalizes one string value or returns fallback literal when missing. </summary>

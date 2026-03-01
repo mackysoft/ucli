@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -86,21 +85,19 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                 $"Failed to read config file: {configPath}. {ex.Message}"));
         }
 
-        UcliConfigDocument? document;
+        UcliConfigJsonRawDocument document;
         try
         {
-            document = JsonSerializer.Deserialize<UcliConfigDocument>(json, SerializerOptions);
+            using var jsonDocument = JsonDocument.Parse(json);
+            if (!UcliConfigJsonContractReader.TryReadStrict(jsonDocument.RootElement, out document, out var readError))
+            {
+                return UcliConfigLoadResult.Failure(CreateConfigJsonReadError(readError, configPath));
+            }
         }
         catch (JsonException ex)
         {
             return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"Config JSON is invalid: {configPath}. {ex.Message}"));
-        }
-
-        if (document is null)
-        {
-            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
-                $"Config JSON is invalid: {configPath}."));
         }
 
         var parseResult = TryConvertToConfig(document, configPath);
@@ -188,12 +185,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
     }
 
-    /// <summary> Converts deserialized config JSON into a validated <see cref="UcliConfig" /> instance. </summary>
-    /// <param name="document"> The deserialized config document. </param>
+    /// <summary> Converts raw config JSON values into a validated <see cref="UcliConfig" /> instance. </summary>
+    /// <param name="document"> The raw config JSON contract document. </param>
     /// <param name="configPath"> The source config path. </param>
     /// <returns> The conversion result. </returns>
     private static ConfigParseResult TryConvertToConfig (
-        UcliConfigDocument document,
+        UcliConfigJsonRawDocument document,
         string configPath)
     {
         if (document.SchemaVersion != SupportedSchemaVersion)
@@ -202,12 +199,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                 $"Config schemaVersion must be {SupportedSchemaVersion}. Actual: {document.SchemaVersion}."));
         }
 
-        if (document.AdditionalProperties is not null && document.AdditionalProperties.Count > 0)
-        {
-            var unknownPropertyNames = string.Join(", ", document.AdditionalProperties.Keys.OrderBy(static key => key, StringComparer.Ordinal));
-            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
-                $"Config contains unknown properties: {unknownPropertyNames}."));
-        }
+        var schemaVersion = document.SchemaVersion.GetValueOrDefault();
 
         if (!TryParseOperationPolicy(document.OperationPolicy, out var operationPolicy))
         {
@@ -271,7 +263,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
 
         var config = new UcliConfig(
-            SchemaVersion: document.SchemaVersion,
+            SchemaVersion: schemaVersion,
             OperationPolicy: operationPolicy,
             PlanTokenMode: planTokenMode,
             ReadIndexDefaultMode: readIndexDefaultMode,
@@ -480,6 +472,33 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             or UnauthorizedAccessException;
     }
 
+    /// <summary> Converts one machine-readable config JSON read error into execution error. </summary>
+    /// <param name="readError"> The machine-readable config JSON read error. </param>
+    /// <param name="configPath"> The source config path. </param>
+    /// <returns> The mapped execution error. </returns>
+    private static ExecutionError CreateConfigJsonReadError (
+        UcliConfigJsonReadError readError,
+        string configPath)
+    {
+        return readError.Kind switch
+        {
+            UcliConfigJsonReadErrorKind.RootTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON root must be an object: {configPath}."),
+            UcliConfigJsonReadErrorKind.MissingProperty => ExecutionError.InvalidArgument(
+                $"Config JSON is missing required property: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.PropertyTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON property type is invalid: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.ArrayElementTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON array element type is invalid: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.ObjectPropertyTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON object property type is invalid: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.UnknownProperty => ExecutionError.InvalidArgument(
+                $"Config contains unknown properties: {readError.PropertyName}."),
+            _ => ExecutionError.InvalidArgument(
+                $"Config JSON is invalid: {configPath}."),
+        };
+    }
+
     /// <summary> Serializable JSON DTO for config values. </summary>
     /// <param name="SchemaVersion"> The config schema version. </param>
     /// <param name="OperationPolicy"> The operation-policy value. </param>
@@ -499,11 +518,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         string[] OperationAllowlist,
         int? IpcDefaultTimeoutMilliseconds,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand)
-    {
-        [JsonExtensionData]
-        public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }
-    }
+        Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand);
 
     /// <summary> Represents result values from config parse operations. </summary>
     /// <param name="Config"> The parsed config instance. </param>
