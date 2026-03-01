@@ -57,7 +57,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             await daemonPingClient.Ping(
                     unityProject,
                     timeout,
-                    cancellationToken)
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             return DaemonReachabilityProbeResult.Running();
         }

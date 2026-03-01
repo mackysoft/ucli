@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Execution;
 
@@ -12,6 +13,13 @@ internal static class DaemonProbeExceptionClassifier
     public static bool IsNotRunning (Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
+
+        if (exception is DaemonPingResponseException pingResponseException)
+        {
+            return string.Equals(pingResponseException.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal)
+                || string.Equals(pingResponseException.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal);
+        }
+
         return exception is TimeoutException
             or SocketException;
     }

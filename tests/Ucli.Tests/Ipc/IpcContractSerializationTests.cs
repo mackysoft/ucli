@@ -71,10 +71,38 @@ public sealed class IpcContractSerializationTests
     {
         Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
         Assert.Equal("NOT_INITIALIZED", IpcErrorCodes.NotInitialized);
+        Assert.Equal("SESSION_TOKEN_REQUIRED", IpcErrorCodes.SessionTokenRequired);
+        Assert.Equal("SESSION_TOKEN_INVALID", IpcErrorCodes.SessionTokenInvalid);
         Assert.Equal("READ_INDEX_BOOTSTRAP_FAILED", IpcErrorCodes.ReadIndexBootstrapFailed);
         Assert.Equal("READ_INDEX_FORMAT_INVALID", IpcErrorCodes.ReadIndexFormatInvalid);
         Assert.Equal("READ_INDEX_FRESH_REQUIRED", IpcErrorCodes.ReadIndexFreshRequired);
         Assert.Equal("INTERNAL_ERROR", IpcErrorCodes.InternalError);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcMethodNames_ExposeExpectedMethodLiterals ()
+    {
+        Assert.Equal("ping", IpcMethodNames.Ping);
+        Assert.Equal("execute", IpcMethodNames.Execute);
+        Assert.Equal("shutdown", IpcMethodNames.Shutdown);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcShutdownContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcShutdownRequest(RequestedBy: "ucli-daemon-stop");
+        var responsePayload = new IpcShutdownResponse(Accepted: true, Message: "Shutdown accepted.");
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasString("requestedBy", "ucli-daemon-stop");
+        JsonAssert.For(responseDocument.RootElement)
+            .HasBoolean("accepted", true)
+            .HasString("message", "Shutdown accepted.");
     }
 
     [Fact]
