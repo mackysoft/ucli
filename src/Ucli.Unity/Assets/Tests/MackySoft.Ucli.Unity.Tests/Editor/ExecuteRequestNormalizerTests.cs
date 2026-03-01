@@ -60,6 +60,29 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenPlanTokenIsSpecified_TrimsAndStoresPlanToken ()
+        {
+            var request = CreateExecuteRequest(
+                IpcExecuteCommandNames.Call,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = k_RequestId,
+                    ops = Array.Empty<object>(),
+                });
+            request = request with
+            {
+                PlanToken = "  issued-token  ",
+            };
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Request!.PlanToken, Is.EqualTo("issued-token"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenCommandIsValidate_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(

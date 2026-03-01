@@ -71,10 +71,65 @@ public sealed class IpcContractSerializationTests
     {
         Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
         Assert.Equal("NOT_INITIALIZED", IpcErrorCodes.NotInitialized);
+        Assert.Equal("SESSION_TOKEN_REQUIRED", IpcErrorCodes.SessionTokenRequired);
+        Assert.Equal("SESSION_TOKEN_INVALID", IpcErrorCodes.SessionTokenInvalid);
         Assert.Equal("READ_INDEX_BOOTSTRAP_FAILED", IpcErrorCodes.ReadIndexBootstrapFailed);
         Assert.Equal("READ_INDEX_FORMAT_INVALID", IpcErrorCodes.ReadIndexFormatInvalid);
         Assert.Equal("READ_INDEX_FRESH_REQUIRED", IpcErrorCodes.ReadIndexFreshRequired);
+        Assert.Equal("PLAN_TOKEN_REQUIRED", IpcErrorCodes.PlanTokenRequired);
+        Assert.Equal("PLAN_TOKEN_INVALID", IpcErrorCodes.PlanTokenInvalid);
+        Assert.Equal("PLAN_TOKEN_EXPIRED", IpcErrorCodes.PlanTokenExpired);
+        Assert.Equal("PLAN_TOKEN_REQUEST_MISMATCH", IpcErrorCodes.PlanTokenRequestMismatch);
+        Assert.Equal("STATE_CHANGED_SINCE_PLAN", IpcErrorCodes.StateChangedSincePlan);
         Assert.Equal("INTERNAL_ERROR", IpcErrorCodes.InternalError);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteRequest_SerializesPlanTokenOnlyWhenSpecified ()
+    {
+        var requestWithToken = new IpcExecuteRequest(
+            Command: IpcExecuteCommandNames.Call,
+            Arguments: JsonSerializer.SerializeToElement(new { protocolVersion = 1, requestId = "req-1", ops = Array.Empty<object>() }))
+        {
+            PlanToken = "token-value",
+        };
+
+        var withTokenJson = JsonSerializer.SerializeToElement(requestWithToken, SerializerOptions);
+        Assert.True(withTokenJson.TryGetProperty("planToken", out var planTokenElement));
+        Assert.Equal("token-value", planTokenElement.GetString());
+
+        var requestWithoutToken = new IpcExecuteRequest(
+            Command: IpcExecuteCommandNames.Plan,
+            Arguments: JsonSerializer.SerializeToElement(new { protocolVersion = 1, requestId = "req-1", ops = Array.Empty<object>() }));
+        var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
+        Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcMethodNames_ExposeExpectedMethodLiterals ()
+    {
+        Assert.Equal("ping", IpcMethodNames.Ping);
+        Assert.Equal("execute", IpcMethodNames.Execute);
+        Assert.Equal("shutdown", IpcMethodNames.Shutdown);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcShutdownContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcShutdownRequest(RequestedBy: "ucli-daemon-stop");
+        var responsePayload = new IpcShutdownResponse(Accepted: true, Message: "Shutdown accepted.");
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasString("requestedBy", "ucli-daemon-stop");
+        JsonAssert.For(responseDocument.RootElement)
+            .HasBoolean("accepted", true)
+            .HasString("message", "Shutdown accepted.");
     }
 
     [Fact]
@@ -96,11 +151,15 @@ public sealed class IpcContractSerializationTests
                         Path: "Assets/Scenes/Main.unity",
                         Guid: "11111111111111111111111111111111"),
                 }),
-        });
+        })
+        {
+            PlanToken = "issued-token",
+        };
 
         using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(response, SerializerOptions));
         JsonAssert.For(jsonDocument.RootElement)
             .HasArrayLength("opResults", 1)
+            .HasString("planToken", "issued-token")
             .HasProperty("opResults", 0, opResult => opResult
                 .HasString("opId", "op-1")
                 .HasString("op", "ucli.resolve")
@@ -112,6 +171,16 @@ public sealed class IpcContractSerializationTests
                     .HasString("kind", IpcExecuteTouchedResourceKindNames.Scene)
                     .HasString("path", "Assets/Scenes/Main.unity")
                     .HasString("guid", "11111111111111111111111111111111")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteResponse_OmitsPlanTokenWhenNull ()
+    {
+        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>());
+
+        var jsonElement = JsonSerializer.SerializeToElement(response, SerializerOptions);
+        Assert.False(jsonElement.TryGetProperty("planToken", out _));
     }
 
     [Fact]

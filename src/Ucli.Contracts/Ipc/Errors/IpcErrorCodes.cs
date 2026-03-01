@@ -15,6 +15,9 @@ public static class IpcErrorCodes
     /// <summary> Gets the error code emitted when a request omits <c>sessionToken</c>. </summary>
     public const string SessionTokenRequired = "SESSION_TOKEN_REQUIRED";
 
+    /// <summary> Gets the error code emitted when a request contains an invalid <c>sessionToken</c>. </summary>
+    public const string SessionTokenInvalid = "SESSION_TOKEN_INVALID";
+
     /// <summary> Gets the error code emitted when an IPC method is not supported. </summary>
     public const string IpcMethodNotSupported = "IPC_METHOD_NOT_SUPPORTED";
 
@@ -32,6 +35,21 @@ public static class IpcErrorCodes
 
     /// <summary> Gets the error code emitted when a request requires fresh read-index but freshness is not <c>fresh</c>. </summary>
     public const string ReadIndexFreshRequired = "READ_INDEX_FRESH_REQUIRED";
+
+    /// <summary> Gets the error code emitted when <c>call</c> requires a plan token but none is provided. </summary>
+    public const string PlanTokenRequired = "PLAN_TOKEN_REQUIRED";
+
+    /// <summary> Gets the error code emitted when a provided plan token fails structural or signature validation. </summary>
+    public const string PlanTokenInvalid = "PLAN_TOKEN_INVALID";
+
+    /// <summary> Gets the error code emitted when a provided plan token has expired. </summary>
+    public const string PlanTokenExpired = "PLAN_TOKEN_EXPIRED";
+
+    /// <summary> Gets the error code emitted when token request digest does not match the current request. </summary>
+    public const string PlanTokenRequestMismatch = "PLAN_TOKEN_REQUEST_MISMATCH";
+
+    /// <summary> Gets the error code emitted when project state changed since token issuance. </summary>
+    public const string StateChangedSincePlan = "STATE_CHANGED_SINCE_PLAN";
 
     /// <summary> Gets the error code emitted when an unexpected internal failure occurs. </summary>
     public const string InternalError = "INTERNAL_ERROR";

@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
@@ -92,6 +93,8 @@ public sealed class IpcDaemonReachabilityProbeTests
     public static IEnumerable<object[]> NotRunningConnectivityExceptions ()
     {
         yield return new object[] { new SocketException((int)SocketError.ConnectionRefused) };
+        yield return new object[] { new DaemonPingResponseException("token invalid", IpcErrorCodes.SessionTokenInvalid) };
+        yield return new object[] { new DaemonPingResponseException("token required", IpcErrorCodes.SessionTokenRequired) };
     }
 
     public static IEnumerable<object[]> IoFailureExceptions ()
@@ -143,7 +146,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     {
         var endpointResolver = new StubEndpointResolver(
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-ping-response-error"));
-        var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error"));
+        var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error", IpcErrorCodes.InternalError));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
         var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
@@ -302,6 +305,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         public ValueTask Ping (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
+            string? sessionToken = null,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
