@@ -20,11 +20,13 @@
 - データ構造を意識した設計を行う（操作の計算量、割り当て回数、局所性を考慮）
 - 割り当て削減を優先し、可能な範囲でモダン実装を行う。
 - 例外処理は契約として設計し、入力検証は早期に弾く。例外を制御フローに使わない。
+- 原則として例外を握りつぶさない。
 - レイヤーを適切に分離し、境界の明確化を行う。ユニットテスト可能な設計（副作用は境界へ）を優先する。
 - 可読性を重視し、意味のあるコメントやXMLドキュメントを充実させる
 - 背景が重要な処理には、`NOTE`コメントで意図を明示して残すこと
 - 処理ブロックで波括弧（`{}`）を省略しない
 - 命名規則は既存コードに合わせる
+- 1ファイルにトップレベル型は1つまで
 - 以下の場合、メンバ上部に１行の空行を設ける
   - ドキュメント・コメント付き
   - 属性付き
@@ -54,7 +56,7 @@
 - Unityオブジェクトの生存判定は `== null` / `!= null` のみを使用する
 - `RequireComponent` を使用する場合、対象コンポーネント参照フィールドには `SerializeField` を付けない（`GetComponent` で解決する）
 - Unityにコードファイルを追加・削除したときは、実装後にUnityをbatchmodeで起動して`meta`を更新すること。`meta`の生成はUnity正規の生成を使用すること。
-  - meta更新を回避する目的の設計変更は禁止（例：本来別ファイルの型/責務を1ファイルにまとめる、ファイル追加を避けるための不自然な構造変更）
+  - **meta更新を回避する目的の設計変更は絶対に禁止**（例：本来別ファイルの型/責務を1ファイルにまとめる、ファイル追加を避けるための不自然な構造変更）
 
 ## テスト実行
 Unityのテストは `-runTests` を使い、`-testPlatform` と `-assemblyNames` を必ず明示する。
@@ -68,8 +70,6 @@ Unityのテストは `-runTests` を使い、`-testPlatform` と `-assemblyNames
 ```bash
 "<UNITY_BIN>" -batchmode -nographics -projectPath "<PROJECT_PATH>" -runTests -testPlatform EditMode -assemblyNames "<TEST_ASSEMBLY>" -testResults "<RESULT_XML>" -logFile "<LOG_FILE>"
 ```
-
-- `-quit` 併用で結果XMLが出力されない場合は、`-quit` を外して再実行する
 
 ## コードフォーマット
 コードフォーマットは `.editorconfig` を正として `dotnet format` を使用する。
