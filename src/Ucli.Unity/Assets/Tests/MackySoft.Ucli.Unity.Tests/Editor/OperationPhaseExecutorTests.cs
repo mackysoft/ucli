@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -102,6 +103,74 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenPlanSucceeds_IssuesPlanToken () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                operationName: "ucli.resolve",
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success());
+            var coordinator = new StubPlanTokenCoordinator(
+                issueResultFactory: _ => PlanTokenIssueResult.Success("issued-token"),
+                validationResultFactory: _ => PlanTokenValidationResult.Success());
+            var executor = new OperationPhaseExecutor(
+                new InMemoryPhaseOperationRegistry(new[] { operation }),
+                coordinator);
+            var request = CreateRequest("op-1", "ucli.resolve");
+
+            var trace = await executor.Execute(PhaseExecutionCommand.Plan, request).AsUniTask();
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.PlanToken, Is.EqualTo("issued-token"));
+            Assert.That(coordinator.IssueCallCount, Is.EqualTo(1));
+            Assert.That(coordinator.ValidateCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallPlanTokenValidationFails_DoesNotExecuteCallPhase () => UniTask.ToCoroutine(async () =>
+        {
+            var firstOperation = new RecordingPhaseOperation(
+                operationName: "ucli.resolve",
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success());
+            var secondOperation = new RecordingPhaseOperation(
+                operationName: "ucli.scene.open",
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success());
+            var coordinator = new StubPlanTokenCoordinator(
+                issueResultFactory: _ => PlanTokenIssueResult.Success("unused"),
+                validationResultFactory: _ => PlanTokenValidationResult.Failed(new OperationFailure(
+                    Code: IpcErrorCodes.PlanTokenInvalid,
+                    Message: "invalid token",
+                    OpId: null)));
+            var executor = new OperationPhaseExecutor(
+                new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
+                {
+                    firstOperation,
+                    secondOperation,
+                }),
+                coordinator);
+            var request = CreateRequest(
+                ("op-1", "ucli.resolve"),
+                ("op-2", "ucli.scene.open"));
+
+            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.PlanTokenInvalid));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Plan));
+            CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, firstOperation.CalledPhases);
+            CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, secondOperation.CalledPhases);
+            Assert.That(coordinator.ValidateCallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
@@ -193,8 +262,175 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
             Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Skipped));
-            Assert.That(skippedOperation.CalledPhases.Count, Is.EqualTo(0));
+            CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, skippedOperation.CalledPhases);
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void ValidateCall_WhenModeRequiredAndTokenMissing_ReturnsPlanTokenRequired ()
+        {
+            using var scope = new PlanTokenTestScope();
+            scope.WriteConfigJson("{\"planTokenMode\":\"required\"}");
+
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var result = coordinator.ValidateCall(request, traces);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Failure, Is.Not.Null);
+            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenRequired));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Issue_WhenKeyFileMissing_CreatesKeyFileAndReturnsToken ()
+        {
+            using var scope = new PlanTokenTestScope();
+            scope.WriteConfigJson("{\"planTokenMode\":\"optional\"}");
+
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var issueResult = coordinator.Issue(request, traces);
+
+            Assert.That(issueResult.IsSuccess, Is.True);
+            Assert.That(issueResult.PlanToken, Is.Not.Null.And.Not.Empty);
+            Assert.That(File.Exists(scope.PlanTokenKeyPath), Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ValidateCall_WhenTokenExpired_ReturnsPlanTokenExpired ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var issueResult = coordinator.Issue(request, traces);
+            Assert.That(issueResult.IsSuccess, Is.True);
+
+            environment.UtcNow = environment.UtcNow.AddMinutes(16).AddSeconds(31);
+            var validationRequest = request with
+            {
+                PlanToken = issueResult.PlanToken,
+            };
+
+            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+
+            Assert.That(validationResult.IsSuccess, Is.False);
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenExpired));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ValidateCall_WhenRequestDigestDiffers_ReturnsPlanTokenRequestMismatch ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var originalRequest = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[{\"id\":\"op-1\"}],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var issueResult = coordinator.Issue(originalRequest, traces);
+            Assert.That(issueResult.IsSuccess, Is.True);
+
+            var modifiedRequest = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: issueResult.PlanToken,
+                canonicalPayloadJson: "{\"ops\":[{\"id\":\"op-2\"}],\"protocolVersion\":1}");
+            var validationResult = coordinator.ValidateCall(modifiedRequest, traces);
+
+            Assert.That(validationResult.IsSuccess, Is.False);
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenRequestMismatch));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ValidateCall_WhenTouchedStateChanged_ReturnsStateChangedSincePlan ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var touchedPath = "Assets/Scenes/Main.unity";
+            var touchedAbsolutePath = Path.Combine(scope.ProjectRoot, touchedPath.Replace('/', Path.DirectorySeparatorChar));
+            var touchedDirectoryPath = Path.GetDirectoryName(touchedAbsolutePath);
+            if (!string.IsNullOrWhiteSpace(touchedDirectoryPath))
+            {
+                Directory.CreateDirectory(touchedDirectoryPath);
+            }
+            File.WriteAllText(touchedAbsolutePath, "before");
+
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, touchedPath);
+
+            var issueResult = coordinator.Issue(request, traces);
+            Assert.That(issueResult.IsSuccess, Is.True);
+
+            File.WriteAllText(touchedAbsolutePath, "after");
+            File.SetLastWriteTimeUtc(touchedAbsolutePath, DateTime.UtcNow.AddMinutes(2));
+
+            var validationRequest = request with
+            {
+                PlanToken = issueResult.PlanToken,
+            };
+            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+
+            Assert.That(validationResult.IsSuccess, Is.False);
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ValidateCall_WhenKeyFileIsCorrupted_RegeneratesKeyAndRejectsOldToken ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var issueResult = coordinator.Issue(request, traces);
+            Assert.That(issueResult.IsSuccess, Is.True);
+
+            File.WriteAllText(scope.PlanTokenKeyPath, "broken-key");
+
+            var validationRequest = request with
+            {
+                PlanToken = issueResult.PlanToken,
+            };
+            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+
+            Assert.That(validationResult.IsSuccess, Is.False);
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenInvalid));
+
+            var regeneratedEncodedKey = File.ReadAllText(scope.PlanTokenKeyPath).Trim();
+            Assert.DoesNotThrow(() => Convert.FromBase64String(regeneratedEncodedKey));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -225,10 +461,16 @@ namespace MackySoft.Ucli.Unity.Tests
             string opId,
             string operationName)
         {
-            return CreateRequest((opId, operationName));
+            return CreateRequest(
+                operations: new[] { (opId, operationName) },
+                planToken: null,
+                canonicalPayloadJson: "{}");
         }
 
-        private static NormalizedExecuteRequest CreateRequest (params (string OpId, string OperationName)[] operations)
+        private static NormalizedExecuteRequest CreateRequest (
+            (string OpId, string OperationName)[] operations,
+            string? planToken,
+            string canonicalPayloadJson)
         {
             var normalizedOperations = new List<NormalizedOperation>(operations.Length);
             for (var i = 0; i < operations.Length; i++)
@@ -246,7 +488,166 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Ops: normalizedOperations,
-                CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes("{}"));
+                PlanToken: planToken,
+                CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes(canonicalPayloadJson));
+        }
+
+        private static NormalizedExecuteRequest CreateRequest (
+            params (string OpId, string OperationName)[] operations)
+        {
+            return CreateRequest(
+                operations: operations,
+                planToken: null,
+                canonicalPayloadJson: "{}");
+        }
+
+        private static OperationPhaseTrace[] CreatePlanTraceWithTouched (
+            string projectRoot,
+            string relativePath)
+        {
+            var relativePathWithDirectorySeparator = relativePath.Replace('/', Path.DirectorySeparatorChar);
+            var absolutePath = Path.Combine(projectRoot, relativePathWithDirectorySeparator);
+            var parentDirectory = Path.GetDirectoryName(absolutePath);
+            if (!string.IsNullOrWhiteSpace(parentDirectory))
+            {
+                Directory.CreateDirectory(parentDirectory);
+            }
+
+            if (!File.Exists(absolutePath))
+            {
+                File.WriteAllText(absolutePath, "seed");
+            }
+
+            return new[]
+            {
+                new OperationPhaseTrace(
+                    OpId: "op-1",
+                    Op: "ucli.resolve",
+                    Phase: OperationPhase.Plan,
+                    Applied: false,
+                    Changed: false,
+                    Touched: new[]
+                    {
+                        new OperationTouch(OperationTouchKind.Scene, relativePath, "11111111111111111111111111111111"),
+                    },
+                    Failure: null),
+            };
+        }
+
+        private sealed class StubPlanTokenCoordinator : IPlanTokenCoordinator
+        {
+            private readonly Func<NormalizedExecuteRequest, PlanTokenIssueResult> issueResultFactory;
+
+            private readonly Func<NormalizedExecuteRequest, PlanTokenValidationResult> validationResultFactory;
+
+            public StubPlanTokenCoordinator (
+                Func<NormalizedExecuteRequest, PlanTokenIssueResult> issueResultFactory,
+                Func<NormalizedExecuteRequest, PlanTokenValidationResult> validationResultFactory)
+            {
+                this.issueResultFactory = issueResultFactory ?? throw new ArgumentNullException(nameof(issueResultFactory));
+                this.validationResultFactory = validationResultFactory ?? throw new ArgumentNullException(nameof(validationResultFactory));
+            }
+
+            public int IssueCallCount { get; private set; }
+
+            public int ValidateCallCount { get; private set; }
+
+            public PlanTokenIssueResult Issue (
+                NormalizedExecuteRequest request,
+                IReadOnlyList<OperationPhaseTrace> operationTraces,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                IssueCallCount++;
+                return issueResultFactory(request);
+            }
+
+            public PlanTokenValidationResult ValidateCall (
+                NormalizedExecuteRequest request,
+                IReadOnlyList<OperationPhaseTrace> operationTraces,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateCallCount++;
+                return validationResultFactory(request);
+            }
+        }
+
+        private sealed class MutablePlanTokenEnvironment : IPlanTokenEnvironment
+        {
+            public MutablePlanTokenEnvironment (
+                PlanTokenEnvironmentSnapshot snapshot,
+                DateTimeOffset utcNow)
+            {
+                Snapshot = snapshot;
+                UtcNow = utcNow;
+            }
+
+            public PlanTokenEnvironmentSnapshot Snapshot { get; set; }
+
+            public DateTimeOffset UtcNow { get; set; }
+
+            public PlanTokenEnvironmentSnapshot Capture ()
+            {
+                return Snapshot;
+            }
+        }
+
+        private sealed class PlanTokenTestScope : IDisposable
+        {
+            public PlanTokenTestScope ()
+            {
+                RepositoryRoot = Path.Combine(Path.GetTempPath(), $"ucli-plan-token-tests-{Guid.NewGuid():N}");
+                ProjectRoot = Path.Combine(RepositoryRoot, "UnityProject");
+                Directory.CreateDirectory(RepositoryRoot);
+                Directory.CreateDirectory(ProjectRoot);
+                Directory.CreateDirectory(Path.Combine(RepositoryRoot, ".git"));
+                Directory.CreateDirectory(Path.Combine(ProjectRoot, "Assets"));
+                Directory.CreateDirectory(Path.Combine(ProjectRoot, "ProjectSettings"));
+                ProjectFingerprint = UnityProjectFingerprintCalculatorCompat.Create(RepositoryRoot, ProjectRoot);
+                PlanTokenKeyPath = Path.Combine(
+                    RepositoryRoot,
+                    ".ucli",
+                    "local",
+                    "fingerprints",
+                    ProjectFingerprint,
+                    "plan-token.key");
+            }
+
+            public string RepositoryRoot { get; }
+
+            public string ProjectRoot { get; }
+
+            public string ProjectFingerprint { get; }
+
+            public string PlanTokenKeyPath { get; }
+
+            public MutablePlanTokenEnvironment CreateEnvironment ()
+            {
+                var snapshot = new PlanTokenEnvironmentSnapshot(
+                    ProjectRoot: ProjectRoot,
+                    RepositoryRoot: RepositoryRoot,
+                    ProjectFingerprint: ProjectFingerprint,
+                    UnityVersion: "6000.0.0f1",
+                    CompileState: "ready",
+                    DomainReloadGeneration: "na");
+                return new MutablePlanTokenEnvironment(snapshot, DateTimeOffset.UtcNow);
+            }
+
+            public void WriteConfigJson (string json)
+            {
+                var configDirectoryPath = Path.Combine(RepositoryRoot, ".ucli");
+                Directory.CreateDirectory(configDirectoryPath);
+                File.WriteAllText(Path.Combine(configDirectoryPath, "config.json"), json);
+            }
+
+            public void Dispose ()
+            {
+                if (Directory.Exists(RepositoryRoot))
+                {
+                    Directory.Delete(RepositoryRoot, recursive: true);
+                }
+            }
         }
 
         private sealed class RecordingPhaseOperation : IPhaseOperation

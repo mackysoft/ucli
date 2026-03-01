@@ -34,6 +34,28 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenPlanTraceContainsPlanToken_MapsTokenToPayload () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>(),
+                planToken: "issued-token"));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Payload.TryGetProperty("planToken", out var planToken), Is.True);
+            Assert.That(planToken.GetString(), Is.EqualTo("issued-token"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsResolve_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
             await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Resolve);
@@ -275,6 +297,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         As: null,
                         Expect: null),
                 },
+                PlanToken: null,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes("{}"));
         }
 
