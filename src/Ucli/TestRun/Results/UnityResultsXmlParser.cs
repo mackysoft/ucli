@@ -117,17 +117,19 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
     /// <returns> The normalized outcome value. </returns>
     private static string ConvertOutcome (string resultValue)
     {
-        if (string.Equals(resultValue.Trim(), "Passed", StringComparison.OrdinalIgnoreCase))
+        var normalizedResultValue = resultValue.Trim();
+
+        if (string.Equals(normalizedResultValue, "Passed", StringComparison.OrdinalIgnoreCase))
         {
             return "passed";
         }
 
-        if (string.Equals(resultValue.Trim(), "Failed", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedResultValue, "Failed", StringComparison.OrdinalIgnoreCase))
         {
             return "failed";
         }
 
-        if (string.Equals(resultValue.Trim(), "Skipped", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedResultValue, "Skipped", StringComparison.OrdinalIgnoreCase))
         {
             return "skipped";
         }
@@ -163,9 +165,9 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
                 continue;
             }
 
-            if (seen.Add(categoryValue))
+            if (seen.Add(categoryValue!))
             {
-                categories.Add(categoryValue);
+                categories.Add(categoryValue!);
             }
         }
 
@@ -186,7 +188,7 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
             throw new InvalidDataException($"test-case requires non-empty '{attributeName}' attribute.");
         }
 
-        return value;
+        return value!;
     }
 
     /// <summary> Reads child element text values. </summary>

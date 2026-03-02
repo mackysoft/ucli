@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
@@ -22,12 +23,12 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             return TestRunProfileLoadResult.Failure(ExecutionError.InvalidArgument("profilePath is empty."));
         }
 
-        string normalizedProfilePath;
+        var normalizedProfilePath = profilePath;
         try
         {
-            normalizedProfilePath = Path.GetFullPath(profilePath);
+            normalizedProfilePath = Path.GetFullPath(normalizedProfilePath);
         }
-        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return TestRunProfileLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"profilePath is invalid: {profilePath}."));

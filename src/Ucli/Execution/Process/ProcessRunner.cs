@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Execution;
 
@@ -177,11 +178,9 @@ internal sealed class ProcessRunner : IProcessRunner
         StringBuilder standardError,
         StringBuilder standardOutput)
     {
-        var output = standardError.Length > 0
-            ? standardError.ToString().Trim()
-            : standardOutput.ToString().Trim();
-
-        if (string.IsNullOrWhiteSpace(output))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(
+                standardError.Length > 0 ? standardError.ToString() : standardOutput.ToString(),
+                out var output))
         {
             return string.Empty;
         }

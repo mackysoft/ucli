@@ -57,9 +57,9 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Start path must not be empty.", nameof(startPath));
         }
 
-        var normalizedStartPath = Path.GetFullPath(startPath);
-        var repositoryRoot = TryResolveRepositoryRoot(normalizedStartPath);
-        if (!string.IsNullOrWhiteSpace(repositoryRoot))
+        var fullStartPath = Path.GetFullPath(startPath);
+        var repositoryRoot = TryResolveRepositoryRoot(fullStartPath);
+        if (repositoryRoot is not null)
         {
             return repositoryRoot;
         }
@@ -67,7 +67,7 @@ public static class UcliStoragePathResolver
         // NOTE:
         // Local and CI environments may not have a Git repository.
         // Use the starting path as a deterministic fallback storage root.
-        return normalizedStartPath;
+        return fullStartPath;
     }
 
     /// <summary> Resolves the absolute path to the <c>.ucli</c> directory. </summary>
@@ -148,14 +148,14 @@ public static class UcliStoragePathResolver
         string projectFingerprint,
         string runId)
     {
-        if (string.IsNullOrWhiteSpace(runId))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(runId, out var normalizedRunId))
         {
             throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
         }
 
         return Path.Combine(
             ResolveTestArtifactsDirectory(storageRoot, projectFingerprint),
-            runId.Trim());
+            normalizedRunId);
     }
 
     /// <summary> Resolves the absolute path to daemon <c>session.json</c>. </summary>

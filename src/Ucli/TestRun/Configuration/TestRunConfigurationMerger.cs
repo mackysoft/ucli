@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.TestRun.Configuration;
@@ -30,29 +31,16 @@ internal static class TestRunConfigurationMerger
         return new MergedTestRunConfiguration(
             ProjectPath: Path.GetFullPath(projectPath),
             Mode: mode,
-            UnityVersion: NormalizeOptionalString(cli.UnityVersion ?? profile?.UnityVersion),
+            UnityVersion: StringValueNormalizer.TrimToNull(cli.UnityVersion ?? profile?.UnityVersion),
             UnityEditorPath: NormalizeOptionalPath(cli.UnityEditorPath ?? profile?.UnityEditorPath),
             TestPlatform: TestRunPlatformCodec.ParseOrUnknown(mergedRawTestPlatform),
             RawTestPlatform: mergedRawTestPlatform,
-            BuildTarget: NormalizeOptionalString(cli.BuildTarget ?? profile?.BuildTarget),
-            TestFilter: NormalizeOptionalString(cli.TestFilter ?? profile?.TestFilter),
+            BuildTarget: StringValueNormalizer.TrimToNull(cli.BuildTarget ?? profile?.BuildTarget),
+            TestFilter: StringValueNormalizer.TrimToNull(cli.TestFilter ?? profile?.TestFilter),
             TestCategories: NormalizeValues(cli.TestCategory, profile?.TestCategories),
             AssemblyNames: NormalizeValues(cli.AssemblyName, profile?.AssemblyNames),
             TestSettingsPath: NormalizeOptionalPath(cli.TestSettingsPath ?? profile?.TestSettingsPath),
             TimeoutSeconds: cli.TimeoutSeconds ?? profile?.TimeoutSeconds ?? DefaultTimeoutSeconds);
-    }
-
-    /// <summary> Normalizes an optional string value by trimming whitespace. </summary>
-    /// <param name="value"> The optional value. </param>
-    /// <returns> The normalized value; otherwise <see langword="null" /> when empty. </returns>
-    private static string? NormalizeOptionalString (string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim();
     }
 
     /// <summary> Normalizes optional path values into absolute paths. </summary>
@@ -60,8 +48,7 @@ internal static class TestRunConfigurationMerger
     /// <returns> The absolute path when provided; otherwise <see langword="null" />. </returns>
     private static string? NormalizeOptionalPath (string? pathValue)
     {
-        var normalizedPathValue = NormalizeOptionalString(pathValue);
-        if (normalizedPathValue is null)
+        if (!StringValueNormalizer.TryTrimToNonEmpty(pathValue, out var normalizedPathValue))
         {
             return null;
         }
@@ -74,12 +61,12 @@ internal static class TestRunConfigurationMerger
     /// <returns> The normalized mode value. </returns>
     private static string NormalizeMode (string modeValue)
     {
-        if (string.IsNullOrWhiteSpace(modeValue))
+        if (StringValueNormalizer.TryTrimToNonEmpty(modeValue, out var normalizedModeValue))
         {
-            return modeValue;
+            return normalizedModeValue;
         }
 
-        return modeValue.Trim();
+        return modeValue;
     }
 
     /// <summary> Normalizes list values by splitting comma-separated tokens and removing duplicates. </summary>

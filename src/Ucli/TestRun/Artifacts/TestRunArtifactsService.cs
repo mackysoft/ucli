@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -59,7 +60,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                     unityProject.ProjectFingerprint,
                     runId);
             }
-            catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
             {
                 return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
                     $"Artifacts path is invalid. {exception.Message}"));
@@ -95,7 +96,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                     finishedAtUtc: startedAtUtc,
                     cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+            catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
             {
                 return ArtifactsPreparationResult.Failure(ExecutionError.InvalidArgument(
                     $"Failed to write meta.json due to invalid path: {session.Paths.MetaJsonPath}. {exception.Message}"));
@@ -136,7 +137,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                 cancellationToken).ConfigureAwait(false);
             return ArtifactsCompletionResult.Success();
         }
-        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return ArtifactsCompletionResult.Failure(ExecutionError.InvalidArgument(
                 $"Failed to update meta.json due to invalid path: {session.Paths.MetaJsonPath}. {exception.Message}"));

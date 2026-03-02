@@ -32,7 +32,7 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
             && !string.IsNullOrWhiteSpace(configuration.BuildTarget))
         {
             arguments.Add("-buildTarget");
-            arguments.Add(configuration.BuildTarget);
+            arguments.Add(configuration.BuildTarget!);
         }
 
         if (configuration.AssemblyNames.Length > 0)
@@ -44,7 +44,7 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
         if (!string.IsNullOrWhiteSpace(configuration.TestFilter))
         {
             arguments.Add("-testFilter");
-            arguments.Add(configuration.TestFilter);
+            arguments.Add(configuration.TestFilter!);
         }
 
         if (configuration.TestCategories.Length > 0)
@@ -56,7 +56,7 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
         if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath))
         {
             arguments.Add("-testSettingsFile");
-            arguments.Add(configuration.TestSettingsPath);
+            arguments.Add(configuration.TestSettingsPath!);
         }
 
         arguments.Add("-testResults");

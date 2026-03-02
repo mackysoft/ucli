@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 using MackySoft.Ucli.UnityProject.Resolution;
@@ -60,7 +61,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         {
             mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile);
         }
-        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return TestRunConfigurationResolutionResult.Failure(
             [
