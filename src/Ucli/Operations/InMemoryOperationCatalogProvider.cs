@@ -7,6 +7,27 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
 {
     private const string DefaultArgsSchemaJson = """{"type":"object"}""";
 
+    private const string ResolveArgsSchemaJson =
+        """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "globalObjectId": { "type": "string", "minLength": 1 },
+            "assetGuid": { "type": "string", "minLength": 1 },
+            "assetPath": { "type": "string", "minLength": 1 },
+            "scene": { "type": "string", "minLength": 1 },
+            "hierarchyPath": { "type": "string", "minLength": 1 }
+          },
+          "oneOf": [
+            { "required": ["globalObjectId"] },
+            { "required": ["assetGuid"] },
+            { "required": ["assetPath"] },
+            { "required": ["scene", "hierarchyPath"] }
+          ]
+        }
+        """;
+
     private static readonly IReadOnlyList<UcliOperationDescriptor> Operations =
     [
         new UcliOperationDescriptor("ucli.asset.create", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
@@ -31,7 +52,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         new UcliOperationDescriptor("ucli.project.refresh", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
         new UcliOperationDescriptor("ucli.project.save", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
 
-        new UcliOperationDescriptor("ucli.resolve", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.resolve", UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
 
         new UcliOperationDescriptor("ucli.scene.open", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),
         new UcliOperationDescriptor("ucli.scene.save", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),

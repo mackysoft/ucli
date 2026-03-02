@@ -73,7 +73,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var planPassResult = await planPassExecutor.Execute(request, cancellationToken).ConfigureAwait(false);
+            var executionContext = new OperationExecutionContext();
+            var planPassResult = await planPassExecutor.Execute(request, executionContext, cancellationToken).ConfigureAwait(false);
             if (!planPassResult.IsSuccess)
             {
                 return PhaseExecutionTrace.Failure(
@@ -118,7 +119,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     });
             }
 
-            var callPassResult = await callPassExecutor.Execute(planPassResult.PreparedOperations, cancellationToken).ConfigureAwait(false);
+            var callPassResult = await callPassExecutor.Execute(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
             return callPassResult.IsSuccess
                 ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, callPassResult.OperationTraces)
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, callPassResult.OperationTraces, callPassResult.Errors);

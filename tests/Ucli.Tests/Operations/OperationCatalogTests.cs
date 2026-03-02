@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests;
 
+using System.Text.Json;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Operations;
@@ -20,6 +21,29 @@ public sealed class OperationCatalogTests
         Assert.Equal("ucli.scene.open", descriptor.Name);
         Assert.Equal(UcliOperationKind.Query, descriptor.Kind);
         Assert.Equal(OperationPolicy.Safe, descriptor.Policy);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsResolve_ReturnsSelectorSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get("ucli.resolve", CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var schemaRoot = schemaDocument.RootElement;
+        Assert.Equal(JsonValueKind.Object, schemaRoot.ValueKind);
+        Assert.True(schemaRoot.TryGetProperty("additionalProperties", out var additionalProperties));
+        Assert.False(additionalProperties.GetBoolean());
+        Assert.True(schemaRoot.TryGetProperty("oneOf", out var oneOf));
+        Assert.Equal(JsonValueKind.Array, oneOf.ValueKind);
+        Assert.Equal(4, oneOf.GetArrayLength());
+        Assert.True(ContainsRequiredProperty(oneOf, "globalObjectId"));
+        Assert.True(ContainsRequiredProperty(oneOf, "assetGuid"));
+        Assert.True(ContainsRequiredProperty(oneOf, "assetPath"));
+        Assert.True(ContainsRequiredProperties(oneOf, "scene", "hierarchyPath"));
     }
 
     [Fact]
@@ -82,5 +106,60 @@ public sealed class OperationCatalogTests
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations);
         }
+    }
+
+    private static bool ContainsRequiredProperty (
+        JsonElement oneOfArray,
+        string propertyName)
+    {
+        foreach (var schema in oneOfArray.EnumerateArray())
+        {
+            if (!schema.TryGetProperty("required", out var requiredProperties))
+            {
+                continue;
+            }
+
+            if (requiredProperties.ValueKind != JsonValueKind.Array || requiredProperties.GetArrayLength() != 1)
+            {
+                continue;
+            }
+
+            var requiredProperty = requiredProperties[0].GetString();
+            if (string.Equals(requiredProperty, propertyName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsRequiredProperties (
+        JsonElement oneOfArray,
+        string firstPropertyName,
+        string secondPropertyName)
+    {
+        foreach (var schema in oneOfArray.EnumerateArray())
+        {
+            if (!schema.TryGetProperty("required", out var requiredProperties))
+            {
+                continue;
+            }
+
+            if (requiredProperties.ValueKind != JsonValueKind.Array || requiredProperties.GetArrayLength() != 2)
+            {
+                continue;
+            }
+
+            var firstRequired = requiredProperties[0].GetString();
+            var secondRequired = requiredProperties[1].GetString();
+            if (string.Equals(firstRequired, firstPropertyName, StringComparison.Ordinal)
+                && string.Equals(secondRequired, secondPropertyName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
