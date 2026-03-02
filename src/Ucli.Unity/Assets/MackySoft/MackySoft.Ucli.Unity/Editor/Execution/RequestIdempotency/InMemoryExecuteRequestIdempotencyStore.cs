@@ -50,13 +50,13 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             this.utcNowProvider = utcNowProvider ?? throw new ArgumentNullException(nameof(utcNowProvider));
         }
 
-        /// <summary> Acquires one idempotency decision for an incoming request-id and digest. </summary>
+        /// <summary> Acquires one idempotency decision for an incoming request-id and fingerprint. </summary>
         /// <param name="requestId"> The request identifier. </param>
-        /// <param name="requestDigest"> The deterministic request digest. </param>
+        /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
         /// <returns> The idempotency decision. </returns>
         public ExecuteRequestIdempotencyStoreDecision Acquire (
             string requestId,
-            string requestDigest)
+            string requestFingerprint)
         {
             var nowUtc = utcNowProvider();
 
@@ -66,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
                 if (completedEntries.TryGetValue(requestId, out var completedEntry))
                 {
-                    if (string.Equals(completedEntry.RequestDigest, requestDigest, StringComparison.Ordinal))
+                    if (string.Equals(completedEntry.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
                     {
                         return ExecuteRequestIdempotencyStoreDecision.ReplayCompleted(completedEntry.Response);
                     }
@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
                 if (inFlightEntries.TryGetValue(requestId, out var inFlightEntry))
                 {
-                    if (!string.Equals(inFlightEntry.RequestDigest, requestDigest, StringComparison.Ordinal))
+                    if (!string.Equals(inFlightEntry.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
                     {
                         return ExecuteRequestIdempotencyStoreDecision.Conflict();
                     }
@@ -85,19 +85,19 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 }
 
                 var ownerCompletionSource = new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-                inFlightEntries[requestId] = new InFlightEntry(requestDigest, ownerCompletionSource);
+                inFlightEntries[requestId] = new InFlightEntry(requestFingerprint, ownerCompletionSource);
                 return ExecuteRequestIdempotencyStoreDecision.ExecuteOwner();
             }
         }
 
         /// <summary> Completes one owner execution successfully and publishes the response to shared waiters. </summary>
         /// <param name="requestId"> The request identifier. </param>
-        /// <param name="requestDigest"> The deterministic request digest. </param>
+        /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
         /// <param name="response"> The completed response envelope. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="response" /> is <see langword="null" />. </exception>
         public void CompleteSuccess (
             string requestId,
-            string requestDigest,
+            string requestFingerprint,
             IpcResponse response)
         {
             if (response == null)
@@ -114,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 }
 
                 inFlightEntries.Remove(requestId);
-                SaveCompletedEntry(requestId, requestDigest, response, createdAtUtc);
+                SaveCompletedEntry(requestId, requestFingerprint, response, createdAtUtc);
                 inFlightEntry.CompletionSource.TrySetResult(response);
             }
         }
@@ -162,12 +162,12 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
         /// <summary> Saves one completed response entry and applies overflow eviction. </summary>
         /// <param name="requestId"> The request identifier. </param>
-        /// <param name="requestDigest"> The request digest. </param>
+        /// <param name="requestFingerprint"> The request fingerprint. </param>
         /// <param name="response"> The completed response. </param>
         /// <param name="createdAtUtc"> The completion timestamp in UTC. </param>
         private void SaveCompletedEntry (
             string requestId,
-            string requestDigest,
+            string requestFingerprint,
             IpcResponse response,
             DateTimeOffset createdAtUtc)
         {
@@ -178,7 +178,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
             var orderNode = completedOrder.AddLast(requestId);
             completedEntries[requestId] = new CompletedEntry(
-                RequestDigest: requestDigest,
+                RequestFingerprint: requestFingerprint,
                 Response: response,
                 ExpiresAtUtc: createdAtUtc.Add(cacheTtl),
                 OrderNode: orderNode);
@@ -220,19 +220,19 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         }
 
         /// <summary> Represents one in-flight owner execution entry keyed by request-id. </summary>
-        /// <param name="RequestDigest"> The digest used by the owner request. </param>
+        /// <param name="RequestFingerprint"> The fingerprint used by the owner request. </param>
         /// <param name="CompletionSource"> The shared completion source for waiters. </param>
         private sealed record InFlightEntry (
-            string RequestDigest,
+            string RequestFingerprint,
             TaskCompletionSource<IpcResponse> CompletionSource);
 
         /// <summary> Represents one completed response cache entry keyed by request-id. </summary>
-        /// <param name="RequestDigest"> The digest used by the completed request. </param>
+        /// <param name="RequestFingerprint"> The fingerprint used by the completed request. </param>
         /// <param name="Response"> The completed response envelope. </param>
         /// <param name="ExpiresAtUtc"> The expiration timestamp in UTC. </param>
         /// <param name="OrderNode"> The insertion-order linked-list node. </param>
         private sealed record CompletedEntry (
-            string RequestDigest,
+            string RequestFingerprint,
             IpcResponse Response,
             DateTimeOffset ExpiresAtUtc,
             LinkedListNode<string> OrderNode);

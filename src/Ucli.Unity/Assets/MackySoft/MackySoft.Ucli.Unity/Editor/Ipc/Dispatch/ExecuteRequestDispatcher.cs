@@ -87,8 +87,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     SerializerOptions);
             }
 
-            var requestDigest = ExecuteRequestIdempotencyDigestCalculator.ComputeDigest(request);
-            var idempotencyDecision = requestIdempotencyCoordinator.Acquire(context.RequestId, requestDigest);
+            var requestFingerprint = ExecuteRequestFingerprintCalculator.Create(request);
+            var idempotencyDecision = requestIdempotencyCoordinator.Acquire(context.RequestId, requestFingerprint);
             switch (idempotencyDecision.Kind)
             {
                 case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ReplayCompleted:
@@ -115,7 +115,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var response = await DispatchCore(request, context, cancellationToken).ConfigureAwait(false);
-                requestIdempotencyCoordinator.CompleteSuccess(context.RequestId, requestDigest, response);
+                requestIdempotencyCoordinator.CompleteSuccess(context.RequestId, requestFingerprint, response);
                 return response;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

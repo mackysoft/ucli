@@ -44,41 +44,41 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             this.store = store ?? throw new ArgumentNullException(nameof(store));
         }
 
-        /// <summary> Acquires one idempotency decision for request-id and digest pair. </summary>
+        /// <summary> Acquires one idempotency decision for request-id and fingerprint pair. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
-        /// <param name="requestDigest"> The deterministic digest of request payload content. </param>
+        /// <param name="requestFingerprint"> The deterministic fingerprint of request payload content. </param>
         /// <returns> The idempotency decision for this request. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="requestDigest" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestDigest" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
         public ExecuteRequestIdempotencyStoreDecision Acquire (
             string requestId,
-            string requestDigest)
+            string requestFingerprint)
         {
             ValidateRequestId(requestId);
-            ValidateRequestDigest(requestDigest);
-            return store.Acquire(requestId, requestDigest);
+            ValidateRequestFingerprint(requestFingerprint);
+            return store.Acquire(requestId, requestFingerprint);
         }
 
         /// <summary> Completes one owner execution successfully and publishes response for shared waiters. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
-        /// <param name="requestDigest"> The deterministic digest of request payload content. </param>
+        /// <param name="requestFingerprint"> The deterministic fingerprint of request payload content. </param>
         /// <param name="response"> The completed response envelope. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" />, <paramref name="requestDigest" />, or <paramref name="response" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestDigest" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" />, <paramref name="requestFingerprint" />, or <paramref name="response" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
         public void CompleteSuccess (
             string requestId,
-            string requestDigest,
+            string requestFingerprint,
             IpcResponse response)
         {
             ValidateRequestId(requestId);
-            ValidateRequestDigest(requestDigest);
+            ValidateRequestFingerprint(requestFingerprint);
 
             if (response == null)
             {
                 throw new ArgumentNullException(nameof(response));
             }
 
-            store.CompleteSuccess(requestId, requestDigest, response);
+            store.CompleteSuccess(requestId, requestFingerprint, response);
         }
 
         /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>
@@ -127,20 +127,20 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             }
         }
 
-        /// <summary> Validates request digest input constraints. </summary>
-        /// <param name="requestDigest"> The deterministic request digest. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestDigest" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestDigest" /> is empty or whitespace. </exception>
-        private static void ValidateRequestDigest (string requestDigest)
+        /// <summary> Validates request fingerprint input constraints. </summary>
+        /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
+        private static void ValidateRequestFingerprint (string requestFingerprint)
         {
-            if (requestDigest == null)
+            if (requestFingerprint == null)
             {
-                throw new ArgumentNullException(nameof(requestDigest));
+                throw new ArgumentNullException(nameof(requestFingerprint));
             }
 
-            if (string.IsNullOrWhiteSpace(requestDigest))
+            if (string.IsNullOrWhiteSpace(requestFingerprint))
             {
-                throw new ArgumentException("Request digest must not be empty or whitespace.", nameof(requestDigest));
+                throw new ArgumentException("Request fingerprint must not be empty or whitespace.", nameof(requestFingerprint));
             }
         }
     }

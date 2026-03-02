@@ -10,14 +10,14 @@ using MackySoft.Ucli.Unity.Execution.Requests;
 
 namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 {
-    /// <summary> Computes deterministic request digests for request-id idempotency matching. </summary>
-    internal static class ExecuteRequestIdempotencyDigestCalculator
+    /// <summary> Creates deterministic request fingerprints for request-id idempotency matching. </summary>
+    internal static class ExecuteRequestFingerprintCalculator
     {
-        /// <summary> Computes one deterministic digest from execute request command, arguments and plan-token. </summary>
+        /// <summary> Creates one deterministic fingerprint from execute request command, arguments and plan-token. </summary>
         /// <param name="request"> The execute request payload. </param>
-        /// <returns> The lowercase hexadecimal SHA-256 digest string. </returns>
+        /// <returns> The lowercase hexadecimal SHA-256 fingerprint string. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-        public static string ComputeDigest (IpcExecuteRequest request)
+        public static string Create (IpcExecuteRequest request)
         {
             if (request == null)
             {

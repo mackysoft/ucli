@@ -12,14 +12,14 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndSameDigestAfterCompletion_ReusesCachedResponse ()
+        public void Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var executeCount = 0;
             var requestId = "req-1";
             var firstResponse = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var secondResponse = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndDifferentDigestAfterCompletion_ReturnsConflict ()
+        public void Execute_WhenSameRequestIdAndDifferentFingerprintAfterCompletion_ReturnsConflict ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var executeCount = 0;
@@ -57,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestId = "req-1";
             _ = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -73,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var conflictResponse = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-2",
+                requestFingerprint: "fingerprint-2",
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndSameDigestInFlight_WaitsForOwnerResponse ()
+        public void Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var requestId = "req-1";
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var ownerTask = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: async _ =>
                 {
                     Interlocked.Increment(ref ownerExecutionCount);
@@ -121,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var waiterTask = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
                 {
                     Interlocked.Increment(ref waiterExecutionCount);
@@ -143,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndDifferentDigestInFlight_ReturnsConflictWithoutExecuting ()
+        public void Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var requestId = "req-1";
@@ -153,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var ownerTask = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: async _ =>
                 {
                     ownerStarted.TrySetResult(true);
@@ -165,7 +165,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var conflictResponse = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-2",
+                requestFingerprint: "fingerprint-2",
                 executeRequest: _ =>
                 {
                     conflictExecutionCount++;
@@ -198,7 +198,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var firstResponse = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -211,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Tests
             nowUtc = nowUtc.AddHours(25);
             var secondResponse = coordinator.Execute(
                 requestId: requestId,
-                requestDigest: "digest-1",
+                requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -237,28 +237,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 utcNowProvider: () => nowUtc);
             var executeCount = 0;
 
-            Execute("req-1", "digest-1", "first-1");
+            Execute("req-1", "fingerprint-1", "first-1");
             nowUtc = nowUtc.AddMinutes(1);
-            Execute("req-2", "digest-2", "second-1");
+            Execute("req-2", "fingerprint-2", "second-1");
             nowUtc = nowUtc.AddMinutes(1);
-            Execute("req-3", "digest-3", "third-1");
+            Execute("req-3", "fingerprint-3", "third-1");
 
             // req-1 should be evicted because max entries is 2.
             nowUtc = nowUtc.AddMinutes(1);
-            var req1ResponseAfterEviction = Execute("req-1", "digest-1", "first-2");
+            var req1ResponseAfterEviction = Execute("req-1", "fingerprint-1", "first-2");
 
             // req-2 should still be cached.
-            var req2ResponseFromCache = Execute("req-2", "digest-2", "second-2");
+            var req2ResponseFromCache = Execute("req-2", "fingerprint-2", "second-2");
 
             Assert.That(executeCount, Is.EqualTo(4));
             Assert.That(GetMarker(req1ResponseAfterEviction), Is.EqualTo("first-2"));
             Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-1"));
 
-            IpcResponse Execute (string requestId, string requestDigest, string marker)
+            IpcResponse Execute (string requestId, string requestFingerprint, string marker)
             {
                 return coordinator.Execute(
                     requestId: requestId,
-                    requestDigest: requestDigest,
+                    requestFingerprint: requestFingerprint,
                     executeRequest: _ =>
                     {
                         executeCount++;
@@ -272,22 +272,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void DigestCalculator_WhenArgumentsPropertyOrderDiffers_ReturnsSameDigest ()
+        public void FingerprintCalculator_WhenArgumentsPropertyOrderDiffers_ReturnsSameFingerprint ()
         {
             using var firstDocument = JsonDocument.Parse("{\"ops\":[{\"id\":\"op-1\",\"op\":\"ucli.resolve\",\"args\":{\"b\":2,\"a\":1}}],\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\"}");
             using var secondDocument = JsonDocument.Parse("{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"protocolVersion\":1,\"ops\":[{\"args\":{\"a\":1,\"b\":2},\"op\":\"ucli.resolve\",\"id\":\"op-1\"}]}");
             var firstRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, firstDocument.RootElement.Clone());
             var secondRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, secondDocument.RootElement.Clone());
 
-            var firstDigest = ExecuteRequestIdempotencyDigestCalculator.ComputeDigest(firstRequest);
-            var secondDigest = ExecuteRequestIdempotencyDigestCalculator.ComputeDigest(secondRequest);
+            var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
+            var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
 
-            Assert.That(firstDigest, Is.EqualTo(secondDigest));
+            Assert.That(firstFingerprint, Is.EqualTo(secondFingerprint));
         }
 
         [Test]
         [Category("Size.Small")]
-        public void DigestCalculator_WhenPlanTokenDiffers_ReturnsDifferentDigest ()
+        public void FingerprintCalculator_WhenPlanTokenDiffers_ReturnsDifferentFingerprint ()
         {
             using var document = JsonDocument.Parse("{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"ucli.resolve\",\"args\":{}}]}");
             var firstRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, document.RootElement.Clone())
@@ -299,15 +299,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 PlanToken = "token-2",
             };
 
-            var firstDigest = ExecuteRequestIdempotencyDigestCalculator.ComputeDigest(firstRequest);
-            var secondDigest = ExecuteRequestIdempotencyDigestCalculator.ComputeDigest(secondRequest);
+            var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
+            var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
 
-            Assert.That(firstDigest, Is.Not.EqualTo(secondDigest));
+            Assert.That(firstFingerprint, Is.Not.EqualTo(secondFingerprint));
         }
 
         [Test]
         [Category("Size.Small")]
-        public void DigestCalculator_WhenPlanTokenOnlyDiffersByOuterWhitespace_ReturnsSameDigest ()
+        public void FingerprintCalculator_WhenPlanTokenOnlyDiffersByOuterWhitespace_ReturnsSameFingerprint ()
         {
             using var document = JsonDocument.Parse("{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"ucli.resolve\",\"args\":{}}]}");
             var firstRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, document.RootElement.Clone())
@@ -319,10 +319,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 PlanToken = " token-1 ",
             };
 
-            var firstDigest = ExecuteRequestIdempotencyDigestCalculator.ComputeDigest(firstRequest);
-            var secondDigest = ExecuteRequestIdempotencyDigestCalculator.ComputeDigest(secondRequest);
+            var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
+            var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
 
-            Assert.That(firstDigest, Is.EqualTo(secondDigest));
+            Assert.That(firstFingerprint, Is.EqualTo(secondFingerprint));
         }
 
         private static IpcResponse CreateSuccessResponse (
