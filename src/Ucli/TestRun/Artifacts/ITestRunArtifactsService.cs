@@ -7,14 +7,19 @@ internal interface ITestRunArtifactsService
 {
     /// <summary> Prepares one run-scoped artifact directory and initial metadata file. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
-    /// <returns> The preparation result. </returns>
-    ArtifactsPreparationResult Prepare (ResolvedTestRunConfiguration configuration);
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the preparation result. </returns>
+    ValueTask<ArtifactsPreparationResult> Prepare (
+        ResolvedTestRunConfiguration configuration,
+        CancellationToken cancellationToken = default);
 
     /// <summary> Completes one run-scoped artifact session by updating metadata completion values. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="session"> The prepared artifacts session. </param>
-    /// <returns> The completion result. </returns>
-    ArtifactsCompletionResult Complete (
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the completion result. </returns>
+    ValueTask<ArtifactsCompletionResult> Complete (
         ResolvedTestRunConfiguration configuration,
-        ArtifactsSession session);
+        ArtifactsSession session,
+        CancellationToken cancellationToken = default);
 }

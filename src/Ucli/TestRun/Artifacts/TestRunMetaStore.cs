@@ -19,10 +19,13 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="session"> The artifacts session. </param>
     /// <param name="finishedAtUtc"> The completion timestamp to persist. </param>
-    public void Write (
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that completes when metadata writing is finished. </returns>
+    public async ValueTask Write (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
-        DateTimeOffset finishedAtUtc)
+        DateTimeOffset finishedAtUtc,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(session);
@@ -45,7 +48,7 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             ArtifactsDir: session.ArtifactsDir);
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
-        File.WriteAllText(session.Paths.MetaJsonPath, json);
+        await File.WriteAllTextAsync(session.Paths.MetaJsonPath, json, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary> Represents metadata payload for one test-run artifacts session. </summary>

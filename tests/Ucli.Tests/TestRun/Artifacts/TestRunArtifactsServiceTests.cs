@@ -12,13 +12,13 @@ public sealed class TestRunArtifactsServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Prepare_CreatesRunScopedArtifactsDirectoryUnderFingerprintPath ()
+    public async Task Prepare_CreatesRunScopedArtifactsDirectoryUnderFingerprintPath ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "prepare-run-dir");
         var configuration = CreateResolvedConfiguration(scope);
         var service = new TestRunArtifactsService();
 
-        var result = service.Prepare(configuration);
+        var result = await service.Prepare(configuration);
 
         Assert.True(result.IsSuccess);
         var session = Assert.IsType<ArtifactsSession>(result.Session);
@@ -43,20 +43,20 @@ public sealed class TestRunArtifactsServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Complete_UpdatesFinishedAtInMetaJson ()
+    public async Task Complete_UpdatesFinishedAtInMetaJson ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "complete-meta");
         var configuration = CreateResolvedConfiguration(scope);
         var service = new TestRunArtifactsService();
 
-        var prepareResult = service.Prepare(configuration);
+        var prepareResult = await service.Prepare(configuration);
         Assert.True(prepareResult.IsSuccess);
         var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
 
         var before = ReadMetaJson(session.Paths.MetaJsonPath);
-        Thread.Sleep(20);
+        await Task.Delay(20);
 
-        var completeResult = service.Complete(configuration, session);
+        var completeResult = await service.Complete(configuration, session);
 
         var after = ReadMetaJson(session.Paths.MetaJsonPath);
         Assert.True(completeResult.IsSuccess);

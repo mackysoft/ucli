@@ -31,9 +31,13 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
     /// <summary> Prepares one run-scoped artifact directory and writes initial <c>meta.json</c>. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
-    /// <returns> The preparation result. </returns>
-    public ArtifactsPreparationResult Prepare (ResolvedTestRunConfiguration configuration)
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the preparation result. </returns>
+    public async ValueTask<ArtifactsPreparationResult> Prepare (
+        ResolvedTestRunConfiguration configuration,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(configuration);
 
         var unityProject = configuration.UnityProject;
@@ -43,6 +47,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         // Retry bounded attempts to avoid sharing one artifact directory across runs.
         for (var attempt = 0; attempt < MaxRunIdGenerationAttempts; attempt++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var startedAtUtc = DateTimeOffset.UtcNow;
             var runId = CreateRunId(startedAtUtc);
 
@@ -84,7 +89,11 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
             try
             {
-                metaStore.Write(configuration, session, finishedAtUtc: startedAtUtc);
+                await metaStore.Write(
+                    configuration,
+                    session,
+                    finishedAtUtc: startedAtUtc,
+                    cancellationToken).ConfigureAwait(false);
             }
             catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
             {
@@ -107,17 +116,24 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     /// <summary> Completes one run-scoped artifacts session by updating completion metadata. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="session"> The prepared artifacts session. </param>
-    /// <returns> The completion result. </returns>
-    public ArtifactsCompletionResult Complete (
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the completion result. </returns>
+    public async ValueTask<ArtifactsCompletionResult> Complete (
         ResolvedTestRunConfiguration configuration,
-        ArtifactsSession session)
+        ArtifactsSession session,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(session);
 
         try
         {
-            metaStore.Write(configuration, session, finishedAtUtc: DateTimeOffset.UtcNow);
+            await metaStore.Write(
+                configuration,
+                session,
+                finishedAtUtc: DateTimeOffset.UtcNow,
+                cancellationToken).ConfigureAwait(false);
             return ArtifactsCompletionResult.Success();
         }
         catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))

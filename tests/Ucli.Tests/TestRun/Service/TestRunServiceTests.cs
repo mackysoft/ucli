@@ -297,16 +297,21 @@ public sealed class TestRunServiceTests
             this.complete = complete;
         }
 
-        public ArtifactsPreparationResult Prepare (ResolvedTestRunConfiguration configuration)
+        public ValueTask<ArtifactsPreparationResult> Prepare (
+            ResolvedTestRunConfiguration configuration,
+            CancellationToken cancellationToken = default)
         {
-            return prepare(configuration);
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(prepare(configuration));
         }
 
-        public ArtifactsCompletionResult Complete (
+        public ValueTask<ArtifactsCompletionResult> Complete (
             ResolvedTestRunConfiguration configuration,
-            ArtifactsSession session)
+            ArtifactsSession session,
+            CancellationToken cancellationToken = default)
         {
-            return complete(configuration, session);
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(complete(configuration, session));
         }
     }
 

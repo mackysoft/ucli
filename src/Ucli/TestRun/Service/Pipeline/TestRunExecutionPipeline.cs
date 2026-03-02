@@ -40,7 +40,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var artifactsPreparationResult = PrepareArtifactsSafely(configuration);
+        var artifactsPreparationResult = await PrepareArtifactsSafely(configuration, cancellationToken).ConfigureAwait(false);
         if (!artifactsPreparationResult.IsSuccess)
         {
             return TestRunExecutionPipelineResult.Failure(artifactsPreparationResult.Error!);
@@ -55,7 +55,10 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             conversionResult = await ConvertResultsSafely(artifactsSession, cancellationToken).ConfigureAwait(false);
         }
 
-        var completionResult = CompleteArtifactsSafely(configuration, artifactsSession);
+        var completionResult = await CompleteArtifactsSafely(
+            configuration,
+            artifactsSession,
+            cancellationToken).ConfigureAwait(false);
         if (!completionResult.IsSuccess)
         {
             return TestRunExecutionPipelineResult.Failure(
@@ -73,12 +76,20 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     /// <summary> Prepares artifacts session and maps unexpected exceptions into internal errors. </summary>
     /// <param name="configuration"> The resolved run configuration. </param>
-    /// <returns> The artifact preparation result. </returns>
-    private ArtifactsPreparationResult PrepareArtifactsSafely (ResolvedTestRunConfiguration configuration)
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the artifact preparation result. </returns>
+    private async ValueTask<ArtifactsPreparationResult> PrepareArtifactsSafely (
+        ResolvedTestRunConfiguration configuration,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return artifactsService.Prepare(configuration);
+            cancellationToken.ThrowIfCancellationRequested();
+            return await artifactsService.Prepare(configuration, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
@@ -90,14 +101,21 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <summary> Completes artifacts session and maps unexpected exceptions into internal errors. </summary>
     /// <param name="configuration"> The resolved run configuration. </param>
     /// <param name="session"> The prepared artifacts session. </param>
-    /// <returns> The artifact completion result. </returns>
-    private ArtifactsCompletionResult CompleteArtifactsSafely (
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the artifact completion result. </returns>
+    private async ValueTask<ArtifactsCompletionResult> CompleteArtifactsSafely (
         ResolvedTestRunConfiguration configuration,
-        ArtifactsSession session)
+        ArtifactsSession session,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return artifactsService.Complete(configuration, session);
+            cancellationToken.ThrowIfCancellationRequested();
+            return await artifactsService.Complete(configuration, session, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
