@@ -51,6 +51,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return ExecuteRequestNormalizationResult.Failure(MapReadError(readError));
             }
 
+            if (parsedContract.ProtocolVersion != IpcProtocol.CurrentVersion)
+            {
+                return ExecuteRequestNormalizationResult.Failure(ExecuteRequestNormalizationError.ProtocolVersionMismatch(
+                    expectedVersion: IpcProtocol.CurrentVersion,
+                    actualVersion: parsedContract.ProtocolVersion));
+            }
+
             if (parsedContract.RequestId is null)
             {
                 return ExecuteRequestNormalizationResult.Failure(ExecuteRequestNormalizationError.InvalidArgument(
@@ -123,55 +130,115 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
         private static ExecuteRequestNormalizationError MapReadError (in IpcRequestContractReadError readError)
         {
-            return readError.Kind switch
+            var violation = IpcRequestContractViolationClassifier.Classify(readError);
+            var operationId = violation.OperationId ?? string.Empty;
+            return violation.Kind switch
             {
-                IpcRequestContractReadErrorKind.RequestMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcRequestContractViolationKind.RequestMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request arguments must be a JSON object.",
                     null),
-                IpcRequestContractReadErrorKind.UnknownRequestProperty => ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Request contains an unknown property: {readError.UnknownPropertyName}.",
+                IpcRequestContractViolationKind.UnknownRequestProperty => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Request contains an unknown property: {violation.UnknownPropertyName}.",
                     null),
-                IpcRequestContractReadErrorKind.ProtocolVersionMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcRequestContractViolationKind.ProtocolVersionMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'protocolVersion' is required.",
                     null),
-                IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcRequestContractViolationKind.ProtocolVersionTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'protocolVersion' must be an integer.",
                     null),
-                IpcRequestContractReadErrorKind.RequestIdContractViolation => ExecuteRequestNormalizationErrorFactory.RequestId(
-                    readError.JsonStringReadError),
-                IpcRequestContractReadErrorKind.RequestIdFormatMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcRequestContractViolationKind.RequestIdMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                    "Request property 'requestId' is required.",
+                    null),
+                IpcRequestContractViolationKind.RequestIdTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                    "Request property 'requestId' must be a UUID string.",
+                    null),
+                IpcRequestContractViolationKind.RequestIdEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    "Request property 'requestId' must not contain leading or trailing whitespace.",
+                    null),
+                IpcRequestContractViolationKind.RequestIdOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    "Request property 'requestId' must not contain leading or trailing whitespace.",
+                    null),
+                IpcRequestContractViolationKind.RequestIdFormatMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'requestId' must be UUID format 'D'.",
                     null),
-                IpcRequestContractReadErrorKind.OperationsMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcRequestContractViolationKind.OperationsMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'ops' is required.",
                     null),
-                IpcRequestContractReadErrorKind.OperationsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcRequestContractViolationKind.OperationsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'ops' must be an array.",
                     null),
-                IpcRequestContractReadErrorKind.OperationMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Operation at index {readError.OperationIndex} must be an object.",
+                IpcRequestContractViolationKind.OperationMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation at index {violation.OperationIndex} must be an object.",
                     null),
-                IpcRequestContractReadErrorKind.UnknownOperationProperty => ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Operation at index {readError.OperationIndex} contains an unknown property: {readError.UnknownPropertyName}.",
+                IpcRequestContractViolationKind.UnknownOperationProperty => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation at index {violation.OperationIndex} contains an unknown property: {violation.UnknownPropertyName}.",
                     null),
-                IpcRequestContractReadErrorKind.OperationIdContractViolation => ExecuteRequestNormalizationErrorFactory.OperationId(
-                    readError.OperationIndex,
-                    readError.JsonStringReadError),
-                IpcRequestContractReadErrorKind.OperationNameContractViolation => ExecuteRequestNormalizationErrorFactory.OperationName(
-                    readError.OperationId ?? string.Empty,
-                    readError.JsonStringReadError),
-                IpcRequestContractReadErrorKind.OperationArgsContractViolation => ExecuteRequestNormalizationErrorFactory.OperationArgs(
-                    readError.OperationId ?? string.Empty,
-                    readError.OperationObjectReadErrorKind),
-                IpcRequestContractReadErrorKind.OperationAliasContractViolation => ExecuteRequestNormalizationErrorFactory.OperationAlias(
-                    readError.OperationId ?? string.Empty,
-                    readError.JsonStringReadError),
-                IpcRequestContractReadErrorKind.OperationExpectationContractViolation => ExecuteRequestNormalizationErrorFactory.OperationExpectation(
-                    readError.OperationId ?? string.Empty,
-                    readError.ExpectationReadError),
-                IpcRequestContractReadErrorKind.DuplicatedOperationId => ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Operation id is duplicated: {readError.DuplicatedOperationId}.",
-                    readError.DuplicatedOperationId),
+                IpcRequestContractViolationKind.OperationIdMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation at index {violation.OperationIndex} requires property 'id'.",
+                    null),
+                IpcRequestContractViolationKind.OperationIdTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation at index {violation.OperationIndex} property 'id' must be a string.",
+                    null),
+                IpcRequestContractViolationKind.OperationIdEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation at index {violation.OperationIndex} property 'id' must not be empty or contain outer whitespace.",
+                    null),
+                IpcRequestContractViolationKind.OperationIdOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation at index {violation.OperationIndex} property 'id' must not be empty or contain outer whitespace.",
+                    null),
+                IpcRequestContractViolationKind.OperationNameMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' requires property 'op'.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationNameTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'op' must be a string.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationNameEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'op' must not be empty or contain outer whitespace.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationNameOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'op' must not be empty or contain outer whitespace.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationArgsMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' requires property 'args'.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationArgsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'args' must be an object.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationAliasTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'as' must be a string when specified.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationAliasEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'as' must not be empty or contain outer whitespace.",
+                    operationId),
+                IpcRequestContractViolationKind.OperationAliasOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'as' must not be empty or contain outer whitespace.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'expect' must be an object when specified.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationContainsUnknownProperty => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'expect' contains an unknown property: {violation.UnknownPropertyName}.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationMustContainAtLeastOneConstraint => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'expect' must contain at least one constraint.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationBooleanConstraintMustBeBoolean => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property '{violation.PropertyPath}' must be a boolean.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationIntegerConstraintMustBeInteger => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property '{violation.PropertyPath}' must be an integer.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationIntegerConstraintMustBeNonNegative => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property '{violation.PropertyPath}' must be greater than or equal to 0.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationCountCannotCombineWithMinOrMax => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'expect' cannot combine 'count' with 'min' or 'max'.",
+                    operationId),
+                IpcRequestContractViolationKind.ExpectationMinMustBeLessThanOrEqualToMax => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation '{operationId}' property 'expect' requires 'min' to be less than or equal to 'max'.",
+                    operationId),
+                IpcRequestContractViolationKind.DuplicatedOperationId => ExecuteRequestNormalizationError.InvalidArgument(
+                    $"Operation id is duplicated: {violation.DuplicatedOperationId}.",
+                    violation.DuplicatedOperationId),
                 _ => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request arguments are invalid.",
                     null),

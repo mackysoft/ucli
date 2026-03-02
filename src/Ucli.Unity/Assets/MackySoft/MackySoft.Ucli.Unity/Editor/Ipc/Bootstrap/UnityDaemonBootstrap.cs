@@ -31,10 +31,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes after process-exit request has been issued. </returns>
         private static async Task Run ()
         {
-            IDaemonBootstrapArgumentsParser parser = new DaemonBootstrapArgumentsParser();
-            if (!parser.TryParse(Environment.GetCommandLineArgs(), out var bootstrapArguments, out var parseErrorMessage))
+            if (!IpcDaemonBootstrapArgumentsCodec.TryParse(
+                    Environment.GetCommandLineArgs(),
+                    out var bootstrapArguments,
+                    out var parseError))
             {
-                Debug.LogError(parseErrorMessage);
+                Debug.LogError(parseError.Message);
                 EditorApplication.Exit(1);
                 return;
             }

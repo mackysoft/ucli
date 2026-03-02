@@ -214,7 +214,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
 
         var readIndexDefaultModeValue = document.ReadIndexDefaultMode
-            ?? UcliConfigValueConstants.ReadIndexModeRequireFresh;
+            ?? ReadIndexModeValues.RequireFresh;
         if (!TryParseReadIndexMode(readIndexDefaultModeValue, out var readIndexDefaultMode))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
@@ -375,9 +375,9 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     {
         return operationPolicy switch
         {
-            OperationPolicy.Safe => UcliConfigValueConstants.OperationPolicySafe,
-            OperationPolicy.Advanced => UcliConfigValueConstants.OperationPolicyAdvanced,
-            OperationPolicy.Dangerous => UcliConfigValueConstants.OperationPolicyDangerous,
+            OperationPolicy.Safe => OperationPolicyValues.Safe,
+            OperationPolicy.Advanced => OperationPolicyValues.Advanced,
+            OperationPolicy.Dangerous => OperationPolicyValues.Dangerous,
             _ => throw new ArgumentOutOfRangeException(nameof(operationPolicy), operationPolicy, "Unsupported operationPolicy."),
         };
     }
@@ -390,9 +390,9 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     {
         return readIndexMode switch
         {
-            ReadIndexMode.Disabled => UcliConfigValueConstants.ReadIndexModeDisabled,
-            ReadIndexMode.AllowStale => UcliConfigValueConstants.ReadIndexModeAllowStale,
-            ReadIndexMode.RequireFresh => UcliConfigValueConstants.ReadIndexModeRequireFresh,
+            ReadIndexMode.Disabled => ReadIndexModeValues.Disabled,
+            ReadIndexMode.AllowStale => ReadIndexModeValues.AllowStale,
+            ReadIndexMode.RequireFresh => ReadIndexModeValues.RequireFresh,
             _ => throw new ArgumentOutOfRangeException(nameof(readIndexMode), readIndexMode, "Unsupported readIndexMode."),
         };
     }
@@ -403,19 +403,19 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
     private static bool TryParseOperationPolicy (string? value, out OperationPolicy operationPolicy)
     {
-        if (string.Equals(value, UcliConfigValueConstants.OperationPolicySafe, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, OperationPolicyValues.Safe, StringComparison.OrdinalIgnoreCase))
         {
             operationPolicy = OperationPolicy.Safe;
             return true;
         }
 
-        if (string.Equals(value, UcliConfigValueConstants.OperationPolicyAdvanced, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, OperationPolicyValues.Advanced, StringComparison.OrdinalIgnoreCase))
         {
             operationPolicy = OperationPolicy.Advanced;
             return true;
         }
 
-        if (string.Equals(value, UcliConfigValueConstants.OperationPolicyDangerous, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, OperationPolicyValues.Dangerous, StringComparison.OrdinalIgnoreCase))
         {
             operationPolicy = OperationPolicy.Dangerous;
             return true;
@@ -431,19 +431,19 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
     private static bool TryParseReadIndexMode (string? value, out ReadIndexMode readIndexMode)
     {
-        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeDisabled, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, ReadIndexModeValues.Disabled, StringComparison.OrdinalIgnoreCase))
         {
             readIndexMode = ReadIndexMode.Disabled;
             return true;
         }
 
-        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeAllowStale, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, ReadIndexModeValues.AllowStale, StringComparison.OrdinalIgnoreCase))
         {
             readIndexMode = ReadIndexMode.AllowStale;
             return true;
         }
 
-        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeRequireFresh, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(value, ReadIndexModeValues.RequireFresh, StringComparison.OrdinalIgnoreCase))
         {
             readIndexMode = ReadIndexMode.RequireFresh;
             return true;
