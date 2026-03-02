@@ -116,8 +116,9 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
     }
 
     /// <summary> Builds Unity editor command-line arguments for batchmode daemon startup. </summary>
-    /// <param name="unityProjectRoot"> The Unity project root path. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="daemonLogPath"> The daemon log file path. </param>
+    /// <param name="endpoint"> The resolved IPC endpoint. </param>
     /// <returns> The command-line arguments string. </returns>
     private static string BuildArguments (
         ResolvedUnityProjectContext unityProject,
