@@ -49,20 +49,41 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         var artifactsSession = artifactsPreparationResult.Session!;
         var unityExecutionResult = await ExecuteUnitySafely(configuration, artifactsSession, cancellationToken).ConfigureAwait(false);
         var conversionResult = UnityResultsConversionResult.Success(hasFailedTests: false);
+        ExecutionError? conversionUnexpectedError = null;
 
         if (unityExecutionResult.IsSuccess)
         {
-            conversionResult = await ConvertResultsSafely(artifactsSession, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                conversionResult = await ConvertResultsSafely(artifactsSession, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                conversionUnexpectedError = ExecutionError.InternalError(
+                    $"Unexpected error during Unity results conversion: {exception.Message}");
+            }
         }
 
+        // NOTE:
+        // Completion metadata must be written even when caller cancellation is requested,
+        // so mapping can preserve run-scoped diagnostics.
         var completionResult = await CompleteArtifactsSafely(
             configuration,
             artifactsSession,
-            cancellationToken).ConfigureAwait(false);
+            CancellationToken.None).ConfigureAwait(false);
         if (!completionResult.IsSuccess)
         {
             return TestRunExecutionPipelineResult.Failure(
                 completionResult.Error!,
+                artifactsSession,
+                unityExecutionResult,
+                conversionResult);
+        }
+
+        if (conversionUnexpectedError is not null)
+        {
+            return TestRunExecutionPipelineResult.Failure(
+                conversionUnexpectedError,
                 artifactsSession,
                 unityExecutionResult,
                 conversionResult);
@@ -171,12 +192,6 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             return UnityResultsConversionResult.Failure(
                 UnityResultsConversionFailureKind.Canceled,
                 "Unity results conversion was canceled.");
-        }
-        catch (Exception exception)
-        {
-            return UnityResultsConversionResult.Failure(
-                UnityResultsConversionFailureKind.InvalidResultsXml,
-                $"Unexpected error during Unity results conversion: {exception.Message}");
         }
     }
 }

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
@@ -8,6 +9,9 @@ using MackySoft.Ucli.TestRun.Configuration;
 using MackySoft.Ucli.TestRun.Execution;
 using MackySoft.Ucli.TestRun.Results;
 using MackySoft.Ucli.TestRun.Service;
+using MackySoft.Ucli.TestRun.Service.Mapping;
+using MackySoft.Ucli.TestRun.Service.Pipeline;
+using MackySoft.Ucli.TestRun.Service.Preflight;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests;
@@ -33,7 +37,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor(_ => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests))));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -61,7 +65,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor(_ => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -91,7 +95,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor(_ => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -115,7 +119,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor(_ => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -140,7 +144,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor(_ => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
                 UnityResultsConversionFailureKind.OutputWriteFailed,
                 "Failed to write results artifacts."))));
@@ -168,7 +172,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor(_ => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
                 UnityResultsConversionFailureKind.ResultsXmlReadFailed,
                 "Failed to read results.xml."))));
@@ -182,6 +186,67 @@ public sealed class TestRunServiceTests
         Assert.Equal(session.RunId, result.RunId);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithUnexpectedConversionException_ReturnsInfraError ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => throw new InvalidOperationException("boom")));
+
+        var result = await service.Execute(CreateInput(), CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(session.RunId, result.RunId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithCallerCancellationDuringUnityExecution_ReturnsCanceledToolErrorWithRunContext ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _) =>
+            {
+                cancellationTokenSource.Cancel();
+                return ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.Canceled,
+                    "Unity process execution was canceled."));
+            }),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+
+        var result = await service.Execute(CreateInput(), cancellationTokenSource.Token);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
+        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(CliErrorCodes.Canceled, result.ErrorCode);
+        Assert.Equal(session.RunId, result.RunId);
+        Assert.Equal(session.ArtifactsDir, result.ArtifactsDir);
+        Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
+    }
+
     private static TestRunService CreateService (
         ITestRunConfigurationResolver configurationResolver,
         IUnityExecutionModeDecisionService modeDecisionService,
@@ -189,13 +254,20 @@ public sealed class TestRunServiceTests
         IUnityTestExecutor unityTestExecutor,
         IUnityResultsConverter resultsConverter)
     {
-        return new TestRunService(
+        var preflightService = new TestRunPreflightService(
             configurationResolver,
             new StubConfigStore(),
-            modeDecisionService,
+            modeDecisionService);
+        var executionPipeline = new TestRunExecutionPipeline(
             artifactsService,
             unityTestExecutor,
             resultsConverter);
+        var resultMapper = new TestRunResultMapper();
+
+        return new TestRunService(
+            preflightService,
+            executionPipeline,
+            resultMapper);
     }
 
     private static TestRunCommandInput CreateInput ()
@@ -345,9 +417,9 @@ public sealed class TestRunServiceTests
 
     private sealed class StubUnityTestExecutor : IUnityTestExecutor
     {
-        private readonly Func<ResolvedTestRunConfiguration, ValueTask<UnityTestExecutionResult>> execute;
+        private readonly Func<ResolvedTestRunConfiguration, ArtifactPaths, CancellationToken, ValueTask<UnityTestExecutionResult>> execute;
 
-        public StubUnityTestExecutor (Func<ResolvedTestRunConfiguration, ValueTask<UnityTestExecutionResult>> execute)
+        public StubUnityTestExecutor (Func<ResolvedTestRunConfiguration, ArtifactPaths, CancellationToken, ValueTask<UnityTestExecutionResult>> execute)
         {
             this.execute = execute;
         }
@@ -357,7 +429,7 @@ public sealed class TestRunServiceTests
             ArtifactPaths artifactPaths,
             CancellationToken cancellationToken = default)
         {
-            return execute(configuration);
+            return execute(configuration, artifactPaths, cancellationToken);
         }
     }
 

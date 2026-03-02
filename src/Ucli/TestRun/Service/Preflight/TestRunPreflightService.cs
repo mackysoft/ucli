@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun.Configuration;
+using MackySoft.Ucli.TestRun.Service.Mapping;
 
 namespace MackySoft.Ucli.TestRun.Service.Preflight;
 
@@ -45,7 +45,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         if (!configurationResolutionResult.IsSuccess)
         {
             return TestRunPreflightResult.FailureResult(
-                CreateConfigurationFailureResult(configurationResolutionResult.Errors));
+                TestRunServiceErrorMapper.MapConfigurationErrors(configurationResolutionResult.Errors));
         }
 
         var configuration = configurationResolutionResult.Configuration!;
@@ -55,7 +55,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         if (!configLoadResult.IsSuccess)
         {
             return TestRunPreflightResult.FailureResult(
-                CreateErrorFromExecutionError(configLoadResult.Error!));
+                TestRunServiceErrorMapper.MapExecutionError(configLoadResult.Error!));
         }
 
         var modeDecisionResult = await modeDecisionService.Decide(
@@ -75,7 +75,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         if (!modeDecisionResult.IsSuccess)
         {
             return TestRunPreflightResult.FailureResult(
-                CreateErrorFromExecutionError(modeDecisionResult.Error!));
+                TestRunServiceErrorMapper.MapExecutionError(modeDecisionResult.Error!));
         }
 
         if (modeDecisionResult.Decision!.Target == UnityExecutionTarget.Daemon)
@@ -106,47 +106,4 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         }
     }
 
-    /// <summary> Creates configuration resolution failure output from structured errors. </summary>
-    /// <param name="errors"> The configuration resolution errors. </param>
-    /// <returns> The failure service result. </returns>
-    private static TestRunServiceResult CreateConfigurationFailureResult (IReadOnlyList<ExecutionError> errors)
-    {
-        if (errors.Count == 0)
-        {
-            return TestRunServiceResult.InfraError(
-                "Unexpected error while resolving run configuration.",
-                IpcErrorCodes.InternalError);
-        }
-
-        var hasInternalError = errors.Any(static error => error.Kind == ExecutionErrorKind.InternalError);
-        var errorCode = hasInternalError
-            ? IpcErrorCodes.InternalError
-            : IpcErrorCodes.InvalidArgument;
-        var message = string.Join(" | ", errors.Select(static error => error.Message));
-
-        return hasInternalError
-            ? TestRunServiceResult.InfraError(message, errorCode)
-            : TestRunServiceResult.InvalidInput(message, errorCode);
-    }
-
-    /// <summary> Converts execution errors into service results. </summary>
-    /// <param name="error"> The execution error. </param>
-    /// <returns> The mapped service result. </returns>
-    private static TestRunServiceResult CreateErrorFromExecutionError (ExecutionError error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return error.Kind switch
-        {
-            ExecutionErrorKind.InvalidArgument => TestRunServiceResult.InvalidInput(
-                error.Message,
-                IpcErrorCodes.InvalidArgument),
-            ExecutionErrorKind.Timeout => TestRunServiceResult.ToolError(
-                error.Message,
-                CliErrorCodes.IpcTimeout),
-            _ => TestRunServiceResult.InfraError(
-                error.Message,
-                IpcErrorCodes.InternalError),
-        };
-    }
 }

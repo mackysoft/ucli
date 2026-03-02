@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Execution;
 using MackySoft.Ucli.TestRun.Results;
@@ -20,7 +19,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
 
         if (pipelineResult.Error is not null)
         {
-            return CreateErrorFromExecutionError(pipelineResult.Error, pipelineResult.Session);
+            return TestRunServiceErrorMapper.MapExecutionError(pipelineResult.Error, pipelineResult.Session);
         }
 
         if (!pipelineResult.IsSuccess)
@@ -108,42 +107,5 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             runId: session.RunId,
             artifactsDir: session.ArtifactsDir,
             summaryJsonPath: session.Paths.SummaryJsonPath);
-    }
-
-    /// <summary> Converts execution errors into service results. </summary>
-    /// <param name="error"> The execution error. </param>
-    /// <param name="session"> The optional artifacts session. </param>
-    /// <returns> The mapped service result. </returns>
-    private static TestRunServiceResult CreateErrorFromExecutionError (
-        ExecutionError error,
-        ArtifactsSession? session)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        var runId = session?.RunId;
-        var artifactsDir = session?.ArtifactsDir;
-        var summaryJsonPath = session?.Paths.SummaryJsonPath;
-
-        return error.Kind switch
-        {
-            ExecutionErrorKind.InvalidArgument => TestRunServiceResult.InvalidInput(
-                error.Message,
-                IpcErrorCodes.InvalidArgument,
-                runId,
-                artifactsDir,
-                summaryJsonPath),
-            ExecutionErrorKind.Timeout => TestRunServiceResult.ToolError(
-                error.Message,
-                CliErrorCodes.IpcTimeout,
-                runId,
-                artifactsDir,
-                summaryJsonPath),
-            _ => TestRunServiceResult.InfraError(
-                error.Message,
-                IpcErrorCodes.InternalError,
-                runId,
-                artifactsDir,
-                summaryJsonPath),
-        };
     }
 }
