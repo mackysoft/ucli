@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.ReadIndex;
 
 namespace MackySoft.Ucli.Configuration;
 
@@ -201,7 +200,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
         var schemaVersion = document.SchemaVersion.GetValueOrDefault();
 
-        if (!TryParseOperationPolicy(document.OperationPolicy, out var operationPolicy))
+        if (!OperationPolicyCodec.TryParse(document.OperationPolicy, out var operationPolicy))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config operationPolicy is invalid: {document.OperationPolicy}."));
@@ -215,7 +214,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
         var readIndexDefaultModeValue = document.ReadIndexDefaultMode
             ?? ReadIndexModeValues.RequireFresh;
-        if (!TryParseReadIndexMode(readIndexDefaultModeValue, out var readIndexDefaultMode))
+        if (!ReadIndexModeCodec.TryParse(readIndexDefaultModeValue, out var readIndexDefaultMode))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config readIndexDefaultMode is invalid: {readIndexDefaultModeValue}."));
@@ -359,98 +358,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
         return new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
-            OperationPolicy: ToStringValue(config.OperationPolicy),
+            OperationPolicy: OperationPolicyCodec.ToValue(config.OperationPolicy),
             PlanTokenMode: PlanTokenModeCodec.ToValue(config.PlanTokenMode),
-            ReadIndexDefaultMode: ToStringValue(config.ReadIndexDefaultMode),
+            ReadIndexDefaultMode: ReadIndexModeCodec.ToValue(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand);
-    }
-
-    /// <summary> Converts <see cref="OperationPolicy" /> to the config string value. </summary>
-    /// <param name="operationPolicy"> The operation policy value. </param>
-    /// <returns> The config string representation. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="operationPolicy" /> is outside supported values. </exception>
-    private static string ToStringValue (OperationPolicy operationPolicy)
-    {
-        return operationPolicy switch
-        {
-            OperationPolicy.Safe => OperationPolicyValues.Safe,
-            OperationPolicy.Advanced => OperationPolicyValues.Advanced,
-            OperationPolicy.Dangerous => OperationPolicyValues.Dangerous,
-            _ => throw new ArgumentOutOfRangeException(nameof(operationPolicy), operationPolicy, "Unsupported operationPolicy."),
-        };
-    }
-
-    /// <summary> Converts <see cref="ReadIndexMode" /> to the config string value. </summary>
-    /// <param name="readIndexMode"> The read-index mode value. </param>
-    /// <returns> The config string representation. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="readIndexMode" /> is outside supported values. </exception>
-    private static string ToStringValue (ReadIndexMode readIndexMode)
-    {
-        return readIndexMode switch
-        {
-            ReadIndexMode.Disabled => ReadIndexModeValues.Disabled,
-            ReadIndexMode.AllowStale => ReadIndexModeValues.AllowStale,
-            ReadIndexMode.RequireFresh => ReadIndexModeValues.RequireFresh,
-            _ => throw new ArgumentOutOfRangeException(nameof(readIndexMode), readIndexMode, "Unsupported readIndexMode."),
-        };
-    }
-
-    /// <summary> Parses operation-policy config values. </summary>
-    /// <param name="value"> The config string value. </param>
-    /// <param name="operationPolicy"> The parsed enum value. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParseOperationPolicy (string? value, out OperationPolicy operationPolicy)
-    {
-        if (string.Equals(value, OperationPolicyValues.Safe, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Safe;
-            return true;
-        }
-
-        if (string.Equals(value, OperationPolicyValues.Advanced, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Advanced;
-            return true;
-        }
-
-        if (string.Equals(value, OperationPolicyValues.Dangerous, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Dangerous;
-            return true;
-        }
-
-        operationPolicy = default;
-        return false;
-    }
-
-    /// <summary> Parses read-index-mode config values. </summary>
-    /// <param name="value"> The config string value. </param>
-    /// <param name="readIndexMode"> The parsed enum value. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParseReadIndexMode (string? value, out ReadIndexMode readIndexMode)
-    {
-        if (string.Equals(value, ReadIndexModeValues.Disabled, StringComparison.OrdinalIgnoreCase))
-        {
-            readIndexMode = ReadIndexMode.Disabled;
-            return true;
-        }
-
-        if (string.Equals(value, ReadIndexModeValues.AllowStale, StringComparison.OrdinalIgnoreCase))
-        {
-            readIndexMode = ReadIndexMode.AllowStale;
-            return true;
-        }
-
-        if (string.Equals(value, ReadIndexModeValues.RequireFresh, StringComparison.OrdinalIgnoreCase))
-        {
-            readIndexMode = ReadIndexMode.RequireFresh;
-            return true;
-        }
-
-        readIndexMode = default;
-        return false;
     }
 
     /// <summary> Determines whether an exception should be treated as invalid path formatting. </summary>

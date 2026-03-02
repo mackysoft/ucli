@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Operations;
 

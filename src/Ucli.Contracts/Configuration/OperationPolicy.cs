@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Configuration;
+namespace MackySoft.Ucli.Contracts.Configuration;
 
 /// <summary> Defines allowed operation safety levels configured in <c>.ucli/config.json</c>. </summary>
-internal enum OperationPolicy
+public enum OperationPolicy
 {
     /// <summary> Allows only safe operations. </summary>
     Safe = 0,

@@ -23,7 +23,7 @@ internal static class ReadIndexModeResolver
             return ReadIndexModeResolutionResult.Success(config.ReadIndexDefaultMode);
         }
 
-        if (TryParseOptionValue(optionValue, out var mode))
+        if (ReadIndexModeCodec.TryParse(optionValue, out var mode))
         {
             return ReadIndexModeResolutionResult.Success(mode);
         }
@@ -32,33 +32,4 @@ internal static class ReadIndexModeResolver
             $"readIndexMode must be one of '{ReadIndexModeValues.Disabled}', '{ReadIndexModeValues.AllowStale}', '{ReadIndexModeValues.RequireFresh}'. Actual: {optionValue}."));
     }
 
-    /// <summary> Parses command option value into <see cref="ReadIndexMode" />. </summary>
-    /// <param name="optionValue"> The option value. </param>
-    /// <param name="mode"> The parsed mode. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParseOptionValue (
-        string optionValue,
-        out ReadIndexMode mode)
-    {
-        if (string.Equals(optionValue, ReadIndexModeValues.Disabled, StringComparison.OrdinalIgnoreCase))
-        {
-            mode = ReadIndexMode.Disabled;
-            return true;
-        }
-
-        if (string.Equals(optionValue, ReadIndexModeValues.AllowStale, StringComparison.OrdinalIgnoreCase))
-        {
-            mode = ReadIndexMode.AllowStale;
-            return true;
-        }
-
-        if (string.Equals(optionValue, ReadIndexModeValues.RequireFresh, StringComparison.OrdinalIgnoreCase))
-        {
-            mode = ReadIndexMode.RequireFresh;
-            return true;
-        }
-
-        mode = default;
-        return false;
-    }
 }

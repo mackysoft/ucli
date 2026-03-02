@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.ReadIndex;
+namespace MackySoft.Ucli.Contracts.Configuration;
 
 /// <summary> Defines read-index usage modes shared by read commands. </summary>
-internal enum ReadIndexMode
+public enum ReadIndexMode
 {
     /// <summary> Disables read-index usage and bypasses index generation. </summary>
     Disabled = 0,
