@@ -139,18 +139,14 @@ internal sealed class TestProfileInitService : ITestProfileInitService
     /// <returns> A normalized path value, or an invalid-input error message. </returns>
     private static PathValueResolution ResolveOutputPathValue (string? outputPath)
     {
-        var normalizedPath = DefaultOutputPath;
-        if (StringValueNormalizer.TryTrimToNonEmpty(outputPath, out var normalizedInputPath))
+        var normalizedPath = StringValueNormalizer.TrimToNull(outputPath);
+        if (normalizedPath is not null && IsDirectoryPathDefinition(normalizedPath))
         {
-            normalizedPath = normalizedInputPath;
-            if (IsDirectoryPathDefinition(normalizedPath))
-            {
-                return PathValueResolution.Failure(
-                    $"Output path must be a file path. Directory-style path is not allowed: {normalizedPath}");
-            }
+            return PathValueResolution.Failure(
+                $"Output path must be a file path. Directory-style path is not allowed: {normalizedPath}");
         }
 
-        var pathWithExtension = EnsureJsonExtension(normalizedPath);
+        var pathWithExtension = EnsureJsonExtension(normalizedPath ?? DefaultOutputPath);
         return PathValueResolution.Success(pathWithExtension);
     }
 
