@@ -7,9 +7,9 @@ public sealed class CommandResultFactoryTests
 {
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData((int)ExecutionErrorKind.InvalidArgument, ErrorCodes.InvalidArgument, (int)CliExitCode.InvalidArgument)]
-    [InlineData((int)ExecutionErrorKind.Timeout, ErrorCodes.IpcTimeout, (int)CliExitCode.ToolError)]
-    [InlineData((int)ExecutionErrorKind.InternalError, ErrorCodes.InternalError, (int)CliExitCode.ToolError)]
+    [InlineData((int)ExecutionErrorKind.InvalidArgument, "INVALID_ARGUMENT", (int)CliExitCode.InvalidArgument)]
+    [InlineData((int)ExecutionErrorKind.Timeout, "IPC_TIMEOUT", (int)CliExitCode.ToolError)]
+    [InlineData((int)ExecutionErrorKind.InternalError, "INTERNAL_ERROR", (int)CliExitCode.ToolError)]
     public void FromExecutionError_MapsErrorKindToCommandResult (
         int errorKind,
         string expectedErrorCode,
@@ -22,7 +22,7 @@ public sealed class CommandResultFactoryTests
         var result = CommandResultFactory.FromExecutionError(command, error);
 
         Assert.Equal(command, result.Command);
-        Assert.Equal(CliProtocol.StatusError, result.Status);
+        Assert.Equal("error", result.Status);
         Assert.Equal(expectedExitCode, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(expectedErrorCode, result.Errors[0].Code);

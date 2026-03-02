@@ -1,0 +1,98 @@
+using System.Text.Json;
+using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Storage;
+
+namespace MackySoft.Ucli.Contracts.Tests.Storage;
+
+public sealed class DaemonSessionJsonContractSerializerTests
+{
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WithValidJson_ReturnsContract ()
+    {
+        const string Json = """
+            {
+              "schemaVersion": 1,
+              "sessionToken": "token-123",
+              "projectFingerprint": "fingerprint-abc",
+              "issuedAtUtc": "2026-03-02T00:00:00+00:00",
+              "runtimeKind": "batchmode",
+              "ownerKind": "cli",
+              "canShutdownProcess": true,
+              "endpointTransportKind": "namedPipe",
+              "endpointAddress": "ucli-endpoint",
+              "processId": 1234
+            }
+            """;
+
+        var contract = DaemonSessionJsonContractSerializer.Deserialize(Json);
+
+        Assert.NotNull(contract);
+        Assert.Equal(1, contract.SchemaVersion);
+        Assert.Equal("token-123", contract.SessionToken);
+        Assert.Equal("fingerprint-abc", contract.ProjectFingerprint);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
+        Assert.Equal("batchmode", contract.RuntimeKind);
+        Assert.Equal("cli", contract.OwnerKind);
+        Assert.True(contract.CanShutdownProcess);
+        Assert.Equal("namedPipe", contract.EndpointTransportKind);
+        Assert.Equal("ucli-endpoint", contract.EndpointAddress);
+        Assert.Equal(1234, contract.ProcessId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WithNullLiteral_ReturnsNull ()
+    {
+        var contract = DaemonSessionJsonContractSerializer.Deserialize("null");
+
+        Assert.Null(contract);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WithWhitespace_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(() =>
+        {
+            DaemonSessionJsonContractSerializer.Deserialize(" ");
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Serialize_WithContract_WritesCamelCaseFields ()
+    {
+        var contract = new DaemonSessionJsonContract(
+            SchemaVersion: 1,
+            SessionToken: "token-123",
+            ProjectFingerprint: "fingerprint-abc",
+            IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
+            RuntimeKind: "batchmode",
+            OwnerKind: "cli",
+            CanShutdownProcess: true,
+            EndpointTransportKind: "namedPipe",
+            EndpointAddress: "ucli-endpoint",
+            ProcessId: 1234);
+
+        var json = DaemonSessionJsonContractSerializer.Serialize(contract);
+        using var jsonDocument = JsonDocument.Parse(json);
+
+        JsonAssert.For(jsonDocument.RootElement)
+            .MatchesSchema(SessionJsonSchema, nameof(SessionJsonSchema));
+    }
+
+    private static JsonSchemaNode SessionJsonSchema => JsonSchemaNode.Object(
+        builder => builder
+            .Required("schemaVersion", JsonSchemaNode.Value(JsonSchemaType.Int32))
+            .Required("sessionToken", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("projectFingerprint", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("issuedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("runtimeKind", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("ownerKind", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("canShutdownProcess", JsonSchemaNode.Value(JsonSchemaType.Boolean))
+            .Required("endpointTransportKind", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("endpointAddress", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32)),
+        allowAdditionalProperties: false);
+}

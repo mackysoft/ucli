@@ -33,11 +33,11 @@ public sealed class CliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.Status,
-            status: CliProtocol.StatusError,
+            status: "error",
             exitCode: (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: ErrorCodes.CommandNotImplemented);
+            expectedCode: "COMMAND_NOT_IMPLEMENTED");
     }
 
     [Theory]
@@ -60,7 +60,7 @@ public sealed class CliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.Init,
-            status: CliProtocol.StatusOk,
+            status: "ok",
             exitCode: (int)CliExitCode.Success);
         CommandResultAssert.HasNoErrors(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
@@ -174,11 +174,11 @@ public sealed class CliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.Init,
-            status: CliProtocol.StatusError,
+            status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
+            expectedCode: "INVALID_ARGUMENT");
     }
 
     [Fact]
@@ -199,11 +199,11 @@ public sealed class CliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.Init,
-            status: CliProtocol.StatusError,
+            status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
+            expectedCode: "INVALID_ARGUMENT");
         Assert.Contains(InitProjectPathOptionMessage, result.StdErr, StringComparison.Ordinal);
     }
 
@@ -218,11 +218,11 @@ public sealed class CliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.Status,
-            status: CliProtocol.StatusError,
+            status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
+            expectedCode: "INVALID_ARGUMENT");
         Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
     }
 
@@ -236,12 +236,12 @@ public sealed class CliOutputContractTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            command: CliProtocol.RootCommand,
-            status: CliProtocol.StatusError,
+            command: UcliCommandNames.Root,
+            status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: ErrorCodes.InvalidArgument);
+            expectedCode: "INVALID_ARGUMENT");
     }
 
     private static async Task<CommandExecutionResult> RunInit (
