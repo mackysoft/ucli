@@ -83,8 +83,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 continue;
             }
 
-            var normalizedOpId = StringValueNormalizer.TrimToNull(operationRequest.OpId);
-            if (normalizedOpId is null)
+            if (!StringValueNormalizer.TryTrimToNonEmpty(operationRequest.OpId, out var normalizedOpId))
             {
                 errors.Add(new ValidationError(
                     Code: ValidationErrorCodes.OpIdRequired,
@@ -99,8 +98,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     OpId: normalizedOpId));
             }
 
-            var normalizedOperationName = StringValueNormalizer.TrimToNull(operationRequest.Op);
-            if (normalizedOperationName is null)
+            if (!StringValueNormalizer.TryTrimToNonEmpty(operationRequest.Op, out var normalizedOperationName))
             {
                 errors.Add(new ValidationError(
                     Code: ValidationErrorCodes.OpNameRequired,
