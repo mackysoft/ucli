@@ -3,6 +3,9 @@ namespace MackySoft.Ucli.Cli;
 /// <summary> Defines CLI command-name constants and lookup helpers. </summary>
 internal static class UcliCommandNames
 {
+    /// <summary> Gets the command name used when no subcommand can be identified. </summary>
+    public const string Root = "root";
+
     /// <summary> Gets the command name for help. </summary>
     public const string Help = "help";
 
@@ -43,7 +46,7 @@ internal static class UcliCommandNames
     /// <param name="args"> The command-line arguments passed to the process. </param>
     /// <returns>
     /// <para> A command name compatible with the CLI result envelope. </para>
-    /// <para> Returns <see cref="CliProtocol.RootCommand" /> when no known command can be identified. </para>
+    /// <para> Returns <see cref="Root" /> when no known command can be identified. </para>
     /// </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
     public static string ResolveResultCommandName (string[] args)
@@ -52,13 +55,13 @@ internal static class UcliCommandNames
 
         if (args.Length == 0)
         {
-            return CliProtocol.RootCommand;
+            return Root;
         }
 
         var firstArgument = args[0];
         if (string.IsNullOrWhiteSpace(firstArgument) || firstArgument.StartsWith("-", StringComparison.Ordinal))
         {
-            return CliProtocol.RootCommand;
+            return Root;
         }
 
         if (string.Equals(firstArgument, Test, StringComparison.Ordinal))
@@ -73,6 +76,6 @@ internal static class UcliCommandNames
             return Test;
         }
 
-        return IsRegistered(firstArgument) ? firstArgument : CliProtocol.RootCommand;
+        return IsRegistered(firstArgument) ? firstArgument : Root;
     }
 }

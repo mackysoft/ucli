@@ -96,14 +96,14 @@ internal static class Program
         }
         catch (OperationCanceledException)
         {
-            var canceledResult = CommandResult.Canceled(CliProtocol.RootCommand, CanceledMessage);
+            var canceledResult = CommandResult.Canceled(UcliCommandNames.Root, CanceledMessage);
             CommandResultWriter.WriteToStandardOutput(canceledResult);
             Environment.ExitCode = canceledResult.ExitCode;
             return Environment.ExitCode;
         }
         catch (Exception)
         {
-            var internalErrorResult = CommandResult.InternalError(CliProtocol.RootCommand, InternalErrorMessage);
+            var internalErrorResult = CommandResult.InternalError(UcliCommandNames.Root, InternalErrorMessage);
             CommandResultWriter.WriteToStandardOutput(internalErrorResult);
             Environment.ExitCode = internalErrorResult.ExitCode;
             return Environment.ExitCode;
@@ -153,7 +153,7 @@ internal static class Program
         }
 
         var result = CommandResult.InvalidArgument(
-            command: CliProtocol.RootCommand,
+            command: UcliCommandNames.Root,
             message: $"Command '{firstArgument}' is not recognized.");
         CommandResultWriter.WriteToStandardOutput(result);
         Environment.ExitCode = result.ExitCode;
@@ -164,7 +164,7 @@ internal static class Program
     /// <param name="args"> The command-line arguments passed to the process. </param>
     /// <returns>
     /// <para> The normalized command name for parse errors. </para>
-    /// <para> Returns <see cref="CliProtocol.RootCommand" /> when no known command can be identified. </para>
+    /// <para> Returns <see cref="UcliCommandNames.Root" /> when no known command can be identified. </para>
     /// </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
     private static string ResolveCommandName (string[] args)

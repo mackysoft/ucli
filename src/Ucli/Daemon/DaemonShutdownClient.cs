@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -10,11 +9,6 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon shutdown request sending through Unity IPC client. </summary>
 internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     private readonly IUnityIpcClient unityIpcClient;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonShutdownClient" /> class. </summary>
@@ -46,9 +40,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 
         try
         {
-            var payload = JsonSerializer.SerializeToElement(
-                new IpcShutdownRequest("ucli-daemon-stop"),
-                SerializerOptions);
+            var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("ucli-daemon-stop"));
             var request = new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: $"daemon-stop-{Guid.NewGuid():N}",

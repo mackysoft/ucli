@@ -76,6 +76,35 @@ public static class IpcFrameCodec
         int maxFrameSizeInBytes = DefaultMaxFrameSizeInBytes,
         CancellationToken cancellationToken = default)
     {
+        var readResult = await TryReadModelAsync<T>(
+                stream,
+                serializerOptions,
+                maxFrameSizeInBytes,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (readResult.IsSuccess)
+        {
+            return readResult.Value;
+        }
+
+        throw CreateReadModelException(readResult.ErrorKind, readResult.ErrorMessage);
+    }
+
+    /// <summary> Tries to read one length-prefixed JSON frame and deserialize it to the target model type. </summary>
+    /// <typeparam name="T"> The model type to deserialize. </typeparam>
+    /// <param name="stream"> The source stream. </param>
+    /// <param name="serializerOptions"> The serializer options used for JSON reading. </param>
+    /// <param name="maxFrameSizeInBytes"> The maximum permitted payload size. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The frame read result that contains either deserialized model value or one machine-readable error kind. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stream" /> or <paramref name="serializerOptions" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="maxFrameSizeInBytes" /> is less than 1. </exception>
+    public static async ValueTask<IpcFrameReadResult<T>> TryReadModelAsync<T> (
+        Stream stream,
+        JsonSerializerOptions serializerOptions,
+        int maxFrameSizeInBytes = DefaultMaxFrameSizeInBytes,
+        CancellationToken cancellationToken = default)
+    {
         if (stream == null)
         {
             throw new ArgumentNullException(nameof(stream));
@@ -90,35 +119,67 @@ public static class IpcFrameCodec
         ValidateMaxFrameSize(maxFrameSizeInBytes);
 
         var header = new byte[sizeof(int)];
-        await ReadExactlyAsync(stream, header.AsMemory(), cancellationToken);
+        try
+        {
+            await ReadExactlyAsync(stream, header.AsMemory(), cancellationToken);
+        }
+        catch (EndOfStreamException exception)
+        {
+            return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.HeaderTruncated, exception.Message);
+        }
+        catch (Exception exception) when (IsStreamReadFailure(exception))
+        {
+            return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.StreamReadFailed, exception.Message);
+        }
 
         var payloadLength = BinaryPrimitives.ReadInt32LittleEndian(header);
         if (payloadLength < 0)
         {
-            throw new InvalidDataException($"IPC payload length must be non-negative. Actual: {payloadLength}.");
+            return IpcFrameReadResult<T>.Failure(
+                IpcFrameReadErrorKind.PayloadLengthNegative,
+                $"IPC payload length must be non-negative. Actual: {payloadLength}.");
         }
 
         if (payloadLength > maxFrameSizeInBytes)
         {
-            throw new InvalidDataException($"IPC payload exceeds maximum frame size: {payloadLength} > {maxFrameSizeInBytes}.");
+            return IpcFrameReadResult<T>.Failure(
+                IpcFrameReadErrorKind.PayloadTooLarge,
+                $"IPC payload exceeds maximum frame size: {payloadLength} > {maxFrameSizeInBytes}.");
         }
 
         var payload = new byte[payloadLength];
-        await ReadExactlyAsync(stream, payload.AsMemory(), cancellationToken);
+        try
+        {
+            await ReadExactlyAsync(stream, payload.AsMemory(), cancellationToken);
+        }
+        catch (EndOfStreamException exception)
+        {
+            return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.PayloadTruncated, exception.Message);
+        }
+        catch (Exception exception) when (IsStreamReadFailure(exception))
+        {
+            return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.StreamReadFailed, exception.Message);
+        }
 
         try
         {
             var value = JsonSerializer.Deserialize<T>(payload, serializerOptions);
             if (value is null)
             {
-                throw new InvalidDataException("IPC payload could not be deserialized into the target model.");
+                return IpcFrameReadResult<T>.Failure(
+                    IpcFrameReadErrorKind.PayloadModelNull,
+                    "IPC payload could not be deserialized into the target model.");
             }
 
-            return value;
+            return IpcFrameReadResult<T>.Success(value);
         }
         catch (JsonException exception)
         {
-            throw new InvalidDataException("IPC payload contains invalid JSON.", exception);
+            return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.PayloadJsonInvalid, exception.Message);
+        }
+        catch (NotSupportedException exception)
+        {
+            return IpcFrameReadResult<T>.Failure(IpcFrameReadErrorKind.PayloadJsonInvalid, exception.Message);
         }
     }
 
@@ -160,5 +221,38 @@ public static class IpcFrameCodec
                 maxFrameSizeInBytes,
                 "Maximum frame size must be greater than zero.");
         }
+    }
+
+    /// <summary> Determines whether one exception indicates stream read failure in transport boundary. </summary>
+    /// <param name="exception"> The exception to classify. </param>
+    /// <returns> <see langword="true" /> when exception indicates stream read failure; otherwise <see langword="false" />. </returns>
+    private static bool IsStreamReadFailure (Exception exception)
+    {
+        return exception is IOException
+            or InvalidDataException
+            or ObjectDisposedException
+            or InvalidOperationException
+            or NotSupportedException;
+    }
+
+    /// <summary> Creates one legacy exception from frame read error kind for <see cref="ReadModelAsync{T}" /> compatibility. </summary>
+    /// <param name="errorKind"> The frame read error kind. </param>
+    /// <param name="errorMessage"> The diagnostic frame read error message. </param>
+    /// <returns> The mapped exception instance. </returns>
+    private static Exception CreateReadModelException (
+        IpcFrameReadErrorKind errorKind,
+        string errorMessage)
+    {
+        return errorKind switch
+        {
+            IpcFrameReadErrorKind.HeaderTruncated => new EndOfStreamException(errorMessage),
+            IpcFrameReadErrorKind.PayloadTruncated => new EndOfStreamException(errorMessage),
+            IpcFrameReadErrorKind.PayloadJsonInvalid => new InvalidDataException("IPC payload contains invalid JSON."),
+            IpcFrameReadErrorKind.PayloadLengthNegative => new InvalidDataException(errorMessage),
+            IpcFrameReadErrorKind.PayloadTooLarge => new InvalidDataException(errorMessage),
+            IpcFrameReadErrorKind.PayloadModelNull => new InvalidDataException(errorMessage),
+            IpcFrameReadErrorKind.StreamReadFailed => new InvalidDataException(errorMessage),
+            _ => new InvalidDataException(errorMessage),
+        };
     }
 }

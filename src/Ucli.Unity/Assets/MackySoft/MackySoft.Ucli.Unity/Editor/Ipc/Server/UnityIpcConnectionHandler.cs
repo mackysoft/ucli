@@ -34,21 +34,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             Stream stream,
             CancellationToken cancellationToken = default)
         {
-            IpcRequest request;
-            try
+            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                stream,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: cancellationToken);
+            if (!readResult.IsSuccess)
             {
-                request = await IpcFrameCodec.ReadModelAsync<IpcRequest>(
-                    stream,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(exception);
+                var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(
+                    readResult.ErrorKind,
+                    readResult.ErrorMessage);
                 try
                 {
                     await IpcFrameCodec.WriteModelAsync(
@@ -71,6 +65,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
+            var request = readResult.Value;
             var response = await requestHandler.Handle(request, cancellationToken);
             await IpcFrameCodec.WriteModelAsync(
                 stream,

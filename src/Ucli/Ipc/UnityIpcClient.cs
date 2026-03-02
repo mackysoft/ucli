@@ -53,11 +53,18 @@ internal sealed class UnityIpcClient : IUnityIpcClient
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: ipcCancellationToken)
                 .ConfigureAwait(false);
-            return await IpcFrameCodec.ReadModelAsync<IpcResponse>(
+
+            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcResponse>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: ipcCancellationToken)
                 .ConfigureAwait(false);
+            if (!readResult.IsSuccess)
+            {
+                throw CreateFrameReadException(readResult.ErrorKind, readResult.ErrorMessage);
+            }
+
+            return readResult.Value;
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
@@ -66,6 +73,22 @@ internal sealed class UnityIpcClient : IUnityIpcClient
                 $"IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
                 exception);
         }
+    }
+
+    /// <summary> Maps one frame read error kind to legacy exception categories for caller compatibility. </summary>
+    /// <param name="errorKind"> The frame read error kind. </param>
+    /// <param name="errorMessage"> The diagnostic frame read error message. </param>
+    /// <returns> The mapped exception value. </returns>
+    private static Exception CreateFrameReadException (
+        IpcFrameReadErrorKind errorKind,
+        string errorMessage)
+    {
+        return errorKind switch
+        {
+            IpcFrameReadErrorKind.HeaderTruncated => new EndOfStreamException(errorMessage),
+            IpcFrameReadErrorKind.PayloadTruncated => new EndOfStreamException(errorMessage),
+            _ => new InvalidDataException(errorMessage),
+        };
     }
 
     /// <summary> Opens a stream connection to the specified endpoint. </summary>

@@ -1,5 +1,5 @@
-using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Operations;
 
@@ -38,11 +38,11 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         ArgumentNullException.ThrowIfNull(config);
 
         var errors = new List<ValidationError>();
-        if (request.ProtocolVersion != CliProtocol.CurrentVersion)
+        if (request.ProtocolVersion != IpcProtocol.CurrentVersion)
         {
             errors.Add(new ValidationError(
                 Code: ValidationErrorCodes.ProtocolVersionMismatch,
-                Message: $"protocolVersion must be {CliProtocol.CurrentVersion}. Actual: {request.ProtocolVersion}.",
+                Message: $"protocolVersion must be {IpcProtocol.CurrentVersion}. Actual: {request.ProtocolVersion}.",
                 OpId: null));
         }
 
