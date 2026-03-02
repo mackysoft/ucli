@@ -90,6 +90,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("PLAN_TOKEN_EXPIRED", IpcErrorCodes.PlanTokenExpired);
         Assert.Equal("PLAN_TOKEN_REQUEST_MISMATCH", IpcErrorCodes.PlanTokenRequestMismatch);
         Assert.Equal("STATE_CHANGED_SINCE_PLAN", IpcErrorCodes.StateChangedSincePlan);
+        Assert.Equal("REQUEST_ID_CONFLICT", IpcErrorCodes.RequestIdConflict);
         Assert.Equal("INTERNAL_ERROR", IpcErrorCodes.InternalError);
     }
 

@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
             writer.WriteStartObject();
             writer.WritePropertyName("args");
-            WriteCanonicalJsonValue(writer, operation.Args);
+            WriteCanonicalJsonValueCore(writer, operation.Args);
 
             if (operation.As is not null)
             {
@@ -121,7 +121,23 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <summary> Writes one canonical JSON value recursively. </summary>
         /// <param name="writer"> The target writer. </param>
         /// <param name="value"> The JSON value to canonicalize. </param>
-        private static void WriteCanonicalJsonValue (
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="writer" /> is <see langword="null" />. </exception>
+        internal static void WriteCanonicalJsonValue (
+            Utf8JsonWriter writer,
+            JsonElement value)
+        {
+            if (writer == null)
+            {
+                throw new ArgumentNullException(nameof(writer));
+            }
+
+            WriteCanonicalJsonValueCore(writer, value);
+        }
+
+        /// <summary> Writes one canonical JSON value recursively. </summary>
+        /// <param name="writer"> The target writer. </param>
+        /// <param name="value"> The JSON value to canonicalize. </param>
+        private static void WriteCanonicalJsonValueCore (
             Utf8JsonWriter writer,
             JsonElement value)
         {
@@ -135,7 +151,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     writer.WriteStartArray();
                     foreach (var arrayItem in value.EnumerateArray())
                     {
-                        WriteCanonicalJsonValue(writer, arrayItem);
+                        WriteCanonicalJsonValueCore(writer, arrayItem);
                     }
 
                     writer.WriteEndArray();
@@ -179,7 +195,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 {
                     var property = properties[i];
                     writer.WritePropertyName(property.Name);
-                    WriteCanonicalJsonValue(writer, property.Value);
+                    WriteCanonicalJsonValueCore(writer, property.Value);
                 }
 
                 writer.WriteEndObject();

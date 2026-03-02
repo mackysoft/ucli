@@ -56,6 +56,104 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenSameRequestIdAndSamePayload_ReusesCompletedResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "op-1",
+                        "ucli.resolve",
+                        OperationPhase.Plan,
+                        false,
+                        false,
+                        System.Array.Empty<OperationTouch>(),
+                        null),
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+
+            var firstResponse = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var secondResponse = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(firstResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
+            Assert.That(secondResponse.Payload.TryGetProperty("opResults", out var opResults), Is.True);
+            Assert.That(opResults.GetArrayLength(), Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenSameRequestIdAndDifferentPayload_ReturnsRequestIdConflict () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var firstRequest = CreateExecuteRequest(
+                commandName: IpcExecuteCommandNames.Plan,
+                operationId: "op-1",
+                operationName: "ucli.resolve");
+            var secondRequest = CreateExecuteRequest(
+                commandName: IpcExecuteCommandNames.Plan,
+                operationId: "op-2",
+                operationName: "ucli.scene.open");
+
+            _ = await dispatcher.Dispatch(firstRequest, context, CancellationToken.None).AsUniTask();
+            var secondResponse = await dispatcher.Dispatch(secondRequest, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(secondResponse.Errors.Count, Is.EqualTo(1));
+            Assert.That(secondResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
+            AssertEmptyOpResultsPayload(secondResponse.Payload);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenSameRequestIdAndDifferentPlanToken_ReturnsRequestIdConflict () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var firstRequest = CreateExecuteRequest(
+                commandName: IpcExecuteCommandNames.Call,
+                operationId: "op-1",
+                operationName: "ucli.resolve",
+                planToken: "token-1");
+            var secondRequest = CreateExecuteRequest(
+                commandName: IpcExecuteCommandNames.Call,
+                operationId: "op-1",
+                operationName: "ucli.resolve",
+                planToken: "token-2");
+
+            _ = await dispatcher.Dispatch(firstRequest, context, CancellationToken.None).AsUniTask();
+            var secondResponse = await dispatcher.Dispatch(secondRequest, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(secondResponse.Errors.Count, Is.EqualTo(1));
+            Assert.That(secondResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
+            AssertEmptyOpResultsPayload(secondResponse.Payload);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsResolve_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
             await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Resolve);
@@ -96,6 +194,31 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
             Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
             AssertEmptyOpResultsPayload(response.Payload);
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenArgumentsIsNotObject_ReturnsInvalidArgumentWithoutExecuting () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
+                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "normalizer should not run", null)));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = new IpcExecuteRequest(IpcExecuteCommandNames.Plan, default);
+
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Message, Is.EqualTo("Request arguments must be a JSON object."));
+            AssertEmptyOpResultsPayload(response.Payload);
+            Assert.That(normalizer.CallCount, Is.EqualTo(0));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
         });
 
@@ -263,7 +386,11 @@ namespace MackySoft.Ucli.Unity.Tests
             return first;
         }
 
-        private static IpcExecuteRequest CreateExecuteRequest (string commandName)
+        private static IpcExecuteRequest CreateExecuteRequest (
+            string commandName,
+            string operationId = "op-1",
+            string operationName = "ucli.resolve",
+            string? planToken = null)
         {
             return new IpcExecuteRequest(
                 commandName,
@@ -275,12 +402,15 @@ namespace MackySoft.Ucli.Unity.Tests
                     {
                         new
                         {
-                            id = "op-1",
-                            op = "ucli.resolve",
+                            id = operationId,
+                            op = operationName,
                             args = new { },
                         },
                     },
-                }));
+                }))
+            {
+                PlanToken = planToken,
+            };
         }
 
         private static NormalizedExecuteRequest CreateNormalizedRequest ()

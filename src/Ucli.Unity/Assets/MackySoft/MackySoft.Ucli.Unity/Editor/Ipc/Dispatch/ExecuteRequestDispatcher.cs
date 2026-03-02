@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
@@ -21,6 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IExecuteRequestNormalizer requestNormalizer;
         private readonly IOperationPhaseExecutor operationPhaseExecutor;
+        private readonly IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator;
 
         /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
         /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
@@ -29,9 +31,26 @@ namespace MackySoft.Ucli.Unity.Ipc
         public ExecuteRequestDispatcher (
             IExecuteRequestNormalizer requestNormalizer,
             IOperationPhaseExecutor operationPhaseExecutor)
+            : this(
+                requestNormalizer,
+                operationPhaseExecutor,
+                new ExecuteRequestIdempotencyCoordinator())
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
+        /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
+        /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
+        /// <param name="requestIdempotencyCoordinator"> The request-id idempotency coordinator dependency. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
+        public ExecuteRequestDispatcher (
+            IExecuteRequestNormalizer requestNormalizer,
+            IOperationPhaseExecutor operationPhaseExecutor,
+            IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator)
         {
             this.requestNormalizer = requestNormalizer ?? throw new ArgumentNullException(nameof(requestNormalizer));
             this.operationPhaseExecutor = operationPhaseExecutor ?? throw new ArgumentNullException(nameof(operationPhaseExecutor));
+            this.requestIdempotencyCoordinator = requestIdempotencyCoordinator ?? throw new ArgumentNullException(nameof(requestIdempotencyCoordinator));
         }
 
         /// <summary> Dispatches one execute request and returns the response envelope. </summary>
@@ -58,6 +77,70 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (request.Arguments.ValueKind != JsonValueKind.Object)
+            {
+                return ExecuteResponseBuilder.CreateErrorResponse(
+                    context,
+                    IpcErrorCodes.InvalidArgument,
+                    "Request arguments must be a JSON object.",
+                    null,
+                    SerializerOptions);
+            }
+
+            var requestFingerprint = ExecuteRequestFingerprintCalculator.Create(request);
+            var idempotencyDecision = requestIdempotencyCoordinator.Acquire(context.RequestId, requestFingerprint);
+            switch (idempotencyDecision.Kind)
+            {
+                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ReplayCompleted:
+                    return idempotencyDecision.Response!;
+
+                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.Conflict:
+                    return ExecuteResponseBuilder.CreateErrorResponse(
+                        context,
+                        IpcErrorCodes.RequestIdConflict,
+                        "Request id conflict. The same requestId was already used for a different request content.",
+                        null,
+                        SerializerOptions);
+
+                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.WaitInFlight:
+                    return await WaitForSharedResponse(idempotencyDecision.SharedResponseTask!, cancellationToken).ConfigureAwait(false);
+
+                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner:
+                    break;
+
+                default:
+                    throw new InvalidOperationException($"Unknown idempotency decision kind: {idempotencyDecision.Kind}.");
+            }
+
+            try
+            {
+                var response = await DispatchCore(request, context, cancellationToken).ConfigureAwait(false);
+                requestIdempotencyCoordinator.CompleteSuccess(context.RequestId, requestFingerprint, response);
+                return response;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                requestIdempotencyCoordinator.CompleteCanceled(context.RequestId);
+                throw;
+            }
+            catch (Exception exception)
+            {
+                requestIdempotencyCoordinator.CompleteFailed(context.RequestId, exception);
+                throw;
+            }
+        }
+
+        /// <summary> Executes one dispatch flow without idempotency coordination. </summary>
+        /// <param name="request"> The execute request payload. </param>
+        /// <param name="context"> The request-level dispatch context. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <returns> The response envelope for the incoming request. </returns>
+        /// <exception cref="System.OperationCanceledException"> Thrown when dispatch is canceled. </exception>
+        private async Task<IpcResponse> DispatchCore (
+            IpcExecuteRequest request,
+            ExecuteDispatchContext context,
+            CancellationToken cancellationToken)
+        {
             if (!ExecuteRequestCommandResolver.TryResolve(request.Command, out PhaseExecutionCommand executionCommand))
             {
                 return ExecuteResponseBuilder.CreateErrorResponse(
@@ -98,6 +181,36 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null,
                     SerializerOptions);
             }
+        }
+
+        /// <summary> Waits for one owner execution result while preserving caller-local cancellation. </summary>
+        /// <param name="sharedResponseTask"> The owner execution task shared by callers. </param>
+        /// <param name="cancellationToken"> The caller cancellation token. </param>
+        /// <returns> The owner execution response. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="sharedResponseTask" /> is <see langword="null" />. </exception>
+        /// <exception cref="System.OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before owner completion. </exception>
+        private static async Task<IpcResponse> WaitForSharedResponse (
+            Task<IpcResponse> sharedResponseTask,
+            CancellationToken cancellationToken)
+        {
+            if (sharedResponseTask == null)
+            {
+                throw new ArgumentNullException(nameof(sharedResponseTask));
+            }
+
+            if (!cancellationToken.CanBeCanceled)
+            {
+                return await sharedResponseTask.ConfigureAwait(false);
+            }
+
+            var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
+            var completedTask = await Task.WhenAny(sharedResponseTask, cancellationTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completedTask, sharedResponseTask))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            return await sharedResponseTask.ConfigureAwait(false);
         }
     }
 }
