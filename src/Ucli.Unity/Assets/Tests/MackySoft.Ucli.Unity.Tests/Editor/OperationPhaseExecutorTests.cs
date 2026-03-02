@@ -424,6 +424,55 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void ValidateCall_WhenTouchedPathHasLeadingWhitespace_DoesNotTrackTrimmedSiblingPath ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var touchedPath = " Assets/Scenes/Main.unity";
+            var siblingPath = "Assets/Scenes/Main.unity";
+            var touchedAbsolutePath = Path.Combine(scope.ProjectRoot, touchedPath.Replace('/', Path.DirectorySeparatorChar));
+            var siblingAbsolutePath = Path.Combine(scope.ProjectRoot, siblingPath.Replace('/', Path.DirectorySeparatorChar));
+
+            var touchedDirectoryPath = Path.GetDirectoryName(touchedAbsolutePath);
+            if (!string.IsNullOrWhiteSpace(touchedDirectoryPath))
+            {
+                Directory.CreateDirectory(touchedDirectoryPath);
+            }
+
+            var siblingDirectoryPath = Path.GetDirectoryName(siblingAbsolutePath);
+            if (!string.IsNullOrWhiteSpace(siblingDirectoryPath))
+            {
+                Directory.CreateDirectory(siblingDirectoryPath);
+            }
+
+            File.WriteAllText(touchedAbsolutePath, "touched-before");
+            File.WriteAllText(siblingAbsolutePath, "sibling-before");
+
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", "ucli.resolve") },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, touchedPath);
+
+            var issueResult = coordinator.Issue(request, traces);
+            Assert.That(issueResult.IsSuccess, Is.True);
+
+            File.WriteAllText(siblingAbsolutePath, "sibling-after");
+            File.SetLastWriteTimeUtc(siblingAbsolutePath, DateTime.UtcNow.AddMinutes(2));
+
+            var validationRequest = request with
+            {
+                PlanToken = issueResult.PlanToken,
+            };
+            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+
+            Assert.That(validationResult.IsSuccess, Is.True);
+            Assert.That(validationResult.Failure, Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void ValidateCall_WhenKeyFileIsCorrupted_RegeneratesKeyAndRejectsOldToken ()
         {
             using var scope = new PlanTokenTestScope();

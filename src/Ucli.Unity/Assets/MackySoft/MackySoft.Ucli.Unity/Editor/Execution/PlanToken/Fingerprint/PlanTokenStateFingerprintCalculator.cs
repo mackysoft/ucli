@@ -168,7 +168,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             string projectRoot,
             OperationTouch touched)
         {
-            var touchedPath = StringValueNormalizer.TrimOrFallback(touched.Path, NaLiteral);
+            var touchedPath = string.IsNullOrWhiteSpace(touched.Path) ? NaLiteral : touched.Path;
             var guid = StringValueNormalizer.TrimOrFallback(touched.Guid, NaLiteral);
             var normalizedPath = PathStringNormalizer.ToPlatformSeparated(touchedPath);
             var absolutePath = Path.Combine(projectRoot, normalizedPath);
