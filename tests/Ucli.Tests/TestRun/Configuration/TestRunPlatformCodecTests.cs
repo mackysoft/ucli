@@ -36,6 +36,22 @@ public sealed class TestRunPlatformCodecTests
 
     [Theory]
     [Trait("Size", "Small")]
+    [InlineData("editmode", (int)TestRunPlatform.EditMode)]
+    [InlineData("PLAYMODE", (int)TestRunPlatform.PlayMode)]
+    [InlineData(null, (int)TestRunPlatform.Unknown)]
+    [InlineData("", (int)TestRunPlatform.Unknown)]
+    [InlineData("unknown", (int)TestRunPlatform.Unknown)]
+    public void ParseOrUnknown_ReturnsParsedValueOrUnknown (
+        string? value,
+        int expected)
+    {
+        var actual = TestRunPlatformCodec.ParseOrUnknown(value);
+
+        Assert.Equal((TestRunPlatform)expected, actual);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
     [InlineData((int)TestRunPlatform.EditMode, "editmode")]
     [InlineData((int)TestRunPlatform.PlayMode, "playmode")]
     public void ToValue_ReturnsContractLiteral (

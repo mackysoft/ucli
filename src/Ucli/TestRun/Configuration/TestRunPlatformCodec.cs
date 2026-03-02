@@ -62,4 +62,17 @@ internal static class TestRunPlatformCodec
         testPlatform = default;
         return false;
     }
+
+    /// <summary> Parses one raw test-platform literal and returns <see cref="TestRunPlatform.Unknown" /> when unsupported. </summary>
+    /// <param name="value"> The raw platform literal. </param>
+    /// <returns> The parsed platform value; otherwise <see cref="TestRunPlatform.Unknown" />. </returns>
+    public static TestRunPlatform ParseOrUnknown (string? value)
+    {
+        if (TryParse(value, out var testPlatform))
+        {
+            return testPlatform;
+        }
+
+        return TestRunPlatform.Unknown;
+    }
 }
