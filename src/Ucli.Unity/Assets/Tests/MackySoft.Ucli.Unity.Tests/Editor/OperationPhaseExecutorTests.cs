@@ -124,6 +124,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCommandIsCall_UsesSharedExecutionContextAcrossAllPhases () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new ContextCapturingPhaseOperation("ucli.resolve");
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest("op-1", "ucli.resolve");
+
+            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(operation.ValidateContext, Is.Not.Null);
+            Assert.That(operation.ValidateContext, Is.SameAs(operation.PlanContext));
+            Assert.That(operation.PlanContext, Is.SameAs(operation.CallContext));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenPlanSucceeds_IssuesPlanToken () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -738,6 +754,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<OperationPhaseStepResult> Validate (
                 NormalizedOperation operation,
+                OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -747,6 +764,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<OperationPhaseStepResult> Plan (
                 NormalizedOperation operation,
+                OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -756,6 +774,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<OperationPhaseStepResult> Call (
                 NormalizedOperation operation,
+                OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -777,6 +796,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<OperationPhaseStepResult> Validate (
                 NormalizedOperation operation,
+                OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -785,6 +805,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<OperationPhaseStepResult> Plan (
                 NormalizedOperation operation,
+                OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -794,6 +815,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task<OperationPhaseStepResult> Call (
                 NormalizedOperation operation,
+                OperationExecutionContext executionContext,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -806,6 +828,52 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
 
                 return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        private sealed class ContextCapturingPhaseOperation : IPhaseOperation
+        {
+            public ContextCapturingPhaseOperation (string operationName)
+            {
+                OperationName = operationName;
+            }
+
+            public string OperationName { get; }
+
+            public OperationExecutionContext? ValidateContext { get; private set; }
+
+            public OperationExecutionContext? PlanContext { get; private set; }
+
+            public OperationExecutionContext? CallContext { get; private set; }
+
+            public Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContext = executionContext;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                PlanContext = executionContext;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CallContext = executionContext;
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: false));
             }
         }
     }
