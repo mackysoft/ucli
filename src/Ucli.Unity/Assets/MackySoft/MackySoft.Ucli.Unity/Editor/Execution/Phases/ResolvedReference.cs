@@ -24,12 +24,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentException("GlobalObjectId must not contain leading or trailing whitespace.", nameof(globalObjectId));
             }
 
-            if (!UnityEditor.GlobalObjectId.TryParse(globalObjectId, out _))
+            if (!UnityEditor.GlobalObjectId.TryParse(globalObjectId, out var parsedGlobalObjectId))
             {
                 throw new ArgumentException("GlobalObjectId must be a valid GlobalObjectId string.", nameof(globalObjectId));
             }
 
-            GlobalObjectId = globalObjectId;
+            GlobalObjectId = parsedGlobalObjectId.ToString();
         }
     }
 }

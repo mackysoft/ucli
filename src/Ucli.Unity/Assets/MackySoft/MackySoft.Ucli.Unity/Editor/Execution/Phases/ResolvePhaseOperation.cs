@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
@@ -111,12 +110,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             ResolvedReference resolvedReference)
         {
-            if (StringValueNormalizer.TrimToNull(alias) == null)
+            if (alias == null)
             {
                 return;
             }
 
-            executionContext.AliasStore.Set(alias!, resolvedReference);
+            executionContext.AliasStore.Set(alias, resolvedReference);
         }
 
         /// <summary> Throws for null operation/context arguments. </summary>
