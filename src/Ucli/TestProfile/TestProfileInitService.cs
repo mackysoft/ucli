@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.TestProfile;
@@ -51,7 +53,7 @@ internal sealed class TestProfileInitService : ITestProfileInitService
         {
             parentDirectoryPath = Path.GetDirectoryName(resolvedOutputPath);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
@@ -73,7 +75,7 @@ internal sealed class TestProfileInitService : ITestProfileInitService
         {
             Directory.CreateDirectory(parentDirectoryPath);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
@@ -95,7 +97,7 @@ internal sealed class TestProfileInitService : ITestProfileInitService
                     cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path is invalid: {resolvedOutputPath}. {ex.Message}"));
@@ -126,7 +128,7 @@ internal sealed class TestProfileInitService : ITestProfileInitService
             var fullPath = Path.GetFullPath(pathValueResolution.PathValue!);
             return OutputPathResolution.Success(fullPath);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return OutputPathResolution.Failure($"Output path is invalid: {ex.Message}");
         }
@@ -137,10 +139,9 @@ internal sealed class TestProfileInitService : ITestProfileInitService
     /// <returns> A normalized path value, or an invalid-input error message. </returns>
     private static PathValueResolution ResolveOutputPathValue (string? outputPath)
     {
-        var normalizedPath = string.IsNullOrWhiteSpace(outputPath)
-            ? DefaultOutputPath
-            : outputPath.Trim();
-        if (!string.IsNullOrWhiteSpace(outputPath) && IsDirectoryPathDefinition(normalizedPath))
+        var normalizedInputPath = StringValueNormalizer.TrimToNull(outputPath);
+        var normalizedPath = normalizedInputPath ?? DefaultOutputPath;
+        if (normalizedInputPath is not null && IsDirectoryPathDefinition(normalizedPath))
         {
             return PathValueResolution.Failure(
                 $"Output path must be a file path. Directory-style path is not allowed: {normalizedPath}");
@@ -175,16 +176,6 @@ internal sealed class TestProfileInitService : ITestProfileInitService
 
         // NOTE: Keep rejecting Windows-style trailing separator on non-Windows runtimes.
         return pathValue.EndsWith("\\", StringComparison.Ordinal);
-    }
-
-    /// <summary> Determines whether an exception indicates invalid path formatting. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when it is a path-format exception; otherwise <see langword="false" />. </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            or NotSupportedException
-            or PathTooLongException;
     }
 
     /// <summary> Determines whether an exception indicates a filesystem I/O failure. </summary>

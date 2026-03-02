@@ -1,5 +1,6 @@
 using System.Security;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Cli.Requests;
@@ -100,7 +101,7 @@ internal sealed class RequestInputReader : IRequestInputReader
         {
             json = await readRequestFileAsync(requestPath, cancellationToken);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Request path is invalid: {requestPath}."));
@@ -151,16 +152,6 @@ internal sealed class RequestInputReader : IRequestInputReader
         }
 
         return RequestInputReadResult.Success(json, source);
-    }
-
-    /// <summary> Determines whether an exception indicates unsupported or malformed path syntax. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when the exception represents invalid path syntax; otherwise, <see langword="false" />. </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            || exception is NotSupportedException
-            || exception is PathTooLongException;
     }
 
     /// <summary> Determines whether an exception indicates I/O access failure. </summary>

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Validation;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -116,9 +117,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var canonicalPayload = CanonicalRequestWriter.WriteDigestPayload(parsedContract.ProtocolVersion, normalizedOperations);
-            var normalizedPlanToken = string.IsNullOrWhiteSpace(request.PlanToken)
-                ? null
-                : request.PlanToken.Trim();
+            var normalizedPlanToken = StringValueNormalizer.TrimToNull(request.PlanToken);
             var normalizedRequest = new NormalizedExecuteRequest(
                 ProtocolVersion: parsedContract.ProtocolVersion,
                 RequestId: parsedContract.RequestId,

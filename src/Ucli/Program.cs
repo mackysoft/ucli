@@ -114,7 +114,7 @@ internal static class Program
         // Emit JSON contract output in that path to keep stdout machine-readable.
         if (!CommandExecutionState.HasStarted && ParseErrorBuffer.HasAny)
         {
-            var commandName = ResolveCommandName(args);
+            var commandName = UcliCommandNames.ResolveResultCommandName(args);
             var parseErrorMessage = string.Join(" ", ParseErrorBuffer.Messages);
             var parseErrorResult = CommandResult.InvalidArgument(commandName, parseErrorMessage);
             CommandResultWriter.WriteToStandardOutput(parseErrorResult);
@@ -141,7 +141,7 @@ internal static class Program
         }
 
         var firstArgument = args[0];
-        if (string.IsNullOrWhiteSpace(firstArgument) || firstArgument.StartsWith("-", StringComparison.Ordinal))
+        if (CommandTokenClassifier.IsRootCommandToken(firstArgument))
         {
             return false;
         }
@@ -160,15 +160,4 @@ internal static class Program
         return true;
     }
 
-    /// <summary> Resolves the command name used for parse error results. </summary>
-    /// <param name="args"> The command-line arguments passed to the process. </param>
-    /// <returns>
-    /// <para> The normalized command name for parse errors. </para>
-    /// <para> Returns <see cref="UcliCommandNames.Root" /> when no known command can be identified. </para>
-    /// </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
-    private static string ResolveCommandName (string[] args)
-    {
-        return UcliCommandNames.ResolveResultCommandName(args);
-    }
 }

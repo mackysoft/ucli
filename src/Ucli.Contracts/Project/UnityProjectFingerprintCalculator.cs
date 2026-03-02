@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using System.Text;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Paths;
 
 namespace MackySoft.Ucli.Contracts.Project;
 
@@ -34,13 +35,7 @@ public static class UnityProjectFingerprintCalculator
         var fingerprintInput = $"{normalizedStorageRoot}\n{projectPathFragment}";
         var normalizedBytes = Encoding.UTF8.GetBytes(fingerprintInput);
 
-        byte[] hashBytes;
-        using (var sha256 = SHA256.Create())
-        {
-            hashBytes = sha256.ComputeHash(normalizedBytes);
-        }
-
-        return ToLowerHex(hashBytes);
+        return Sha256LowerHex.Compute(normalizedBytes);
     }
 
     /// <summary> Builds a stable project-path fragment used for fingerprint input. </summary>
@@ -74,14 +69,14 @@ public static class UnityProjectFingerprintCalculator
     private static string NormalizePath (string pathValue)
     {
         var fullPath = Path.GetFullPath(pathValue);
-        fullPath = fullPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        fullPath = PathStringNormalizer.ToPlatformSeparated(fullPath);
         var pathRoot = Path.GetPathRoot(fullPath);
         if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, PathComparison))
         {
             return NormalizeCase(fullPath);
         }
 
-        var trimmedPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var trimmedPath = PathStringNormalizer.TrimTrailingDirectorySeparators(fullPath);
         return NormalizeCase(trimmedPath);
     }
 
@@ -90,13 +85,13 @@ public static class UnityProjectFingerprintCalculator
     /// <returns> The normalized fragment value. </returns>
     private static string NormalizeRelativePath (string relativePath)
     {
-        var normalizedPath = relativePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        var normalizedPath = PathStringNormalizer.ToPlatformSeparated(relativePath);
         if (string.Equals(normalizedPath, ".", StringComparison.Ordinal))
         {
             return normalizedPath;
         }
 
-        return normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return PathStringNormalizer.TrimTrailingDirectorySeparators(normalizedPath);
     }
 
     /// <summary> Determines whether <paramref name="path" /> is located under <paramref name="directoryPath" />. </summary>
@@ -133,22 +128,4 @@ public static class UnityProjectFingerprintCalculator
     private static StringComparison PathComparison =>
         RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-    /// <summary> Converts byte array to lowercase hexadecimal text. </summary>
-    /// <param name="bytes"> The source byte array. </param>
-    /// <returns> The lowercase hexadecimal text. </returns>
-    private static string ToLowerHex (byte[] bytes)
-    {
-        const string HexChars = "0123456789abcdef";
-
-        var chars = new char[bytes.Length * 2];
-        var charIndex = 0;
-        foreach (var value in bytes)
-        {
-            chars[charIndex] = HexChars[value >> 4];
-            chars[charIndex + 1] = HexChars[value & 0x0F];
-            charIndex += 2;
-        }
-
-        return new string(chars);
-    }
 }

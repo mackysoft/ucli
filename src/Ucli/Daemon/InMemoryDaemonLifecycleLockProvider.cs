@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Daemon;
 
@@ -28,7 +29,7 @@ internal sealed class InMemoryDaemonLifecycleLockProvider : IDaemonLifecycleLock
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        var lockKey = $"{Path.GetFullPath(storageRoot)}\n{projectFingerprint.Trim()}";
+        var lockKey = $"{Path.GetFullPath(storageRoot)}\n{StringValueNormalizer.TrimToNull(projectFingerprint)!}";
         var semaphore = LocksByFingerprint.GetOrAdd(
             lockKey,
             static _ => new SemaphoreSlim(1, 1));
