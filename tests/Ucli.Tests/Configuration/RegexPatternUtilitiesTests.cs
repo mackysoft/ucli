@@ -26,6 +26,16 @@ public sealed class RegexPatternUtilitiesTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryValidatePattern_Throws_WhenPatternIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = RegexPatternUtilities.TryValidatePattern(null!, out _);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryIsMatch_ReturnsExpectedMatchResult_ForValidPattern ()
     {
         var success = RegexPatternUtilities.TryIsMatch("ucli.scene.open", "^ucli\\.", out var isMatch);
@@ -42,5 +52,25 @@ public sealed class RegexPatternUtilitiesTests
 
         Assert.False(success);
         Assert.False(isMatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryIsMatch_Throws_WhenInputIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = RegexPatternUtilities.TryIsMatch(null!, "^ucli\\.", out _);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryIsMatch_Throws_WhenPatternIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = RegexPatternUtilities.TryIsMatch("ucli.scene.open", null!, out _);
+        });
     }
 }

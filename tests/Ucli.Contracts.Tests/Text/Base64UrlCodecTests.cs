@@ -18,6 +18,16 @@ public sealed class Base64UrlCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Encode_Throws_WhenInputArrayIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = Base64UrlCodec.Encode((byte[])null!);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void EncodeAndTryDecode_RoundTripsBytes ()
     {
         var source = new byte[]
