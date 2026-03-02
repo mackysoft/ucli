@@ -1,6 +1,4 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
@@ -46,22 +44,77 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             this.store = store ?? throw new ArgumentNullException(nameof(store));
         }
 
-        /// <summary> Executes one request under request-id idempotency control. </summary>
+        /// <summary> Acquires one idempotency decision for request-id and digest pair. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="requestDigest"> The deterministic digest of request payload content. </param>
-        /// <param name="executeRequest"> The owner execution callback when request should be executed. </param>
-        /// <param name="createConflictResponse"> The callback that creates one conflict response for digest mismatch cases. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by dispatching pipelines. </param>
-        /// <returns> The response selected by idempotency logic. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" />, <paramref name="requestDigest" />, <paramref name="executeRequest" />, or <paramref name="createConflictResponse" /> is <see langword="null" />. </exception>
+        /// <returns> The idempotency decision for this request. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="requestDigest" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestDigest" /> is empty or whitespace. </exception>
-        /// <exception cref="System.OperationCanceledException"> Thrown when operation is canceled. </exception>
-        public async Task<IpcResponse> Execute (
+        public ExecuteRequestIdempotencyStoreDecision Acquire (
+            string requestId,
+            string requestDigest)
+        {
+            ValidateRequestId(requestId);
+            ValidateRequestDigest(requestDigest);
+            return store.Acquire(requestId, requestDigest);
+        }
+
+        /// <summary> Completes one owner execution successfully and publishes response for shared waiters. </summary>
+        /// <param name="requestId"> The request identifier used as idempotency key. </param>
+        /// <param name="requestDigest"> The deterministic digest of request payload content. </param>
+        /// <param name="response"> The completed response envelope. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" />, <paramref name="requestDigest" />, or <paramref name="response" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestDigest" /> is empty or whitespace. </exception>
+        public void CompleteSuccess (
             string requestId,
             string requestDigest,
-            Func<CancellationToken, Task<IpcResponse>> executeRequest,
-            Func<IpcResponse> createConflictResponse,
-            CancellationToken cancellationToken = default)
+            IpcResponse response)
+        {
+            ValidateRequestId(requestId);
+            ValidateRequestDigest(requestDigest);
+
+            if (response == null)
+            {
+                throw new ArgumentNullException(nameof(response));
+            }
+
+            store.CompleteSuccess(requestId, requestDigest, response);
+        }
+
+        /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>
+        /// <param name="requestId"> The request identifier used as idempotency key. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
+        public void CompleteCanceled (string requestId)
+        {
+            ValidateRequestId(requestId);
+            store.CompleteCanceled(requestId);
+        }
+
+        /// <summary> Completes one owner execution with failure and notifies shared waiters. </summary>
+        /// <param name="requestId"> The request identifier used as idempotency key. </param>
+        /// <param name="exception"> The execution failure exception. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="exception" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
+        public void CompleteFailed (
+            string requestId,
+            Exception exception)
+        {
+            ValidateRequestId(requestId);
+
+            if (exception == null)
+            {
+                throw new ArgumentNullException(nameof(exception));
+            }
+
+            store.CompleteFailed(requestId, exception);
+        }
+
+        /// <summary> Validates request-id input constraints. </summary>
+        /// <param name="requestId"> The request identifier. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
+        private static void ValidateRequestId (string requestId)
         {
             if (requestId == null)
             {
@@ -72,7 +125,14 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             {
                 throw new ArgumentException("Request id must not be empty or whitespace.", nameof(requestId));
             }
+        }
 
+        /// <summary> Validates request digest input constraints. </summary>
+        /// <param name="requestDigest"> The deterministic request digest. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestDigest" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestDigest" /> is empty or whitespace. </exception>
+        private static void ValidateRequestDigest (string requestDigest)
+        {
             if (requestDigest == null)
             {
                 throw new ArgumentNullException(nameof(requestDigest));
@@ -82,78 +142,6 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             {
                 throw new ArgumentException("Request digest must not be empty or whitespace.", nameof(requestDigest));
             }
-
-            if (executeRequest == null)
-            {
-                throw new ArgumentNullException(nameof(executeRequest));
-            }
-
-            if (createConflictResponse == null)
-            {
-                throw new ArgumentNullException(nameof(createConflictResponse));
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var decision = store.Acquire(requestId, requestDigest);
-            switch (decision.Kind)
-            {
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ReplayCompleted:
-                    return decision.Response!;
-
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.Conflict:
-                    return createConflictResponse();
-
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.WaitInFlight:
-                    return await WaitForSharedResponse(decision.SharedResponseTask!, cancellationToken).ConfigureAwait(false);
-
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner:
-                    break;
-
-                default:
-                    throw new InvalidOperationException($"Unknown idempotency decision kind: {decision.Kind}.");
-            }
-
-            try
-            {
-                var response = await executeRequest(cancellationToken).ConfigureAwait(false);
-                store.CompleteSuccess(requestId, requestDigest, response);
-                return response;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                store.CompleteCanceled(requestId);
-                throw;
-            }
-            catch (Exception exception)
-            {
-                store.CompleteFailed(requestId, exception);
-                throw;
-            }
-        }
-
-        /// <summary> Waits for one owner execution result while preserving caller-local cancellation. </summary>
-        /// <param name="sharedResponseTask"> The owner execution task shared by callers. </param>
-        /// <param name="cancellationToken"> The caller cancellation token. </param>
-        /// <returns> The owner execution response. </returns>
-        /// <exception cref="System.OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before owner completion. </exception>
-        private static async Task<IpcResponse> WaitForSharedResponse (
-            Task<IpcResponse> sharedResponseTask,
-            CancellationToken cancellationToken)
-        {
-            if (!cancellationToken.CanBeCanceled)
-            {
-                return await sharedResponseTask.ConfigureAwait(false);
-            }
-
-            var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
-            var completedTask = await Task.WhenAny(sharedResponseTask, cancellationTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completedTask, sharedResponseTask))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            return await sharedResponseTask.ConfigureAwait(false);
         }
     }
 }

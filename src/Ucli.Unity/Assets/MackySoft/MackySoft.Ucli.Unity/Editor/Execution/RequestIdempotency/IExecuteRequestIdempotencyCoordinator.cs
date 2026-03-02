@@ -1,6 +1,4 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
@@ -8,19 +6,32 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
     /// <summary> Coordinates request-id idempotency behaviors for execute request dispatching. </summary>
     internal interface IExecuteRequestIdempotencyCoordinator
     {
-        /// <summary> Executes one request under request-id idempotency control. </summary>
+        /// <summary> Acquires one idempotency decision for request-id and digest pair. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="requestDigest"> The deterministic digest of request payload content. </param>
-        /// <param name="executeRequest"> The owner execution callback when request should be executed. </param>
-        /// <param name="createConflictResponse"> The callback that creates one conflict response for digest mismatch cases. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by dispatching pipelines. </param>
-        /// <returns> The response selected by idempotency logic. </returns>
-        /// <exception cref="System.OperationCanceledException"> Thrown when operation is canceled. </exception>
-        Task<IpcResponse> Execute (
+        /// <returns> The idempotency decision for this request. </returns>
+        ExecuteRequestIdempotencyStoreDecision Acquire (
+            string requestId,
+            string requestDigest);
+
+        /// <summary> Completes one owner execution successfully and publishes response for shared waiters. </summary>
+        /// <param name="requestId"> The request identifier used as idempotency key. </param>
+        /// <param name="requestDigest"> The deterministic digest of request payload content. </param>
+        /// <param name="response"> The completed response envelope. </param>
+        void CompleteSuccess (
             string requestId,
             string requestDigest,
-            Func<CancellationToken, Task<IpcResponse>> executeRequest,
-            Func<IpcResponse> createConflictResponse,
-            CancellationToken cancellationToken = default);
+            IpcResponse response);
+
+        /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>
+        /// <param name="requestId"> The request identifier used as idempotency key. </param>
+        void CompleteCanceled (string requestId);
+
+        /// <summary> Completes one owner execution with failure and notifies shared waiters. </summary>
+        /// <param name="requestId"> The request identifier used as idempotency key. </param>
+        /// <param name="exception"> The execution failure exception. </param>
+        void CompleteFailed (
+            string requestId,
+            Exception exception);
     }
 }
