@@ -5,6 +5,13 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
 public static class UcliStoragePathResolver
 {
+    private static readonly char[] RunIdInvalidPathChars =
+    {
+        '/',
+        '\\',
+        ':',
+    };
+
     /// <summary> Tries to resolve a repository root path by scanning parent directories for a <c>.git</c> marker. </summary>
     /// <param name="startPath"> The starting directory path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The repository root path when marker is found; otherwise <see langword="null" />. </returns>
@@ -57,9 +64,9 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Start path must not be empty.", nameof(startPath));
         }
 
-        var normalizedStartPath = Path.GetFullPath(startPath);
-        var repositoryRoot = TryResolveRepositoryRoot(normalizedStartPath);
-        if (!string.IsNullOrWhiteSpace(repositoryRoot))
+        var fullStartPath = Path.GetFullPath(startPath);
+        var repositoryRoot = TryResolveRepositoryRoot(fullStartPath);
+        if (repositoryRoot is not null)
         {
             return repositoryRoot;
         }
@@ -67,7 +74,7 @@ public static class UcliStoragePathResolver
         // NOTE:
         // Local and CI environments may not have a Git repository.
         // Use the starting path as a deterministic fallback storage root.
-        return normalizedStartPath;
+        return fullStartPath;
     }
 
     /// <summary> Resolves the absolute path to the <c>.ucli</c> directory. </summary>
@@ -107,6 +114,64 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.LocalDirectoryName,
             UcliStoragePathNames.FingerprintsDirectoryName,
             normalizedProjectFingerprint);
+    }
+
+    /// <summary> Resolves the absolute path to one fingerprint artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute fingerprint artifacts directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveArtifactsDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ArtifactsDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to one fingerprint test-artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/test</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute fingerprint test-artifacts directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveTestArtifactsDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveArtifactsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.TestArtifactsDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to one test-run artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/test/&lt;runId&gt;</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
+    /// <returns> The absolute test-run artifacts directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveTestRunArtifactsDirectory (
+        string storageRoot,
+        string projectFingerprint,
+        string runId)
+    {
+        if (!StringValueNormalizer.TryTrimToNonEmpty(runId, out var normalizedRunId))
+        {
+            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
+        }
+
+        if (normalizedRunId.IndexOfAny(RunIdInvalidPathChars) >= 0
+            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
+            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
+                nameof(runId));
+        }
+
+        return Path.Combine(
+            ResolveTestArtifactsDirectory(storageRoot, projectFingerprint),
+            normalizedRunId);
     }
 
     /// <summary> Resolves the absolute path to daemon <c>session.json</c>. </summary>
