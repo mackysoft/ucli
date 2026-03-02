@@ -5,6 +5,13 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
 public static class UcliStoragePathResolver
 {
+    private static readonly char[] RunIdInvalidPathChars =
+    {
+        '/',
+        '\\',
+        ':',
+    };
+
     /// <summary> Tries to resolve a repository root path by scanning parent directories for a <c>.git</c> marker. </summary>
     /// <param name="startPath"> The starting directory path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The repository root path when marker is found; otherwise <see langword="null" />. </returns>
@@ -140,7 +147,7 @@ public static class UcliStoragePathResolver
     /// <summary> Resolves the absolute path to one test-run artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/test/&lt;runId&gt;</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="runId"> The run identifier value. Must not be <see langword="null" />, empty, whitespace, or contain path-segment/control tokens. </param>
     /// <returns> The absolute test-run artifacts directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveTestRunArtifactsDirectory (
@@ -151,6 +158,15 @@ public static class UcliStoragePathResolver
         if (!StringValueNormalizer.TryTrimToNonEmpty(runId, out var normalizedRunId))
         {
             throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
+        }
+
+        if (normalizedRunId.IndexOfAny(RunIdInvalidPathChars) >= 0
+            || string.Equals(normalizedRunId, ".", StringComparison.Ordinal)
+            || string.Equals(normalizedRunId, "..", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Run identifier must be one path segment and must not contain path separator or traversal tokens.",
+                nameof(runId));
         }
 
         return Path.Combine(

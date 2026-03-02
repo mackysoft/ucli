@@ -166,4 +166,24 @@ public sealed class UcliStoragePathResolverContractTests
                 "run-id"),
             resolvedPath);
     }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("../run-id")]
+    [InlineData("..\\run-id")]
+    [InlineData("run/id")]
+    [InlineData("run\\id")]
+    [InlineData("/absolute")]
+    [InlineData("C:\\absolute")]
+    [InlineData(".")]
+    [InlineData("..")]
+    public void ResolveTestRunArtifactsDirectory_WithPathSegmentOrTraversalRunId_ThrowsArgumentException (string runId)
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(storageRoot, "abc123", runId));
+
+        Assert.Equal("runId", exception.ParamName);
+    }
 }
