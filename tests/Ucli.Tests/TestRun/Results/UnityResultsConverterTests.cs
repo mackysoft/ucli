@@ -61,6 +61,31 @@ public sealed class UnityResultsConverterTests
         Assert.Contains("Failed to parse results.xml", result.ErrorMessage, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    [InlineData("-Infinity")]
+    public async Task Convert_WithNonFiniteDuration_ReturnsInvalidResultsXmlFailure (string duration)
+    {
+        using var scope = CreateSessionScope("non-finite-duration", out var session);
+        scope.WriteFile(
+            "results.xml",
+            $"""
+            <test-run>
+              <test-case fullname="Cafe.Tests.Sample" result="Passed" duration="{duration}" />
+            </test-run>
+            """);
+
+        var converter = new UnityResultsConverter();
+
+        var result = await converter.Convert(session, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityResultsConversionFailureKind.InvalidResultsXml, result.FailureKind);
+        Assert.Contains("Failed to parse results.xml", result.ErrorMessage, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Convert_WithFailedSuiteAndNoTestCase_ReturnsFailedSummary ()

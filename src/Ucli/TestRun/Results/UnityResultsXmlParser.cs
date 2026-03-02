@@ -107,6 +107,11 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
             throw new InvalidDataException($"duration attribute is not a valid number: {value}");
         }
 
+        if (!double.IsFinite(seconds))
+        {
+            throw new InvalidDataException($"duration attribute must be a finite number: {value}");
+        }
+
         if (seconds < 0d)
         {
             throw new InvalidDataException($"duration attribute must be non-negative: {value}");
