@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Operations;
 
 public sealed class OperationCatalogTests
