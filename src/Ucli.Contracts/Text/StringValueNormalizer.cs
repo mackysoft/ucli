@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace MackySoft.Ucli.Contracts.Text;
 
 /// <summary> Provides reusable normalization helpers for optional string values. </summary>
@@ -14,6 +16,18 @@ internal static class StringValueNormalizer
         }
 
         return value.Trim();
+    }
+
+    /// <summary> Trims one string and returns whether the result contains non-whitespace characters. </summary>
+    /// <param name="value"> The input string value. </param>
+    /// <param name="normalizedValue"> The trimmed value when input contains non-whitespace characters; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when input contains non-whitespace characters; otherwise <see langword="false" />. </returns>
+    public static bool TryTrimToNonEmpty (
+        string? value,
+        [NotNullWhen(true)] out string? normalizedValue)
+    {
+        normalizedValue = TrimToNull(value);
+        return normalizedValue is not null;
     }
 
     /// <summary> Trims one string and returns an empty string when input is null, empty, or whitespace-only. </summary>

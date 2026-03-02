@@ -340,8 +340,7 @@ internal static class UcliConfigJsonContractReader
                 return null;
             }
 
-            var value = StringValueNormalizer.TrimToNull(element.GetString());
-            if (value is null)
+            if (!StringValueNormalizer.TryTrimToNonEmpty(element.GetString(), out var value))
             {
                 continue;
             }
