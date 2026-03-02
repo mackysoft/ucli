@@ -51,6 +51,9 @@ public static class IpcErrorCodes
     /// <summary> Gets the error code emitted when project state changed since token issuance. </summary>
     public const string StateChangedSincePlan = "STATE_CHANGED_SINCE_PLAN";
 
+    /// <summary> Gets the error code emitted when one request-id is reused with different request content. </summary>
+    public const string RequestIdConflict = "REQUEST_ID_CONFLICT";
+
     /// <summary> Gets the error code emitted when an unexpected internal failure occurs. </summary>
     public const string InternalError = "INTERNAL_ERROR";
 }
