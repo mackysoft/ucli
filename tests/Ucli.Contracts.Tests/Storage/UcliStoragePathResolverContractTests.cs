@@ -106,4 +106,64 @@ public sealed class UcliStoragePathResolverContractTests
                 UcliStoragePathNames.PlanTokenKeyFileName),
             resolvedPath);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveArtifactsDirectory_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveArtifactsDirectory(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.ArtifactsDirectoryName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveTestArtifactsDirectory_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveTestArtifactsDirectory(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.ArtifactsDirectoryName,
+                UcliStoragePathNames.TestArtifactsDirectoryName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveTestRunArtifactsDirectory_ReturnsRunScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(storageRoot, "abc123", "run-id");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.ArtifactsDirectoryName,
+                UcliStoragePathNames.TestArtifactsDirectoryName,
+                "run-id"),
+            resolvedPath);
+    }
 }
