@@ -63,6 +63,46 @@ public sealed class UnityResultsConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Convert_WithFailedSuiteAndNoTestCase_ReturnsFailedSummary ()
+    {
+        using var scope = CreateSessionScope("failed-suite-no-case", out var session);
+        scope.WriteFile(
+            "results.xml",
+            """
+            <test-run>
+              <test-suite fullname="Cafe.Tests" result="Failed" />
+            </test-run>
+            """);
+
+        var converter = new UnityResultsConverter();
+
+        var result = await converter.Convert(session, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.HasFailedTests);
+
+        using var summaryDocument = JsonDocument.Parse(File.ReadAllText(session.Paths.SummaryJsonPath));
+        Assert.Equal("fail", summaryDocument.RootElement.GetProperty("status").GetString());
+        Assert.Equal(0, summaryDocument.RootElement.GetProperty("counts").GetProperty("failed").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Convert_WithResultsXmlReadFailure_ReturnsResultsXmlReadFailed ()
+    {
+        using var scope = CreateSessionScope("read-failure", out var session);
+
+        var converter = new UnityResultsConverter();
+
+        var result = await converter.Convert(session, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityResultsConversionFailureKind.ResultsXmlReadFailed, result.FailureKind);
+        Assert.Contains("Failed to read results.xml", result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Convert_WithOutputWriteFailure_ReturnsOutputWriteFailed ()
     {
         using var scope = CreateSessionScope("write-failure", out var session, artifactsDirectoryPath =>

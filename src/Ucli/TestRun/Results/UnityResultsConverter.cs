@@ -49,6 +49,12 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
                 UnityResultsConversionFailureKind.Canceled,
                 "Unity results conversion was canceled.");
         }
+        catch (Exception exception) when (IsResultsXmlReadException(exception))
+        {
+            return UnityResultsConversionResult.Failure(
+                UnityResultsConversionFailureKind.ResultsXmlReadFailed,
+                $"Failed to read results.xml: {exception.Message}");
+        }
         catch (Exception exception) when (IsInvalidResultsXmlException(exception))
         {
             return UnityResultsConversionResult.Failure(
@@ -77,6 +83,14 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
         return UnityResultsConversionResult.Success(parseResult.HasFailedTests);
     }
 
+    /// <summary> Determines whether one exception represents results XML read failure. </summary>
+    /// <param name="exception"> The exception to classify. </param>
+    /// <returns> <see langword="true" /> when exception should map to read-failure result; otherwise <see langword="false" />. </returns>
+    private static bool IsResultsXmlReadException (Exception exception)
+    {
+        return exception is IOException or UnauthorizedAccessException;
+    }
+
     /// <summary> Determines whether one exception represents invalid input XML. </summary>
     /// <param name="exception"> The exception to classify. </param>
     /// <returns> <see langword="true" /> when exception should map to invalid-results failure; otherwise <see langword="false" />. </returns>
@@ -84,8 +98,6 @@ internal sealed class UnityResultsConverter : IUnityResultsConverter
     {
         return exception is XmlException
             or InvalidDataException
-            or IOException
-            or UnauthorizedAccessException
             or OverflowException;
     }
 

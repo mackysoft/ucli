@@ -12,6 +12,12 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
 
     private const string TestCaseElementName = "test-case";
 
+    private const string TestSuiteElementName = "test-suite";
+
+    private const string ResultAttributeName = "result";
+
+    private const string FailedResultValue = "Failed";
+
     private const string FailureElementName = "failure";
 
     private const string MessageElementName = "message";
@@ -82,10 +88,13 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
             }
         }
 
+        var hasSuiteFailure = DetectSuiteFailure(root);
+
         return new UnityResultsXmlParseResult(
             Counts: counts,
             Tests: tests,
-            TopFailures: topFailures);
+            TopFailures: topFailures,
+            HasSuiteFailure: hasSuiteFailure);
     }
 
     /// <summary> Parses duration seconds string and converts to milliseconds. </summary>
@@ -189,6 +198,41 @@ internal sealed class UnityResultsXmlParser : IUnityResultsXmlParser
         }
 
         return value!;
+    }
+
+    /// <summary> Detects whether parsed XML includes failed suite-level result signals. </summary>
+    /// <param name="root"> The parsed root element. </param>
+    /// <returns> <see langword="true" /> when failed suite-level outcomes are present; otherwise <see langword="false" />. </returns>
+    private static bool DetectSuiteFailure (XElement root)
+    {
+        if (HasFailedResultAttribute(root))
+        {
+            return true;
+        }
+
+        foreach (var suite in root.Descendants().Where(static element => IsElement(element, TestSuiteElementName)))
+        {
+            if (HasFailedResultAttribute(suite))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary> Determines whether one element carries a failed result attribute. </summary>
+    /// <param name="element"> The source element. </param>
+    /// <returns> <see langword="true" /> when result attribute equals <c>Failed</c>; otherwise <see langword="false" />. </returns>
+    private static bool HasFailedResultAttribute (XElement element)
+    {
+        var resultValue = element.Attribute(ResultAttributeName)?.Value;
+        if (string.IsNullOrWhiteSpace(resultValue))
+        {
+            return false;
+        }
+
+        return string.Equals(resultValue.Trim(), FailedResultValue, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary> Reads child element text values. </summary>

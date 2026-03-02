@@ -4,13 +4,15 @@ namespace MackySoft.Ucli.TestRun.Results;
 /// <param name="Counts"> The aggregated count values. </param>
 /// <param name="Tests"> The per-test entries. </param>
 /// <param name="TopFailures"> The top failure entries. </param>
+/// <param name="HasSuiteFailure"> Indicates whether XML includes failed suite-level result signals. </param>
 internal sealed record UnityResultsXmlParseResult (
     UnityResultsXmlParseResult.CountsValue Counts,
     IReadOnlyList<UnityResultsXmlParseResult.TestValue> Tests,
-    IReadOnlyList<UnityResultsXmlParseResult.TopFailureValue> TopFailures)
+    IReadOnlyList<UnityResultsXmlParseResult.TopFailureValue> TopFailures,
+    bool HasSuiteFailure)
 {
     /// <summary> Gets a value indicating whether parsed results contain failed tests. </summary>
-    public bool HasFailedTests => Counts.Failed > 0;
+    public bool HasFailedTests => Counts.Failed > 0 || HasSuiteFailure;
 
     /// <summary> Represents schema-compliant aggregated counts values. </summary>
     /// <param name="Passed"> The passed-test count. </param>

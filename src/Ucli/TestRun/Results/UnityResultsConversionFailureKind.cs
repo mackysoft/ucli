@@ -6,9 +6,12 @@ internal enum UnityResultsConversionFailureKind
     /// <summary> Indicates input results XML is malformed or semantically invalid. </summary>
     InvalidResultsXml = 0,
 
+    /// <summary> Indicates reading input results XML failed due to filesystem/runtime issues. </summary>
+    ResultsXmlReadFailed = 1,
+
     /// <summary> Indicates writing normalized result artifacts failed. </summary>
-    OutputWriteFailed = 1,
+    OutputWriteFailed = 2,
 
     /// <summary> Indicates conversion was canceled by caller request. </summary>
-    Canceled = 2,
+    Canceled = 3,
 }

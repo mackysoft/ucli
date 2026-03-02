@@ -73,6 +73,12 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                     runId: session.RunId,
                     artifactsDir: session.ArtifactsDir,
                     summaryJsonPath: session.Paths.SummaryJsonPath),
+                UnityResultsConversionFailureKind.ResultsXmlReadFailed => TestRunServiceResult.InfraError(
+                    conversionResult.ErrorMessage ?? "Failed to read Unity results XML.",
+                    TestRunErrorCodes.TestResultsXmlReadFailed,
+                    runId: session.RunId,
+                    artifactsDir: session.ArtifactsDir,
+                    summaryJsonPath: session.Paths.SummaryJsonPath),
                 UnityResultsConversionFailureKind.Canceled => TestRunServiceResult.ToolError(
                     conversionResult.ErrorMessage ?? "Unity results conversion was canceled.",
                     CliErrorCodes.Canceled,

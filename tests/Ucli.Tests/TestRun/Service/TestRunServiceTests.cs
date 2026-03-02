@@ -154,6 +154,34 @@ public sealed class TestRunServiceTests
         Assert.Equal(session.RunId, result.RunId);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithConversionResultsXmlReadFailure_ReturnsInfraError ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor(_ => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
+                UnityResultsConversionFailureKind.ResultsXmlReadFailed,
+                "Failed to read results.xml."))));
+
+        var result = await service.Execute(CreateInput(), CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
+        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(TestRunErrorCodes.TestResultsXmlReadFailed, result.ErrorCode);
+        Assert.Equal(session.RunId, result.RunId);
+    }
+
     private static TestRunService CreateService (
         ITestRunConfigurationResolver configurationResolver,
         IUnityExecutionModeDecisionService modeDecisionService,
