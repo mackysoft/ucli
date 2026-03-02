@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Security.Cryptography;
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -11,27 +10,24 @@ namespace MackySoft.Ucli.TestRun.Artifacts;
 /// <summary> Implements run-scoped artifact path preparation and metadata lifecycle updates. </summary>
 internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 {
-    private const int MetaSchemaVersion = 1;
-
     private const int MaxRunIdGenerationAttempts = 5;
 
     private const string RunIdTimestampFormat = "yyyyMMdd_HHmmss'Z'";
 
-    private const string MetaJsonFileName = "meta.json";
+    private readonly ITestRunMetaStore metaStore;
 
-    private const string ResultsXmlFileName = "results.xml";
-
-    private const string EditorLogFileName = "editor.log";
-
-    private const string ResultsJsonFileName = "results.json";
-
-    private const string SummaryJsonFileName = "summary.json";
-
-    private static readonly JsonSerializerOptions SerializerOptions = new()
+    /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class with default meta-store dependency. </summary>
+    public TestRunArtifactsService ()
+        : this(new TestRunMetaStore())
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false,
-    };
+    }
+
+    /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class. </summary>
+    /// <param name="metaStore"> The metadata store dependency. </param>
+    public TestRunArtifactsService (ITestRunMetaStore metaStore)
+    {
+        this.metaStore = metaStore ?? throw new ArgumentNullException(nameof(metaStore));
+    }
 
     /// <summary> Prepares one run-scoped artifact directory and writes initial <c>meta.json</c>. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
@@ -88,7 +84,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
             try
             {
-                WriteMetaJson(configuration, session, finishedAtUtc: startedAtUtc);
+                metaStore.Write(configuration, session, finishedAtUtc: startedAtUtc);
             }
             catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
             {
@@ -121,7 +117,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
         try
         {
-            WriteMetaJson(configuration, session, finishedAtUtc: DateTimeOffset.UtcNow);
+            metaStore.Write(configuration, session, finishedAtUtc: DateTimeOffset.UtcNow);
             return ArtifactsCompletionResult.Success();
         }
         catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
@@ -142,11 +138,11 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     private static ArtifactPaths CreateArtifactPaths (string artifactsDirectoryPath)
     {
         return new ArtifactPaths(
-            MetaJsonPath: Path.Combine(artifactsDirectoryPath, MetaJsonFileName),
-            ResultsXmlPath: Path.Combine(artifactsDirectoryPath, ResultsXmlFileName),
-            EditorLogPath: Path.Combine(artifactsDirectoryPath, EditorLogFileName),
-            ResultsJsonPath: Path.Combine(artifactsDirectoryPath, ResultsJsonFileName),
-            SummaryJsonPath: Path.Combine(artifactsDirectoryPath, SummaryJsonFileName));
+            MetaJsonPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.MetaJson),
+            ResultsXmlPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.ResultsXml),
+            EditorLogPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.EditorLog),
+            ResultsJsonPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.ResultsJson),
+            SummaryJsonPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.SummaryJson));
     }
 
     /// <summary> Creates one run identifier value. </summary>
@@ -157,67 +153,4 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         var suffix = RandomNumberGenerator.GetHexString(8).ToLowerInvariant();
         return $"{utcNow.ToString(RunIdTimestampFormat, CultureInfo.InvariantCulture)}_{suffix}";
     }
-
-    /// <summary> Writes metadata JSON for one artifacts session. </summary>
-    /// <param name="configuration"> The resolved test-run configuration. </param>
-    /// <param name="session"> The artifacts session. </param>
-    /// <param name="finishedAtUtc"> The completion timestamp to persist. </param>
-    private static void WriteMetaJson (
-        ResolvedTestRunConfiguration configuration,
-        ArtifactsSession session,
-        DateTimeOffset finishedAtUtc)
-    {
-        var payload = new MetaJsonPayload(
-            SchemaVersion: MetaSchemaVersion,
-            RunId: session.RunId,
-            StartedAt: session.StartedAtUtc.ToString("O", CultureInfo.InvariantCulture),
-            FinishedAt: finishedAtUtc.ToString("O", CultureInfo.InvariantCulture),
-            ProjectPath: configuration.UnityProject.UnityProjectRoot,
-            UnityVersion: configuration.UnityVersion,
-            UnityEditorPath: configuration.UnityEditorPath,
-            Mode: configuration.Mode,
-            TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
-            BuildTarget: configuration.BuildTarget,
-            TestFilter: configuration.TestFilter,
-            TestCategories: configuration.TestCategories,
-            AssemblyNames: configuration.AssemblyNames,
-            TestSettingsPath: configuration.TestSettingsPath,
-            ArtifactsDir: session.ArtifactsDir);
-
-        var json = JsonSerializer.Serialize(payload, SerializerOptions);
-        File.WriteAllText(session.Paths.MetaJsonPath, json);
-    }
-
-    /// <summary> Represents metadata payload for one test-run artifacts session. </summary>
-    /// <param name="SchemaVersion"> The metadata schema version. </param>
-    /// <param name="RunId"> The run identifier. </param>
-    /// <param name="StartedAt"> The run start timestamp in ISO-8601 UTC format. </param>
-    /// <param name="FinishedAt"> The run completion timestamp in ISO-8601 UTC format. </param>
-    /// <param name="ProjectPath"> The Unity project path. </param>
-    /// <param name="UnityVersion"> The resolved Unity version. </param>
-    /// <param name="UnityEditorPath"> The resolved Unity editor path. </param>
-    /// <param name="Mode"> The execution mode option value. </param>
-    /// <param name="TestPlatform"> The test-platform value. </param>
-    /// <param name="BuildTarget"> The optional build target value. </param>
-    /// <param name="TestFilter"> The optional test-filter value. </param>
-    /// <param name="TestCategories"> The normalized test-category values. </param>
-    /// <param name="AssemblyNames"> The normalized assembly-name values. </param>
-    /// <param name="TestSettingsPath"> The optional test-settings path value. </param>
-    /// <param name="ArtifactsDir"> The run artifacts directory path. </param>
-    private sealed record MetaJsonPayload (
-        int SchemaVersion,
-        string RunId,
-        string StartedAt,
-        string FinishedAt,
-        string ProjectPath,
-        string UnityVersion,
-        string UnityEditorPath,
-        string Mode,
-        string TestPlatform,
-        string? BuildTarget,
-        string? TestFilter,
-        string[] TestCategories,
-        string[] AssemblyNames,
-        string? TestSettingsPath,
-        string ArtifactsDir);
 }
