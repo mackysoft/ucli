@@ -15,6 +15,12 @@ public static class UcliStoragePathNames
     /// <summary> Gets the project-fingerprint directory name under <c>.ucli/local</c>. </summary>
     public const string FingerprintsDirectoryName = "fingerprints";
 
+    /// <summary> Gets the artifacts directory name under one fingerprint directory. </summary>
+    public const string ArtifactsDirectoryName = "artifacts";
+
+    /// <summary> Gets the test-artifacts directory name under one fingerprint artifacts directory. </summary>
+    public const string TestArtifactsDirectoryName = "test";
+
     /// <summary> Gets the shared config file name under <c>.ucli</c>. </summary>
     public const string ConfigFileName = "config.json";
 

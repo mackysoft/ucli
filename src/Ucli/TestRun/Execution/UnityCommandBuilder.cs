@@ -1,0 +1,82 @@
+using MackySoft.Ucli.TestRun.Artifacts;
+using MackySoft.Ucli.TestRun.Configuration;
+
+namespace MackySoft.Ucli.TestRun.Execution;
+
+/// <summary> Implements Unity command argument building for test execution. </summary>
+internal sealed class UnityCommandBuilder : IUnityCommandBuilder
+{
+    /// <summary> Builds one Unity command argument list from resolved run configuration and artifact paths. </summary>
+    /// <param name="configuration"> The resolved test-run configuration. </param>
+    /// <param name="artifactPaths"> The run artifact paths. </param>
+    /// <returns> The command argument list. </returns>
+    public IReadOnlyList<string> BuildArguments (
+        ResolvedTestRunConfiguration configuration,
+        ArtifactPaths artifactPaths)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(artifactPaths);
+
+        var arguments = new List<string>
+        {
+            "-batchmode",
+            "-nographics",
+            "-projectPath",
+            configuration.UnityProject.UnityProjectRoot,
+            "-runTests",
+            "-testPlatform",
+            ToUnityTestPlatform(configuration.TestPlatform),
+        };
+
+        if (configuration.TestPlatform == TestRunPlatform.PlayMode
+            && !string.IsNullOrWhiteSpace(configuration.BuildTarget))
+        {
+            arguments.Add("-buildTarget");
+            arguments.Add(configuration.BuildTarget);
+        }
+
+        if (configuration.AssemblyNames.Length > 0)
+        {
+            arguments.Add("-assemblyNames");
+            arguments.Add(string.Join(',', configuration.AssemblyNames));
+        }
+
+        if (!string.IsNullOrWhiteSpace(configuration.TestFilter))
+        {
+            arguments.Add("-testFilter");
+            arguments.Add(configuration.TestFilter);
+        }
+
+        if (configuration.TestCategories.Length > 0)
+        {
+            arguments.Add("-testCategory");
+            arguments.Add(string.Join(',', configuration.TestCategories));
+        }
+
+        if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath))
+        {
+            arguments.Add("-testSettingsFile");
+            arguments.Add(configuration.TestSettingsPath);
+        }
+
+        arguments.Add("-testResults");
+        arguments.Add(artifactPaths.ResultsXmlPath);
+        arguments.Add("-logFile");
+        arguments.Add(artifactPaths.EditorLogPath);
+
+        return arguments;
+    }
+
+    /// <summary> Converts internal test-platform values to Unity command-line values. </summary>
+    /// <param name="testPlatform"> The internal test-platform value. </param>
+    /// <returns> The Unity command-line platform value. </returns>
+    private static string ToUnityTestPlatform (TestRunPlatform testPlatform)
+    {
+        return testPlatform switch
+        {
+            TestRunPlatform.EditMode => "EditMode",
+            TestRunPlatform.PlayMode => "PlayMode",
+            _ => "EditMode",
+        };
+    }
+}
