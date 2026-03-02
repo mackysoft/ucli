@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Operations;
 
@@ -82,7 +83,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 continue;
             }
 
-            var normalizedOpId = Normalize(operationRequest.OpId);
+            var normalizedOpId = StringValueNormalizer.TrimToNull(operationRequest.OpId);
             if (normalizedOpId is null)
             {
                 errors.Add(new ValidationError(
@@ -98,7 +99,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     OpId: normalizedOpId));
             }
 
-            var normalizedOperationName = Normalize(operationRequest.Op);
+            var normalizedOperationName = StringValueNormalizer.TrimToNull(operationRequest.Op);
             if (normalizedOperationName is null)
             {
                 errors.Add(new ValidationError(
@@ -131,18 +132,5 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         }
 
         return new ValidationResult(errors);
-    }
-
-    /// <summary> Normalizes a string value by trimming whitespace and converting empty strings to <see langword="null" />. </summary>
-    /// <param name="value"> The input value. </param>
-    /// <returns> The normalized value, or <see langword="null" /> when empty. </returns>
-    private static string? Normalize (string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim();
     }
 }

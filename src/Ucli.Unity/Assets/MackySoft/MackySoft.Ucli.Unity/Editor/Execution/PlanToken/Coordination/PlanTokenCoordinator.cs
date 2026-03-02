@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -57,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             try
             {
                 var snapshot = environment.Capture();
-                var requestDigest = ComputeRequestDigest(request);
+                var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span);
                 var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);
 
                 if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
@@ -178,7 +179,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token issued-at timestamp is in the future."));
                 }
 
-                var requestDigest = ComputeRequestDigest(request);
+                var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span);
                 if (!string.Equals(requestDigest, payload.RequestDigest, StringComparison.Ordinal))
                 {
                     return PlanTokenValidationResult.Failed(new OperationFailure(
@@ -209,14 +210,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     Message: $"Failed to validate plan token. {exception.Message}",
                     OpId: null));
             }
-        }
-
-        /// <summary> Computes deterministic request digest from normalized request canonical payload. </summary>
-        /// <param name="request"> The normalized request model. </param>
-        /// <returns> The lowercase hexadecimal digest string. </returns>
-        private static string ComputeRequestDigest (NormalizedExecuteRequest request)
-        {
-            return PlanTokenSha256Hex.Compute(request.CanonicalDigestPayloadUtf8.Span);
         }
 
         /// <summary> Creates one invalid-token failure entry. </summary>

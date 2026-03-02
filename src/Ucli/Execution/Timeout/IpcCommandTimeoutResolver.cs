@@ -1,5 +1,6 @@
 using System.Globalization;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Execution;
@@ -45,7 +46,8 @@ internal static class IpcCommandTimeoutResolver
                 $"timeout must be a positive integer milliseconds value. Actual: {optionValue}."));
         }
 
-        if (!int.TryParse(optionValue.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var timeoutMilliseconds))
+        var normalizedOptionValue = StringValueNormalizer.TrimToNull(optionValue)!;
+        if (!int.TryParse(normalizedOptionValue, NumberStyles.None, CultureInfo.InvariantCulture, out var timeoutMilliseconds))
         {
             return IpcCommandTimeoutResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"timeout must be a positive integer milliseconds value. Actual: {optionValue}."));

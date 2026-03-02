@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -35,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
                 if (File.Exists(keyFilePath))
                 {
-                    var encodedKey = File.ReadAllText(keyFilePath).Trim();
+                    var encodedKey = StringValueNormalizer.TrimOrEmpty(File.ReadAllText(keyFilePath));
                     if (TryDecodeKey(encodedKey, out key))
                     {
                         errorMessage = null;

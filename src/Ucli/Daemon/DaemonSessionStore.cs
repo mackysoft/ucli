@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 
@@ -54,7 +55,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid. {exception.Message}"),
@@ -66,7 +67,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             json = await sessionFileAccess.ReadOrNull(sessionPath, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid: {sessionPath}. {exception.Message}"),
@@ -145,7 +146,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, session.ProjectFingerprint);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid. {exception.Message}"));
@@ -172,7 +173,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
             await sessionFileAccess.WriteAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
             return DaemonSessionStoreOperationResult.Success();
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid: {sessionPath}. {exception.Message}"));
@@ -201,7 +202,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid. {exception.Message}"));
@@ -212,7 +213,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
             await sessionFileAccess.DeleteIfExists(sessionPath, cancellationToken).ConfigureAwait(false);
             return DaemonSessionStoreOperationResult.Success();
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon session path is invalid: {sessionPath}. {exception.Message}"));
@@ -222,16 +223,6 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
             return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
                 $"Failed to delete daemon session file: {sessionPath}. {exception.Message}"));
         }
-    }
-
-    /// <summary> Determines whether one exception indicates invalid path format usage. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when exception indicates invalid path formatting; otherwise <see langword="false" />. </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            or NotSupportedException
-            or PathTooLongException;
     }
 
     /// <summary> Determines whether one exception indicates filesystem I/O failure. </summary>

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
@@ -102,7 +103,7 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
                 process.Dispose();
             }
         }
-        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return ValueTask.FromResult(UnityDaemonLaunchResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity daemon launch path is invalid. {exception.Message}")));

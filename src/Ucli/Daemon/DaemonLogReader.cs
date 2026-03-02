@@ -1,4 +1,5 @@
 using System.Text;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 
@@ -29,7 +30,7 @@ internal sealed class DaemonLogReader : IDaemonLogReader
         {
             daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(storageRoot, projectFingerprint);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonLogReadResult.Failure(string.Empty, ExecutionError.InvalidArgument(
                 $"Daemon log path is invalid. {exception.Message}"));
@@ -115,7 +116,7 @@ internal sealed class DaemonLogReader : IDaemonLogReader
                 path: daemonLogPath,
                 sizeBytes: 0);
         }
-        catch (Exception exception) when (IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return DaemonLogReadResult.Failure(daemonLogPath, ExecutionError.InvalidArgument(
                 $"Daemon log path is invalid: {daemonLogPath}. {exception.Message}"));
@@ -125,16 +126,6 @@ internal sealed class DaemonLogReader : IDaemonLogReader
             return DaemonLogReadResult.Failure(daemonLogPath, ExecutionError.InternalError(
                 $"Failed to read daemon log file: {daemonLogPath}. {exception.Message}"));
         }
-    }
-
-    /// <summary> Determines whether one exception indicates invalid path formatting. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when exception indicates invalid path formatting; otherwise <see langword="false" />. </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            or NotSupportedException
-            or PathTooLongException;
     }
 
     /// <summary> Determines whether one exception indicates filesystem I/O failure. </summary>

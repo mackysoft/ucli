@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
@@ -187,7 +188,7 @@ internal sealed class UnityEditorExecutablePathLocator
             normalizedPath = Path.GetFullPath(pathValue);
             return true;
         }
-        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return false;
         }

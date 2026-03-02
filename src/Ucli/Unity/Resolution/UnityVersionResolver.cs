@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
@@ -36,7 +37,7 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
         {
             normalizedProjectPath = Path.GetFullPath(projectPath);
         }
-        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Unity project path is invalid: {projectPath}"));
@@ -57,7 +58,7 @@ internal sealed class UnityVersionResolver : IUnityVersionResolver
         {
             content = File.ReadAllText(projectVersionPath);
         }
-        catch (Exception exception) when (PathFormatExceptionHelper.IsPathFormatException(exception))
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
             return UnityVersionResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"ProjectVersion.txt path is invalid: {projectVersionPath}. {exception.Message}"));

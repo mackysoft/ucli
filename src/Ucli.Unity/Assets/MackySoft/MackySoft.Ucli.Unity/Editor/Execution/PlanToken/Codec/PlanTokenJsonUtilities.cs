@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -21,13 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 return null;
             }
 
-            var value = valueElement.GetString();
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return null;
-            }
-
-            return value.Trim();
+            return StringValueNormalizer.TrimToNull(valueElement.GetString());
         }
     }
 }

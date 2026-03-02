@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Storage;
 
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
@@ -225,6 +227,6 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        return projectFingerprint.Trim();
+        return StringValueNormalizer.TrimToNull(projectFingerprint)!;
     }
 }
