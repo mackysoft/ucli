@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
@@ -29,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     throw new ArgumentException("Operation name must not be null, empty, or whitespace.", nameof(operations));
                 }
 
-                if (HasOuterWhitespace(operationName))
+                if (StringValueValidator.HasOuterWhitespace(operationName))
                 {
                     throw new ArgumentException($"Operation name must not contain leading or trailing whitespace: '{operationName}'.", nameof(operations));
                 }
@@ -43,14 +44,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operationsByName = dictionary;
-        }
-
-        /// <summary> Determines whether value contains leading or trailing whitespace. </summary>
-        /// <param name="value"> The source value. </param>
-        /// <returns> <see langword="true" /> when value contains leading or trailing whitespace; otherwise <see langword="false" />. </returns>
-        private static bool HasOuterWhitespace (string value)
-        {
-            return char.IsWhiteSpace(value[0]) || char.IsWhiteSpace(value[value.Length - 1]);
         }
 
         /// <summary> Attempts to resolve an operation implementation by operation name. </summary>

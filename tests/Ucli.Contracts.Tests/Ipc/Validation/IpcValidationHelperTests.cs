@@ -156,15 +156,6 @@ public sealed class IpcValidationHelperTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void JsonStringContractReader_HasOuterWhitespace_ReturnsExpectedValue ()
-    {
-        Assert.True(JsonStringContractReader.HasOuterWhitespace(" value"));
-        Assert.True(JsonStringContractReader.HasOuterWhitespace("value "));
-        Assert.False(JsonStringContractReader.HasOuterWhitespace("value"));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void ExpectationConstraintHelper_ReturnsNullConstraints_WhenExpectationIsAbsent ()
     {
         var operationElement = JsonSerializer.SerializeToElement(new
