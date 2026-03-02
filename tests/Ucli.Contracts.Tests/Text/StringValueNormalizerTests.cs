@@ -26,6 +26,30 @@ public sealed class StringValueNormalizerTests
         Assert.Equal("value", result);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void TryTrimToNonEmpty_ReturnsFalse_WhenValueIsNullOrWhitespace (string? value)
+    {
+        var result = StringValueNormalizer.TryTrimToNonEmpty(value, out var normalizedValue);
+
+        Assert.False(result);
+        Assert.Null(normalizedValue);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryTrimToNonEmpty_ReturnsTrueAndTrimmedValue_WhenValueContainsNonWhitespaceCharacters ()
+    {
+        var result = StringValueNormalizer.TryTrimToNonEmpty("  value  ", out var normalizedValue);
+
+        Assert.True(result);
+        Assert.Equal("value", normalizedValue);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TrimOrEmpty_ReturnsEmpty_WhenValueIsNull ()
