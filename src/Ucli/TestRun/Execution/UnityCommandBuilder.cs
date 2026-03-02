@@ -25,7 +25,7 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
             configuration.UnityProject.UnityProjectRoot,
             "-runTests",
             "-testPlatform",
-            ToUnityTestPlatform(configuration.TestPlatform),
+            TestRunPlatformCodec.ToUnityValue(configuration.TestPlatform),
         };
 
         if (configuration.TestPlatform == TestRunPlatform.PlayMode
@@ -65,18 +65,5 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
         arguments.Add(artifactPaths.EditorLogPath);
 
         return arguments;
-    }
-
-    /// <summary> Converts internal test-platform values to Unity command-line values. </summary>
-    /// <param name="testPlatform"> The internal test-platform value. </param>
-    /// <returns> The Unity command-line platform value. </returns>
-    private static string ToUnityTestPlatform (TestRunPlatform testPlatform)
-    {
-        return testPlatform switch
-        {
-            TestRunPlatform.EditMode => "EditMode",
-            TestRunPlatform.PlayMode => "PlayMode",
-            _ => "EditMode",
-        };
     }
 }

@@ -176,7 +176,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
             UnityVersion: configuration.UnityVersion,
             UnityEditorPath: configuration.UnityEditorPath,
             Mode: configuration.Mode,
-            TestPlatform: ToTestPlatformValue(configuration.TestPlatform),
+            TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
             BuildTarget: configuration.BuildTarget,
             TestFilter: configuration.TestFilter,
             TestCategories: configuration.TestCategories,
@@ -186,19 +186,6 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         File.WriteAllText(session.Paths.MetaJsonPath, json);
-    }
-
-    /// <summary> Converts test-platform enum values to schema string values. </summary>
-    /// <param name="testPlatform"> The test-platform enum value. </param>
-    /// <returns> The schema string value. </returns>
-    private static string ToTestPlatformValue (TestRunPlatform testPlatform)
-    {
-        return testPlatform switch
-        {
-            TestRunPlatform.EditMode => "editmode",
-            TestRunPlatform.PlayMode => "playmode",
-            _ => "editmode",
-        };
     }
 
     /// <summary> Represents metadata payload for one test-run artifacts session. </summary>

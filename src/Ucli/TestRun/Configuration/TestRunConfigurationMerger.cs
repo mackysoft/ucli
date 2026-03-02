@@ -32,7 +32,7 @@ internal static class TestRunConfigurationMerger
             Mode: mode,
             UnityVersion: NormalizeOptionalString(cli.UnityVersion ?? profile?.UnityVersion),
             UnityEditorPath: NormalizeOptionalPath(cli.UnityEditorPath ?? profile?.UnityEditorPath),
-            TestPlatform: TestRunPlatformParser.Parse(mergedRawTestPlatform),
+            TestPlatform: ParseTestPlatform(mergedRawTestPlatform),
             RawTestPlatform: mergedRawTestPlatform,
             BuildTarget: NormalizeOptionalString(cli.BuildTarget ?? profile?.BuildTarget),
             TestFilter: NormalizeOptionalString(cli.TestFilter ?? profile?.TestFilter),
@@ -101,5 +101,18 @@ internal static class TestRunConfigurationMerger
             .SelectMany(static value => value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+    }
+
+    /// <summary> Parses one raw test-platform literal or returns unknown value when unsupported. </summary>
+    /// <param name="testPlatformValue"> The raw test-platform literal. </param>
+    /// <returns> The parsed test-platform value. </returns>
+    private static TestRunPlatform ParseTestPlatform (string testPlatformValue)
+    {
+        if (TestRunPlatformCodec.TryParse(testPlatformValue, out var parsedTestPlatform))
+        {
+            return parsedTestPlatform;
+        }
+
+        return TestRunPlatform.Unknown;
     }
 }
