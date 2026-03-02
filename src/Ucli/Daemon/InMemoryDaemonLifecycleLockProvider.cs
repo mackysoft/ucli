@@ -24,12 +24,12 @@ internal sealed class InMemoryDaemonLifecycleLockProvider : IDaemonLifecycleLock
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        if (string.IsNullOrWhiteSpace(projectFingerprint))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(projectFingerprint, out var normalizedProjectFingerprint))
         {
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        var lockKey = $"{Path.GetFullPath(storageRoot)}\n{StringValueNormalizer.TrimToNull(projectFingerprint)!}";
+        var lockKey = $"{Path.GetFullPath(storageRoot)}\n{normalizedProjectFingerprint}";
         var semaphore = LocksByFingerprint.GetOrAdd(
             lockKey,
             static _ => new SemaphoreSlim(1, 1));

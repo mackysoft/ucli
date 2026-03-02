@@ -40,13 +40,12 @@ internal static class IpcCommandTimeoutResolver
             return ResolveMilliseconds(config.IpcDefaultTimeoutMilliseconds, "config ipcDefaultTimeoutMilliseconds");
         }
 
-        if (string.IsNullOrWhiteSpace(optionValue))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(optionValue, out var normalizedOptionValue))
         {
             return IpcCommandTimeoutResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"timeout must be a positive integer milliseconds value. Actual: {optionValue}."));
         }
 
-        var normalizedOptionValue = StringValueNormalizer.TrimToNull(optionValue)!;
         if (!int.TryParse(normalizedOptionValue, NumberStyles.None, CultureInfo.InvariantCulture, out var timeoutMilliseconds))
         {
             return IpcCommandTimeoutResolutionResult.Failure(ExecutionError.InvalidArgument(

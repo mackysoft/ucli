@@ -38,8 +38,7 @@ internal static class Base64UrlCodec
     {
         bytes = Array.Empty<byte>();
 
-        var normalized = StringValueNormalizer.TrimToNull(text);
-        if (normalized is null)
+        if (!StringValueNormalizer.TryTrimToNonEmpty(text, out var normalized))
         {
             return false;
         }
