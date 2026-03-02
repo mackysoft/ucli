@@ -8,7 +8,7 @@ public sealed class TestRunProfileLoaderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Load_WithValidProfile_ReturnsSuccess ()
+    public async Task Load_WithValidProfile_ReturnsSuccess ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "valid-profile");
         var profilePath = scope.WriteFile(
@@ -25,7 +25,7 @@ public sealed class TestRunProfileLoaderTests
             """);
         var loader = new TestRunProfileLoader();
 
-        var result = loader.Load(profilePath);
+        var result = await loader.Load(profilePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var profile = Assert.IsType<TestRunProfile>(result.Profile);
@@ -39,7 +39,7 @@ public sealed class TestRunProfileLoaderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Load_WithSchemaVersionMismatch_ReturnsInvalidArgument ()
+    public async Task Load_WithSchemaVersionMismatch_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "schema-mismatch");
         var profilePath = scope.WriteFile(
@@ -51,7 +51,7 @@ public sealed class TestRunProfileLoaderTests
             """);
         var loader = new TestRunProfileLoader();
 
-        var result = loader.Load(profilePath);
+        var result = await loader.Load(profilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -61,13 +61,13 @@ public sealed class TestRunProfileLoaderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Load_WithMissingProfilePath_ReturnsInvalidArgument ()
+    public async Task Load_WithMissingProfilePath_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "missing-profile");
         var loader = new TestRunProfileLoader();
         var missingPath = scope.GetPath("missing.profile.json");
 
-        var result = loader.Load(missingPath);
+        var result = await loader.Load(missingPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

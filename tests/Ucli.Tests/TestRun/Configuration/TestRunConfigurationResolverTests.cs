@@ -11,7 +11,7 @@ public sealed class TestRunConfigurationResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithCliOverridesProfileValues_ReturnsMergedCliValues ()
+    public async Task Resolve_WithCliOverridesProfileValues_ReturnsMergedCliValues ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "cli-overrides-profile");
         var testSettingsPath = scope.WriteFile("ProjectSettings/TestSettings.json", "{}");
@@ -57,7 +57,7 @@ public sealed class TestRunConfigurationResolverTests
             TestSettingsPath: testSettingsPath,
             TimeoutSeconds: 120);
 
-        var result = resolver.Resolve(input);
+        var result = await resolver.Resolve(input, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var configuration = Assert.IsType<ResolvedTestRunConfiguration>(result.Configuration);
@@ -74,7 +74,7 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithInvalidTestPlatform_ReturnsInvalidArgument ()
+    public async Task Resolve_WithInvalidTestPlatform_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "invalid-platform");
 
@@ -93,7 +93,7 @@ public sealed class TestRunConfigurationResolverTests
             TestSettingsPath: null,
             TimeoutSeconds: 30);
 
-        var result = resolver.Resolve(input);
+        var result = await resolver.Resolve(input, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -103,7 +103,7 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithEditModeAndBuildTarget_ReturnsInvalidArgument ()
+    public async Task Resolve_WithEditModeAndBuildTarget_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "editmode-buildtarget");
 
@@ -122,7 +122,7 @@ public sealed class TestRunConfigurationResolverTests
             TestSettingsPath: null,
             TimeoutSeconds: 30);
 
-        var result = resolver.Resolve(input);
+        var result = await resolver.Resolve(input, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -134,7 +134,7 @@ public sealed class TestRunConfigurationResolverTests
     [Trait("Size", "Small")]
     [InlineData(0)]
     [InlineData(86401)]
-    public void Resolve_WithTimeoutOutOfRange_ReturnsInvalidArgument (int timeoutSeconds)
+    public async Task Resolve_WithTimeoutOutOfRange_ReturnsInvalidArgument (int timeoutSeconds)
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", $"timeout-{timeoutSeconds}");
 
@@ -153,7 +153,7 @@ public sealed class TestRunConfigurationResolverTests
             TestSettingsPath: null,
             TimeoutSeconds: timeoutSeconds);
 
-        var result = resolver.Resolve(input);
+        var result = await resolver.Resolve(input, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -163,7 +163,7 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithMissingTestSettingsPath_ReturnsInvalidArgument ()
+    public async Task Resolve_WithMissingTestSettingsPath_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "missing-test-settings");
 
@@ -182,7 +182,7 @@ public sealed class TestRunConfigurationResolverTests
             TestSettingsPath: scope.GetPath("ProjectSettings/TestSettings.json"),
             TimeoutSeconds: 30);
 
-        var result = resolver.Resolve(input);
+        var result = await resolver.Resolve(input, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -222,9 +222,12 @@ public sealed class TestRunConfigurationResolverTests
             this.result = result;
         }
 
-        public TestRunProfileLoadResult Load (string profilePath)
+        public ValueTask<TestRunProfileLoadResult> Load (
+            string profilePath,
+            CancellationToken cancellationToken = default)
         {
-            return result;
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
         }
     }
 

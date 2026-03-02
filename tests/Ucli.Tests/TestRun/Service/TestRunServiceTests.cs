@@ -327,9 +327,12 @@ public sealed class TestRunServiceTests
             this.result = result;
         }
 
-        public TestRunConfigurationResolutionResult Resolve (TestRunCommandInput input)
+        public ValueTask<TestRunConfigurationResolutionResult> Resolve (
+            TestRunCommandInput input,
+            CancellationToken cancellationToken = default)
         {
-            return result;
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
         }
     }
 
