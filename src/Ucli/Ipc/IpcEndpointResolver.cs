@@ -33,13 +33,12 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        if (string.IsNullOrWhiteSpace(projectFingerprint))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(projectFingerprint, out var normalizedProjectFingerprint))
         {
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
         var normalizedStorageRoot = Path.GetFullPath(storageRoot);
-        var normalizedProjectFingerprint = StringValueNormalizer.TrimToNull(projectFingerprint)!;
 
         if (OperatingSystem.IsWindows())
         {

@@ -246,13 +246,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         var normalizedAllowlist = new List<string>(document.OperationAllowlist.Length);
         foreach (var pattern in document.OperationAllowlist)
         {
-            if (string.IsNullOrWhiteSpace(pattern))
+            if (!StringValueNormalizer.TryTrimToNonEmpty(pattern, out var normalizedPattern))
             {
                 return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                     $"Config operationAllowlist contains an empty pattern: {configPath}."));
             }
 
-            var normalizedPattern = StringValueNormalizer.TrimToNull(pattern)!;
             if (!RegexPatternUtilities.TryValidatePattern(normalizedPattern, out var patternErrorMessage))
             {
                 return ConfigParseResult.Failure(ExecutionError.InvalidArgument(

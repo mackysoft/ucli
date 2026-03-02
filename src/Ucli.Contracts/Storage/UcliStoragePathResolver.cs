@@ -222,11 +222,11 @@ public static class UcliStoragePathResolver
 
     private static string NormalizeProjectFingerprint (string projectFingerprint)
     {
-        if (string.IsNullOrWhiteSpace(projectFingerprint))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(projectFingerprint, out var normalizedProjectFingerprint))
         {
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        return StringValueNormalizer.TrimToNull(projectFingerprint)!;
+        return normalizedProjectFingerprint;
     }
 }
