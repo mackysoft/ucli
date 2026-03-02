@@ -81,10 +81,9 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                     $"Failed to create artifacts directory: {artifactsDir}. {exception.Message}"));
             }
 
-            var artifactPaths = CreateArtifactPaths(artifactsDir);
+            var artifactPaths = new ArtifactPaths(artifactsDir);
             var session = new ArtifactsSession(
                 RunId: runId,
-                ArtifactsDir: artifactsDir,
                 Paths: artifactPaths,
                 StartedAtUtc: startedAtUtc);
 
@@ -147,19 +146,6 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
             return ArtifactsCompletionResult.Failure(ExecutionError.InternalError(
                 $"Failed to update meta.json: {session.Paths.MetaJsonPath}. {exception.Message}"));
         }
-    }
-
-    /// <summary> Creates fixed artifact paths under one artifacts directory. </summary>
-    /// <param name="artifactsDirectoryPath"> The run artifacts directory path. </param>
-    /// <returns> The fixed artifact paths. </returns>
-    private static ArtifactPaths CreateArtifactPaths (string artifactsDirectoryPath)
-    {
-        return new ArtifactPaths(
-            MetaJsonPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.MetaJson),
-            ResultsXmlPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.ResultsXml),
-            EditorLogPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.EditorLog),
-            ResultsJsonPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.ResultsJson),
-            SummaryJsonPath: Path.Combine(artifactsDirectoryPath, TestRunArtifactFileNames.SummaryJson));
     }
 
     /// <summary> Creates one run identifier value. </summary>

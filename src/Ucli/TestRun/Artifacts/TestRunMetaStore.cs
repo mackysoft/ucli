@@ -45,7 +45,7 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             TestCategories: configuration.TestCategories,
             AssemblyNames: configuration.AssemblyNames,
             TestSettingsPath: configuration.TestSettingsPath,
-            ArtifactsDir: session.ArtifactsDir);
+            ArtifactsDir: session.Paths.ArtifactsDir);
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         await File.WriteAllTextAsync(session.Paths.MetaJsonPath, json, cancellationToken).ConfigureAwait(false);

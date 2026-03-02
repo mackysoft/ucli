@@ -28,7 +28,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                 "Unexpected execution pipeline state.",
                 IpcErrorCodes.InternalError,
                 pipelineResult.Session?.RunId,
-                pipelineResult.Session?.ArtifactsDir,
+                pipelineResult.Session?.Paths.ArtifactsDir,
                 pipelineResult.Session?.Paths.SummaryJsonPath);
         }
 
@@ -58,7 +58,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                 unityExecutionResult.ErrorMessage ?? "Unity test execution failed.",
                 errorCode,
                 runId: session.RunId,
-                artifactsDir: session.ArtifactsDir,
+                artifactsDir: session.Paths.ArtifactsDir,
                 summaryJsonPath: session.Paths.SummaryJsonPath);
         }
 
@@ -70,25 +70,25 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                     conversionResult.ErrorMessage ?? "Failed to write test result artifacts.",
                     TestRunErrorCodes.TestResultsOutputWriteFailed,
                     runId: session.RunId,
-                    artifactsDir: session.ArtifactsDir,
+                    artifactsDir: session.Paths.ArtifactsDir,
                     summaryJsonPath: session.Paths.SummaryJsonPath),
                 UnityResultsConversionFailureKind.ResultsXmlReadFailed => TestRunServiceResult.InfraError(
                     conversionResult.ErrorMessage ?? "Failed to read Unity results XML.",
                     TestRunErrorCodes.TestResultsXmlReadFailed,
                     runId: session.RunId,
-                    artifactsDir: session.ArtifactsDir,
+                    artifactsDir: session.Paths.ArtifactsDir,
                     summaryJsonPath: session.Paths.SummaryJsonPath),
                 UnityResultsConversionFailureKind.Canceled => TestRunServiceResult.ToolError(
                     conversionResult.ErrorMessage ?? "Unity results conversion was canceled.",
                     CliErrorCodes.Canceled,
                     runId: session.RunId,
-                    artifactsDir: session.ArtifactsDir,
+                    artifactsDir: session.Paths.ArtifactsDir,
                     summaryJsonPath: session.Paths.SummaryJsonPath),
                 _ => TestRunServiceResult.ToolError(
                     conversionResult.ErrorMessage ?? "Unity results XML is invalid.",
                     TestRunErrorCodes.TestResultsXmlInvalid,
                     runId: session.RunId,
-                    artifactsDir: session.ArtifactsDir,
+                    artifactsDir: session.Paths.ArtifactsDir,
                     summaryJsonPath: session.Paths.SummaryJsonPath),
             };
         }
@@ -98,14 +98,14 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             return TestRunServiceResult.Fail(
                 message: "Unity test execution completed with failed tests.",
                 runId: session.RunId,
-                artifactsDir: session.ArtifactsDir,
+                artifactsDir: session.Paths.ArtifactsDir,
                 summaryJsonPath: session.Paths.SummaryJsonPath);
         }
 
         return TestRunServiceResult.Pass(
             message: "Unity test execution completed.",
             runId: session.RunId,
-            artifactsDir: session.ArtifactsDir,
+            artifactsDir: session.Paths.ArtifactsDir,
             summaryJsonPath: session.Paths.SummaryJsonPath);
     }
 }

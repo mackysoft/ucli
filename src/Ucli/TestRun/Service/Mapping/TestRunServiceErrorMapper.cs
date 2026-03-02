@@ -19,7 +19,7 @@ internal static class TestRunServiceErrorMapper
         ArgumentNullException.ThrowIfNull(error);
 
         var runId = session?.RunId;
-        var artifactsDir = session?.ArtifactsDir;
+        var artifactsDir = session?.Paths.ArtifactsDir;
         var summaryJsonPath = session?.Paths.SummaryJsonPath;
 
         return error.Kind switch
