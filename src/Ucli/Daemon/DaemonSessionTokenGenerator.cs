@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Daemon;
 
@@ -11,9 +12,6 @@ internal sealed class DaemonSessionTokenGenerator : IDaemonSessionTokenGenerator
     {
         Span<byte> tokenBuffer = stackalloc byte[32];
         RandomNumberGenerator.Fill(tokenBuffer);
-        return Convert.ToBase64String(tokenBuffer)
-            .TrimEnd('=')
-            .Replace('+', '-')
-            .Replace('/', '_');
+        return Base64UrlCodec.Encode(tokenBuffer);
     }
 }

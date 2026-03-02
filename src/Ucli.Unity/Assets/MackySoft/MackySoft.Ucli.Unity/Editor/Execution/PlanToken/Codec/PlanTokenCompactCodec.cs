@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -30,11 +31,11 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         {
             var headerBytes = CreateHeaderJsonBytes();
             var payloadBytes = CreatePayloadJsonBytes(payload);
-            var headerSegment = EncodeBase64Url(headerBytes);
-            var payloadSegment = EncodeBase64Url(payloadBytes);
+            var headerSegment = Base64UrlCodec.Encode(headerBytes);
+            var payloadSegment = Base64UrlCodec.Encode(payloadBytes);
             var signingInput = headerSegment + "." + payloadSegment;
             var signature = ComputeSignature(signingInput, signingKey);
-            var signatureSegment = EncodeBase64Url(signature);
+            var signatureSegment = Base64UrlCodec.Encode(signature);
             return signingInput + "." + signatureSegment;
         }
 
@@ -57,9 +58,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 return false;
             }
 
-            if (!TryDecodeBase64Url(headerSegment, out var headerBytes)
-                || !TryDecodeBase64Url(payloadSegment, out var payloadBytes)
-                || !TryDecodeBase64Url(signatureSegment, out var signatureBytes))
+            if (!Base64UrlCodec.TryDecode(headerSegment, out var headerBytes)
+                || !Base64UrlCodec.TryDecode(payloadSegment, out var payloadBytes)
+                || !Base64UrlCodec.TryDecode(signatureSegment, out var signatureBytes))
             {
                 return false;
             }
@@ -128,7 +129,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         {
             var nonceBytes = new byte[16];
             RandomNumberGenerator.Fill(nonceBytes);
-            return EncodeBase64Url(nonceBytes);
+            return Base64UrlCodec.Encode(nonceBytes);
         }
 
         /// <summary> Creates compact-token header JSON bytes. </summary>
@@ -336,57 +337,5 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             }
         }
 
-        /// <summary> Encodes bytes as unpadded base64url text. </summary>
-        /// <param name="bytes"> The input bytes. </param>
-        /// <returns> The base64url text. </returns>
-        private static string EncodeBase64Url (byte[] bytes)
-        {
-            return Convert.ToBase64String(bytes)
-                .TrimEnd('=')
-                .Replace('+', '-')
-                .Replace('/', '_');
-        }
-
-        /// <summary> Decodes one base64url text into bytes. </summary>
-        /// <param name="text"> The base64url text. </param>
-        /// <param name="bytes"> The decoded bytes. </param>
-        /// <returns> <see langword="true" /> when decode succeeds; otherwise <see langword="false" />. </returns>
-        private static bool TryDecodeBase64Url (
-            string text,
-            out ReadOnlyMemory<byte> bytes)
-        {
-            bytes = ReadOnlyMemory<byte>.Empty;
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return false;
-            }
-
-            var base64 = text
-                .Replace('-', '+')
-                .Replace('_', '/');
-            var padding = base64.Length % 4;
-            if (padding == 2)
-            {
-                base64 += "==";
-            }
-            else if (padding == 3)
-            {
-                base64 += "=";
-            }
-            else if (padding != 0)
-            {
-                return false;
-            }
-
-            try
-            {
-                bytes = new ReadOnlyMemory<byte>(Convert.FromBase64String(base64));
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
     }
 }

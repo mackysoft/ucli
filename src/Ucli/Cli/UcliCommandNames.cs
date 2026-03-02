@@ -59,7 +59,7 @@ internal static class UcliCommandNames
         }
 
         var firstArgument = args[0];
-        if (string.IsNullOrWhiteSpace(firstArgument) || firstArgument.StartsWith("-", StringComparison.Ordinal))
+        if (CommandTokenClassifier.IsRootCommandToken(firstArgument))
         {
             return Root;
         }

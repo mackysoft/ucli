@@ -1,7 +1,8 @@
-using System.Security.Cryptography;
 using System.Text;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Ipc;
 
@@ -38,7 +39,7 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
         }
 
         var normalizedStorageRoot = Path.GetFullPath(storageRoot);
-        var normalizedProjectFingerprint = projectFingerprint.Trim();
+        var normalizedProjectFingerprint = StringValueNormalizer.TrimToNull(projectFingerprint)!;
 
         if (OperatingSystem.IsWindows())
         {
@@ -69,8 +70,8 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
         string normalizedProjectFingerprint)
     {
         var hashSource = $"{normalizedStorageRoot}\n{normalizedProjectFingerprint}";
-        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(hashSource));
-        var shortHash = Convert.ToHexString(hashBytes.AsSpan(0, 16)).ToLowerInvariant();
+        var hashHex = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(hashSource));
+        var shortHash = hashHex[..32];
         return Path.Combine(
             UnixSocketFallbackDirectoryPath,
             UnixSocketFallbackFilePrefix + shortHash + UnixSocketFallbackFileExtension);

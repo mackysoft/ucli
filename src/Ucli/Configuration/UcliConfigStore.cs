@@ -1,8 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Configuration;
@@ -57,7 +58,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         {
             configPath = GetConfigPath(storageRoot);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"Storage root path is invalid: {storageRoot}"));
@@ -73,7 +74,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         {
             json = await File.ReadAllTextAsync(configPath, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"Config path is invalid: {configPath}"));
@@ -136,7 +137,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         {
             configPath = GetConfigPath(storageRoot);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument(
                 $"Storage root path is invalid: {storageRoot}"));
@@ -154,7 +155,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         {
             configDirectoryPath = Path.GetDirectoryName(configPath);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument(
                 $"Config path is invalid: {configPath}. {ex.Message}"));
@@ -172,7 +173,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             await File.WriteAllTextAsync(configPath, json + Environment.NewLine, cancellationToken).ConfigureAwait(false);
             return UcliConfigSaveResult.Success();
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return UcliConfigSaveResult.Failure(ExecutionError.InvalidArgument(
                 $"Config path is invalid: {configPath}. {ex.Message}"));
@@ -251,8 +252,8 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                     $"Config operationAllowlist contains an empty pattern: {configPath}."));
             }
 
-            var normalizedPattern = pattern.Trim();
-            if (!TryValidateRegexPattern(normalizedPattern, out var patternErrorMessage))
+            var normalizedPattern = StringValueNormalizer.TrimToNull(pattern)!;
+            if (!RegexPatternUtilities.TryValidatePattern(normalizedPattern, out var patternErrorMessage))
             {
                 return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                     $"Config operationAllowlist contains an invalid regex pattern: {normalizedPattern}. {patternErrorMessage}"));
@@ -302,7 +303,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                     $"Config operationAllowlist contains an empty pattern: {configPath}."));
             }
 
-            if (!TryValidateRegexPattern(pattern, out var patternErrorMessage))
+            if (!RegexPatternUtilities.TryValidatePattern(pattern, out var patternErrorMessage))
             {
                 return ConfigValidationResult.Failure(ExecutionError.InvalidArgument(
                     $"Config operationAllowlist contains an invalid regex pattern: {pattern}. {patternErrorMessage}"));
@@ -325,27 +326,6 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         return ConfigValidationResult.Success();
     }
 
-    /// <summary> Validates whether a value can be compiled as a regular expression pattern. </summary>
-    /// <param name="pattern"> The regex pattern string to validate. </param>
-    /// <param name="errorMessage"> The parser error message when the pattern is invalid. </param>
-    /// <returns> <see langword="true" /> when the pattern is valid; otherwise <see langword="false" />. </returns>
-    private static bool TryValidateRegexPattern (
-        string pattern,
-        out string? errorMessage)
-    {
-        try
-        {
-            new Regex(pattern, RegexOptions.CultureInvariant);
-            errorMessage = null;
-            return true;
-        }
-        catch (ArgumentException exception)
-        {
-            errorMessage = exception.Message;
-            return false;
-        }
-    }
-
     /// <summary> Converts typed config values into serializable JSON DTO values. </summary>
     /// <param name="config"> The typed config values. </param>
     /// <returns> The serializable DTO. </returns>
@@ -364,16 +344,6 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             OperationAllowlist: config.OperationAllowlist.ToArray(),
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand);
-    }
-
-    /// <summary> Determines whether an exception should be treated as invalid path formatting. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when invalid path formatting is detected; otherwise <see langword="false" />. </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            or NotSupportedException
-            or PathTooLongException;
     }
 
     /// <summary> Determines whether an exception should be treated as an internal I/O failure. </summary>

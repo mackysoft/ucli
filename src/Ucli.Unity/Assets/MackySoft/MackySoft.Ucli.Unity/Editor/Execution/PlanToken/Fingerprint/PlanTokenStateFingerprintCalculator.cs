@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
@@ -36,9 +39,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var unityVersion = NormalizeOrFallback(snapshot.UnityVersion);
-            var compileState = NormalizeOrFallback(snapshot.CompileState);
-            var domainReloadGeneration = NormalizeOrFallback(snapshot.DomainReloadGeneration);
+            var unityVersion = StringValueNormalizer.TrimOrFallback(snapshot.UnityVersion, NaLiteral);
+            var compileState = StringValueNormalizer.TrimOrFallback(snapshot.CompileState, NaLiteral);
+            var domainReloadGeneration = StringValueNormalizer.TrimOrFallback(snapshot.DomainReloadGeneration, NaLiteral);
             var configDigest = ComputeConfigDigest(snapshot.RepositoryRoot, cancellationToken);
             var touchedDigest = ComputeTouchedDigest(snapshot.ProjectRoot, operationTraces, cancellationToken);
 
@@ -49,14 +52,14 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.WriteString("compileState", compileState);
                 writer.WriteString("configDigest", configDigest);
                 writer.WriteString("domainReloadGeneration", domainReloadGeneration);
-                writer.WriteString("projectFingerprint", NormalizeOrFallback(snapshot.ProjectFingerprint));
+                writer.WriteString("projectFingerprint", StringValueNormalizer.TrimOrFallback(snapshot.ProjectFingerprint, NaLiteral));
                 writer.WriteString("touchedDigest", touchedDigest);
                 writer.WriteString("unityVersion", unityVersion);
                 writer.WriteEndObject();
                 writer.Flush();
             }
 
-            return PlanTokenSha256Hex.Compute(stream.ToArray());
+            return Sha256LowerHex.Compute(stream.ToArray());
         }
 
         /// <summary> Computes configuration digest from shared <c>.ucli/config.json</c> fields. </summary>
@@ -88,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.Flush();
             }
 
-            return PlanTokenSha256Hex.Compute(stream.ToArray());
+            return Sha256LowerHex.Compute(stream.ToArray());
         }
 
         /// <summary> Computes touched-resource digest from normalized touched entries and live file metadata. </summary>
@@ -154,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.Flush();
             }
 
-            return PlanTokenSha256Hex.Compute(stream.ToArray());
+            return Sha256LowerHex.Compute(stream.ToArray());
         }
 
         /// <summary> Creates one touched-digest entry from touched operation output. </summary>
@@ -166,10 +169,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             OperationTouch touched)
         {
             var touchedPath = string.IsNullOrWhiteSpace(touched.Path) ? NaLiteral : touched.Path;
-            var guid = string.IsNullOrWhiteSpace(touched.Guid) ? NaLiteral : touched.Guid;
-            var normalizedPath = touchedPath
-                .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-                .Replace('/', Path.DirectorySeparatorChar);
+            var guid = StringValueNormalizer.TrimOrFallback(touched.Guid, NaLiteral);
+            var normalizedPath = PathStringNormalizer.ToPlatformSeparated(touchedPath);
             var absolutePath = Path.Combine(projectRoot, normalizedPath);
 
             var exists = File.Exists(absolutePath) || Directory.Exists(absolutePath);
@@ -201,14 +202,5 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 Size: size,
                 LastWriteUtcTicks: lastWriteUtcTicks);
         }
-
-        /// <summary> Normalizes one string value or returns fallback literal when missing. </summary>
-        /// <param name="value"> The input value. </param>
-        /// <returns> The normalized value. </returns>
-        private static string NormalizeOrFallback (string? value)
-        {
-            return string.IsNullOrWhiteSpace(value) ? NaLiteral : value.Trim();
-        }
-
     }
 }

@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 
@@ -79,16 +78,14 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
                 continue;
             }
 
-            try
-            {
-                if (Regex.IsMatch(operationName, pattern, RegexOptions.CultureInvariant))
-                {
-                    return AllowlistMatchResult.Matched();
-                }
-            }
-            catch (ArgumentException)
+            if (!RegexPatternUtilities.TryIsMatch(operationName, pattern, out var isMatch))
             {
                 return AllowlistMatchResult.WithInvalidPattern(pattern);
+            }
+
+            if (isMatch)
+            {
+                return AllowlistMatchResult.Matched();
             }
         }
 

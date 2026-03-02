@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -50,8 +51,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     return FallbackSnapshot;
                 }
 
-                var planTokenModeLiteral = NormalizeOrFallback(config.PlanTokenMode);
-                var operationPolicy = NormalizeOrFallback(config.OperationPolicy);
+                var planTokenModeLiteral = StringValueNormalizer.TrimOrFallback(config.PlanTokenMode, NaLiteral);
+                var operationPolicy = StringValueNormalizer.TrimOrFallback(config.OperationPolicy, NaLiteral);
                 var operationAllowlist = config.OperationAllowlist ?? FallbackAllowlist;
 
                 return new PlanTokenConfigSnapshot(
@@ -79,14 +80,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             }
 
             return PlanTokenMode.Optional;
-        }
-
-        /// <summary> Normalizes one string value or returns fallback literal when missing. </summary>
-        /// <param name="value"> The input value. </param>
-        /// <returns> The normalized value. </returns>
-        private static string NormalizeOrFallback (string? value)
-        {
-            return string.IsNullOrWhiteSpace(value) ? NaLiteral : value.Trim();
         }
     }
 }

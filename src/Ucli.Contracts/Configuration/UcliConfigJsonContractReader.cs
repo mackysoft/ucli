@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Configuration;
 
@@ -318,13 +319,7 @@ internal static class UcliConfigJsonContractReader
             return null;
         }
 
-        var value = propertyElement.GetString();
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim();
+        return StringValueNormalizer.TrimToNull(propertyElement.GetString());
     }
 
     private static string[]? TryReadLooseOptionalStringArray (
@@ -345,13 +340,13 @@ internal static class UcliConfigJsonContractReader
                 return null;
             }
 
-            var value = element.GetString();
-            if (string.IsNullOrWhiteSpace(value))
+            var value = StringValueNormalizer.TrimToNull(element.GetString());
+            if (value is null)
             {
                 continue;
             }
 
-            values.Add(value.Trim());
+            values.Add(value);
         }
 
         return values.ToArray();

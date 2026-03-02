@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 
@@ -35,7 +36,7 @@ internal sealed class InitService : IInitService
         {
             currentDirectoryPath = Path.GetFullPath(Environment.CurrentDirectory);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}"));
@@ -62,7 +63,7 @@ internal sealed class InitService : IInitService
             Directory.CreateDirectory(localDirectoryPath);
             Directory.CreateDirectory(fingerprintsDirectoryPath);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"uCLI directory path is invalid: {ucliDirectoryPath}. {ex.Message}"));
@@ -86,7 +87,7 @@ internal sealed class InitService : IInitService
         {
             await File.WriteAllTextAsync(gitIgnorePath, GitIgnoreContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Git ignore path is invalid: {gitIgnorePath}. {ex.Message}"));
@@ -123,16 +124,6 @@ internal sealed class InitService : IInitService
         }
 
         return existingPaths;
-    }
-
-    /// <summary> Determines whether an exception indicates invalid path formatting. </summary>
-    /// <param name="exception"> The exception to classify. </param>
-    /// <returns> <see langword="true" /> when it is a path-format exception; otherwise <see langword="false" />. </returns>
-    private static bool IsPathFormatException (Exception exception)
-    {
-        return exception is ArgumentException
-            or NotSupportedException
-            or PathTooLongException;
     }
 
     /// <summary> Determines whether an exception indicates a filesystem I/O failure. </summary>

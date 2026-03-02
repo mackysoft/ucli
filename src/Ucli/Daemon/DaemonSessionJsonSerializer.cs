@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Daemon;
 
@@ -18,14 +19,14 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
 
         return new DaemonSession(
             SchemaVersion: contract.SchemaVersion,
-            SessionToken: contract.SessionToken?.Trim() ?? string.Empty,
-            ProjectFingerprint: contract.ProjectFingerprint?.Trim() ?? string.Empty,
+            SessionToken: StringValueNormalizer.TrimOrEmpty(contract.SessionToken),
+            ProjectFingerprint: StringValueNormalizer.TrimOrEmpty(contract.ProjectFingerprint),
             IssuedAtUtc: contract.IssuedAtUtc,
-            RuntimeKind: contract.RuntimeKind?.Trim() ?? string.Empty,
-            OwnerKind: contract.OwnerKind?.Trim() ?? string.Empty,
+            RuntimeKind: StringValueNormalizer.TrimOrEmpty(contract.RuntimeKind),
+            OwnerKind: StringValueNormalizer.TrimOrEmpty(contract.OwnerKind),
             CanShutdownProcess: contract.CanShutdownProcess,
-            EndpointTransportKind: contract.EndpointTransportKind?.Trim() ?? string.Empty,
-            EndpointAddress: contract.EndpointAddress?.Trim() ?? string.Empty,
+            EndpointTransportKind: StringValueNormalizer.TrimOrEmpty(contract.EndpointTransportKind),
+            EndpointAddress: StringValueNormalizer.TrimOrEmpty(contract.EndpointAddress),
             ProcessId: contract.ProcessId);
     }
 

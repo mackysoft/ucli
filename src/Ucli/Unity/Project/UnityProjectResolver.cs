@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
@@ -63,7 +64,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             var fullPath = Path.GetFullPath(pathValue);
             return PathNormalizationResult.Success(fullPath);
         }
-        catch (Exception ex) when (PathFormatExceptionHelper.IsPathFormatException(ex))
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
             return PathNormalizationResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject path is invalid: {pathValue}"));
