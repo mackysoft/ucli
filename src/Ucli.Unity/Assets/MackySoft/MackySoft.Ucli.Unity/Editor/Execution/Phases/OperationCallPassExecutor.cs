@@ -12,15 +12,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         /// <summary> Executes call phase for prevalidated and preplanned operations. </summary>
         /// <param name="preparedOperations"> The prepared operations. </param>
+        /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The call-pass result. </returns>
         public async Task<CallPassResult> Execute (
             IReadOnlyList<PreparedOperation> preparedOperations,
+            OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
             if (preparedOperations == null)
             {
                 throw new ArgumentNullException(nameof(preparedOperations));
+            }
+
+            if (executionContext == null)
+            {
+                throw new ArgumentNullException(nameof(executionContext));
             }
 
             var operationTraces = new List<OperationPhaseTrace>(preparedOperations.Count);
@@ -49,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     var replayedPlanStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
                         preparedOperation.Operation,
                         OperationPhase.Plan,
-                        ct => preparedOperation.PhaseOperation.Plan(preparedOperation.Operation, ct),
+                        ct => preparedOperation.PhaseOperation.Plan(preparedOperation.Operation, executionContext, ct),
                         cancellationToken).ConfigureAwait(false);
                     OperationPhaseExecutionUtilities.MergeTouched(touched, replayedPlanStepResult.Touched);
 
@@ -73,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var callStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
                     preparedOperation.Operation,
                     OperationPhase.Call,
-                    ct => preparedOperation.PhaseOperation.Call(preparedOperation.Operation, ct),
+                    ct => preparedOperation.PhaseOperation.Call(preparedOperation.Operation, executionContext, ct),
                     cancellationToken).ConfigureAwait(false);
 
                 OperationPhaseExecutionUtilities.MergeTouched(touched, callStepResult.Touched);

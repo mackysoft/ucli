@@ -24,15 +24,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Executes validate and plan phases for all operations with fail-fast semantics. </summary>
         /// <param name="request"> The normalized request model. </param>
+        /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The plan-pass result. </returns>
         public async Task<PlanPassResult> Execute (
             NormalizedExecuteRequest request,
+            OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
+            }
+
+            if (executionContext == null)
+            {
+                throw new ArgumentNullException(nameof(executionContext));
             }
 
             var operationTraces = new List<OperationPhaseTrace>(request.Ops.Count);
@@ -75,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
                     operation,
                     OperationPhase.Validate,
-                    ct => phaseOperation.Validate(operation, ct),
+                    ct => phaseOperation.Validate(operation, executionContext, ct),
                     cancellationToken).ConfigureAwait(false);
                 OperationPhaseExecutionUtilities.MergeTouched(touched, validateStepResult.Touched);
                 if (!validateStepResult.IsSuccess)
@@ -97,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var planStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
                     operation,
                     OperationPhase.Plan,
-                    ct => phaseOperation.Plan(operation, ct),
+                    ct => phaseOperation.Plan(operation, executionContext, ct),
                     cancellationToken).ConfigureAwait(false);
                 OperationPhaseExecutionUtilities.MergeTouched(touched, planStepResult.Touched);
                 if (!planStepResult.IsSuccess)
