@@ -92,6 +92,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
     /// <param name="input"> The raw command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the configuration resolution result. </returns>
+    /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled during resolution. </exception>
     private async ValueTask<TestRunConfigurationResolutionResult> ResolveConfigurationSafely (
         TestRunCommandInput input,
         CancellationToken cancellationToken)
