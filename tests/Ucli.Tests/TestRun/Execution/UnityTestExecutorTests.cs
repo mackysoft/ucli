@@ -92,12 +92,7 @@ public sealed class UnityTestExecutorTests
 
     private static ArtifactPaths CreateArtifactPaths (TestDirectoryScope scope)
     {
-        return new ArtifactPaths(
-            MetaJsonPath: scope.GetPath("run/meta.json"),
-            ResultsXmlPath: scope.GetPath("run/results.xml"),
-            EditorLogPath: scope.GetPath("run/editor.log"),
-            ResultsJsonPath: scope.GetPath("run/results.json"),
-            SummaryJsonPath: scope.GetPath("run/summary.json"));
+        return new ArtifactPaths(scope.GetPath("run"));
     }
 
     private sealed class StubUnityCommandBuilder : IUnityCommandBuilder

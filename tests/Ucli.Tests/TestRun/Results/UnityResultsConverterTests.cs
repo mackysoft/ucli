@@ -130,21 +130,10 @@ public sealed class UnityResultsConverterTests
     [Trait("Size", "Small")]
     public async Task Convert_WithOutputWriteFailure_ReturnsOutputWriteFailed ()
     {
-        using var scope = CreateSessionScope("write-failure", out var session, artifactsDirectoryPath =>
-        {
-            var missingDirectory = Path.Combine(artifactsDirectoryPath, "missing");
-            return new ArtifactPaths(
-                MetaJsonPath: Path.Combine(artifactsDirectoryPath, "meta.json"),
-                ResultsXmlPath: Path.Combine(artifactsDirectoryPath, "results.xml"),
-                EditorLogPath: Path.Combine(artifactsDirectoryPath, "editor.log"),
-                ResultsJsonPath: Path.Combine(missingDirectory, "results.json"),
-                SummaryJsonPath: Path.Combine(missingDirectory, "summary.json"));
-        });
-        scope.WriteFile(
-            "results.xml",
-            "<test-run><test-case fullname=\"Cafe.Tests.Passed\" result=\"Passed\" duration=\"0\" /></test-run>");
-
-        var converter = new UnityResultsConverter();
+        using var scope = CreateSessionScope("write-failure", out var session);
+        var converter = new UnityResultsConverter(
+            new StubResultsXmlParser(CreateParseResult()),
+            new ThrowingResultsArtifactWriter(new IOException("disk full")));
 
         var result = await converter.Convert(session, CancellationToken.None);
 
@@ -155,24 +144,68 @@ public sealed class UnityResultsConverterTests
 
     private static TestDirectoryScope CreateSessionScope (
         string testCaseName,
-        out ArtifactsSession session,
-        Func<string, ArtifactPaths>? artifactPathsFactory = null)
+        out ArtifactsSession session)
     {
         var scope = TestDirectories.CreateTempScope("unity-results-converter", testCaseName);
         var artifactsDirectoryPath = scope.FullPath;
 
-        var artifactPaths = artifactPathsFactory?.Invoke(artifactsDirectoryPath) ?? new ArtifactPaths(
-            MetaJsonPath: Path.Combine(artifactsDirectoryPath, "meta.json"),
-            ResultsXmlPath: Path.Combine(artifactsDirectoryPath, "results.xml"),
-            EditorLogPath: Path.Combine(artifactsDirectoryPath, "editor.log"),
-            ResultsJsonPath: Path.Combine(artifactsDirectoryPath, "results.json"),
-            SummaryJsonPath: Path.Combine(artifactsDirectoryPath, "summary.json"));
+        var artifactPaths = new ArtifactPaths(artifactsDirectoryPath);
 
         session = new ArtifactsSession(
             RunId: "20260301_120000Z_abcd1234",
-            ArtifactsDir: artifactsDirectoryPath,
             Paths: artifactPaths,
             StartedAtUtc: DateTimeOffset.UtcNow);
         return scope;
+    }
+
+    private static UnityResultsXmlParseResult CreateParseResult ()
+    {
+        return new UnityResultsXmlParseResult(
+            Counts: new UnityResultsXmlParseResult.CountsValue(1, 0, 0),
+            Tests:
+            [
+                new UnityResultsXmlParseResult.TestValue(
+                    FullName: "Cafe.Tests.Sample",
+                    Outcome: "passed",
+                    DurationMs: 0,
+                    Categories: []),
+            ],
+            TopFailures: [],
+            HasSuiteFailure: false);
+    }
+
+    private sealed class StubResultsXmlParser : IUnityResultsXmlParser
+    {
+        private readonly UnityResultsXmlParseResult parseResult;
+
+        public StubResultsXmlParser (UnityResultsXmlParseResult parseResult)
+        {
+            this.parseResult = parseResult;
+        }
+
+        public ValueTask<UnityResultsXmlParseResult> Parse (
+            string resultsXmlPath,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(parseResult);
+        }
+    }
+
+    private sealed class ThrowingResultsArtifactWriter : IUnityResultsArtifactWriter
+    {
+        private readonly Exception exception;
+
+        public ThrowingResultsArtifactWriter (Exception exception)
+        {
+            this.exception = exception;
+        }
+
+        public ValueTask Write (
+            ArtifactsSession session,
+            UnityResultsXmlParseResult parseResult,
+            CancellationToken cancellationToken = default)
+        {
+            throw exception;
+        }
     }
 }

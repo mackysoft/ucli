@@ -46,7 +46,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.ErrorKind);
         Assert.Equal(expectedExitCode, result.ExitCode);
         Assert.Equal(session.RunId, result.RunId);
-        Assert.Equal(session.ArtifactsDir, result.ArtifactsDir);
+        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
     }
 
@@ -243,7 +243,7 @@ public sealed class TestRunServiceTests
         Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
         Assert.Equal(CliErrorCodes.Canceled, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
-        Assert.Equal(session.ArtifactsDir, result.ArtifactsDir);
+        Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
     }
 
@@ -314,13 +314,7 @@ public sealed class TestRunServiceTests
         var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run", "run-id");
         return new ArtifactsSession(
             RunId: "run-id",
-            ArtifactsDir: artifactsDir,
-            Paths: new ArtifactPaths(
-                MetaJsonPath: Path.Combine(artifactsDir, "meta.json"),
-                ResultsXmlPath: Path.Combine(artifactsDir, "results.xml"),
-                EditorLogPath: Path.Combine(artifactsDir, "editor.log"),
-                ResultsJsonPath: Path.Combine(artifactsDir, "results.json"),
-                SummaryJsonPath: Path.Combine(artifactsDir, "summary.json")),
+            Paths: new ArtifactPaths(artifactsDir),
             StartedAtUtc: DateTimeOffset.UtcNow);
     }
 

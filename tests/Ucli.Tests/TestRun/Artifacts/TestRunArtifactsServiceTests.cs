@@ -32,13 +32,13 @@ public sealed class TestRunArtifactsServiceTests
                 configuration.UnityProject.ProjectFingerprint,
                 "artifacts",
                 "test"),
-            session.ArtifactsDir,
+            session.Paths.ArtifactsDir,
             StringComparison.Ordinal);
         Assert.True(File.Exists(session.Paths.MetaJsonPath));
-        Assert.Equal(Path.Combine(session.ArtifactsDir, "results.xml"), session.Paths.ResultsXmlPath);
-        Assert.Equal(Path.Combine(session.ArtifactsDir, "editor.log"), session.Paths.EditorLogPath);
-        Assert.Equal(Path.Combine(session.ArtifactsDir, "results.json"), session.Paths.ResultsJsonPath);
-        Assert.Equal(Path.Combine(session.ArtifactsDir, "summary.json"), session.Paths.SummaryJsonPath);
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "results.xml"), session.Paths.ResultsXmlPath);
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "editor.log"), session.Paths.EditorLogPath);
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "results.json"), session.Paths.ResultsJsonPath);
+        Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "summary.json"), session.Paths.SummaryJsonPath);
     }
 
     [Fact]

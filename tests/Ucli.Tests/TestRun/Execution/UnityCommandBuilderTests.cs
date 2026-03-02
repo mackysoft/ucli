@@ -95,12 +95,7 @@ public sealed class UnityCommandBuilderTests
     private static ArtifactPaths CreateArtifactPaths ()
     {
         var artifactsDir = Path.GetFullPath("./.ucli/local/fingerprints/fingerprint/artifacts/test/20260301_120000Z_abcd1234");
-        return new ArtifactPaths(
-            MetaJsonPath: Path.Combine(artifactsDir, "meta.json"),
-            ResultsXmlPath: Path.Combine(artifactsDir, "results.xml"),
-            EditorLogPath: Path.Combine(artifactsDir, "editor.log"),
-            ResultsJsonPath: Path.Combine(artifactsDir, "results.json"),
-            SummaryJsonPath: Path.Combine(artifactsDir, "summary.json"));
+        return new ArtifactPaths(artifactsDir);
     }
 
     private static string GetOptionValue (IReadOnlyList<string> arguments, string option)
