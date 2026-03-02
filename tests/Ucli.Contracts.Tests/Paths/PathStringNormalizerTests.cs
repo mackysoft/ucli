@@ -25,6 +25,18 @@ public sealed class PathStringNormalizerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ReplaceAltSeparatorWithPlatformSeparator_ReplacesOnlyAltSeparators ()
+    {
+        var value = @"a\b/c";
+
+        var result = PathStringNormalizer.ReplaceAltSeparatorWithPlatformSeparator(value);
+
+        var expected = value.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TrimTrailingDirectorySeparators_RemovesTrailingDirectorySeparators ()
     {
         var value = $"path{Path.DirectorySeparatorChar}{Path.AltDirectorySeparatorChar}";
@@ -51,6 +63,16 @@ public sealed class PathStringNormalizerTests
         Assert.Throws<ArgumentNullException>(() =>
         {
             _ = PathStringNormalizer.ToPlatformSeparated(null!);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ReplaceAltSeparatorWithPlatformSeparator_Throws_WhenValueIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = PathStringNormalizer.ReplaceAltSeparatorWithPlatformSeparator(null!);
         });
     }
 
