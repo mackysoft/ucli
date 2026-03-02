@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.ReadIndex;

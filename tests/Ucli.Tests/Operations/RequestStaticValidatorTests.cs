@@ -1,8 +1,9 @@
 namespace MackySoft.Ucli.Tests;
 
 using System.Text.Json;
-using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.ReadIndex;
 
@@ -78,7 +79,7 @@ public sealed class RequestStaticValidatorTests
     }
 
     private static ValidateRequest CreateRequest (
-        int protocolVersion = CliProtocol.CurrentVersion,
+        int protocolVersion = IpcProtocol.CurrentVersion,
         string? requestId = null,
         IReadOnlyList<ValidateRequestOperation?>? ops = null)
     {
@@ -95,11 +96,11 @@ public sealed class RequestStaticValidatorTests
     {
         return scenario switch
         {
-            "protocol-version-mismatch" => CreateRequest(protocolVersion: CliProtocol.CurrentVersion + 1),
+            "protocol-version-mismatch" => CreateRequest(protocolVersion: IpcProtocol.CurrentVersion + 1),
             "request-id-invalid" => CreateRequest(requestId: "invalid-request-id"),
             "request-id-not-canonical-d" => CreateRequest(requestId: Guid.NewGuid().ToString("B")),
             "ops-required" => new ValidateRequest(
-                ProtocolVersion: CliProtocol.CurrentVersion,
+                ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: Guid.NewGuid().ToString(),
                 Ops: null),
             "op-id-duplicated" => CreateRequest(

@@ -34,27 +34,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             Stream stream,
             CancellationToken cancellationToken = default)
         {
-            IpcRequest request;
-            try
+            var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                stream,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: cancellationToken);
+            if (!readResult.IsSuccess)
             {
-                request = await UnityIpcFrameCodec.ReadModel<IpcRequest>(
-                    stream,
-                    UnityIpcSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(exception);
+                var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(
+                    readResult.ErrorKind,
+                    readResult.ErrorMessage);
                 try
                 {
-                    await UnityIpcFrameCodec.WriteModel(
+                    await IpcFrameCodec.WriteModelAsync(
                         stream,
                         errorResponse,
-                        UnityIpcSerializerOptions.Default,
+                        IpcJsonSerializerOptions.Default,
                         cancellationToken: cancellationToken);
                 }
                 catch (OperationCanceledException)
@@ -71,11 +65,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
+            var request = readResult.Value;
             var response = await requestHandler.Handle(request, cancellationToken);
-            await UnityIpcFrameCodec.WriteModel(
+            await IpcFrameCodec.WriteModelAsync(
                 stream,
                 response,
-                UnityIpcSerializerOptions.Default,
+                IpcJsonSerializerOptions.Default,
                 cancellationToken: cancellationToken);
 
             if (ShouldSignalShutdown(request, response))

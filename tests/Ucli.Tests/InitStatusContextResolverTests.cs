@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests;
 using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;

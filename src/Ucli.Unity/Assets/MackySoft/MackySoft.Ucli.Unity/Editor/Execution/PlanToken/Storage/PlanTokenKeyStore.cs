@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using MackySoft.Ucli.Contracts.Storage;
 
 #nullable enable
 
@@ -9,14 +10,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
     /// <summary> Provides load/create behavior for plan-token signing keys. </summary>
     internal static class PlanTokenKeyStore
     {
-        private const string UcliDirectoryName = ".ucli";
-
-        private const string LocalDirectoryName = "local";
-
-        private const string FingerprintsDirectoryName = "fingerprints";
-
-        private const string PlanTokenKeyFileName = "plan-token.key";
-
         /// <summary> Loads one existing signing key or creates a new key file on demand. </summary>
         /// <param name="snapshot"> The runtime environment snapshot. </param>
         /// <param name="key"> The loaded or generated key bytes. </param>
@@ -29,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         {
             try
             {
-                var keyFilePath = BuildKeyFilePath(snapshot.RepositoryRoot, snapshot.ProjectFingerprint);
+                var keyFilePath = UcliStoragePathResolver.ResolvePlanTokenKeyPath(snapshot.RepositoryRoot, snapshot.ProjectFingerprint);
                 var parentDirectory = Path.GetDirectoryName(keyFilePath);
                 if (string.IsNullOrWhiteSpace(parentDirectory))
                 {
@@ -62,23 +55,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 errorMessage = $"Failed to initialize plan-token key. {exception.Message}";
                 return false;
             }
-        }
-
-        /// <summary> Builds plan-token key file path from repository and fingerprint identity. </summary>
-        /// <param name="repositoryRoot"> The repository root path. </param>
-        /// <param name="projectFingerprint"> The project fingerprint value. </param>
-        /// <returns> The key file path. </returns>
-        private static string BuildKeyFilePath (
-            string repositoryRoot,
-            string projectFingerprint)
-        {
-            return Path.Combine(
-                repositoryRoot,
-                UcliDirectoryName,
-                LocalDirectoryName,
-                FingerprintsDirectoryName,
-                projectFingerprint,
-                PlanTokenKeyFileName);
         }
 
         /// <summary> Attempts to decode one stored key string. </summary>

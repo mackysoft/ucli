@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,15 +31,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes after process-exit request has been issued. </returns>
         private static async Task Run ()
         {
-            IDaemonBootstrapArgumentsParser parser = new DaemonBootstrapArgumentsParser();
-            if (!parser.TryParse(Environment.GetCommandLineArgs(), out var bootstrapArguments, out var parseErrorMessage))
+            if (!IpcDaemonBootstrapArgumentsCodec.TryParse(
+                    Environment.GetCommandLineArgs(),
+                    out var bootstrapArguments,
+                    out var parseError))
             {
-                Debug.LogError(parseErrorMessage);
+                Debug.LogError(parseError.Message);
                 EditorApplication.Exit(1);
                 return;
             }
 
-            if (!UnityIpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
+            if (!IpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
             {
                 Debug.LogError($"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
                 EditorApplication.Exit(1);

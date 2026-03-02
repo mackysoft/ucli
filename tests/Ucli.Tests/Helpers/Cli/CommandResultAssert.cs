@@ -1,7 +1,6 @@
 namespace MackySoft.Tests;
 
 using System.Text.Json;
-using MackySoft.Ucli.Cli;
 
 internal static class CommandResultAssert
 {
@@ -12,7 +11,7 @@ internal static class CommandResultAssert
         int exitCode)
     {
         JsonAssert.For(root)
-            .HasInt32("protocolVersion", CliProtocol.CurrentVersion)
+            .HasInt32("protocolVersion", 1)
             .HasString("command", command)
             .HasString("status", status)
             .HasInt32("exitCode", exitCode)

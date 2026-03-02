@@ -1,4 +1,4 @@
-using MackySoft.Ucli.ReadIndex;
+using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Configuration;
 

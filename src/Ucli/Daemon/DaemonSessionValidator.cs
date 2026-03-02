@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
@@ -70,7 +71,7 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
-        if (!DaemonSessionTransportKindCodec.TryParse(session.EndpointTransportKind, out _))
+        if (!IpcTransportKindCodec.TryParse(session.EndpointTransportKind, out _))
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session endpointTransportKind is invalid: {session.EndpointTransportKind}. {sessionPath}");

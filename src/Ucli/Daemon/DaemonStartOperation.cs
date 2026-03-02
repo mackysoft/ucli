@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
@@ -175,7 +177,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
             OwnerKind: DaemonSession.OwnerKindCli,
             CanShutdownProcess: true,
-            EndpointTransportKind: DaemonSessionTransportKindCodec.ToValue(endpoint.TransportKind),
+            EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
             EndpointAddress: endpoint.Address,
             ProcessId: null);
 
@@ -189,7 +191,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return DaemonStartResult.Failure(writeSessionResult.Error!);
         }
 
-        var daemonLogPath = DaemonStoragePathResolver.ResolveDaemonLogPath(
+        var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
         var launchResult = await unityDaemonProcessLauncher.Launch(

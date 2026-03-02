@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 
@@ -13,7 +14,7 @@ public sealed class DaemonSessionProcessIdValidationTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-read");
         var store = new DaemonSessionStore();
         var projectFingerprint = "fingerprint-invalid-process-id-read";
-        var sessionPath = DaemonStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(
             sessionPath,

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Storage;
+
 namespace MackySoft.Ucli.Daemon;
 
 /// <summary> Implements filesystem-backed lifecycle locks scoped by storage root and project fingerprint. </summary>
@@ -26,7 +28,7 @@ internal sealed class FileSystemDaemonLifecycleLockProvider : IDaemonLifecycleLo
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
 
-        var lockFilePath = DaemonStoragePathResolver.ResolveLifecycleLockPath(storageRoot, projectFingerprint);
+        var lockFilePath = UcliStoragePathResolver.ResolveLifecycleLockPath(storageRoot, projectFingerprint);
         var lockDirectoryPath = Path.GetDirectoryName(lockFilePath);
         if (!string.IsNullOrWhiteSpace(lockDirectoryPath))
         {

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Configuration;
 
 #nullable enable
 

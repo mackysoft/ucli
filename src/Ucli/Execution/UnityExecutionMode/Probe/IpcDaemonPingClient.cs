@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Ipc;
@@ -114,9 +113,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
 
-        var payload = JsonSerializer.SerializeToElement(
-            new IpcPingRequest(ProbeClientVersion),
-            IpcJsonSerializerOptions.Default);
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion));
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: $"mode-probe-{Guid.NewGuid():N}",

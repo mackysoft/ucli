@@ -1,5 +1,4 @@
 using System;
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -20,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProtocolVersion: request.ProtocolVersion,
                 RequestId: request.RequestId,
                 Status: IpcProtocol.StatusOk,
-                Payload: JsonSerializer.SerializeToElement(payload, UnityIpcSerializerOptions.Default),
+                Payload: IpcPayloadCodec.SerializeToElement(payload),
                 Errors: Array.Empty<IpcError>());
         }
 
@@ -40,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProtocolVersion: request.ProtocolVersion,
                 RequestId: request.RequestId,
                 Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { }, UnityIpcSerializerOptions.Default),
+                Payload: IpcPayloadCodec.SerializeToElement(new { }),
                 Errors: new[]
                 {
                     new IpcError(code, message, opId),
@@ -48,21 +47,24 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Creates one malformed-frame response when request envelope cannot be deserialized. </summary>
-        /// <param name="exception"> The parse exception from frame decoding. </param>
+        /// <param name="errorKind"> The machine-readable frame read error kind. </param>
+        /// <param name="errorMessage"> The diagnostic frame read error message. </param>
         /// <returns> The malformed-frame response envelope. </returns>
-        public static IpcResponse CreateMalformedFrameResponse (Exception exception)
+        public static IpcResponse CreateMalformedFrameResponse (
+            IpcFrameReadErrorKind errorKind,
+            string errorMessage)
         {
-            var code = exception.Message.Contains("maximum frame size", StringComparison.Ordinal)
+            var code = errorKind == IpcFrameReadErrorKind.PayloadTooLarge
                 ? IpcErrorCodes.IpcFrameTooLarge
                 : IpcErrorCodes.InvalidArgument;
             return new IpcResponse(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: string.Empty,
                 Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { }, UnityIpcSerializerOptions.Default),
+                Payload: IpcPayloadCodec.SerializeToElement(new { }),
                 Errors: new[]
                 {
-                    new IpcError(code, $"IPC request frame is invalid. {exception.Message}", null),
+                    new IpcError(code, $"IPC request frame is invalid. {errorMessage}", null),
                 });
         }
     }

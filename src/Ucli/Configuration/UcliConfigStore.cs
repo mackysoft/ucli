@@ -1,17 +1,15 @@
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.ReadIndex;
 
 namespace MackySoft.Ucli.Configuration;
 
 /// <summary> Provides filesystem-backed access to <c>.ucli/config.json</c>. </summary>
 internal sealed class UcliConfigStore : IUcliConfigStore
 {
-    private const string UcliDirectoryName = ".ucli";
-    private const string ConfigFileName = "config.json";
     private const int SupportedSchemaVersion = 1;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -33,8 +31,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
     /// <exception cref="PathTooLongException"> Thrown when <paramref name="storageRoot" /> exceeds platform path limits. </exception>
     public string GetConfigPath (string storageRoot)
     {
-        var fullPath = Path.GetFullPath(storageRoot);
-        return Path.Combine(fullPath, UcliDirectoryName, ConfigFileName);
+        return UcliStoragePathResolver.ResolveConfigPath(storageRoot);
     }
 
     /// <summary> Loads configuration values for a storage root. </summary>
@@ -87,21 +84,19 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                 $"Failed to read config file: {configPath}. {ex.Message}"));
         }
 
-        UcliConfigDocument? document;
+        UcliConfigJsonRawDocument document;
         try
         {
-            document = JsonSerializer.Deserialize<UcliConfigDocument>(json, SerializerOptions);
+            using var jsonDocument = JsonDocument.Parse(json);
+            if (!UcliConfigJsonContractReader.TryReadStrict(jsonDocument.RootElement, out document, out var readError))
+            {
+                return UcliConfigLoadResult.Failure(CreateConfigJsonReadError(readError, configPath));
+            }
         }
         catch (JsonException ex)
         {
             return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
                 $"Config JSON is invalid: {configPath}. {ex.Message}"));
-        }
-
-        if (document is null)
-        {
-            return UcliConfigLoadResult.Failure(ExecutionError.InvalidArgument(
-                $"Config JSON is invalid: {configPath}."));
         }
 
         var parseResult = TryConvertToConfig(document, configPath);
@@ -189,12 +184,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
     }
 
-    /// <summary> Converts deserialized config JSON into a validated <see cref="UcliConfig" /> instance. </summary>
-    /// <param name="document"> The deserialized config document. </param>
+    /// <summary> Converts raw config JSON values into a validated <see cref="UcliConfig" /> instance. </summary>
+    /// <param name="document"> The raw config JSON contract document. </param>
     /// <param name="configPath"> The source config path. </param>
     /// <returns> The conversion result. </returns>
     private static ConfigParseResult TryConvertToConfig (
-        UcliConfigDocument document,
+        UcliConfigJsonRawDocument document,
         string configPath)
     {
         if (document.SchemaVersion != SupportedSchemaVersion)
@@ -203,28 +198,23 @@ internal sealed class UcliConfigStore : IUcliConfigStore
                 $"Config schemaVersion must be {SupportedSchemaVersion}. Actual: {document.SchemaVersion}."));
         }
 
-        if (document.AdditionalProperties is not null && document.AdditionalProperties.Count > 0)
-        {
-            var unknownPropertyNames = string.Join(", ", document.AdditionalProperties.Keys.OrderBy(static key => key, StringComparer.Ordinal));
-            return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
-                $"Config contains unknown properties: {unknownPropertyNames}."));
-        }
+        var schemaVersion = document.SchemaVersion.GetValueOrDefault();
 
-        if (!TryParseOperationPolicy(document.OperationPolicy, out var operationPolicy))
+        if (!OperationPolicyCodec.TryParse(document.OperationPolicy, out var operationPolicy))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config operationPolicy is invalid: {document.OperationPolicy}."));
         }
 
-        if (!TryParsePlanTokenMode(document.PlanTokenMode, out var planTokenMode))
+        if (!PlanTokenModeCodec.TryParse(document.PlanTokenMode, out var planTokenMode))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config planTokenMode is invalid: {document.PlanTokenMode}."));
         }
 
         var readIndexDefaultModeValue = document.ReadIndexDefaultMode
-            ?? UcliConfigValueConstants.ReadIndexModeRequireFresh;
-        if (!TryParseReadIndexMode(readIndexDefaultModeValue, out var readIndexDefaultMode))
+            ?? ReadIndexModeValues.RequireFresh;
+        if (!ReadIndexModeCodec.TryParse(readIndexDefaultModeValue, out var readIndexDefaultMode))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(
                 $"Config readIndexDefaultMode is invalid: {readIndexDefaultModeValue}."));
@@ -272,7 +262,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
 
         var config = new UcliConfig(
-            SchemaVersion: document.SchemaVersion,
+            SchemaVersion: schemaVersion,
             OperationPolicy: operationPolicy,
             PlanTokenMode: planTokenMode,
             ReadIndexDefaultMode: readIndexDefaultMode,
@@ -368,134 +358,12 @@ internal sealed class UcliConfigStore : IUcliConfigStore
 
         return new UcliConfigDocument(
             SchemaVersion: config.SchemaVersion,
-            OperationPolicy: ToStringValue(config.OperationPolicy),
-            PlanTokenMode: ToStringValue(config.PlanTokenMode),
-            ReadIndexDefaultMode: ToStringValue(config.ReadIndexDefaultMode),
+            OperationPolicy: OperationPolicyCodec.ToValue(config.OperationPolicy),
+            PlanTokenMode: PlanTokenModeCodec.ToValue(config.PlanTokenMode),
+            ReadIndexDefaultMode: ReadIndexModeCodec.ToValue(config.ReadIndexDefaultMode),
             OperationAllowlist: config.OperationAllowlist.ToArray(),
             IpcDefaultTimeoutMilliseconds: config.IpcDefaultTimeoutMilliseconds,
             IpcTimeoutMillisecondsByCommand: ipcTimeoutMillisecondsByCommand);
-    }
-
-    /// <summary> Converts <see cref="OperationPolicy" /> to the config string value. </summary>
-    /// <param name="operationPolicy"> The operation policy value. </param>
-    /// <returns> The config string representation. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="operationPolicy" /> is outside supported values. </exception>
-    private static string ToStringValue (OperationPolicy operationPolicy)
-    {
-        return operationPolicy switch
-        {
-            OperationPolicy.Safe => UcliConfigValueConstants.OperationPolicySafe,
-            OperationPolicy.Advanced => UcliConfigValueConstants.OperationPolicyAdvanced,
-            OperationPolicy.Dangerous => UcliConfigValueConstants.OperationPolicyDangerous,
-            _ => throw new ArgumentOutOfRangeException(nameof(operationPolicy), operationPolicy, "Unsupported operationPolicy."),
-        };
-    }
-
-    /// <summary> Converts <see cref="PlanTokenMode" /> to the config string value. </summary>
-    /// <param name="planTokenMode"> The plan token mode value. </param>
-    /// <returns> The config string representation. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="planTokenMode" /> is outside supported values. </exception>
-    private static string ToStringValue (PlanTokenMode planTokenMode)
-    {
-        return planTokenMode switch
-        {
-            PlanTokenMode.Optional => UcliConfigValueConstants.PlanTokenModeOptional,
-            PlanTokenMode.Required => UcliConfigValueConstants.PlanTokenModeRequired,
-            _ => throw new ArgumentOutOfRangeException(nameof(planTokenMode), planTokenMode, "Unsupported planTokenMode."),
-        };
-    }
-
-    /// <summary> Converts <see cref="ReadIndexMode" /> to the config string value. </summary>
-    /// <param name="readIndexMode"> The read-index mode value. </param>
-    /// <returns> The config string representation. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="readIndexMode" /> is outside supported values. </exception>
-    private static string ToStringValue (ReadIndexMode readIndexMode)
-    {
-        return readIndexMode switch
-        {
-            ReadIndexMode.Disabled => UcliConfigValueConstants.ReadIndexModeDisabled,
-            ReadIndexMode.AllowStale => UcliConfigValueConstants.ReadIndexModeAllowStale,
-            ReadIndexMode.RequireFresh => UcliConfigValueConstants.ReadIndexModeRequireFresh,
-            _ => throw new ArgumentOutOfRangeException(nameof(readIndexMode), readIndexMode, "Unsupported readIndexMode."),
-        };
-    }
-
-    /// <summary> Parses operation-policy config values. </summary>
-    /// <param name="value"> The config string value. </param>
-    /// <param name="operationPolicy"> The parsed enum value. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParseOperationPolicy (string? value, out OperationPolicy operationPolicy)
-    {
-        if (string.Equals(value, UcliConfigValueConstants.OperationPolicySafe, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Safe;
-            return true;
-        }
-
-        if (string.Equals(value, UcliConfigValueConstants.OperationPolicyAdvanced, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Advanced;
-            return true;
-        }
-
-        if (string.Equals(value, UcliConfigValueConstants.OperationPolicyDangerous, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Dangerous;
-            return true;
-        }
-
-        operationPolicy = default;
-        return false;
-    }
-
-    /// <summary> Parses plan-token-mode config values. </summary>
-    /// <param name="value"> The config string value. </param>
-    /// <param name="planTokenMode"> The parsed enum value. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParsePlanTokenMode (string? value, out PlanTokenMode planTokenMode)
-    {
-        if (string.Equals(value, UcliConfigValueConstants.PlanTokenModeOptional, StringComparison.OrdinalIgnoreCase))
-        {
-            planTokenMode = PlanTokenMode.Optional;
-            return true;
-        }
-
-        if (string.Equals(value, UcliConfigValueConstants.PlanTokenModeRequired, StringComparison.OrdinalIgnoreCase))
-        {
-            planTokenMode = PlanTokenMode.Required;
-            return true;
-        }
-
-        planTokenMode = default;
-        return false;
-    }
-
-    /// <summary> Parses read-index-mode config values. </summary>
-    /// <param name="value"> The config string value. </param>
-    /// <param name="readIndexMode"> The parsed enum value. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParseReadIndexMode (string? value, out ReadIndexMode readIndexMode)
-    {
-        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeDisabled, StringComparison.OrdinalIgnoreCase))
-        {
-            readIndexMode = ReadIndexMode.Disabled;
-            return true;
-        }
-
-        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeAllowStale, StringComparison.OrdinalIgnoreCase))
-        {
-            readIndexMode = ReadIndexMode.AllowStale;
-            return true;
-        }
-
-        if (string.Equals(value, UcliConfigValueConstants.ReadIndexModeRequireFresh, StringComparison.OrdinalIgnoreCase))
-        {
-            readIndexMode = ReadIndexMode.RequireFresh;
-            return true;
-        }
-
-        readIndexMode = default;
-        return false;
     }
 
     /// <summary> Determines whether an exception should be treated as invalid path formatting. </summary>
@@ -517,6 +385,33 @@ internal sealed class UcliConfigStore : IUcliConfigStore
             or UnauthorizedAccessException;
     }
 
+    /// <summary> Converts one machine-readable config JSON read error into execution error. </summary>
+    /// <param name="readError"> The machine-readable config JSON read error. </param>
+    /// <param name="configPath"> The source config path. </param>
+    /// <returns> The mapped execution error. </returns>
+    private static ExecutionError CreateConfigJsonReadError (
+        UcliConfigJsonReadError readError,
+        string configPath)
+    {
+        return readError.Kind switch
+        {
+            UcliConfigJsonReadErrorKind.RootTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON root must be an object: {configPath}."),
+            UcliConfigJsonReadErrorKind.MissingProperty => ExecutionError.InvalidArgument(
+                $"Config JSON is missing required property: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.PropertyTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON property type is invalid: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.ArrayElementTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON array element type is invalid: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.ObjectPropertyTypeMismatch => ExecutionError.InvalidArgument(
+                $"Config JSON object property type is invalid: {readError.PropertyName}. {configPath}"),
+            UcliConfigJsonReadErrorKind.UnknownProperty => ExecutionError.InvalidArgument(
+                $"Config contains unknown properties: {readError.PropertyName}."),
+            _ => ExecutionError.InvalidArgument(
+                $"Config JSON is invalid: {configPath}."),
+        };
+    }
+
     /// <summary> Serializable JSON DTO for config values. </summary>
     /// <param name="SchemaVersion"> The config schema version. </param>
     /// <param name="OperationPolicy"> The operation-policy value. </param>
@@ -536,11 +431,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         string[] OperationAllowlist,
         int? IpcDefaultTimeoutMilliseconds,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand)
-    {
-        [JsonExtensionData]
-        public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }
-    }
+        Dictionary<string, int?>? IpcTimeoutMillisecondsByCommand);
 
     /// <summary> Represents result values from config parse operations. </summary>
     /// <param name="Config"> The parsed config instance. </param>

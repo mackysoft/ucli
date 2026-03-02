@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 
 /// <summary> Defines machine-readable error kinds for JSON string-property reads. </summary>
-internal enum JsonStringReadErrorKind
+public enum JsonStringReadErrorKind
 {
     /// <summary> No error. </summary>
     None = 0,

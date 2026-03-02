@@ -3,19 +3,13 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Validates session tokens against persisted <c>session.json</c> content. </summary>
     internal sealed class FileBackedSessionTokenValidator : ISessionTokenValidator
     {
-        private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            PropertyNameCaseInsensitive = true,
-            WriteIndented = false,
-        };
-
         private readonly string sessionPath;
 
         /// <summary> Initializes a new instance of the <see cref="FileBackedSessionTokenValidator" /> class. </summary>
@@ -53,22 +47,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var json = await File.ReadAllTextAsync(sessionPath, cancellationToken);
-                var sessionTokenEntry = JsonSerializer.Deserialize<SessionTokenEntry>(json, SerializerOptions);
-                if (sessionTokenEntry == null || string.IsNullOrWhiteSpace(sessionTokenEntry.SessionToken))
+                using var sessionJson = JsonDocument.Parse(json);
+                if (!SessionTokenContractReader.TryReadSessionToken(
+                    sessionJson.RootElement,
+                    out var persistedToken,
+                    out _))
                 {
                     return false;
                 }
 
-                return string.Equals(sessionTokenEntry.SessionToken, sessionToken, StringComparison.Ordinal);
+                return string.Equals(persistedToken, sessionToken, StringComparison.Ordinal);
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
         }
-
-        /// <summary> Represents JSON fields required for token validation. </summary>
-        /// <param name="SessionToken"> The daemon session token from persistence file. </param>
-        private sealed record SessionTokenEntry (string? SessionToken);
     }
 }

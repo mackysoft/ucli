@@ -1,9 +1,11 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Cli;
 
 /// <summary> Represents the JSON contract payload emitted by every CLI command execution. </summary>
 /// <param name="ProtocolVersion"> The protocol version of the emitted JSON payload. </param>
 /// <param name="Command"> The normalized command name associated with this result. </param>
-/// <param name="Status"> The execution status string defined by <see cref="CliProtocol" />. </param>
+/// <param name="Status"> The execution status string defined by <see cref="IpcProtocol" />. </param>
 /// <param name="ExitCode"> The process exit code associated with this result. </param>
 /// <param name="Message"> The user-facing message that explains the execution outcome. </param>
 /// <param name="Payload"> The JSON-serializable payload object for additional command output. </param>
@@ -22,7 +24,7 @@ internal sealed record CommandResult (
     private static readonly IReadOnlyList<CommandError> EmptyErrors = Array.Empty<CommandError>();
 
     /// <summary> Creates a successful command result. </summary>
-    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The success message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
     /// <param name="payload"> The command payload. When <see langword="null" />, an empty payload object is used. </param>
     /// <returns> A command result with <c>ok</c> status and the success exit code. </returns>
@@ -31,9 +33,9 @@ internal sealed record CommandResult (
         var normalizedCommand = NormalizeCommand(command);
         var normalizedMessage = NormalizeMessage(message);
         return new CommandResult(
-            ProtocolVersion: CliProtocol.CurrentVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: normalizedCommand,
-            Status: CliProtocol.StatusOk,
+            Status: IpcProtocol.StatusOk,
             ExitCode: (int)CliExitCode.Success,
             Message: normalizedMessage,
             Payload: payload ?? EmptyPayload,
@@ -41,7 +43,7 @@ internal sealed record CommandResult (
     }
 
     /// <summary> Creates a placeholder error result for a command that is not implemented yet. </summary>
-    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The optional custom message. When <see langword="null" />, a default not-implemented message is generated. </param>
     /// <returns> A command result with <c>error</c> status and the <c>COMMAND_NOT_IMPLEMENTED</c> error code. </returns>
     public static CommandResult NotImplemented (string command, string? message = null)
@@ -52,11 +54,11 @@ internal sealed record CommandResult (
             command: normalizedCommand,
             message: normalizedMessage,
             exitCode: CliExitCode.ToolError,
-            errorCode: ErrorCodes.CommandNotImplemented);
+            errorCode: IpcErrorCodes.CommandNotImplemented);
     }
 
     /// <summary> Creates an error result for invalid command arguments. </summary>
-    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The argument validation message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
     /// <returns> A command result with <c>error</c> status and the invalid-argument exit code. </returns>
     public static CommandResult InvalidArgument (string command, string message)
@@ -65,11 +67,11 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.InvalidArgument,
-            errorCode: ErrorCodes.InvalidArgument);
+            errorCode: IpcErrorCodes.InvalidArgument);
     }
 
     /// <summary> Creates an error result for command cancellation. </summary>
-    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The cancellation message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
     /// <returns> A command result with <c>error</c> status and the tool-error exit code. </returns>
     public static CommandResult Canceled (string command, string message)
@@ -78,11 +80,11 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: ErrorCodes.Canceled);
+            errorCode: CliErrorCodes.Canceled);
     }
 
     /// <summary> Creates an error result for infrastructure timeouts. </summary>
-    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The timeout message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
     /// <returns> A command result with <c>error</c> status and the tool-error exit code. </returns>
     public static CommandResult Timeout (string command, string message)
@@ -91,11 +93,11 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: ErrorCodes.IpcTimeout);
+            errorCode: CliErrorCodes.IpcTimeout);
     }
 
     /// <summary> Creates an error result for unexpected runtime failures. </summary>
-    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="CliProtocol.RootCommand" />. </param>
+    /// <param name="command"> The command name written to the result. <see langword="null" />, empty, and whitespace values are normalized to <see cref="UcliCommandNames.Root" />. </param>
     /// <param name="message"> The failure message written to the result. <see langword="null" />, empty, and whitespace values are replaced by a fallback message. </param>
     /// <returns> A command result with <c>error</c> status and the tool-error exit code. </returns>
     public static CommandResult InternalError (string command, string message)
@@ -104,7 +106,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: ErrorCodes.InternalError);
+            errorCode: IpcErrorCodes.InternalError);
     }
 
     /// <summary> Creates a normalized error result with a single error entry. </summary>
@@ -123,9 +125,9 @@ internal sealed record CommandResult (
         var normalizedMessage = NormalizeMessage(message);
 
         return new CommandResult(
-            ProtocolVersion: CliProtocol.CurrentVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: normalizedCommand,
-            Status: CliProtocol.StatusError,
+            Status: IpcProtocol.StatusError,
             ExitCode: (int)exitCode,
             Message: normalizedMessage,
             Payload: EmptyPayload,
@@ -137,10 +139,10 @@ internal sealed record CommandResult (
 
     /// <summary> Normalizes the command name used in command results. </summary>
     /// <param name="command"> The command name to normalize. </param>
-    /// <returns> The input command name, or <see cref="CliProtocol.RootCommand" /> when the input is <see langword="null" />, empty, or whitespace. </returns>
+    /// <returns> The input command name, or <see cref="UcliCommandNames.Root" /> when the input is <see langword="null" />, empty, or whitespace. </returns>
     private static string NormalizeCommand (string command)
     {
-        return string.IsNullOrWhiteSpace(command) ? CliProtocol.RootCommand : command;
+        return string.IsNullOrWhiteSpace(command) ? UcliCommandNames.Root : command;
     }
 
     /// <summary> Normalizes the message value used in command results. </summary>

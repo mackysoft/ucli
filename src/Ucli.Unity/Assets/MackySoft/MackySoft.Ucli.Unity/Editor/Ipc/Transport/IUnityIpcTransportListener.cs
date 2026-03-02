@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {

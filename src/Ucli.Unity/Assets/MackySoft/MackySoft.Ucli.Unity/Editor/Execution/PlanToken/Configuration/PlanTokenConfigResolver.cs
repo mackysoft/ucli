@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Storage;
 
 #nullable enable
 
@@ -10,12 +12,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
     /// <summary> Resolves normalized plan-token configuration values from shared <c>.ucli/config.json</c>. </summary>
     internal static class PlanTokenConfigResolver
     {
-        private const string PlanTokenModeRequired = "required";
-
-        private const string UcliDirectoryName = ".ucli";
-
-        private const string ConfigFileName = "config.json";
-
         private const string NaLiteral = "na";
 
         private static readonly IReadOnlyList<string> FallbackAllowlist = new[]
@@ -41,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
             try
             {
-                var configPath = Path.Combine(repositoryRoot, UcliDirectoryName, ConfigFileName);
+                var configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
                 if (!File.Exists(configPath))
                 {
                     return FallbackSnapshot;
@@ -49,14 +45,14 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
                 using var document = JsonDocument.Parse(File.ReadAllText(configPath));
                 var root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object)
+                if (!UcliConfigJsonContractReader.TryReadPlanTokenLoose(root, out var config, out _))
                 {
                     return FallbackSnapshot;
                 }
 
-                var planTokenModeLiteral = NormalizeOrFallback(PlanTokenJsonUtilities.TryReadString(root, "planTokenMode"));
-                var operationPolicy = NormalizeOrFallback(PlanTokenJsonUtilities.TryReadString(root, "operationPolicy"));
-                var operationAllowlist = ReadAllowlist(root);
+                var planTokenModeLiteral = NormalizeOrFallback(config.PlanTokenMode);
+                var operationPolicy = NormalizeOrFallback(config.OperationPolicy);
+                var operationAllowlist = config.OperationAllowlist ?? FallbackAllowlist;
 
                 return new PlanTokenConfigSnapshot(
                     Mode: ResolveMode(planTokenModeLiteral),
@@ -77,40 +73,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The resolved runtime mode. </returns>
         private static PlanTokenMode ResolveMode (string modeLiteral)
         {
-            return string.Equals(modeLiteral, PlanTokenModeRequired, StringComparison.OrdinalIgnoreCase)
-                ? PlanTokenMode.Required
-                : PlanTokenMode.Optional;
-        }
-
-        /// <summary> Reads normalized allowlist values from config root. </summary>
-        /// <param name="root"> The config root object. </param>
-        /// <returns> The normalized allowlist values. </returns>
-        private static IReadOnlyList<string> ReadAllowlist (JsonElement root)
-        {
-            if (!root.TryGetProperty("operationAllowlist", out var allowlistElement)
-                || allowlistElement.ValueKind != JsonValueKind.Array)
+            if (PlanTokenModeCodec.TryParse(modeLiteral, out var planTokenMode))
             {
-                return FallbackAllowlist;
+                return planTokenMode;
             }
 
-            var values = new List<string>();
-            foreach (var allowlistValue in allowlistElement.EnumerateArray())
-            {
-                if (allowlistValue.ValueKind != JsonValueKind.String)
-                {
-                    return FallbackAllowlist;
-                }
-
-                var pattern = allowlistValue.GetString();
-                if (string.IsNullOrWhiteSpace(pattern))
-                {
-                    continue;
-                }
-
-                values.Add(pattern.Trim());
-            }
-
-            return values.ToArray();
+            return PlanTokenMode.Optional;
         }
 
         /// <summary> Normalizes one string value or returns fallback literal when missing. </summary>

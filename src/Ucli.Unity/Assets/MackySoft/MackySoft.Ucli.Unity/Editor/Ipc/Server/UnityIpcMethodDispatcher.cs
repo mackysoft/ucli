@@ -1,5 +1,4 @@
 using System;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -149,23 +148,26 @@ namespace MackySoft.Ucli.Unity.Ipc
             out TPayload? payload,
             out IpcResponse? errorResponse)
         {
-            try
+            if (IpcPayloadCodec.TryDeserialize(
+                request.Payload,
+                out TPayload parsedPayload,
+                out var readError))
             {
-                payload = request.Payload.Deserialize<TPayload>(UnityIpcSerializerOptions.Default)
-                    ?? throw new JsonException($"{methodName} payload is null.");
+                payload = parsedPayload;
                 errorResponse = null;
                 return true;
             }
-            catch (Exception exception) when (exception is JsonException or InvalidOperationException)
-            {
-                payload = default;
-                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    IpcErrorCodes.InvalidArgument,
-                    $"{methodName} payload is invalid. {exception.Message}",
-                    null);
-                return false;
-            }
+
+            payload = default;
+            var message = readError.Kind == IpcPayloadReadErrorKind.NullPayload
+                ? $"{methodName} payload is null."
+                : readError.Message;
+            errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
+                request,
+                IpcErrorCodes.InvalidArgument,
+                $"{methodName} payload is invalid. {message}",
+                null);
+            return false;
         }
     }
 }

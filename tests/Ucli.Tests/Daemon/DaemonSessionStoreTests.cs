@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 
@@ -48,7 +49,7 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "malformed-json");
         var store = new DaemonSessionStore();
-        var sessionPath = DaemonStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-malformed");
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-malformed");
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(sessionPath, "{", CancellationToken.None);
 
@@ -134,7 +135,7 @@ public sealed class DaemonSessionStoreTests
         var requestedFingerprint = "fingerprint-requested";
         var mismatchedSession = CreateSession(projectFingerprint: "fingerprint-other", sessionToken: "token-1");
 
-        var sessionPath = DaemonStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         var serializer = new DaemonSessionJsonSerializer();
         await File.WriteAllTextAsync(
@@ -164,7 +165,7 @@ public sealed class DaemonSessionStoreTests
             RuntimeKind = "gui",
         };
 
-        var sessionPath = DaemonStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         var serializer = new DaemonSessionJsonSerializer();
         await File.WriteAllTextAsync(

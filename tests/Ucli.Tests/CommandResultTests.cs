@@ -19,35 +19,35 @@ public sealed class CommandResultTests
                 CommandResult.NotImplemented(StatusCommand.CommandName),
                 StatusCommand.CommandName,
                 (int)CliExitCode.ToolError,
-                ErrorCodes.CommandNotImplemented,
+                "COMMAND_NOT_IMPLEMENTED",
                 $"Command '{StatusCommand.CommandName}' is not implemented yet."
             },
             {
                 CommandResult.InvalidArgument(StatusCommand.CommandName, UnknownOptionMessage),
                 StatusCommand.CommandName,
                 (int)CliExitCode.InvalidArgument,
-                ErrorCodes.InvalidArgument,
+                "INVALID_ARGUMENT",
                 UnknownOptionMessage
             },
             {
                 CommandResult.Canceled(StatusCommand.CommandName, CanceledMessage),
                 StatusCommand.CommandName,
                 (int)CliExitCode.ToolError,
-                ErrorCodes.Canceled,
+                "CANCELED",
                 CanceledMessage
             },
             {
                 CommandResult.Timeout(StatusCommand.CommandName, TimeoutMessage),
                 StatusCommand.CommandName,
                 (int)CliExitCode.ToolError,
-                ErrorCodes.IpcTimeout,
+                "IPC_TIMEOUT",
                 TimeoutMessage
             },
             {
                 CommandResult.InternalError(StatusCommand.CommandName, UnhandledExceptionMessage),
                 StatusCommand.CommandName,
                 (int)CliExitCode.ToolError,
-                ErrorCodes.InternalError,
+                "INTERNAL_ERROR",
                 UnhandledExceptionMessage
             },
         };
@@ -63,7 +63,7 @@ public sealed class CommandResultTests
         AssertCommonContract(
             result,
             expectedCommand: InitCommand.CommandName,
-            expectedStatus: CliProtocol.StatusOk,
+            expectedStatus: "ok",
             expectedExitCode: (int)CliExitCode.Success,
             expectedMessage: message);
         Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
@@ -80,8 +80,8 @@ public sealed class CommandResultTests
 
         AssertCommonContract(
             result,
-            expectedCommand: CliProtocol.RootCommand,
-            expectedStatus: CliProtocol.StatusOk,
+            expectedCommand: UcliCommandNames.Root,
+            expectedStatus: "ok",
             expectedExitCode: (int)CliExitCode.Success,
             expectedMessage: "An unknown error occurred.");
         Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
@@ -103,7 +103,7 @@ public sealed class CommandResultTests
         AssertCommonContract(
             result,
             expectedCommand: expectedCommand,
-            expectedStatus: CliProtocol.StatusError,
+            expectedStatus: "error",
             expectedExitCode: expectedExitCode,
             expectedMessage: expectedMessage);
         AssertSingleError(
@@ -123,13 +123,13 @@ public sealed class CommandResultTests
 
         AssertCommonContract(
             result,
-            expectedCommand: CliProtocol.RootCommand,
-            expectedStatus: CliProtocol.StatusError,
+            expectedCommand: UcliCommandNames.Root,
+            expectedStatus: "error",
             expectedExitCode: (int)CliExitCode.ToolError,
             expectedMessage: expectedMessage);
         AssertSingleError(
             result,
-            expectedCode: ErrorCodes.InternalError,
+            expectedCode: "INTERNAL_ERROR",
             expectedMessage: expectedMessage);
     }
 
@@ -140,7 +140,7 @@ public sealed class CommandResultTests
         int expectedExitCode,
         string expectedMessage)
     {
-        Assert.Equal(CliProtocol.CurrentVersion, result.ProtocolVersion);
+        Assert.Equal(1, result.ProtocolVersion);
         Assert.Equal(expectedCommand, result.Command);
         Assert.Equal(expectedStatus, result.Status);
         Assert.Equal(expectedExitCode, result.ExitCode);

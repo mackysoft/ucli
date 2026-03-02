@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Ipc;
 
 /// <summary> Resolves transport-specific IPC endpoint values from project context. </summary>

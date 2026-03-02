@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
@@ -51,7 +52,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         string sessionPath;
         try
         {
-            sessionPath = DaemonStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+            sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
         }
         catch (Exception exception) when (IsPathFormatException(exception))
         {
@@ -142,7 +143,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         string sessionPath;
         try
         {
-            sessionPath = DaemonStoragePathResolver.ResolveSessionPath(storageRoot, session.ProjectFingerprint);
+            sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, session.ProjectFingerprint);
         }
         catch (Exception exception) when (IsPathFormatException(exception))
         {
@@ -198,7 +199,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         string sessionPath;
         try
         {
-            sessionPath = DaemonStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+            sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
         }
         catch (Exception exception) when (IsPathFormatException(exception))
         {

@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
@@ -123,27 +126,34 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(endpoint);
 
+        var tokens = new List<string>
+        {
+            "-batchmode",
+            "-nographics",
+            "-projectPath",
+            unityProject.UnityProjectRoot,
+            "-logFile",
+            daemonLogPath,
+            "-executeMethod",
+            IpcDaemonBootstrapArgumentsCodec.UnityExecuteMethodName,
+        };
+        IpcDaemonBootstrapArgumentsCodec.AppendTokens(
+            tokens,
+            new IpcDaemonBootstrapArguments(
+                RepositoryRoot: unityProject.RepositoryRoot,
+                ProjectFingerprint: unityProject.ProjectFingerprint,
+                SessionPath: UcliStoragePathResolver.ResolveSessionPath(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint),
+                EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+                EndpointAddress: endpoint.Address));
+
         var builder = new StringBuilder();
-        AppendArgument(builder, "-batchmode");
-        AppendArgument(builder, "-nographics");
-        AppendArgument(builder, "-projectPath");
-        AppendArgument(builder, unityProject.UnityProjectRoot);
-        AppendArgument(builder, "-logFile");
-        AppendArgument(builder, daemonLogPath);
-        AppendArgument(builder, "-executeMethod");
-        AppendArgument(builder, "MackySoft.Ucli.Unity.Ipc.UnityDaemonBootstrap.Start");
-        AppendArgument(builder, "-ucliRepositoryRoot");
-        AppendArgument(builder, unityProject.RepositoryRoot);
-        AppendArgument(builder, "-ucliProjectFingerprint");
-        AppendArgument(builder, unityProject.ProjectFingerprint);
-        AppendArgument(builder, "-ucliSessionPath");
-        AppendArgument(builder, DaemonStoragePathResolver.ResolveSessionPath(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint));
-        AppendArgument(builder, "-ucliEndpointTransportKind");
-        AppendArgument(builder, DaemonSessionTransportKindCodec.ToValue(endpoint.TransportKind));
-        AppendArgument(builder, "-ucliEndpointAddress");
-        AppendArgument(builder, endpoint.Address);
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            AppendArgument(builder, tokens[i]);
+        }
+
         return builder.ToString();
     }
 

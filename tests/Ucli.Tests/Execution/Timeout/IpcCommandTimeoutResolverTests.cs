@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.ReadIndex;

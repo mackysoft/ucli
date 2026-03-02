@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Project;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -623,14 +625,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Directory.CreateDirectory(Path.Combine(RepositoryRoot, ".git"));
                 Directory.CreateDirectory(Path.Combine(ProjectRoot, "Assets"));
                 Directory.CreateDirectory(Path.Combine(ProjectRoot, "ProjectSettings"));
-                ProjectFingerprint = UnityProjectFingerprintCalculatorCompat.Create(RepositoryRoot, ProjectRoot);
-                PlanTokenKeyPath = Path.Combine(
-                    RepositoryRoot,
-                    ".ucli",
-                    "local",
-                    "fingerprints",
-                    ProjectFingerprint,
-                    "plan-token.key");
+                ProjectFingerprint = UnityProjectFingerprintCalculator.Create(RepositoryRoot, ProjectRoot);
+                PlanTokenKeyPath = UcliStoragePathResolver.ResolvePlanTokenKeyPath(RepositoryRoot, ProjectFingerprint);
             }
 
             public string RepositoryRoot { get; }
@@ -655,9 +651,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void WriteConfigJson (string json)
             {
-                var configDirectoryPath = Path.Combine(RepositoryRoot, ".ucli");
+                var configDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(RepositoryRoot);
                 Directory.CreateDirectory(configDirectoryPath);
-                File.WriteAllText(Path.Combine(configDirectoryPath, "config.json"), json);
+                File.WriteAllText(UcliStoragePathResolver.ResolveConfigPath(RepositoryRoot), json);
             }
 
             public void Dispose ()

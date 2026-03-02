@@ -42,10 +42,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")));
 
             using var stream = new MemoryStream();
-            await UnityIpcFrameCodec.WriteModel(
+            await IpcFrameCodec.WriteModelAsync(
                 stream,
                 request,
-                UnityIpcSerializerOptions.Default,
+                IpcJsonSerializerOptions.Default,
                 cancellationToken: CancellationToken.None);
             stream.Position = 0;
 

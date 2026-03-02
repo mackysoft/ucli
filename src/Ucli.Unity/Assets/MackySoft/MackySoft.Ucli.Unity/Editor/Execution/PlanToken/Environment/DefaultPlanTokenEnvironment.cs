@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using MackySoft.Ucli.Contracts.Project;
+using MackySoft.Ucli.Contracts.Storage;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,8 +20,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         public PlanTokenEnvironmentSnapshot Capture ()
         {
             var projectRoot = ResolveProjectRoot();
-            var repositoryRoot = ResolveRepositoryRoot(projectRoot);
-            var projectFingerprint = UnityProjectFingerprintCalculatorCompat.Create(repositoryRoot, projectRoot);
+            var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
+            var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, projectRoot);
 
             var unityVersion = string.IsNullOrWhiteSpace(Application.unityVersion)
                 ? "na"
@@ -54,30 +56,5 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             return projectRoot;
         }
 
-        /// <summary> Resolves repository root by scanning parent directories for <c>.git</c>. </summary>
-        /// <param name="projectRoot"> The Unity project root path. </param>
-        /// <returns> The resolved repository root, or <paramref name="projectRoot" /> when no git marker is found. </returns>
-        private static string ResolveRepositoryRoot (string projectRoot)
-        {
-            var currentDirectory = projectRoot;
-            while (!string.IsNullOrWhiteSpace(currentDirectory))
-            {
-                var gitDirectoryPath = Path.Combine(currentDirectory, ".git");
-                if (Directory.Exists(gitDirectoryPath) || File.Exists(gitDirectoryPath))
-                {
-                    return currentDirectory;
-                }
-
-                var parentDirectory = Directory.GetParent(currentDirectory);
-                if (parentDirectory == null)
-                {
-                    break;
-                }
-
-                currentDirectory = parentDirectory.FullName;
-            }
-
-            return projectRoot;
-        }
     }
 }
