@@ -43,4 +43,24 @@ public sealed class PathStringNormalizerTests
             _ = PathStringNormalizer.ToSlashSeparated(null!);
         });
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ToPlatformSeparated_Throws_WhenValueIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = PathStringNormalizer.ToPlatformSeparated(null!);
+        });
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TrimTrailingDirectorySeparators_Throws_WhenValueIsNull ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            _ = PathStringNormalizer.TrimTrailingDirectorySeparators(null!);
+        });
+    }
 }
