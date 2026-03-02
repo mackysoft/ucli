@@ -52,6 +52,27 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void ResolvedReference_WhenGlobalObjectIdIsWhitespace_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() => _ = new ResolvedReference(" "));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ResolvedReference_WhenGlobalObjectIdHasOuterWhitespace_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() => _ = new ResolvedReference(" GlobalObjectId_V1-2-3-4-5-6-7"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ResolvedReference_WhenGlobalObjectIdIsMalformed_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() => _ = new ResolvedReference("invalid-global-object-id"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Plan_WhenArgsContainGlobalObjectId_StoresResolvedReferenceToAliasStore ()
         {
             var operation = new ResolvePhaseOperation();
