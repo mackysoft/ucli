@@ -39,15 +39,20 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
 
     /// <summary> Resolves one test-run configuration from command input and optional profile values. </summary>
     /// <param name="input"> The raw command input values. </param>
-    /// <returns> The configuration resolution result. </returns>
-    public TestRunConfigurationResolutionResult Resolve (TestRunCommandInput input)
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the configuration resolution result. </returns>
+    public async ValueTask<TestRunConfigurationResolutionResult> Resolve (
+        TestRunCommandInput input,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
         TestRunProfile? profile = null;
         if (!string.IsNullOrWhiteSpace(input.ProfilePath))
         {
-            var profileLoadResult = profileLoader.Load(input.ProfilePath!);
+            cancellationToken.ThrowIfCancellationRequested();
+            var profileLoadResult = await profileLoader.Load(input.ProfilePath!, cancellationToken).ConfigureAwait(false);
             if (!profileLoadResult.IsSuccess)
             {
                 return TestRunConfigurationResolutionResult.Failure([profileLoadResult.Error!]);
@@ -75,6 +80,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             return TestRunConfigurationResolutionResult.Failure(validationErrors);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var unityProjectResolutionResult = unityProjectResolver.Resolve(mergedConfiguration.ProjectPath);
         if (!unityProjectResolutionResult.IsSuccess)
         {
@@ -82,6 +88,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         var unityProject = unityProjectResolutionResult.Context!;
+        cancellationToken.ThrowIfCancellationRequested();
         var unityVersionResolutionResult = unityVersionResolver.Resolve(
             unityProject.UnityProjectRoot,
             mergedConfiguration.UnityVersion);
@@ -90,6 +97,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             return TestRunConfigurationResolutionResult.Failure([unityVersionResolutionResult.Error!]);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var unityEditorPathResolutionResult = unityEditorPathResolver.Resolve(
             unityVersionResolutionResult.UnityVersion!,
             mergedConfiguration.UnityEditorPath);

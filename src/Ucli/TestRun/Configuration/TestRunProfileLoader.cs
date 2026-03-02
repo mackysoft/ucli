@@ -15,9 +15,14 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
 
     /// <summary> Loads one profile JSON file from disk. </summary>
     /// <param name="profilePath"> The profile path value. </param>
-    /// <returns> The profile load result. </returns>
-    public TestRunProfileLoadResult Load (string profilePath)
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the profile load result. </returns>
+    public async ValueTask<TestRunProfileLoadResult> Load (
+        string profilePath,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (string.IsNullOrWhiteSpace(profilePath))
         {
             return TestRunProfileLoadResult.Failure(ExecutionError.InvalidArgument("profilePath is empty."));
@@ -43,7 +48,8 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         string json;
         try
         {
-            json = File.ReadAllText(normalizedProfilePath);
+            cancellationToken.ThrowIfCancellationRequested();
+            json = await File.ReadAllTextAsync(normalizedProfilePath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
         {

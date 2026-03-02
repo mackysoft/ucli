@@ -41,7 +41,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var configurationResolutionResult = ResolveConfigurationSafely(input);
+        var configurationResolutionResult = await ResolveConfigurationSafely(input, cancellationToken).ConfigureAwait(false);
         if (!configurationResolutionResult.IsSuccess)
         {
             return TestRunPreflightResult.FailureResult(
@@ -90,12 +90,20 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
 
     /// <summary> Resolves run configuration and converts unexpected exceptions into structured failures. </summary>
     /// <param name="input"> The raw command input values. </param>
-    /// <returns> The configuration resolution result. </returns>
-    private TestRunConfigurationResolutionResult ResolveConfigurationSafely (TestRunCommandInput input)
+    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
+    /// <returns> A task that resolves to the configuration resolution result. </returns>
+    private async ValueTask<TestRunConfigurationResolutionResult> ResolveConfigurationSafely (
+        TestRunCommandInput input,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return configurationResolver.Resolve(input);
+            cancellationToken.ThrowIfCancellationRequested();
+            return await configurationResolver.Resolve(input, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
