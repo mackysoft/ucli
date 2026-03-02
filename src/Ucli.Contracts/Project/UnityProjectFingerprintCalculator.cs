@@ -69,7 +69,7 @@ public static class UnityProjectFingerprintCalculator
     private static string NormalizePath (string pathValue)
     {
         var fullPath = Path.GetFullPath(pathValue);
-        fullPath = PathStringNormalizer.ToPlatformSeparated(fullPath);
+        fullPath = PathStringNormalizer.ReplaceAltSeparatorWithPlatformSeparator(fullPath);
         var pathRoot = Path.GetPathRoot(fullPath);
         if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, PathComparison))
         {
@@ -85,7 +85,7 @@ public static class UnityProjectFingerprintCalculator
     /// <returns> The normalized fragment value. </returns>
     private static string NormalizeRelativePath (string relativePath)
     {
-        var normalizedPath = PathStringNormalizer.ToPlatformSeparated(relativePath);
+        var normalizedPath = PathStringNormalizer.ReplaceAltSeparatorWithPlatformSeparator(relativePath);
         if (string.Equals(normalizedPath, ".", StringComparison.Ordinal))
         {
             return normalizedPath;

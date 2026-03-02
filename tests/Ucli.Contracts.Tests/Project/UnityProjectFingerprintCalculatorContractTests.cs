@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using MackySoft.Ucli.Contracts.Project;
 
 namespace MackySoft.Ucli.Contracts.Tests.Project;
@@ -30,6 +31,25 @@ public sealed class UnityProjectFingerprintCalculatorContractTests
         var secondary = UnityProjectFingerprintCalculator.Create(storageRoot, secondaryProjectRoot);
 
         Assert.NotEqual(primary, secondary);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_OnUnix_DistinguishesBackslashCharacterFromDirectorySeparator ()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return;
+        }
+
+        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
+        var projectRootWithBackslashCharacter = Path.Combine(storageRoot, @"foo\bar");
+        var projectRootWithDirectorySeparator = Path.Combine(storageRoot, "foo/bar");
+
+        var backslashFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRootWithBackslashCharacter);
+        var separatorFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRootWithDirectorySeparator);
+
+        Assert.NotEqual(backslashFingerprint, separatorFingerprint);
     }
 
     [Theory]
