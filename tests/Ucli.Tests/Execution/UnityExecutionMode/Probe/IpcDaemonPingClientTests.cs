@@ -120,6 +120,32 @@ public sealed class IpcDaemonPingClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task PingAndRead_WhenCompileStateIsMissing_ReturnsPayload ()
+    {
+        var unityIpcClient = new StubUnityIpcClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                new
+                {
+                    serverVersion = "0.5.0",
+                    runtime = "batchmode",
+                    unityVersion = "2022.3.5f1",
+                }));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var result = await pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+
+        Assert.Equal("0.5.0", result.ServerVersion);
+        Assert.Equal("batchmode", result.Runtime);
+        Assert.Equal("2022.3.5f1", result.UnityVersion);
+        Assert.True(string.IsNullOrWhiteSpace(result.CompileState));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Ping_WhenResponseStatusIsError_ThrowsDaemonPingResponseException ()
     {
         var unityIpcClient = new StubUnityIpcClient(request =>

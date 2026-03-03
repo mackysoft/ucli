@@ -91,10 +91,32 @@ public sealed class DaemonPingResponseCodecTests
         Assert.Contains("required fields", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecodePayload_WhenCompileStateIsMissing_ReturnsTrue ()
+    {
+        var response = CreateResponse(
+            IpcProtocol.StatusOk,
+            Array.Empty<IpcError>(),
+            new
+            {
+                serverVersion = "0.5.0",
+                runtime = "batchmode",
+                unityVersion = "2022.3.5f1",
+            });
+
+        var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
+
+        Assert.True(result);
+        Assert.NotNull(payload);
+        Assert.True(string.IsNullOrWhiteSpace(payload.CompileState));
+        Assert.Null(error);
+    }
+
     private static IpcResponse CreateResponse (
         string status,
         IReadOnlyList<IpcError> errors,
-        IpcPingResponse? payload)
+        object? payload)
     {
         var payloadElement = payload is null
             ? IpcPayloadCodec.SerializeToElement(new { })

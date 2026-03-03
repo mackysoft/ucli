@@ -70,8 +70,7 @@ internal static class DaemonPingResponseCodec
 
         if (string.IsNullOrWhiteSpace(parsedPayload.ServerVersion)
             || string.IsNullOrWhiteSpace(parsedPayload.Runtime)
-            || string.IsNullOrWhiteSpace(parsedPayload.UnityVersion)
-            || string.IsNullOrWhiteSpace(parsedPayload.CompileState))
+            || string.IsNullOrWhiteSpace(parsedPayload.UnityVersion))
         {
             payload = null;
             error = new DaemonPingResponseException("Daemon ping payload is invalid. One or more required fields are empty.");
