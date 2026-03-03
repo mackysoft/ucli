@@ -73,6 +73,53 @@ public sealed class IpcDaemonPingClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task PingAndRead_ReturnsDecodedPingPayload ()
+    {
+        var unityIpcClient = new StubUnityIpcClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                new IpcPingResponse(
+                    ServerVersion: "0.5.0",
+                    Runtime: "batchmode",
+                    UnityVersion: "2022.3.5f1",
+                    CompileState: "ready")));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var result = await pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+
+        Assert.Equal(1, unityIpcClient.CallCount);
+        Assert.Equal(1, sessionTokenProvider.CallCount);
+        Assert.Equal("0.5.0", result.ServerVersion);
+        Assert.Equal("batchmode", result.Runtime);
+        Assert.Equal("2022.3.5f1", result.UnityVersion);
+        Assert.Equal("ready", result.CompileState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PingAndRead_WhenPayloadIsInvalid_ThrowsDaemonPingResponseException ()
+    {
+        var unityIpcClient = new StubUnityIpcClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>()));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
+        var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
+
+        var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+        });
+
+        Assert.Contains("payload", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Ping_WhenResponseStatusIsError_ThrowsDaemonPingResponseException ()
     {
         var unityIpcClient = new StubUnityIpcClient(request =>
@@ -245,13 +292,16 @@ public sealed class IpcDaemonPingClientTests
     private static IpcResponse CreateResponse (
         IpcRequest request,
         string status,
-        IReadOnlyList<IpcError> errors)
+        IReadOnlyList<IpcError> errors,
+        object? payload = null)
     {
         return new IpcResponse(
             ProtocolVersion: request.ProtocolVersion,
             RequestId: request.RequestId,
             Status: status,
-            Payload: JsonDocument.Parse("{}").RootElement.Clone(),
+            Payload: payload is null
+                ? JsonDocument.Parse("{}").RootElement.Clone()
+                : IpcPayloadCodec.SerializeToElement(payload),
             Errors: errors);
     }
 }

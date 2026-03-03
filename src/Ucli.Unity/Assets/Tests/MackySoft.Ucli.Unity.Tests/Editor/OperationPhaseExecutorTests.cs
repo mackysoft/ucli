@@ -709,7 +709,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RepositoryRoot: RepositoryRoot,
                     ProjectFingerprint: ProjectFingerprint,
                     UnityVersion: "6000.0.0f1",
-                    CompileState: "ready",
+                    CompileState: IpcCompileStateCodec.Ready,
                     DomainReloadGeneration: "na");
                 return new MutablePlanTokenEnvironment(snapshot, DateTimeOffset.UtcNow);
             }

@@ -16,36 +16,36 @@ public sealed class CommandResultTests
     public static TheoryData<object, string, int, string, string> ErrorCaseData => new()
         {
             {
-                CommandResult.NotImplemented(StatusCommand.CommandName),
-                StatusCommand.CommandName,
+                CommandResult.NotImplemented(UcliCommandNames.Status),
+                UcliCommandNames.Status,
                 (int)CliExitCode.ToolError,
                 "COMMAND_NOT_IMPLEMENTED",
-                $"Command '{StatusCommand.CommandName}' is not implemented yet."
+                $"Command '{UcliCommandNames.Status}' is not implemented yet."
             },
             {
-                CommandResult.InvalidArgument(StatusCommand.CommandName, UnknownOptionMessage),
-                StatusCommand.CommandName,
+                CommandResult.InvalidArgument(UcliCommandNames.Status, UnknownOptionMessage),
+                UcliCommandNames.Status,
                 (int)CliExitCode.InvalidArgument,
                 "INVALID_ARGUMENT",
                 UnknownOptionMessage
             },
             {
-                CommandResult.Canceled(StatusCommand.CommandName, CanceledMessage),
-                StatusCommand.CommandName,
+                CommandResult.Canceled(UcliCommandNames.Status, CanceledMessage),
+                UcliCommandNames.Status,
                 (int)CliExitCode.ToolError,
                 "CANCELED",
                 CanceledMessage
             },
             {
-                CommandResult.Timeout(StatusCommand.CommandName, TimeoutMessage),
-                StatusCommand.CommandName,
+                CommandResult.Timeout(UcliCommandNames.Status, TimeoutMessage),
+                UcliCommandNames.Status,
                 (int)CliExitCode.ToolError,
                 "IPC_TIMEOUT",
                 TimeoutMessage
             },
             {
-                CommandResult.InternalError(StatusCommand.CommandName, UnhandledExceptionMessage),
-                StatusCommand.CommandName,
+                CommandResult.InternalError(UcliCommandNames.Status, UnhandledExceptionMessage),
+                UcliCommandNames.Status,
                 (int)CliExitCode.ToolError,
                 "INTERNAL_ERROR",
                 UnhandledExceptionMessage
