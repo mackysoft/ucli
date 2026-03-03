@@ -83,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response envelope. </returns>
         private IpcResponse HandlePing (IpcRequest request)
         {
-            if (!UnityIpcMethodDispatcherCodec.TryDecodePingRequest(
+            if (!UnityIpcRequestCodec.TryDecodePingRequest(
                     request,
                     out IpcPingRequest _,
                     out var errorResponse))
@@ -91,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
-            var payload = UnityIpcMethodDispatcherCodec.CreatePingResponsePayload(
+            var payload = UnityPingResponseCodec.CreatePayload(
                 Application.unityVersion,
                 serverVersionProvider.GetVersion(),
                 EditorApplication.isCompiling);
@@ -106,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken)
         {
-            if (!UnityIpcMethodDispatcherCodec.TryDecodeExecuteRequest(
+            if (!UnityIpcRequestCodec.TryDecodeExecuteRequest(
                     request,
                     out IpcExecuteRequest? executeRequest,
                     out var errorResponse))
@@ -125,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response envelope. </returns>
         private IpcResponse HandleShutdown (IpcRequest request)
         {
-            if (!UnityIpcMethodDispatcherCodec.TryDecodeShutdownRequest(
+            if (!UnityIpcRequestCodec.TryDecodeShutdownRequest(
                     request,
                     out IpcShutdownRequest _,
                     out var errorResponse))

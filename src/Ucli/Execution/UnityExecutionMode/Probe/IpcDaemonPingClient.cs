@@ -42,7 +42,10 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        EnsureSuccessfulPingResponse(response);
+        if (!DaemonPingResponseCodec.TryValidateSuccessResponse(response, out var error))
+        {
+            throw error!;
+        }
     }
 
     /// <summary> Sends one ping request and returns decoded ping payload values. </summary>
@@ -62,22 +65,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken = default)
     {
         var response = await SendPingRequest(unityProject, timeout, sessionToken, cancellationToken).ConfigureAwait(false);
-        EnsureSuccessfulPingResponse(response);
-
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out var readError))
+        if (!DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error))
         {
-            throw new DaemonPingResponseException($"Daemon ping payload is invalid. {readError.Message}");
+            throw error!;
         }
 
-        if (string.IsNullOrWhiteSpace(payload.ServerVersion)
-            || string.IsNullOrWhiteSpace(payload.Runtime)
-            || string.IsNullOrWhiteSpace(payload.UnityVersion)
-            || string.IsNullOrWhiteSpace(payload.CompileState))
-        {
-            throw new DaemonPingResponseException("Daemon ping payload is invalid. One or more required fields are empty.");
-        }
-
-        return payload;
+        return payload!;
     }
 
     /// <summary> Sends one ping request and returns the raw IPC response envelope. </summary>
@@ -138,33 +131,6 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         }
 
         return sessionTokenResult.Token!;
-    }
-
-    /// <summary> Validates ping response status and error payload. </summary>
-    /// <param name="response"> The response returned from daemon. </param>
-    /// <exception cref="DaemonPingResponseException"> Thrown when daemon reports non-success status or error entries. </exception>
-    private static void EnsureSuccessfulPingResponse (IpcResponse response)
-    {
-        if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal))
-        {
-            if (response.Errors.Count > 0)
-            {
-                var firstError = response.Errors[0];
-                throw new DaemonPingResponseException(
-                    $"Daemon ping failed with error code '{firstError.Code}'.",
-                    firstError.Code);
-            }
-
-            throw new DaemonPingResponseException($"Daemon ping failed with status '{response.Status}'.");
-        }
-
-        if (response.Errors.Count > 0)
-        {
-            var firstError = response.Errors[0];
-            throw new DaemonPingResponseException(
-                $"Daemon ping failed with error code '{firstError.Code}'.",
-                firstError.Code);
-        }
     }
 
     /// <summary> Creates one IPC ping request used for daemon reachability probing. </summary>
