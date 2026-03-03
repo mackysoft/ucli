@@ -78,4 +78,40 @@ public sealed class IpcCommonContractTests
     {
         Assert.False(IpcTransportKindCodec.TryParse("unsupported", out _));
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileStateCodec_HasStableStringValues ()
+    {
+        Assert.Equal("ready", IpcCompileStateCodec.Ready);
+        Assert.Equal("compiling", IpcCompileStateCodec.Compiling);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileStateCodec_ToValue_ReturnsExpectedLiterals ()
+    {
+        Assert.Equal(IpcCompileStateCodec.Ready, IpcCompileStateCodec.ToValue(false));
+        Assert.Equal(IpcCompileStateCodec.Compiling, IpcCompileStateCodec.ToValue(true));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("ready", true, IpcCompileStateCodec.Ready)]
+    [InlineData(" compiling ", true, IpcCompileStateCodec.Compiling)]
+    [InlineData("READY", false, null)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcCompileStateCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcCompileStateCodec.TryParse(value, out var compileState);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, compileState);
+    }
 }

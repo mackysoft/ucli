@@ -53,6 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<ISessionTokenValidator>(new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath));
             services.AddSingleton<IExecuteRequestDispatcher>(static _ => CreateExecuteRequestDispatcher());
+            services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();

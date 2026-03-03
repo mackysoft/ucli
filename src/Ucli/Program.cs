@@ -8,6 +8,7 @@ using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.Status;
 using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -72,7 +73,9 @@ internal static class Program
                 services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
                 services.AddSingleton<IDaemonLogReader, DaemonLogReader>();
                 services.AddSingleton<IUnityDaemonProcessLauncher, UnityDaemonProcessLauncher>();
-                services.AddSingleton<IDaemonPingClient, IpcDaemonPingClient>();
+                services.AddSingleton<IpcDaemonPingClient>();
+                services.AddSingleton<IDaemonPingClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
+                services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
                 services.AddSingleton<IDaemonStartupReadinessProbe, DaemonStartupReadinessProbe>();
                 services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
                 services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
@@ -106,6 +109,9 @@ internal static class Program
                 services.AddSingleton<ITestRunExecutionPipeline, TestRunExecutionPipeline>();
                 services.AddSingleton<ITestRunResultMapper, TestRunResultMapper>();
                 services.AddSingleton<ITestRunService, TestRunService>();
+                services.AddSingleton<IStatusExecutionContextResolver, StatusExecutionContextResolver>();
+                services.AddSingleton<IStatusDaemonObservationService, StatusDaemonObservationService>();
+                services.AddSingleton<IStatusService, StatusService>();
             });
         app.UseFilter<OperationCatalogWarmupFilter>();
         app.Add<InitCommand>();
