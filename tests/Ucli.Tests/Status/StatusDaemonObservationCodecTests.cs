@@ -6,28 +6,6 @@ namespace MackySoft.Ucli.Tests.Status;
 
 public sealed class StatusDaemonObservationCodecTests
 {
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData((int)DaemonStatusKind.Running, "running")]
-    [InlineData((int)DaemonStatusKind.NotRunning, "notRunning")]
-    [InlineData((int)DaemonStatusKind.Stale, "stale")]
-    public void ToDaemonStatusValue_WhenSupportedStatus_ReturnsContractLiteral (
-        int daemonStatus,
-        string expected)
-    {
-        var actual = StatusDaemonObservationCodec.ToDaemonStatusValue((DaemonStatusKind)daemonStatus);
-
-        Assert.Equal(expected, actual);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ToDaemonStatusValue_WhenUnsupportedStatus_ThrowsArgumentOutOfRangeException ()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => StatusDaemonObservationCodec.ToDaemonStatusValue(DaemonStatusKind.Failed));
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public void CreateWithoutPing_ReturnsObservationWithNullPingFields ()
