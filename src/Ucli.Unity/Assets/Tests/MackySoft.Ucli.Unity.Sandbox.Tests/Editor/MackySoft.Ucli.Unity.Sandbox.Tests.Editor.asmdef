@@ -1,0 +1,19 @@
+{
+    "name": "MackySoft.Ucli.Unity.Sandbox.Tests.Editor",
+    "rootNamespace": "MackySoft.Ucli.Unity.Sandbox.Tests",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}

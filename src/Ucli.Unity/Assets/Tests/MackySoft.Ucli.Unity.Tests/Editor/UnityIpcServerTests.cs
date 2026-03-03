@@ -53,9 +53,9 @@ namespace MackySoft.Ucli.Unity.Tests
             await waitTask;
         });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void StartupCoordinator_Wait_WhenCanceledWithoutStartup_ThrowsOperationCanceledException ()
+        public IEnumerator StartupCoordinator_Wait_WhenCanceledWithoutStartup_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -63,15 +63,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             cancellationTokenSource.Cancel();
 
-            try
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                waitTask.GetAwaiter().GetResult();
-                Assert.Fail($"{nameof(OperationCanceledException)} was expected.");
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
+                await waitTask.AsUniTask();
+            });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
