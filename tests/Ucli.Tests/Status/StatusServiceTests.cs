@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -194,6 +195,55 @@ public sealed class StatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenPingInfoTimesOut_ReturnsTimeoutError ()
+    {
+        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Running(CreateSession("session-token")));
+        var daemonPingInfoClient = new StubDaemonPingInfoClient(
+            nextException: new TimeoutException("ping timeout"));
+        var service = CreateService(
+            contextResolver,
+            unityVersionResolver,
+            daemonManagementService,
+            daemonPingInfoClient);
+
+        var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("Timed out while reading daemon ping information.", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenPingInfoBecomesUnreachable_ReturnsStaleStatus ()
+    {
+        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
+        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Running(CreateSession("session-token")));
+        var daemonPingInfoClient = new StubDaemonPingInfoClient(
+            nextException: new SocketException((int)SocketError.ConnectionRefused));
+        var service = CreateService(
+            contextResolver,
+            unityVersionResolver,
+            daemonManagementService,
+            daemonPingInfoClient);
+
+        var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<StatusExecutionOutput>(result.Output);
+        Assert.Equal("stale", output.DaemonStatus);
+        Assert.Null(output.ServerVersion);
+        Assert.Null(output.CompileState);
+        Assert.Null(output.Runtime);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenPingInfoFails_ReturnsInternalError ()
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
@@ -224,7 +274,10 @@ public sealed class StatusServiceTests
     {
         return new StatusService(
             new StatusExecutionContextResolver(contextResolver, unityVersionResolver),
-            new StatusDaemonObservationService(daemonManagementService, daemonPingInfoClient));
+            new StatusDaemonObservationService(
+                daemonManagementService,
+                daemonPingInfoClient,
+                new DaemonReachabilityClassifier()));
     }
 
     private static InitStatusContext CreateContext ()

@@ -12,16 +12,21 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
 
     private readonly IDaemonPingInfoClient daemonPingInfoClient;
 
+    private readonly IDaemonReachabilityClassifier reachabilityClassifier;
+
     /// <summary> Initializes a new instance of the <see cref="StatusDaemonObservationService" /> class. </summary>
     /// <param name="daemonManagementService"> The daemon management service dependency. </param>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
+    /// <param name="reachabilityClassifier"> The daemon reachability classifier dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public StatusDaemonObservationService (
         IDaemonManagementService daemonManagementService,
-        IDaemonPingInfoClient daemonPingInfoClient)
+        IDaemonPingInfoClient daemonPingInfoClient,
+        IDaemonReachabilityClassifier reachabilityClassifier)
     {
         this.daemonManagementService = daemonManagementService ?? throw new ArgumentNullException(nameof(daemonManagementService));
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
+        this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
     }
 
     /// <summary> Resolves daemon status and optional ping diagnostics for one status execution. </summary>
@@ -73,6 +78,16 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (TimeoutException exception)
+        {
+            return StatusDaemonObservationResult.Failure(ExecutionError.Timeout(
+                $"Timed out while reading daemon ping information. {exception.Message}"));
+        }
+        catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
+        {
+            return StatusDaemonObservationResult.Success(
+                StatusDaemonObservationCodec.CreateWithoutPing(DaemonStatusKind.Stale));
         }
         catch (Exception exception)
         {
