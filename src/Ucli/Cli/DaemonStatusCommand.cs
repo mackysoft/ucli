@@ -17,7 +17,7 @@ internal sealed class DaemonStatusCommand
     }
 
     /// <summary> Executes the <c>daemon status</c> command and emits the JSON result contract. </summary>
-    /// <param name="projectPath">--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
+    /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout"> Optional daemon status timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>

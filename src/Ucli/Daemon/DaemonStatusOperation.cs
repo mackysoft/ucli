@@ -73,6 +73,11 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
         {
             throw;
         }
+        catch (TimeoutException exception)
+        {
+            return DaemonStatusResult.Failure(ExecutionError.Timeout(
+                $"Timed out while probing daemon status. {exception.Message}"));
+        }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
             return DaemonStatusResult.Stale(readResult.Session!);

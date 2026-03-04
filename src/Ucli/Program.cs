@@ -148,7 +148,8 @@ internal static class Program
         }
 
         var secondArgument = args[1];
-        if (CommandTokenClassifier.IsHelpOptionToken(secondArgument))
+        if (CommandTokenClassifier.IsHelpOptionToken(secondArgument)
+            || CommandTokenClassifier.IsVersionOptionToken(secondArgument))
         {
             return false;
         }

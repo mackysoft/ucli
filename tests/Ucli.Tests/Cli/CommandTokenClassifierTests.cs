@@ -45,4 +45,18 @@ public sealed class CommandTokenClassifierTests
 
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("--version", true)]
+    [InlineData("-v", true)]
+    [InlineData("--unknown", false)]
+    [InlineData("status", false)]
+    [InlineData(null, false)]
+    public void IsVersionOptionToken_ReturnsExpectedResult (string? token, bool expected)
+    {
+        var result = CommandTokenClassifier.IsVersionOptionToken(token);
+
+        Assert.Equal(expected, result);
+    }
 }

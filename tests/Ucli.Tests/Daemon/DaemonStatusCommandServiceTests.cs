@@ -62,6 +62,31 @@ public sealed class DaemonStatusCommandServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task GetStatus_WhenDaemonStatusOperationTimesOut_ReturnsTimeoutFailure ()
+    {
+        var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 1000);
+        var resolver = new DaemonCommandServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var daemonStatusOperation = new DaemonCommandServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.Failure(ExecutionError.Timeout("probe timeout")),
+        };
+        var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
+        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+
+        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal("probe timeout", error.Message);
+        Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);
+        Assert.Equal(0, mapper.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task GetStatus_WhenDaemonIsNotRunning_ReturnsOutputWithoutSession ()
     {
         var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2222);

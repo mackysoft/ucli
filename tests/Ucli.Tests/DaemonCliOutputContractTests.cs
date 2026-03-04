@@ -201,4 +201,55 @@ public sealed class DaemonCliOutputContractTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Contains("daemon start", result.StdOut, StringComparison.Ordinal);
     }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Daemon_WithVersionOption_ReturnsVersionOutputAndSuccessExitCode ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            "--version");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Matches(@"^\d+\.\d+\.\d+([-\+].*)?$", result.StdOut.Trim());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task DaemonStart_WithHelpOutput_IncludesShortProjectPathOption ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StartSubcommand,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("-p, --projectPath", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task DaemonStop_WithHelpOutput_IncludesShortProjectPathOption ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.StopSubcommand,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("-p, --projectPath", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task DaemonStatus_WithHelpOutput_IncludesShortProjectPathOption ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.Status,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("-p, --projectPath", result.StdOut, StringComparison.Ordinal);
+    }
 }
