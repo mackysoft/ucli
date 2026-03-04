@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Foundation;
 
@@ -105,16 +106,21 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             return false;
         }
 
-        foreach (var property in root.EnumerateObject())
+        var unknownProperty = JsonObjectPropertyReader.FindUnknownProperty(root, AllowedProperties);
+        if (!string.IsNullOrEmpty(unknownProperty))
         {
-            if (!AllowedProperties.Contains(property.Name))
-            {
-                errorMessage = $"profile contains unknown property: {property.Name}";
-                return false;
-            }
+            errorMessage = $"profile contains unknown property: {unknownProperty}";
+            return false;
         }
 
-        if (!TryReadRequiredInt32(root, "schemaVersion", out var schemaVersion, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredInt32(
+            root,
+            "schemaVersion",
+            CreateMissingRequiredPropertyError,
+            CreateInt32TypeMismatchError,
+            noError: null,
+            out var schemaVersion,
+            out errorMessage))
         {
             return false;
         }
@@ -125,47 +131,112 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             return false;
         }
 
-        if (!TryReadRequiredString(root, "projectPath", out var projectPath, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredString(
+            root,
+            "projectPath",
+            CreateMissingRequiredPropertyError,
+            CreateStringTypeMismatchError,
+            noError: null,
+            out var projectPath,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredNullableString(root, "unityVersion", out var unityVersion, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
+            root,
+            "unityVersion",
+            CreateMissingRequiredPropertyError,
+            CreateNullableStringTypeMismatchError,
+            noError: null,
+            out var unityVersion,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredNullableString(root, "unityEditorPath", out var unityEditorPath, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
+            root,
+            "unityEditorPath",
+            CreateMissingRequiredPropertyError,
+            CreateNullableStringTypeMismatchError,
+            noError: null,
+            out var unityEditorPath,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredString(root, "testPlatform", out var testPlatform, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredString(
+            root,
+            "testPlatform",
+            CreateMissingRequiredPropertyError,
+            CreateStringTypeMismatchError,
+            noError: null,
+            out var testPlatform,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredNullableString(root, "buildTarget", out var buildTarget, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
+            root,
+            "buildTarget",
+            CreateMissingRequiredPropertyError,
+            CreateNullableStringTypeMismatchError,
+            noError: null,
+            out var buildTarget,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredNullableString(root, "testFilter", out var testFilter, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
+            root,
+            "testFilter",
+            CreateMissingRequiredPropertyError,
+            CreateNullableStringTypeMismatchError,
+            noError: null,
+            out var testFilter,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredStringArray(root, "testCategories", out var testCategories, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredStringArray(
+            root,
+            "testCategories",
+            CreateMissingRequiredPropertyError,
+            CreateStringArrayTypeMismatchError,
+            CreateStringArrayTypeMismatchError,
+            noError: null,
+            out var testCategories,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredStringArray(root, "assemblyNames", out var assemblyNames, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredStringArray(
+            root,
+            "assemblyNames",
+            CreateMissingRequiredPropertyError,
+            CreateStringArrayTypeMismatchError,
+            CreateStringArrayTypeMismatchError,
+            noError: null,
+            out var assemblyNames,
+            out errorMessage))
         {
             return false;
         }
 
-        if (!TryReadRequiredNullableString(root, "testSettingsPath", out var testSettingsPath, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
+            root,
+            "testSettingsPath",
+            CreateMissingRequiredPropertyError,
+            CreateNullableStringTypeMismatchError,
+            noError: null,
+            out var testSettingsPath,
+            out errorMessage))
         {
             return false;
         }
@@ -192,54 +263,12 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         return true;
     }
 
-    /// <summary> Reads one required object property. </summary>
-    /// <param name="root"> The source object. </param>
-    /// <param name="propertyName"> The required property name. </param>
-    /// <param name="property"> The property value when found. </param>
-    /// <param name="errorMessage"> The error message when missing. </param>
-    /// <returns> <see langword="true" /> when property exists; otherwise <see langword="false" />. </returns>
-    private static bool TryReadRequiredProperty (
-        JsonElement root,
-        string propertyName,
-        out JsonElement property,
-        out string? errorMessage)
+    /// <summary> Creates error text for missing required profile property. </summary>
+    /// <param name="propertyName"> The missing property name. </param>
+    /// <returns> The missing-property error text. </returns>
+    private static string CreateMissingRequiredPropertyError (string propertyName)
     {
-        if (!root.TryGetProperty(propertyName, out property))
-        {
-            errorMessage = $"profile is missing required property: {propertyName}";
-            return false;
-        }
-
-        errorMessage = null;
-        return true;
-    }
-
-    /// <summary> Reads one required int32 property. </summary>
-    /// <param name="root"> The source object. </param>
-    /// <param name="propertyName"> The required property name. </param>
-    /// <param name="value"> The parsed value when successful. </param>
-    /// <param name="errorMessage"> The error message when parsing fails. </param>
-    /// <returns> <see langword="true" /> when parsing succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryReadRequiredInt32 (
-        JsonElement root,
-        string propertyName,
-        out int value,
-        out string? errorMessage)
-    {
-        value = default;
-        if (!TryReadRequiredProperty(root, propertyName, out var property, out errorMessage))
-        {
-            return false;
-        }
-
-        if (property.ValueKind != JsonValueKind.Number || !property.TryGetInt32(out value))
-        {
-            errorMessage = $"profile property '{propertyName}' must be int32.";
-            return false;
-        }
-
-        errorMessage = null;
-        return true;
+        return $"profile is missing required property: {propertyName}";
     }
 
     /// <summary> Reads one required positive int32 property. </summary>
@@ -254,7 +283,14 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         out int value,
         out string? errorMessage)
     {
-        if (!TryReadRequiredInt32(root, propertyName, out value, out errorMessage))
+        if (!JsonObjectPropertyReader.TryReadRequiredInt32(
+            root,
+            propertyName,
+            CreateMissingRequiredPropertyError,
+            CreateInt32TypeMismatchError,
+            noError: null,
+            out value,
+            out errorMessage))
         {
             return false;
         }
@@ -269,108 +305,35 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         return true;
     }
 
-    /// <summary> Reads one required string property. </summary>
-    /// <param name="root"> The source object. </param>
-    /// <param name="propertyName"> The required property name. </param>
-    /// <param name="value"> The parsed value when successful. </param>
-    /// <param name="errorMessage"> The error message when parsing fails. </param>
-    /// <returns> <see langword="true" /> when parsing succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryReadRequiredString (
-        JsonElement root,
-        string propertyName,
-        out string value,
-        out string? errorMessage)
+    /// <summary> Creates error text for int32 type mismatch. </summary>
+    /// <param name="propertyName"> The property name. </param>
+    /// <returns> The type-mismatch error text. </returns>
+    private static string CreateInt32TypeMismatchError (string propertyName)
     {
-        value = string.Empty;
-        if (!TryReadRequiredProperty(root, propertyName, out var property, out errorMessage))
-        {
-            return false;
-        }
-
-        if (property.ValueKind != JsonValueKind.String)
-        {
-            errorMessage = $"profile property '{propertyName}' must be string.";
-            return false;
-        }
-
-        value = property.GetString() ?? string.Empty;
-        errorMessage = null;
-        return true;
+        return $"profile property '{propertyName}' must be int32.";
     }
 
-    /// <summary> Reads one required nullable string property. </summary>
-    /// <param name="root"> The source object. </param>
-    /// <param name="propertyName"> The required property name. </param>
-    /// <param name="value"> The parsed value when successful. </param>
-    /// <param name="errorMessage"> The error message when parsing fails. </param>
-    /// <returns> <see langword="true" /> when parsing succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryReadRequiredNullableString (
-        JsonElement root,
-        string propertyName,
-        out string? value,
-        out string? errorMessage)
+    /// <summary> Creates error text for string type mismatch. </summary>
+    /// <param name="propertyName"> The property name. </param>
+    /// <returns> The type-mismatch error text. </returns>
+    private static string CreateStringTypeMismatchError (string propertyName)
     {
-        value = null;
-        if (!TryReadRequiredProperty(root, propertyName, out var property, out errorMessage))
-        {
-            return false;
-        }
-
-        if (property.ValueKind == JsonValueKind.Null)
-        {
-            errorMessage = null;
-            return true;
-        }
-
-        if (property.ValueKind != JsonValueKind.String)
-        {
-            errorMessage = $"profile property '{propertyName}' must be string or null.";
-            return false;
-        }
-
-        value = property.GetString();
-        errorMessage = null;
-        return true;
+        return $"profile property '{propertyName}' must be string.";
     }
 
-    /// <summary> Reads one required string-array property. </summary>
-    /// <param name="root"> The source object. </param>
-    /// <param name="propertyName"> The required property name. </param>
-    /// <param name="value"> The parsed value when successful. </param>
-    /// <param name="errorMessage"> The error message when parsing fails. </param>
-    /// <returns> <see langword="true" /> when parsing succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryReadRequiredStringArray (
-        JsonElement root,
-        string propertyName,
-        out string[] value,
-        out string? errorMessage)
+    /// <summary> Creates error text for nullable-string type mismatch. </summary>
+    /// <param name="propertyName"> The property name. </param>
+    /// <returns> The type-mismatch error text. </returns>
+    private static string CreateNullableStringTypeMismatchError (string propertyName)
     {
-        value = Array.Empty<string>();
-        if (!TryReadRequiredProperty(root, propertyName, out var property, out errorMessage))
-        {
-            return false;
-        }
+        return $"profile property '{propertyName}' must be string or null.";
+    }
 
-        if (property.ValueKind != JsonValueKind.Array)
-        {
-            errorMessage = $"profile property '{propertyName}' must be string array.";
-            return false;
-        }
-
-        var parsedValues = new List<string>();
-        foreach (var element in property.EnumerateArray())
-        {
-            if (element.ValueKind != JsonValueKind.String)
-            {
-                errorMessage = $"profile property '{propertyName}' must be string array.";
-                return false;
-            }
-
-            parsedValues.Add(element.GetString() ?? string.Empty);
-        }
-
-        value = parsedValues.ToArray();
-        errorMessage = null;
-        return true;
+    /// <summary> Creates error text for string-array type mismatch. </summary>
+    /// <param name="propertyName"> The property name. </param>
+    /// <returns> The type-mismatch error text. </returns>
+    private static string CreateStringArrayTypeMismatchError (string propertyName)
+    {
+        return $"profile property '{propertyName}' must be string array.";
     }
 }
