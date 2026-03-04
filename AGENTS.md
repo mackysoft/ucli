@@ -47,6 +47,7 @@
 - 非同期関数は必ず`CancellationToken`を伝搬させる。`CancellationToken`を渡す場合は、原則として引数の末尾。特別な理由がない限りは、公開APIの引数に`default`パラメーターを設定する。
 - 同期関数に`CancellationToken`を定義しない。命名プレフィックスに`Async`を用いない。
 - 非同期関数は必ず、適切な箇所で`ThrowIfCancellationRequested`を呼び出し、キャンセル要求を尊重すること。
+- 非同期関数は、原則として同期的な待機を行わないこと。
 
 ## DI規約
 - 原則としてコンストラクタインジェクションを用いる
