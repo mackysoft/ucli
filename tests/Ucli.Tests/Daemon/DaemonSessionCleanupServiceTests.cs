@@ -6,13 +6,13 @@ using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
-public sealed class DaemonStartRecoveryServiceTests
+public sealed class DaemonSessionCleanupServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task RecoverInvalidSession_WhenStopTargetIsRecoverable_StopsThenCleansUp ()
+    public async Task CleanupInvalidSessionArtifacts_WhenStopTargetIsAvailable_StopsThenCleansUp ()
     {
-        var context = CreateContext("fingerprint-recover-invalid");
+        var context = CreateContext("fingerprint-cleanup-invalid");
         var invalidSession = CreateSession(processId: 3131, projectFingerprint: context.ProjectFingerprint);
         var readResult = DaemonSessionReadResult.Failure(
             ExecutionError.InvalidArgument("invalid session"),
@@ -26,9 +26,9 @@ public sealed class DaemonStartRecoveryServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var service = new DaemonStartRecoveryService(processTerminationService, artifactCleaner);
+        var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.RecoverInvalidSession(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifacts(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, processTerminationService.CallCount);
@@ -39,9 +39,9 @@ public sealed class DaemonStartRecoveryServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task RecoverInvalidSession_WhenStopTargetIsNotRecoverable_CleansUpOnly ()
+    public async Task CleanupInvalidSessionArtifacts_WhenStopTargetIsNotAvailable_CleansUpOnly ()
     {
-        var context = CreateContext("fingerprint-recover-invalid-no-stop");
+        var context = CreateContext("fingerprint-cleanup-invalid-no-stop");
         var readResult = DaemonSessionReadResult.Failure(
             ExecutionError.InvalidArgument("invalid session"),
             DaemonSessionReadFailureKind.InvalidSession,
@@ -64,9 +64,9 @@ public sealed class DaemonStartRecoveryServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var service = new DaemonStartRecoveryService(processTerminationService, artifactCleaner);
+        var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.RecoverInvalidSession(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifacts(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, processTerminationService.CallCount);
@@ -75,9 +75,9 @@ public sealed class DaemonStartRecoveryServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task RecoverStaleSession_WhenSessionExists_StopsThenCleansUp ()
+    public async Task CleanupStaleSessionArtifacts_WhenSessionExists_StopsThenCleansUp ()
     {
-        var context = CreateContext("fingerprint-recover-stale");
+        var context = CreateContext("fingerprint-cleanup-stale");
         var session = CreateSession(processId: 4242, projectFingerprint: context.ProjectFingerprint);
         var processTerminationService = new StubDaemonProcessTerminationService
         {
@@ -87,9 +87,9 @@ public sealed class DaemonStartRecoveryServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var service = new DaemonStartRecoveryService(processTerminationService, artifactCleaner);
+        var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.RecoverStaleSession(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupStaleSessionArtifacts(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, processTerminationService.CallCount);
@@ -100,9 +100,9 @@ public sealed class DaemonStartRecoveryServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task RecoverInvalidSession_WhenStopFails_PropagatesFailureWithoutCleanup ()
+    public async Task CleanupInvalidSessionArtifacts_WhenStopFails_PropagatesFailureWithoutCleanup ()
     {
-        var context = CreateContext("fingerprint-recover-stop-fail");
+        var context = CreateContext("fingerprint-cleanup-stop-fail");
         var invalidSession = CreateSession(processId: 5151, projectFingerprint: context.ProjectFingerprint);
         var readResult = DaemonSessionReadResult.Failure(
             ExecutionError.InvalidArgument("invalid session"),
@@ -117,9 +117,9 @@ public sealed class DaemonStartRecoveryServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var service = new DaemonStartRecoveryService(processTerminationService, artifactCleaner);
+        var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
 
-        var result = await service.RecoverInvalidSession(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifacts(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);

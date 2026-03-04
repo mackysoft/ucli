@@ -28,7 +28,7 @@ internal sealed record DaemonSessionReadResult (
     /// <summary> Creates a failed read result. </summary>
     /// <param name="error"> The structured error. </param>
     /// <param name="failureKind"> The categorized failure kind for read operation. </param>
-    /// <param name="session"> The parsed daemon session snapshot when available for recovery; otherwise <see langword="null" />. </param>
+    /// <param name="session"> The parsed daemon session snapshot when available for cleanup; otherwise <see langword="null" />. </param>
     /// <returns> The failed read result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
     public static DaemonSessionReadResult Failure (

@@ -11,7 +11,7 @@ public sealed class DaemonStartOperationTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenSessionReadReturnsInvalidSession_CallsRecoveryAndLaunch ()
+    public async Task Start_WhenSessionReadReturnsInvalidSession_CallsCleanupAndLaunch ()
     {
         var context = CreateContext("fingerprint-start-invalid-session");
         var readResult = DaemonSessionReadResult.Failure(
@@ -22,126 +22,126 @@ public sealed class DaemonStartOperationTests
         {
             ReadResult = readResult,
         };
-        var recoveryService = new StubDaemonStartRecoveryService
+        var cleanupService = new StubDaemonSessionCleanupService
         {
-            RecoverInvalidSessionResult = DaemonSessionStoreOperationResult.Success(),
+            CleanupInvalidSessionArtifactsResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var launchService = new StubDaemonStartLaunchService
+        var launchService = new StubDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(CreateSession(processId: 2222, projectFingerprint: context.ProjectFingerprint)),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            daemonStartRecoveryService: recoveryService,
-            daemonStartLaunchService: launchService);
+            daemonSessionCleanupService: cleanupService,
+            daemonLaunchService: launchService);
 
         var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, recoveryService.RecoverInvalidSessionCallCount);
-        Assert.Equal(0, recoveryService.RecoverStaleSessionCallCount);
+        Assert.Equal(1, cleanupService.CleanupInvalidSessionArtifactsCallCount);
+        Assert.Equal(0, cleanupService.CleanupStaleSessionArtifactsCallCount);
         Assert.Equal(1, launchService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenSessionReadReturnsInvalidSessionAndRecoveryFails_ReturnsFailureWithoutLaunch ()
+    public async Task Start_WhenSessionReadReturnsInvalidSessionAndCleanupFails_ReturnsFailureWithoutLaunch ()
     {
         var context = CreateContext("fingerprint-start-invalid-session-failure");
         var readResult = DaemonSessionReadResult.Failure(
             ExecutionError.InvalidArgument("invalid session"),
             DaemonSessionReadFailureKind.InvalidSession,
             CreateSession(processId: 1111, projectFingerprint: context.ProjectFingerprint));
-        var expectedError = ExecutionError.InternalError("recover failed");
+        var expectedError = ExecutionError.InternalError("cleanup failed");
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = readResult,
         };
-        var recoveryService = new StubDaemonStartRecoveryService
+        var cleanupService = new StubDaemonSessionCleanupService
         {
-            RecoverInvalidSessionResult = DaemonSessionStoreOperationResult.Failure(expectedError),
+            CleanupInvalidSessionArtifactsResult = DaemonSessionStoreOperationResult.Failure(expectedError),
         };
-        var launchService = new StubDaemonStartLaunchService
+        var launchService = new StubDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(CreateSession(processId: 3333, projectFingerprint: context.ProjectFingerprint)),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            daemonStartRecoveryService: recoveryService,
-            daemonStartLaunchService: launchService);
+            daemonSessionCleanupService: cleanupService,
+            daemonLaunchService: launchService);
 
         var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
-        Assert.Equal(1, recoveryService.RecoverInvalidSessionCallCount);
+        Assert.Equal(1, cleanupService.CleanupInvalidSessionArtifactsCallCount);
         Assert.Equal(0, launchService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenSessionReadReturnsNonRecoverableError_ReturnsFailureWithoutRecoveryOrLaunch ()
+    public async Task Start_WhenSessionReadReturnsNonInvalidSessionError_ReturnsFailureWithoutCleanupOrLaunch ()
     {
         var expectedError = ExecutionError.InvalidArgument("path invalid");
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Failure(expectedError, DaemonSessionReadFailureKind.PathInvalid),
         };
-        var recoveryService = new StubDaemonStartRecoveryService();
-        var launchService = new StubDaemonStartLaunchService
+        var cleanupService = new StubDaemonSessionCleanupService();
+        var launchService = new StubDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(CreateSession(processId: 3333)),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            daemonStartRecoveryService: recoveryService,
-            daemonStartLaunchService: launchService);
+            daemonSessionCleanupService: cleanupService,
+            daemonLaunchService: launchService);
 
         var result = await operation.Start(CreateContext("fingerprint-start-path-invalid"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
-        Assert.Equal(0, recoveryService.RecoverInvalidSessionCallCount);
-        Assert.Equal(0, recoveryService.RecoverStaleSessionCallCount);
+        Assert.Equal(0, cleanupService.CleanupInvalidSessionArtifactsCallCount);
+        Assert.Equal(0, cleanupService.CleanupStaleSessionArtifactsCallCount);
         Assert.Equal(0, launchService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenExistingSessionPingSucceeds_ReturnsAlreadyRunningWithoutRecoveryOrLaunch ()
+    public async Task Start_WhenExistingSessionPingSucceeds_ReturnsAlreadyRunningWithoutCleanupOrLaunch ()
     {
         var existingSession = CreateSession(processId: 2020);
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Success(existingSession),
         };
-        var recoveryService = new StubDaemonStartRecoveryService();
-        var launchService = new StubDaemonStartLaunchService
+        var cleanupService = new StubDaemonSessionCleanupService();
+        var launchService = new StubDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(CreateSession(processId: 7777)),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            daemonStartRecoveryService: recoveryService,
-            daemonStartLaunchService: launchService);
+            daemonSessionCleanupService: cleanupService,
+            daemonLaunchService: launchService);
 
         var result = await operation.Start(CreateContext("fingerprint-start-existing"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result.Status);
         Assert.Equal(existingSession, result.Session);
-        Assert.Equal(0, recoveryService.RecoverInvalidSessionCallCount);
-        Assert.Equal(0, recoveryService.RecoverStaleSessionCallCount);
+        Assert.Equal(0, cleanupService.CleanupInvalidSessionArtifactsCallCount);
+        Assert.Equal(0, cleanupService.CleanupStaleSessionArtifactsCallCount);
         Assert.Equal(0, launchService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenExistingSessionIsStale_CallsStaleRecoveryThenLaunch ()
+    public async Task Start_WhenExistingSessionIsStale_CallsStaleCleanupThenLaunch ()
     {
         var context = CreateContext("fingerprint-start-stale");
         var existingSession = CreateSession(processId: 4242, projectFingerprint: context.ProjectFingerprint);
@@ -149,106 +149,106 @@ public sealed class DaemonStartOperationTests
         {
             ReadResult = DaemonSessionReadResult.Success(existingSession),
         };
-        var recoveryService = new StubDaemonStartRecoveryService
+        var cleanupService = new StubDaemonSessionCleanupService
         {
-            RecoverStaleSessionResult = DaemonSessionStoreOperationResult.Success(),
+            CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Success(),
         };
-        var launchService = new StubDaemonStartLaunchService
+        var launchService = new StubDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(CreateSession(processId: 8888, projectFingerprint: context.ProjectFingerprint)),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            daemonStartRecoveryService: recoveryService,
-            daemonStartLaunchService: launchService);
+            daemonSessionCleanupService: cleanupService,
+            daemonLaunchService: launchService);
 
         var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Started, result.Status);
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, recoveryService.RecoverStaleSessionCallCount);
-        Assert.Equal(0, recoveryService.RecoverInvalidSessionCallCount);
-        Assert.Equal(existingSession, recoveryService.LastStaleSession);
+        Assert.Equal(1, cleanupService.CleanupStaleSessionArtifactsCallCount);
+        Assert.Equal(0, cleanupService.CleanupInvalidSessionArtifactsCallCount);
+        Assert.Equal(existingSession, cleanupService.LastStaleSession);
         Assert.Equal(1, launchService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenExistingSessionIsStaleAndRecoveryFails_ReturnsFailureWithoutLaunch ()
+    public async Task Start_WhenExistingSessionIsStaleAndCleanupFails_ReturnsFailureWithoutLaunch ()
     {
         var context = CreateContext("fingerprint-start-stale-fail");
         var existingSession = CreateSession(processId: 8080, projectFingerprint: context.ProjectFingerprint);
-        var expectedError = ExecutionError.InternalError("stale recover failed");
+        var expectedError = ExecutionError.InternalError("stale cleanup failed");
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Success(existingSession),
         };
-        var recoveryService = new StubDaemonStartRecoveryService
+        var cleanupService = new StubDaemonSessionCleanupService
         {
-            RecoverStaleSessionResult = DaemonSessionStoreOperationResult.Failure(expectedError),
+            CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Failure(expectedError),
         };
-        var launchService = new StubDaemonStartLaunchService
+        var launchService = new StubDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(CreateSession(processId: 1234, projectFingerprint: context.ProjectFingerprint)),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            daemonStartRecoveryService: recoveryService,
-            daemonStartLaunchService: launchService);
+            daemonSessionCleanupService: cleanupService,
+            daemonLaunchService: launchService);
 
         var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(expectedError, result.Error);
-        Assert.Equal(1, recoveryService.RecoverStaleSessionCallCount);
+        Assert.Equal(1, cleanupService.CleanupStaleSessionArtifactsCallCount);
         Assert.Equal(0, launchService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenExistingSessionPingTimesOut_ReturnsTimeoutFailureWithoutRecoveryOrLaunch ()
+    public async Task Start_WhenExistingSessionPingTimesOut_ReturnsTimeoutFailureWithoutCleanupOrLaunch ()
     {
         var existingSession = CreateSession(processId: 2020);
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Success(existingSession),
         };
-        var recoveryService = new StubDaemonStartRecoveryService();
-        var launchService = new StubDaemonStartLaunchService
+        var cleanupService = new StubDaemonSessionCleanupService();
+        var launchService = new StubDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(CreateSession(processId: 7777)),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
-            daemonStartRecoveryService: recoveryService,
-            daemonStartLaunchService: launchService);
+            daemonSessionCleanupService: cleanupService,
+            daemonLaunchService: launchService);
 
         var result = await operation.Start(CreateContext("fingerprint-start-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
-        Assert.Equal(0, recoveryService.RecoverInvalidSessionCallCount);
-        Assert.Equal(0, recoveryService.RecoverStaleSessionCallCount);
+        Assert.Equal(0, cleanupService.CleanupInvalidSessionArtifactsCallCount);
+        Assert.Equal(0, cleanupService.CleanupStaleSessionArtifactsCallCount);
         Assert.Equal(0, launchService.CallCount);
     }
 
     private static DaemonStartOperation CreateOperation (
         IDaemonSessionStore daemonSessionStore,
         IDaemonPingClient daemonPingClient,
-        IDaemonStartRecoveryService daemonStartRecoveryService,
-        IDaemonStartLaunchService daemonStartLaunchService)
+        IDaemonSessionCleanupService daemonSessionCleanupService,
+        IDaemonLaunchService daemonLaunchService)
     {
         return new DaemonStartOperation(
             lifecycleLockProvider: new StubDaemonLifecycleLockProvider(),
             daemonSessionStore: daemonSessionStore,
             daemonPingClient: daemonPingClient,
             reachabilityClassifier: new DaemonReachabilityClassifier(),
-            daemonStartRecoveryService: daemonStartRecoveryService,
-            daemonStartLaunchService: daemonStartLaunchService);
+            daemonSessionCleanupService: daemonSessionCleanupService,
+            daemonLaunchService: daemonLaunchService);
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
@@ -344,41 +344,41 @@ public sealed class DaemonStartOperationTests
         }
     }
 
-    private sealed class StubDaemonStartRecoveryService : IDaemonStartRecoveryService
+    private sealed class StubDaemonSessionCleanupService : IDaemonSessionCleanupService
     {
-        public DaemonSessionStoreOperationResult RecoverInvalidSessionResult { get; set; } = DaemonSessionStoreOperationResult.Success();
+        public DaemonSessionStoreOperationResult CleanupInvalidSessionArtifactsResult { get; set; } = DaemonSessionStoreOperationResult.Success();
 
-        public DaemonSessionStoreOperationResult RecoverStaleSessionResult { get; set; } = DaemonSessionStoreOperationResult.Success();
+        public DaemonSessionStoreOperationResult CleanupStaleSessionArtifactsResult { get; set; } = DaemonSessionStoreOperationResult.Success();
 
-        public int RecoverInvalidSessionCallCount { get; private set; }
+        public int CleanupInvalidSessionArtifactsCallCount { get; private set; }
 
-        public int RecoverStaleSessionCallCount { get; private set; }
+        public int CleanupStaleSessionArtifactsCallCount { get; private set; }
 
         public DaemonSession? LastStaleSession { get; private set; }
 
-        public ValueTask<DaemonSessionStoreOperationResult> RecoverInvalidSession (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifacts (
             ResolvedUnityProjectContext unityProject,
             DaemonSessionReadResult readResult,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            RecoverInvalidSessionCallCount++;
-            return ValueTask.FromResult(RecoverInvalidSessionResult);
+            CleanupInvalidSessionArtifactsCallCount++;
+            return ValueTask.FromResult(CleanupInvalidSessionArtifactsResult);
         }
 
-        public ValueTask<DaemonSessionStoreOperationResult> RecoverStaleSession (
+        public ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifacts (
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            RecoverStaleSessionCallCount++;
+            CleanupStaleSessionArtifactsCallCount++;
             LastStaleSession = session;
-            return ValueTask.FromResult(RecoverStaleSessionResult);
+            return ValueTask.FromResult(CleanupStaleSessionArtifactsResult);
         }
     }
 
-    private sealed class StubDaemonStartLaunchService : IDaemonStartLaunchService
+    private sealed class StubDaemonLaunchService : IDaemonLaunchService
     {
         public DaemonStartResult NextResult { get; set; } = DaemonStartResult.Started(CreateSession(processId: 9090));
 

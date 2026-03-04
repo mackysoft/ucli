@@ -16,32 +16,32 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
-    private readonly IDaemonStartRecoveryService daemonStartRecoveryService;
+    private readonly IDaemonSessionCleanupService daemonSessionCleanupService;
 
-    private readonly IDaemonStartLaunchService daemonStartLaunchService;
+    private readonly IDaemonLaunchService daemonLaunchService;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability classifier dependency. </param>
-    /// <param name="daemonStartRecoveryService"> The daemon-start recovery service dependency. </param>
-    /// <param name="daemonStartLaunchService"> The daemon-start launch service dependency. </param>
+    /// <param name="daemonSessionCleanupService"> The daemon session-cleanup service dependency. </param>
+    /// <param name="daemonLaunchService"> The daemon launch service dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartOperation (
         IDaemonLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
-        IDaemonStartRecoveryService daemonStartRecoveryService,
-        IDaemonStartLaunchService daemonStartLaunchService)
+        IDaemonSessionCleanupService daemonSessionCleanupService,
+        IDaemonLaunchService daemonLaunchService)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
-        this.daemonStartRecoveryService = daemonStartRecoveryService ?? throw new ArgumentNullException(nameof(daemonStartRecoveryService));
-        this.daemonStartLaunchService = daemonStartLaunchService ?? throw new ArgumentNullException(nameof(daemonStartLaunchService));
+        this.daemonSessionCleanupService = daemonSessionCleanupService ?? throw new ArgumentNullException(nameof(daemonSessionCleanupService));
+        this.daemonLaunchService = daemonLaunchService ?? throw new ArgumentNullException(nameof(daemonLaunchService));
     }
 
     /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
@@ -85,7 +85,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             }
         }
 
-        return await daemonStartLaunchService.Launch(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+        return await daemonLaunchService.Launch(unityProject, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonStartResult> HandleInvalidSessionRead (
@@ -99,18 +99,18 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return DaemonStartResult.Failure(readResult.Error!);
         }
 
-        var recoveryResult = await daemonStartRecoveryService.RecoverInvalidSession(
+        var cleanupResult = await daemonSessionCleanupService.CleanupInvalidSessionArtifacts(
                 unityProject,
                 readResult,
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!recoveryResult.IsSuccess)
+        if (!cleanupResult.IsSuccess)
         {
-            return DaemonStartResult.Failure(recoveryResult.Error!);
+            return DaemonStartResult.Failure(cleanupResult.Error!);
         }
 
-        return await daemonStartLaunchService.Launch(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+        return await daemonLaunchService.Launch(unityProject, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonStartResult?> StartFromExistingSession (
@@ -140,15 +140,15 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
-            var recoveryResult = await daemonStartRecoveryService.RecoverStaleSession(
+            var cleanupResult = await daemonSessionCleanupService.CleanupStaleSessionArtifacts(
                     unityProject,
                     session,
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!recoveryResult.IsSuccess)
+            if (!cleanupResult.IsSuccess)
             {
-                return DaemonStartResult.Failure(recoveryResult.Error!);
+                return DaemonStartResult.Failure(cleanupResult.Error!);
             }
 
             return null;

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
+using MackySoft.Ucli.Daemon.Start;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
@@ -77,6 +78,8 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
         services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
+        services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
+        services.AddSingleton<IDaemonLaunchService, DaemonLaunchService>();
         services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
         services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();

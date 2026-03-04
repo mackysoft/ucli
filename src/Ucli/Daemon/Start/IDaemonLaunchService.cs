@@ -3,7 +3,7 @@ using MackySoft.Ucli.UnityProject;
 namespace MackySoft.Ucli.Daemon.Start;
 
 /// <summary> Launches daemon process and applies startup-compensation workflow when start fails. </summary>
-internal interface IDaemonStartLaunchService
+internal interface IDaemonLaunchService
 {
     /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>

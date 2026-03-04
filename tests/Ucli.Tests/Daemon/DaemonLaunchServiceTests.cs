@@ -8,7 +8,7 @@ using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 
-public sealed class DaemonStartLaunchServiceTests
+public sealed class DaemonLaunchServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -150,14 +150,14 @@ public sealed class DaemonStartLaunchServiceTests
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
-    private static DaemonStartLaunchService CreateService (
+    private static DaemonLaunchService CreateService (
         IDaemonSessionStore daemonSessionStore,
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
         IDaemonProcessTerminationService processTerminationService,
         IDaemonArtifactCleaner artifactCleaner)
     {
-        return new DaemonStartLaunchService(
+        return new DaemonLaunchService(
             endpointResolver: new StubIpcEndpointResolver(),
             daemonSessionStore: daemonSessionStore,
             sessionTokenGenerator: new StubDaemonSessionTokenGenerator(),

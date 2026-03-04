@@ -2,18 +2,18 @@ using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon.Start;
 
-/// <summary> Implements recovery workflow for invalid or stale daemon sessions before new start attempts. </summary>
-internal sealed class DaemonStartRecoveryService : IDaemonStartRecoveryService
+/// <summary> Implements session-cleanup workflow for invalid or stale daemon sessions before new start attempts. </summary>
+internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
 {
     private readonly IDaemonProcessTerminationService processTerminationService;
 
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
-    /// <summary> Initializes a new instance of the <see cref="DaemonStartRecoveryService" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="DaemonSessionCleanupService" /> class. </summary>
     /// <param name="processTerminationService"> The process-termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    public DaemonStartRecoveryService (
+    public DaemonSessionCleanupService (
         IDaemonProcessTerminationService processTerminationService,
         IDaemonArtifactCleaner artifactCleaner)
     {
@@ -21,15 +21,15 @@ internal sealed class DaemonStartRecoveryService : IDaemonStartRecoveryService
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
     }
 
-    /// <summary> Recovers stale artifacts from invalid daemon-session read results. </summary>
+    /// <summary> Cleans invalid-session artifacts from daemon-session read results. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="readResult"> The failed daemon-session read result. </param>
     /// <param name="timeout"> The timeout used for process-termination attempts. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The recovery operation result. </returns>
+    /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="readResult" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> RecoverInvalidSession (
+    public async ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifacts (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
         TimeSpan timeout,
@@ -40,7 +40,7 @@ internal sealed class DaemonStartRecoveryService : IDaemonStartRecoveryService
         ArgumentNullException.ThrowIfNull(readResult);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        if (TryGetRecoverableInvalidSessionStopTarget(readResult, unityProject, out var processId, out var issuedAtUtc))
+        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out var processId, out var issuedAtUtc))
         {
             var stopResult = await processTerminationService.EnsureStopped(
                     processId,
@@ -57,15 +57,15 @@ internal sealed class DaemonStartRecoveryService : IDaemonStartRecoveryService
         return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary> Recovers stale artifacts from existing daemon session metadata. </summary>
+    /// <summary> Cleans stale-session artifacts from existing daemon session metadata. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session metadata. </param>
     /// <param name="timeout"> The timeout used for process-termination attempts. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The recovery operation result. </returns>
+    /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public async ValueTask<DaemonSessionStoreOperationResult> RecoverStaleSession (
+    public async ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifacts (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,
@@ -93,10 +93,10 @@ internal sealed class DaemonStartRecoveryService : IDaemonStartRecoveryService
     /// <summary> Gets process stop target from invalid session snapshot when identity can be validated safely. </summary>
     /// <param name="readResult"> The daemon session read result. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="processId"> The process identifier when stop target can be recovered. </param>
-    /// <param name="issuedAtUtc"> The issued-at timestamp when stop target can be recovered. </param>
-    /// <returns> <see langword="true" /> when stop target is recoverable; otherwise <see langword="false" />. </returns>
-    private static bool TryGetRecoverableInvalidSessionStopTarget (
+    /// <param name="processId"> The process identifier when stop target can be determined. </param>
+    /// <param name="issuedAtUtc"> The issued-at timestamp when stop target can be determined. </param>
+    /// <returns> <see langword="true" /> when stop target can be determined; otherwise <see langword="false" />. </returns>
+    private static bool TryGetInvalidSessionStopTarget (
         DaemonSessionReadResult readResult,
         ResolvedUnityProjectContext unityProject,
         out int processId,

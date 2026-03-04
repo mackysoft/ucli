@@ -9,7 +9,7 @@ internal enum DaemonSessionReadFailureKind
     /// <summary> Indicates failure reason is unknown or not categorized. </summary>
     Unknown = 1,
 
-    /// <summary> Indicates persisted session payload is invalid but recoverable by stale cleanup. </summary>
+    /// <summary> Indicates persisted session payload is invalid but cleanable by stale cleanup. </summary>
     InvalidSession = 2,
 
     /// <summary> Indicates session storage path is invalid. </summary>

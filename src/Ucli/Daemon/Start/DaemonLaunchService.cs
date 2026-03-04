@@ -7,8 +7,8 @@ using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon.Start;
 
-/// <summary> Implements daemon-start launch workflow with failure-compensation handling. </summary>
-internal sealed class DaemonStartLaunchService : IDaemonStartLaunchService
+/// <summary> Implements daemon launch workflow with failure-compensation handling. </summary>
+internal sealed class DaemonLaunchService : IDaemonLaunchService
 {
     private readonly IIpcEndpointResolver endpointResolver;
 
@@ -24,7 +24,7 @@ internal sealed class DaemonStartLaunchService : IDaemonStartLaunchService
 
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
-    /// <summary> Initializes a new instance of the <see cref="DaemonStartLaunchService" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="DaemonLaunchService" /> class. </summary>
     /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
     /// <param name="sessionTokenGenerator"> The daemon session-token generator dependency. </param>
@@ -33,7 +33,7 @@ internal sealed class DaemonStartLaunchService : IDaemonStartLaunchService
     /// <param name="processTerminationService"> The process-termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    public DaemonStartLaunchService (
+    public DaemonLaunchService (
         IIpcEndpointResolver endpointResolver,
         IDaemonSessionStore daemonSessionStore,
         IDaemonSessionTokenGenerator sessionTokenGenerator,
