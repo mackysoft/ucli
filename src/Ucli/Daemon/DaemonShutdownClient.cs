@@ -55,12 +55,10 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal)
-                || response.Errors.Count > 0)
+            if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
             {
-                if (response.Errors.Count > 0)
+                if (firstError is not null)
                 {
-                    var firstError = response.Errors[0];
                     if (IsSessionTokenErrorCode(firstError.Code))
                     {
                         return DaemonShutdownAttemptResult.NotRunning();
@@ -71,7 +69,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
                 }
 
                 return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
-                    $"Daemon shutdown request failed with status '{response.Status}'."));
+                    $"Daemon shutdown request failed with status '{status}'."));
             }
 
             return DaemonShutdownAttemptResult.Success();
