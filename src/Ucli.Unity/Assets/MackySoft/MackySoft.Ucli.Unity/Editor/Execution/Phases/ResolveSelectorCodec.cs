@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -8,14 +7,37 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Decodes and validates selector arguments for <c>ucli.resolve</c>. </summary>
     internal static class ResolveSelectorCodec
     {
-        private static readonly HashSet<string> AllowedPropertyNames = new HashSet<string>(StringComparer.Ordinal)
+        private static readonly (string Name, SelectorPropertyKind Kind)[] PropertyDefinitions =
         {
-            ResolveSelectorPropertyNames.GlobalObjectId,
-            ResolveSelectorPropertyNames.AssetGuid,
-            ResolveSelectorPropertyNames.AssetPath,
-            ResolveSelectorPropertyNames.Scene,
-            ResolveSelectorPropertyNames.HierarchyPath,
+            (ResolveSelectorPropertyNames.GlobalObjectId, SelectorPropertyKind.GlobalObjectId),
+            (ResolveSelectorPropertyNames.AssetGuid, SelectorPropertyKind.AssetGuid),
+            (ResolveSelectorPropertyNames.AssetPath, SelectorPropertyKind.AssetPath),
+            (ResolveSelectorPropertyNames.Scene, SelectorPropertyKind.Scene),
+            (ResolveSelectorPropertyNames.HierarchyPath, SelectorPropertyKind.HierarchyPath),
         };
+
+        private enum SelectorPropertyKind
+        {
+            GlobalObjectId,
+            AssetGuid,
+            AssetPath,
+            Scene,
+            HierarchyPath,
+        }
+
+        private struct SelectorParseState
+        {
+            public bool HasGlobalObjectId;
+            public bool HasAssetGuid;
+            public bool HasAssetPath;
+            public bool HasScenePath;
+            public bool HasHierarchyPath;
+            public string? GlobalObjectId;
+            public string? AssetGuid;
+            public string? AssetPath;
+            public string? ScenePath;
+            public string? HierarchyPath;
+        }
 
         /// <summary> Parses one selector from operation arguments. </summary>
         /// <param name="args"> The operation arguments element. </param>
@@ -35,131 +57,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var hasGlobalObjectId = false;
-            var hasAssetGuid = false;
-            var hasAssetPath = false;
-            var hasScenePath = false;
-            var hasHierarchyPath = false;
-            string? globalObjectId = null;
-            string? assetGuid = null;
-            string? assetPath = null;
-            string? scenePath = null;
-            string? hierarchyPath = null;
+            var state = default(SelectorParseState);
 
             foreach (var property in args.EnumerateObject())
             {
-                if (!AllowedPropertyNames.Contains(property.Name))
+                if (!TryResolvePropertyKind(property.Name, out var propertyKind))
                 {
                     errorMessage = $"Operation 'args' contains an unknown property: {property.Name}.";
                     return false;
                 }
 
-                switch (property.Name)
+                if (!TryAssignPropertyValue(
+                    propertyKind,
+                    property,
+                    ref state,
+                    out errorMessage))
                 {
-                    case ResolveSelectorPropertyNames.GlobalObjectId:
-                        if (hasGlobalObjectId)
-                        {
-                            errorMessage = $"Operation 'args' contains duplicated property: {ResolveSelectorPropertyNames.GlobalObjectId}.";
-                            return false;
-                        }
-
-                        if (!TryReadRequiredString(property, out globalObjectId, out errorMessage))
-                        {
-                            return false;
-                        }
-
-                        hasGlobalObjectId = true;
-                        break;
-
-                    case ResolveSelectorPropertyNames.AssetGuid:
-                        if (hasAssetGuid)
-                        {
-                            errorMessage = $"Operation 'args' contains duplicated property: {ResolveSelectorPropertyNames.AssetGuid}.";
-                            return false;
-                        }
-
-                        if (!TryReadRequiredString(property, out assetGuid, out errorMessage))
-                        {
-                            return false;
-                        }
-
-                        hasAssetGuid = true;
-                        break;
-
-                    case ResolveSelectorPropertyNames.AssetPath:
-                        if (hasAssetPath)
-                        {
-                            errorMessage = $"Operation 'args' contains duplicated property: {ResolveSelectorPropertyNames.AssetPath}.";
-                            return false;
-                        }
-
-                        if (!TryReadRequiredString(property, out assetPath, out errorMessage))
-                        {
-                            return false;
-                        }
-
-                        hasAssetPath = true;
-                        break;
-
-                    case ResolveSelectorPropertyNames.Scene:
-                        if (hasScenePath)
-                        {
-                            errorMessage = $"Operation 'args' contains duplicated property: {ResolveSelectorPropertyNames.Scene}.";
-                            return false;
-                        }
-
-                        if (!TryReadRequiredString(property, out scenePath, out errorMessage))
-                        {
-                            return false;
-                        }
-
-                        hasScenePath = true;
-                        break;
-
-                    case ResolveSelectorPropertyNames.HierarchyPath:
-                        if (hasHierarchyPath)
-                        {
-                            errorMessage = $"Operation 'args' contains duplicated property: {ResolveSelectorPropertyNames.HierarchyPath}.";
-                            return false;
-                        }
-
-                        if (!TryReadRequiredString(property, out hierarchyPath, out errorMessage))
-                        {
-                            return false;
-                        }
-
-                        hasHierarchyPath = true;
-                        break;
+                    return false;
                 }
             }
 
-            if (hasScenePath != hasHierarchyPath)
+            if (state.HasScenePath != state.HasHierarchyPath)
             {
                 errorMessage = $"Operation 'args' requires both '{ResolveSelectorPropertyNames.Scene}' and '{ResolveSelectorPropertyNames.HierarchyPath}' when one is specified.";
                 return false;
             }
 
-            var selectorCount = 0;
-            if (hasGlobalObjectId)
-            {
-                selectorCount++;
-            }
-
-            if (hasAssetGuid)
-            {
-                selectorCount++;
-            }
-
-            if (hasAssetPath)
-            {
-                selectorCount++;
-            }
-
-            if (hasScenePath)
-            {
-                selectorCount++;
-            }
-
+            var selectorCount = CountSpecifiedSelectorKinds(in state);
             if (selectorCount != 1)
             {
                 errorMessage =
@@ -167,26 +91,193 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (hasGlobalObjectId)
+            if (state.HasGlobalObjectId)
             {
-                selector = ResolveSelector.FromGlobalObjectId(globalObjectId!);
+                selector = ResolveSelector.FromGlobalObjectId(state.GlobalObjectId!);
                 return true;
             }
 
-            if (hasAssetGuid)
+            if (state.HasAssetGuid)
             {
-                selector = ResolveSelector.FromAssetGuid(assetGuid!);
+                selector = ResolveSelector.FromAssetGuid(state.AssetGuid!);
                 return true;
             }
 
-            if (hasAssetPath)
+            if (state.HasAssetPath)
             {
-                selector = ResolveSelector.FromAssetPath(assetPath!);
+                selector = ResolveSelector.FromAssetPath(state.AssetPath!);
                 return true;
             }
 
-            selector = ResolveSelector.FromSceneHierarchy(scenePath!, hierarchyPath!);
+            selector = ResolveSelector.FromSceneHierarchy(state.ScenePath!, state.HierarchyPath!);
             return true;
+        }
+
+        /// <summary> Resolves selector property kind from one raw property name. </summary>
+        /// <param name="propertyName"> The property name. </param>
+        /// <param name="kind"> The resolved property kind. </param>
+        /// <returns> <see langword="true" /> when property name is supported; otherwise <see langword="false" />. </returns>
+        private static bool TryResolvePropertyKind (
+            string propertyName,
+            out SelectorPropertyKind kind)
+        {
+            foreach (var definition in PropertyDefinitions)
+            {
+                if (!string.Equals(definition.Name, propertyName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                kind = definition.Kind;
+                return true;
+            }
+
+            kind = default;
+            return false;
+        }
+
+        /// <summary> Assigns one selector property value while validating duplicate declarations. </summary>
+        /// <param name="kind"> The selector property kind. </param>
+        /// <param name="property"> The source JSON property. </param>
+        /// <param name="state"> The mutable selector parse state. </param>
+        /// <param name="errorMessage"> The parse error message when assignment fails. </param>
+        /// <returns> <see langword="true" /> when assignment succeeds; otherwise <see langword="false" />. </returns>
+        private static bool TryAssignPropertyValue (
+            SelectorPropertyKind kind,
+            JsonProperty property,
+            ref SelectorParseState state,
+            out string errorMessage)
+        {
+            errorMessage = string.Empty;
+            switch (kind)
+            {
+                case SelectorPropertyKind.GlobalObjectId:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.GlobalObjectId,
+                        ref state.HasGlobalObjectId,
+                        out var globalObjectId,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.GlobalObjectId = globalObjectId;
+                    return true;
+                case SelectorPropertyKind.AssetGuid:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.AssetGuid,
+                        ref state.HasAssetGuid,
+                        out var assetGuid,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.AssetGuid = assetGuid;
+                    return true;
+                case SelectorPropertyKind.AssetPath:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.AssetPath,
+                        ref state.HasAssetPath,
+                        out var assetPath,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.AssetPath = assetPath;
+                    return true;
+                case SelectorPropertyKind.Scene:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.Scene,
+                        ref state.HasScenePath,
+                        out var scenePath,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.ScenePath = scenePath;
+                    return true;
+                case SelectorPropertyKind.HierarchyPath:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.HierarchyPath,
+                        ref state.HasHierarchyPath,
+                        out var hierarchyPath,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.HierarchyPath = hierarchyPath;
+                    return true;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported selector property kind.");
+            }
+        }
+
+        /// <summary> Reads one unique required string selector property. </summary>
+        /// <param name="property"> The source JSON property. </param>
+        /// <param name="propertyName"> The canonical property name used by diagnostics. </param>
+        /// <param name="hasProperty"> The property-presence flag for duplicate validation. </param>
+        /// <param name="value"> The parsed value when successful. </param>
+        /// <param name="errorMessage"> The parse error message when failed. </param>
+        /// <returns> <see langword="true" /> when property is unique and valid; otherwise <see langword="false" />. </returns>
+        private static bool TryReadUniqueRequiredString (
+            JsonProperty property,
+            string propertyName,
+            ref bool hasProperty,
+            out string? value,
+            out string errorMessage)
+        {
+            if (hasProperty)
+            {
+                value = null;
+                errorMessage = $"Operation 'args' contains duplicated property: {propertyName}.";
+                return false;
+            }
+
+            if (!TryReadRequiredString(property, out value, out errorMessage))
+            {
+                return false;
+            }
+
+            hasProperty = true;
+            return true;
+        }
+
+        /// <summary> Counts how many selector kinds are specified in one parse state. </summary>
+        /// <param name="state"> The selector parse state. </param>
+        /// <returns> The number of selector kinds currently specified. </returns>
+        private static int CountSpecifiedSelectorKinds (in SelectorParseState state)
+        {
+            var selectorCount = 0;
+            if (state.HasGlobalObjectId)
+            {
+                selectorCount++;
+            }
+
+            if (state.HasAssetGuid)
+            {
+                selectorCount++;
+            }
+
+            if (state.HasAssetPath)
+            {
+                selectorCount++;
+            }
+
+            if (state.HasScenePath)
+            {
+                selectorCount++;
+            }
+
+            return selectorCount;
         }
 
         /// <summary> Reads one required strict string property from selector arguments. </summary>

@@ -17,18 +17,29 @@ public static class IpcTestRunPlatformCodec
     /// <summary> Gets the Unity command-line value for PlayMode runs. </summary>
     public const string UnityPlayMode = "PlayMode";
 
+    private static readonly (IpcTestRunPlatform Value, string Literal)[] CanonicalMappings =
+    {
+        (IpcTestRunPlatform.EditMode, EditMode),
+        (IpcTestRunPlatform.PlayMode, PlayMode),
+    };
+
+    private static readonly (IpcTestRunPlatform Value, string Literal)[] UnityMappings =
+    {
+        (IpcTestRunPlatform.EditMode, UnityEditMode),
+        (IpcTestRunPlatform.PlayMode, UnityPlayMode),
+    };
+
     /// <summary> Converts one test-run platform enum value to canonical IPC literal. </summary>
     /// <param name="testPlatform"> The test-run platform enum value. </param>
     /// <returns> The canonical IPC literal. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="testPlatform" /> is unsupported. </exception>
     public static string ToValue (IpcTestRunPlatform testPlatform)
     {
-        return testPlatform switch
-        {
-            IpcTestRunPlatform.EditMode => EditMode,
-            IpcTestRunPlatform.PlayMode => PlayMode,
-            _ => throw new ArgumentOutOfRangeException(nameof(testPlatform), testPlatform, "Unsupported test platform."),
-        };
+        return LiteralCodecUtilities.ToValue(
+            testPlatform,
+            CanonicalMappings,
+            nameof(testPlatform),
+            "Unsupported test platform.");
     }
 
     /// <summary> Converts one test-run platform enum value to Unity command-line literal. </summary>
@@ -37,12 +48,11 @@ public static class IpcTestRunPlatformCodec
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="testPlatform" /> is unsupported. </exception>
     public static string ToUnityValue (IpcTestRunPlatform testPlatform)
     {
-        return testPlatform switch
-        {
-            IpcTestRunPlatform.EditMode => UnityEditMode,
-            IpcTestRunPlatform.PlayMode => UnityPlayMode,
-            _ => throw new ArgumentOutOfRangeException(nameof(testPlatform), testPlatform, "Unsupported test platform."),
-        };
+        return LiteralCodecUtilities.ToValue(
+            testPlatform,
+            UnityMappings,
+            nameof(testPlatform),
+            "Unsupported test platform.");
     }
 
     /// <summary> Tries to parse one test-platform literal to canonical IPC value. </summary>
@@ -53,25 +63,10 @@ public static class IpcTestRunPlatformCodec
         string? value,
         out IpcTestRunPlatform testPlatform)
     {
-        if (!StringValueNormalizer.TryTrimToNonEmpty(value, out var normalized))
-        {
-            testPlatform = default;
-            return false;
-        }
-
-        if (string.Equals(normalized, EditMode, StringComparison.OrdinalIgnoreCase))
-        {
-            testPlatform = IpcTestRunPlatform.EditMode;
-            return true;
-        }
-
-        if (string.Equals(normalized, PlayMode, StringComparison.OrdinalIgnoreCase))
-        {
-            testPlatform = IpcTestRunPlatform.PlayMode;
-            return true;
-        }
-
-        testPlatform = default;
-        return false;
+        return LiteralCodecUtilities.TryParseTrimmed(
+            value,
+            CanonicalMappings,
+            StringComparison.OrdinalIgnoreCase,
+            out testPlatform);
     }
 }

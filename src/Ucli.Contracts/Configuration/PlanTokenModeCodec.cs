@@ -1,20 +1,27 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Configuration;
 
 /// <summary> Converts plan-token mode values between enum and contract literals. </summary>
 public static class PlanTokenModeCodec
 {
+    private static readonly (PlanTokenMode Value, string Literal)[] Mappings =
+    {
+        (PlanTokenMode.Optional, PlanTokenModeValues.Optional),
+        (PlanTokenMode.Required, PlanTokenModeValues.Required),
+    };
+
     /// <summary> Converts one plan-token mode enum value to config literal. </summary>
     /// <param name="planTokenMode"> The plan-token mode enum value. </param>
     /// <returns> The config literal value. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="planTokenMode" /> is unsupported. </exception>
     public static string ToValue (PlanTokenMode planTokenMode)
     {
-        return planTokenMode switch
-        {
-            PlanTokenMode.Optional => PlanTokenModeValues.Optional,
-            PlanTokenMode.Required => PlanTokenModeValues.Required,
-            _ => throw new ArgumentOutOfRangeException(nameof(planTokenMode), planTokenMode, "Unsupported planTokenMode."),
-        };
+        return LiteralCodecUtilities.ToValue(
+            planTokenMode,
+            Mappings,
+            nameof(planTokenMode),
+            "Unsupported planTokenMode.");
     }
 
     /// <summary> Tries to parse config literal to plan-token mode enum. </summary>
@@ -25,19 +32,10 @@ public static class PlanTokenModeCodec
         string? value,
         out PlanTokenMode planTokenMode)
     {
-        if (string.Equals(value, PlanTokenModeValues.Optional, StringComparison.OrdinalIgnoreCase))
-        {
-            planTokenMode = PlanTokenMode.Optional;
-            return true;
-        }
-
-        if (string.Equals(value, PlanTokenModeValues.Required, StringComparison.OrdinalIgnoreCase))
-        {
-            planTokenMode = PlanTokenMode.Required;
-            return true;
-        }
-
-        planTokenMode = default;
-        return false;
+        return LiteralCodecUtilities.TryParse(
+            value,
+            Mappings,
+            StringComparison.OrdinalIgnoreCase,
+            out planTokenMode);
     }
 }

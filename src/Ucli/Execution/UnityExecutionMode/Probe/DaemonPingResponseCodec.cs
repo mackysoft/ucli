@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Ipc;
 
 namespace MackySoft.Ucli.Execution;
 
@@ -15,27 +16,17 @@ internal static class DaemonPingResponseCodec
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal))
+        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
         {
-            if (response.Errors.Count > 0)
+            if (firstError is not null)
             {
-                var firstError = response.Errors[0];
                 error = new DaemonPingResponseException(
                     $"Daemon ping failed with error code '{firstError.Code}'.",
                     firstError.Code);
                 return false;
             }
 
-            error = new DaemonPingResponseException($"Daemon ping failed with status '{response.Status}'.");
-            return false;
-        }
-
-        if (response.Errors.Count > 0)
-        {
-            var firstError = response.Errors[0];
-            error = new DaemonPingResponseException(
-                $"Daemon ping failed with error code '{firstError.Code}'.",
-                firstError.Code);
+            error = new DaemonPingResponseException($"Daemon ping failed with status '{status}'.");
             return false;
         }
 

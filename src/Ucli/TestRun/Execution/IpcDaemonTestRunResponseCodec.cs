@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Ipc;
 
 namespace MackySoft.Ucli.TestRun.Execution;
 
@@ -18,26 +19,17 @@ internal static class IpcDaemonTestRunResponseCodec
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal))
+        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
         {
-            if (response.Errors.Count > 0)
+            if (firstError is not null)
             {
-                var firstError = response.Errors[0];
                 exitCode = default;
                 errorMessage = $"Unity daemon test run failed with error code '{firstError.Code}'. {firstError.Message}";
                 return false;
             }
 
             exitCode = default;
-            errorMessage = $"Unity daemon test run failed with status '{response.Status}'.";
-            return false;
-        }
-
-        if (response.Errors.Count > 0)
-        {
-            var firstError = response.Errors[0];
-            exitCode = default;
-            errorMessage = $"Unity daemon test run failed with error code '{firstError.Code}'. {firstError.Message}";
+            errorMessage = $"Unity daemon test run failed with status '{status}'.";
             return false;
         }
 
