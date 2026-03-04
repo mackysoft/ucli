@@ -99,18 +99,11 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                     "Unity process execution status is unknown.");
         }
 
-        if (!File.Exists(artifactPaths.ResultsXmlPath))
+        if (!TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var artifactValidationError))
         {
             return UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ArtifactMissing,
-                $"Unity process completed but results.xml was not generated: {artifactPaths.ResultsXmlPath}");
-        }
-
-        if (!File.Exists(artifactPaths.EditorLogPath))
-        {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ArtifactMissing,
-                $"Unity process completed but editor.log was not generated: {artifactPaths.EditorLogPath}");
+                artifactValidationError!);
         }
 
         return UnityTestExecutionResult.Success(processRunResult.ExitCode!.Value);

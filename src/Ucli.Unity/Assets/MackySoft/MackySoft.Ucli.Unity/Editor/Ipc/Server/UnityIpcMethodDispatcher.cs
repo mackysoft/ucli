@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -11,11 +12,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Implements method-based dispatch for authorized Unity IPC requests. </summary>
     internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher
     {
-        private readonly IExecuteRequestDispatcher executeRequestDispatcher;
-
-        private readonly IUnityTestRunService testRunService;
-
-        private readonly IServerVersionProvider serverVersionProvider;
+        private readonly IReadOnlyDictionary<string, IMethodHandler> methodHandlers;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcMethodDispatcher" /> class. </summary>
         /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
@@ -27,9 +24,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityTestRunService testRunService,
             IServerVersionProvider serverVersionProvider)
         {
-            this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
-            this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
-            this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
+            ArgumentNullException.ThrowIfNull(executeRequestDispatcher);
+            ArgumentNullException.ThrowIfNull(testRunService);
+            ArgumentNullException.ThrowIfNull(serverVersionProvider);
+
+            methodHandlers = CreateMethodHandlers(executeRequestDispatcher, testRunService, serverVersionProvider);
         }
 
         /// <summary> Dispatches one IPC request envelope by method contract. </summary>
@@ -50,27 +49,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                switch (request.Method)
+                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
                 {
-                    case IpcMethodNames.Ping:
-                        return HandlePing(request);
-
-                    case IpcMethodNames.Execute:
-                        return await HandleExecute(request, cancellationToken);
-
-                    case IpcMethodNames.TestRun:
-                        return await HandleTestRun(request, cancellationToken);
-
-                    case IpcMethodNames.Shutdown:
-                        return HandleShutdown(request);
-
-                    default:
-                        return UnityIpcResponseFactory.CreateErrorResponse(
-                            request,
-                            IpcErrorCodes.IpcMethodNotSupported,
-                            $"IPC method is not supported: {request.Method}.",
-                            null);
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcErrorCodes.IpcMethodNotSupported,
+                        $"IPC method is not supported: {request.Method}.",
+                        null);
                 }
+
+                return await methodHandler.Handle(request, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -86,108 +74,185 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Handles one <c>ping</c> request. </summary>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <returns> The response envelope. </returns>
-        private IpcResponse HandlePing (IpcRequest request)
+        /// <summary> Creates handler table keyed by IPC method name. </summary>
+        /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
+        /// <param name="testRunService"> The test-run service dependency. </param>
+        /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
+        /// <returns> The handler table. </returns>
+        private static IReadOnlyDictionary<string, IMethodHandler> CreateMethodHandlers (
+            IExecuteRequestDispatcher executeRequestDispatcher,
+            IUnityTestRunService testRunService,
+            IServerVersionProvider serverVersionProvider)
         {
-            if (!UnityIpcRequestCodec.TryDecodePingRequest(
-                    request,
-                    out IpcPingRequest _,
-                    out var errorResponse))
+            var handlers = new Dictionary<string, IMethodHandler>(StringComparer.Ordinal)
             {
-                return errorResponse!;
-            }
-
-            var payload = UnityPingResponseCodec.CreatePayload(
-                Application.unityVersion,
-                serverVersionProvider.GetVersion(),
-                EditorApplication.isCompiling);
-            return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
+                [IpcMethodNames.Ping] = new PingMethodHandler(serverVersionProvider),
+                [IpcMethodNames.Execute] = new ExecuteMethodHandler(executeRequestDispatcher),
+                [IpcMethodNames.TestRun] = new TestRunMethodHandler(testRunService),
+                [IpcMethodNames.Shutdown] = new ShutdownMethodHandler(),
+            };
+            return handlers;
         }
 
-        /// <summary> Handles one <c>execute</c> request. </summary>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <param name="cancellationToken"> The cancellation token for dispatch. </param>
-        /// <returns> The response envelope. </returns>
-        private async Task<IpcResponse> HandleExecute (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+        /// <summary> Defines one handler contract for an IPC method. </summary>
+        private interface IMethodHandler
         {
-            if (!UnityIpcRequestCodec.TryDecodeExecuteRequest(
-                    request,
-                    out IpcExecuteRequest? executeRequest,
-                    out var errorResponse))
-            {
-                return errorResponse!;
-            }
-
-            var context = new ExecuteDispatchContext(
-                RequestId: request.RequestId,
-                ProtocolVersion: request.ProtocolVersion);
-            return await executeRequestDispatcher.Dispatch(executeRequest!, context, cancellationToken);
+            /// <summary> Handles one request for this method. </summary>
+            /// <param name="request"> The incoming request envelope. </param>
+            /// <param name="cancellationToken"> The cancellation token propagated by dispatch. </param>
+            /// <returns> The response envelope. </returns>
+            ValueTask<IpcResponse> Handle (
+                IpcRequest request,
+                CancellationToken cancellationToken);
         }
 
-        /// <summary> Handles one <c>test.run</c> request. </summary>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <param name="cancellationToken"> The cancellation token for dispatch. </param>
-        /// <returns> The response envelope. </returns>
-        private async Task<IpcResponse> HandleTestRun (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+        /// <summary> Handles <c>ping</c> method requests. </summary>
+        private sealed class PingMethodHandler : IMethodHandler
         {
-            if (!UnityIpcRequestCodec.TryDecodeTestRunRequest(
-                    request,
-                    out IpcTestRunRequest? testRunRequest,
-                    out var errorResponse))
+            private readonly IServerVersionProvider serverVersionProvider;
+
+            /// <summary> Initializes a new instance of the <see cref="PingMethodHandler" /> class. </summary>
+            /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
+            public PingMethodHandler (IServerVersionProvider serverVersionProvider)
             {
-                return errorResponse!;
+                this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             }
 
-            try
+            /// <inheritdoc />
+            public ValueTask<IpcResponse> Handle (
+                IpcRequest request,
+                CancellationToken cancellationToken)
             {
-                var payload = await testRunService.Execute(testRunRequest!, cancellationToken);
-                return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (ArgumentException exception)
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    IpcErrorCodes.InvalidArgument,
-                    exception.Message,
-                    null);
-            }
-            catch (Exception exception)
-            {
-                return UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    IpcErrorCodes.InternalError,
-                    $"Unity test run failed. {exception.Message}",
-                    null);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!UnityIpcRequestCodec.TryDecodePingRequest(
+                        request,
+                        out IpcPingRequest _,
+                        out var errorResponse))
+                {
+                    return ValueTask.FromResult(errorResponse!);
+                }
+
+                var payload = UnityPingResponseCodec.CreatePayload(
+                    Application.unityVersion,
+                    serverVersionProvider.GetVersion(),
+                    EditorApplication.isCompiling);
+                return ValueTask.FromResult(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
             }
         }
 
-        /// <summary> Handles one <c>shutdown</c> request. </summary>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <returns> The response envelope. </returns>
-        private IpcResponse HandleShutdown (IpcRequest request)
+        /// <summary> Handles <c>execute</c> method requests. </summary>
+        private sealed class ExecuteMethodHandler : IMethodHandler
         {
-            if (!UnityIpcRequestCodec.TryDecodeShutdownRequest(
-                    request,
-                    out IpcShutdownRequest _,
-                    out var errorResponse))
+            private readonly IExecuteRequestDispatcher executeRequestDispatcher;
+
+            /// <summary> Initializes a new instance of the <see cref="ExecuteMethodHandler" /> class. </summary>
+            /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
+            public ExecuteMethodHandler (IExecuteRequestDispatcher executeRequestDispatcher)
             {
-                return errorResponse!;
+                this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
             }
 
-            var payload = new IpcShutdownResponse(
-                Accepted: true,
-                Message: "Shutdown request accepted.");
-            return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
+            /// <inheritdoc />
+            public async ValueTask<IpcResponse> Handle (
+                IpcRequest request,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!UnityIpcRequestCodec.TryDecodeExecuteRequest(
+                        request,
+                        out IpcExecuteRequest? executeRequest,
+                        out var errorResponse))
+                {
+                    return errorResponse!;
+                }
+
+                var context = new ExecuteDispatchContext(
+                    RequestId: request.RequestId,
+                    ProtocolVersion: request.ProtocolVersion);
+                return await executeRequestDispatcher.Dispatch(executeRequest!, context, cancellationToken);
+            }
+        }
+
+        /// <summary> Handles <c>test.run</c> method requests. </summary>
+        private sealed class TestRunMethodHandler : IMethodHandler
+        {
+            private readonly IUnityTestRunService testRunService;
+
+            /// <summary> Initializes a new instance of the <see cref="TestRunMethodHandler" /> class. </summary>
+            /// <param name="testRunService"> The test-run service dependency. </param>
+            public TestRunMethodHandler (IUnityTestRunService testRunService)
+            {
+                this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
+            }
+
+            /// <inheritdoc />
+            public async ValueTask<IpcResponse> Handle (
+                IpcRequest request,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!UnityIpcRequestCodec.TryDecodeTestRunRequest(
+                        request,
+                        out IpcTestRunRequest? testRunRequest,
+                        out var errorResponse))
+                {
+                    return errorResponse!;
+                }
+
+                try
+                {
+                    var payload = await testRunService.Execute(testRunRequest!, cancellationToken);
+                    return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (ArgumentException exception)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcErrorCodes.InvalidArgument,
+                        exception.Message,
+                        null);
+                }
+                catch (Exception exception)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcErrorCodes.InternalError,
+                        $"Unity test run failed. {exception.Message}",
+                        null);
+                }
+            }
+        }
+
+        /// <summary> Handles <c>shutdown</c> method requests. </summary>
+        private sealed class ShutdownMethodHandler : IMethodHandler
+        {
+            /// <inheritdoc />
+            public ValueTask<IpcResponse> Handle (
+                IpcRequest request,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!UnityIpcRequestCodec.TryDecodeShutdownRequest(
+                        request,
+                        out IpcShutdownRequest _,
+                        out var errorResponse))
+                {
+                    return ValueTask.FromResult(errorResponse!);
+                }
+
+                var payload = new IpcShutdownResponse(
+                    Accepted: true,
+                    Message: "Shutdown request accepted.");
+                return ValueTask.FromResult(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
+            }
         }
     }
 }

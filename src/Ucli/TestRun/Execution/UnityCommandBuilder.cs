@@ -17,6 +17,10 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(artifactPaths);
+        if (!TestRunArtifactValidator.TryValidateOutputPaths(artifactPaths, out var artifactPathError))
+        {
+            throw new ArgumentException(artifactPathError!, nameof(artifactPaths));
+        }
 
         var arguments = new List<string>
         {
