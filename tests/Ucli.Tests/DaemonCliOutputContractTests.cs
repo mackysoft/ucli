@@ -189,4 +189,16 @@ public sealed class DaemonCliOutputContractTests
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
     }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Daemon_WithHelpOption_ReturnsHelpOutputAndSuccessExitCode ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("daemon start", result.StdOut, StringComparison.Ordinal);
+    }
 }
