@@ -513,9 +513,13 @@ namespace MackySoft.Ucli.Unity.Tests
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
         {
             var methodDispatcher = new UnityIpcMethodDispatcher(
-                executeRequestDispatcher,
-                testRunService,
-                new AssemblyServerVersionProvider());
+                new IUnityIpcMethodHandler[]
+                {
+                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider()),
+                    new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
+                    new TestRunUnityIpcMethodHandler(testRunService),
+                    new ShutdownUnityIpcMethodHandler(),
+                });
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
             var connectionHandler = new UnityIpcConnectionHandler(requestHandler, shutdownSignal);
             return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);
