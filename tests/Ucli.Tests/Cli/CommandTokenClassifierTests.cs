@@ -24,10 +24,25 @@ public sealed class CommandTokenClassifierTests
     [InlineData("status")]
     [InlineData("test")]
     [InlineData("init")]
+    [InlineData("daemon")]
     public void IsRootCommandToken_ReturnsFalse_ForCommandToken (string token)
     {
         var result = CommandTokenClassifier.IsRootCommandToken(token);
 
         Assert.False(result);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("--help", true)]
+    [InlineData("-h", true)]
+    [InlineData("--unknown", false)]
+    [InlineData("status", false)]
+    [InlineData(null, false)]
+    public void IsHelpOptionToken_ReturnsExpectedResult (string? token, bool expected)
+    {
+        var result = CommandTokenClassifier.IsHelpOptionToken(token);
+
+        Assert.Equal(expected, result);
     }
 }
