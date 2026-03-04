@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
 using MackySoft.Ucli.UnityProject;
@@ -78,14 +79,14 @@ public sealed class TestRunArtifactsServiceTests
             Mode: "oneshot",
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: TestRunPlatform.PlayMode,
+            TestPlatform: IpcTestRunPlatform.PlayMode,
             RawTestPlatform: "playmode",
             BuildTarget: "StandaloneWindows64",
             TestFilter: "Category=Smoke",
             TestCategories: ["smoke", "quick"],
             AssemblyNames: ["My.Tests"],
             TestSettingsPath: testSettingsPath,
-            TimeoutSeconds: 1800);
+            TimeoutMilliseconds: null);
     }
 
     private static (DateTimeOffset StartedAt, DateTimeOffset FinishedAt) ReadMetaJson (string metaJsonPath)

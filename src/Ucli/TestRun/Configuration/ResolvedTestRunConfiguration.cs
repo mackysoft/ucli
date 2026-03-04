@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.TestRun.Configuration;
@@ -14,17 +15,17 @@ namespace MackySoft.Ucli.TestRun.Configuration;
 /// <param name="TestCategories"> The normalized test-category values. </param>
 /// <param name="AssemblyNames"> The normalized assembly-name values. </param>
 /// <param name="TestSettingsPath"> The optional test-settings path value. </param>
-/// <param name="TimeoutSeconds"> The timeout value in seconds. </param>
+/// <param name="TimeoutMilliseconds"> The optional timeout value in milliseconds from CLI/profile input. </param>
 internal sealed record ResolvedTestRunConfiguration (
     ResolvedUnityProjectContext UnityProject,
     string Mode,
     string UnityVersion,
     string UnityEditorPath,
-    TestRunPlatform TestPlatform,
+    IpcTestRunPlatform TestPlatform,
     string RawTestPlatform,
     string? BuildTarget,
     string? TestFilter,
     string[] TestCategories,
     string[] AssemblyNames,
     string? TestSettingsPath,
-    int TimeoutSeconds);
+    int? TimeoutMilliseconds);

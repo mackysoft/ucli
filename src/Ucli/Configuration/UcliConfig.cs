@@ -19,7 +19,7 @@ internal sealed record UcliConfig (
     private const string DefaultAllowlistPattern = "^ucli\\.";
 
     /// <summary> Gets the default IPC timeout in milliseconds. </summary>
-    public const int DefaultIpcTimeoutMilliseconds = 3000;
+    public const int DefaultIpcTimeoutMilliseconds = 1800000;
 
     /// <summary> Gets the IPC timeout in milliseconds used when CLI options do not override timeout. </summary>
     public int IpcDefaultTimeoutMilliseconds { get; init; } = DefaultIpcTimeoutMilliseconds;

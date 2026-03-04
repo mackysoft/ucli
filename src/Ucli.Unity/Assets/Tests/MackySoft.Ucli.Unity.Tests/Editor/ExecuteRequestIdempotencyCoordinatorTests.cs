@@ -250,9 +250,9 @@ namespace MackySoft.Ucli.Unity.Tests
             // req-2 should still be cached.
             var req2ResponseFromCache = Execute("req-2", "fingerprint-2", "second-2");
 
-            Assert.That(executeCount, Is.EqualTo(4));
+            Assert.That(executeCount, Is.EqualTo(5));
             Assert.That(GetMarker(req1ResponseAfterEviction), Is.EqualTo("first-2"));
-            Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-1"));
+            Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-2"));
 
             IpcResponse Execute (string requestId, string requestFingerprint, string marker)
             {

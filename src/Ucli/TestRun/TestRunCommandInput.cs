@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.TestRun;
 /// <param name="TestCategory"> Optional test categories from repeated or comma-separated CLI options. </param>
 /// <param name="AssemblyName"> Optional assembly names from repeated or comma-separated CLI options. </param>
 /// <param name="TestSettingsPath"> Optional path to <c>TestSettings.json</c>. </param>
-/// <param name="TimeoutSeconds"> Optional timeout in seconds. </param>
+/// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
 internal sealed record TestRunCommandInput (
     string? ProjectPath,
     string? ProfilePath,
@@ -25,4 +25,4 @@ internal sealed record TestRunCommandInput (
     string[]? TestCategory,
     string[]? AssemblyName,
     string? TestSettingsPath,
-    int? TimeoutSeconds);
+    int? TimeoutMilliseconds);

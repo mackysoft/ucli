@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -28,7 +29,7 @@ public sealed class TestRunConfigurationResolverTests
             TestCategories = ["profile"],
             AssemblyNames = ["Profile.Tests"],
             TestSettingsPath = testSettingsPath,
-            TimeoutSeconds = 30,
+            Timeout = 30,
         };
 
         var unityProject = CreateUnityProjectContext(scope, "cli-project");
@@ -55,21 +56,21 @@ public sealed class TestRunConfigurationResolverTests
             TestCategory: ["smoke,quick"],
             AssemblyName: ["Cli.Tests"],
             TestSettingsPath: testSettingsPath,
-            TimeoutSeconds: 120);
+            TimeoutMilliseconds: 120);
 
         var result = await resolver.Resolve(input, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var configuration = Assert.IsType<ResolvedTestRunConfiguration>(result.Configuration);
         Assert.Equal("oneshot", configuration.Mode);
-        Assert.Equal(TestRunPlatform.EditMode, configuration.TestPlatform);
+        Assert.Equal(IpcTestRunPlatform.EditMode, configuration.TestPlatform);
         Assert.Equal("editmode", configuration.RawTestPlatform);
         Assert.Null(configuration.BuildTarget);
         Assert.Equal("Name~Smoke", configuration.TestFilter);
         Assert.Equal(["smoke", "quick"], configuration.TestCategories);
         Assert.Equal(["Cli.Tests"], configuration.AssemblyNames);
         Assert.Equal(testSettingsPath, configuration.TestSettingsPath);
-        Assert.Equal(120, configuration.TimeoutSeconds);
+        Assert.Equal(120, configuration.TimeoutMilliseconds);
     }
 
     [Fact]
@@ -91,7 +92,7 @@ public sealed class TestRunConfigurationResolverTests
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
-            TimeoutSeconds: 30);
+            TimeoutMilliseconds: 30);
 
         var result = await resolver.Resolve(input, CancellationToken.None);
 
@@ -120,7 +121,7 @@ public sealed class TestRunConfigurationResolverTests
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
-            TimeoutSeconds: 30);
+            TimeoutMilliseconds: 30);
 
         var result = await resolver.Resolve(input, CancellationToken.None);
 
@@ -133,10 +134,10 @@ public sealed class TestRunConfigurationResolverTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
-    [InlineData(86401)]
-    public async Task Resolve_WithTimeoutOutOfRange_ReturnsInvalidArgument (int timeoutSeconds)
+    [InlineData(-1)]
+    public async Task Resolve_WithNonPositiveTimeout_ReturnsInvalidArgument (int timeoutMilliseconds)
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", $"timeout-{timeoutSeconds}");
+        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", $"timeout-{timeoutMilliseconds}");
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope);
         var input = new TestRunCommandInput(
@@ -151,14 +152,14 @@ public sealed class TestRunConfigurationResolverTests
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
-            TimeoutSeconds: timeoutSeconds);
+            TimeoutMilliseconds: timeoutMilliseconds);
 
         var result = await resolver.Resolve(input, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("timeoutSeconds", error.Message, StringComparison.Ordinal);
+        Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -180,7 +181,7 @@ public sealed class TestRunConfigurationResolverTests
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: scope.GetPath("ProjectSettings/TestSettings.json"),
-            TimeoutSeconds: 30);
+            TimeoutMilliseconds: 30);
 
         var result = await resolver.Resolve(input, CancellationToken.None);
 

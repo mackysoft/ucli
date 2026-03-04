@@ -1,4 +1,4 @@
-using MackySoft.Ucli.TestRun.Configuration;
+using MackySoft.Ucli.TestRun.Service.Preflight;
 
 namespace MackySoft.Ucli.TestRun.Service.Pipeline;
 
@@ -6,10 +6,10 @@ namespace MackySoft.Ucli.TestRun.Service.Pipeline;
 internal interface ITestRunExecutionPipeline
 {
     /// <summary> Executes one test-run pipeline from prepared configuration. </summary>
-    /// <param name="configuration"> The preflight-resolved configuration. </param>
+    /// <param name="context"> The preflight-resolved execution context. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to pipeline output values. </returns>
     ValueTask<TestRunExecutionPipelineResult> Execute (
-        ResolvedTestRunConfiguration configuration,
+        TestRunExecutionContext context,
         CancellationToken cancellationToken = default);
 }

@@ -1,30 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Requests;
-using UnityEditor;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Implements method-based dispatch for authorized Unity IPC requests. </summary>
     internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher
     {
-        private readonly IExecuteRequestDispatcher executeRequestDispatcher;
-
-        private readonly IServerVersionProvider serverVersionProvider;
+        private readonly IReadOnlyDictionary<string, IUnityIpcMethodHandler> methodHandlers;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcMethodDispatcher" /> class. </summary>
-        /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
-        /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-        public UnityIpcMethodDispatcher (
-            IExecuteRequestDispatcher executeRequestDispatcher,
-            IServerVersionProvider serverVersionProvider)
+        /// <param name="methodHandlers"> Registered method handlers resolved by DI. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="methodHandlers" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when method handlers are empty or invalid. </exception>
+        public UnityIpcMethodDispatcher (IEnumerable<IUnityIpcMethodHandler> methodHandlers)
         {
-            this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
-            this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
+            if (methodHandlers == null)
+            {
+                throw new ArgumentNullException(nameof(methodHandlers));
+            }
+
+            this.methodHandlers = CreateMethodHandlers(methodHandlers);
         }
 
         /// <summary> Dispatches one IPC request envelope by method contract. </summary>
@@ -45,24 +43,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                switch (request.Method)
+                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
                 {
-                    case IpcMethodNames.Ping:
-                        return HandlePing(request);
-
-                    case IpcMethodNames.Execute:
-                        return await HandleExecute(request, cancellationToken);
-
-                    case IpcMethodNames.Shutdown:
-                        return HandleShutdown(request);
-
-                    default:
-                        return UnityIpcResponseFactory.CreateErrorResponse(
-                            request,
-                            IpcErrorCodes.IpcMethodNotSupported,
-                            $"IPC method is not supported: {request.Method}.",
-                            null);
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        IpcErrorCodes.IpcMethodNotSupported,
+                        $"IPC method is not supported: {request.Method}.",
+                        null);
                 }
+
+                return await methodHandler.Handle(request, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -78,65 +68,41 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Handles one <c>ping</c> request. </summary>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <returns> The response envelope. </returns>
-        private IpcResponse HandlePing (IpcRequest request)
+        /// <summary> Creates one immutable method-handler map keyed by IPC method name. </summary>
+        /// <param name="methodHandlers"> Registered method handlers resolved by DI. </param>
+        /// <returns> Method-handler map keyed by method name. </returns>
+        /// <exception cref="ArgumentException"> Thrown when handlers are empty, null, duplicated, or have invalid method names. </exception>
+        private static IReadOnlyDictionary<string, IUnityIpcMethodHandler> CreateMethodHandlers (
+            IEnumerable<IUnityIpcMethodHandler> methodHandlers)
         {
-            if (!UnityIpcRequestCodec.TryDecodePingRequest(
-                    request,
-                    out IpcPingRequest _,
-                    out var errorResponse))
+            var map = new Dictionary<string, IUnityIpcMethodHandler>(StringComparer.Ordinal);
+            var i = 0;
+            foreach (var methodHandler in methodHandlers)
             {
-                return errorResponse!;
+                if (methodHandler == null)
+                {
+                    throw new ArgumentException($"methodHandlers[{i}] must not be null.", nameof(methodHandlers));
+                }
+
+                if (string.IsNullOrWhiteSpace(methodHandler.Method))
+                {
+                    throw new ArgumentException($"methodHandlers[{i}] returned an empty method name.", nameof(methodHandlers));
+                }
+
+                if (!map.TryAdd(methodHandler.Method, methodHandler))
+                {
+                    throw new ArgumentException($"Duplicate IPC method handler is registered: {methodHandler.Method}.", nameof(methodHandlers));
+                }
+
+                i++;
             }
 
-            var payload = UnityPingResponseCodec.CreatePayload(
-                Application.unityVersion,
-                serverVersionProvider.GetVersion(),
-                EditorApplication.isCompiling);
-            return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
-        }
-
-        /// <summary> Handles one <c>execute</c> request. </summary>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <param name="cancellationToken"> The cancellation token for dispatch. </param>
-        /// <returns> The response envelope. </returns>
-        private async Task<IpcResponse> HandleExecute (
-            IpcRequest request,
-            CancellationToken cancellationToken)
-        {
-            if (!UnityIpcRequestCodec.TryDecodeExecuteRequest(
-                    request,
-                    out IpcExecuteRequest? executeRequest,
-                    out var errorResponse))
+            if (map.Count == 0)
             {
-                return errorResponse!;
+                throw new ArgumentException("methodHandlers must contain at least one handler.", nameof(methodHandlers));
             }
 
-            var context = new ExecuteDispatchContext(
-                RequestId: request.RequestId,
-                ProtocolVersion: request.ProtocolVersion);
-            return await executeRequestDispatcher.Dispatch(executeRequest!, context, cancellationToken);
-        }
-
-        /// <summary> Handles one <c>shutdown</c> request. </summary>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <returns> The response envelope. </returns>
-        private IpcResponse HandleShutdown (IpcRequest request)
-        {
-            if (!UnityIpcRequestCodec.TryDecodeShutdownRequest(
-                    request,
-                    out IpcShutdownRequest _,
-                    out var errorResponse))
-            {
-                return errorResponse!;
-            }
-
-            var payload = new IpcShutdownResponse(
-                Accepted: true,
-                Message: "Shutdown request accepted.");
-            return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
+            return map;
         }
     }
 }

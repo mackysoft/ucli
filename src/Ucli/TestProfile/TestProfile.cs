@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.TestProfile;
 /// <param name="TestCategories"> The test-category list. </param>
 /// <param name="AssemblyNames"> The assembly-name list. </param>
 /// <param name="TestSettingsPath"> The optional test settings path. </param>
-/// <param name="TimeoutSeconds"> The timeout value in seconds. </param>
+/// <param name="Timeout"> The timeout value in milliseconds. </param>
 internal sealed record TestProfile (
     int SchemaVersion,
     string ProjectPath,
@@ -23,12 +23,12 @@ internal sealed record TestProfile (
     string[] TestCategories,
     string[] AssemblyNames,
     string? TestSettingsPath,
-    int TimeoutSeconds)
+    int Timeout)
 {
     private const int CurrentSchemaVersion = 1;
     private const string DefaultProjectPath = ".";
     private const string DefaultTestPlatform = "editmode";
-    private const int DefaultTimeoutSeconds = 1800;
+    private const int DefaultTimeoutMilliseconds = 1800000;
 
     /// <summary> Creates default values defined by the test-command specification. </summary>
     /// <returns> The default profile values. </returns>
@@ -45,6 +45,6 @@ internal sealed record TestProfile (
             TestCategories: [],
             AssemblyNames: [],
             TestSettingsPath: null,
-            TimeoutSeconds: DefaultTimeoutSeconds);
+            Timeout: DefaultTimeoutMilliseconds);
     }
 }

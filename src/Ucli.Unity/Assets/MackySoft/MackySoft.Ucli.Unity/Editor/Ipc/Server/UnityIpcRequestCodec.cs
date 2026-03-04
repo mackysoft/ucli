@@ -1,3 +1,4 @@
+using System;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -31,6 +32,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "Execute", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one test-run request payload. </summary>
+        /// <param name="request"> The incoming request envelope. </param>
+        /// <param name="payload"> The decoded payload when successful. </param>
+        /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
+        /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
+        public static bool TryDecodeTestRunRequest (
+            IpcRequest request,
+            out IpcTestRunRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "TestRun", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one shutdown request payload. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <param name="payload"> The decoded payload when successful. </param>
@@ -57,7 +71,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             out TPayload? payload,
             out IpcResponse? errorResponse)
         {
-            ArgumentNullException.ThrowIfNull(request);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
             if (IpcPayloadCodec.TryDeserialize(
                 request.Payload,

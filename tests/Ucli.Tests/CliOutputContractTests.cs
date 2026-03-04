@@ -364,6 +364,7 @@ public sealed class CliOutputContractTests
             .HasString("readIndexDefaultMode", UcliContractConstants.Config.ReadIndexModeRequireFresh)
             .HasInt32("ipcDefaultTimeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds)
             .HasProperty("ipcTimeoutMillisecondsByCommand", timeoutByCommand => timeoutByCommand
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandTest)
                 .IsNull(UcliContractConstants.Config.IpcTimeoutCommandStatus)
                 .IsNull(UcliContractConstants.Config.IpcTimeoutCommandValidate)
                 .IsNull(UcliContractConstants.Config.IpcTimeoutCommandPlan)

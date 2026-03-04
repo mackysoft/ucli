@@ -1,3 +1,4 @@
+using System;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -18,8 +19,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             string serverVersion,
             bool isCompiling)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(unityVersion);
-            ArgumentException.ThrowIfNullOrWhiteSpace(serverVersion);
+            if (string.IsNullOrWhiteSpace(unityVersion))
+            {
+                throw new ArgumentException("unityVersion must not be empty.", nameof(unityVersion));
+            }
+
+            if (string.IsNullOrWhiteSpace(serverVersion))
+            {
+                throw new ArgumentException("serverVersion must not be empty.", nameof(serverVersion));
+            }
 
             return new IpcPingResponse(
                 ServerVersion: serverVersion,
