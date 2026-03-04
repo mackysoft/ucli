@@ -101,12 +101,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public async Task InputSnapshotProvider_WhenRequiredInputsExist_ReturnsHashes ()
+        public async Task InputFingerprintCalculator_WhenRequiredInputsExist_ReturnsHashes ()
         {
-            var provider = new IndexInputSnapshotProvider();
+            var calculator = new FileSystemIndexInputFingerprintCalculator();
             var projectRootPath = ResolveProjectRootPath();
 
-            var snapshot = await provider.TryCreate(projectRootPath, CancellationToken.None);
+            var snapshot = await calculator.TryCompute(projectRootPath, CancellationToken.None);
 
             Assert.That(snapshot, Is.Not.Null);
             Assert.That(snapshot!.ScriptAssembliesHash, Is.Not.Empty);
@@ -209,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IndexCatalogBuilder(
                 new ComponentSchemaExtractor(propertyCollector),
                 new AssetSchemaExtractor(propertyCollector),
-                new IndexInputSnapshotProvider());
+                new FileSystemIndexInputFingerprintCalculator());
         }
 
         private static string ResolveProjectRootPath ()
