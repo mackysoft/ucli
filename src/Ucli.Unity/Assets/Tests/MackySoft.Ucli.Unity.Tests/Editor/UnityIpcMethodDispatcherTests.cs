@@ -1,9 +1,12 @@
 using System;
+using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -50,9 +53,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     new IUnityIpcMethodHandler[]
                     {
                         new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
-                            ValueTask.FromResult(CreateSuccessResponse("req-1"))),
+                            new ValueTask<IpcResponse>(CreateSuccessResponse("req-1"))),
                         new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
-                            ValueTask.FromResult(CreateSuccessResponse("req-1"))),
+                            new ValueTask<IpcResponse>(CreateSuccessResponse("req-1"))),
                     });
             });
 
@@ -61,15 +64,15 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(exception.Message, Does.Contain("Duplicate IPC method handler"));
         }
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Dispatch_WhenMethodIsNotRegistered_ReturnsMethodNotSupportedError ()
+        public IEnumerator Dispatch_WhenMethodIsNotRegistered_ReturnsMethodNotSupportedError () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
                     new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
-                        ValueTask.FromResult(CreateSuccessResponse("req-unsupported"))),
+                        new ValueTask<IpcResponse>(CreateSuccessResponse("req-unsupported"))),
                 });
             var request = CreateRequest("req-unsupported", method: "unknown.method", payload: 0);
 
@@ -78,11 +81,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.IpcMethodNotSupported));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Dispatch_WhenHandlerThrows_ReturnsInternalError ()
+        public IEnumerator Dispatch_WhenHandlerThrows_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
@@ -98,16 +101,16 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InternalError));
             Assert.That(response.Errors[0].Message, Does.Contain("dispatcher-test"));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Dispatch_WhenMethodIsRegistered_DelegatesToHandler ()
+        public IEnumerator Dispatch_WhenMethodIsRegistered_DelegatesToHandler () => UniTask.ToCoroutine(async () =>
         {
             var handler = new StubMethodHandler(IpcMethodNames.Ping, static (request, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return ValueTask.FromResult(CreateSuccessResponse(request.RequestId));
+                return new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId));
             });
             var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler });
             var request = CreateRequest("req-ok", IpcMethodNames.Ping, new IpcPingRequest("tests"));
@@ -118,25 +121,25 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
             Assert.That(response.RequestId, Is.EqualTo("req-ok"));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void Dispatch_WhenCancellationIsRequested_ThrowsOperationCanceledException ()
+        public IEnumerator Dispatch_WhenCancellationIsRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var handler = new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
-                ValueTask.FromResult(CreateSuccessResponse("req-canceled")));
+                new ValueTask<IpcResponse>(CreateSuccessResponse("req-canceled")));
             var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler });
             var request = CreateRequest("req-canceled", IpcMethodNames.Ping, new IpcPingRequest("tests"));
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
-            Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await dispatcher.Dispatch(request, cancellationTokenSource.Token);
+                await dispatcher.Dispatch(request, cancellationTokenSource.Token).AsUniTask();
             });
             Assert.That(handler.CallCount, Is.EqualTo(0));
-        }
+        });
 
         private static IpcRequest CreateRequest (
             string requestId,

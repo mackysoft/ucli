@@ -17,20 +17,23 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ArgumentNullException.ThrowIfNull(request);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
             if (!UnityIpcRequestCodec.TryDecodeShutdownRequest(
                     request,
                     out IpcShutdownRequest _,
                     out var errorResponse))
             {
-                return ValueTask.FromResult(errorResponse!);
+                return new ValueTask<IpcResponse>(errorResponse!);
             }
 
             var payload = new IpcShutdownResponse(
                 Accepted: true,
                 Message: "Shutdown request accepted.");
-            return ValueTask.FromResult(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
+            return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }
 }

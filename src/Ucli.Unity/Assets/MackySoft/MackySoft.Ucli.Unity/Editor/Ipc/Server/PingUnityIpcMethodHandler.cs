@@ -28,21 +28,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ArgumentNullException.ThrowIfNull(request);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
             if (!UnityIpcRequestCodec.TryDecodePingRequest(
                     request,
                     out IpcPingRequest _,
                     out var errorResponse))
             {
-                return ValueTask.FromResult(errorResponse!);
+                return new ValueTask<IpcResponse>(errorResponse!);
             }
 
             var payload = UnityPingResponseCodec.CreatePayload(
                 Application.unityVersion,
                 serverVersionProvider.GetVersion(),
                 EditorApplication.isCompiling);
-            return ValueTask.FromResult(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
+            return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }
 }

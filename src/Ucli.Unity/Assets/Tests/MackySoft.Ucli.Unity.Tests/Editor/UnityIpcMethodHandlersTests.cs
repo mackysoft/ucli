@@ -1,18 +1,21 @@
 using System;
+using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcMethodHandlersTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task PingHandler_WhenPayloadIsValid_ReturnsOkResponse ()
+        public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
             var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"));
             var request = CreatePingRequest("req-ping-valid", new IpcPingRequest("client"));
@@ -23,11 +26,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors, Is.Empty);
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
             Assert.That(payload.ServerVersion, Is.EqualTo("1.2.3"));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task PingHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument ()
+        public IEnumerator PingHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"));
             var request = CreatePingRequest("req-ping-invalid", 123);
@@ -37,11 +40,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task ExecuteHandler_WhenPayloadIsValid_CallsDispatcher ()
+        public IEnumerator ExecuteHandler_WhenPayloadIsValid_CallsDispatcher () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new StubExecuteRequestDispatcher();
             var handler = new ExecuteUnityIpcMethodHandler(dispatcher);
@@ -64,11 +67,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo("req-execute-valid"));
             Assert.That(dispatcher.LastRequest, Is.Not.Null);
             Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(IpcExecuteCommandNames.Validate));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task ExecuteHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument ()
+        public IEnumerator ExecuteHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var handler = new ExecuteUnityIpcMethodHandler(new StubExecuteRequestDispatcher());
             var request = CreateExecuteRequest("req-execute-invalid", 123);
@@ -78,11 +81,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task TestRunHandler_WhenServiceSucceeds_ReturnsOkResponse ()
+        public IEnumerator TestRunHandler_WhenServiceSucceeds_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(2)));
             var handler = new TestRunUnityIpcMethodHandler(service);
@@ -96,11 +99,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(service.CallCount, Is.EqualTo(1));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcTestRunResponse payload, out _), Is.True);
             Assert.That(payload.ExitCode, Is.EqualTo(2));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task TestRunHandler_WhenServiceThrowsArgumentException_ReturnsInvalidArgument ()
+        public IEnumerator TestRunHandler_WhenServiceThrowsArgumentException_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new ArgumentException("invalid"));
             var handler = new TestRunUnityIpcMethodHandler(service);
@@ -113,11 +116,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task TestRunHandler_WhenServiceThrowsUnexpectedException_ReturnsInternalError ()
+        public IEnumerator TestRunHandler_WhenServiceThrowsUnexpectedException_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new InvalidOperationException("test-run-failed"));
             var handler = new TestRunUnityIpcMethodHandler(service);
@@ -131,11 +134,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InternalError));
             Assert.That(response.Errors[0].Message, Does.Contain("test-run-failed"));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task TestRunHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument ()
+        public IEnumerator TestRunHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var handler = new TestRunUnityIpcMethodHandler(
                 new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(0))));
@@ -146,11 +149,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task ShutdownHandler_WhenPayloadIsValid_ReturnsAcceptedResponse ()
+        public IEnumerator ShutdownHandler_WhenPayloadIsValid_ReturnsAcceptedResponse () => UniTask.ToCoroutine(async () =>
         {
             var handler = new ShutdownUnityIpcMethodHandler();
             var request = CreateShutdownRequest("req-shutdown-valid", new IpcShutdownRequest("tests"));
@@ -161,11 +164,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors, Is.Empty);
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcShutdownResponse payload, out _), Is.True);
             Assert.That(payload.Accepted, Is.True);
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task ShutdownHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument ()
+        public IEnumerator ShutdownHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var handler = new ShutdownUnityIpcMethodHandler();
             var request = CreateShutdownRequest("req-shutdown-invalid", 123);
@@ -175,7 +178,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
-        }
+        });
 
         private static object CreateValidTestRunPayload ()
         {

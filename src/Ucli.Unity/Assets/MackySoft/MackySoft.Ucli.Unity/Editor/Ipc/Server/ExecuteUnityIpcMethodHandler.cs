@@ -27,7 +27,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ArgumentNullException.ThrowIfNull(request);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
             if (!UnityIpcRequestCodec.TryDecodeExecuteRequest(
                     request,

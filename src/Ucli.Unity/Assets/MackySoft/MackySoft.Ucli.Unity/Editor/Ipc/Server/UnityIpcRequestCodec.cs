@@ -1,3 +1,4 @@
+using System;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -70,7 +71,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             out TPayload? payload,
             out IpcResponse? errorResponse)
         {
-            ArgumentNullException.ThrowIfNull(request);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
             if (IpcPayloadCodec.TryDeserialize(
                 request.Payload,

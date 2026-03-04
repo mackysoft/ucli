@@ -46,7 +46,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ArgumentNullException.ThrowIfNull(request);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
             var requestContext = requestContextFactory.Create(request);
 

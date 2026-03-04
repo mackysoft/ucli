@@ -17,7 +17,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="ArgumentException"> Thrown when method handlers are empty or invalid. </exception>
         public UnityIpcMethodDispatcher (IEnumerable<IUnityIpcMethodHandler> methodHandlers)
         {
-            ArgumentNullException.ThrowIfNull(methodHandlers);
+            if (methodHandlers == null)
+            {
+                throw new ArgumentNullException(nameof(methodHandlers));
+            }
+
             this.methodHandlers = CreateMethodHandlers(methodHandlers);
         }
 

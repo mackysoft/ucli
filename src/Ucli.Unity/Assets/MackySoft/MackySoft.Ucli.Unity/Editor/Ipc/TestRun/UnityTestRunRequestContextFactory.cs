@@ -17,7 +17,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="InvalidOperationException"> Thrown when required runtime context cannot be resolved. </exception>
         public UnityTestRunRequestContext Create (IpcTestRunRequest request)
         {
-            ArgumentNullException.ThrowIfNull(request);
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
 
             if (string.IsNullOrWhiteSpace(request.TestPlatform))
             {

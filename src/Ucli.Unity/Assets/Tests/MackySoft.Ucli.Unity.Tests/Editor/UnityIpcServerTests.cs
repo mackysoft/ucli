@@ -388,10 +388,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubExecuteRequestDispatcher(),
                 new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal());
-            var invalidPayload = JsonSerializer.SerializeToElement(new
-            {
-                testPlatform = "editmode",
-            }, SerializerOptions);
+            var invalidPayload = JsonSerializer.SerializeToElement(123, SerializerOptions);
             var request = new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "req-test-run-invalid",
@@ -607,9 +604,14 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly IpcTestRunResponse response;
 
-            public StubUnityTestRunService (IpcTestRunResponse? response = null)
+            public StubUnityTestRunService ()
+                : this(new IpcTestRunResponse(0))
             {
-                this.response = response ?? new IpcTestRunResponse(0);
+            }
+
+            public StubUnityTestRunService (IpcTestRunResponse response)
+            {
+                this.response = response ?? throw new ArgumentNullException(nameof(response));
             }
 
             public int CallCount { get; private set; }

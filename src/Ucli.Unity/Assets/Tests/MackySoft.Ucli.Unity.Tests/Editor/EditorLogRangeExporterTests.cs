@@ -1,18 +1,20 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class EditorLogRangeExporterTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task ExportRange_WritesOnlySpecifiedByteRange ()
+        public IEnumerator ExportRange_WritesOnlySpecifiedByteRange () => UniTask.ToCoroutine(async () =>
         {
             var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");
             var destinationPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-{Guid.NewGuid():N}.log");
@@ -21,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                await exporter.ExportRange(sourcePath, destinationPath, 2, 7, CancellationToken.None);
+                await exporter.ExportRange(sourcePath, destinationPath, 2, 7, CancellationToken.None).AsUniTask();
 
                 Assert.That(File.Exists(destinationPath), Is.True);
                 Assert.That(File.ReadAllText(destinationPath), Is.EqualTo("23456"));
@@ -31,11 +33,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 TryDeleteFile(sourcePath);
                 TryDeleteFile(destinationPath);
             }
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void ExportRange_WhenOffsetIsInvalid_ThrowsArgumentOutOfRangeException ()
+        public IEnumerator ExportRange_WhenOffsetIsInvalid_ThrowsArgumentOutOfRangeException () => UniTask.ToCoroutine(async () =>
         {
             var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");
             var destinationPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-{Guid.NewGuid():N}.log");
@@ -44,9 +46,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+                await AsyncExceptionCapture.CaptureAsync<ArgumentOutOfRangeException>(async () =>
                 {
-                    await exporter.ExportRange(sourcePath, destinationPath, 5, 1, CancellationToken.None);
+                    await exporter.ExportRange(sourcePath, destinationPath, 5, 1, CancellationToken.None).AsUniTask();
                 });
             }
             finally
@@ -54,26 +56,26 @@ namespace MackySoft.Ucli.Unity.Tests
                 TryDeleteFile(sourcePath);
                 TryDeleteFile(destinationPath);
             }
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void ExportRange_WhenSourceFileIsMissing_ThrowsFileNotFoundException ()
+        public IEnumerator ExportRange_WhenSourceFileIsMissing_ThrowsFileNotFoundException () => UniTask.ToCoroutine(async () =>
         {
             var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-missing-{Guid.NewGuid():N}.log");
             var destinationPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-{Guid.NewGuid():N}.log");
             var exporter = new EditorLogRangeExporter();
 
-            Assert.ThrowsAsync<FileNotFoundException>(async () =>
+            await AsyncExceptionCapture.CaptureAsync<FileNotFoundException>(async () =>
             {
-                await exporter.ExportRange(sourcePath, destinationPath, 0, 0, CancellationToken.None);
+                await exporter.ExportRange(sourcePath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
             });
             TryDeleteFile(destinationPath);
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void ExportRange_WhenSourcePathIsDirectory_ThrowsUnauthorizedAccessException ()
+        public IEnumerator ExportRange_WhenSourcePathIsDirectory_ThrowsUnauthorizedAccessException () => UniTask.ToCoroutine(async () =>
         {
             var sourceDirectoryPath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-dir-{Guid.NewGuid():N}");
             var destinationPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-{Guid.NewGuid():N}.log");
@@ -82,9 +84,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
                 {
-                    await exporter.ExportRange(sourceDirectoryPath, destinationPath, 0, 0, CancellationToken.None);
+                    await exporter.ExportRange(sourceDirectoryPath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
                 });
             }
             finally
@@ -92,11 +94,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 TryDeleteDirectory(sourceDirectoryPath);
                 TryDeleteFile(destinationPath);
             }
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void ExportRange_WhenDestinationPathIsDirectory_ThrowsUnauthorizedAccessException ()
+        public IEnumerator ExportRange_WhenDestinationPathIsDirectory_ThrowsUnauthorizedAccessException () => UniTask.ToCoroutine(async () =>
         {
             var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");
             var destinationDirectoryPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-dir-{Guid.NewGuid():N}");
@@ -106,9 +108,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                Assert.ThrowsAsync<UnauthorizedAccessException>(async () =>
+                await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
                 {
-                    await exporter.ExportRange(sourcePath, destinationDirectoryPath, 0, 1, CancellationToken.None);
+                    await exporter.ExportRange(sourcePath, destinationDirectoryPath, 0, 1, CancellationToken.None).AsUniTask();
                 });
             }
             finally
@@ -116,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 TryDeleteFile(sourcePath);
                 TryDeleteDirectory(destinationDirectoryPath);
             }
-        }
+        });
 
         private static void TryDeleteFile (string path)
         {

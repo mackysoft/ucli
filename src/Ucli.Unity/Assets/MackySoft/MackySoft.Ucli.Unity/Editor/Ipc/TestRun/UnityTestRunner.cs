@@ -18,7 +18,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityTestRunRequestContext requestContext,
             CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull(requestContext);
+            if (requestContext == null)
+            {
+                throw new ArgumentNullException(nameof(requestContext));
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
 
             var filter = new Filter
