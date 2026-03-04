@@ -36,6 +36,6 @@ internal sealed record TestRunProfile
     /// <summary> Gets the optional <c>TestSettings.json</c> path value. </summary>
     public string? TestSettingsPath { get; init; }
 
-    /// <summary> Gets the optional timeout-seconds value. </summary>
-    public int? TimeoutSeconds { get; init; }
+    /// <summary> Gets the optional timeout-milliseconds value. </summary>
+    public int? Timeout { get; init; }
 }

@@ -100,6 +100,7 @@ internal static class Program
                 services.AddSingleton<ITestRunArtifactsService, TestRunArtifactsService>();
                 services.AddSingleton<IUnityCommandBuilder, UnityCommandBuilder>();
                 services.AddSingleton<IUnityTestExecutor, UnityTestExecutor>();
+                services.AddSingleton<IDaemonTestRunClient, IpcDaemonTestRunClient>();
                 services.AddSingleton<IUnityResultsXmlParser, UnityResultsXmlParser>();
                 services.AddSingleton<IUnityResultsArtifactWriter, UnityResultsArtifactWriter>();
                 services.AddSingleton<IUnityResultsConverter, UnityResultsConverter>();

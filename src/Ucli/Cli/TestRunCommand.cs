@@ -29,7 +29,7 @@ internal sealed class TestRunCommand
     /// <param name="testCategory"> --testCategory, test categories (repeat or comma-separated). </param>
     /// <param name="assemblyName"> -a|--assemblyName, assembly names (repeat or comma-separated). </param>
     /// <param name="testSettingsPath"> -s|--testSettingsPath, path to <c>TestSettings.json</c>. </param>
-    /// <param name="timeoutSeconds"> --timeoutSeconds, timeout in seconds. </param>
+    /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
@@ -45,7 +45,7 @@ internal sealed class TestRunCommand
         string[]? testCategory = null,
         string[]? assemblyName = null,
         string? testSettingsPath = null,
-        int? timeoutSeconds = null,
+        int? timeout = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -65,7 +65,7 @@ internal sealed class TestRunCommand
                 TestCategory: testCategory,
                 AssemblyName: assemblyName,
                 TestSettingsPath: testSettingsPath,
-                TimeoutSeconds: timeoutSeconds),
+                TimeoutMilliseconds: timeout),
             cancellationToken).ConfigureAwait(false);
         var commandResult = TestRunCommandResultFactory.Create(serviceResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);

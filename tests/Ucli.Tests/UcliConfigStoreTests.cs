@@ -485,7 +485,8 @@ public sealed class UcliConfigStoreTests
 
     private static void AssertDefaultIpcTimeouts (IReadOnlyDictionary<string, int?> actual)
     {
-        Assert.Equal(9, actual.Count);
+        Assert.Equal(10, actual.Count);
+        Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandTest));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandStatus));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandValidate));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandPlan));

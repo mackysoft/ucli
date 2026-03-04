@@ -122,6 +122,7 @@ public sealed class IpcContractSerializationTests
     {
         Assert.Equal("ping", IpcMethodNames.Ping);
         Assert.Equal("execute", IpcMethodNames.Execute);
+        Assert.Equal("test.run", IpcMethodNames.TestRun);
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
     }
 
@@ -140,6 +141,37 @@ public sealed class IpcContractSerializationTests
         JsonAssert.For(responseDocument.RootElement)
             .HasBoolean("accepted", true)
             .HasString("message", "Shutdown accepted.");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcTestRunRequest(
+            TestPlatform: "editmode",
+            BuildTarget: null,
+            TestFilter: null,
+            TestCategories: Array.Empty<string>(),
+            AssemblyNames: Array.Empty<string>(),
+            TestSettingsPath: null,
+            ResultsXmlPath: "/tmp/results.xml",
+            EditorLogPath: "/tmp/editor.log");
+        var responsePayload = new IpcTestRunResponse(ExitCode: 2);
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasString("testPlatform", "editmode")
+            .IsNull("buildTarget")
+            .IsNull("testFilter")
+            .HasArrayLength("testCategories", 0)
+            .HasArrayLength("assemblyNames", 0)
+            .IsNull("testSettingsPath")
+            .HasString("resultsXmlPath", "/tmp/results.xml")
+            .HasString("editorLogPath", "/tmp/editor.log");
+        JsonAssert.For(responseDocument.RootElement)
+            .HasInt32("exitCode", 2);
     }
 
     [Fact]

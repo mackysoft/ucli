@@ -40,8 +40,8 @@ public sealed class TestRunCommandResultFactoryTests
     [Trait("Size", "Small")]
     public void Create_WithServiceErrorCode_ReturnsErrorEnvelopeWithSameCode ()
     {
-        const string errorCode = "TEST_RUN_DAEMON_PATH_UNSUPPORTED";
-        const string message = "Daemon path is not supported by test run core service.";
+        const string errorCode = "UNITY_TEST_EXECUTION_FAILED";
+        const string message = "Unity test execution failed.";
 
         var serviceResult = TestRunServiceResult.ToolError(
             message: message,

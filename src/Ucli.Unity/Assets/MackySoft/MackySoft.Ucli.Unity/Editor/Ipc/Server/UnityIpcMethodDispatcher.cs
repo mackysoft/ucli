@@ -13,17 +13,22 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IExecuteRequestDispatcher executeRequestDispatcher;
 
+        private readonly IUnityTestRunService testRunService;
+
         private readonly IServerVersionProvider serverVersionProvider;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcMethodDispatcher" /> class. </summary>
         /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
+        /// <param name="testRunService"> The test-run service dependency. </param>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
         public UnityIpcMethodDispatcher (
             IExecuteRequestDispatcher executeRequestDispatcher,
+            IUnityTestRunService testRunService,
             IServerVersionProvider serverVersionProvider)
         {
             this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
+            this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
         }
 
@@ -52,6 +57,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     case IpcMethodNames.Execute:
                         return await HandleExecute(request, cancellationToken);
+
+                    case IpcMethodNames.TestRun:
+                        return await HandleTestRun(request, cancellationToken);
 
                     case IpcMethodNames.Shutdown:
                         return HandleShutdown(request);
@@ -118,6 +126,49 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RequestId: request.RequestId,
                 ProtocolVersion: request.ProtocolVersion);
             return await executeRequestDispatcher.Dispatch(executeRequest!, context, cancellationToken);
+        }
+
+        /// <summary> Handles one <c>test.run</c> request. </summary>
+        /// <param name="request"> The incoming request envelope. </param>
+        /// <param name="cancellationToken"> The cancellation token for dispatch. </param>
+        /// <returns> The response envelope. </returns>
+        private async Task<IpcResponse> HandleTestRun (
+            IpcRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (!UnityIpcRequestCodec.TryDecodeTestRunRequest(
+                    request,
+                    out IpcTestRunRequest? testRunRequest,
+                    out var errorResponse))
+            {
+                return errorResponse!;
+            }
+
+            try
+            {
+                var payload = await testRunService.Execute(testRunRequest!, cancellationToken);
+                return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (ArgumentException exception)
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcErrorCodes.InvalidArgument,
+                    exception.Message,
+                    null);
+            }
+            catch (Exception exception)
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcErrorCodes.InternalError,
+                    $"Unity test run failed. {exception.Message}",
+                    null);
+            }
         }
 
         /// <summary> Handles one <c>shutdown</c> request. </summary>

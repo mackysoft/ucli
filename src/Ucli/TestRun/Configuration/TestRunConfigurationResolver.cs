@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -8,9 +9,7 @@ namespace MackySoft.Ucli.TestRun.Configuration;
 /// <summary> Resolves test-run configuration by merging profile values and resolving Unity runtime dependencies. </summary>
 internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolver
 {
-    private const int MinTimeoutSeconds = 1;
-
-    private const int MaxTimeoutSeconds = 86400;
+    private const int MinTimeoutMilliseconds = 1;
 
     private readonly ITestRunProfileLoader profileLoader;
 
@@ -111,14 +110,14 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             Mode: mergedConfiguration.Mode,
             UnityVersion: unityVersionResolutionResult.UnityVersion!,
             UnityEditorPath: unityEditorPathResolutionResult.UnityEditorPath!,
-            TestPlatform: mergedConfiguration.TestPlatform,
+            TestPlatform: mergedConfiguration.TestPlatform!.Value,
             RawTestPlatform: mergedConfiguration.RawTestPlatform,
             BuildTarget: mergedConfiguration.BuildTarget,
             TestFilter: mergedConfiguration.TestFilter,
             TestCategories: mergedConfiguration.TestCategories,
             AssemblyNames: mergedConfiguration.AssemblyNames,
             TestSettingsPath: mergedConfiguration.TestSettingsPath,
-            TimeoutSeconds: mergedConfiguration.TimeoutSeconds);
+            TimeoutMilliseconds: mergedConfiguration.TimeoutMilliseconds);
         return TestRunConfigurationResolutionResult.Success(resolvedConfiguration);
     }
 
@@ -129,23 +128,23 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     {
         var errors = new List<ExecutionError>();
 
-        if (configuration.TestPlatform == TestRunPlatform.Unknown)
+        if (!configuration.TestPlatform.HasValue)
         {
             errors.Add(ExecutionError.InvalidArgument(
                 $"testPlatform must be editmode or playmode. Actual: {configuration.RawTestPlatform}"));
         }
 
-        if (configuration.TestPlatform == TestRunPlatform.EditMode
+        if (configuration.TestPlatform == IpcTestRunPlatform.EditMode
             && !string.IsNullOrWhiteSpace(configuration.BuildTarget))
         {
             errors.Add(ExecutionError.InvalidArgument(
                 "buildTarget is not allowed when testPlatform=editmode."));
         }
 
-        if (configuration.TimeoutSeconds < MinTimeoutSeconds || configuration.TimeoutSeconds > MaxTimeoutSeconds)
+        if (configuration.TimeoutMilliseconds.HasValue && configuration.TimeoutMilliseconds.Value < MinTimeoutMilliseconds)
         {
             errors.Add(ExecutionError.InvalidArgument(
-                $"timeoutSeconds must be in range {MinTimeoutSeconds}..{MaxTimeoutSeconds}. Actual: {configuration.TimeoutSeconds}"));
+                $"timeout must be in range {MinTimeoutMilliseconds}..{int.MaxValue}. Actual: {configuration.TimeoutMilliseconds.Value}"));
         }
 
         if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath) && !File.Exists(configuration.TestSettingsPath))

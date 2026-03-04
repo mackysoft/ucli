@@ -1,8 +1,10 @@
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
 using MackySoft.Ucli.TestRun.Execution;
 using MackySoft.Ucli.TestRun.Results;
+using MackySoft.Ucli.TestRun.Service.Preflight;
 
 namespace MackySoft.Ucli.TestRun.Service.Pipeline;
 
@@ -13,6 +15,8 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     private readonly IUnityTestExecutor unityTestExecutor;
 
+    private readonly IDaemonTestRunClient daemonTestRunClient;
+
     private readonly IUnityResultsConverter resultsConverter;
 
     /// <summary> Initializes a new instance of the <see cref="TestRunExecutionPipeline" /> class. </summary>
@@ -22,23 +26,27 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     public TestRunExecutionPipeline (
         ITestRunArtifactsService artifactsService,
         IUnityTestExecutor unityTestExecutor,
+        IDaemonTestRunClient daemonTestRunClient,
         IUnityResultsConverter resultsConverter)
     {
         this.artifactsService = artifactsService ?? throw new ArgumentNullException(nameof(artifactsService));
         this.unityTestExecutor = unityTestExecutor ?? throw new ArgumentNullException(nameof(unityTestExecutor));
+        this.daemonTestRunClient = daemonTestRunClient ?? throw new ArgumentNullException(nameof(daemonTestRunClient));
         this.resultsConverter = resultsConverter ?? throw new ArgumentNullException(nameof(resultsConverter));
     }
 
     /// <summary> Executes one test-run pipeline from prepared configuration. </summary>
-    /// <param name="configuration"> The preflight-resolved configuration. </param>
+    /// <param name="context"> The preflight-resolved execution context. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to pipeline output values. </returns>
     public async ValueTask<TestRunExecutionPipelineResult> Execute (
-        ResolvedTestRunConfiguration configuration,
+        TestRunExecutionContext context,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(context);
+
+        var configuration = context.Configuration;
 
         var artifactsPreparationResult = await PrepareArtifactsSafely(configuration, cancellationToken).ConfigureAwait(false);
         if (!artifactsPreparationResult.IsSuccess)
@@ -47,7 +55,10 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         }
 
         var artifactsSession = artifactsPreparationResult.Session!;
-        var unityExecutionResult = await ExecuteUnitySafely(configuration, artifactsSession, cancellationToken).ConfigureAwait(false);
+        var unityExecutionResult = await ExecuteUnitySafely(
+            context,
+            artifactsSession,
+            cancellationToken).ConfigureAwait(false);
         var conversionResult = UnityResultsConversionResult.Success(hasFailedTests: false);
         ExecutionError? conversionUnexpectedError = null;
 
@@ -96,7 +107,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     }
 
     /// <summary> Prepares artifacts session and maps unexpected exceptions into internal errors. </summary>
-    /// <param name="configuration"> The resolved run configuration. </param>
+    /// <param name="context"> The resolved run context. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the artifact preparation result. </returns>
     private async ValueTask<ArtifactsPreparationResult> PrepareArtifactsSafely (
@@ -151,14 +162,31 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to Unity execution result. </returns>
     private async ValueTask<UnityTestExecutionResult> ExecuteUnitySafely (
-        ResolvedTestRunConfiguration configuration,
+        TestRunExecutionContext context,
         ArtifactsSession session,
         CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await unityTestExecutor.Execute(configuration, session.Paths, cancellationToken).ConfigureAwait(false);
+            return context.Target switch
+            {
+                UnityExecutionTarget.Daemon => await daemonTestRunClient.Execute(
+                        context.Configuration,
+                        session.Paths,
+                        context.Timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false),
+                UnityExecutionTarget.Oneshot => await unityTestExecutor.Execute(
+                        context.Configuration,
+                        session.Paths,
+                        context.Timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false),
+                _ => UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.StartFailed,
+                    $"Unsupported Unity execution target: {context.Target}."),
+            };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

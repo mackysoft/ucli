@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityProject;
 
@@ -9,10 +10,6 @@ internal static class TestRunConfigurationMerger
     private const string DefaultProjectPath = ".";
 
     private const string DefaultMode = "auto";
-
-    private const string DefaultTestPlatform = "editmode";
-
-    private const int DefaultTimeoutSeconds = 1800;
 
     /// <summary> Merges one command input and profile configuration into a normalized configuration. </summary>
     /// <param name="cli"> The raw CLI input values. </param>
@@ -26,21 +23,22 @@ internal static class TestRunConfigurationMerger
 
         var projectPath = cli.ProjectPath ?? profile?.ProjectPath ?? DefaultProjectPath;
         var mode = NormalizeMode(cli.Mode ?? DefaultMode);
-        var mergedRawTestPlatform = cli.TestPlatform ?? profile?.TestPlatform ?? DefaultTestPlatform;
+        var mergedRawTestPlatform = cli.TestPlatform ?? profile?.TestPlatform ?? IpcTestRunPlatformCodec.EditMode;
+        var hasParsedTestPlatform = IpcTestRunPlatformCodec.TryParse(mergedRawTestPlatform, out var parsedTestPlatform);
 
         return new MergedTestRunConfiguration(
             ProjectPath: Path.GetFullPath(projectPath),
             Mode: mode,
             UnityVersion: StringValueNormalizer.TrimToNull(cli.UnityVersion ?? profile?.UnityVersion),
             UnityEditorPath: NormalizeOptionalPath(cli.UnityEditorPath ?? profile?.UnityEditorPath),
-            TestPlatform: TestRunPlatformCodec.ParseOrUnknown(mergedRawTestPlatform),
+            TestPlatform: hasParsedTestPlatform ? parsedTestPlatform : null,
             RawTestPlatform: mergedRawTestPlatform,
             BuildTarget: StringValueNormalizer.TrimToNull(cli.BuildTarget ?? profile?.BuildTarget),
             TestFilter: StringValueNormalizer.TrimToNull(cli.TestFilter ?? profile?.TestFilter),
             TestCategories: NormalizeValues(cli.TestCategory, profile?.TestCategories),
             AssemblyNames: NormalizeValues(cli.AssemblyName, profile?.AssemblyNames),
             TestSettingsPath: NormalizeOptionalPath(cli.TestSettingsPath ?? profile?.TestSettingsPath),
-            TimeoutSeconds: cli.TimeoutSeconds ?? profile?.TimeoutSeconds ?? DefaultTimeoutSeconds);
+            TimeoutMilliseconds: cli.TimeoutMilliseconds ?? profile?.Timeout);
     }
 
     /// <summary> Normalizes optional path values into absolute paths. </summary>

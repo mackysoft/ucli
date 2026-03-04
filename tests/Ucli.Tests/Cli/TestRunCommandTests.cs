@@ -42,7 +42,7 @@ public sealed class TestRunCommandTests
                 "MyGame.Tests.PlayMode",
             ],
             testSettingsPath: "/repo/UnityProject/ProjectSettings/TestSettings.json",
-            timeoutSeconds: 120,
+            timeout: 120,
             cancellationToken: cancellationTokenSource.Token));
 
         Assert.Equal(cancellationTokenSource.Token, service.CapturedCancellationToken);
@@ -61,7 +61,7 @@ public sealed class TestRunCommandTests
         Assert.Equal(["smoke", "fast,nightly"], testCategories);
         Assert.Equal(["MyGame.Tests.EditMode", "MyGame.Tests.PlayMode"], assemblyNames);
         Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
-        Assert.Equal(120, input.TimeoutSeconds);
+        Assert.Equal(120, input.TimeoutMilliseconds);
     }
 
     private static async Task<(int ExitCode, string StandardOutput)> ExecuteAndCaptureStandardOutput (Func<Task<int>> action)

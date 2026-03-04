@@ -45,7 +45,7 @@ internal sealed class TestRunService : ITestRunService
         }
 
         var pipelineResult = await executionPipeline.Execute(
-            preflightResult.Configuration!,
+            preflightResult.Context!,
             cancellationToken).ConfigureAwait(false);
         return resultMapper.Map(pipelineResult);
     }

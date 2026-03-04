@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.TestRun.Configuration;
 
 namespace MackySoft.Ucli.TestRun.Artifacts;
@@ -39,7 +40,7 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             UnityVersion: configuration.UnityVersion,
             UnityEditorPath: configuration.UnityEditorPath,
             Mode: configuration.Mode,
-            TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
+            TestPlatform: IpcTestRunPlatformCodec.ToValue(configuration.TestPlatform),
             BuildTarget: configuration.BuildTarget,
             TestFilter: configuration.TestFilter,
             TestCategories: configuration.TestCategories,

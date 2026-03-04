@@ -37,7 +37,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(hasFailedTests))));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -65,7 +65,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -95,7 +95,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -108,26 +108,33 @@ public sealed class TestRunServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithDaemonTarget_ReturnsToolErrorUnsupported ()
+    public async Task Execute_WithDaemonTarget_UsesDaemonClient ()
     {
         var configuration = CreateResolvedConfiguration();
+        var daemonTestRunClient = new StubDaemonTestRunClient((_, _, _, _) =>
+            ValueTask.FromResult(UnityTestExecutionResult.Success(0)));
+        var unityTestExecutor = new StubUnityTestExecutor((_, _, _, _) =>
+            ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                UnityTestExecutionFailureKind.StartFailed,
+                "oneshot should not be executed.")));
 
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon))),
             artifactsService: new StubArtifactsService(
-                prepare: _ => throw new InvalidOperationException(),
-                complete: (_, _) => throw new InvalidOperationException()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
-            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+                prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession(configuration)),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: unityTestExecutor,
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
+            daemonTestRunClient: daemonTestRunClient);
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
 
-        Assert.Null(result.Result);
-        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
-        Assert.Equal(TestRunErrorCodes.TestRunDaemonPathUnsupported, result.ErrorCode);
+        Assert.Equal(TestRunResultKind.Pass, result.Result);
+        Assert.Equal((int)TestRunExitCode.Pass, result.ExitCode);
+        Assert.Equal(1, daemonTestRunClient.CallCount);
+        Assert.Equal(0, unityTestExecutor.CallCount);
     }
 
     [Fact]
@@ -144,7 +151,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
                 UnityResultsConversionFailureKind.OutputWriteFailed,
                 "Failed to write results artifacts."))));
@@ -172,7 +179,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Failure(
                 UnityResultsConversionFailureKind.ResultsXmlReadFailed,
                 "Failed to read results.xml."))));
@@ -200,7 +207,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubResultsConverter(_ => throw new InvalidOperationException("boom")));
 
         var result = await service.Execute(CreateInput(), CancellationToken.None);
@@ -227,7 +234,7 @@ public sealed class TestRunServiceTests
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
-            unityTestExecutor: new StubUnityTestExecutor((_, _, _) =>
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
             {
                 cancellationTokenSource.Cancel();
                 return ValueTask.FromResult(UnityTestExecutionResult.Failure(
@@ -252,7 +259,8 @@ public sealed class TestRunServiceTests
         IUnityExecutionModeDecisionService modeDecisionService,
         ITestRunArtifactsService artifactsService,
         IUnityTestExecutor unityTestExecutor,
-        IUnityResultsConverter resultsConverter)
+        IUnityResultsConverter resultsConverter,
+        IDaemonTestRunClient? daemonTestRunClient = null)
     {
         var preflightService = new TestRunPreflightService(
             configurationResolver,
@@ -261,6 +269,10 @@ public sealed class TestRunServiceTests
         var executionPipeline = new TestRunExecutionPipeline(
             artifactsService,
             unityTestExecutor,
+            daemonTestRunClient ?? new StubDaemonTestRunClient((_, _, _, _) =>
+                ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.StartFailed,
+                    "Daemon test run client was not configured."))),
             resultsConverter);
         var resultMapper = new TestRunResultMapper();
 
@@ -284,7 +296,7 @@ public sealed class TestRunServiceTests
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
-            TimeoutSeconds: null);
+            TimeoutMilliseconds: null);
     }
 
     private static ResolvedTestRunConfiguration CreateResolvedConfiguration ()
@@ -299,14 +311,14 @@ public sealed class TestRunServiceTests
             Mode: "auto",
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: Path.GetFullPath("./Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: TestRunPlatform.EditMode,
+            TestPlatform: IpcTestRunPlatform.EditMode,
             RawTestPlatform: "editmode",
             BuildTarget: null,
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],
             TestSettingsPath: null,
-            TimeoutSeconds: 1800);
+            TimeoutMilliseconds: null);
     }
 
     private static ArtifactsSession CreateArtifactsSession (ResolvedTestRunConfiguration configuration)
@@ -414,19 +426,45 @@ public sealed class TestRunServiceTests
 
     private sealed class StubUnityTestExecutor : IUnityTestExecutor
     {
-        private readonly Func<ResolvedTestRunConfiguration, ArtifactPaths, CancellationToken, ValueTask<UnityTestExecutionResult>> execute;
+        private readonly Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, CancellationToken, ValueTask<UnityTestExecutionResult>> execute;
 
-        public StubUnityTestExecutor (Func<ResolvedTestRunConfiguration, ArtifactPaths, CancellationToken, ValueTask<UnityTestExecutionResult>> execute)
+        public StubUnityTestExecutor (Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, CancellationToken, ValueTask<UnityTestExecutionResult>> execute)
         {
             this.execute = execute;
         }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<UnityTestExecutionResult> Execute (
             ResolvedTestRunConfiguration configuration,
             ArtifactPaths artifactPaths,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            return execute(configuration, artifactPaths, cancellationToken);
+            CallCount++;
+            return execute(configuration, artifactPaths, timeout, cancellationToken);
+        }
+    }
+
+    private sealed class StubDaemonTestRunClient : IDaemonTestRunClient
+    {
+        private readonly Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, CancellationToken, ValueTask<UnityTestExecutionResult>> execute;
+
+        public StubDaemonTestRunClient (Func<ResolvedTestRunConfiguration, ArtifactPaths, TimeSpan, CancellationToken, ValueTask<UnityTestExecutionResult>> execute)
+        {
+            this.execute = execute;
+        }
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<UnityTestExecutionResult> Execute (
+            ResolvedTestRunConfiguration configuration,
+            ArtifactPaths artifactPaths,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return execute(configuration, artifactPaths, timeout, cancellationToken);
         }
     }
 

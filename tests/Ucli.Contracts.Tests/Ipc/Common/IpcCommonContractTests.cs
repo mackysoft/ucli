@@ -114,4 +114,66 @@ public sealed class IpcCommonContractTests
         Assert.Equal(expectedResult, result);
         Assert.Equal(expectedValue, compileState);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunPlatformCodec_HasStableStringValues ()
+    {
+        Assert.Equal("editmode", IpcTestRunPlatformCodec.EditMode);
+        Assert.Equal("playmode", IpcTestRunPlatformCodec.PlayMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunPlatformCodec_HasStableUnityStringValues ()
+    {
+        Assert.Equal("EditMode", IpcTestRunPlatformCodec.UnityEditMode);
+        Assert.Equal("PlayMode", IpcTestRunPlatformCodec.UnityPlayMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunPlatform_HasStableEnumValues ()
+    {
+        Assert.Equal(0, (int)IpcTestRunPlatform.EditMode);
+        Assert.Equal(1, (int)IpcTestRunPlatform.PlayMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunPlatformCodec_ToValue_ReturnsExpectedLiterals ()
+    {
+        Assert.Equal("editmode", IpcTestRunPlatformCodec.ToValue(IpcTestRunPlatform.EditMode));
+        Assert.Equal("playmode", IpcTestRunPlatformCodec.ToValue(IpcTestRunPlatform.PlayMode));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcTestRunPlatformCodec_ToUnityValue_ReturnsExpectedLiterals ()
+    {
+        Assert.Equal("EditMode", IpcTestRunPlatformCodec.ToUnityValue(IpcTestRunPlatform.EditMode));
+        Assert.Equal("PlayMode", IpcTestRunPlatformCodec.ToUnityValue(IpcTestRunPlatform.PlayMode));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("editmode", true, IpcTestRunPlatform.EditMode)]
+    [InlineData(" PLAYMODE ", true, IpcTestRunPlatform.PlayMode)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcTestRunPlatformCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        IpcTestRunPlatform? expectedValue)
+    {
+        var result = IpcTestRunPlatformCodec.TryParse(value, out var testPlatform);
+
+        Assert.Equal(expectedResult, result);
+        if (expectedValue.HasValue)
+        {
+            Assert.Equal(expectedValue.Value, testPlatform);
+        }
+    }
 }
