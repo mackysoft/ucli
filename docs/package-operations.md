@@ -45,6 +45,16 @@ dotnet nuget add source "https://nuget.pkg.github.com/mackysoft/index.json" \
 ### 契約パッケージ更新フロー（`MackySoft.Ucli.Contracts`）
 `MackySoft.Ucli.Contracts` のソースを変更した場合は、同じバージョン番号でもローカル nupkg を再生成しないと Unity 側が古い契約を参照し続ける。
 
+標準手順は以下のスクリプトを使用する。
+
+```bash
+./scripts/update-local-contracts-package.sh
+```
+
+必要に応じて `--prune`（生成物整理を有効化）または `--repo-root <path>`（リポジトリ位置を明示）を指定する。
+
+内部で実行している手順は次のとおり。
+
 1. `src/Ucli.Contracts` からローカル nupkg を再生成する。
 ```bash
 dotnet pack "src/Ucli.Contracts/Ucli.Contracts.csproj" \
