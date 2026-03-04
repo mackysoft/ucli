@@ -1,20 +1,20 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Index;
+using MackySoft.Ucli.Contracts.Index;
 
 namespace MackySoft.Ucli.Tests.Index;
 
-public sealed class IndexInputSnapshotHasherTests
+public sealed class FileSystemIndexInputFingerprintCalculatorTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsNull_WhenRequiredInputsAreMissing ()
     {
         using var scope = TestDirectories.CreateTempScope("index-hasher", "missing-inputs");
-        var hasher = new IndexInputSnapshotHasher();
+        var calculator = new FileSystemIndexInputFingerprintCalculator();
         scope.CreateDirectory("Assets");
         scope.CreateDirectory("Packages");
 
-        var snapshot = await hasher.TryCompute(scope.FullPath, CancellationToken.None);
+        var snapshot = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
 
         Assert.Null(snapshot);
     }
@@ -25,9 +25,9 @@ public sealed class IndexInputSnapshotHasherTests
     {
         using var scope = TestDirectories.CreateTempScope("index-hasher", "success");
         PrepareRequiredInputs(scope);
-        var hasher = new IndexInputSnapshotHasher();
+        var calculator = new FileSystemIndexInputFingerprintCalculator();
 
-        var snapshot = await hasher.TryCompute(scope.FullPath, CancellationToken.None);
+        var snapshot = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
 
         Assert.NotNull(snapshot);
         Assert.False(string.IsNullOrWhiteSpace(snapshot!.ScriptAssembliesHash));
@@ -43,11 +43,11 @@ public sealed class IndexInputSnapshotHasherTests
     {
         using var scope = TestDirectories.CreateTempScope("index-hasher", "change-detection");
         PrepareRequiredInputs(scope);
-        var hasher = new IndexInputSnapshotHasher();
+        var calculator = new FileSystemIndexInputFingerprintCalculator();
 
-        var before = await hasher.TryCompute(scope.FullPath, CancellationToken.None);
+        var before = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
         scope.WriteFile(Path.Combine("Library", "ScriptAssemblies", "Assembly-CSharp.dll"), "updated");
-        var after = await hasher.TryCompute(scope.FullPath, CancellationToken.None);
+        var after = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
 
         Assert.NotNull(before);
         Assert.NotNull(after);

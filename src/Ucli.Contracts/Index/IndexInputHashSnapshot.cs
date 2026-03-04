@@ -1,6 +1,6 @@
-namespace MackySoft.Ucli.Index;
+namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Represents one current input-hash snapshot used for index freshness checks. </summary>
+/// <summary> Represents one input-fingerprint snapshot used for read-index freshness checks. </summary>
 /// <param name="ScriptAssembliesHash"> The script-assemblies hash value. </param>
 /// <param name="PackagesManifestHash"> The packages-manifest hash value. </param>
 /// <param name="PackagesLockHash"> The packages-lock hash value. </param>

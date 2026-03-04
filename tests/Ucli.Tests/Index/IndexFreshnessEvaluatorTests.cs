@@ -15,11 +15,11 @@ public sealed class IndexFreshnessEvaluatorTests
     {
         using var scope = TestDirectories.CreateTempScope("index-freshness", "fresh");
         PrepareRequiredInputs(scope);
-        var hasher = new IndexInputSnapshotHasher();
-        var snapshot = await hasher.TryCompute(scope.FullPath, CancellationToken.None);
+        var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var snapshot = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
         Assert.NotNull(snapshot);
         WriteInputsManifest(scope.FullPath, "fingerprint", snapshot!);
-        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), hasher);
+        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), calculator);
 
         var result = await evaluator.Evaluate(
             storageRoot: scope.FullPath,
@@ -39,12 +39,12 @@ public sealed class IndexFreshnessEvaluatorTests
     {
         using var scope = TestDirectories.CreateTempScope("index-freshness", "stale");
         PrepareRequiredInputs(scope);
-        var hasher = new IndexInputSnapshotHasher();
-        var snapshot = await hasher.TryCompute(scope.FullPath, CancellationToken.None);
+        var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var snapshot = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
         Assert.NotNull(snapshot);
         WriteInputsManifest(scope.FullPath, "fingerprint", snapshot!);
         scope.WriteFile(Path.Combine("Library", "ScriptAssemblies", "Assembly-CSharp.dll"), "updated");
-        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), hasher);
+        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), calculator);
 
         var result = await evaluator.Evaluate(
             storageRoot: scope.FullPath,
@@ -64,7 +64,7 @@ public sealed class IndexFreshnessEvaluatorTests
     {
         using var scope = TestDirectories.CreateTempScope("index-freshness", "probable-missing-manifest");
         PrepareRequiredInputs(scope);
-        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), new IndexInputSnapshotHasher());
+        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), new FileSystemIndexInputFingerprintCalculator());
 
         var result = await evaluator.Evaluate(
             storageRoot: scope.FullPath,
@@ -84,12 +84,12 @@ public sealed class IndexFreshnessEvaluatorTests
     {
         using var scope = TestDirectories.CreateTempScope("index-freshness", "require-fresh-stale");
         PrepareRequiredInputs(scope);
-        var hasher = new IndexInputSnapshotHasher();
-        var snapshot = await hasher.TryCompute(scope.FullPath, CancellationToken.None);
+        var calculator = new FileSystemIndexInputFingerprintCalculator();
+        var snapshot = await calculator.TryCompute(scope.FullPath, CancellationToken.None);
         Assert.NotNull(snapshot);
         WriteInputsManifest(scope.FullPath, "fingerprint", snapshot!);
         scope.WriteFile(Path.Combine("Packages", "packages-lock.json"), "{ \"updated\": true }");
-        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), hasher);
+        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), calculator);
 
         var result = await evaluator.Evaluate(
             storageRoot: scope.FullPath,
@@ -109,7 +109,7 @@ public sealed class IndexFreshnessEvaluatorTests
     public async Task Evaluate_ReturnsProbable_WhenModeIsDisabled ()
     {
         using var scope = TestDirectories.CreateTempScope("index-freshness", "disabled");
-        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), new IndexInputSnapshotHasher());
+        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), new FileSystemIndexInputFingerprintCalculator());
 
         var result = await evaluator.Evaluate(
             storageRoot: scope.FullPath,
