@@ -59,17 +59,50 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var callbacks = new TestRunCallbacks();
             var testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
+            var cancellationRegistration = default(CancellationTokenRegistration);
             try
             {
                 testRunnerApi.RegisterCallbacks(callbacks);
-                testRunnerApi.Execute(executionSettings);
+                var testRunId = testRunnerApi.Execute(executionSettings);
+                cancellationRegistration = RegisterCancellation(testRunId, cancellationToken);
                 return await callbacks.WaitForCompletion(cancellationToken);
             }
             finally
             {
+                cancellationRegistration.Dispose();
                 testRunnerApi.UnregisterCallbacks(callbacks);
                 UnityEngine.Object.DestroyImmediate(testRunnerApi);
             }
+        }
+
+        /// <summary> Registers Unity Test Framework run-cancel callback for one active run identifier. </summary>
+        /// <param name="testRunId"> The active Unity test run identifier returned by <see cref="TestRunnerApi.Execute" />. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
+        /// <returns> The cancellation registration handle. </returns>
+        private static CancellationTokenRegistration RegisterCancellation (
+            string testRunId,
+            CancellationToken cancellationToken)
+        {
+            if (!cancellationToken.CanBeCanceled || string.IsNullOrWhiteSpace(testRunId))
+            {
+                return default;
+            }
+
+            return cancellationToken.Register(static state =>
+            {
+                var runId = (string)state;
+                try
+                {
+                    TestRunnerApi.CancelTestRun(runId);
+                }
+                catch (Exception exception)
+                {
+                    // NOTE:
+                    // Cancellation callback cannot propagate exceptions to caller.
+                    // Emit diagnostic information and keep cancellation flow non-fatal.
+                    Debug.LogWarning($"Unity test run cancel request failed. runId={runId}. {exception.Message}");
+                }
+            }, testRunId);
         }
 
         /// <summary> Receives Unity Test Framework callbacks and exposes completion task. </summary>
