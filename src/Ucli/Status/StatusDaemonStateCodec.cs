@@ -15,19 +15,24 @@ internal static class StatusDaemonStateCodec
     /// <summary> Gets the daemon-status value used when daemon session is stale. </summary>
     public const string Stale = "stale";
 
+    private static readonly (DaemonStatusKind Value, string Literal)[] Mappings =
+    {
+        (DaemonStatusKind.Running, Running),
+        (DaemonStatusKind.NotRunning, NotRunning),
+        (DaemonStatusKind.Stale, Stale),
+    };
+
     /// <summary> Converts one daemon status enum value to a status contract literal. </summary>
     /// <param name="daemonStatus"> The daemon status enum value. </param>
     /// <returns> The daemon-status contract literal. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="daemonStatus" /> is unsupported. </exception>
     public static string ToValue (DaemonStatusKind daemonStatus)
     {
-        return daemonStatus switch
-        {
-            DaemonStatusKind.Running => Running,
-            DaemonStatusKind.NotRunning => NotRunning,
-            DaemonStatusKind.Stale => Stale,
-            _ => throw new ArgumentOutOfRangeException(nameof(daemonStatus), daemonStatus, "Unsupported daemon status."),
-        };
+        return LiteralCodecUtilities.ToValue(
+            daemonStatus,
+            Mappings,
+            nameof(daemonStatus),
+            "Unsupported daemon status.");
     }
 
     /// <summary> Tries to parse one daemon-status literal to daemon status enum value. </summary>
@@ -38,31 +43,10 @@ internal static class StatusDaemonStateCodec
         string? value,
         out DaemonStatusKind daemonStatus)
     {
-        if (!StringValueNormalizer.TryTrimToNonEmpty(value, out var normalized))
-        {
-            daemonStatus = default;
-            return false;
-        }
-
-        if (string.Equals(normalized, Running, StringComparison.Ordinal))
-        {
-            daemonStatus = DaemonStatusKind.Running;
-            return true;
-        }
-
-        if (string.Equals(normalized, NotRunning, StringComparison.Ordinal))
-        {
-            daemonStatus = DaemonStatusKind.NotRunning;
-            return true;
-        }
-
-        if (string.Equals(normalized, Stale, StringComparison.Ordinal))
-        {
-            daemonStatus = DaemonStatusKind.Stale;
-            return true;
-        }
-
-        daemonStatus = default;
-        return false;
+        return LiteralCodecUtilities.TryParseTrimmed(
+            value,
+            Mappings,
+            StringComparison.Ordinal,
+            out daemonStatus);
     }
 }

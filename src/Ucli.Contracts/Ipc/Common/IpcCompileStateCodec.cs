@@ -11,6 +11,12 @@ public static class IpcCompileStateCodec
     /// <summary> Gets the compile-state value used when editor is compiling. </summary>
     public const string Compiling = "compiling";
 
+    private static readonly string[] CanonicalLiterals =
+    {
+        Ready,
+        Compiling,
+    };
+
     /// <summary> Converts one compile-activity flag to the IPC compile-state literal. </summary>
     /// <param name="isCompiling"> Whether the editor is currently compiling. </param>
     /// <returns> <see cref="Compiling" /> when <paramref name="isCompiling" /> is <see langword="true" />; otherwise <see cref="Ready" />. </returns>
@@ -29,25 +35,10 @@ public static class IpcCompileStateCodec
         string? value,
         out string? compileState)
     {
-        if (!StringValueNormalizer.TryTrimToNonEmpty(value, out var normalized))
-        {
-            compileState = null;
-            return false;
-        }
-
-        if (string.Equals(normalized, Ready, StringComparison.Ordinal))
-        {
-            compileState = Ready;
-            return true;
-        }
-
-        if (string.Equals(normalized, Compiling, StringComparison.Ordinal))
-        {
-            compileState = Compiling;
-            return true;
-        }
-
-        compileState = null;
-        return false;
+        return LiteralCodecUtilities.TryNormalizeLiteral(
+            value,
+            CanonicalLiterals,
+            StringComparison.Ordinal,
+            out compileState);
     }
 }
