@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using UnityEditor;
 using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -12,12 +13,18 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IExecuteRequestDispatcher executeRequestDispatcher;
 
+        private readonly IServerVersionProvider serverVersionProvider;
+
         /// <summary> Initializes a new instance of the <see cref="UnityIpcMethodDispatcher" /> class. </summary>
         /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
+        /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-        public UnityIpcMethodDispatcher (IExecuteRequestDispatcher executeRequestDispatcher)
+        public UnityIpcMethodDispatcher (
+            IExecuteRequestDispatcher executeRequestDispatcher,
+            IServerVersionProvider serverVersionProvider)
         {
             this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
+            this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
         }
 
         /// <summary> Dispatches one IPC request envelope by method contract. </summary>
@@ -74,21 +81,20 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Handles one <c>ping</c> request. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <returns> The response envelope. </returns>
-        private static IpcResponse HandlePing (IpcRequest request)
+        private IpcResponse HandlePing (IpcRequest request)
         {
-            if (!TryDeserializePayload(
+            if (!UnityIpcRequestCodec.TryDecodePingRequest(
                     request,
-                    "Ping",
                     out IpcPingRequest _,
                     out var errorResponse))
             {
                 return errorResponse!;
             }
 
-            var payload = new IpcPingResponse(
-                ServerVersion: "ucli-unity-daemon",
-                Runtime: "batchmode",
-                UnityVersion: Application.unityVersion);
+            var payload = UnityPingResponseCodec.CreatePayload(
+                Application.unityVersion,
+                serverVersionProvider.GetVersion(),
+                EditorApplication.isCompiling);
             return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
         }
 
@@ -100,9 +106,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken)
         {
-            if (!TryDeserializePayload(
+            if (!UnityIpcRequestCodec.TryDecodeExecuteRequest(
                     request,
-                    "Execute",
                     out IpcExecuteRequest? executeRequest,
                     out var errorResponse))
             {
@@ -120,9 +125,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response envelope. </returns>
         private IpcResponse HandleShutdown (IpcRequest request)
         {
-            if (!TryDeserializePayload(
+            if (!UnityIpcRequestCodec.TryDecodeShutdownRequest(
                     request,
-                    "Shutdown",
                     out IpcShutdownRequest _,
                     out var errorResponse))
             {
@@ -133,41 +137,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Accepted: true,
                 Message: "Shutdown request accepted.");
             return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
-        }
-
-        /// <summary> Tries to deserialize one IPC method payload and builds standardized invalid-payload error response when it fails. </summary>
-        /// <typeparam name="TPayload"> The payload model type. </typeparam>
-        /// <param name="request"> The incoming request envelope. </param>
-        /// <param name="methodName"> The method name used for diagnostics. </param>
-        /// <param name="payload"> The deserialized payload when operation succeeds. </param>
-        /// <param name="errorResponse"> The error response when operation fails; otherwise <see langword="null" />. </param>
-        /// <returns> <see langword="true" /> when payload is valid and deserialized; otherwise <see langword="false" />. </returns>
-        private static bool TryDeserializePayload<TPayload> (
-            IpcRequest request,
-            string methodName,
-            out TPayload? payload,
-            out IpcResponse? errorResponse)
-        {
-            if (IpcPayloadCodec.TryDeserialize(
-                request.Payload,
-                out TPayload parsedPayload,
-                out var readError))
-            {
-                payload = parsedPayload;
-                errorResponse = null;
-                return true;
-            }
-
-            payload = default;
-            var message = readError.Kind == IpcPayloadReadErrorKind.NullPayload
-                ? $"{methodName} payload is null."
-                : readError.Message;
-            errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
-                request,
-                IpcErrorCodes.InvalidArgument,
-                $"{methodName} payload is invalid. {message}",
-                null);
-            return false;
         }
     }
 }

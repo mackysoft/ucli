@@ -10,6 +10,10 @@ internal static class UcliContractConstants
 
         public const string ProjectPath = "--projectPath";
 
+        public const string Timeout = "--timeout";
+
+        public const string Mode = "--mode";
+
         public const string Unknown = "--unknown";
     }
 

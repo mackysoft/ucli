@@ -64,7 +64,7 @@ jobs:
           --api-key "${{ secrets.GITHUB_TOKEN }}"
           --skip-duplicate
 
-      - name: Sync contracts csproj version
+      - name: Sync contracts package versions in repository
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
@@ -76,14 +76,33 @@ jobs:
           git checkout -B "${DEFAULT_BRANCH}" "origin/${DEFAULT_BRANCH}"
 
           csproj_path="src/Ucli.Contracts/Ucli.Contracts.csproj"
-          current_version="$(sed -n 's#.*<Version>\(.*\)</Version>.*#\1#p' "${csproj_path}" | head -n 1)"
-          if [[ "${current_version}" == "${PACKAGE_VERSION}" ]]; then
-            echo "No csproj version update required."
+          unity_packages_config_path="src/Ucli.Unity/Assets/packages.config"
+
+          csproj_current_version="$(sed -n 's#.*<Version>\(.*\)</Version>.*#\1#p' "${csproj_path}" | head -n 1)"
+          if [[ -z "${csproj_current_version}" ]]; then
+            echo "Failed to resolve contracts csproj version from ${csproj_path}." >&2
+            exit 1
+          fi
+
+          unity_current_version="$(sed -n 's#.*<package id="MackySoft.Ucli.Contracts" version="\([^"]\+\)".*#\1#p' "${unity_packages_config_path}" | head -n 1)"
+          if [[ -z "${unity_current_version}" ]]; then
+            echo "Failed to resolve Unity contracts package version from ${unity_packages_config_path}." >&2
+            exit 1
+          fi
+
+          if [[ "${csproj_current_version}" != "${PACKAGE_VERSION}" ]]; then
+            sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>${PACKAGE_VERSION}<\/Version>/" "${csproj_path}"
+          fi
+
+          if [[ "${unity_current_version}" != "${PACKAGE_VERSION}" ]]; then
+            sed -i -E "s#(<package id=\"MackySoft.Ucli.Contracts\" version=\")[^\"]+(\".*)#\\1${PACKAGE_VERSION}\\2#" "${unity_packages_config_path}"
+          fi
+
+          if git diff --quiet -- "${csproj_path}" "${unity_packages_config_path}"; then
+            echo "No repository version sync required."
             exit 0
           fi
 
-          sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>${PACKAGE_VERSION}<\/Version>/" "${csproj_path}"
-
-          git add "${csproj_path}"
+          git add "${csproj_path}" "${unity_packages_config_path}"
           git commit -m "chore(contracts): sync package version to ${PACKAGE_VERSION}"
           git push origin "HEAD:${DEFAULT_BRANCH}"

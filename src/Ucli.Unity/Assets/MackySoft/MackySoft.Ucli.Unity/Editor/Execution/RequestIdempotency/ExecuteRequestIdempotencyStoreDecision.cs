@@ -4,14 +4,22 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 {
     /// <summary> Represents one store decision used by request-id idempotency coordination flows. </summary>
-    /// <param name="Kind"> The decision kind. </param>
-    /// <param name="Response"> The completed response for replay decisions. </param>
-    /// <param name="SharedResponseTask"> The owner response task for wait decisions. </param>
-    internal readonly record struct ExecuteRequestIdempotencyStoreDecision (
-        ExecuteRequestIdempotencyStoreDecision.DecisionKind Kind,
-        IpcResponse? Response,
-        Task<IpcResponse>? SharedResponseTask)
+    internal readonly struct ExecuteRequestIdempotencyStoreDecision
     {
+        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestIdempotencyStoreDecision" /> struct. </summary>
+        /// <param name="kind"> The decision kind. </param>
+        /// <param name="response"> The completed response for replay decisions. </param>
+        /// <param name="sharedResponseTask"> The owner response task for wait decisions. </param>
+        public ExecuteRequestIdempotencyStoreDecision (
+            ExecuteRequestIdempotencyStoreDecision.DecisionKind kind,
+            IpcResponse? response,
+            Task<IpcResponse>? sharedResponseTask)
+        {
+            Kind = kind;
+            Response = response;
+            SharedResponseTask = sharedResponseTask;
+        }
+
         /// <summary> Defines one idempotency decision kind. </summary>
         internal enum DecisionKind
         {
@@ -20,6 +28,15 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             WaitInFlight,
             Conflict,
         }
+
+        /// <summary> Gets the decision kind. </summary>
+        public DecisionKind Kind { get; }
+
+        /// <summary> Gets the completed response for replay decisions. </summary>
+        public IpcResponse? Response { get; }
+
+        /// <summary> Gets the owner response task for wait decisions. </summary>
+        public Task<IpcResponse>? SharedResponseTask { get; }
 
         /// <summary> Creates one owner-execution decision. </summary>
         /// <returns> The owner-execution decision. </returns>

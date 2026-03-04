@@ -53,9 +53,9 @@ namespace MackySoft.Ucli.Unity.Tests
             await waitTask;
         });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void StartupCoordinator_Wait_WhenCanceledWithoutStartup_ThrowsOperationCanceledException ()
+        public IEnumerator StartupCoordinator_Wait_WhenCanceledWithoutStartup_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -63,15 +63,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             cancellationTokenSource.Cancel();
 
-            try
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                waitTask.GetAwaiter().GetResult();
-                Assert.Fail($"{nameof(OperationCanceledException)} was expected.");
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
+                await waitTask.AsUniTask();
+            });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -300,6 +296,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.Runtime, Is.EqualTo("batchmode"));
             Assert.That(string.IsNullOrWhiteSpace(payload.UnityVersion), Is.False);
+            Assert.That(string.IsNullOrWhiteSpace(payload.ServerVersion), Is.False);
+            var expectedServerVersion = new AssemblyServerVersionProvider().GetVersion();
+            Assert.That(payload.ServerVersion, Is.EqualTo(expectedServerVersion));
+            Assert.That(Regex.IsMatch(payload.ServerVersion, "^[0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?$"), Is.True);
+            Assert.That(
+                payload.CompileState == IpcCompileStateCodec.Ready
+                || payload.CompileState == IpcCompileStateCodec.Compiling,
+                Is.True);
         });
 
         [UnityTest]
@@ -420,7 +424,9 @@ namespace MackySoft.Ucli.Unity.Tests
             IDaemonShutdownSignal shutdownSignal,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
         {
-            var methodDispatcher = new UnityIpcMethodDispatcher(executeRequestDispatcher);
+            var methodDispatcher = new UnityIpcMethodDispatcher(
+                executeRequestDispatcher,
+                new AssemblyServerVersionProvider());
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
             var connectionHandler = new UnityIpcConnectionHandler(requestHandler, shutdownSignal);
             return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);

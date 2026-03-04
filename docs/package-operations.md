@@ -102,6 +102,7 @@ done
 ## Release Workflow
 - `contracts-package-verify`: `src/Ucli.Contracts` または workflow 自体に変更がある PR で、restore/build/pack を検証する。
 - `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグ push、または `workflow_dispatch` の `package_version` 指定で GitHub Packages へ公開する。
+- `contracts-package-publish` は公開後に `src/Ucli.Contracts/Ucli.Contracts.csproj` と `src/Ucli.Unity/Assets/packages.config` の `MackySoft.Ucli.Contracts` バージョンを同一値へ自動同期する。
 - タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`）。
 
 ```bash

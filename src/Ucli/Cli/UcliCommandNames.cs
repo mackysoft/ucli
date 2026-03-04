@@ -21,8 +21,14 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for <c>test profile init</c> result payloads. </summary>
     public const string TestProfileInit = "test.profile.init";
 
+    /// <summary> Gets the command name for <c>test run</c> result payloads. </summary>
+    public const string TestRun = "test.run";
+
     /// <summary> Gets the nested command name for profile. </summary>
     public const string Profile = "profile";
+
+    /// <summary> Gets the nested command name for run. </summary>
+    public const string RunSubcommand = "run";
 
     /// <summary> Gets the nested command name for init. </summary>
     public const string InitSubcommand = "init";
@@ -66,6 +72,12 @@ internal static class UcliCommandNames
 
         if (string.Equals(firstArgument, Test, StringComparison.Ordinal))
         {
+            if (args.Length >= 2
+                && string.Equals(args[1], RunSubcommand, StringComparison.Ordinal))
+            {
+                return TestRun;
+            }
+
             if (args.Length >= 3
                 && string.Equals(args[1], Profile, StringComparison.Ordinal)
                 && string.Equals(args[2], InitSubcommand, StringComparison.Ordinal))

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "operationPolicy": "safe",
+  "planTokenMode": "optional",
+  "readIndexDefaultMode": "requireFresh",
+  "operationAllowlist": [
+    "^ucli\\."
+  ],
+  "ipcDefaultTimeoutMilliseconds": 3000,
+  "ipcTimeoutMillisecondsByCommand": {
+    "status": null,
+    "validate": null,
+    "plan": null,
+    "call": null,
+    "resolve": null,
+    "query": null,
+    "refresh": null,
+    "ops": null,
+    "daemon": null
+  }
+}
