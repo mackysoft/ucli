@@ -59,6 +59,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityTestResultsXmlWriter, UnityTestResultsXmlWriter>();
             services.AddSingleton<IUnityTestRunService, UnityTestRunService>();
             services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
+            services.AddSingleton<IUnityIpcMethodHandler, PingUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
