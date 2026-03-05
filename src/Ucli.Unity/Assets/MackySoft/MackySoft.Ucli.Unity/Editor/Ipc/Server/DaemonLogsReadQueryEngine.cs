@@ -8,6 +8,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Applies normalized daemon-log read filters to stream snapshot events. </summary>
     internal sealed class DaemonLogsReadQueryEngine : IDaemonLogsReadQueryEngine
     {
+        private const string CategoryAll = "all";
+
         /// <inheritdoc />
         public IReadOnlyList<DaemonLogEvent> Filter (
             IReadOnlyList<DaemonLogEvent> events,
@@ -24,6 +26,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var filteredEvents = new List<DaemonLogEvent>(events.Count);
+            var shouldApplySinceFilter = filter.Since.HasValue && !filter.AfterSequence.HasValue;
             foreach (var daemonLogEvent in events)
             {
                 if (filter.AfterSequence.HasValue && daemonLogEvent.Sequence < filter.AfterSequence.Value)
@@ -31,7 +34,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     continue;
                 }
 
-                if (filter.Since.HasValue && TryParseEventTimestamp(daemonLogEvent.Timestamp, out var eventTimestampSince) && eventTimestampSince < filter.Since.Value)
+                if (shouldApplySinceFilter
+                    && TryParseEventTimestamp(daemonLogEvent.Timestamp, out var eventTimestampSince)
+                    && eventTimestampSince < filter.Since!.Value)
                 {
                     continue;
                 }
@@ -47,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     continue;
                 }
 
-                if (!string.IsNullOrWhiteSpace(filter.Category)
+                if (ShouldApplyCategoryFilter(filter.Category)
                     && !string.Equals(daemonLogEvent.Category, filter.Category, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -75,6 +80,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return tailEvents;
+        }
+
+        /// <summary> Determines whether category filter should be applied. </summary>
+        /// <param name="category"> The normalized category literal. </param>
+        /// <returns> <see langword="true" /> when category-specific filtering should run; otherwise <see langword="false" />. </returns>
+        private static bool ShouldApplyCategoryFilter (string category)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+            {
+                return false;
+            }
+
+            return !string.Equals(category, CategoryAll, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary> Determines whether one daemon log event matches query filter. </summary>

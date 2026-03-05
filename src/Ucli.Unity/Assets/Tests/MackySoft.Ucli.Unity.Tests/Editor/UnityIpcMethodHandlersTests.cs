@@ -254,6 +254,64 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator DaemonLogsReadHandler_WhenCategoryIsAll_DoesNotFilterByCategory () => UniTask.ToCoroutine(async () =>
+        {
+            var stream = new DaemonLogRingBuffer();
+            stream.Write("ipc", "info", "server started");
+            stream.Write("transport", "warning", "socket timeout detected");
+            var handler = CreateDaemonLogsReadHandler(stream);
+            var request = CreateDaemonLogsReadRequest(
+                "req-daemon-logs-category-all",
+                new IpcDaemonLogsReadRequest(
+                    Tail: null,
+                    After: null,
+                    Since: null,
+                    Until: null,
+                    Level: null,
+                    Query: null,
+                    QueryTarget: null,
+                    Category: "all"));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcDaemonLogsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Events.Length, Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator DaemonLogsReadHandler_WhenAfterAndSinceSpecified_AfterHasPriority () => UniTask.ToCoroutine(async () =>
+        {
+            var stream = new DaemonLogRingBuffer();
+            stream.Write("ipc", "info", "before");
+            stream.Write("transport", "info", "after");
+            var snapshot = stream.Snapshot();
+            var secondCursor = snapshot.Events[1].Cursor;
+            var since = DateTimeOffset.UtcNow.AddDays(1).ToString("O");
+            var handler = CreateDaemonLogsReadHandler(stream);
+            var request = CreateDaemonLogsReadRequest(
+                "req-daemon-logs-after-priority",
+                new IpcDaemonLogsReadRequest(
+                    Tail: null,
+                    After: secondCursor,
+                    Since: since,
+                    Until: null,
+                    Level: null,
+                    Query: null,
+                    QueryTarget: null,
+                    Category: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcDaemonLogsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Events.Length, Is.EqualTo(1));
+            Assert.That(payload.Events[0].Message, Is.EqualTo("after"));
+        });
+
         private static object CreateValidTestRunPayload ()
         {
             return new IpcTestRunRequest(
