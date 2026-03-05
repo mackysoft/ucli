@@ -109,6 +109,108 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ResolveIndexDirectory_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveIndexDirectory(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveIndexCatalogsDirectory_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveIndexCatalogsDirectory(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.CatalogsDirectoryName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveTypesCatalogPath_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveTypesCatalogPath(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.CatalogsDirectoryName,
+                UcliStoragePathNames.TypesCatalogFileName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveSchemasCatalogPath_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.CatalogsDirectoryName,
+                UcliStoragePathNames.SchemasCatalogFileName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveIndexInputsManifestPath_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.IndexInputsDirectoryName,
+                UcliStoragePathNames.IndexInputsManifestFileName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ResolveArtifactsDirectory_ReturnsFingerprintScopedPath ()
     {
         var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
