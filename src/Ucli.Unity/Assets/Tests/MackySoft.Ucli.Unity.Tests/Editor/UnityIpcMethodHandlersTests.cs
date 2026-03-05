@@ -190,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Tests
             stream.Write("transport", "warning", "socket timeout detected", "SocketException");
             var snapshot = stream.Snapshot();
             var firstEventCursor = snapshot.Events[0].Cursor;
-            var handler = new DaemonLogsReadUnityIpcMethodHandler(stream);
+            var handler = CreateDaemonLogsReadHandler(stream);
             var request = CreateDaemonLogsReadRequest(
                 "req-daemon-logs-valid",
                 new IpcDaemonLogsReadRequest(
@@ -218,7 +218,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator DaemonLogsReadHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new DaemonLogsReadUnityIpcMethodHandler(new DaemonLogRingBuffer());
+            var handler = CreateDaemonLogsReadHandler(new DaemonLogRingBuffer());
             var request = CreateDaemonLogsReadRequest("req-daemon-logs-invalid", 123);
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -234,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var stream = new DaemonLogRingBuffer();
             stream.Write("ipc", "info", "server started");
-            var handler = new DaemonLogsReadUnityIpcMethodHandler(stream);
+            var handler = CreateDaemonLogsReadHandler(stream);
             var request = CreateDaemonLogsReadRequest(
                 "req-daemon-logs-stack",
                 new IpcDaemonLogsReadRequest(
@@ -300,6 +300,15 @@ namespace MackySoft.Ucli.Unity.Tests
             object payload)
         {
             return CreateRequest(requestId, IpcMethodNames.DaemonLogsRead, payload);
+        }
+
+        private static DaemonLogsReadUnityIpcMethodHandler CreateDaemonLogsReadHandler (IDaemonLogStream stream)
+        {
+            return new DaemonLogsReadUnityIpcMethodHandler(
+                stream,
+                new DaemonLogsReadRequestValidator(),
+                new DaemonLogsReadQueryEngine(),
+                new DaemonLogsReadResponseFactory());
         }
 
         private static IpcRequest CreateRequest (

@@ -559,7 +559,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider()),
                     new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
                     new TestRunUnityIpcMethodHandler(testRunService),
-                    new DaemonLogsReadUnityIpcMethodHandler(daemonLogStream),
+                    new DaemonLogsReadUnityIpcMethodHandler(
+                        daemonLogStream,
+                        new DaemonLogsReadRequestValidator(),
+                        new DaemonLogsReadQueryEngine(),
+                        new DaemonLogsReadResponseFactory()),
                     new ShutdownUnityIpcMethodHandler(),
                 });
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);

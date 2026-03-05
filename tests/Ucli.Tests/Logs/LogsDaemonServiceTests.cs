@@ -37,7 +37,7 @@ public sealed class LogsDaemonServiceTests
                     events: Array.Empty<IpcDaemonLogEvent>(),
                     nextCursor: "stream-1:3")),
             ]);
-        var service = new LogsDaemonService(resolver, daemonLogsClient);
+        var service = CreateService(resolver, daemonLogsClient);
         var emittedMessages = new List<string>();
 
         var result = await service.Execute(
@@ -85,7 +85,7 @@ public sealed class LogsDaemonServiceTests
                     events: Array.Empty<IpcDaemonLogEvent>(),
                     nextCursor: "stream-1:11")),
             ]);
-        var service = new LogsDaemonService(resolver, daemonLogsClient);
+        var service = CreateService(resolver, daemonLogsClient);
 
         var result = await service.Execute(
             new LogsDaemonServiceRequest(
@@ -162,6 +162,17 @@ public sealed class LogsDaemonServiceTests
         string nextCursor)
     {
         return new IpcDaemonLogsReadResponse(events, nextCursor);
+    }
+
+    private static LogsDaemonService CreateService (
+        IDaemonCommandExecutionContextResolver resolver,
+        IDaemonLogsClient daemonLogsClient)
+    {
+        return new LogsDaemonService(
+            resolver,
+            daemonLogsClient,
+            new LogsDaemonRequestValidator(),
+            new DaemonLogsStreamTerminationPolicy());
     }
 
     private sealed class StubDaemonLogsClient : IDaemonLogsClient

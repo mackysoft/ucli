@@ -77,6 +77,8 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
         services.AddSingleton<IDaemonLogReader, DaemonLogReader>();
         services.AddSingleton<IDaemonLogsClient, IpcDaemonLogsClient>();
+        services.AddSingleton<ILogsDaemonRequestValidator, LogsDaemonRequestValidator>();
+        services.AddSingleton<IDaemonLogsStreamTerminationPolicy, DaemonLogsStreamTerminationPolicy>();
         services.AddSingleton<ILogsDaemonService, LogsDaemonService>();
         services.AddSingleton<IUnityDaemonProcessLauncher, UnityDaemonProcessLauncher>();
         services.AddSingleton<IpcDaemonPingClient>();

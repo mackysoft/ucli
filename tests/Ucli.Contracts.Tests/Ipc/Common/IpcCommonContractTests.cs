@@ -117,6 +117,64 @@ public sealed class IpcCommonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcDaemonLogsLevelCodec_HasStableStringValues ()
+    {
+        Assert.Equal("all", IpcDaemonLogsLevelCodec.All);
+        Assert.Equal("error", IpcDaemonLogsLevelCodec.Error);
+        Assert.Equal("warning", IpcDaemonLogsLevelCodec.Warning);
+        Assert.Equal("info", IpcDaemonLogsLevelCodec.Info);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("all", true, IpcDaemonLogsLevelCodec.All)]
+    [InlineData(" WARNING ", true, IpcDaemonLogsLevelCodec.Warning)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcDaemonLogsLevelCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcDaemonLogsLevelCodec.TryParse(value, out var level);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, level);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsQueryTargetCodec_HasStableStringValues ()
+    {
+        Assert.Equal("message", IpcDaemonLogsQueryTargetCodec.Message);
+        Assert.Equal("stack", IpcDaemonLogsQueryTargetCodec.Stack);
+        Assert.Equal("both", IpcDaemonLogsQueryTargetCodec.Both);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("message", true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData(" STACK ", true, IpcDaemonLogsQueryTargetCodec.Stack)]
+    [InlineData("both", true, IpcDaemonLogsQueryTargetCodec.Both)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcDaemonLogsQueryTargetCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcDaemonLogsQueryTargetCodec.TryParse(value, out var queryTarget);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, queryTarget);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcTestRunPlatformCodec_HasStableStringValues ()
     {
         Assert.Equal("editmode", IpcTestRunPlatformCodec.EditMode);
