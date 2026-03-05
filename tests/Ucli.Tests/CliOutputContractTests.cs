@@ -22,22 +22,36 @@ public sealed class CliOutputContractTests
 
     private const string InitProjectPathOptionMessage = "Argument '--projectPath' is not recognized.";
 
+    private const string StatusModeOptionMessage = "Argument '--mode' is not recognized.";
+
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Status_ReturnsNotImplementedErrorAsSingleJson ()
+    public async Task Status_WithProjectPath_ReturnsStatusJsonContractAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Status);
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "status-success");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Status,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.Status,
-            status: "error",
-            exitCode: (int)CliExitCode.ToolError);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "COMMAND_NOT_IMPLEMENTED");
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        CommandResultAssert.HasNoErrors(outputJson.RootElement);
+
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("daemonStatus", "notRunning")
+                .HasString("unityVersion", "6000.1.4f1")
+                .IsNull("serverVersion")
+                .IsNull("compileState")
+                .IsNull("runtime")
+                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds));
     }
 
     [Theory]
@@ -228,6 +242,54 @@ public sealed class CliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Status_WithInvalidTimeoutOption_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "status-invalid-timeout");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Status,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            "abc");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.Status,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains("timeout", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Status_WithModeOption_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Status,
+            UcliContractConstants.CliOption.Mode,
+            "auto");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.Status,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(StatusModeOptionMessage, result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task UnknownCommand_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
         var result = await CliProcessRunner.RunCommand("unknown");
@@ -302,6 +364,7 @@ public sealed class CliOutputContractTests
             .HasString("readIndexDefaultMode", UcliContractConstants.Config.ReadIndexModeRequireFresh)
             .HasInt32("ipcDefaultTimeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds)
             .HasProperty("ipcTimeoutMillisecondsByCommand", timeoutByCommand => timeoutByCommand
+                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandTest)
                 .IsNull(UcliContractConstants.Config.IpcTimeoutCommandStatus)
                 .IsNull(UcliContractConstants.Config.IpcTimeoutCommandValidate)
                 .IsNull(UcliContractConstants.Config.IpcTimeoutCommandPlan)

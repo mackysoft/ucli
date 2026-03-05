@@ -6,6 +6,7 @@ internal static class IpcTimeoutCommandNames
     /// <summary> Gets supported command-name keys used by config validation. </summary>
     public static IReadOnlyCollection<string> SupportedCommandNames { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
+        "test",
         "status",
         "validate",
         "plan",

@@ -3,9 +3,6 @@ namespace MackySoft.Ucli.TestRun;
 /// <summary> Defines machine-readable error codes used by test-run service results. </summary>
 internal static class TestRunErrorCodes
 {
-    /// <summary> Gets the error code emitted when daemon execution path is currently unsupported by test-run core service. </summary>
-    public const string TestRunDaemonPathUnsupported = "TEST_RUN_DAEMON_PATH_UNSUPPORTED";
-
     /// <summary> Gets the error code emitted when Unity test process execution fails. </summary>
     public const string UnityTestExecutionFailed = "UNITY_TEST_EXECUTION_FAILED";
 

@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -23,7 +24,11 @@ public sealed class UnityTestExecutorTests
             new StubUnityCommandBuilder(["-batchmode"]),
             new StubProcessRunner(ProcessRunResult.Exited(0)));
 
-        var result = await executor.Execute(configuration, artifactPaths, CancellationToken.None);
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, result.ProcessExitCode);
@@ -41,7 +46,11 @@ public sealed class UnityTestExecutorTests
             new StubUnityCommandBuilder(["-batchmode"]),
             new StubProcessRunner(ProcessRunResult.Exited(17, "Process exited with code 17.")));
 
-        var result = await executor.Execute(configuration, artifactPaths, CancellationToken.None);
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.AbnormalExit, result.FailureKind);
@@ -61,11 +70,39 @@ public sealed class UnityTestExecutorTests
             new StubUnityCommandBuilder(["-batchmode"]),
             new StubProcessRunner(ProcessRunResult.Exited(0)));
 
-        var result = await executor.Execute(configuration, artifactPaths, CancellationToken.None);
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.ArtifactMissing, result.FailureKind);
         Assert.Contains("results.xml", result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WithSubSecondTimeout_RoundsUpToOneSecond ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "timeout-round-up");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+        scope.WriteFile("run/results.xml", "<test-run />");
+        scope.WriteFile("run/editor.log", "log");
+        var processRunner = new StubProcessRunner(ProcessRunResult.Exited(0));
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            processRunner);
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(1),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, processRunner.LastRequest.TimeoutSeconds);
     }
 
     private static ResolvedTestRunConfiguration CreateConfiguration (TestDirectoryScope scope)
@@ -80,14 +117,14 @@ public sealed class UnityTestExecutorTests
             Mode: "oneshot",
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: TestRunPlatform.EditMode,
+            TestPlatform: IpcTestRunPlatform.EditMode,
             RawTestPlatform: "editmode",
             BuildTarget: null,
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],
             TestSettingsPath: null,
-            TimeoutSeconds: 1800);
+            TimeoutMilliseconds: null);
     }
 
     private static ArtifactPaths CreateArtifactPaths (TestDirectoryScope scope)
@@ -121,10 +158,13 @@ public sealed class UnityTestExecutorTests
             this.result = result;
         }
 
+        public ProcessRunRequest LastRequest { get; private set; } = null!;
+
         public Task<ProcessRunResult> RunAsync (
             ProcessRunRequest request,
             CancellationToken cancellationToken = default)
         {
+            LastRequest = request;
             return Task.FromResult(result);
         }
     }

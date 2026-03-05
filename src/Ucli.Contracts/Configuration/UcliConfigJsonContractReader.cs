@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Configuration;
@@ -35,39 +36,80 @@ internal static class UcliConfigJsonContractReader
             return false;
         }
 
-        var unknownProperty = FindUnknownProperty(root, StrictAllowedProperties);
+        var unknownProperty = JsonObjectPropertyReader.FindUnknownProperty(root, StrictAllowedProperties);
         if (!string.IsNullOrWhiteSpace(unknownProperty))
         {
             error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.UnknownProperty, unknownProperty);
             return false;
         }
 
-        if (!TryReadRequiredInt32(root, UcliConfigJsonPropertyNames.SchemaVersion, out var schemaVersion, out error))
+        if (!JsonObjectPropertyReader.TryReadRequiredInt32(
+            root,
+            UcliConfigJsonPropertyNames.SchemaVersion,
+            CreateMissingPropertyError,
+            CreatePropertyTypeMismatchError,
+            UcliConfigJsonReadError.None,
+            out var schemaVersion,
+            out error))
         {
             return false;
         }
 
-        if (!TryReadRequiredString(root, UcliConfigJsonPropertyNames.OperationPolicy, out var operationPolicy, out error))
+        if (!JsonObjectPropertyReader.TryReadRequiredString(
+            root,
+            UcliConfigJsonPropertyNames.OperationPolicy,
+            CreateMissingPropertyError,
+            CreatePropertyTypeMismatchError,
+            UcliConfigJsonReadError.None,
+            out var operationPolicy,
+            out error))
         {
             return false;
         }
 
-        if (!TryReadRequiredString(root, UcliConfigJsonPropertyNames.PlanTokenMode, out var planTokenMode, out error))
+        if (!JsonObjectPropertyReader.TryReadRequiredString(
+            root,
+            UcliConfigJsonPropertyNames.PlanTokenMode,
+            CreateMissingPropertyError,
+            CreatePropertyTypeMismatchError,
+            UcliConfigJsonReadError.None,
+            out var planTokenMode,
+            out error))
         {
             return false;
         }
 
-        if (!TryReadOptionalString(root, UcliConfigJsonPropertyNames.ReadIndexDefaultMode, out var readIndexDefaultMode, out error))
+        if (!JsonObjectPropertyReader.TryReadOptionalString(
+            root,
+            UcliConfigJsonPropertyNames.ReadIndexDefaultMode,
+            CreatePropertyTypeMismatchError,
+            UcliConfigJsonReadError.None,
+            out var readIndexDefaultMode,
+            out error))
         {
             return false;
         }
 
-        if (!TryReadRequiredStringArray(root, UcliConfigJsonPropertyNames.OperationAllowlist, out var operationAllowlist, out error))
+        if (!JsonObjectPropertyReader.TryReadRequiredStringArray(
+            root,
+            UcliConfigJsonPropertyNames.OperationAllowlist,
+            CreateMissingPropertyError,
+            CreatePropertyTypeMismatchError,
+            CreateArrayElementTypeMismatchError,
+            UcliConfigJsonReadError.None,
+            out var operationAllowlist,
+            out error))
         {
             return false;
         }
 
-        if (!TryReadOptionalNullableInt32(root, UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds, out var ipcDefaultTimeoutMilliseconds, out error))
+        if (!JsonObjectPropertyReader.TryReadOptionalNullableInt32(
+            root,
+            UcliConfigJsonPropertyNames.IpcDefaultTimeoutMilliseconds,
+            CreatePropertyTypeMismatchError,
+            UcliConfigJsonReadError.None,
+            out var ipcDefaultTimeoutMilliseconds,
+            out error))
         {
             return false;
         }
@@ -122,141 +164,19 @@ internal static class UcliConfigJsonContractReader
         return true;
     }
 
-    private static bool TryReadRequiredInt32 (
-        JsonElement root,
-        string propertyName,
-        out int value,
-        out UcliConfigJsonReadError error)
+    private static UcliConfigJsonReadError CreateMissingPropertyError (string propertyName)
     {
-        value = default;
-        if (!root.TryGetProperty(propertyName, out var propertyElement))
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.MissingProperty, propertyName);
-            return false;
-        }
-
-        if (propertyElement.ValueKind != JsonValueKind.Number || !propertyElement.TryGetInt32(out value))
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.PropertyTypeMismatch, propertyName);
-            return false;
-        }
-
-        error = UcliConfigJsonReadError.None;
-        return true;
+        return new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.MissingProperty, propertyName);
     }
 
-    private static bool TryReadRequiredString (
-        JsonElement root,
-        string propertyName,
-        out string value,
-        out UcliConfigJsonReadError error)
+    private static UcliConfigJsonReadError CreatePropertyTypeMismatchError (string propertyName)
     {
-        value = string.Empty;
-        if (!root.TryGetProperty(propertyName, out var propertyElement))
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.MissingProperty, propertyName);
-            return false;
-        }
-
-        if (propertyElement.ValueKind != JsonValueKind.String)
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.PropertyTypeMismatch, propertyName);
-            return false;
-        }
-
-        value = propertyElement.GetString() ?? string.Empty;
-        error = UcliConfigJsonReadError.None;
-        return true;
+        return new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.PropertyTypeMismatch, propertyName);
     }
 
-    private static bool TryReadOptionalString (
-        JsonElement root,
-        string propertyName,
-        out string? value,
-        out UcliConfigJsonReadError error)
+    private static UcliConfigJsonReadError CreateArrayElementTypeMismatchError (string propertyName)
     {
-        value = null;
-        if (!root.TryGetProperty(propertyName, out var propertyElement))
-        {
-            error = UcliConfigJsonReadError.None;
-            return true;
-        }
-
-        if (propertyElement.ValueKind != JsonValueKind.String)
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.PropertyTypeMismatch, propertyName);
-            return false;
-        }
-
-        value = propertyElement.GetString();
-        error = UcliConfigJsonReadError.None;
-        return true;
-    }
-
-    private static bool TryReadRequiredStringArray (
-        JsonElement root,
-        string propertyName,
-        out string[] values,
-        out UcliConfigJsonReadError error)
-    {
-        values = Array.Empty<string>();
-        if (!root.TryGetProperty(propertyName, out var propertyElement))
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.MissingProperty, propertyName);
-            return false;
-        }
-
-        if (propertyElement.ValueKind != JsonValueKind.Array)
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.PropertyTypeMismatch, propertyName);
-            return false;
-        }
-
-        var list = new List<string>();
-        foreach (var element in propertyElement.EnumerateArray())
-        {
-            if (element.ValueKind != JsonValueKind.String)
-            {
-                error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.ArrayElementTypeMismatch, propertyName);
-                return false;
-            }
-
-            list.Add(element.GetString() ?? string.Empty);
-        }
-
-        values = list.ToArray();
-        error = UcliConfigJsonReadError.None;
-        return true;
-    }
-
-    private static bool TryReadOptionalNullableInt32 (
-        JsonElement root,
-        string propertyName,
-        out int? value,
-        out UcliConfigJsonReadError error)
-    {
-        value = null;
-        if (!root.TryGetProperty(propertyName, out var propertyElement))
-        {
-            error = UcliConfigJsonReadError.None;
-            return true;
-        }
-
-        if (propertyElement.ValueKind == JsonValueKind.Null)
-        {
-            error = UcliConfigJsonReadError.None;
-            return true;
-        }
-
-        if (propertyElement.ValueKind != JsonValueKind.Number || !propertyElement.TryGetInt32(out var parsedValue))
-        {
-            error = new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.PropertyTypeMismatch, propertyName);
-            return false;
-        }
-
-        value = parsedValue;
-        error = UcliConfigJsonReadError.None;
-        return true;
+        return new UcliConfigJsonReadError(UcliConfigJsonReadErrorKind.ArrayElementTypeMismatch, propertyName);
     }
 
     private static bool TryReadOptionalInt32Dictionary (
@@ -351,18 +271,4 @@ internal static class UcliConfigJsonContractReader
         return values.ToArray();
     }
 
-    private static string? FindUnknownProperty (
-        JsonElement root,
-        HashSet<string> allowedProperties)
-    {
-        foreach (var property in root.EnumerateObject())
-        {
-            if (!allowedProperties.Contains(property.Name))
-            {
-                return property.Name;
-            }
-        }
-
-        return null;
-    }
 }

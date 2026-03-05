@@ -10,6 +10,10 @@ internal static class UcliContractConstants
 
         public const string ProjectPath = "--projectPath";
 
+        public const string Timeout = "--timeout";
+
+        public const string Mode = "--mode";
+
         public const string Unknown = "--unknown";
     }
 
@@ -33,7 +37,9 @@ internal static class UcliContractConstants
 
         public const string ReadIndexModeRequireFresh = "requireFresh";
 
-        public const int IpcDefaultTimeoutMilliseconds = 3000;
+        public const int IpcDefaultTimeoutMilliseconds = 1800000;
+
+        public const string IpcTimeoutCommandTest = "test";
 
         public const string IpcTimeoutCommandStatus = "status";
 
@@ -62,7 +68,7 @@ internal static class UcliContractConstants
 
         public const string TestPlatformEditMode = "editmode";
 
-        public const int TimeoutSeconds = 1800;
+        public const int TimeoutMilliseconds = 1800000;
     }
 
     public const string LocalDirectoryIgnoreEntry = "local/";

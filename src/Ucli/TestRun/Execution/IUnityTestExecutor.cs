@@ -9,10 +9,12 @@ internal interface IUnityTestExecutor
     /// <summary> Executes one Unity test run. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="artifactPaths"> The run artifact paths. </param>
+    /// <param name="timeout"> The execution timeout for one run. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by the caller. </param>
     /// <returns> A task that resolves to the Unity test execution result. </returns>
     ValueTask<UnityTestExecutionResult> Execute (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

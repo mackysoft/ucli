@@ -53,9 +53,9 @@ namespace MackySoft.Ucli.Unity.Tests
             await waitTask;
         });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public void StartupCoordinator_Wait_WhenCanceledWithoutStartup_ThrowsOperationCanceledException ()
+        public IEnumerator StartupCoordinator_Wait_WhenCanceledWithoutStartup_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
@@ -63,15 +63,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             cancellationTokenSource.Cancel();
 
-            try
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                waitTask.GetAwaiter().GetResult();
-                Assert.Fail($"{nameof(OperationCanceledException)} was expected.");
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
+                await waitTask.AsUniTask();
+            });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -134,6 +130,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
@@ -157,6 +154,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
@@ -184,6 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
@@ -211,6 +210,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
@@ -238,6 +238,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: string.Empty);
 
@@ -255,6 +256,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: false),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "invalid-token");
 
@@ -272,6 +274,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new ThrowingSessionTokenValidator(new IOException("session file read failed")),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "valid-token");
 
@@ -289,6 +292,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal());
             var request = CreatePingRequest(sessionToken: "valid-token");
 
@@ -300,6 +304,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.Runtime, Is.EqualTo("batchmode"));
             Assert.That(string.IsNullOrWhiteSpace(payload.UnityVersion), Is.False);
+            Assert.That(string.IsNullOrWhiteSpace(payload.ServerVersion), Is.False);
+            var expectedServerVersion = new AssemblyServerVersionProvider().GetVersion();
+            Assert.That(payload.ServerVersion, Is.EqualTo(expectedServerVersion));
+            Assert.That(Regex.IsMatch(payload.ServerVersion, "^[0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?$"), Is.True);
+            Assert.That(
+                payload.CompileState == IpcCompileStateCodec.Ready
+                || payload.CompileState == IpcCompileStateCodec.Compiling,
+                Is.True);
         });
 
         [UnityTest]
@@ -310,6 +322,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 dispatcher,
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal());
             var request = CreateExecuteRequest(sessionToken: "valid-token", requestId: "req-execute");
 
@@ -329,6 +342,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var server = CreateServerForRequestHandling(
                 new StubSessionTokenValidator(accepted: true),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 shutdownSignal);
             var request = CreateShutdownRequest(sessionToken: "valid-token", requestId: "req-shutdown");
 
@@ -339,6 +353,54 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.Accepted, Is.True);
             Assert.That(shutdownSignal.SignalCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleRequest_WhenValidTokenAndTestRun_CallsTestRunService () => UniTask.ToCoroutine(async () =>
+        {
+            var testRunService = new StubUnityTestRunService(new IpcTestRunResponse(2));
+            var server = CreateServerForRequestHandling(
+                new StubSessionTokenValidator(accepted: true),
+                new StubExecuteRequestDispatcher(),
+                testRunService,
+                new StubDaemonShutdownSignal());
+            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run");
+
+            var response = await server.HandleRequest(request);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(testRunService.CallCount, Is.EqualTo(1));
+            Assert.That(testRunService.LastRequest, Is.Not.Null);
+            Assert.That(testRunService.LastRequest.TestPlatform, Is.EqualTo("editmode"));
+            var payload = response.Payload.Deserialize<IpcTestRunResponse>(SerializerOptions);
+            Assert.That(payload, Is.Not.Null);
+            Assert.That(payload.ExitCode, Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleRequest_WhenTestRunPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var server = CreateServerForRequestHandling(
+                new StubSessionTokenValidator(accepted: true),
+                new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
+                new StubDaemonShutdownSignal());
+            var invalidPayload = JsonSerializer.SerializeToElement(123, SerializerOptions);
+            var request = new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "req-test-run-invalid",
+                SessionToken: "valid-token",
+                Method: IpcMethodNames.TestRun,
+                Payload: invalidPayload);
+
+            var response = await server.HandleRequest(request);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
         });
 
         private static IpcRequest CreatePingRequest (string sessionToken)
@@ -389,11 +451,35 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: payload);
         }
 
+        private static IpcRequest CreateTestRunRequest (
+            string sessionToken,
+            string requestId)
+        {
+            var payload = JsonSerializer.SerializeToElement(
+                new IpcTestRunRequest(
+                    TestPlatform: "editmode",
+                    BuildTarget: null,
+                    TestFilter: null,
+                    TestCategories: Array.Empty<string>(),
+                    AssemblyNames: Array.Empty<string>(),
+                    TestSettingsPath: null,
+                    ResultsXmlPath: "/tmp/results.xml",
+                    EditorLogPath: "/tmp/editor.log"),
+                SerializerOptions);
+            return new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: requestId,
+                SessionToken: sessionToken,
+                Method: IpcMethodNames.TestRun,
+                Payload: payload);
+        }
+
         private static UnityIpcServer CreateServerForLifecycle ()
         {
             return CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
                 new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
@@ -405,11 +491,13 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityIpcServer CreateServerForRequestHandling (
             ISessionTokenValidator sessionTokenValidator,
             IExecuteRequestDispatcher executeRequestDispatcher,
+            IUnityTestRunService testRunService,
             IDaemonShutdownSignal shutdownSignal)
         {
             return CreateServer(
                 sessionTokenValidator,
                 executeRequestDispatcher,
+                testRunService,
                 shutdownSignal,
                 Array.Empty<IUnityIpcTransportListener>());
         }
@@ -417,10 +505,18 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityIpcServer CreateServer (
             ISessionTokenValidator sessionTokenValidator,
             IExecuteRequestDispatcher executeRequestDispatcher,
+            IUnityTestRunService testRunService,
             IDaemonShutdownSignal shutdownSignal,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
         {
-            var methodDispatcher = new UnityIpcMethodDispatcher(executeRequestDispatcher);
+            var methodDispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[]
+                {
+                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider()),
+                    new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
+                    new TestRunUnityIpcMethodHandler(testRunService),
+                    new ShutdownUnityIpcMethodHandler(),
+                });
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
             var connectionHandler = new UnityIpcConnectionHandler(requestHandler, shutdownSignal);
             return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);
@@ -501,6 +597,35 @@ namespace MackySoft.Ucli.Unity.Tests
                     Status: IpcProtocol.StatusOk,
                     Payload: payload,
                     Errors: Array.Empty<IpcError>()));
+            }
+        }
+
+        private sealed class StubUnityTestRunService : IUnityTestRunService
+        {
+            private readonly IpcTestRunResponse response;
+
+            public StubUnityTestRunService ()
+                : this(new IpcTestRunResponse(0))
+            {
+            }
+
+            public StubUnityTestRunService (IpcTestRunResponse response)
+            {
+                this.response = response ?? throw new ArgumentNullException(nameof(response));
+            }
+
+            public int CallCount { get; private set; }
+
+            public IpcTestRunRequest LastRequest { get; private set; }
+
+            public Task<IpcTestRunResponse> Execute (
+                IpcTestRunRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CallCount++;
+                LastRequest = request;
+                return Task.FromResult(response);
             }
         }
 

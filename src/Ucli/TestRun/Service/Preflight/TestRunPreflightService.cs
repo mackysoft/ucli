@@ -1,3 +1,4 @@
+using System.Globalization;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Execution;
@@ -58,10 +59,22 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(configLoadResult.Error!));
         }
 
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
+            configuration.TimeoutMilliseconds?.ToString(CultureInfo.InvariantCulture),
+            UcliCommandNames.Test,
+            configLoadResult.Config!);
+        if (!timeoutResolutionResult.IsSuccess)
+        {
+            return TestRunPreflightResult.FailureResult(
+                TestRunServiceErrorMapper.MapExecutionError(timeoutResolutionResult.Error!));
+        }
+
+        var timeout = timeoutResolutionResult.Timeout!.Value;
+        var timeoutOption = checked(((int)timeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
         var modeDecisionResult = await modeDecisionService.Decide(
             commandName: UcliCommandNames.Test,
             mode: configuration.Mode,
-            timeout: null,
+            timeout: timeoutOption,
             config: configLoadResult.Config!,
             unityProject: configuration.UnityProject,
             cancellationToken).ConfigureAwait(false);
@@ -78,14 +91,11 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(modeDecisionResult.Error!));
         }
 
-        if (modeDecisionResult.Decision!.Target == UnityExecutionTarget.Daemon)
-        {
-            return TestRunPreflightResult.FailureResult(TestRunServiceResult.ToolError(
-                "Daemon path is not supported by test run core service.",
-                TestRunErrorCodes.TestRunDaemonPathUnsupported));
-        }
-
-        return TestRunPreflightResult.Success(configuration);
+        var context = new TestRunExecutionContext(
+            Configuration: configuration,
+            Target: modeDecisionResult.Decision!.Target,
+            Timeout: timeout);
+        return TestRunPreflightResult.Success(context);
     }
 
     /// <summary> Resolves run configuration and converts unexpected exceptions into structured failures. </summary>

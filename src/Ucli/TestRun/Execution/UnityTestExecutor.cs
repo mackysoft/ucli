@@ -25,18 +25,22 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
     /// <summary> Executes one Unity test run and validates required artifacts. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="artifactPaths"> The run artifact paths. </param>
+    /// <param name="timeout"> The execution timeout for one run. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by the caller. </param>
     /// <returns> A task that resolves to the Unity test execution result. </returns>
     public async ValueTask<UnityTestExecutionResult> Execute (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(artifactPaths);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var arguments = unityCommandBuilder.BuildArguments(configuration, artifactPaths);
+        var timeoutSeconds = ConvertTimeoutMillisecondsToProcessTimeoutSeconds(timeout);
 
         ProcessRunResult processRunResult;
         try
@@ -45,7 +49,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                 new ProcessRunRequest(
                     FileName: configuration.UnityEditorPath,
                     Arguments: arguments,
-                    TimeoutSeconds: configuration.TimeoutSeconds),
+                    TimeoutSeconds: timeoutSeconds),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -65,7 +69,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             case ProcessRunStatus.TimedOut:
                 return UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.TimedOut,
-                    processRunResult.ErrorMessage ?? $"Unity process timed out after {configuration.TimeoutSeconds} seconds.");
+                    processRunResult.ErrorMessage ?? $"Unity process timed out after {timeoutSeconds} seconds.");
 
             case ProcessRunStatus.Canceled:
                 return UnityTestExecutionResult.Failure(
@@ -95,20 +99,27 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                     "Unity process execution status is unknown.");
         }
 
-        if (!File.Exists(artifactPaths.ResultsXmlPath))
+        if (!TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var artifactValidationError))
         {
             return UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.ArtifactMissing,
-                $"Unity process completed but results.xml was not generated: {artifactPaths.ResultsXmlPath}");
-        }
-
-        if (!File.Exists(artifactPaths.EditorLogPath))
-        {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.ArtifactMissing,
-                $"Unity process completed but editor.log was not generated: {artifactPaths.EditorLogPath}");
+                artifactValidationError!);
         }
 
         return UnityTestExecutionResult.Success(processRunResult.ExitCode!.Value);
+    }
+
+    /// <summary> Converts one millisecond timeout to process timeout seconds with ceil and minimum one second. </summary>
+    /// <param name="timeout"> The timeout to convert. </param>
+    /// <returns> The converted timeout in seconds. </returns>
+    private static int ConvertTimeoutMillisecondsToProcessTimeoutSeconds (TimeSpan timeout)
+    {
+        var timeoutSeconds = (int)Math.Ceiling(timeout.TotalSeconds);
+        if (timeoutSeconds < 1)
+        {
+            return 1;
+        }
+
+        return timeoutSeconds;
     }
 }

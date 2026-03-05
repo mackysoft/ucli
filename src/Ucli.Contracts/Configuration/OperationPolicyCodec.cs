@@ -1,21 +1,28 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Configuration;
 
 /// <summary> Converts operation-policy values between enum and contract literals. </summary>
 public static class OperationPolicyCodec
 {
+    private static readonly (OperationPolicy Value, string Literal)[] Mappings =
+    {
+        (OperationPolicy.Safe, OperationPolicyValues.Safe),
+        (OperationPolicy.Advanced, OperationPolicyValues.Advanced),
+        (OperationPolicy.Dangerous, OperationPolicyValues.Dangerous),
+    };
+
     /// <summary> Converts one operation-policy enum value to config literal. </summary>
     /// <param name="operationPolicy"> The operation-policy enum value. </param>
     /// <returns> The config literal value. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="operationPolicy" /> is unsupported. </exception>
     public static string ToValue (OperationPolicy operationPolicy)
     {
-        return operationPolicy switch
-        {
-            OperationPolicy.Safe => OperationPolicyValues.Safe,
-            OperationPolicy.Advanced => OperationPolicyValues.Advanced,
-            OperationPolicy.Dangerous => OperationPolicyValues.Dangerous,
-            _ => throw new ArgumentOutOfRangeException(nameof(operationPolicy), operationPolicy, "Unsupported operationPolicy."),
-        };
+        return LiteralCodecUtilities.ToValue(
+            operationPolicy,
+            Mappings,
+            nameof(operationPolicy),
+            "Unsupported operationPolicy.");
     }
 
     /// <summary> Tries to parse config literal to operation-policy enum. </summary>
@@ -26,25 +33,10 @@ public static class OperationPolicyCodec
         string? value,
         out OperationPolicy operationPolicy)
     {
-        if (string.Equals(value, OperationPolicyValues.Safe, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Safe;
-            return true;
-        }
-
-        if (string.Equals(value, OperationPolicyValues.Advanced, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Advanced;
-            return true;
-        }
-
-        if (string.Equals(value, OperationPolicyValues.Dangerous, StringComparison.OrdinalIgnoreCase))
-        {
-            operationPolicy = OperationPolicy.Dangerous;
-            return true;
-        }
-
-        operationPolicy = default;
-        return false;
+        return LiteralCodecUtilities.TryParse(
+            value,
+            Mappings,
+            StringComparison.OrdinalIgnoreCase,
+            out operationPolicy);
     }
 }

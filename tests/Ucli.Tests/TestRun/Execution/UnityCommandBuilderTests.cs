@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
 using MackySoft.Ucli.TestRun.Execution;
@@ -12,7 +13,7 @@ public sealed class UnityCommandBuilderTests
     public void BuildArguments_WithMinimumEditModeConfiguration_ReturnsRequiredArguments ()
     {
         var configuration = CreateConfiguration(
-            testPlatform: TestRunPlatform.EditMode,
+            testPlatform: IpcTestRunPlatform.EditMode,
             buildTarget: null,
             testFilter: null,
             testCategories: [],
@@ -45,7 +46,7 @@ public sealed class UnityCommandBuilderTests
     public void BuildArguments_WithPlayModeAndOptionalValues_IncludesOptions ()
     {
         var configuration = CreateConfiguration(
-            testPlatform: TestRunPlatform.PlayMode,
+            testPlatform: IpcTestRunPlatform.PlayMode,
             buildTarget: "StandaloneWindows64",
             testFilter: "Category=Smoke",
             testCategories: ["smoke", "quick"],
@@ -65,7 +66,7 @@ public sealed class UnityCommandBuilderTests
     }
 
     private static ResolvedTestRunConfiguration CreateConfiguration (
-        TestRunPlatform testPlatform,
+        IpcTestRunPlatform testPlatform,
         string? buildTarget,
         string? testFilter,
         string[] testCategories,
@@ -83,13 +84,13 @@ public sealed class UnityCommandBuilderTests
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: Path.GetFullPath("./Editors/6000.1.4f1/Editor/Unity"),
             TestPlatform: testPlatform,
-            RawTestPlatform: testPlatform == TestRunPlatform.PlayMode ? "playmode" : "editmode",
+            RawTestPlatform: IpcTestRunPlatformCodec.ToValue(testPlatform),
             BuildTarget: buildTarget,
             TestFilter: testFilter,
             TestCategories: testCategories,
             AssemblyNames: assemblyNames,
             TestSettingsPath: testSettingsPath,
-            TimeoutSeconds: 1800);
+            TimeoutMilliseconds: null);
     }
 
     private static ArtifactPaths CreateArtifactPaths ()

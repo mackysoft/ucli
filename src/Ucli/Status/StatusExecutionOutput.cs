@@ -1,0 +1,16 @@
+namespace MackySoft.Ucli.Status;
+
+/// <summary> Represents normalized output payload values for one status command execution. </summary>
+/// <param name="DaemonStatus"> The daemon status value. </param>
+/// <param name="UnityVersion"> The Unity editor version resolved from <c>ProjectVersion.txt</c>. </param>
+/// <param name="ServerVersion"> The daemon-side server version when daemon is reachable; otherwise <see langword="null" />. </param>
+/// <param name="CompileState"> The daemon compile-state value when daemon is reachable; otherwise <see langword="null" />. </param>
+/// <param name="Runtime"> The daemon runtime value when daemon is reachable; otherwise <see langword="null" />. </param>
+/// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status probing. </param>
+internal sealed record StatusExecutionOutput (
+    string DaemonStatus,
+    string UnityVersion,
+    string? ServerVersion,
+    string? CompileState,
+    string? Runtime,
+    int TimeoutMilliseconds);
