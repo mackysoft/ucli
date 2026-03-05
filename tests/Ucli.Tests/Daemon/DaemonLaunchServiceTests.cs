@@ -185,7 +185,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(7777, compensationService.LastProcessId);
         Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
-        Assert.True(compensationService.LastTimeout > TimeSpan.Zero);
+        Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
     }
 
     [Fact]
@@ -223,6 +223,122 @@ public sealed class DaemonLaunchServiceTests
         Assert.Contains("Daemon launch failed and cleanup failed.", error.Message, StringComparison.Ordinal);
         Assert.Contains("LaunchError=launch failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenLaunchFailureOccursAfterDeadline_StillRunsCompensation ()
+    {
+        var context = CreateContext("fingerprint-launch-timeout-compensation");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var launchError = ExecutionError.InternalError("launch failed after timeout");
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            LaunchDelay = TimeSpan.FromMilliseconds(50),
+            NextResult = UnityDaemonLaunchResult.Failure(launchError),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe();
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService);
+
+        var result = await service.Launch(context, TimeSpan.FromMilliseconds(1), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(launchError, result.Error);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenCancellationRequestedAfterLaunchFailure_StillRunsCompensation ()
+    {
+        var context = CreateContext("fingerprint-launch-cancel-after-failure");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var launchError = ExecutionError.InternalError("launch failed after cancel");
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+        };
+        using var cancellationSource = new CancellationTokenSource();
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            OnLaunch = cancellationSource.Cancel,
+            NextResult = UnityDaemonLaunchResult.Failure(launchError),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe();
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService);
+
+        var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), cancellationSource.Token);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        Assert.Equal(launchError, result.Error);
+        Assert.True(cancellationSource.IsCancellationRequested);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenCanceledDuringReadinessProbe_RunsCompensationThenThrows ()
+    {
+        var context = CreateContext("fingerprint-launch-cancel-during-readiness");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7777 };
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(7777),
+        };
+        using var cancellationSource = new CancellationTokenSource();
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            OnWaitUntilReady = cancellationSource.Cancel,
+            NextException = new OperationCanceledException(cancellationSource.Token),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await service.Launch(context, TimeSpan.FromMilliseconds(500), cancellationSource.Token);
+        });
+
+        Assert.True(cancellationSource.IsCancellationRequested);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(7777, compensationService.LastProcessId);
+        Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
+        Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
     }
 
     private static DaemonLaunchService CreateService (
@@ -303,17 +419,28 @@ public sealed class DaemonLaunchServiceTests
 
     private sealed class StubUnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
     {
+        public Action? OnLaunch { get; set; }
+
+        public TimeSpan LaunchDelay { get; set; }
+
         public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(1000);
 
         public int CallCount { get; private set; }
 
-        public ValueTask<UnityDaemonLaunchResult> Launch (
+        public async ValueTask<UnityDaemonLaunchResult> Launch (
             ResolvedUnityProjectContext unityProject,
             string daemonLogPath,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return ValueTask.FromResult(NextResult);
+            cancellationToken.ThrowIfCancellationRequested();
+            OnLaunch?.Invoke();
+            if (LaunchDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(LaunchDelay, cancellationToken);
+            }
+
+            return NextResult;
         }
     }
 
@@ -321,11 +448,21 @@ public sealed class DaemonLaunchServiceTests
     {
         public DaemonStartupReadinessProbeResult NextResult { get; set; } = DaemonStartupReadinessProbeResult.Ready();
 
+        public Action? OnWaitUntilReady { get; set; }
+
+        public Exception? NextException { get; set; }
+
         public ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReady (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
+            OnWaitUntilReady?.Invoke();
+            if (NextException is not null)
+            {
+                return ValueTask.FromException<DaemonStartupReadinessProbeResult>(NextException);
+            }
+
             return ValueTask.FromResult(NextResult);
         }
     }

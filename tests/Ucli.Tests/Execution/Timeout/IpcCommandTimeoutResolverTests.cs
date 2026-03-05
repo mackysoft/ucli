@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -8,7 +9,7 @@ namespace MackySoft.Ucli.Tests.Execution.Timeout;
 
 public sealed class IpcCommandTimeoutResolverTests
 {
-    private const string CommandName = "test";
+    private static readonly UcliCommand Command = new("test");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -16,7 +17,7 @@ public sealed class IpcCommandTimeoutResolverTests
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3200);
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, CommandName, config);
+        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3200), result.Timeout);
@@ -29,7 +30,7 @@ public sealed class IpcCommandTimeoutResolverTests
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
 
-        var result = IpcCommandTimeoutResolver.Resolve("4500", CommandName, config);
+        var result = IpcCommandTimeoutResolver.Resolve("4500", Command, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(4500), result.Timeout);
@@ -44,10 +45,10 @@ public sealed class IpcCommandTimeoutResolverTests
             ipcDefaultTimeoutMilliseconds: 3000,
             ipcTimeoutMillisecondsByCommand: new Dictionary<string, int?>(StringComparer.Ordinal)
             {
-                [CommandName] = 6200,
+                [Command.Name] = 6200,
             });
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, CommandName, config);
+        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(6200), result.Timeout);
@@ -62,10 +63,10 @@ public sealed class IpcCommandTimeoutResolverTests
             ipcDefaultTimeoutMilliseconds: 3000,
             ipcTimeoutMillisecondsByCommand: new Dictionary<string, int?>(StringComparer.Ordinal)
             {
-                [CommandName] = null,
+                [Command.Name] = null,
             });
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, CommandName, config);
+        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3000), result.Timeout);
@@ -83,7 +84,7 @@ public sealed class IpcCommandTimeoutResolverTests
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
 
-        var result = IpcCommandTimeoutResolver.Resolve(optionValue, CommandName, config);
+        var result = IpcCommandTimeoutResolver.Resolve(optionValue, Command, config);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Timeout);
@@ -98,7 +99,7 @@ public sealed class IpcCommandTimeoutResolverTests
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 0);
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, CommandName, config);
+        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Timeout);
@@ -115,10 +116,10 @@ public sealed class IpcCommandTimeoutResolverTests
             ipcDefaultTimeoutMilliseconds: 3000,
             ipcTimeoutMillisecondsByCommand: new Dictionary<string, int?>(StringComparer.Ordinal)
             {
-                [CommandName] = 0,
+                [Command.Name] = 0,
             });
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, CommandName, config);
+        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Timeout);
@@ -129,13 +130,13 @@ public sealed class IpcCommandTimeoutResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithInvalidCommandName_ThrowsArgumentException ()
+    public void Resolve_WithInvalidCommand_ThrowsArgumentException ()
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
 
         Assert.Throws<ArgumentException>(() =>
         {
-            _ = IpcCommandTimeoutResolver.Resolve(null, " ", config);
+            _ = IpcCommandTimeoutResolver.Resolve(null, default, config);
         });
     }
 

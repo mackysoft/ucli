@@ -94,7 +94,7 @@ public sealed class DaemonLaunchCompensationServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task CleanupFailedLaunch_WhenTimeoutExceedsCompensationCap_UsesOneSecondBudget ()
+    public async Task CleanupFailedLaunch_WhenTimeoutExceedsCompensationCap_UsesTenSecondBudget ()
     {
         var processTerminationService = new StubDaemonProcessTerminationService
         {
@@ -110,11 +110,11 @@ public sealed class DaemonLaunchCompensationServiceTests
             CreateContext("fingerprint-compensation-timeout-cap"),
             processId: 4040,
             expectedIssuedAtUtc: DateTimeOffset.UtcNow,
-            timeout: TimeSpan.FromSeconds(5),
+            timeout: TimeSpan.FromSeconds(15),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(TimeSpan.FromSeconds(1), processTerminationService.LastTimeout);
+        Assert.Equal(TimeSpan.FromSeconds(10), processTerminationService.LastTimeout);
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)

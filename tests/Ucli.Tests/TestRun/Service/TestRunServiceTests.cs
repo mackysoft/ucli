@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -381,7 +382,7 @@ public sealed class TestRunServiceTests
         }
 
         public ValueTask<UnityExecutionModeDecisionResult> Decide (
-            string commandName,
+            UcliCommand command,
             string? mode,
             string? timeout,
             UcliConfig config,

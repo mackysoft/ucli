@@ -111,6 +111,32 @@ public sealed class DaemonStartupReadinessProbeTests
         Assert.True(logReader.CallCount >= 1);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenPingTimesOutUntilDeadline_ReturnsTimeout ()
+    {
+        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout")));
+        var logReader = new StubDaemonLogReader
+        {
+            NextResult = DaemonLogReadResult.Success(
+                "daemon bootstrap in progress\n",
+                truncated: false,
+                path: "/tmp/daemon.log",
+                sizeBytes: 32),
+        };
+        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-timeout-exception"),
+            TimeSpan.FromMilliseconds(20),
+            CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
     {
         return new ResolvedUnityProjectContext(

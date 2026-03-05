@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.Foundation;
@@ -94,6 +95,7 @@ public sealed class DaemonStopCommandServiceTests
             cancellationToken: cancellationToken);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(UcliCommandIds.DaemonStop, resolver.LastTimeoutCommand);
         Assert.Equal("/tmp/sandbox-unity", resolver.LastProjectPath);
         Assert.Equal("8888", resolver.LastTimeoutOption);
         Assert.Equal(cancellationToken, resolver.LastCancellationToken);

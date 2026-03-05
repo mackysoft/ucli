@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.UnityProject;
@@ -65,14 +66,18 @@ internal static class DaemonCommandServiceTestContext
 
         public string? LastTimeoutOption { get; private set; }
 
+        public UcliCommand LastTimeoutCommand { get; private set; }
+
         public CancellationToken LastCancellationToken { get; private set; }
 
         public ValueTask<DaemonCommandExecutionContextResolutionResult> Resolve (
+            UcliCommand timeoutCommand,
             string? projectPath,
             string? timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            LastTimeoutCommand = timeoutCommand;
             LastProjectPath = projectPath;
             LastTimeoutOption = timeout;
             LastCancellationToken = cancellationToken;

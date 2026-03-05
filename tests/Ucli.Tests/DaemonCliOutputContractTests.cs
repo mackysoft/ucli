@@ -32,7 +32,7 @@ public sealed class DaemonCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "notRunning")
-                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds)
+                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds)
                 .IsNull("session"));
     }
 
@@ -62,7 +62,7 @@ public sealed class DaemonCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasString("stopStatus", "notRunning")
                 .HasString("daemonStatus", "notRunning")
-                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds)
+                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonStopMilliseconds)
                 .IsNull("session"));
     }
 

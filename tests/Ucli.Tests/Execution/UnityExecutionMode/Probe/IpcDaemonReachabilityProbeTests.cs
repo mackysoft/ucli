@@ -12,6 +12,8 @@ public sealed class IpcDaemonReachabilityProbeTests
 {
     private static readonly TimeSpan DefaultProbeTimeout = TimeSpan.FromSeconds(3);
 
+    private static readonly TimeSpan ProbeAttemptTimeoutCap = TimeSpan.FromSeconds(1);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Probe_WhenUnixSocketFileDoesNotExist_ReturnsNotRunningWithoutSendingPing ()
@@ -52,12 +54,12 @@ public sealed class IpcDaemonReachabilityProbeTests
         Assert.Equal(context.RepositoryRoot, endpointResolver.LastStorageRoot);
         Assert.Equal(context.ProjectFingerprint, endpointResolver.LastProjectFingerprint);
         Assert.Equal(context.ProjectFingerprint, observedProject.ProjectFingerprint);
-        Assert.Equal(DefaultProbeTimeout, daemonPingClient.LastTimeout);
+        Assert.Equal(ProbeAttemptTimeoutCap, daemonPingClient.LastTimeout);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Probe_WhenPingTimesOut_ReturnsNotRunning ()
+    public async Task Probe_WhenPingTimesOut_ReturnsTimeoutFailure ()
     {
         var endpointResolver = new StubEndpointResolver(
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-timeout"));
@@ -67,8 +69,10 @@ public sealed class IpcDaemonReachabilityProbeTests
         var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
-        Assert.False(result.HasError);
-        Assert.Null(result.Error);
+        Assert.True(result.HasError);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("Timed out while probing daemon reachability.", error.Message, StringComparison.Ordinal);
         Assert.Equal(1, daemonPingClient.CallCount);
     }
 

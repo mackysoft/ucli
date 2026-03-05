@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -426,7 +427,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 SerializerOptions);
             var payload = JsonSerializer.SerializeToElement(
-                new IpcExecuteRequest(IpcExecuteCommandNames.Validate, arguments),
+                new IpcExecuteRequest(UcliCommandIds.Validate, arguments),
                 SerializerOptions);
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,

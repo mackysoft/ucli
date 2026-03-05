@@ -40,7 +40,7 @@ public sealed class StatusServiceTests
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal("ready", output.CompileState);
         Assert.Equal("batchmode", output.Runtime);
-        Assert.Equal(UcliConfig.DefaultIpcTimeoutMilliseconds, output.TimeoutMilliseconds);
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, output.TimeoutMilliseconds);
         Assert.Equal("session-token", daemonPingInfoClient.LastSessionToken);
         Assert.Equal(1, daemonPingInfoClient.CallCount);
         Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);

@@ -2,6 +2,7 @@ using System;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
 using NUnit.Framework;
@@ -276,8 +277,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             using var firstDocument = JsonDocument.Parse("{\"ops\":[{\"id\":\"op-1\",\"op\":\"ucli.resolve\",\"args\":{\"b\":2,\"a\":1}}],\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\"}");
             using var secondDocument = JsonDocument.Parse("{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"protocolVersion\":1,\"ops\":[{\"args\":{\"a\":1,\"b\":2},\"op\":\"ucli.resolve\",\"id\":\"op-1\"}]}");
-            var firstRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, firstDocument.RootElement.Clone());
-            var secondRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, secondDocument.RootElement.Clone());
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, firstDocument.RootElement.Clone());
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, secondDocument.RootElement.Clone());
 
             var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
             var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
@@ -290,11 +291,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenPlanTokenDiffers_ReturnsDifferentFingerprint ()
         {
             using var document = JsonDocument.Parse("{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"ucli.resolve\",\"args\":{}}]}");
-            var firstRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
             {
                 PlanToken = "token-1",
             };
-            var secondRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
             {
                 PlanToken = "token-2",
             };
@@ -310,11 +311,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public void FingerprintCalculator_WhenPlanTokenOnlyDiffersByOuterWhitespace_ReturnsSameFingerprint ()
         {
             using var document = JsonDocument.Parse("{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"ucli.resolve\",\"args\":{}}]}");
-            var firstRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
             {
                 PlanToken = "token-1",
             };
-            var secondRequest = new IpcExecuteRequest(IpcExecuteCommandNames.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
             {
                 PlanToken = " token-1 ",
             };

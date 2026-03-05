@@ -1,6 +1,6 @@
-using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -11,14 +11,14 @@ public sealed class DaemonCommandExecutionContextResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenDaemonCommandTimeoutOverrideExists_UsesDaemonOverride ()
+    public async Task Resolve_WhenDaemonSubcommandTimeoutOverrideExists_UsesOverride ()
     {
         var config = UcliConfig.CreateDefault() with
         {
             IpcDefaultTimeoutMilliseconds = 1111,
             IpcTimeoutMillisecondsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal)
             {
-                [UcliCommandNames.Daemon] = 2222,
+                [UcliCommandIds.DaemonStart.Name] = 2222,
             },
         };
         var initStatusContext = CreateContext(config);
@@ -26,7 +26,11 @@ public sealed class DaemonCommandExecutionContextResolverTests
             InitStatusContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
-        var result = await resolver.Resolve(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await resolver.Resolve(
+            timeoutCommand: UcliCommandIds.DaemonStart,
+            projectPath: null,
+            timeout: null,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<DaemonCommandExecutionContext>(result.Context);
@@ -43,7 +47,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
             IpcDefaultTimeoutMilliseconds = 1111,
             IpcTimeoutMillisecondsByCommand = new Dictionary<string, int?>(StringComparer.Ordinal)
             {
-                [UcliCommandNames.Daemon] = 2222,
+                [UcliCommandIds.DaemonStop.Name] = 2222,
             },
         };
         var initStatusContext = CreateContext(config);
@@ -51,7 +55,11 @@ public sealed class DaemonCommandExecutionContextResolverTests
             InitStatusContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
-        var result = await resolver.Resolve(projectPath: null, timeout: "3333", cancellationToken: CancellationToken.None);
+        var result = await resolver.Resolve(
+            timeoutCommand: UcliCommandIds.DaemonStop,
+            projectPath: null,
+            timeout: "3333",
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<DaemonCommandExecutionContext>(result.Context);
@@ -66,13 +74,35 @@ public sealed class DaemonCommandExecutionContextResolverTests
             InitStatusContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
-        var result = await resolver.Resolve(projectPath: null, timeout: "abc", cancellationToken: CancellationToken.None);
+        var result = await resolver.Resolve(
+            timeoutCommand: UcliCommandIds.DaemonStatus,
+            projectPath: null,
+            timeout: "abc",
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Context);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Resolve_WhenTimeoutCommandNameIsInvalid_ThrowsArgumentException ()
+    {
+        var initStatusContextResolver = new StubInitStatusContextResolver(
+            InitStatusContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
+        var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
+
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        {
+            await resolver.Resolve(
+                timeoutCommand: default,
+                projectPath: null,
+                timeout: null,
+                cancellationToken: CancellationToken.None);
+        });
     }
 
     private static InitStatusContext CreateContext (UcliConfig config)
