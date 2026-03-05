@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     /// <param name="Count"> The optional exact-count constraint. </param>
     /// <param name="Min"> The optional minimum-count constraint. </param>
     /// <param name="Max"> The optional maximum-count constraint. </param>
-    internal sealed record NormalizedExpectation (
+    public sealed record NormalizedExpectation (
         bool? NonNull,
         int? Count,
         int? Min,

@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
@@ -12,14 +10,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Default validate/plan pass executor implementation. </summary>
     internal sealed class OperationPlanPassExecutor : IOperationPlanPassExecutor
     {
-        private readonly IPhaseOperationRegistry operationRegistry;
+        private readonly OperationPlanStepRunner stepRunner;
 
         /// <summary> Initializes a new instance of the <see cref="OperationPlanPassExecutor" /> class. </summary>
         /// <param name="operationRegistry"> The phase-operation registry dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationRegistry" /> is <see langword="null" />. </exception>
         public OperationPlanPassExecutor (IPhaseOperationRegistry operationRegistry)
+            : this(new OperationPlanStepRunner(operationRegistry))
         {
-            this.operationRegistry = operationRegistry ?? throw new ArgumentNullException(nameof(operationRegistry));
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="OperationPlanPassExecutor" /> class. </summary>
+        /// <param name="stepRunner"> The one-operation plan-step runner dependency. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stepRunner" /> is <see langword="null" />. </exception>
+        internal OperationPlanPassExecutor (OperationPlanStepRunner stepRunner)
+        {
+            this.stepRunner = stepRunner ?? throw new ArgumentNullException(nameof(stepRunner));
         }
 
         /// <summary> Executes validate and plan phases for all operations with fail-fast semantics. </summary>
@@ -42,107 +48,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
-            var operationTraces = new List<OperationPhaseTrace>(request.Ops.Count);
-            var errors = new List<OperationFailure>(1);
-            var preparedOperations = new List<PreparedOperation>(request.Ops.Count);
+            var accumulator = new PlanPassAccumulator(request.Ops.Count);
             var operationUseCounts = OperationPhaseExecutionUtilities.CountOperationUse(request.Ops);
-            var hasFailed = false;
 
             for (var i = 0; i < request.Ops.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var operation = request.Ops[i];
-                if (hasFailed)
+                if (accumulator.HasFailures)
                 {
-                    operationTraces.Add(OperationPhaseExecutionUtilities.CreateSkippedTrace(operation));
+                    accumulator.AddSkipped(operation);
                     continue;
                 }
 
-                if (!operationRegistry.TryResolve(operation.Op, out var phaseOperation))
-                {
-                    var missingOperationFailure = new OperationFailure(
-                        Code: IpcErrorCodes.CommandNotImplemented,
-                        Message: $"Operation '{operation.Op}' is not implemented.",
-                        OpId: operation.Id);
-                    operationTraces.Add(new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Validate,
-                        Applied: false,
-                        Changed: false,
-                        Touched: Array.Empty<OperationTouch>(),
-                        Failure: missingOperationFailure));
-                    errors.Add(missingOperationFailure);
-                    hasFailed = true;
-                    continue;
-                }
-
-                var touched = new List<OperationTouch>();
-                var validateStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
+                var outcome = await stepRunner.Execute(
                     operation,
-                    OperationPhase.Validate,
-                    ct => phaseOperation.Validate(operation, executionContext, ct),
+                    executionContext,
+                    requiresPreCallPlanReplay: operationUseCounts[operation.Op] > 1,
                     cancellationToken).ConfigureAwait(false);
-                OperationPhaseExecutionUtilities.MergeTouched(touched, validateStepResult.Touched);
-                if (!validateStepResult.IsSuccess)
-                {
-                    var touchedSnapshot = touched.ToArray();
-                    operationTraces.Add(new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Validate,
-                        Applied: validateStepResult.Applied,
-                        Changed: validateStepResult.Changed,
-                        Touched: touchedSnapshot,
-                        Failure: validateStepResult.Failure));
-                    errors.Add(validateStepResult.Failure!);
-                    hasFailed = true;
-                    continue;
-                }
-
-                var planStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
-                    operation,
-                    OperationPhase.Plan,
-                    ct => phaseOperation.Plan(operation, executionContext, ct),
-                    cancellationToken).ConfigureAwait(false);
-                OperationPhaseExecutionUtilities.MergeTouched(touched, planStepResult.Touched);
-                if (!planStepResult.IsSuccess)
-                {
-                    var touchedSnapshot = touched.ToArray();
-                    operationTraces.Add(new OperationPhaseTrace(
-                        OpId: operation.Id,
-                        Op: operation.Op,
-                        Phase: OperationPhase.Plan,
-                        Applied: planStepResult.Applied,
-                        Changed: planStepResult.Changed,
-                        Touched: touchedSnapshot,
-                        Failure: planStepResult.Failure));
-                    errors.Add(planStepResult.Failure!);
-                    hasFailed = true;
-                    continue;
-                }
-
-                var successfulTouched = touched.ToArray();
-                operationTraces.Add(new OperationPhaseTrace(
-                    OpId: operation.Id,
-                    Op: operation.Op,
-                    Phase: OperationPhase.Plan,
-                    Applied: planStepResult.Applied,
-                    Changed: planStepResult.Changed,
-                    Touched: successfulTouched,
-                    Failure: null));
-                preparedOperations.Add(new PreparedOperation(
-                    Operation: operation,
-                    PhaseOperation: phaseOperation,
-                    PlanTouched: successfulTouched,
-                    RequiresPreCallPlanReplay: operationUseCounts[operation.Op] > 1));
+                accumulator.Add(outcome);
             }
 
-            return new PlanPassResult(
-                OperationTraces: operationTraces,
-                Errors: errors,
-                PreparedOperations: preparedOperations);
+            return accumulator.Build();
         }
     }
 }

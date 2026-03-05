@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="Changed"> Whether this step produced changes. </param>
     /// <param name="Touched"> The touched persistence-unit list produced by this step. </param>
     /// <param name="Failure"> The failure details when this step failed; otherwise <see langword="null" />. </param>
-    internal sealed record OperationPhaseStepResult (
+    public sealed record OperationPhaseStepResult (
         bool Applied,
         bool Changed,
         IReadOnlyList<OperationTouch> Touched,

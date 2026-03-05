@@ -7,24 +7,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides an in-memory operation registry implementation for phase execution. </summary>
     internal sealed class InMemoryPhaseOperationRegistry : IPhaseOperationRegistry
     {
-        private readonly IReadOnlyDictionary<string, IPhaseOperation> operationsByName;
+        private readonly IReadOnlyDictionary<string, IUcliOperation> operationsByName;
 
         /// <summary> Initializes a new instance of the <see cref="InMemoryPhaseOperationRegistry" /> class. </summary>
-        /// <param name="operations"> The operation implementation collection. </param>
+        /// <param name="operations"> The operation registration collection. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operations" /> is <see langword="null" /> or contains a <see langword="null" /> operation. </exception>
         /// <exception cref="ArgumentException"> Thrown when operation name is invalid, contains leading or trailing whitespace, or is duplicated. </exception>
-        public InMemoryPhaseOperationRegistry (IReadOnlyList<IPhaseOperation> operations)
+        public InMemoryPhaseOperationRegistry (IReadOnlyList<UcliOperationRegistration> operations)
         {
             if (operations == null)
             {
                 throw new ArgumentNullException(nameof(operations));
             }
 
-            var dictionary = new Dictionary<string, IPhaseOperation>(StringComparer.Ordinal);
+            var dictionary = new Dictionary<string, IUcliOperation>(StringComparer.Ordinal);
             for (var i = 0; i < operations.Count; i++)
             {
-                var operation = operations[i] ?? throw new ArgumentNullException(nameof(operations), "Operation list contains null.");
-                var operationName = operation.OperationName;
+                var registration = operations[i];
+                var operation = registration.Operation ?? throw new ArgumentNullException(nameof(operations), "Operation list contains null.");
+                var operationName = registration.Metadata.OperationName;
                 if (string.IsNullOrWhiteSpace(operationName))
                 {
                     throw new ArgumentException("Operation name must not be null, empty, or whitespace.", nameof(operations));
@@ -52,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when operation implementation was found; otherwise <see langword="false" />. </returns>
         public bool TryResolve (
             string operationName,
-            out IPhaseOperation operation)
+            out IUcliOperation operation)
         {
             return operationsByName.TryGetValue(operationName, out operation);
         }

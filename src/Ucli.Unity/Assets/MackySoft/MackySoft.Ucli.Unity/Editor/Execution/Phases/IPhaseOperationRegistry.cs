@@ -9,6 +9,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when operation implementation was found; otherwise <see langword="false" />. </returns>
         bool TryResolve (
             string operationName,
-            out IPhaseOperation operation);
+            out IUcliOperation operation);
     }
 }
