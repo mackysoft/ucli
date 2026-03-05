@@ -135,8 +135,9 @@ namespace MackySoft.Ucli.Unity.Index
                 return true;
             }
 
+            // NOTE: Unity native components such as Collider/Renderer expose m_Enabled without managed backing fields.
             if (string.Equals(propertySegment, "m_Enabled", StringComparison.Ordinal)
-                && typeof(Behaviour).IsAssignableFrom(ownerType))
+                && typeof(Component).IsAssignableFrom(ownerType))
             {
                 declaredType = typeof(bool);
                 return true;

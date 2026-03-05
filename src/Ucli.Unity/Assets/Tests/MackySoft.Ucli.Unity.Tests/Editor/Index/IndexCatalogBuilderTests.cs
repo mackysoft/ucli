@@ -188,6 +188,17 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.ReferencedTypes.Count, Is.EqualTo(0));
         });
 
+        [Test]
+        [Category("Size.Small")]
+        public void DeclaredTypeResolver_WhenComponentHasNativeEnabled_ResolvesBoolean ()
+        {
+            var resolution = IndexDeclaredTypeResolver.Resolve(typeof(BoxCollider), "m_Enabled");
+
+            Assert.That(resolution.IsResolved, Is.True);
+            Assert.That(resolution.DeclaredType, Is.EqualTo(typeof(bool)));
+            Assert.That(resolution.ElementType, Is.Null);
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Build_WhenSchemaExtractorThrows_ReturnsFailureResult () => UniTask.ToCoroutine(async () =>
