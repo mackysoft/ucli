@@ -31,11 +31,11 @@ internal sealed class LogsDaemonCommand
     /// <param name="until"> The optional upper time bound in ISO 8601 format. </param>
     /// <param name="level"> The optional level filter (<c>error|warning|info|all</c>). </param>
     /// <param name="query"> The optional free-text query value. </param>
-    /// <param name="queryTarget"> The optional query target (<c>message|stack|both</c>). </param>
+    /// <param name="queryTarget"> --queryTarget, The optional query target (<c>message|stack|both</c>). </param>
     /// <param name="category"> The optional category filter. </param>
     /// <param name="stream"> Enables stream polling mode until canceled or timeout conditions are met. </param>
-    /// <param name="pollIntervalMilliseconds"> The optional polling interval in milliseconds used when <paramref name="stream" /> is enabled. </param>
-    /// <param name="idleTimeoutMilliseconds"> The optional idle timeout in milliseconds used when <paramref name="stream" /> is enabled. </param>
+    /// <param name="pollIntervalMilliseconds"> --pollIntervalMilliseconds, The optional polling interval in milliseconds used when <paramref name="stream" /> is enabled. </param>
+    /// <param name="idleTimeoutMilliseconds"> --idleTimeoutMilliseconds, The optional idle timeout in milliseconds used when <paramref name="stream" /> is enabled. </param>
     /// <param name="format"> The output format (<c>text|json</c>). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
