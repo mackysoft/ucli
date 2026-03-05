@@ -238,14 +238,41 @@ public sealed class DaemonStartOperationTests
         Assert.Equal(1, launchService.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
+    {
+        var lockProvider = new StubDaemonLifecycleLockProvider
+        {
+            ThrowTimeoutOnAcquire = true,
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore(),
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: new StubDaemonLaunchService(),
+            lifecycleLockProvider: lockProvider);
+
+        var result = await operation.Start(
+            CreateContext("fingerprint-start-lock-timeout"),
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static DaemonStartOperation CreateOperation (
         IDaemonSessionStore daemonSessionStore,
         IDaemonSessionCleanupService daemonSessionCleanupService,
         IDaemonExistingSessionGateService daemonExistingSessionGateService,
-        IDaemonLaunchService daemonLaunchService)
+        IDaemonLaunchService daemonLaunchService,
+        IDaemonLifecycleLockProvider? lifecycleLockProvider = null)
     {
         return new DaemonStartOperation(
-            lifecycleLockProvider: new StubDaemonLifecycleLockProvider(),
+            lifecycleLockProvider: lifecycleLockProvider ?? new StubDaemonLifecycleLockProvider(),
             daemonSessionStore: daemonSessionStore,
             daemonSessionCleanupService: daemonSessionCleanupService,
             daemonExistingSessionGateService: daemonExistingSessionGateService,
@@ -280,11 +307,19 @@ public sealed class DaemonStartOperationTests
 
     private sealed class StubDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
     {
+        public bool ThrowTimeoutOnAcquire { get; set; }
+
         public ValueTask<IAsyncDisposable> Acquire (
             string storageRoot,
             string projectFingerprint,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
+            if (ThrowTimeoutOnAcquire)
+            {
+                throw new TimeoutException("lock timeout");
+            }
+
             return ValueTask.FromResult<IAsyncDisposable>(new NoopAsyncDisposable());
         }
 

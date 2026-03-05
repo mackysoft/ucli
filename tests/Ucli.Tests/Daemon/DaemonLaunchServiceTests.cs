@@ -185,6 +185,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(7777, compensationService.LastProcessId);
         Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
+        Assert.True(compensationService.LastTimeout > TimeSpan.Zero);
     }
 
     [Fact]
@@ -339,15 +340,19 @@ public sealed class DaemonLaunchServiceTests
 
         public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
 
+        public TimeSpan LastTimeout { get; private set; }
+
         public ValueTask<DaemonSessionStoreOperationResult> CleanupFailedLaunch (
             ResolvedUnityProjectContext unityProject,
             int? processId,
             DateTimeOffset? expectedIssuedAtUtc,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastProcessId = processId;
             LastExpectedIssuedAtUtc = expectedIssuedAtUtc;
+            LastTimeout = timeout;
             return ValueTask.FromResult(NextResult);
         }
     }

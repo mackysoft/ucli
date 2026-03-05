@@ -11,12 +11,16 @@ internal sealed class InMemoryDaemonLifecycleLockProvider : IDaemonLifecycleLock
     /// <summary> Acquires the lifecycle lock for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="timeout"> The timeout budget used while waiting for lock acquisition. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The async-disposable lock handle that must be disposed to release lock. </returns>
     /// <exception cref="ArgumentException"> Thrown when one argument is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    /// <exception cref="TimeoutException"> Thrown when lock acquisition exceeds <paramref name="timeout" />. </exception>
     public async ValueTask<IAsyncDisposable> Acquire (
         string storageRoot,
         string projectFingerprint,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(storageRoot))
@@ -28,12 +32,19 @@ internal sealed class InMemoryDaemonLifecycleLockProvider : IDaemonLifecycleLock
         {
             throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
         }
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var lockKey = $"{Path.GetFullPath(storageRoot)}\n{normalizedProjectFingerprint}";
         var semaphore = LocksByFingerprint.GetOrAdd(
             lockKey,
             static _ => new SemaphoreSlim(1, 1));
-        await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var acquired = await semaphore.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+        if (!acquired)
+        {
+            throw new TimeoutException(
+                $"Timed out while waiting to acquire daemon lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");
+        }
+
         return new LockHandle(semaphore);
     }
 

@@ -27,22 +27,30 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="processId"> The launched process identifier when available. </param>
     /// <param name="expectedIssuedAtUtc"> The expected daemon-session issuance timestamp used for identity validation. </param>
+    /// <param name="timeout"> The remaining timeout budget for launch-failure compensation. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The compensation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonSessionStoreOperationResult> CleanupFailedLaunch (
         ResolvedUnityProjectContext unityProject,
         int? processId,
         DateTimeOffset? expectedIssuedAtUtc,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        var compensationTimeout = timeout < FailedLaunchCompensationTimeout
+            ? timeout
+            : FailedLaunchCompensationTimeout;
 
         var stopResult = await processTerminationService.EnsureStopped(
                 processId,
                 expectedIssuedAtUtc,
-                FailedLaunchCompensationTimeout,
+                compensationTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!stopResult.IsSuccess)

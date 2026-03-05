@@ -49,6 +49,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        var deadline = ExecutionDeadline.Start(timeout);
 
         var initializeSessionResult = await daemonLaunchSessionService.Initialize(unityProject, cancellationToken).ConfigureAwait(false);
         if (!initializeSessionResult.IsSuccess)
@@ -72,6 +73,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     launchResult.ProcessId,
                     session.IssuedAtUtc,
                     launchResult.Error!,
+                    deadline,
                     "Daemon launch failed",
                     "LaunchError",
                     cancellationToken)
@@ -91,6 +93,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     launchResult.ProcessId,
                     session.IssuedAtUtc,
                     updateProcessIdResult.Error!,
+                    deadline,
                     "Daemon session update failed",
                     "SessionError",
                     cancellationToken)
@@ -98,7 +101,21 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         }
         session = updateProcessIdResult.Session!;
 
-        var probeResult = await startupReadinessProbe.WaitUntilReady(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out var probeTimeout))
+        {
+            return await CreateFailureWithCompensation(
+                    unityProject,
+                    launchResult.ProcessId,
+                    session.IssuedAtUtc,
+                    ExecutionError.Timeout("Timed out before daemon startup readiness probe could begin."),
+                    deadline,
+                    "Daemon startup readiness probe failed",
+                    "ProbeError",
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var probeResult = await startupReadinessProbe.WaitUntilReady(unityProject, probeTimeout, cancellationToken).ConfigureAwait(false);
         if (probeResult.IsReady)
         {
             return DaemonStartResult.Started(session);
@@ -109,6 +126,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 launchResult.ProcessId,
                 session.IssuedAtUtc,
                 probeResult.Error!,
+                deadline,
                 "Daemon startup readiness probe failed",
                 "ProbeError",
                 cancellationToken)
@@ -120,14 +138,21 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         int? processId,
         DateTimeOffset expectedIssuedAtUtc,
         ExecutionError primaryError,
+        ExecutionDeadline deadline,
         string primaryErrorMessagePrefix,
         string primaryErrorLabel,
         CancellationToken cancellationToken)
     {
+        if (!deadline.TryGetRemainingTimeout(out var compensationTimeout))
+        {
+            return DaemonStartResult.Failure(primaryError);
+        }
+
         var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunch(
                 unityProject,
                 processId,
                 expectedIssuedAtUtc,
+                compensationTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!compensationResult.IsSuccess)

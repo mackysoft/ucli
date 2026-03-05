@@ -81,6 +81,32 @@ public sealed class DaemonStopOperationTests
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Stop_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
+    {
+        var lockProvider = new StubDaemonLifecycleLockProvider
+        {
+            ThrowTimeoutOnAcquire = true,
+        };
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: lockProvider,
+            daemonSessionStore: new StubDaemonSessionStore(),
+            shutdownClient: new StubDaemonShutdownClient(),
+            processTerminationService: new StubDaemonProcessTerminationService(),
+            artifactCleaner: new StubDaemonArtifactCleaner());
+
+        var result = await operation.Stop(
+            CreateContext("fingerprint-stop-lock-timeout"),
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
     {
         return new ResolvedUnityProjectContext(
@@ -107,11 +133,19 @@ public sealed class DaemonStopOperationTests
 
     private sealed class StubDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
     {
+        public bool ThrowTimeoutOnAcquire { get; set; }
+
         public ValueTask<IAsyncDisposable> Acquire (
             string storageRoot,
             string projectFingerprint,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
+            if (ThrowTimeoutOnAcquire)
+            {
+                throw new TimeoutException("lock timeout");
+            }
+
             return ValueTask.FromResult<IAsyncDisposable>(new NoopAsyncDisposable());
         }
 

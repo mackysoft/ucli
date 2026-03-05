@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Daemon.Start;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
@@ -54,12 +55,29 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        await using var lockHandle = await lifecycleLockProvider.Acquire(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var deadline = ExecutionDeadline.Start(timeout);
+        if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError("Timed out before daemon start workflow began."));
+        }
 
+        IAsyncDisposable lockHandle;
+        try
+        {
+            lockHandle = await lifecycleLockProvider.Acquire(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    lockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException exception)
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                $"Timed out while waiting for daemon lifecycle lock. {exception.Message}"));
+        }
+
+        await using var acquiredLock = lockHandle;
         var readResult = await daemonSessionStore.Read(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -67,15 +85,21 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            return await HandleInvalidSessionRead(unityProject, readResult, timeout, cancellationToken).ConfigureAwait(false);
+            return await HandleInvalidSessionRead(unityProject, readResult, deadline, cancellationToken).ConfigureAwait(false);
         }
 
         if (readResult.Exists)
         {
+            if (!deadline.TryGetRemainingTimeout(out var existingSessionGateTimeout))
+            {
+                return DaemonStartResult.Failure(CreateTimeoutError(
+                    "Timed out while probing existing daemon session."));
+            }
+
             var existingSessionGateResult = await daemonExistingSessionGateService.TryHandleExistingSession(
                     unityProject,
                     readResult.Session!,
-                    timeout,
+                    existingSessionGateTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (existingSessionGateResult is not null)
@@ -84,13 +108,19 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             }
         }
 
-        return await daemonLaunchService.Launch(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                "Timed out before daemon launch could start."));
+        }
+
+        return await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonStartResult> HandleInvalidSessionRead (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
@@ -98,10 +128,16 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return DaemonStartResult.Failure(readResult.Error!);
         }
 
+        if (!deadline.TryGetRemainingTimeout(out var invalidSessionCleanupTimeout))
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                "Timed out while preparing invalid daemon-session cleanup."));
+        }
+
         var cleanupResult = await daemonSessionCleanupService.CleanupInvalidSessionArtifacts(
                 unityProject,
                 readResult,
-                timeout,
+                invalidSessionCleanupTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!cleanupResult.IsSuccess)
@@ -109,6 +145,16 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return DaemonStartResult.Failure(cleanupResult.Error!);
         }
 
-        return await daemonLaunchService.Launch(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                "Timed out before daemon launch could start."));
+        }
+
+        return await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
+    }
+    private static ExecutionError CreateTimeoutError (string message)
+    {
+        return ExecutionError.Timeout(message);
     }
 }

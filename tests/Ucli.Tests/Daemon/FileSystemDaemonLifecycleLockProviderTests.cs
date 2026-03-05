@@ -11,9 +11,17 @@ public sealed class FileSystemDaemonLifecycleLockProviderTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "wait-until-release");
         var provider = new FileSystemDaemonLifecycleLockProvider();
-        var firstHandle = await provider.Acquire(scope.FullPath, "fingerprint-lock", CancellationToken.None);
+        var firstHandle = await provider.Acquire(
+            scope.FullPath,
+            "fingerprint-lock",
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         using var acquireCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        var secondAcquireTask = provider.Acquire(scope.FullPath, "fingerprint-lock", acquireCts.Token).AsTask();
+        var secondAcquireTask = provider.Acquire(
+            scope.FullPath,
+            "fingerprint-lock",
+            TimeSpan.FromSeconds(2),
+            acquireCts.Token).AsTask();
 
         await Task.Delay(150, CancellationToken.None);
         Assert.False(secondAcquireTask.IsCompleted);
@@ -29,16 +37,50 @@ public sealed class FileSystemDaemonLifecycleLockProviderTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lock", "cancel-while-waiting");
         var provider = new FileSystemDaemonLifecycleLockProvider();
-        var firstHandle = await provider.Acquire(scope.FullPath, "fingerprint-lock", CancellationToken.None);
+        var firstHandle = await provider.Acquire(
+            scope.FullPath,
+            "fingerprint-lock",
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
         using var waitingCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
         var exception = await Record.ExceptionAsync(async () =>
         {
-            await provider.Acquire(scope.FullPath, "fingerprint-lock", waitingCts.Token);
+            await provider.Acquire(
+                scope.FullPath,
+                "fingerprint-lock",
+                TimeSpan.FromSeconds(5),
+                waitingCts.Token);
         });
 
         await firstHandle.DisposeAsync();
 
         Assert.IsAssignableFrom<OperationCanceledException>(exception);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Acquire_WhenTimeoutWhileWaiting_ThrowsTimeoutException ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lock", "timeout-while-waiting");
+        var provider = new FileSystemDaemonLifecycleLockProvider();
+        var firstHandle = await provider.Acquire(
+            scope.FullPath,
+            "fingerprint-lock",
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            await provider.Acquire(
+                scope.FullPath,
+                "fingerprint-lock",
+                TimeSpan.FromMilliseconds(150),
+                CancellationToken.None);
+        });
+
+        await firstHandle.DisposeAsync();
+
+        Assert.IsType<TimeoutException>(exception);
     }
 }

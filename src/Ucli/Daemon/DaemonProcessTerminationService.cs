@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
@@ -56,7 +57,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                 return DaemonSessionStoreOperationResult.Failure(identityError!);
             }
 
-            var deadlineUtc = DateTimeOffset.UtcNow + timeout;
+            var deadline = ExecutionDeadline.Start(timeout);
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -65,7 +66,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                     return DaemonSessionStoreOperationResult.Success();
                 }
 
-                if (DateTimeOffset.UtcNow >= deadlineUtc)
+                if (deadline.IsExpired)
                 {
                     break;
                 }
@@ -78,7 +79,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             {
                 process.Kill(entireProcessTree: true);
 
-                var remainingMilliseconds = GetRemainingWaitMilliseconds(deadlineUtc);
+                var remainingMilliseconds = deadline.GetRemainingWaitMilliseconds();
                 var exited = process.WaitForExit(remainingMilliseconds);
                 if (!exited && process.HasExited)
                 {
@@ -99,23 +100,6 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                     $"Failed to force-stop daemon process '{processId.Value}'. {exception.Message}"));
             }
         }
-    }
-
-    /// <summary> Gets the remaining wait budget in milliseconds until the specified deadline. </summary>
-    /// <param name="deadlineUtc"> The absolute deadline used by the termination flow. </param>
-    /// <returns> Remaining wait budget in milliseconds. </returns>
-    private static int GetRemainingWaitMilliseconds (DateTimeOffset deadlineUtc)
-    {
-        var remaining = deadlineUtc - DateTimeOffset.UtcNow;
-        if (remaining <= TimeSpan.Zero)
-        {
-            return 0;
-        }
-
-        var remainingMilliseconds = Math.Ceiling(remaining.TotalMilliseconds);
-        return remainingMilliseconds >= int.MaxValue
-            ? int.MaxValue
-            : (int)remainingMilliseconds;
     }
 
     /// <summary> Validates whether the target process identity matches expected daemon session issuance timing. </summary>

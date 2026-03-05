@@ -54,12 +54,29 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        await using var lockHandle = await lifecycleLockProvider.Acquire(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var deadline = ExecutionDeadline.Start(timeout);
+        if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
+        {
+            return DaemonStopResult.Failure(CreateTimeoutError("Timed out before daemon stop workflow began."));
+        }
 
+        IAsyncDisposable lockHandle;
+        try
+        {
+            lockHandle = await lifecycleLockProvider.Acquire(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    lockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException exception)
+        {
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                $"Timed out while waiting for daemon lifecycle lock. {exception.Message}"));
+        }
+
+        await using var acquiredLock = lockHandle;
         var readResult = await daemonSessionStore.Read(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -82,7 +99,13 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                 "Daemon session does not allow process shutdown."));
         }
 
-        var shutdownResult = await shutdownClient.SendShutdown(unityProject, session, timeout, cancellationToken).ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+        {
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                "Timed out before daemon shutdown request could be sent."));
+        }
+
+        var shutdownResult = await shutdownClient.SendShutdown(unityProject, session, shutdownTimeout, cancellationToken).ConfigureAwait(false);
 
         if (shutdownResult.IsNotRunning)
         {
@@ -92,10 +115,16 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                 : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
         }
 
+        if (!deadline.TryGetRemainingTimeout(out var processTerminationTimeout))
+        {
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                "Timed out before daemon process termination could be completed."));
+        }
+
         var stopProcessResult = await processTerminationService.EnsureStopped(
                 session.ProcessId,
                 session.IssuedAtUtc,
-                timeout,
+                processTerminationTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!stopProcessResult.IsSuccess)
@@ -115,5 +144,10 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         }
 
         return DaemonStopResult.Stopped();
+    }
+
+    private static ExecutionError CreateTimeoutError (string message)
+    {
+        return ExecutionError.Timeout(message);
     }
 }
