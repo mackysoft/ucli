@@ -79,6 +79,9 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
+        services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();
+        services.AddSingleton<IDaemonLaunchSessionService, DaemonLaunchSessionService>();
+        services.AddSingleton<IDaemonLaunchCompensationService, DaemonLaunchCompensationService>();
         services.AddSingleton<IDaemonLaunchService, DaemonLaunchService>();
         services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();

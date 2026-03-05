@@ -1,8 +1,6 @@
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon.Start;
@@ -10,45 +8,30 @@ namespace MackySoft.Ucli.Daemon.Start;
 /// <summary> Implements daemon launch workflow with failure-compensation handling. </summary>
 internal sealed class DaemonLaunchService : IDaemonLaunchService
 {
-    private readonly IIpcEndpointResolver endpointResolver;
-
-    private readonly IDaemonSessionStore daemonSessionStore;
-
-    private readonly IDaemonSessionTokenGenerator sessionTokenGenerator;
+    private readonly IDaemonLaunchSessionService daemonLaunchSessionService;
 
     private readonly IUnityDaemonProcessLauncher unityDaemonProcessLauncher;
 
     private readonly IDaemonStartupReadinessProbe startupReadinessProbe;
 
-    private readonly IDaemonProcessTerminationService processTerminationService;
-
-    private readonly IDaemonArtifactCleaner artifactCleaner;
+    private readonly IDaemonLaunchCompensationService daemonLaunchCompensationService;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonLaunchService" /> class. </summary>
-    /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
-    /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
-    /// <param name="sessionTokenGenerator"> The daemon session-token generator dependency. </param>
+    /// <param name="daemonLaunchSessionService"> The daemon launch-session service dependency. </param>
     /// <param name="unityDaemonProcessLauncher"> The Unity daemon process-launcher dependency. </param>
     /// <param name="startupReadinessProbe"> The daemon startup-readiness probe dependency. </param>
-    /// <param name="processTerminationService"> The process-termination service dependency. </param>
-    /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
+    /// <param name="daemonLaunchCompensationService"> The daemon launch-compensation service dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonLaunchService (
-        IIpcEndpointResolver endpointResolver,
-        IDaemonSessionStore daemonSessionStore,
-        IDaemonSessionTokenGenerator sessionTokenGenerator,
+        IDaemonLaunchSessionService daemonLaunchSessionService,
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
-        IDaemonProcessTerminationService processTerminationService,
-        IDaemonArtifactCleaner artifactCleaner)
+        IDaemonLaunchCompensationService daemonLaunchCompensationService)
     {
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
-        this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
-        this.sessionTokenGenerator = sessionTokenGenerator ?? throw new ArgumentNullException(nameof(sessionTokenGenerator));
+        this.daemonLaunchSessionService = daemonLaunchSessionService ?? throw new ArgumentNullException(nameof(daemonLaunchSessionService));
         this.unityDaemonProcessLauncher = unityDaemonProcessLauncher ?? throw new ArgumentNullException(nameof(unityDaemonProcessLauncher));
         this.startupReadinessProbe = startupReadinessProbe ?? throw new ArgumentNullException(nameof(startupReadinessProbe));
-        this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
-        this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
+        this.daemonLaunchCompensationService = daemonLaunchCompensationService ?? throw new ArgumentNullException(nameof(daemonLaunchCompensationService));
     }
 
     /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
@@ -67,28 +50,12 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var endpoint = endpointResolver.Resolve(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
-        var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: sessionTokenGenerator.Create(),
-            ProjectFingerprint: unityProject.ProjectFingerprint,
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
-            CanShutdownProcess: true,
-            EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
-            EndpointAddress: endpoint.Address,
-            ProcessId: null);
-
-        var writeSessionResult = await daemonSessionStore.Write(
-                unityProject.RepositoryRoot,
-                session,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!writeSessionResult.IsSuccess)
+        var initializeSessionResult = await daemonLaunchSessionService.Initialize(unityProject, cancellationToken).ConfigureAwait(false);
+        if (!initializeSessionResult.IsSuccess)
         {
-            return DaemonStartResult.Failure(writeSessionResult.Error!);
+            return DaemonStartResult.Failure(initializeSessionResult.Error!);
         }
+        var session = initializeSessionResult.Session!;
 
         var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
             unityProject.RepositoryRoot,
@@ -100,46 +67,36 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             .ConfigureAwait(false);
         if (!launchResult.IsSuccess)
         {
-            var cleanupResult = await CleanupAfterFailedStart(
+            return await CreateFailureWithCompensation(
                     unityProject,
                     launchResult.ProcessId,
                     session.IssuedAtUtc,
+                    launchResult.Error!,
+                    "Daemon launch failed",
+                    "LaunchError",
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!cleanupResult.IsSuccess)
-            {
-                return DaemonStartResult.Failure(ExecutionError.InternalError(
-                    $"Daemon launch failed and cleanup failed. LaunchError={launchResult.Error!.Message} CleanupError={cleanupResult.Error!.Message}"));
-            }
-
-            return DaemonStartResult.Failure(launchResult.Error!);
         }
 
-        if (launchResult.ProcessId is int processId)
+        var updateProcessIdResult = await daemonLaunchSessionService.UpdateProcessId(
+                unityProject,
+                session,
+                launchResult.ProcessId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!updateProcessIdResult.IsSuccess)
         {
-            session = session with { ProcessId = processId };
-            var updateSessionResult = await daemonSessionStore.Write(
-                    unityProject.RepositoryRoot,
-                    session,
+            return await CreateFailureWithCompensation(
+                    unityProject,
+                    launchResult.ProcessId,
+                    session.IssuedAtUtc,
+                    updateProcessIdResult.Error!,
+                    "Daemon session update failed",
+                    "SessionError",
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!updateSessionResult.IsSuccess)
-            {
-                var cleanupResult = await CleanupAfterFailedStart(
-                        unityProject,
-                        processId,
-                        session.IssuedAtUtc,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (!cleanupResult.IsSuccess)
-                {
-                    return DaemonStartResult.Failure(ExecutionError.InternalError(
-                        $"Daemon session update failed and cleanup failed. SessionError={updateSessionResult.Error!.Message} CleanupError={cleanupResult.Error!.Message}"));
-                }
-
-                return DaemonStartResult.Failure(updateSessionResult.Error!);
-            }
         }
+        session = updateProcessIdResult.Session!;
 
         var probeResult = await startupReadinessProbe.WaitUntilReady(unityProject, timeout, cancellationToken).ConfigureAwait(false);
         if (probeResult.IsReady)
@@ -147,44 +104,38 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             return DaemonStartResult.Started(session);
         }
 
-        var finalCleanupResult = await CleanupAfterFailedStart(
+        return await CreateFailureWithCompensation(
                 unityProject,
                 launchResult.ProcessId,
                 session.IssuedAtUtc,
+                probeResult.Error!,
+                "Daemon startup readiness probe failed",
+                "ProbeError",
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!finalCleanupResult.IsSuccess)
-        {
-            return DaemonStartResult.Failure(ExecutionError.InternalError(
-                $"Daemon startup readiness probe failed and cleanup failed. ProbeError={probeResult.Error!.Message} CleanupError={finalCleanupResult.Error!.Message}"));
-        }
-
-        return DaemonStartResult.Failure(probeResult.Error!);
     }
 
-    /// <summary> Cleans stale artifacts and stops process after launch workflow fails. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="processId"> The launched process identifier when available. </param>
-    /// <param name="expectedIssuedAtUtc"> The expected daemon-session issuance timestamp used for identity validation. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The cleanup result. </returns>
-    private async ValueTask<DaemonSessionStoreOperationResult> CleanupAfterFailedStart (
+    private async ValueTask<DaemonStartResult> CreateFailureWithCompensation (
         ResolvedUnityProjectContext unityProject,
         int? processId,
-        DateTimeOffset? expectedIssuedAtUtc,
+        DateTimeOffset expectedIssuedAtUtc,
+        ExecutionError primaryError,
+        string primaryErrorMessagePrefix,
+        string primaryErrorLabel,
         CancellationToken cancellationToken)
     {
-        var stopResult = await processTerminationService.EnsureStopped(
+        var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunch(
+                unityProject,
                 processId,
                 expectedIssuedAtUtc,
-                TimeSpan.FromSeconds(1),
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!stopResult.IsSuccess)
+        if (!compensationResult.IsSuccess)
         {
-            return stopResult;
+            return DaemonStartResult.Failure(ExecutionError.InternalError(
+                $"{primaryErrorMessagePrefix} and cleanup failed. {primaryErrorLabel}={primaryError.Message} CleanupError={compensationResult.Error!.Message}"));
         }
 
-        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+        return DaemonStartResult.Failure(primaryError);
     }
 }
