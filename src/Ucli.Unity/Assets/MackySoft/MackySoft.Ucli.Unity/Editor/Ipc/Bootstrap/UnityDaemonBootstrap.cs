@@ -11,7 +11,7 @@ using UnityEngine;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
-    internal static class UnityDaemonBootstrap
+    public static class UnityDaemonBootstrap
     {
         /// <summary> Entry point invoked by Unity <c>-executeMethod</c> to start daemon mode. </summary>
         public static async void Start ()

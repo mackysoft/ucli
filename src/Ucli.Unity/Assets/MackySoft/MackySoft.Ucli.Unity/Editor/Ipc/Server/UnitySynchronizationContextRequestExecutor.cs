@@ -3,27 +3,42 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Executes IPC request handlers on Unity main-thread editor update loop. </summary>
+    /// <summary> Executes IPC request handlers on Unity main-thread synchronization context. </summary>
     internal sealed class UnitySynchronizationContextRequestExecutor : IUnityMainThreadRequestExecutor
     {
         private readonly object syncRoot = new object();
 
         private readonly Queue<MainThreadInvocation> pendingInvocations = new Queue<MainThreadInvocation>();
 
+        private readonly SynchronizationContext mainThreadSynchronizationContext;
+
         private readonly int mainThreadId;
 
-        private bool isUpdateHooked;
+        private bool isProcessorActive;
 
         private bool isRunningInvocation;
 
         /// <summary> Initializes a new instance of the <see cref="UnitySynchronizationContextRequestExecutor" /> class. </summary>
         public UnitySynchronizationContextRequestExecutor ()
+            : this(
+                SynchronizationContext.Current
+                ?? throw new InvalidOperationException("Unity main-thread SynchronizationContext is not available."),
+                Thread.CurrentThread.ManagedThreadId)
         {
-            mainThreadId = Thread.CurrentThread.ManagedThreadId;
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="UnitySynchronizationContextRequestExecutor" /> class for tests. </summary>
+        /// <param name="mainThreadSynchronizationContext"> The captured Unity main-thread synchronization context. </param>
+        /// <param name="mainThreadId"> The Unity main-thread identifier. </param>
+        internal UnitySynchronizationContextRequestExecutor (
+            SynchronizationContext mainThreadSynchronizationContext,
+            int mainThreadId)
+        {
+            this.mainThreadSynchronizationContext = mainThreadSynchronizationContext ?? throw new ArgumentNullException(nameof(mainThreadSynchronizationContext));
+            this.mainThreadId = mainThreadId;
         }
 
         /// <summary> Executes one request-handling delegate on Unity main thread. </summary>
@@ -48,29 +63,50 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var invocation = new MainThreadInvocation(requestHandler, cancellationToken);
+            var shouldScheduleProcessor = false;
             lock (syncRoot)
             {
                 pendingInvocations.Enqueue(invocation);
-                EnsureUpdateHooked();
+                if (!isProcessorActive)
+                {
+                    isProcessorActive = true;
+                    shouldScheduleProcessor = true;
+                }
+            }
+
+            if (shouldScheduleProcessor)
+            {
+                ScheduleProcessor();
             }
 
             return invocation.Completion;
         }
 
-        /// <summary> Ensures editor-update callback is hooked while there are pending invocations. </summary>
-        private void EnsureUpdateHooked ()
+        /// <summary> Schedules queue processing on Unity main thread synchronization context. </summary>
+        private void ScheduleProcessor ()
         {
-            if (isUpdateHooked)
+            try
             {
-                return;
-            }
+                if (Thread.CurrentThread.ManagedThreadId == mainThreadId)
+                {
+                    ProcessQueueOnMainThread();
+                    return;
+                }
 
-            EditorApplication.update += OnEditorUpdate;
-            isUpdateHooked = true;
+                mainThreadSynchronizationContext.Post(static state =>
+                {
+                    var executor = (UnitySynchronizationContextRequestExecutor)state!;
+                    executor.ProcessQueueOnMainThread();
+                }, this);
+            }
+            catch (Exception exception)
+            {
+                FailPendingInvocations(exception);
+            }
         }
 
-        /// <summary> Processes queued main-thread invocations from Unity editor update loop. </summary>
-        private void OnEditorUpdate ()
+        /// <summary> Processes queued main-thread invocations via Unity synchronization context. </summary>
+        private void ProcessQueueOnMainThread ()
         {
             MainThreadInvocation? invocation = null;
             lock (syncRoot)
@@ -82,12 +118,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 if (pendingInvocations.Count == 0)
                 {
-                    if (isUpdateHooked)
-                    {
-                        EditorApplication.update -= OnEditorUpdate;
-                        isUpdateHooked = false;
-                    }
-
+                    isProcessorActive = false;
                     return;
                 }
 
@@ -109,15 +140,57 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             finally
             {
+                var shouldScheduleProcessor = false;
                 lock (syncRoot)
                 {
                     isRunningInvocation = false;
-                    if (pendingInvocations.Count == 0 && isUpdateHooked)
+                    if (pendingInvocations.Count == 0)
                     {
-                        EditorApplication.update -= OnEditorUpdate;
-                        isUpdateHooked = false;
+                        isProcessorActive = false;
+                    }
+                    else
+                    {
+                        shouldScheduleProcessor = true;
                     }
                 }
+
+                if (shouldScheduleProcessor)
+                {
+                    ScheduleProcessor();
+                }
+            }
+        }
+
+        /// <summary> Fails queued invocations when scheduling on synchronization context is unavailable. </summary>
+        /// <param name="exception"> The scheduling exception propagated to queued invocations. </param>
+        private void FailPendingInvocations (Exception exception)
+        {
+            List<MainThreadInvocation>? failures = null;
+            lock (syncRoot)
+            {
+                if (pendingInvocations.Count > 0)
+                {
+                    failures = new List<MainThreadInvocation>(pendingInvocations.Count);
+                    while (pendingInvocations.Count > 0)
+                    {
+                        failures.Add(pendingInvocations.Dequeue());
+                    }
+                }
+
+                if (!isRunningInvocation)
+                {
+                    isProcessorActive = false;
+                }
+            }
+
+            if (failures == null)
+            {
+                return;
+            }
+
+            foreach (var failure in failures)
+            {
+                failure.TrySetException(exception);
             }
         }
 
@@ -178,6 +251,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     cancellationRegistration.Dispose();
                 }
+            }
+
+            /// <summary> Completes invocation as failed when scheduling on main thread cannot proceed. </summary>
+            /// <param name="exception"> The scheduling failure. </param>
+            public void TrySetException (Exception exception)
+            {
+                CompletionSource.TrySetException(exception);
+                cancellationRegistration.Dispose();
             }
         }
     }
