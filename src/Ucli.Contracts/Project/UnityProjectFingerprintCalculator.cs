@@ -73,11 +73,11 @@ public static class UnityProjectFingerprintCalculator
         var pathRoot = Path.GetPathRoot(fullPath);
         if (!string.IsNullOrEmpty(pathRoot) && string.Equals(fullPath, pathRoot, PathComparison))
         {
-            return NormalizeCase(fullPath);
+            return PathStringNormalizer.NormalizeCaseForCurrentPlatform(fullPath);
         }
 
         var trimmedPath = PathStringNormalizer.TrimTrailingDirectorySeparators(fullPath);
-        return NormalizeCase(trimmedPath);
+        return PathStringNormalizer.NormalizeCaseForCurrentPlatform(trimmedPath);
     }
 
     /// <summary> Normalizes relative path fragments used for fingerprint input. </summary>
@@ -112,16 +112,6 @@ public static class UnityProjectFingerprintCalculator
             ? directoryPath
             : directoryPath + Path.DirectorySeparatorChar;
         return path.StartsWith(trailingDirectoryPath, PathComparison);
-    }
-
-    /// <summary> Normalizes path casing for platforms with case-insensitive paths. </summary>
-    /// <param name="path"> The path value to normalize. </param>
-    /// <returns> The normalized path string. </returns>
-    private static string NormalizeCase (string path)
-    {
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? path.ToUpperInvariant()
-            : path;
     }
 
     /// <summary> Gets the path comparison mode for the current operating system. </summary>

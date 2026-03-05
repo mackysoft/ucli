@@ -98,6 +98,11 @@ namespace MackySoft.Ucli.Unity.Index
                 case SerializedPropertyType.Hash128:
                     return IndexPropertyTypeValues.Hash128;
 
+#if UNITY_2022_1_OR_NEWER
+                case SerializedPropertyType.RenderingLayerMask:
+                    return IndexPropertyTypeValues.LayerMask;
+#endif
+
                 default:
                     throw new InvalidOperationException($"Unsupported SerializedPropertyType: {propertyType}.");
             }

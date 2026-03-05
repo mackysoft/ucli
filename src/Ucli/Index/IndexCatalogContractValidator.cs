@@ -5,12 +5,14 @@ namespace MackySoft.Ucli.Index;
 /// <summary> Validates read-index catalog contracts loaded from persistent storage. </summary>
 internal static class IndexCatalogContractValidator
 {
+    private const int SupportedSchemaVersion = 1;
+
     /// <summary> Validates one <c>types.catalog.json</c> contract instance. </summary>
     /// <param name="contract"> The contract instance. </param>
     /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
     public static bool IsValidTypesCatalog (IndexTypesCatalogJsonContract contract)
     {
-        if (contract.SchemaVersion <= 0
+        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
             || string.IsNullOrWhiteSpace(contract.SourceInputsHash)
             || contract.Entries == null)
         {
@@ -38,7 +40,7 @@ internal static class IndexCatalogContractValidator
     /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
     public static bool IsValidSchemasCatalog (IndexSchemasCatalogJsonContract contract)
     {
-        if (contract.SchemaVersion <= 0
+        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
             || string.IsNullOrWhiteSpace(contract.SourceInputsHash)
             || contract.Entries == null)
         {
@@ -91,11 +93,16 @@ internal static class IndexCatalogContractValidator
     /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
     public static bool IsValidInputsManifest (IndexInputsManifestJsonContract contract)
     {
-        return contract.SchemaVersion > 0
+        return IsSupportedSchemaVersion(contract.SchemaVersion)
             && !string.IsNullOrWhiteSpace(contract.ScriptAssembliesHash)
             && !string.IsNullOrWhiteSpace(contract.PackagesManifestHash)
             && !string.IsNullOrWhiteSpace(contract.PackagesLockHash)
             && !string.IsNullOrWhiteSpace(contract.AssemblyDefinitionHash)
             && !string.IsNullOrWhiteSpace(contract.CombinedHash);
+    }
+
+    private static bool IsSupportedSchemaVersion (int schemaVersion)
+    {
+        return schemaVersion == SupportedSchemaVersion;
     }
 }

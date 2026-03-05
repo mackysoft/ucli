@@ -1,5 +1,6 @@
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Paths;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
@@ -163,7 +164,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
                 return null;
             }
 
-            var normalizedPath = NormalizePathSeparators(Path.GetFullPath(filePath));
+            var normalizedPath = PathStringNormalizer.NormalizeAbsolutePathForHash(filePath);
             buffer.Append(normalizedPath);
             buffer.Append('\n');
             buffer.Append(fileHash);
@@ -198,11 +199,6 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         }
 
         return Sha256LowerHex.Compute(bytes);
-    }
-
-    private static string NormalizePathSeparators (string path)
-    {
-        return path.Replace('\\', '/');
     }
 
     private static string ComputeUtf8Hash (string text)

@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Index;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 #nullable enable
@@ -102,6 +103,21 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(assetResult.Entries[0].Kind, Is.EqualTo(IndexSchemaKindValues.Asset));
             Assert.That(assetResult.Entries[0].SchemaKey, Does.StartWith($"{IndexSchemaKindValues.Asset}:"));
         }
+
+#if UNITY_2022_1_OR_NEWER
+        [Test]
+        [Category("Size.Small")]
+        public void SerializedPropertyTypeMapper_WhenRenderingLayerMask_ReturnsRenderingLayerMaskLiteral ()
+        {
+            var literal = IndexSerializedPropertyTypeMapper.ToLiteral(SerializedPropertyType.RenderingLayerMask);
+
+            Assert.That(literal, Is.EqualTo(IndexPropertyTypeValues.LayerMask));
+            Assert.That(
+                IndexPropertyTypeCodec.TryParse(literal, out var parsedType),
+                Is.True);
+            Assert.That(parsedType, Is.EqualTo(IndexPropertyType.LayerMask));
+        }
+#endif
 
         [Test]
         [Category("Size.Small")]
