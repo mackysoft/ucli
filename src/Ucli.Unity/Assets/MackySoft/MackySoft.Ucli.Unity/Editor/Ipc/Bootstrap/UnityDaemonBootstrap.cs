@@ -16,40 +16,65 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Entry point invoked by Unity <c>-executeMethod</c> to start daemon mode. </summary>
         public static async void Start ()
         {
+            var daemonLogStream = new DaemonLogRingBuffer();
+            var daemonLogger = new DaemonLogger(daemonLogStream);
+
             try
             {
-                await Run();
+                await Run(daemonLogStream, daemonLogger);
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                daemonLogger.Exception(
+                    DaemonLogCategories.Lifecycle,
+                    "uCLI daemon bootstrap failed with unhandled exception.",
+                    exception);
                 EditorApplication.Exit(1);
             }
         }
 
         /// <summary> Starts IPC server and blocks until shutdown request is received. </summary>
         /// <returns> A task that completes after process-exit request has been issued. </returns>
-        private static async Task Run ()
+        private static async Task Run (
+            IDaemonLogStream daemonLogStream,
+            IDaemonLogger daemonLogger)
         {
+            if (daemonLogStream == null)
+            {
+                throw new ArgumentNullException(nameof(daemonLogStream));
+            }
+
+            if (daemonLogger == null)
+            {
+                throw new ArgumentNullException(nameof(daemonLogger));
+            }
+
             if (!IpcDaemonBootstrapArgumentsCodec.TryParse(
                     Environment.GetCommandLineArgs(),
                     out var bootstrapArguments,
                     out var parseError))
             {
-                Debug.LogError(parseError.Message);
+                daemonLogger.Error(
+                    DaemonLogCategories.Lifecycle,
+                    "Daemon bootstrap arguments parse failed.",
+                    parseError.Message);
                 EditorApplication.Exit(1);
                 return;
             }
 
             if (!IpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
             {
-                Debug.LogError($"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
+                daemonLogger.Error(
+                    DaemonLogCategories.Lifecycle,
+                    $"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
                 EditorApplication.Exit(1);
                 return;
             }
 
             var services = new ServiceCollection();
             services.AddSingleton(bootstrapArguments);
+            services.AddSingleton<IDaemonLogStream>(daemonLogStream);
+            services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<IUnityMainThreadRequestExecutor>(
                 new UnitySynchronizationContextRequestExecutor());
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
@@ -64,6 +89,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, PingUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
@@ -79,7 +105,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     {
                         serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
                         serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
-                    });
+                    },
+                    serviceProvider.GetRequiredService<IDaemonLogger>());
             });
 
             using var serviceProvider = services.BuildServiceProvider();
@@ -88,7 +115,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
             await server.Start(endpoint, CancellationToken.None);
-            Debug.Log($"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
+            daemonLogger.Info(
+                DaemonLogCategories.Lifecycle,
+                $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
 
             var shutdownWaitTask = shutdownSignal.Wait(CancellationToken.None);
             var serverTerminationTask = server.WaitForTermination(CancellationToken.None);
@@ -96,11 +125,20 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (ReferenceEquals(completedTask, serverTerminationTask))
             {
                 await serverTerminationTask;
+                daemonLogger.Error(
+                    DaemonLogCategories.Lifecycle,
+                    "IPC server loop terminated before daemon shutdown signal.");
                 throw new InvalidOperationException("IPC server loop terminated before shutdown request was received.");
             }
 
             await shutdownWaitTask;
+            daemonLogger.Info(
+                DaemonLogCategories.Lifecycle,
+                "Daemon shutdown signal received. Stopping IPC server.");
             await server.Stop(CancellationToken.None);
+            daemonLogger.Info(
+                DaemonLogCategories.Lifecycle,
+                "IPC server stop completed. Exiting Unity batchmode process.");
             EditorApplication.Exit(0);
         }
 

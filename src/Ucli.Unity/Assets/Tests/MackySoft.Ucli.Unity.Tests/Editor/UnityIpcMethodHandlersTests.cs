@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.LastContext, Is.Not.Null);
             Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo("req-execute-valid"));
             Assert.That(dispatcher.LastRequest, Is.Not.Null);
-            Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(UcliCommandIds.Validate));
+            Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(UcliCommandIds.Validate.Name));
         });
 
         [UnityTest]
@@ -181,6 +181,79 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator DaemonLogsReadHandler_WhenPayloadIsValid_ReturnsFilteredEventsAndNextCursor () => UniTask.ToCoroutine(async () =>
+        {
+            var stream = new DaemonLogRingBuffer();
+            stream.Write("ipc", "info", "server started");
+            stream.Write("transport", "warning", "socket timeout detected", "SocketException");
+            var snapshot = stream.Snapshot();
+            var firstEventCursor = snapshot.Events[0].Cursor;
+            var handler = new DaemonLogsReadUnityIpcMethodHandler(stream);
+            var request = CreateDaemonLogsReadRequest(
+                "req-daemon-logs-valid",
+                new IpcDaemonLogsReadRequest(
+                    Tail: null,
+                    After: firstEventCursor,
+                    Since: null,
+                    Until: null,
+                    Level: "warning",
+                    Query: "socket",
+                    QueryTarget: "both",
+                    Category: "transport"));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcDaemonLogsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Events.Length, Is.EqualTo(1));
+            Assert.That(payload.Events[0].Category, Is.EqualTo("transport"));
+            Assert.That(payload.Events[0].Level, Is.EqualTo("warning"));
+            Assert.That(payload.NextCursor, Does.StartWith(snapshot.StreamId + ":"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator DaemonLogsReadHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new DaemonLogsReadUnityIpcMethodHandler(new DaemonLogRingBuffer());
+            var request = CreateDaemonLogsReadRequest("req-daemon-logs-invalid", 123);
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator DaemonLogsReadHandler_WhenQueryTargetIsStack_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var stream = new DaemonLogRingBuffer();
+            stream.Write("ipc", "info", "server started");
+            var handler = new DaemonLogsReadUnityIpcMethodHandler(stream);
+            var request = CreateDaemonLogsReadRequest(
+                "req-daemon-logs-stack",
+                new IpcDaemonLogsReadRequest(
+                    Tail: null,
+                    After: null,
+                    Since: null,
+                    Until: null,
+                    Level: null,
+                    Query: "socket",
+                    QueryTarget: "stack",
+                    Category: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
         private static object CreateValidTestRunPayload ()
         {
             return new IpcTestRunRequest(
@@ -220,6 +293,13 @@ namespace MackySoft.Ucli.Unity.Tests
             object payload)
         {
             return CreateRequest(requestId, IpcMethodNames.Shutdown, payload);
+        }
+
+        private static IpcRequest CreateDaemonLogsReadRequest (
+            string requestId,
+            object payload)
+        {
+            return CreateRequest(requestId, IpcMethodNames.DaemonLogsRead, payload);
         }
 
         private static IpcRequest CreateRequest (

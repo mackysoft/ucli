@@ -4,7 +4,6 @@ using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -13,7 +12,16 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly object syncRoot = new object();
 
+        private readonly IDaemonLogger daemonLogger;
+
         private NamedPipeServerStream activeServerStream;
+
+        /// <summary> Initializes a new instance of the <see cref="NamedPipeUnityIpcTransportListener" /> class. </summary>
+        /// <param name="daemonLogger"> The daemon daemon-logger dependency. </param>
+        public NamedPipeUnityIpcTransportListener (IDaemonLogger daemonLogger = null)
+        {
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+        }
 
         /// <summary> Gets transport kind handled by this listener. </summary>
         public IpcTransportKind TransportKind => IpcTransportKind.NamedPipe;
@@ -80,12 +88,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
                 catch (IOException exception) when (cancellationToken.IsCancellationRequested)
                 {
-                    Debug.Log($"Named pipe listener stopped: {exception.Message}");
+                    daemonLogger.Info(
+                        DaemonLogCategories.Transport,
+                        $"Named pipe listener stopped: {exception.Message}");
                     return;
                 }
                 catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException))
                 {
-                    Debug.LogWarning($"Named pipe listener ignored recoverable connection error: {exception.Message}");
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Transport,
+                        $"Named pipe listener ignored recoverable connection error: {exception.Message}");
                 }
                 finally
                 {

@@ -9,6 +9,7 @@ using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
+using MackySoft.Ucli.Logs;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.Status;
 using MackySoft.Ucli.TestProfile;
@@ -75,6 +76,8 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
         services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
         services.AddSingleton<IDaemonLogReader, DaemonLogReader>();
+        services.AddSingleton<IDaemonLogsClient, IpcDaemonLogsClient>();
+        services.AddSingleton<ILogsDaemonService, LogsDaemonService>();
         services.AddSingleton<IUnityDaemonProcessLauncher, UnityDaemonProcessLauncher>();
         services.AddSingleton<IpcDaemonPingClient>();
         services.AddSingleton<IDaemonPingClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());

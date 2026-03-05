@@ -21,6 +21,15 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>daemon.status</c>. </summary>
     public static UcliCommand DaemonStatus { get; } = new("daemon.status");
 
+    /// <summary> Gets command identifier for <c>logs</c>. </summary>
+    public static UcliCommand Logs { get; } = new("logs");
+
+    /// <summary> Gets command identifier for <c>logs.daemon</c>. </summary>
+    public static UcliCommand LogsDaemon { get; } = new("logs.daemon");
+
+    /// <summary> Gets command identifier for <c>logs.unity</c>. </summary>
+    public static UcliCommand LogsUnity { get; } = new("logs.unity");
+
     /// <summary> Gets command identifier for <c>test</c>. </summary>
     public static UcliCommand Test { get; } = new("test");
 
