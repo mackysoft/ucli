@@ -63,8 +63,8 @@ namespace MackySoft.Ucli.Unity.Index
             var assetTypes = ResolveAssetTypes(projectAssemblyNames);
 
             cancellationToken.ThrowIfCancellationRequested();
-            var componentSchemaResult = componentSchemaExtractor.Extract(componentTypes);
-            var assetSchemaResult = assetSchemaExtractor.Extract(assetTypes);
+            var componentSchemaResult = await componentSchemaExtractor.Extract(componentTypes, cancellationToken);
+            var assetSchemaResult = await assetSchemaExtractor.Extract(assetTypes, cancellationToken);
             var schemaEntries = componentSchemaResult.Entries
                 .Concat(assetSchemaResult.Entries)
                 .OrderBy(static entry => entry.SchemaKey ?? string.Empty, StringComparer.Ordinal)

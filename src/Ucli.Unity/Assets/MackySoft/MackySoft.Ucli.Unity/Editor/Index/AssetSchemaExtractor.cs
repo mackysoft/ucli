@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Index;
 using UnityEditor;
 using UnityEngine;
@@ -11,6 +13,8 @@ namespace MackySoft.Ucli.Unity.Index
     /// <summary> Extracts schema entries for ScriptableObject runtime types. </summary>
     internal sealed class AssetSchemaExtractor : IAssetSchemaExtractor
     {
+        private const int YieldInterval = 32;
+
         private readonly IIndexSchemaPropertyCollector schemaPropertyCollector;
 
         /// <summary> Initializes a new instance of the <see cref="AssetSchemaExtractor" /> class. </summary>
@@ -23,10 +27,14 @@ namespace MackySoft.Ucli.Unity.Index
 
         /// <summary> Extracts asset schema entries for one ScriptableObject-type set. </summary>
         /// <param name="assetTypes"> The asset runtime types. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> The extraction result. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="assetTypes" /> is <see langword="null" />. </exception>
-        public IndexSchemaExtractionResult Extract (IReadOnlyList<Type> assetTypes)
+        public async ValueTask<IndexSchemaExtractionResult> Extract (
+            IReadOnlyList<Type> assetTypes,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (assetTypes == null)
             {
                 throw new ArgumentNullException(nameof(assetTypes));
@@ -39,8 +47,17 @@ namespace MackySoft.Ucli.Unity.Index
 
             var entries = new List<IndexSchemaEntryJsonContract>(assetTypes.Count);
             var referencedTypes = new HashSet<Type>();
+            // NOTE: Unity serialization APIs must run on the main thread, so we use cooperative yielding instead of worker-thread offload.
+            var canYield = SynchronizationContext.Current != null;
             for (var i = 0; i < assetTypes.Count; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (canYield && i > 0 && (i % YieldInterval) == 0)
+                {
+                    await Task.Yield();
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
                 var assetType = assetTypes[i];
                 if (!IsValidAssetType(assetType))
                 {

@@ -81,14 +81,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Extractors_WhenCalledDirectly_SeparateCompAndAssetKinds ()
+        public async Task Extractors_WhenCalledDirectly_SeparateCompAndAssetKinds ()
         {
             var propertyCollector = new IndexSchemaPropertyCollector();
             var componentExtractor = new ComponentSchemaExtractor(propertyCollector);
             var assetExtractor = new AssetSchemaExtractor(propertyCollector);
 
-            var componentResult = componentExtractor.Extract(new[] { typeof(IndexCatalogTestComponent) });
-            var assetResult = assetExtractor.Extract(new[] { typeof(IndexCatalogTestAsset) });
+            var componentResult = await componentExtractor.Extract(
+                new[] { typeof(IndexCatalogTestComponent) },
+                CancellationToken.None);
+            var assetResult = await assetExtractor.Extract(
+                new[] { typeof(IndexCatalogTestAsset) },
+                CancellationToken.None);
 
             Assert.That(componentResult.Entries.Count, Is.EqualTo(1));
             Assert.That(componentResult.Entries[0].Kind, Is.EqualTo(IndexSchemaKindValues.Comp));
@@ -97,6 +101,41 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(assetResult.Entries.Count, Is.EqualTo(1));
             Assert.That(assetResult.Entries[0].Kind, Is.EqualTo(IndexSchemaKindValues.Asset));
             Assert.That(assetResult.Entries[0].SchemaKey, Does.StartWith($"{IndexSchemaKindValues.Asset}:"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Extractors_WhenCancellationRequested_ThrowOperationCanceledException ()
+        {
+            var propertyCollector = new IndexSchemaPropertyCollector();
+            var componentExtractor = new ComponentSchemaExtractor(propertyCollector);
+            var assetExtractor = new AssetSchemaExtractor(propertyCollector);
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            try
+            {
+                await componentExtractor.Extract(
+                    new[] { typeof(IndexCatalogTestComponent) },
+                    cts.Token);
+                Assert.Fail("Expected OperationCanceledException for component extractor.");
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected.
+            }
+
+            try
+            {
+                await assetExtractor.Extract(
+                    new[] { typeof(IndexCatalogTestAsset) },
+                    cts.Token);
+                Assert.Fail("Expected OperationCanceledException for asset extractor.");
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected.
+            }
         }
 
         [Test]
