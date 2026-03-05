@@ -115,7 +115,12 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     .ConfigureAwait(false);
             }
 
-            var probeResult = await startupReadinessProbe.WaitUntilReady(unityProject, probeTimeout, cancellationToken).ConfigureAwait(false);
+            var probeResult = await startupReadinessProbe.WaitUntilReady(
+                    unityProject,
+                    probeTimeout,
+                    launchedProcessId,
+                    cancellationToken)
+                .ConfigureAwait(false);
             if (probeResult.IsReady)
             {
                 return DaemonStartResult.Started(session);

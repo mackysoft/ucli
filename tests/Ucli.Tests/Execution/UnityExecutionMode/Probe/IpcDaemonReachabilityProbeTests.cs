@@ -65,15 +65,92 @@ public sealed class IpcDaemonReachabilityProbeTests
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-timeout"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new TimeoutException("timeout"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probeTimeout = TimeSpan.FromMilliseconds(150);
 
-        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasError);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         Assert.Contains("Timed out while probing daemon reachability.", error.Message, StringComparison.Ordinal);
-        Assert.Equal(1, daemonPingClient.CallCount);
+        Assert.True(daemonPingClient.CallCount >= 1);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Probe_WhenConnectTimeoutOccurs_ReturnsTimeoutFailure ()
+    {
+        var endpointResolver = new StubEndpointResolver(
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-connect-timeout"));
+        var daemonPingClient = new StubDaemonPingClient((_, _) => throw new IpcConnectTimeoutException("connect timeout"));
+        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+        var probeTimeout = TimeSpan.FromMilliseconds(150);
+
+        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), probeTimeout, CancellationToken.None);
+
+        Assert.False(result.IsRunning);
+        Assert.True(result.HasError);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("Timed out while probing daemon reachability.", error.Message, StringComparison.Ordinal);
+        Assert.True(daemonPingClient.CallCount >= 1);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Probe_WhenConnectTimeoutOccursBeforeDeadlineAndSubsequentPingSucceeds_ReturnsRunning ()
+    {
+        var endpointResolver = new StubEndpointResolver(
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-connect-timeout-retry-success"));
+        var pingAttemptCount = 0;
+        var daemonPingClient = new StubDaemonPingClient((_, _) =>
+        {
+            pingAttemptCount++;
+            if (pingAttemptCount < 3)
+            {
+                throw new IpcConnectTimeoutException("connect timeout");
+            }
+
+            return ValueTask.CompletedTask;
+        });
+        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+
+        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+
+        Assert.True(result.IsRunning);
+        Assert.False(result.HasError);
+        Assert.Null(result.Error);
+        Assert.Equal(3, daemonPingClient.CallCount);
+        Assert.True(daemonPingClient.LastTimeout <= ProbeAttemptTimeoutCap);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Probe_WhenTimeoutOccursBeforeDeadlineAndSubsequentPingSucceeds_ReturnsRunning ()
+    {
+        var endpointResolver = new StubEndpointResolver(
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-retry-success"));
+        var pingAttemptCount = 0;
+        var daemonPingClient = new StubDaemonPingClient((_, _) =>
+        {
+            pingAttemptCount++;
+            if (pingAttemptCount < 3)
+            {
+                throw new TimeoutException("timeout");
+            }
+
+            return ValueTask.CompletedTask;
+        });
+        var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
+
+        var result = await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, CancellationToken.None);
+
+        Assert.True(result.IsRunning);
+        Assert.False(result.HasError);
+        Assert.Null(result.Error);
+        Assert.Equal(3, daemonPingClient.CallCount);
+        Assert.True(daemonPingClient.LastTimeout <= ProbeAttemptTimeoutCap);
     }
 
     [Theory]

@@ -455,6 +455,7 @@ public sealed class DaemonLaunchServiceTests
         public ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReady (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
+            int? daemonProcessId = null,
             CancellationToken cancellationToken = default)
         {
             OnWaitUntilReady?.Invoke();

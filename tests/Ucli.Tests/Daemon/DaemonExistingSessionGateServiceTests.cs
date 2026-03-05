@@ -14,7 +14,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     {
         var session = CreateSession(processId: 4001);
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
+            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.CompletedTask),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService());
 
@@ -34,7 +34,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     public async Task TryHandleExistingSession_WhenPingTimesOut_ReturnsTimeoutFailure ()
     {
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("timeout"))),
+            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new TimeoutException("timeout"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService());
 
@@ -60,7 +60,7 @@ public sealed class DaemonExistingSessionGateServiceTests
         };
         var session = CreateSession(processId: 4003);
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new InvalidOperationException("stale"))),
+            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("stale"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
             daemonSessionCleanupService: cleanupService);
 
@@ -77,6 +77,61 @@ public sealed class DaemonExistingSessionGateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenStaleSessionCleanupRuns_UsesRemainingTimeoutBudget ()
+    {
+        var cleanupService = new StubDaemonSessionCleanupService
+        {
+            CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var service = new DaemonExistingSessionGateService(
+            daemonPingClient: new StubDaemonPingClient(async static _ =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(120)).ConfigureAwait(false);
+                throw new InvalidOperationException("stale");
+            }),
+            reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
+            daemonSessionCleanupService: cleanupService);
+
+        var result = await service.TryHandleExistingSession(
+            CreateContext("fingerprint-existing-stale-remaining-timeout"),
+            CreateSession(processId: 4006),
+            TimeSpan.FromMilliseconds(300),
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(1, cleanupService.CleanupStaleSessionArtifactsCallCount);
+        Assert.True(cleanupService.LastStaleCleanupTimeout < TimeSpan.FromMilliseconds(260));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenStaleSessionCleanupCannotStartWithinDeadline_ReturnsTimeoutWithoutCleanup ()
+    {
+        var cleanupService = new StubDaemonSessionCleanupService();
+        var service = new DaemonExistingSessionGateService(
+            daemonPingClient: new StubDaemonPingClient(async static _ =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(80)).ConfigureAwait(false);
+                throw new InvalidOperationException("stale");
+            }),
+            reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
+            daemonSessionCleanupService: cleanupService);
+
+        var result = await service.TryHandleExistingSession(
+            CreateContext("fingerprint-existing-stale-timeout-before-cleanup"),
+            CreateSession(processId: 4007),
+            TimeSpan.FromMilliseconds(20),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(DaemonStartStatus.Failed, result!.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(0, cleanupService.CleanupStaleSessionArtifactsCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenSessionIsStaleAndCleanupFails_ReturnsFailure ()
     {
         var expectedError = ExecutionError.InternalError("cleanup failed");
@@ -85,7 +140,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Failure(expectedError),
         };
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new InvalidOperationException("stale"))),
+            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("stale"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
             daemonSessionCleanupService: cleanupService);
 
@@ -105,7 +160,7 @@ public sealed class DaemonExistingSessionGateServiceTests
     public async Task TryHandleExistingSession_WhenPingThrowsUnexpectedError_ReturnsInternalFailure ()
     {
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new InvalidOperationException("unexpected"))),
+            daemonPingClient: new StubDaemonPingClient(static _ => ValueTask.FromException(new InvalidOperationException("unexpected"))),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => false),
             daemonSessionCleanupService: new StubDaemonSessionCleanupService());
 
@@ -149,9 +204,9 @@ public sealed class DaemonExistingSessionGateServiceTests
 
     private sealed class StubDaemonPingClient : IDaemonPingClient
     {
-        private readonly Func<ValueTask> handler;
+        private readonly Func<TimeSpan, ValueTask> handler;
 
-        public StubDaemonPingClient (Func<ValueTask> handler)
+        public StubDaemonPingClient (Func<TimeSpan, ValueTask> handler)
         {
             this.handler = handler;
         }
@@ -162,7 +217,7 @@ public sealed class DaemonExistingSessionGateServiceTests
             string? sessionToken = null,
             CancellationToken cancellationToken = default)
         {
-            return handler();
+            return handler(timeout);
         }
     }
 
@@ -191,6 +246,8 @@ public sealed class DaemonExistingSessionGateServiceTests
 
         public DaemonSession? LastStaleSession { get; private set; }
 
+        public TimeSpan LastStaleCleanupTimeout { get; private set; }
+
         public ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifacts (
             ResolvedUnityProjectContext unityProject,
             DaemonSessionReadResult readResult,
@@ -208,6 +265,7 @@ public sealed class DaemonExistingSessionGateServiceTests
         {
             CleanupStaleSessionArtifactsCallCount++;
             LastStaleSession = session;
+            LastStaleCleanupTimeout = timeout;
             return ValueTask.FromResult(CleanupStaleSessionArtifactsResult);
         }
     }

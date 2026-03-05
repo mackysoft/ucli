@@ -10,7 +10,7 @@ public sealed class UnityIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenNamedPipeServerIsMissing_ThrowsTimeoutException ()
+    public async Task SendAsync_WhenNamedPipeServerIsMissing_ThrowsConnectTimeoutException ()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -29,7 +29,7 @@ public sealed class UnityIpcClientTests
             IpcMethodNames.Ping,
             JsonDocument.Parse("{}").RootElement.Clone());
 
-        var exception = await Assert.ThrowsAsync<TimeoutException>(async () =>
+        var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
         {
             await client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask();
         });

@@ -83,7 +83,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
             return DaemonShutdownAttemptResult.Failure(ExecutionError.Timeout(
                 $"Timed out while sending daemon shutdown request. {exception.Message}"));
         }
-        catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
+        catch (Exception exception) when (IsNotRunningException(exception))
         {
             return DaemonShutdownAttemptResult.NotRunning();
         }
@@ -101,5 +101,39 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
     {
         return string.Equals(errorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal)
             || string.Equals(errorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Determines whether exception can be treated as not-running without masking timeout semantics.
+    /// </summary>
+    /// <param name="exception"> The exception to classify. </param>
+    /// <returns>
+    /// <see langword="true" /> when exception indicates not-running and timeout is not involved;
+    /// otherwise <see langword="false" />.
+    /// </returns>
+    private static bool IsNotRunningException (Exception exception)
+    {
+        if (HasTimeoutInExceptionChain(exception))
+        {
+            return false;
+        }
+
+        return DaemonProbeExceptionClassifier.IsNotRunning(exception);
+    }
+
+    /// <summary> Determines whether timeout exists in exception chain. </summary>
+    /// <param name="exception"> The exception to inspect. </param>
+    /// <returns> <see langword="true" /> when timeout exists in chain; otherwise <see langword="false" />. </returns>
+    private static bool HasTimeoutInExceptionChain (Exception exception)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is TimeoutException)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

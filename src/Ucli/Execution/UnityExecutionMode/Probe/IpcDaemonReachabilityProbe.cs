@@ -61,36 +61,58 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
                 $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
         }
 
-        var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-            ? remainingTimeout
-            : DaemonTimeouts.ProbeAttemptTimeoutCap;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+            {
+                return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
+            }
 
-        try
-        {
-            await daemonPingClient.Ping(
-                    unityProject,
-                    attemptTimeout,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-            return DaemonReachabilityProbeResult.Running();
+            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+                ? remainingTimeout
+                : DaemonTimeouts.ProbeAttemptTimeoutCap;
+            try
+            {
+                await daemonPingClient.Ping(
+                        unityProject,
+                        attemptTimeout,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                return DaemonReachabilityProbeResult.Running();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
+            {
+                return DaemonReachabilityProbeResult.NotRunning();
+            }
+            catch (TimeoutException)
+            {
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                        $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
+                }
+
+                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                return DaemonReachabilityProbeResult.Failure(
+                    ExecutionError.InternalError($"Failed to probe daemon reachability. {exception.Message}"));
+            }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (TimeoutException exception)
-        {
-            return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
-                $"Timed out while probing daemon reachability. {exception.Message}"));
-        }
-        catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
-        {
-            return DaemonReachabilityProbeResult.NotRunning();
-        }
-        catch (Exception exception)
-        {
-            return DaemonReachabilityProbeResult.Failure(
-                ExecutionError.InternalError($"Failed to probe daemon reachability. {exception.Message}"));
-        }
+    }
+
+    private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
+    {
+        var retryDelayMilliseconds = Math.Min(
+            DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
+            Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
+        return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
     }
 }

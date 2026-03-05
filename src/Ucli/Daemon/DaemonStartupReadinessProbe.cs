@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -33,16 +34,36 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
     public async ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReady (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        int? daemonProcessId = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        if (daemonProcessId is int pid && pid <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(daemonProcessId), daemonProcessId, "Daemon process id must be greater than zero.");
+        }
 
         var deadline = ExecutionDeadline.Start(timeout);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (daemonProcessId is int processId && IsProcessExited(processId))
+            {
+                var startupFailureError = await TryResolveStartupFailureFromDaemonLog(
+                        unityProject,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (startupFailureError is not null)
+                {
+                    return DaemonStartupReadinessProbeResult.Failure(startupFailureError);
+                }
+
+                return DaemonStartupReadinessProbeResult.Failure(ExecutionError.InternalError(
+                    $"Unity daemon process exited before startup readiness was confirmed. ProcessId={processId}."));
+            }
+
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
                 return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
@@ -102,6 +123,26 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
     }
 
+    private static bool IsProcessExited (int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            try
+            {
+                return process.HasExited;
+            }
+            catch (InvalidOperationException)
+            {
+                return true;
+            }
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
+    }
+
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
     {
         var retryDelayMilliseconds = Math.Min(
@@ -124,13 +165,29 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             return null;
         }
 
-        if (TryGetCompilerErrorSummary(logReadResult.Text, out var compilerErrorSummary))
+        var latestStartupLogText = GetLatestStartupLogText(logReadResult.Text);
+        if (TryGetCompilerErrorSummary(latestStartupLogText, out var compilerErrorSummary))
         {
             return ExecutionError.InternalError(
                 $"Unity daemon startup failed because scripts have compiler errors. {compilerErrorSummary}");
         }
 
+        if (TryGetPackageResolutionErrorSummary(latestStartupLogText, out var packageErrorSummary))
+        {
+            return ExecutionError.InternalError(
+                $"Unity daemon startup failed because package resolution failed. {packageErrorSummary}");
+        }
+
         return null;
+    }
+
+    private static string GetLatestStartupLogText (string logText)
+    {
+        const string startupMarker = "COMMAND LINE ARGUMENTS:";
+        var markerIndex = logText.LastIndexOf(startupMarker, StringComparison.Ordinal);
+        return markerIndex >= 0
+            ? logText[markerIndex..]
+            : logText;
     }
 
     private static bool TryGetCompilerErrorSummary (
@@ -163,5 +220,46 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
 
         return false;
+    }
+
+    private static bool TryGetPackageResolutionErrorSummary (
+        string logText,
+        out string summary)
+    {
+        const string packageFailureMarker = "An error occurred while resolving packages:";
+        summary = string.Empty;
+
+        var lines = logText.Split('\n');
+        var markerFound = false;
+        foreach (var line in lines)
+        {
+            var trimmedLine = line.Trim();
+            if (trimmedLine.Length == 0)
+            {
+                continue;
+            }
+
+            if (!markerFound)
+            {
+                if (trimmedLine.Contains(packageFailureMarker, StringComparison.OrdinalIgnoreCase))
+                {
+                    markerFound = true;
+                    summary = $"Marker={trimmedLine}";
+                }
+
+                continue;
+            }
+
+            if (trimmedLine.StartsWith("Project has invalid dependencies:", StringComparison.OrdinalIgnoreCase))
+            {
+                summary = $"Marker={trimmedLine}";
+                continue;
+            }
+
+            summary = $"FirstError={trimmedLine}";
+            return true;
+        }
+
+        return markerFound;
     }
 }

@@ -22,7 +22,7 @@ public sealed class DaemonStartupReadinessProbeTests
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-success"),
             TimeSpan.FromMilliseconds(500),
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
@@ -48,7 +48,7 @@ public sealed class DaemonStartupReadinessProbeTests
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-compiler-marker"),
             TimeSpan.FromSeconds(5),
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -77,12 +77,112 @@ public sealed class DaemonStartupReadinessProbeTests
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-compiler-cs"),
             TimeSpan.FromSeconds(5),
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("FirstError=Assets/Foo.cs(10,1): error CS0246: MissingType", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenDaemonLogContainsPackageResolutionFailure_ReturnsInternalErrorImmediately ()
+    {
+        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
+        var logReader = new StubDaemonLogReader
+        {
+            NextResult = DaemonLogReadResult.Success(
+                """
+                An error occurred while resolving packages:
+                  Project has invalid dependencies:
+                    com.unity.test-framework: Package [com.unity.test-framework@1.6.0] cannot be found
+                """,
+                truncated: false,
+                path: "/tmp/daemon.log",
+                sizeBytes: 256),
+        };
+        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-package-error"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("package resolution failed", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("FirstError=com.unity.test-framework: Package [com.unity.test-framework@1.6.0] cannot be found", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, pingClient.CallCount);
+        Assert.Equal(1, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenOnlyPreviousSessionHasPackageResolutionFailure_ReturnsTimeout ()
+    {
+        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
+        var logReader = new StubDaemonLogReader
+        {
+            NextResult = DaemonLogReadResult.Success(
+                """
+                COMMAND LINE ARGUMENTS:
+                -projectPath
+                /tmp/old
+                An error occurred while resolving packages:
+                  Project has invalid dependencies:
+                    com.unity.modules.adaptiveperformance: Package [com.unity.modules.adaptiveperformance@1.0.0] cannot be found
+                COMMAND LINE ARGUMENTS:
+                -projectPath
+                /tmp/new
+                [Package Manager] Done resolving packages in 1.00 seconds
+                """,
+                truncated: false,
+                path: "/tmp/daemon.log",
+                sizeBytes: 512),
+        };
+        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-ignore-previous-session-errors"),
+            TimeSpan.FromMilliseconds(20),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.True(logReader.CallCount >= 1);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenDaemonProcessExitedBeforeReady_ReturnsInternalErrorImmediately ()
+    {
+        var pingClient = new StubDaemonPingClient(static () => ValueTask.CompletedTask);
+        var logReader = new StubDaemonLogReader
+        {
+            NextResult = DaemonLogReadResult.Success(
+                "daemon bootstrap in progress\n",
+                truncated: false,
+                path: "/tmp/daemon.log",
+                sizeBytes: 32),
+        };
+        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-process-exited"),
+            TimeSpan.FromSeconds(5),
+            daemonProcessId: int.MaxValue,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("process exited before startup readiness was confirmed", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"ProcessId={int.MaxValue}", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, pingClient.CallCount);
+        Assert.Equal(1, logReader.CallCount);
     }
 
     [Fact]
@@ -103,7 +203,7 @@ public sealed class DaemonStartupReadinessProbeTests
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-timeout"),
             TimeSpan.FromMilliseconds(20),
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -129,7 +229,7 @@ public sealed class DaemonStartupReadinessProbeTests
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-timeout-exception"),
             TimeSpan.FromMilliseconds(20),
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);

@@ -53,12 +53,19 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        var deadline = ExecutionDeadline.Start(timeout);
+
+        if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
+        {
+            return DaemonStartResult.Failure(ExecutionError.Timeout(
+                "Timed out before probing existing daemon session could begin."));
+        }
 
         try
         {
             await daemonPingClient.Ping(
                     unityProject,
-                    timeout,
+                    pingTimeout,
                     session.SessionToken,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -75,10 +82,16 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
+            if (!deadline.TryGetRemainingTimeout(out var cleanupTimeout))
+            {
+                return DaemonStartResult.Failure(ExecutionError.Timeout(
+                    "Timed out before stale daemon session cleanup could begin."));
+            }
+
             var cleanupResult = await daemonSessionCleanupService.CleanupStaleSessionArtifacts(
                     unityProject,
                     session,
-                    timeout,
+                    cleanupTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!cleanupResult.IsSuccess)

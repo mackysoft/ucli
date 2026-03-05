@@ -44,9 +44,11 @@ internal sealed class UnityIpcClient : IUnityIpcClient
         using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellationTokenSource.CancelAfter(timeout);
         var ipcCancellationToken = timeoutCancellationTokenSource.Token;
+        var hasConnected = false;
         try
         {
             await using var stream = await ConnectAsync(endpoint, ipcCancellationToken).ConfigureAwait(false);
+            hasConnected = true;
             await IpcFrameCodec.WriteModelAsync(
                     stream,
                     request,
@@ -69,6 +71,13 @@ internal sealed class UnityIpcClient : IUnityIpcClient
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
         {
+            if (!hasConnected)
+            {
+                throw new IpcConnectTimeoutException(
+                    $"IPC connection timed out after {timeout.TotalMilliseconds:0} milliseconds.",
+                    exception);
+            }
+
             throw new TimeoutException(
                 $"IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
                 exception);

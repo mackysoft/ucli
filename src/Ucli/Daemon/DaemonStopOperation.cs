@@ -117,25 +117,30 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
         if (!deadline.TryGetRemainingTimeout(out var processTerminationTimeout))
         {
+            var fallbackStopResult = await EnsureStoppedAndCleanup(
+                    unityProject,
+                    session,
+                    DaemonTimeouts.StopCompensationTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!fallbackStopResult.IsSuccess)
+            {
+                return DaemonStopResult.Failure(fallbackStopResult.Error!);
+            }
+
             return DaemonStopResult.Failure(CreateTimeoutError(
                 "Timed out before daemon process termination could be completed."));
         }
 
-        var stopProcessResult = await processTerminationService.EnsureStopped(
-                session.ProcessId,
-                session.IssuedAtUtc,
+        var stopAndCleanupResult = await EnsureStoppedAndCleanup(
+                unityProject,
+                session,
                 processTerminationTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!stopProcessResult.IsSuccess)
+        if (!stopAndCleanupResult.IsSuccess)
         {
-            return DaemonStopResult.Failure(stopProcessResult.Error!);
-        }
-
-        var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
-        if (!cleanupResult.IsSuccess)
-        {
-            return DaemonStopResult.Failure(cleanupResult.Error!);
+            return DaemonStopResult.Failure(stopAndCleanupResult.Error!);
         }
 
         if (!shutdownResult.IsSuccess)
@@ -149,5 +154,25 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
     private static ExecutionError CreateTimeoutError (string message)
     {
         return ExecutionError.Timeout(message);
+    }
+
+    private async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAndCleanup (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var stopProcessResult = await processTerminationService.EnsureStopped(
+                session.ProcessId,
+                session.IssuedAtUtc,
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!stopProcessResult.IsSuccess)
+        {
+            return stopProcessResult;
+        }
+
+        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
     }
 }
