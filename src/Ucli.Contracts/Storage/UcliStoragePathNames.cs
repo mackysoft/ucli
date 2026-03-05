@@ -18,6 +18,24 @@ public static class UcliStoragePathNames
     /// <summary> Gets the artifacts directory name under one fingerprint directory. </summary>
     public const string ArtifactsDirectoryName = "artifacts";
 
+    /// <summary> Gets the read-index directory name under one fingerprint directory. </summary>
+    public const string IndexDirectoryName = "index";
+
+    /// <summary> Gets the catalogs directory name under one read-index directory. </summary>
+    public const string CatalogsDirectoryName = "catalogs";
+
+    /// <summary> Gets the read-index inputs directory name under one read-index directory. </summary>
+    public const string IndexInputsDirectoryName = "inputs";
+
+    /// <summary> Gets the read-index types catalog file name. </summary>
+    public const string TypesCatalogFileName = "types.catalog.json";
+
+    /// <summary> Gets the read-index schemas catalog file name. </summary>
+    public const string SchemasCatalogFileName = "schemas.catalog.json";
+
+    /// <summary> Gets the read-index inputs manifest file name. </summary>
+    public const string IndexInputsManifestFileName = "manifest.json";
+
     /// <summary> Gets the test-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string TestArtifactsDirectoryName = "test";
 

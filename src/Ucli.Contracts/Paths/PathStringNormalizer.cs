@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace MackySoft.Ucli.Contracts.Paths;
 
 /// <summary> Provides reusable normalization helpers for path text values. </summary>
@@ -60,5 +62,35 @@ internal static class PathStringNormalizer
         }
 
         return pathValue.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    /// <summary> Normalizes path casing for platforms with case-insensitive path semantics. </summary>
+    /// <param name="pathValue"> The path text value. </param>
+    /// <returns> The path text where case differences are normalized on case-insensitive platforms. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="pathValue" /> is <see langword="null" />. </exception>
+    public static string NormalizeCaseForCurrentPlatform (string pathValue)
+    {
+        if (pathValue == null)
+        {
+            throw new ArgumentNullException(nameof(pathValue));
+        }
+
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? pathValue.ToUpperInvariant()
+            : pathValue;
+    }
+
+    /// <summary> Normalizes one absolute path value for deterministic hash input. </summary>
+    /// <param name="pathValue"> The path text value. </param>
+    /// <returns> The absolute path text with slash and case normalization applied. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="pathValue" /> is <see langword="null" />. </exception>
+    public static string NormalizeAbsolutePathForHash (string pathValue)
+    {
+        if (pathValue == null)
+        {
+            throw new ArgumentNullException(nameof(pathValue));
+        }
+
+        return NormalizeCaseForCurrentPlatform(ToSlashSeparated(Path.GetFullPath(pathValue)));
     }
 }

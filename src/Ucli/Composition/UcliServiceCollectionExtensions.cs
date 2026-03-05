@@ -1,10 +1,12 @@
 using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.Daemon.Start;
 using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Operations;
@@ -40,6 +42,9 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
         services.AddSingleton<IUcliConfigStore, UcliConfigStore>();
+        services.AddSingleton<IIndexCatalogReader, FileIndexCatalogReader>();
+        services.AddSingleton<IIndexInputFingerprintCalculator, FileSystemIndexInputFingerprintCalculator>();
+        services.AddSingleton<IIndexFreshnessEvaluator, IndexFreshnessEvaluator>();
         services.AddSingleton<IInitStatusContextResolver, InitStatusContextResolver>();
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
