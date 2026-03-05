@@ -28,6 +28,34 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         }
         """;
 
+    private const string ScenePathArgsSchemaJson =
+        """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "minLength": 1 }
+          },
+          "required": ["path"]
+        }
+        """;
+
+    private const string SceneTreeArgsSchemaJson =
+        """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "depth": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            }
+          },
+          "required": ["path"]
+        }
+        """;
+
     private static readonly IReadOnlyList<UcliOperationDescriptor> Operations =
     [
         new UcliOperationDescriptor("ucli.asset.create", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
@@ -54,9 +82,9 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
 
         new UcliOperationDescriptor("ucli.resolve", UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
 
-        new UcliOperationDescriptor("ucli.scene.open", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),
-        new UcliOperationDescriptor("ucli.scene.save", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
-        new UcliOperationDescriptor("ucli.scene.tree", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.scene.open", UcliOperationKind.Query, OperationPolicy.Safe, ScenePathArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.scene.save", UcliOperationKind.Mutation, OperationPolicy.Advanced, ScenePathArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.scene.tree", UcliOperationKind.Query, OperationPolicy.Safe, SceneTreeArgsSchemaJson),
 
         new UcliOperationDescriptor("ucli.scenes.findComponents", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),
     ];
