@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="connectionHandler"> The connection handler dependency. </param>
         /// <param name="onStarted"> The callback invoked after transport listener successfully starts accepting connections. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
-        void Run (
+        Task Run (
             string address,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,

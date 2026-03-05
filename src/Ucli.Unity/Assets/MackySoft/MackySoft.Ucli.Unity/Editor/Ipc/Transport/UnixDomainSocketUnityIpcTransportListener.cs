@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="address" /> is empty. </exception>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="connectionHandler" /> is <see langword="null" />. </exception>
-        public void Run (
+        public async Task Run (
             string address,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
@@ -75,9 +76,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     try
                     {
-                        using var acceptedSocket = listener.Accept();
+                        using var acceptedSocket = await listener.AcceptAsync();
                         using var networkStream = new NetworkStream(acceptedSocket, ownsSocket: false);
-                        connectionHandler.Handle(networkStream, cancellationToken).GetAwaiter().GetResult();
+                        await connectionHandler.Handle(networkStream, cancellationToken);
                     }
                     catch (OperationCanceledException)
                     {

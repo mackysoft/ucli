@@ -221,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Runs endpoint-specific listener loop. </summary>
         /// <param name="endpoint"> The configured IPC endpoint. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
-        private void RunServerLoop (
+        private async Task RunServerLoop (
             IpcEndpoint endpoint,
             UnityIpcServerStartupCoordinator startupCoordinator,
             CancellationToken cancellationToken)
@@ -229,7 +229,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var listener = ResolveTransportListener(endpoint.TransportKind);
-                listener.Run(
+                await listener.Run(
                     endpoint.Address,
                     connectionHandler,
                     startupCoordinator.Complete,
