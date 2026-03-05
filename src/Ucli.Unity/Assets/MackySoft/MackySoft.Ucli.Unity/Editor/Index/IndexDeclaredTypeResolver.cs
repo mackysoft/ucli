@@ -1,6 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Reflection;
+using UnityEditor;
+using UnityEngine;
 
 #nullable enable
 
@@ -45,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Index
                     var resolvedElementType = TryResolveElementType(currentType);
                     if (resolvedElementType == null)
                     {
-                        return new IndexDeclaredTypeResolution(currentType, currentElementType);
+                        return new IndexDeclaredTypeResolution(currentType, currentElementType, false);
                     }
 
                     currentType = resolvedElementType;
@@ -56,18 +57,21 @@ namespace MackySoft.Ucli.Unity.Index
                 var fieldInfo = ResolveField(currentType, segment);
                 if (fieldInfo == null)
                 {
-                    return new IndexDeclaredTypeResolution(currentType, currentElementType);
+                    if (TryResolveUnityNativeDeclaredType(currentType, segment, out var unityNativeType))
+                    {
+                        currentType = unityNativeType;
+                        currentElementType = TryResolveElementType(currentType);
+                        continue;
+                    }
+
+                    return new IndexDeclaredTypeResolution(currentType, currentElementType, false);
                 }
 
                 currentType = fieldInfo.FieldType;
-                var elementType = TryResolveElementType(currentType);
-                if (elementType != null)
-                {
-                    currentElementType = elementType;
-                }
+                currentElementType = TryResolveElementType(currentType);
             }
 
-            return new IndexDeclaredTypeResolution(currentType, currentElementType);
+            return new IndexDeclaredTypeResolution(currentType, currentElementType, true);
         }
 
         /// <summary> Tries to resolve one collection element type from one runtime type. </summary>
@@ -118,6 +122,28 @@ namespace MackySoft.Ucli.Unity.Index
             }
 
             return null;
+        }
+
+        private static bool TryResolveUnityNativeDeclaredType (
+            Type ownerType,
+            string propertySegment,
+            out Type declaredType)
+        {
+            if (string.Equals(propertySegment, "m_Script", StringComparison.Ordinal))
+            {
+                declaredType = typeof(MonoScript);
+                return true;
+            }
+
+            if (string.Equals(propertySegment, "m_Enabled", StringComparison.Ordinal)
+                && typeof(Behaviour).IsAssignableFrom(ownerType))
+            {
+                declaredType = typeof(bool);
+                return true;
+            }
+
+            declaredType = null!;
+            return false;
         }
     }
 }

@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Index;
 
@@ -45,12 +44,7 @@ internal sealed class IndexFreshnessEvaluator : IIndexFreshnessEvaluator
         var manifestReadResult = await catalogReader.ReadInputsManifest(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
         if (!manifestReadResult.IsSuccess)
         {
-            if (string.Equals(manifestReadResult.Error!.Code, IpcErrorCodes.ReadIndexBootstrapFailed, StringComparison.Ordinal))
-            {
-                return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
-            }
-
-            return IndexFreshnessEvaluationResult.Failure(IndexFreshness.Probable, manifestReadResult.Error!);
+            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
         var currentSnapshot = await inputFingerprintCalculator.TryCompute(projectRoot, cancellationToken).ConfigureAwait(false);

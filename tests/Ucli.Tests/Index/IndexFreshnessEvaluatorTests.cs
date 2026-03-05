@@ -80,6 +80,49 @@ public sealed class IndexFreshnessEvaluatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Evaluate_ReturnsProbable_WhenAllowStaleAndInputsManifestIsMalformed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-freshness", "probable-malformed-manifest");
+        PrepareRequiredInputs(scope);
+        WriteMalformedInputsManifest(scope.FullPath, "fingerprint");
+        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), new FileSystemIndexInputFingerprintCalculator());
+
+        var result = await evaluator.Evaluate(
+            storageRoot: scope.FullPath,
+            projectFingerprint: "fingerprint",
+            projectRoot: scope.FullPath,
+            mode: ReadIndexMode.AllowStale,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(IndexFreshness.Probable, result.Freshness);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Evaluate_ReturnsReadIndexFreshRequired_WhenRequireFreshAndInputsManifestIsMalformed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-freshness", "require-fresh-malformed-manifest");
+        PrepareRequiredInputs(scope);
+        WriteMalformedInputsManifest(scope.FullPath, "fingerprint");
+        var evaluator = new IndexFreshnessEvaluator(new FileIndexCatalogReader(), new FileSystemIndexInputFingerprintCalculator());
+
+        var result = await evaluator.Evaluate(
+            storageRoot: scope.FullPath,
+            projectFingerprint: "fingerprint",
+            projectRoot: scope.FullPath,
+            mode: ReadIndexMode.RequireFresh,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IndexFreshness.Probable, result.Freshness);
+        Assert.NotNull(result.Error);
+        Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Evaluate_ReturnsReadIndexFreshRequired_WhenRequireFreshAndFreshnessIsStale ()
     {
         using var scope = TestDirectories.CreateTempScope("index-freshness", "require-fresh-stale");
@@ -151,5 +194,16 @@ public sealed class IndexFreshnessEvaluatorTests
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {manifestPath}");
         Directory.CreateDirectory(directoryPath);
         File.WriteAllText(manifestPath, IndexInputsManifestJsonContractSerializer.Serialize(manifest));
+    }
+
+    private static void WriteMalformedInputsManifest (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, projectFingerprint);
+        var directoryPath = Path.GetDirectoryName(manifestPath)
+            ?? throw new InvalidOperationException($"Directory path could not be resolved: {manifestPath}");
+        Directory.CreateDirectory(directoryPath);
+        File.WriteAllText(manifestPath, "{ not valid json");
     }
 }

@@ -98,7 +98,8 @@ namespace MackySoft.Ucli.Unity.Index
                 case SerializedPropertyType.Hash128:
                     return IndexPropertyTypeValues.Hash128;
 
-#if UNITY_2022_1_OR_NEWER
+#if UNITY_6000_0_OR_NEWER
+                // NOTE: Enable RenderingLayerMask mapping only on Unity 6000.0 or newer.
                 case SerializedPropertyType.RenderingLayerMask:
                     return IndexPropertyTypeValues.LayerMask;
 #endif

@@ -51,6 +51,11 @@ namespace MackySoft.Ucli.Unity.Index
                 }
 
                 var resolution = IndexDeclaredTypeResolver.Resolve(rootType, propertyPath);
+                if (!resolution.IsResolved)
+                {
+                    continue;
+                }
+
                 var declaredType = resolution.DeclaredType;
                 var declaredTypeId = IndexTypeIdFormatter.Format(declaredType);
                 var propertyTypeLiteral = IndexSerializedPropertyTypeMapper.ToLiteral(iterator.propertyType);

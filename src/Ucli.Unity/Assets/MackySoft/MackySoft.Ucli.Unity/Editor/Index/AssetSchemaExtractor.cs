@@ -47,6 +47,7 @@ namespace MackySoft.Ucli.Unity.Index
 
             var entries = new List<IndexSchemaEntryJsonContract>(assetTypes.Count);
             var referencedTypes = new HashSet<Type>();
+            var editorAssemblyNames = IndexAssemblyNameSetResolver.ResolveEditorAssemblyNames();
             // NOTE: Unity serialization APIs must run on the main thread, so we use cooperative yielding instead of worker-thread offload.
             var canYield = SynchronizationContext.Current != null;
             for (var i = 0; i < assetTypes.Count; i++)
@@ -59,20 +60,15 @@ namespace MackySoft.Ucli.Unity.Index
                 }
 
                 var assetType = assetTypes[i];
-                if (!IsValidAssetType(assetType))
+                if (!IsValidAssetType(assetType, editorAssemblyNames))
                 {
                     continue;
                 }
 
                 var entry = TryExtractEntry(assetType, out var propertyResult);
-                if (entry == null)
-                {
-                    continue;
-                }
-
                 entries.Add(entry);
                 referencedTypes.Add(assetType);
-                foreach (var referencedType in propertyResult!.ReferencedTypes)
+                foreach (var referencedType in propertyResult.ReferencedTypes)
                 {
                     referencedTypes.Add(referencedType);
                 }
@@ -88,18 +84,17 @@ namespace MackySoft.Ucli.Unity.Index
             return new IndexSchemaExtractionResult(entries, referencedTypes);
         }
 
-        private IndexSchemaEntryJsonContract? TryExtractEntry (
+        private IndexSchemaEntryJsonContract TryExtractEntry (
             Type assetType,
-            out IndexSchemaPropertyCollectionResult? propertyResult)
+            out IndexSchemaPropertyCollectionResult propertyResult)
         {
-            propertyResult = null;
             ScriptableObject? instance = null;
             try
             {
                 instance = ScriptableObject.CreateInstance(assetType);
                 if (instance == null)
                 {
-                    return null;
+                    throw new InvalidOperationException($"Failed to create ScriptableObject instance. type={assetType.FullName}");
                 }
 
                 var serializedObject = new SerializedObject(instance);
@@ -110,10 +105,6 @@ namespace MackySoft.Ucli.Unity.Index
                     TypeId: IndexTypeIdFormatter.Format(assetType),
                     DisplayName: assetType.Name,
                     Properties: propertyResult.Properties);
-            }
-            catch
-            {
-                return null;
             }
             finally
             {
@@ -130,13 +121,18 @@ namespace MackySoft.Ucli.Unity.Index
             return $"{IndexSchemaKindValues.Asset}:{typeId}";
         }
 
-        private static bool IsValidAssetType (Type assetType)
+        private static bool IsValidAssetType (
+            Type assetType,
+            HashSet<string> editorAssemblyNames)
         {
+            var assemblyName = assetType?.Assembly.GetName().Name;
             return assetType != null
                 && typeof(ScriptableObject).IsAssignableFrom(assetType)
                 && !assetType.IsAbstract
                 && !assetType.IsGenericTypeDefinition
-                && !assetType.ContainsGenericParameters;
+                && !assetType.ContainsGenericParameters
+                && !string.IsNullOrWhiteSpace(assemblyName)
+                && !editorAssemblyNames.Contains(assemblyName);
         }
     }
 }

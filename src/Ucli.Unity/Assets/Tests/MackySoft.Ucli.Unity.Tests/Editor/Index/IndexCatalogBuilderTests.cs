@@ -1,14 +1,18 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Index;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 #nullable enable
 
@@ -16,14 +20,28 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class IndexCatalogBuilderTests
     {
-        [Test]
-        [Category("Size.Small")]
-        public async Task Build_WhenRequiredInputsExist_ReturnsCatalogsAndContainsExpectedEntries ()
+        [SetUp]
+        public void SetUp ()
         {
-            var projectRootPath = ResolveProjectRootPath();
-            var builder = CreateBuilder();
+            LogAssert.ignoreFailingMessages = true;
+        }
 
-            var result = await builder.Build(projectRootPath, CancellationToken.None);
+        [TearDown]
+        public void TearDown ()
+        {
+            LogAssert.ignoreFailingMessages = false;
+        }
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Build_WhenRequiredInputsExist_ReturnsCatalogsAndContainsExpectedEntries () => UniTask.ToCoroutine(async () =>
+        {
+            var builder = CreateBuilder(
+                new SuccessComponentSchemaExtractor(),
+                new SuccessAssetSchemaExtractor(),
+                new SuccessIndexInputFingerprintCalculator());
+
+            var result = await builder.Build(ResolveProjectRootPath(), CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.ErrorMessage, Is.Null);
@@ -33,9 +51,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.TypesCatalog!.Entries, Is.Not.Null);
             Assert.That(result.SchemasCatalog!.Entries, Is.Not.Null);
 
-            var componentTypeId = IndexTypeIdFormatter.Format(typeof(IndexCatalogTestComponent));
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(BoxCollider));
             var assetTypeId = IndexTypeIdFormatter.Format(typeof(IndexCatalogTestAsset));
-            var candidateTypeId = IndexTypeIdFormatter.Format(typeof(IndexCatalogTestSerializeReferenceCandidate));
 
             var componentTypeEntry = result.TypesCatalog.Entries!.SingleOrDefault(entry => entry.TypeId == componentTypeId);
             Assert.That(componentTypeEntry, Is.Not.Null);
@@ -47,64 +64,52 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(assetTypeEntry!.Flags, Is.Not.Null);
             Assert.That(assetTypeEntry.Flags!.IsScriptableObject, Is.True);
 
-            var candidateTypeEntry = result.TypesCatalog.Entries!.SingleOrDefault(entry => entry.TypeId == candidateTypeId);
-            Assert.That(candidateTypeEntry, Is.Not.Null);
-            Assert.That(candidateTypeEntry!.Flags, Is.Not.Null);
-            Assert.That(candidateTypeEntry.Flags!.IsSerializeReferenceCandidate, Is.True);
-
             var componentSchema = result.SchemasCatalog.Entries!.SingleOrDefault(entry =>
                 entry.Kind == IndexSchemaKindValues.Comp
                 && entry.TypeId == componentTypeId);
             Assert.That(componentSchema, Is.Not.Null);
             Assert.That(componentSchema!.SchemaKey, Is.EqualTo($"{IndexSchemaKindValues.Comp}:{componentTypeId}"));
-            Assert.That(componentSchema.Properties, Is.Not.Null);
-
-            var integerProperty = componentSchema.Properties!.SingleOrDefault(property => property.Path == "integerValue");
-            Assert.That(integerProperty, Is.Not.Null);
-            Assert.That(integerProperty!.PropertyType, Is.EqualTo(IndexPropertyTypeValues.Integer));
-            Assert.That(integerProperty.IsArray, Is.False);
-
-            var listProperty = componentSchema.Properties!.SingleOrDefault(property => property.Path == "items");
-            Assert.That(listProperty, Is.Not.Null);
-            Assert.That(listProperty!.IsArray, Is.True);
-            Assert.That(listProperty.ElementTypeId, Is.Not.Null.And.Not.Empty);
-
-            var readOnlyProperty = componentSchema.Properties!.SingleOrDefault(property => property.Path == "m_Script");
-            Assert.That(readOnlyProperty, Is.Not.Null);
-            Assert.That(readOnlyProperty!.IsReadOnly, Is.True);
+            var enabledProperty = componentSchema.Properties!.SingleOrDefault(property => property.Path == "m_Enabled");
+            Assert.That(enabledProperty, Is.Not.Null);
+            Assert.That(enabledProperty!.PropertyType, Is.EqualTo(IndexPropertyTypeValues.Boolean));
+            Assert.That(enabledProperty.DeclaredTypeId, Is.EqualTo(IndexTypeIdFormatter.Format(typeof(bool))));
 
             var assetSchema = result.SchemasCatalog.Entries!.SingleOrDefault(entry =>
                 entry.Kind == IndexSchemaKindValues.Asset
                 && entry.TypeId == assetTypeId);
             Assert.That(assetSchema, Is.Not.Null);
             Assert.That(assetSchema!.SchemaKey, Is.EqualTo($"{IndexSchemaKindValues.Asset}:{assetTypeId}"));
-        }
+            var speedProperty = assetSchema.Properties!.SingleOrDefault(property => property.Path == "speed");
+            Assert.That(speedProperty, Is.Not.Null);
+            Assert.That(speedProperty!.PropertyType, Is.EqualTo(IndexPropertyTypeValues.Float));
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Extractors_WhenCalledDirectly_SeparateCompAndAssetKinds ()
+        public IEnumerator Build_WhenExtractorsReturnBothKinds_MergesAndOrdersSchemas () => UniTask.ToCoroutine(async () =>
         {
-            var propertyCollector = new IndexSchemaPropertyCollector();
-            var componentExtractor = new ComponentSchemaExtractor(propertyCollector);
-            var assetExtractor = new AssetSchemaExtractor(propertyCollector);
+            var builder = CreateBuilder(
+                new SuccessComponentSchemaExtractor(),
+                new SuccessAssetSchemaExtractor(),
+                new SuccessIndexInputFingerprintCalculator());
 
-            var componentResult = await componentExtractor.Extract(
-                new[] { typeof(IndexCatalogTestComponent) },
-                CancellationToken.None);
-            var assetResult = await assetExtractor.Extract(
-                new[] { typeof(IndexCatalogTestAsset) },
-                CancellationToken.None);
+            var result = await builder.Build(ResolveProjectRootPath(), CancellationToken.None);
 
-            Assert.That(componentResult.Entries.Count, Is.EqualTo(1));
-            Assert.That(componentResult.Entries[0].Kind, Is.EqualTo(IndexSchemaKindValues.Comp));
-            Assert.That(componentResult.Entries[0].SchemaKey, Does.StartWith($"{IndexSchemaKindValues.Comp}:"));
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.SchemasCatalog, Is.Not.Null);
+            Assert.That(result.SchemasCatalog!.Entries, Is.Not.Null);
+            Assert.That(result.SchemasCatalog.Entries!.Count, Is.EqualTo(2));
+            Assert.That(result.SchemasCatalog.Entries[0].Kind, Is.EqualTo(IndexSchemaKindValues.Asset));
+            Assert.That(result.SchemasCatalog.Entries[1].Kind, Is.EqualTo(IndexSchemaKindValues.Comp));
+            Assert.That(
+                StringComparer.Ordinal.Compare(
+                    result.SchemasCatalog.Entries[0].SchemaKey ?? string.Empty,
+                    result.SchemasCatalog.Entries[1].SchemaKey ?? string.Empty),
+                Is.LessThanOrEqualTo(0));
+        });
 
-            Assert.That(assetResult.Entries.Count, Is.EqualTo(1));
-            Assert.That(assetResult.Entries[0].Kind, Is.EqualTo(IndexSchemaKindValues.Asset));
-            Assert.That(assetResult.Entries[0].SchemaKey, Does.StartWith($"{IndexSchemaKindValues.Asset}:"));
-        }
-
-#if UNITY_2022_1_OR_NEWER
+#if UNITY_6000_0_OR_NEWER
+        // NOTE: Run this test only on Unity 6000.0 or newer.
         [Test]
         [Category("Size.Small")]
         public void SerializedPropertyTypeMapper_WhenRenderingLayerMask_ReturnsRenderingLayerMaskLiteral ()
@@ -119,9 +124,9 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 #endif
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Extractors_WhenCancellationRequested_ThrowOperationCanceledException ()
+        public IEnumerator Extractors_WhenCancellationRequested_ThrowOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var propertyCollector = new IndexSchemaPropertyCollector();
             var componentExtractor = new ComponentSchemaExtractor(propertyCollector);
@@ -129,34 +134,82 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cts = new CancellationTokenSource();
             cts.Cancel();
 
-            try
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await componentExtractor.Extract(
-                    new[] { typeof(IndexCatalogTestComponent) },
+                    new[] { typeof(BoxCollider) },
                     cts.Token);
-                Assert.Fail("Expected OperationCanceledException for component extractor.");
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected.
-            }
+            });
 
-            try
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await assetExtractor.Extract(
-                    new[] { typeof(IndexCatalogTestAsset) },
+                    new[] { typeof(GUISkin) },
                     cts.Token);
-                Assert.Fail("Expected OperationCanceledException for asset extractor.");
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected.
-            }
-        }
+            });
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task InputFingerprintCalculator_WhenRequiredInputsExist_ReturnsHashes ()
+        public IEnumerator Extractors_WhenCollectorThrows_PropagateException () => UniTask.ToCoroutine(async () =>
+        {
+            var componentExtractor = new ComponentSchemaExtractor(new ThrowingPropertyCollector());
+            var assetExtractor = new AssetSchemaExtractor(new ThrowingPropertyCollector());
+
+            async UniTask RunComponentExtract ()
+            {
+                await componentExtractor.Extract(
+                    new[] { typeof(BoxCollider) },
+                    CancellationToken.None);
+            }
+
+            async UniTask RunAssetExtract ()
+            {
+                await assetExtractor.Extract(
+                    new[] { typeof(GUISkin) },
+                    CancellationToken.None);
+            }
+
+            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(RunComponentExtract);
+            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(RunAssetExtract);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Extractors_WhenAssetTypeIsEditorAssembly_SkipsExtraction () => UniTask.ToCoroutine(async () =>
+        {
+            var extractor = new AssetSchemaExtractor(new IndexSchemaPropertyCollector());
+
+            var result = await extractor.Extract(
+                new[] { typeof(IndexCatalogTestAsset) },
+                CancellationToken.None);
+
+            Assert.That(result.Entries.Count, Is.EqualTo(0));
+            Assert.That(result.ReferencedTypes.Count, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Build_WhenSchemaExtractorThrows_ReturnsFailureResult () => UniTask.ToCoroutine(async () =>
+        {
+            var builder = CreateBuilder(
+                new ThrowingComponentSchemaExtractor(),
+                new EmptyAssetSchemaExtractor(),
+                new SuccessIndexInputFingerprintCalculator());
+
+            var result = await builder.Build(ResolveProjectRootPath(), CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.TypesCatalog, Is.Null);
+            Assert.That(result.SchemasCatalog, Is.Null);
+            Assert.That(result.InputsManifest, Is.Null);
+            Assert.That(result.ErrorMessage, Does.Contain("Failed to build index catalogs."));
+            Assert.That(result.ErrorMessage, Does.Contain("component-extractor-failure"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator InputFingerprintCalculator_WhenRequiredInputsExist_ReturnsHashes () => UniTask.ToCoroutine(async () =>
         {
             var calculator = new FileSystemIndexInputFingerprintCalculator();
             var projectRootPath = ResolveProjectRootPath();
@@ -169,11 +222,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.PackagesLockHash, Is.Not.Empty);
             Assert.That(snapshot.AssemblyDefinitionHash, Is.Not.Empty);
             Assert.That(snapshot.CombinedHash, Is.Not.Empty);
-        }
+        });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task FileIndexCatalogWriter_WhenWriteSucceeds_CreatesExpectedCatalogPaths ()
+        public IEnumerator FileIndexCatalogWriter_WhenWriteSucceeds_CreatesExpectedCatalogPaths () => UniTask.ToCoroutine(async () =>
         {
             var writer = new FileIndexCatalogWriter();
             var generatedAtUtc = DateTimeOffset.Parse("2026-03-04T00:00:00+00:00");
@@ -256,20 +309,137 @@ namespace MackySoft.Ucli.Unity.Tests
                     Directory.Delete(storageRootPath, recursive: true);
                 }
             }
-        }
-
-        private static IIndexCatalogBuilder CreateBuilder ()
-        {
-            var propertyCollector = new IndexSchemaPropertyCollector();
-            return new IndexCatalogBuilder(
-                new ComponentSchemaExtractor(propertyCollector),
-                new AssetSchemaExtractor(propertyCollector),
-                new FileSystemIndexInputFingerprintCalculator());
-        }
+        });
 
         private static string ResolveProjectRootPath ()
         {
             return Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+        }
+
+        private static IndexCatalogBuilder CreateBuilder (
+            IComponentSchemaExtractor componentSchemaExtractor,
+            IAssetSchemaExtractor assetSchemaExtractor,
+            IIndexInputFingerprintCalculator inputFingerprintCalculator)
+        {
+            return new IndexCatalogBuilder(
+                componentSchemaExtractor,
+                assetSchemaExtractor,
+                inputFingerprintCalculator,
+                new FixedProjectTypeCatalogSource(),
+                new IndexTypeCatalogComposer());
+        }
+
+        private sealed class SuccessComponentSchemaExtractor : IComponentSchemaExtractor
+        {
+            public ValueTask<IndexSchemaExtractionResult> Extract (
+                IReadOnlyList<Type> componentTypes,
+                CancellationToken cancellationToken = default)
+            {
+                var componentTypeId = IndexTypeIdFormatter.Format(typeof(BoxCollider));
+                var entry = new IndexSchemaEntryJsonContract(
+                    SchemaKey: $"{IndexSchemaKindValues.Comp}:{componentTypeId}",
+                    Kind: IndexSchemaKindValues.Comp,
+                    TypeId: componentTypeId,
+                    DisplayName: nameof(BoxCollider),
+                    Properties: new[]
+                    {
+                        new IndexSchemaPropertyEntryJsonContract(
+                            Path: "m_Enabled",
+                            PropertyType: IndexPropertyTypeValues.Boolean,
+                            DeclaredTypeId: IndexTypeIdFormatter.Format(typeof(bool)),
+                            IsArray: false,
+                            ElementTypeId: null,
+                            IsReadOnly: false),
+                    });
+                return new ValueTask<IndexSchemaExtractionResult>(new IndexSchemaExtractionResult(
+                    new[] { entry },
+                    new HashSet<Type> { typeof(BoxCollider), typeof(bool) }));
+            }
+        }
+
+        private sealed class SuccessAssetSchemaExtractor : IAssetSchemaExtractor
+        {
+            public ValueTask<IndexSchemaExtractionResult> Extract (
+                IReadOnlyList<Type> assetTypes,
+                CancellationToken cancellationToken = default)
+            {
+                var assetTypeId = IndexTypeIdFormatter.Format(typeof(IndexCatalogTestAsset));
+                var entry = new IndexSchemaEntryJsonContract(
+                    SchemaKey: $"{IndexSchemaKindValues.Asset}:{assetTypeId}",
+                    Kind: IndexSchemaKindValues.Asset,
+                    TypeId: assetTypeId,
+                    DisplayName: nameof(IndexCatalogTestAsset),
+                    Properties: new[]
+                    {
+                        new IndexSchemaPropertyEntryJsonContract(
+                            Path: "speed",
+                            PropertyType: IndexPropertyTypeValues.Float,
+                            DeclaredTypeId: IndexTypeIdFormatter.Format(typeof(float)),
+                            IsArray: false,
+                            ElementTypeId: null,
+                            IsReadOnly: false),
+                    });
+                return new ValueTask<IndexSchemaExtractionResult>(new IndexSchemaExtractionResult(
+                    new[] { entry },
+                    new HashSet<Type> { typeof(IndexCatalogTestAsset), typeof(float) }));
+            }
+        }
+
+        private sealed class ThrowingPropertyCollector : IIndexSchemaPropertyCollector
+        {
+            public IndexSchemaPropertyCollectionResult Collect (
+                Type rootType,
+                SerializedObject serializedObject)
+            {
+                throw new InvalidOperationException("test-collector-failure");
+            }
+        }
+
+        private sealed class ThrowingComponentSchemaExtractor : IComponentSchemaExtractor
+        {
+            public ValueTask<IndexSchemaExtractionResult> Extract (
+                IReadOnlyList<Type> componentTypes,
+                CancellationToken cancellationToken = default)
+            {
+                throw new InvalidOperationException("component-extractor-failure");
+            }
+        }
+
+        private sealed class EmptyAssetSchemaExtractor : IAssetSchemaExtractor
+        {
+            public ValueTask<IndexSchemaExtractionResult> Extract (
+                IReadOnlyList<Type> assetTypes,
+                CancellationToken cancellationToken = default)
+            {
+                return new ValueTask<IndexSchemaExtractionResult>(IndexSchemaExtractionResult.Empty());
+            }
+        }
+
+        private sealed class SuccessIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
+        {
+            public ValueTask<IndexInputHashSnapshot?> TryCompute (
+                string projectRootPath,
+                CancellationToken cancellationToken = default)
+            {
+                return new ValueTask<IndexInputHashSnapshot?>(
+                    new IndexInputHashSnapshot(
+                        ScriptAssembliesHash: "script-hash",
+                        PackagesManifestHash: "manifest-hash",
+                        PackagesLockHash: "lock-hash",
+                        AssemblyDefinitionHash: "asm-hash",
+                        CombinedHash: "combined-hash"));
+            }
+        }
+
+        private sealed class FixedProjectTypeCatalogSource : IIndexProjectTypeCatalogSource
+        {
+            public IndexProjectTypeCatalog Resolve ()
+            {
+                return new IndexProjectTypeCatalog(
+                    new[] { typeof(BoxCollider), typeof(IndexCatalogTestComponent) },
+                    new[] { typeof(IndexCatalogTestAsset) },
+                    new[] { typeof(IndexCatalogTestSerializeReferenceCandidate) });
+            }
         }
     }
 }

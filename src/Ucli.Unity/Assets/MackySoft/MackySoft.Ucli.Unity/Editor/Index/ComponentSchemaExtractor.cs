@@ -65,14 +65,9 @@ namespace MackySoft.Ucli.Unity.Index
                 }
 
                 var entry = TryExtractEntry(componentType, out var propertyResult);
-                if (entry == null)
-                {
-                    continue;
-                }
-
                 entries.Add(entry);
                 referencedTypes.Add(componentType);
-                foreach (var referencedType in propertyResult!.ReferencedTypes)
+                foreach (var referencedType in propertyResult.ReferencedTypes)
                 {
                     referencedTypes.Add(referencedType);
                 }
@@ -88,11 +83,10 @@ namespace MackySoft.Ucli.Unity.Index
             return new IndexSchemaExtractionResult(entries, referencedTypes);
         }
 
-        private IndexSchemaEntryJsonContract? TryExtractEntry (
+        private IndexSchemaEntryJsonContract TryExtractEntry (
             Type componentType,
-            out IndexSchemaPropertyCollectionResult? propertyResult)
+            out IndexSchemaPropertyCollectionResult propertyResult)
         {
-            propertyResult = null;
             GameObject? host = null;
             try
             {
@@ -103,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Index
                 var component = host.AddComponent(componentType);
                 if (component == null)
                 {
-                    return null;
+                    throw new InvalidOperationException($"Failed to create component instance. type={componentType.FullName}");
                 }
 
                 var serializedObject = new SerializedObject(component);
@@ -114,10 +108,6 @@ namespace MackySoft.Ucli.Unity.Index
                     TypeId: IndexTypeIdFormatter.Format(componentType),
                     DisplayName: componentType.Name,
                     Properties: propertyResult.Properties);
-            }
-            catch
-            {
-                return null;
             }
             finally
             {

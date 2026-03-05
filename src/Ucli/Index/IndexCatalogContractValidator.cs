@@ -19,6 +19,7 @@ internal static class IndexCatalogContractValidator
             return false;
         }
 
+        var typeIds = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < contract.Entries.Count; i++)
         {
             var entry = contract.Entries[i];
@@ -27,6 +28,11 @@ internal static class IndexCatalogContractValidator
                 || string.IsNullOrWhiteSpace(entry.DisplayName)
                 || string.IsNullOrWhiteSpace(entry.AssemblyName)
                 || entry.Flags == null)
+            {
+                return false;
+            }
+
+            if (!typeIds.Add(entry.TypeId))
             {
                 return false;
             }
@@ -47,6 +53,7 @@ internal static class IndexCatalogContractValidator
             return false;
         }
 
+        var schemaKeys = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < contract.Entries.Count; i++)
         {
             var entry = contract.Entries[i];
@@ -54,8 +61,19 @@ internal static class IndexCatalogContractValidator
                 || string.IsNullOrWhiteSpace(entry.SchemaKey)
                 || string.IsNullOrWhiteSpace(entry.TypeId)
                 || string.IsNullOrWhiteSpace(entry.DisplayName)
-                || !IndexSchemaKindCodec.TryParse(entry.Kind, out _)
+                || !IndexSchemaKindCodec.TryParse(entry.Kind, out var schemaKind)
                 || entry.Properties == null)
+            {
+                return false;
+            }
+
+            var expectedSchemaKey = $"{IndexSchemaKindCodec.ToValue(schemaKind)}:{entry.TypeId}";
+            if (!string.Equals(entry.SchemaKey, expectedSchemaKey, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!schemaKeys.Add(entry.SchemaKey))
             {
                 return false;
             }
