@@ -57,80 +57,90 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
             return DaemonStartResult.Failure(initializeSessionResult.Error!);
         }
         var session = initializeSessionResult.Session!;
+        var launchedProcessId = default(int?);
+        var expectedIssuedAtUtc = session.IssuedAtUtc;
 
-        var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-        var launchResult = await unityDaemonProcessLauncher.Launch(
-                unityProject,
-                daemonLogPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!launchResult.IsSuccess)
+        try
         {
-            return await CreateFailureWithCompensation(
+            var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint);
+            var launchResult = await unityDaemonProcessLauncher.Launch(
                     unityProject,
-                    launchResult.ProcessId,
-                    session.IssuedAtUtc,
-                    launchResult.Error!,
-                    deadline,
-                    "Daemon launch failed",
-                    "LaunchError",
+                    daemonLogPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
+            if (!launchResult.IsSuccess)
+            {
+                return await CreateFailureWithCompensation(
+                        unityProject,
+                        launchResult.ProcessId,
+                        expectedIssuedAtUtc,
+                        launchResult.Error!,
+                        "Daemon launch failed",
+                        "LaunchError")
+                    .ConfigureAwait(false);
+            }
 
-        var updateProcessIdResult = await daemonLaunchSessionService.UpdateProcessId(
-                unityProject,
-                session,
-                launchResult.ProcessId,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!updateProcessIdResult.IsSuccess)
-        {
-            return await CreateFailureWithCompensation(
+            launchedProcessId = launchResult.ProcessId;
+            var updateProcessIdResult = await daemonLaunchSessionService.UpdateProcessId(
                     unityProject,
-                    launchResult.ProcessId,
-                    session.IssuedAtUtc,
-                    updateProcessIdResult.Error!,
-                    deadline,
-                    "Daemon session update failed",
-                    "SessionError",
+                    session,
+                    launchedProcessId,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-        session = updateProcessIdResult.Session!;
+            if (!updateProcessIdResult.IsSuccess)
+            {
+                return await CreateFailureWithCompensation(
+                        unityProject,
+                        launchedProcessId,
+                        expectedIssuedAtUtc,
+                        updateProcessIdResult.Error!,
+                        "Daemon session update failed",
+                        "SessionError")
+                    .ConfigureAwait(false);
+            }
 
-        if (!deadline.TryGetRemainingTimeout(out var probeTimeout))
-        {
+            session = updateProcessIdResult.Session!;
+            expectedIssuedAtUtc = session.IssuedAtUtc;
+            if (!deadline.TryGetRemainingTimeout(out var probeTimeout))
+            {
+                return await CreateFailureWithCompensation(
+                        unityProject,
+                        launchedProcessId,
+                        expectedIssuedAtUtc,
+                        ExecutionError.Timeout("Timed out before daemon startup readiness probe could begin."),
+                        "Daemon startup readiness probe failed",
+                        "ProbeError")
+                    .ConfigureAwait(false);
+            }
+
+            var probeResult = await startupReadinessProbe.WaitUntilReady(unityProject, probeTimeout, cancellationToken).ConfigureAwait(false);
+            if (probeResult.IsReady)
+            {
+                return DaemonStartResult.Started(session);
+            }
+
             return await CreateFailureWithCompensation(
                     unityProject,
-                    launchResult.ProcessId,
-                    session.IssuedAtUtc,
-                    ExecutionError.Timeout("Timed out before daemon startup readiness probe could begin."),
-                    deadline,
+                    launchedProcessId,
+                    expectedIssuedAtUtc,
+                    probeResult.Error!,
                     "Daemon startup readiness probe failed",
-                    "ProbeError",
-                    cancellationToken)
+                    "ProbeError")
                 .ConfigureAwait(false);
         }
-
-        var probeResult = await startupReadinessProbe.WaitUntilReady(unityProject, probeTimeout, cancellationToken).ConfigureAwait(false);
-        if (probeResult.IsReady)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return DaemonStartResult.Started(session);
+            await daemonLaunchCompensationService.CleanupFailedLaunch(
+                    unityProject,
+                    launchedProcessId,
+                    expectedIssuedAtUtc,
+                    DaemonTimeouts.LaunchCompensationTimeout,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            throw;
         }
-
-        return await CreateFailureWithCompensation(
-                unityProject,
-                launchResult.ProcessId,
-                session.IssuedAtUtc,
-                probeResult.Error!,
-                deadline,
-                "Daemon startup readiness probe failed",
-                "ProbeError",
-                cancellationToken)
-            .ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonStartResult> CreateFailureWithCompensation (
@@ -138,22 +148,15 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         int? processId,
         DateTimeOffset expectedIssuedAtUtc,
         ExecutionError primaryError,
-        ExecutionDeadline deadline,
         string primaryErrorMessagePrefix,
-        string primaryErrorLabel,
-        CancellationToken cancellationToken)
+        string primaryErrorLabel)
     {
-        if (!deadline.TryGetRemainingTimeout(out var compensationTimeout))
-        {
-            return DaemonStartResult.Failure(primaryError);
-        }
-
         var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunch(
                 unityProject,
                 processId,
                 expectedIssuedAtUtc,
-                compensationTimeout,
-                cancellationToken)
+                DaemonTimeouts.LaunchCompensationTimeout,
+                CancellationToken.None)
             .ConfigureAwait(false);
         if (!compensationResult.IsSuccess)
         {

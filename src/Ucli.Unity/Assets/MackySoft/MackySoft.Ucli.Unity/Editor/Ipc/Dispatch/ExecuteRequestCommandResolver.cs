@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
@@ -18,17 +19,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             switch (commandName)
             {
-                case IpcExecuteCommandNames.Plan:
+                case UcliCommandIds.Plan:
                     command = PhaseExecutionCommand.Plan;
                     return true;
 
-                case IpcExecuteCommandNames.Call:
+                case UcliCommandIds.Call:
                     command = PhaseExecutionCommand.Call;
                     return true;
 
-                case IpcExecuteCommandNames.Resolve:
-                case IpcExecuteCommandNames.Query:
-                case IpcExecuteCommandNames.Refresh:
+                case UcliCommandIds.Resolve:
+                case UcliCommandIds.Query:
+                case UcliCommandIds.Refresh:
                     command = default;
                     return false;
 

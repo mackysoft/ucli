@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon startup readiness probing via repeated ping attempts. </summary>
 internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 {
-    private const int ProbeRetryDelayMilliseconds = 100;
-
     private readonly IDaemonPingClient daemonPingClient;
 
     private readonly IDaemonLogReader daemonLogReader;
@@ -41,15 +39,24 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var startAtUtc = DateTimeOffset.UtcNow;
+        var deadline = ExecutionDeadline.Start(timeout);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
+            }
+
+            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+                ? remainingTimeout
+                : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
                 await daemonPingClient.Ping(
                         unityProject,
-                        timeout,
+                        attemptTimeout,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
                 return DaemonStartupReadinessProbeResult.Ready();
@@ -57,6 +64,16 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (TimeoutException)
+            {
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
+                        $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
+                }
+
+                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
@@ -69,17 +86,13 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                     return DaemonStartupReadinessProbeResult.Failure(startupFailureError);
                 }
 
-                var elapsed = DateTimeOffset.UtcNow - startAtUtc;
-                if (elapsed >= timeout)
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
                 {
                     return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
                         $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
                 }
 
-                var retryDelayMilliseconds = Math.Min(
-                    ProbeRetryDelayMilliseconds,
-                    Math.Max(1, (int)(timeout - elapsed).TotalMilliseconds));
-                await Task.Delay(retryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
@@ -87,6 +100,14 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                     $"Failed while probing daemon startup readiness. {exception.Message}"));
             }
         }
+    }
+
+    private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
+    {
+        var retryDelayMilliseconds = Math.Min(
+            DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
+            Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
+        return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
     }
 
     private async ValueTask<ExecutionError?> TryResolveStartupFailureFromDaemonLog (

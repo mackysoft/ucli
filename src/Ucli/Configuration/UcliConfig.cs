@@ -18,11 +18,8 @@ internal sealed record UcliConfig (
     private const int CurrentSchemaVersion = 1;
     private const string DefaultAllowlistPattern = "^ucli\\.";
 
-    /// <summary> Gets the default IPC timeout in milliseconds. </summary>
-    public const int DefaultIpcTimeoutMilliseconds = 1800000;
-
     /// <summary> Gets the IPC timeout in milliseconds used when CLI options do not override timeout. </summary>
-    public int IpcDefaultTimeoutMilliseconds { get; init; } = DefaultIpcTimeoutMilliseconds;
+    public int IpcDefaultTimeoutMilliseconds { get; init; } = IpcTimeoutDefaults.GlobalTimeoutMilliseconds;
 
     /// <summary> Gets per-command IPC timeout overrides in milliseconds. <see langword="null" /> values fallback to <see cref="IpcDefaultTimeoutMilliseconds" />. </summary>
     public IReadOnlyDictionary<string, int?> IpcTimeoutMillisecondsByCommand { get; init; } = new Dictionary<string, int?>(StringComparer.Ordinal);
@@ -41,8 +38,8 @@ internal sealed record UcliConfig (
                 DefaultAllowlistPattern,
             ])
         {
-            IpcDefaultTimeoutMilliseconds = DefaultIpcTimeoutMilliseconds,
-            IpcTimeoutMillisecondsByCommand = IpcTimeoutCommandNames.CreateDefaultTimeoutOverrides(),
+            IpcDefaultTimeoutMilliseconds = IpcTimeoutDefaults.GlobalTimeoutMilliseconds,
+            IpcTimeoutMillisecondsByCommand = IpcTimeoutDefaults.CreateDefaultTimeoutOverrides(),
         };
     }
 }

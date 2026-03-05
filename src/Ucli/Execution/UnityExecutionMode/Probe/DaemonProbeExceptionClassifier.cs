@@ -20,7 +20,6 @@ internal static class DaemonProbeExceptionClassifier
                 || string.Equals(pingResponseException.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal);
         }
 
-        return exception is TimeoutException
-            or SocketException;
+        return exception is SocketException;
     }
 }

@@ -6,9 +6,6 @@ namespace MackySoft.Ucli.Cli;
 /// <summary> Provides the <c>init</c> CLI command entry point. </summary>
 internal sealed class InitCommand
 {
-    /// <summary> Gets the command name used by this command handler. </summary>
-    internal const string CommandName = "init";
-
     private readonly IInitService initService;
 
     /// <summary> Initializes a new instance of the <see cref="InitCommand" /> class. </summary>
@@ -23,7 +20,7 @@ internal sealed class InitCommand
     /// <param name="force"> Whether existing template files can be overwritten. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
-    [Command(CommandName)]
+    [Command(UcliCommandNames.Init)]
     public async Task<int> Init (
         bool force = false,
         CancellationToken cancellationToken = default)
@@ -50,7 +47,7 @@ internal sealed class InitCommand
         {
             var output = executionResult.Output!;
             return CommandResult.Success(
-                command: CommandName,
+                command: UcliCommandNames.Init,
                 message: "uCLI initialization completed.",
                 payload: new
                 {
@@ -59,6 +56,6 @@ internal sealed class InitCommand
                 });
         }
 
-        return CommandResultFactory.FromExecutionError(CommandName, executionResult.Error!);
+        return CommandResultFactory.FromExecutionError(UcliCommandNames.Init, executionResult.Error!);
     }
 }

@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements process termination checks and force-kill fallback by process identifier. </summary>
 internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminationService
 {
-    private const int ProbeRetryDelayMilliseconds = 100;
-
     private static readonly TimeSpan MaximumProcessStartLag = TimeSpan.FromMinutes(5);
 
     private static readonly TimeSpan AllowedProcessStartLead = TimeSpan.FromSeconds(2);
@@ -58,46 +56,63 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
             }
 
             var deadline = ExecutionDeadline.Start(timeout);
-            while (true)
+            if (await WaitUntilExited(process, deadline, cancellationToken).ConfigureAwait(false))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (process.HasExited)
-                {
-                    return DaemonSessionStoreOperationResult.Success();
-                }
-
-                if (deadline.IsExpired)
-                {
-                    break;
-                }
-
-                await Task.Delay(ProbeRetryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
-                process.Refresh();
+                return DaemonSessionStoreOperationResult.Success();
             }
 
             try
             {
                 process.Kill(entireProcessTree: true);
-
-                var remainingMilliseconds = deadline.GetRemainingWaitMilliseconds();
-                var exited = process.WaitForExit(remainingMilliseconds);
-                if (!exited && process.HasExited)
-                {
-                    exited = true;
-                }
-
-                if (!exited)
-                {
-                    return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while force-stopping daemon process '{processId.Value}'."));
-                }
-
-                return DaemonSessionStoreOperationResult.Success();
             }
             catch (Exception exception)
             {
                 return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
                     $"Failed to force-stop daemon process '{processId.Value}'. {exception.Message}"));
+            }
+
+            return await WaitUntilExited(process, deadline, cancellationToken).ConfigureAwait(false)
+                ? DaemonSessionStoreOperationResult.Success()
+                : DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while force-stopping daemon process '{processId.Value}'."));
+        }
+    }
+
+    /// <summary> Waits asynchronously until the target process exits or deadline elapses. </summary>
+    /// <param name="process"> The target process instance. </param>
+    /// <param name="deadline"> The shared timeout deadline. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> <see langword="true" /> when process exited; otherwise <see langword="false" /> when deadline elapsed. </returns>
+    private static async ValueTask<bool> WaitUntilExited (
+        Process process,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (HasExited(process))
+            {
+                return true;
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return false;
+            }
+
+            var retryDelayMilliseconds = Math.Min(
+                DaemonTimeouts.ProcessTerminationProbeRetryDelayMilliseconds,
+                Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
+            await Task.Delay(retryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                process.Refresh();
+            }
+            catch (InvalidOperationException)
+            {
+                return true;
             }
         }
     }

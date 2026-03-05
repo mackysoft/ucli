@@ -1,13 +1,15 @@
+using System.Diagnostics;
+
 namespace MackySoft.Ucli.Execution;
 
 /// <summary> Represents one execution deadline and exposes remaining-time queries. </summary>
 internal readonly struct ExecutionDeadline
 {
-    private readonly DateTimeOffset deadlineUtc;
+    private readonly long deadlineTimestamp;
 
-    private ExecutionDeadline (DateTimeOffset deadlineUtc)
+    private ExecutionDeadline (long deadlineTimestamp)
     {
-        this.deadlineUtc = deadlineUtc;
+        this.deadlineTimestamp = deadlineTimestamp;
     }
 
     /// <summary> Creates one deadline from the specified timeout budget. </summary>
@@ -17,24 +19,34 @@ internal readonly struct ExecutionDeadline
     public static ExecutionDeadline Start (TimeSpan timeout)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        return new ExecutionDeadline(DateTimeOffset.UtcNow + timeout);
+
+        var startTimestamp = Stopwatch.GetTimestamp();
+        var timeoutTicksDouble = timeout.TotalSeconds * Stopwatch.Frequency;
+        var timeoutTimestampTicks = timeoutTicksDouble >= long.MaxValue
+            ? long.MaxValue
+            : Math.Max(1L, (long)Math.Ceiling(timeoutTicksDouble));
+        var deadlineTimestamp = startTimestamp >= long.MaxValue - timeoutTimestampTicks
+            ? long.MaxValue
+            : startTimestamp + timeoutTimestampTicks;
+        return new ExecutionDeadline(deadlineTimestamp);
     }
 
     /// <summary> Gets whether the execution deadline has already elapsed. </summary>
-    public bool IsExpired => DateTimeOffset.UtcNow >= deadlineUtc;
+    public bool IsExpired => GetRemainingTimestampTicks() == 0;
 
-    /// <summary> Tries to get remaining timeout budget from the current UTC clock. </summary>
+    /// <summary> Tries to get remaining timeout budget from monotonic elapsed time. </summary>
     /// <param name="remainingTimeout"> The remaining timeout when available; otherwise <see cref="TimeSpan.Zero" />. </param>
     /// <returns> <see langword="true" /> when remaining timeout is positive; otherwise <see langword="false" />. </returns>
     public bool TryGetRemainingTimeout (out TimeSpan remainingTimeout)
     {
-        if (IsExpired)
+        var remainingTimestampTicks = GetRemainingTimestampTicks();
+        if (remainingTimestampTicks == 0)
         {
             remainingTimeout = TimeSpan.Zero;
             return false;
         }
 
-        remainingTimeout = deadlineUtc - DateTimeOffset.UtcNow;
+        remainingTimeout = TimeSpan.FromSeconds(remainingTimestampTicks / (double)Stopwatch.Frequency);
         if (remainingTimeout <= TimeSpan.Zero)
         {
             remainingTimeout = TimeSpan.Zero;
@@ -57,5 +69,15 @@ internal readonly struct ExecutionDeadline
         return remainingMilliseconds >= int.MaxValue
             ? int.MaxValue
             : (int)remainingMilliseconds;
+    }
+
+    /// <summary> Gets remaining timestamp ticks based on monotonic timer. </summary>
+    /// <returns> Remaining timer ticks; returns <c>0</c> when expired. </returns>
+    private long GetRemainingTimestampTicks ()
+    {
+        var remainingTimestampTicks = deadlineTimestamp - Stopwatch.GetTimestamp();
+        return remainingTimestampTicks <= 0
+            ? 0
+            : remainingTimestampTicks;
     }
 }

@@ -5,8 +5,6 @@ namespace MackySoft.Ucli.Daemon.Start;
 /// <summary> Implements cleanup compensation for failed daemon launch attempts. </summary>
 internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensationService
 {
-    private static readonly TimeSpan FailedLaunchCompensationTimeout = TimeSpan.FromSeconds(1);
-
     private readonly IDaemonProcessTerminationService processTerminationService;
 
     private readonly IDaemonArtifactCleaner artifactCleaner;
@@ -43,9 +41,9 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var compensationTimeout = timeout < FailedLaunchCompensationTimeout
-            ? timeout
-            : FailedLaunchCompensationTimeout;
+        var compensationTimeout = timeout > DaemonTimeouts.LaunchCompensationTimeout
+            ? DaemonTimeouts.LaunchCompensationTimeout
+            : timeout;
 
         var stopResult = await processTerminationService.EnsureStopped(
                 processId,

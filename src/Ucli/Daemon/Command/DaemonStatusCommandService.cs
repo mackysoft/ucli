@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon.Command;
@@ -38,7 +40,12 @@ internal sealed class DaemonStatusCommandService : IDaemonStatusCommandService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await daemonCommandExecutionContextResolver.Resolve(projectPath, timeout, cancellationToken).ConfigureAwait(false);
+        var contextResult = await daemonCommandExecutionContextResolver.Resolve(
+                UcliCommandIds.DaemonStatus,
+                projectPath,
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
             return DaemonStatusExecutionResult.Failure(contextResult.Error!);

@@ -1,5 +1,6 @@
-using MackySoft.Ucli.Cli;
+using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject.Resolution;
 
@@ -43,7 +44,7 @@ internal sealed class StatusExecutionContextResolver : IStatusExecutionContextRe
         }
 
         var context = contextResolutionResult.Context!;
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, UcliCommandNames.Status, context.Config);
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, UcliCommandIds.Status, context.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {
             return StatusExecutionContextResolutionResult.Failure(timeoutResolutionResult.Error!);

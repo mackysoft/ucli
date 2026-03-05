@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
@@ -39,6 +40,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+        var deadline = ExecutionDeadline.Start(timeout);
 
         var endpoint = endpointResolver.Resolve(
             unityProject.RepositoryRoot,
@@ -53,11 +55,21 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             return DaemonReachabilityProbeResult.NotRunning();
         }
 
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
+        }
+
+        var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+            ? remainingTimeout
+            : DaemonTimeouts.ProbeAttemptTimeoutCap;
+
         try
         {
             await daemonPingClient.Ping(
                     unityProject,
-                    timeout,
+                    attemptTimeout,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             return DaemonReachabilityProbeResult.Running();
@@ -65,6 +77,11 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (TimeoutException exception)
+        {
+            return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                $"Timed out while probing daemon reachability. {exception.Message}"));
         }
         catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {

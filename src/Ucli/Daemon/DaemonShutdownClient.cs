@@ -78,6 +78,11 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
         {
             throw;
         }
+        catch (TimeoutException exception)
+        {
+            return DaemonShutdownAttemptResult.Failure(ExecutionError.Timeout(
+                $"Timed out while sending daemon shutdown request. {exception.Message}"));
+        }
         catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {
             return DaemonShutdownAttemptResult.NotRunning();
