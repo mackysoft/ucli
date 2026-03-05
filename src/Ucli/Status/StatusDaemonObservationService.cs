@@ -8,23 +8,23 @@ namespace MackySoft.Ucli.Status;
 /// <summary> Resolves daemon status and optional ping diagnostics for status command payload projection. </summary>
 internal sealed class StatusDaemonObservationService : IStatusDaemonObservationService
 {
-    private readonly IDaemonManagementService daemonManagementService;
+    private readonly IDaemonStatusOperation daemonStatusOperation;
 
     private readonly IDaemonPingInfoClient daemonPingInfoClient;
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
     /// <summary> Initializes a new instance of the <see cref="StatusDaemonObservationService" /> class. </summary>
-    /// <param name="daemonManagementService"> The daemon management service dependency. </param>
+    /// <param name="daemonStatusOperation"> The daemon status-operation dependency. </param>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability classifier dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public StatusDaemonObservationService (
-        IDaemonManagementService daemonManagementService,
+        IDaemonStatusOperation daemonStatusOperation,
         IDaemonPingInfoClient daemonPingInfoClient,
         IDaemonReachabilityClassifier reachabilityClassifier)
     {
-        this.daemonManagementService = daemonManagementService ?? throw new ArgumentNullException(nameof(daemonManagementService));
+        this.daemonStatusOperation = daemonStatusOperation ?? throw new ArgumentNullException(nameof(daemonStatusOperation));
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
     }
@@ -43,7 +43,7 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
         ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var daemonStatusResult = await daemonManagementService.GetStatus(context.UnityProject, timeout, cancellationToken).ConfigureAwait(false);
+        var daemonStatusResult = await daemonStatusOperation.GetStatus(context.UnityProject, timeout, cancellationToken).ConfigureAwait(false);
         if (!daemonStatusResult.IsSuccess)
         {
             return StatusDaemonObservationResult.Failure(daemonStatusResult.Error!);

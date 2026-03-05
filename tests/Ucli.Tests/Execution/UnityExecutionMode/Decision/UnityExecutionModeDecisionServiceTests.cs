@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -19,7 +20,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, "daemon", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "daemon", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -38,7 +39,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, "daemon", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "daemon", null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasContractError);
@@ -57,7 +58,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -74,7 +75,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -91,7 +92,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, "oneshot", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "oneshot", null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasContractError);
@@ -110,7 +111,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, "oneshot", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "oneshot", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -131,7 +132,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, mode, null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), mode, null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -151,7 +152,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig();
 
-        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -174,7 +175,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await service.Decide(CommandName, "auto", null, config, CreateContext(), cancellationTokenSource.Token);
+            await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), cancellationTokenSource.Token);
         });
         Assert.False(probe.WasCalled);
     }
@@ -187,7 +188,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
 
-        var result = await service.Decide(CommandName, "auto", "4500", config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", "4500", config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(4500), probe.LastTimeout);
@@ -201,7 +202,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3200);
 
-        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3200), probe.LastTimeout);
@@ -220,7 +221,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
                 [CommandName] = 7300,
             });
 
-        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(7300), probe.LastTimeout);
@@ -239,7 +240,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
                 [CommandName] = null,
             });
 
-        var result = await service.Decide(CommandName, "auto", null, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3200), probe.LastTimeout);
@@ -257,7 +258,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var service = new UnityExecutionModeDecisionService(probe);
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
 
-        var result = await service.Decide(CommandName, "auto", timeoutOption, config, CreateContext(), CancellationToken.None);
+        var result = await service.Decide(new UcliCommand(CommandName), "auto", timeoutOption, config, CreateContext(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -279,7 +280,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
         {
-            await service.Decide(" ", "auto", null, config, CreateContext(), CancellationToken.None);
+            await service.Decide(new UcliCommand(" "), "auto", null, config, CreateContext(), CancellationToken.None);
         });
         Assert.False(probe.WasCalled);
     }
@@ -295,7 +296,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
     }
 
     private static UcliConfig CreateConfig (
-        int ipcDefaultTimeoutMilliseconds = UcliConfig.DefaultIpcTimeoutMilliseconds,
+        int ipcDefaultTimeoutMilliseconds = IpcTimeoutDefaults.GlobalTimeoutMilliseconds,
         IReadOnlyDictionary<string, int?>? ipcTimeoutMillisecondsByCommand = null)
     {
         return new UcliConfig(

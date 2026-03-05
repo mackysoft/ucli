@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -426,7 +427,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 SerializerOptions);
             var payload = JsonSerializer.SerializeToElement(
-                new IpcExecuteRequest(IpcExecuteCommandNames.Validate, arguments),
+                new IpcExecuteRequest(UcliCommandIds.Validate, arguments),
                 SerializerOptions);
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -518,7 +519,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     new ShutdownUnityIpcMethodHandler(),
                 });
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
-            var connectionHandler = new UnityIpcConnectionHandler(requestHandler, shutdownSignal);
+            var connectionHandler = new UnityIpcConnectionHandler(
+                requestHandler,
+                shutdownSignal,
+                new InlineMainThreadRequestExecutor());
             return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);
         }
 
@@ -535,6 +539,22 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.CompletedTask;
+            }
+        }
+
+        private sealed class InlineMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
+        {
+            public Task<IpcResponse> Execute (
+                Func<Task<IpcResponse>> requestHandler,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (requestHandler == null)
+                {
+                    throw new ArgumentNullException(nameof(requestHandler));
+                }
+
+                return requestHandler();
             }
         }
 
@@ -643,13 +663,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTransportKind TransportKind { get; }
 
-            public void Run (
+            public Task Run (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 CancellationToken cancellationToken)
             {
-                throw new InvalidOperationException(message);
+                return Task.FromException(new InvalidOperationException(message));
             }
 
             public void Release ()
@@ -675,14 +695,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTransportKind TransportKind { get; }
 
-            public void Run (
+            public async Task Run (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Thread.Sleep(delay);
+                await Task.Delay(delay, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new InvalidOperationException(message);
             }
@@ -710,7 +730,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTransportKind TransportKind { get; }
 
-            public void Run (
+            public async Task Run (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
@@ -718,7 +738,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 onStarted();
-                Thread.Sleep(delay);
+                await Task.Delay(delay, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new InvalidOperationException(message);
             }
@@ -742,7 +762,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task CancellationObserved => cancellationObserved.Task;
 
-            public void Run (
+            public async Task Run (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
@@ -756,7 +776,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         throw new OperationCanceledException(cancellationToken);
                     }
 
-                    Thread.Sleep(TimeSpan.FromMilliseconds(5));
+                    await Task.Delay(TimeSpan.FromMilliseconds(5), CancellationToken.None);
                 }
             }
 

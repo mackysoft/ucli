@@ -58,11 +58,11 @@ public sealed class CommandResultTests
     {
         const string message = "Initialized.";
         var payload = new { initialized = true };
-        var result = CommandResult.Success(InitCommand.CommandName, message, payload);
+        var result = CommandResult.Success(UcliCommandNames.Init, message, payload);
 
         AssertCommonContract(
             result,
-            expectedCommand: InitCommand.CommandName,
+            expectedCommand: UcliCommandNames.Init,
             expectedStatus: "ok",
             expectedExitCode: (int)CliExitCode.Success,
             expectedMessage: message);

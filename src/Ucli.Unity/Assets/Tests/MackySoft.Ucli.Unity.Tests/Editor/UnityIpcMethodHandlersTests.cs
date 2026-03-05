@@ -3,6 +3,7 @@ using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Ipc;
@@ -51,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateExecuteRequest(
                 "req-execute-valid",
                 new IpcExecuteRequest(
-                    IpcExecuteCommandNames.Validate,
+                    UcliCommandIds.Validate,
                     IpcPayloadCodec.SerializeToElement(new
                     {
                         protocolVersion = IpcProtocol.CurrentVersion,
@@ -66,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.LastContext, Is.Not.Null);
             Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo("req-execute-valid"));
             Assert.That(dispatcher.LastRequest, Is.Not.Null);
-            Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(IpcExecuteCommandNames.Validate));
+            Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(UcliCommandIds.Validate));
         });
 
         [UnityTest]

@@ -1,4 +1,5 @@
 using System.Linq;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Configuration;
@@ -38,7 +39,7 @@ internal static class IpcTimeoutConfigValidator
         out ExecutionError? error)
     {
         timeoutsByCommand = source is null
-            ? IpcTimeoutCommandNames.CreateDefaultTimeoutOverrides()
+            ? IpcTimeoutDefaults.CreateDefaultTimeoutOverrides()
             : new Dictionary<string, int?>(StringComparer.Ordinal);
 
         if (source is null)
@@ -49,7 +50,7 @@ internal static class IpcTimeoutConfigValidator
 
         foreach (var entry in source)
         {
-            if (!IpcTimeoutCommandNames.IsSupported(entry.Key))
+            if (!TryParseSupportedTimeoutCommand(entry.Key, out var command))
             {
                 var supportedCommands = GetSupportedCommandNamesDescription();
                 error = ExecutionError.InvalidArgument(
@@ -65,7 +66,7 @@ internal static class IpcTimeoutConfigValidator
                 return false;
             }
 
-            timeoutsByCommand[entry.Key] = entry.Value;
+            timeoutsByCommand[command.Name] = entry.Value;
         }
 
         error = null;
@@ -91,7 +92,7 @@ internal static class IpcTimeoutConfigValidator
 
         foreach (var entry in source)
         {
-            if (!IpcTimeoutCommandNames.IsSupported(entry.Key))
+            if (!TryParseSupportedTimeoutCommand(entry.Key, out _))
             {
                 var supportedCommands = GetSupportedCommandNamesDescription();
                 error = ExecutionError.InvalidArgument(
@@ -130,6 +131,20 @@ internal static class IpcTimeoutConfigValidator
     /// <returns> The sorted command-key list. </returns>
     private static string GetSupportedCommandNamesDescription ()
     {
-        return string.Join(", ", IpcTimeoutCommandNames.SupportedCommandNames.OrderBy(static command => command, StringComparer.Ordinal));
+        return string.Join(", ", IpcTimeoutDefaults.SupportedCommands
+            .Select(static command => command.Name)
+            .OrderBy(static commandName => commandName, StringComparer.Ordinal));
+    }
+
+    private static bool TryParseSupportedTimeoutCommand (
+        string? commandName,
+        out UcliCommand command)
+    {
+        if (!UcliCommand.TryCreate(commandName, out command))
+        {
+            return false;
+        }
+
+        return IpcTimeoutDefaults.IsSupported(command);
     }
 }

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
@@ -16,26 +16,34 @@ namespace MackySoft.Ucli.Unity.Ipc
             string commandName,
             out PhaseExecutionCommand command)
         {
-            switch (commandName)
+            if (!UcliCommand.TryCreate(commandName, out var commandId))
             {
-                case IpcExecuteCommandNames.Plan:
-                    command = PhaseExecutionCommand.Plan;
-                    return true;
-
-                case IpcExecuteCommandNames.Call:
-                    command = PhaseExecutionCommand.Call;
-                    return true;
-
-                case IpcExecuteCommandNames.Resolve:
-                case IpcExecuteCommandNames.Query:
-                case IpcExecuteCommandNames.Refresh:
-                    command = default;
-                    return false;
-
-                default:
-                    command = default;
-                    return false;
+                command = default;
+                return false;
             }
+
+            if (commandId == UcliCommandIds.Plan)
+            {
+                command = PhaseExecutionCommand.Plan;
+                return true;
+            }
+
+            if (commandId == UcliCommandIds.Call)
+            {
+                command = PhaseExecutionCommand.Call;
+                return true;
+            }
+
+            if (commandId == UcliCommandIds.Resolve
+                || commandId == UcliCommandIds.Query
+                || commandId == UcliCommandIds.Refresh)
+            {
+                command = default;
+                return false;
+            }
+
+            command = default;
+            return false;
         }
     }
 }

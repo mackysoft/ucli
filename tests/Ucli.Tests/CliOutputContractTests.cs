@@ -51,7 +51,7 @@ public sealed class CliOutputContractTests
                 .IsNull("serverVersion")
                 .IsNull("compileState")
                 .IsNull("runtime")
-                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds));
+                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds));
     }
 
     [Theory]
@@ -363,20 +363,23 @@ public sealed class CliOutputContractTests
             .HasString("planTokenMode", UcliContractConstants.Config.PlanTokenModeOptional)
             .HasString("readIndexDefaultMode", UcliContractConstants.Config.ReadIndexModeRequireFresh)
             .HasInt32("ipcDefaultTimeoutMilliseconds", UcliContractConstants.Config.IpcDefaultTimeoutMilliseconds)
-            .HasProperty("ipcTimeoutMillisecondsByCommand", timeoutByCommand => timeoutByCommand
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandTest)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandStatus)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandValidate)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandPlan)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandCall)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandResolve)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandQuery)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandRefresh)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandOps)
-                .IsNull(UcliContractConstants.Config.IpcTimeoutCommandDaemon))
             .HasArrayLength("operationAllowlist", 1)
             .HasProperty("operationAllowlist", 0, static allowlistValue => allowlistValue
                 .HasString(UcliContractConstants.Config.DefaultOperationAllowlistPattern));
+
+        var timeoutByCommand = configJson.RootElement.GetProperty("ipcTimeoutMillisecondsByCommand");
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultTestMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandTest).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandStatus).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultValidateMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandValidate).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultPlanMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandPlan).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultCallMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandCall).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultResolveMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandResolve).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultQueryMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandQuery).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultRefreshMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandRefresh).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultOpsMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandOps).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStartMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStart).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStopMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStop).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStatus).GetInt32());
     }
 
     private static void PrepareLegacyTemplateFiles (

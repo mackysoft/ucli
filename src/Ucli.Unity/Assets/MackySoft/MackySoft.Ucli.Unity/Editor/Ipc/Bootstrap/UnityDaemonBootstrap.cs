@@ -11,7 +11,7 @@ using UnityEngine;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
-    internal static class UnityDaemonBootstrap
+    public static class UnityDaemonBootstrap
     {
         /// <summary> Entry point invoked by Unity <c>-executeMethod</c> to start daemon mode. </summary>
         public static async void Start ()
@@ -50,6 +50,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var services = new ServiceCollection();
             services.AddSingleton(bootstrapArguments);
+            services.AddSingleton<IUnityMainThreadRequestExecutor>(
+                new UnitySynchronizationContextRequestExecutor());
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<ISessionTokenValidator>(new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath));
             services.AddSingleton<IExecuteRequestDispatcher>(static _ => CreateExecuteRequestDispatcher());

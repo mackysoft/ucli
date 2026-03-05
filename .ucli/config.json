@@ -16,6 +16,8 @@
     "query": null,
     "refresh": null,
     "ops": null,
-    "daemon": null
+    "daemon.start": null,
+    "daemon.stop": null,
+    "daemon.status": null
   }
 }

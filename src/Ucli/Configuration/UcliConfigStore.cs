@@ -222,7 +222,7 @@ internal sealed class UcliConfigStore : IUcliConfigStore
         }
 
         var ipcDefaultTimeoutMillisecondsValue = document.IpcDefaultTimeoutMilliseconds
-            ?? UcliConfig.DefaultIpcTimeoutMilliseconds;
+            ?? IpcTimeoutDefaults.GlobalTimeoutMilliseconds;
         if (!IpcTimeoutConfigValidator.TryParseTimeoutMilliseconds(ipcDefaultTimeoutMillisecondsValue, out var ipcDefaultTimeoutMilliseconds))
         {
             return ConfigParseResult.Failure(ExecutionError.InvalidArgument(

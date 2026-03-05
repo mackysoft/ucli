@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
@@ -6,8 +7,6 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements process termination checks and force-kill fallback by process identifier. </summary>
 internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminationService
 {
-    private const int ProbeRetryDelayMilliseconds = 100;
-
     private static readonly TimeSpan MaximumProcessStartLag = TimeSpan.FromMinutes(5);
 
     private static readonly TimeSpan AllowedProcessStartLead = TimeSpan.FromSeconds(2);
@@ -56,66 +55,66 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                 return DaemonSessionStoreOperationResult.Failure(identityError!);
             }
 
-            var deadlineUtc = DateTimeOffset.UtcNow + timeout;
-            while (true)
+            var deadline = ExecutionDeadline.Start(timeout);
+            if (await WaitUntilExited(process, deadline, cancellationToken).ConfigureAwait(false))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (process.HasExited)
-                {
-                    return DaemonSessionStoreOperationResult.Success();
-                }
-
-                if (DateTimeOffset.UtcNow >= deadlineUtc)
-                {
-                    break;
-                }
-
-                await Task.Delay(ProbeRetryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
-                process.Refresh();
+                return DaemonSessionStoreOperationResult.Success();
             }
 
             try
             {
                 process.Kill(entireProcessTree: true);
-
-                var remainingMilliseconds = GetRemainingWaitMilliseconds(deadlineUtc);
-                var exited = process.WaitForExit(remainingMilliseconds);
-                if (!exited && process.HasExited)
-                {
-                    exited = true;
-                }
-
-                if (!exited)
-                {
-                    return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while force-stopping daemon process '{processId.Value}'."));
-                }
-
-                return DaemonSessionStoreOperationResult.Success();
             }
             catch (Exception exception)
             {
                 return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
                     $"Failed to force-stop daemon process '{processId.Value}'. {exception.Message}"));
             }
+
+            return await WaitUntilExited(process, deadline, cancellationToken).ConfigureAwait(false)
+                ? DaemonSessionStoreOperationResult.Success()
+                : DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while force-stopping daemon process '{processId.Value}'."));
         }
     }
 
-    /// <summary> Gets the remaining wait budget in milliseconds until the specified deadline. </summary>
-    /// <param name="deadlineUtc"> The absolute deadline used by the termination flow. </param>
-    /// <returns> Remaining wait budget in milliseconds. </returns>
-    private static int GetRemainingWaitMilliseconds (DateTimeOffset deadlineUtc)
+    /// <summary> Waits asynchronously until the target process exits or deadline elapses. </summary>
+    /// <param name="process"> The target process instance. </param>
+    /// <param name="deadline"> The shared timeout deadline. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> <see langword="true" /> when process exited; otherwise <see langword="false" /> when deadline elapsed. </returns>
+    private static async ValueTask<bool> WaitUntilExited (
+        Process process,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
     {
-        var remaining = deadlineUtc - DateTimeOffset.UtcNow;
-        if (remaining <= TimeSpan.Zero)
+        while (true)
         {
-            return 0;
-        }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (HasExited(process))
+            {
+                return true;
+            }
 
-        var remainingMilliseconds = Math.Ceiling(remaining.TotalMilliseconds);
-        return remainingMilliseconds >= int.MaxValue
-            ? int.MaxValue
-            : (int)remainingMilliseconds;
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return false;
+            }
+
+            var retryDelayMilliseconds = Math.Min(
+                DaemonTimeouts.ProcessTerminationProbeRetryDelayMilliseconds,
+                Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
+            await Task.Delay(retryDelayMilliseconds, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                process.Refresh();
+            }
+            catch (InvalidOperationException)
+            {
+                return true;
+            }
+        }
     }
 
     /// <summary> Validates whether the target process identity matches expected daemon session issuance timing. </summary>

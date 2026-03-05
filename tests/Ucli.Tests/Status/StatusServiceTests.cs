@@ -19,7 +19,7 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Running(CreateSession("session-token")));
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             Runtime: "batchmode",
@@ -28,7 +28,7 @@ public sealed class StatusServiceTests
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -40,10 +40,10 @@ public sealed class StatusServiceTests
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal("ready", output.CompileState);
         Assert.Equal("batchmode", output.Runtime);
-        Assert.Equal(UcliConfig.DefaultIpcTimeoutMilliseconds, output.TimeoutMilliseconds);
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, output.TimeoutMilliseconds);
         Assert.Equal("session-token", daemonPingInfoClient.LastSessionToken);
         Assert.Equal(1, daemonPingInfoClient.CallCount);
-        Assert.Equal(1, daemonManagementService.GetStatusCallCount);
+        Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             Runtime: "batchmode",
@@ -61,7 +61,7 @@ public sealed class StatusServiceTests
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -82,7 +82,7 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Stale(CreateSession("stale-session-token")));
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Stale(CreateSession("stale-session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             Runtime: "batchmode",
@@ -91,7 +91,7 @@ public sealed class StatusServiceTests
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -112,7 +112,7 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             Runtime: "batchmode",
@@ -121,7 +121,7 @@ public sealed class StatusServiceTests
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: "abc", cancellationToken: CancellationToken.None);
@@ -131,7 +131,7 @@ public sealed class StatusServiceTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, daemonManagementService.GetStatusCallCount);
+        Assert.Equal(0, daemonStatusOperation.GetStatusCallCount);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class StatusServiceTests
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Failure(
             ExecutionError.InvalidArgument("Unity project path is invalid.")));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
             Runtime: "batchmode",
@@ -150,7 +150,7 @@ public sealed class StatusServiceTests
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -160,7 +160,7 @@ public sealed class StatusServiceTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Equal("Unity project path is invalid.", error.Message);
-        Assert.Equal(0, daemonManagementService.GetStatusCallCount);
+        Assert.Equal(0, daemonStatusOperation.GetStatusCallCount);
         Assert.Equal(0, unityVersionResolver.ResolveCallCount);
     }
 
@@ -170,7 +170,7 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Failure(
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Failure(
             ExecutionError.InternalError("Failed to read daemon session.")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
             ServerVersion: "0.5.0",
@@ -180,7 +180,7 @@ public sealed class StatusServiceTests
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -199,13 +199,13 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Running(CreateSession("session-token")));
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(
             nextException: new TimeoutException("ping timeout"));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -223,13 +223,13 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Running(CreateSession("session-token")));
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(
             nextException: new SocketException((int)SocketError.ConnectionRefused));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -248,13 +248,13 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonManagementService = new StubDaemonManagementService(DaemonStatusResult.Running(CreateSession("session-token")));
+        var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(
             nextException: new DaemonPingResponseException("failed"));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
-            daemonManagementService,
+            daemonStatusOperation,
             daemonPingInfoClient);
 
         var result = await service.Execute(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
@@ -269,13 +269,13 @@ public sealed class StatusServiceTests
     private static StatusService CreateService (
         IInitStatusContextResolver contextResolver,
         IUnityVersionResolver unityVersionResolver,
-        IDaemonManagementService daemonManagementService,
+        IDaemonStatusOperation daemonStatusOperation,
         IDaemonPingInfoClient daemonPingInfoClient)
     {
         return new StatusService(
             new StatusExecutionContextResolver(contextResolver, unityVersionResolver),
             new StatusDaemonObservationService(
-                daemonManagementService,
+                daemonStatusOperation,
                 daemonPingInfoClient,
                 new DaemonReachabilityClassifier()));
     }
@@ -345,32 +345,16 @@ public sealed class StatusServiceTests
         }
     }
 
-    private sealed class StubDaemonManagementService : IDaemonManagementService
+    private sealed class StubDaemonStatusOperation : IDaemonStatusOperation
     {
         private readonly DaemonStatusResult daemonStatusResult;
 
-        public StubDaemonManagementService (DaemonStatusResult daemonStatusResult)
+        public StubDaemonStatusOperation (DaemonStatusResult daemonStatusResult)
         {
             this.daemonStatusResult = daemonStatusResult;
         }
 
         public int GetStatusCallCount { get; private set; }
-
-        public ValueTask<DaemonStartResult> Start (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<DaemonStopResult> Stop (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
 
         public ValueTask<DaemonStatusResult> GetStatus (
             ResolvedUnityProjectContext unityProject,
@@ -379,14 +363,6 @@ public sealed class StatusServiceTests
         {
             GetStatusCallCount++;
             return ValueTask.FromResult(daemonStatusResult);
-        }
-
-        public ValueTask<DaemonLogReadResult> ReadLogs (
-            ResolvedUnityProjectContext unityProject,
-            int maxBytes = DaemonLogReader.DefaultMaxBytes,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
         }
     }
 

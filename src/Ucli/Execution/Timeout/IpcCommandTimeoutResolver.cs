@@ -1,5 +1,6 @@
 using System.Globalization;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Foundation;
 
@@ -10,31 +11,31 @@ internal static class IpcCommandTimeoutResolver
 {
     /// <summary> Resolves the effective IPC timeout from optional command value and config defaults. </summary>
     /// <param name="optionValue"> The optional command option value in milliseconds. </param>
-    /// <param name="commandName"> The command name used to apply per-command timeout overrides. </param>
+    /// <param name="command"> The command used to apply per-command timeout overrides. </param>
     /// <param name="config"> The loaded config values. </param>
     /// <returns> The timeout-resolution result. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="commandName" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="command" /> has an invalid name. </exception>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="config" /> is <see langword="null" />. </exception>
     public static IpcCommandTimeoutResolutionResult Resolve (
         string? optionValue,
-        string commandName,
+        UcliCommand command,
         UcliConfig config)
     {
-        if (string.IsNullOrWhiteSpace(commandName))
+        if (!command.IsValid)
         {
-            throw new ArgumentException("Command name must not be null or whitespace.", nameof(commandName));
+            throw new ArgumentException("Command name is invalid.", nameof(command));
         }
 
         ArgumentNullException.ThrowIfNull(config);
 
         if (optionValue is null)
         {
-            if (config.IpcTimeoutMillisecondsByCommand.TryGetValue(commandName, out var commandTimeoutMilliseconds)
+            if (config.IpcTimeoutMillisecondsByCommand.TryGetValue(command.Name, out var commandTimeoutMilliseconds)
                 && commandTimeoutMilliseconds.HasValue)
             {
                 return ResolveMilliseconds(
                     commandTimeoutMilliseconds.Value,
-                    $"config ipcTimeoutMillisecondsByCommand[{commandName}]");
+                    $"config ipcTimeoutMillisecondsByCommand[{command.Name}]");
             }
 
             return ResolveMilliseconds(config.IpcDefaultTimeoutMilliseconds, "config ipcDefaultTimeoutMilliseconds");

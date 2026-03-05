@@ -15,6 +15,18 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for status. </summary>
     public const string Status = "status";
 
+    /// <summary> Gets the top-level command name for daemon. </summary>
+    public const string Daemon = "daemon";
+
+    /// <summary> Gets the command name for <c>daemon start</c> result payloads. </summary>
+    public const string DaemonStart = "daemon.start";
+
+    /// <summary> Gets the command name for <c>daemon stop</c> result payloads. </summary>
+    public const string DaemonStop = "daemon.stop";
+
+    /// <summary> Gets the command name for <c>daemon status</c> result payloads. </summary>
+    public const string DaemonStatus = "daemon.status";
+
     /// <summary> Gets the top-level command name for test. </summary>
     public const string Test = "test";
 
@@ -33,10 +45,17 @@ internal static class UcliCommandNames
     /// <summary> Gets the nested command name for init. </summary>
     public const string InitSubcommand = "init";
 
+    /// <summary> Gets the nested command name for daemon start. </summary>
+    public const string StartSubcommand = "start";
+
+    /// <summary> Gets the nested command name for daemon stop. </summary>
+    public const string StopSubcommand = "stop";
+
     private static readonly HashSet<string> RegisteredCommandNames = new(StringComparer.Ordinal)
     {
         Init,
         Status,
+        Daemon,
         Test,
     };
 
@@ -86,6 +105,29 @@ internal static class UcliCommandNames
             }
 
             return Test;
+        }
+
+        if (string.Equals(firstArgument, Daemon, StringComparison.Ordinal))
+        {
+            if (args.Length >= 2
+                && string.Equals(args[1], StartSubcommand, StringComparison.Ordinal))
+            {
+                return DaemonStart;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], StopSubcommand, StringComparison.Ordinal))
+            {
+                return DaemonStop;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], Status, StringComparison.Ordinal))
+            {
+                return DaemonStatus;
+            }
+
+            return Daemon;
         }
 
         return IsRegistered(firstArgument) ? firstArgument : Root;

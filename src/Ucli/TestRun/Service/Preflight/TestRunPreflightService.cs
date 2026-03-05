@@ -1,6 +1,6 @@
 using System.Globalization;
-using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -61,7 +61,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
             configuration.TimeoutMilliseconds?.ToString(CultureInfo.InvariantCulture),
-            UcliCommandNames.Test,
+            UcliCommandIds.Test,
             configLoadResult.Config!);
         if (!timeoutResolutionResult.IsSuccess)
         {
@@ -72,7 +72,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         var timeout = timeoutResolutionResult.Timeout!.Value;
         var timeoutOption = checked(((int)timeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
         var modeDecisionResult = await modeDecisionService.Decide(
-            commandName: UcliCommandNames.Test,
+            command: UcliCommandIds.Test,
             mode: configuration.Mode,
             timeout: timeoutOption,
             config: configLoadResult.Config!,

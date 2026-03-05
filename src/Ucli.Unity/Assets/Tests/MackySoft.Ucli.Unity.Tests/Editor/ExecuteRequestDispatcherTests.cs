@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -22,14 +23,14 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsPlan_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
         {
-            await AssertDelegatesToPhaseExecutor(IpcExecuteCommandNames.Plan, PhaseExecutionCommand.Plan);
+            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Plan, PhaseExecutionCommand.Plan);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsCall_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
         {
-            await AssertDelegatesToPhaseExecutor(IpcExecuteCommandNames.Call, PhaseExecutionCommand.Call);
+            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Call, PhaseExecutionCommand.Call);
         });
 
         [UnityTest]
@@ -45,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 planToken: "issued-token"));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
             var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
@@ -76,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
             var firstResponse = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
             var secondResponse = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
@@ -101,11 +102,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var firstRequest = CreateExecuteRequest(
-                commandName: IpcExecuteCommandNames.Plan,
+                commandName: UcliCommandIds.Plan,
                 operationId: "op-1",
                 operationName: "ucli.resolve");
             var secondRequest = CreateExecuteRequest(
-                commandName: IpcExecuteCommandNames.Plan,
+                commandName: UcliCommandIds.Plan,
                 operationId: "op-2",
                 operationName: "ucli.scene.open");
 
@@ -132,12 +133,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var firstRequest = CreateExecuteRequest(
-                commandName: IpcExecuteCommandNames.Call,
+                commandName: UcliCommandIds.Call,
                 operationId: "op-1",
                 operationName: "ucli.resolve",
                 planToken: "token-1");
             var secondRequest = CreateExecuteRequest(
-                commandName: IpcExecuteCommandNames.Call,
+                commandName: UcliCommandIds.Call,
                 operationId: "op-1",
                 operationName: "ucli.resolve",
                 planToken: "token-2");
@@ -156,21 +157,21 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsResolve_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
-            await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Resolve);
+            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Resolve);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsQuery_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
-            await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Query);
+            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Query);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsRefresh_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
-            await AssertReturnsCommandNotImplementedError(IpcExecuteCommandNames.Refresh);
+            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Refresh);
         });
 
         [UnityTest]
@@ -185,7 +186,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationTraces: System.Array.Empty<OperationPhaseTrace>()));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
             var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
@@ -209,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationTraces: System.Array.Empty<OperationPhaseTrace>()));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = new IpcExecuteRequest(IpcExecuteCommandNames.Plan, default);
+            var request = new IpcExecuteRequest(UcliCommandIds.Plan, default);
 
             var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
@@ -259,7 +260,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(IpcExecuteCommandNames.Call);
+            var request = CreateExecuteRequest(UcliCommandIds.Call);
 
             var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
@@ -284,7 +285,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationTraces: System.Array.Empty<OperationPhaseTrace>()));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(IpcExecuteCommandNames.Plan);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan);
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 

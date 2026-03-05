@@ -81,6 +81,74 @@ public sealed class DaemonStopOperationTests
         Assert.Equal(1, artifactCleaner.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Stop_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
+    {
+        var lockProvider = new StubDaemonLifecycleLockProvider
+        {
+            ThrowTimeoutOnAcquire = true,
+        };
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: lockProvider,
+            daemonSessionStore: new StubDaemonSessionStore(),
+            shutdownClient: new StubDaemonShutdownClient(),
+            processTerminationService: new StubDaemonProcessTerminationService(),
+            artifactCleaner: new StubDaemonArtifactCleaner());
+
+        var result = await operation.Stop(
+            CreateContext("fingerprint-stop-lock-timeout"),
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Stop_WhenProcessTerminationBudgetIsExhausted_StillAttemptsFinalizationWithFallbackTimeout ()
+    {
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(CreateSession(processId: 789)),
+        };
+        var shutdownClient = new StubDaemonShutdownClient
+        {
+            Delay = TimeSpan.FromMilliseconds(80),
+            NextResult = DaemonShutdownAttemptResult.Success(),
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var operation = new DaemonStopOperation(
+            lifecycleLockProvider: new StubDaemonLifecycleLockProvider(),
+            daemonSessionStore: sessionStore,
+            shutdownClient: shutdownClient,
+            processTerminationService: processTerminationService,
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Stop(
+            CreateContext("fingerprint-stop-timeout-finalization"),
+            TimeSpan.FromMilliseconds(20),
+            CancellationToken.None);
+
+        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(1, shutdownClient.CallCount);
+        Assert.Equal(1, processTerminationService.CallCount);
+        Assert.Equal(DaemonTimeouts.StopCompensationTimeout, processTerminationService.LastTimeout);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
     {
         return new ResolvedUnityProjectContext(
@@ -107,11 +175,19 @@ public sealed class DaemonStopOperationTests
 
     private sealed class StubDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
     {
+        public bool ThrowTimeoutOnAcquire { get; set; }
+
         public ValueTask<IAsyncDisposable> Acquire (
             string storageRoot,
             string projectFingerprint,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
+            if (ThrowTimeoutOnAcquire)
+            {
+                throw new TimeoutException("lock timeout");
+            }
+
             return ValueTask.FromResult<IAsyncDisposable>(new NoopAsyncDisposable());
         }
 
@@ -157,16 +233,23 @@ public sealed class DaemonStopOperationTests
     {
         public DaemonShutdownAttemptResult NextResult { get; set; } = DaemonShutdownAttemptResult.Success();
 
+        public TimeSpan Delay { get; set; }
+
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonShutdownAttemptResult> SendShutdown (
+        public async ValueTask<DaemonShutdownAttemptResult> SendShutdown (
             ResolvedUnityProjectContext unityProject,
             DaemonSession session,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return ValueTask.FromResult(NextResult);
+            if (Delay > TimeSpan.Zero)
+            {
+                await Task.Delay(Delay, cancellationToken).ConfigureAwait(false);
+            }
+
+            return NextResult;
         }
     }
 
@@ -180,6 +263,8 @@ public sealed class DaemonStopOperationTests
 
         public DateTimeOffset? LastExpectedIssuedAtUtc { get; private set; }
 
+        public TimeSpan? LastTimeout { get; private set; }
+
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
             int? processId,
             DateTimeOffset? expectedIssuedAtUtc,
@@ -189,6 +274,7 @@ public sealed class DaemonStopOperationTests
             CallCount++;
             LastProcessId = processId;
             LastExpectedIssuedAtUtc = expectedIssuedAtUtc;
+            LastTimeout = timeout;
             return ValueTask.FromResult(NextResult);
         }
     }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
@@ -99,7 +100,7 @@ public sealed class IpcContractSerializationTests
     public void IpcExecuteRequest_SerializesPlanTokenOnlyWhenSpecified ()
     {
         var requestWithToken = new IpcExecuteRequest(
-            Command: IpcExecuteCommandNames.Call,
+            Command: UcliCommandIds.Call,
             Arguments: JsonSerializer.SerializeToElement(new { protocolVersion = 1, requestId = "req-1", ops = Array.Empty<object>() }))
         {
             PlanToken = "token-value",
@@ -110,7 +111,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("token-value", planTokenElement.GetString());
 
         var requestWithoutToken = new IpcExecuteRequest(
-            Command: IpcExecuteCommandNames.Plan,
+            Command: UcliCommandIds.Plan,
             Arguments: JsonSerializer.SerializeToElement(new { protocolVersion = 1, requestId = "req-1", ops = Array.Empty<object>() }));
         var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
@@ -229,32 +230,32 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteCommandNames_ExposeExpectedCommandLiterals ()
     {
-        Assert.Equal("validate", IpcExecuteCommandNames.Validate);
-        Assert.Equal("plan", IpcExecuteCommandNames.Plan);
-        Assert.Equal("call", IpcExecuteCommandNames.Call);
-        Assert.Equal("resolve", IpcExecuteCommandNames.Resolve);
-        Assert.Equal("query", IpcExecuteCommandNames.Query);
-        Assert.Equal("refresh", IpcExecuteCommandNames.Refresh);
+        Assert.Equal("validate", UcliCommandIds.Validate.Name);
+        Assert.Equal("plan", UcliCommandIds.Plan.Name);
+        Assert.Equal("call", UcliCommandIds.Call.Name);
+        Assert.Equal("resolve", UcliCommandIds.Resolve.Name);
+        Assert.Equal("query", UcliCommandIds.Query.Name);
+        Assert.Equal("refresh", UcliCommandIds.Refresh.Name);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcExecuteCommandNames_ClassifiesKnownAndOperationPipelineCommands ()
     {
-        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Validate));
-        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Plan));
-        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Call));
-        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Resolve));
-        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Query));
-        Assert.True(IpcExecuteCommandNames.IsKnown(IpcExecuteCommandNames.Refresh));
+        Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Validate.Name));
+        Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Plan.Name));
+        Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Call.Name));
+        Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Resolve.Name));
+        Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Query.Name));
+        Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Refresh.Name));
         Assert.False(IpcExecuteCommandNames.IsKnown("unknown"));
 
-        Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Validate));
-        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Plan));
-        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Call));
-        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Resolve));
-        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Query));
-        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(IpcExecuteCommandNames.Refresh));
+        Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Validate.Name));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Plan.Name));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Call.Name));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Resolve.Name));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Query.Name));
+        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Refresh.Name));
         Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand("unknown"));
     }
 

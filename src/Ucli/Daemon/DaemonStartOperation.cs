@@ -1,8 +1,6 @@
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Daemon.Start;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon;
@@ -14,56 +12,31 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
     private readonly IDaemonSessionStore daemonSessionStore;
 
-    private readonly IIpcEndpointResolver endpointResolver;
+    private readonly IDaemonSessionCleanupService daemonSessionCleanupService;
 
-    private readonly IDaemonPingClient daemonPingClient;
+    private readonly IDaemonExistingSessionGateService daemonExistingSessionGateService;
 
-    private readonly IUnityDaemonProcessLauncher unityDaemonProcessLauncher;
-
-    private readonly IDaemonStartupReadinessProbe startupReadinessProbe;
-
-    private readonly IDaemonProcessTerminationService processTerminationService;
-
-    private readonly IDaemonArtifactCleaner artifactCleaner;
-
-    private readonly IDaemonSessionTokenGenerator sessionTokenGenerator;
-
-    private readonly IDaemonReachabilityClassifier reachabilityClassifier;
+    private readonly IDaemonLaunchService daemonLaunchService;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
-    /// <param name="endpointResolver"> The endpoint resolver dependency. </param>
-    /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
-    /// <param name="unityDaemonProcessLauncher"> The Unity daemon process launcher dependency. </param>
-    /// <param name="startupReadinessProbe"> The startup readiness probe dependency. </param>
-    /// <param name="processTerminationService"> The process termination service dependency. </param>
-    /// <param name="artifactCleaner"> The daemon artifact cleaner dependency. </param>
-    /// <param name="sessionTokenGenerator"> The daemon session token generator dependency. </param>
-    /// <param name="reachabilityClassifier"> The daemon reachability classifier dependency. </param>
+    /// <param name="daemonSessionCleanupService"> The daemon session-cleanup service dependency. </param>
+    /// <param name="daemonExistingSessionGateService"> The daemon existing-session gate service dependency. </param>
+    /// <param name="daemonLaunchService"> The daemon launch service dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartOperation (
         IDaemonLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
-        IIpcEndpointResolver endpointResolver,
-        IDaemonPingClient daemonPingClient,
-        IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
-        IDaemonStartupReadinessProbe startupReadinessProbe,
-        IDaemonProcessTerminationService processTerminationService,
-        IDaemonArtifactCleaner artifactCleaner,
-        IDaemonSessionTokenGenerator sessionTokenGenerator,
-        IDaemonReachabilityClassifier reachabilityClassifier)
+        IDaemonSessionCleanupService daemonSessionCleanupService,
+        IDaemonExistingSessionGateService daemonExistingSessionGateService,
+        IDaemonLaunchService daemonLaunchService)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
-        this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
-        this.unityDaemonProcessLauncher = unityDaemonProcessLauncher ?? throw new ArgumentNullException(nameof(unityDaemonProcessLauncher));
-        this.startupReadinessProbe = startupReadinessProbe ?? throw new ArgumentNullException(nameof(startupReadinessProbe));
-        this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
-        this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
-        this.sessionTokenGenerator = sessionTokenGenerator ?? throw new ArgumentNullException(nameof(sessionTokenGenerator));
-        this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
+        this.daemonSessionCleanupService = daemonSessionCleanupService ?? throw new ArgumentNullException(nameof(daemonSessionCleanupService));
+        this.daemonExistingSessionGateService = daemonExistingSessionGateService ?? throw new ArgumentNullException(nameof(daemonExistingSessionGateService));
+        this.daemonLaunchService = daemonLaunchService ?? throw new ArgumentNullException(nameof(daemonLaunchService));
     }
 
     /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
@@ -82,12 +55,29 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        await using var lockHandle = await lifecycleLockProvider.Acquire(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var deadline = ExecutionDeadline.Start(timeout);
+        if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError("Timed out before daemon start workflow began."));
+        }
 
+        IAsyncDisposable lockHandle;
+        try
+        {
+            lockHandle = await lifecycleLockProvider.Acquire(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    lockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException exception)
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                $"Timed out while waiting for daemon lifecycle lock. {exception.Message}"));
+        }
+
+        await using var acquiredLock = lockHandle;
         var readResult = await daemonSessionStore.Read(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -95,224 +85,76 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
-            {
-                return DaemonStartResult.Failure(readResult.Error!);
-            }
-
-            if (TryGetRecoverableInvalidSessionStopTarget(readResult, unityProject, out var recoveredProcessId, out var recoveredIssuedAtUtc))
-            {
-                var stopResult = await processTerminationService.EnsureStopped(
-                        recoveredProcessId,
-                        recoveredIssuedAtUtc,
-                        timeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (!stopResult.IsSuccess)
-                {
-                    return DaemonStartResult.Failure(stopResult.Error!);
-                }
-            }
-
-            var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
-            if (!cleanupResult.IsSuccess)
-            {
-                return DaemonStartResult.Failure(cleanupResult.Error!);
-            }
+            return await HandleInvalidSessionRead(unityProject, readResult, deadline, cancellationToken).ConfigureAwait(false);
         }
 
         if (readResult.Exists)
         {
-            try
+            if (!deadline.TryGetRemainingTimeout(out var existingSessionGateTimeout))
             {
-                await daemonPingClient.Ping(
-                        unityProject,
-                        timeout,
-                        readResult.Session!.SessionToken,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                return DaemonStartResult.AlreadyRunning(readResult.Session!);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (TimeoutException exception)
-            {
-                return DaemonStartResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while probing existing daemon session. {exception.Message}"));
-            }
-            catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
-            {
-                var stopProcessResult = await processTerminationService.EnsureStopped(
-                        readResult.Session!.ProcessId,
-                        readResult.Session.IssuedAtUtc,
-                        timeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (!stopProcessResult.IsSuccess)
-                {
-                    return DaemonStartResult.Failure(stopProcessResult.Error!);
-                }
-
-                var cleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
-                if (!cleanupResult.IsSuccess)
-                {
-                    return DaemonStartResult.Failure(cleanupResult.Error!);
-                }
-            }
-            catch (Exception exception)
-            {
-                return DaemonStartResult.Failure(ExecutionError.InternalError(
-                    $"Failed to probe existing daemon session. {exception.Message}"));
-            }
-        }
-
-        var endpoint = endpointResolver.Resolve(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
-        var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: sessionTokenGenerator.Create(),
-            ProjectFingerprint: unityProject.ProjectFingerprint,
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
-            CanShutdownProcess: true,
-            EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
-            EndpointAddress: endpoint.Address,
-            ProcessId: null);
-
-        var writeSessionResult = await daemonSessionStore.Write(
-                unityProject.RepositoryRoot,
-                session,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!writeSessionResult.IsSuccess)
-        {
-            return DaemonStartResult.Failure(writeSessionResult.Error!);
-        }
-
-        var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-        var launchResult = await unityDaemonProcessLauncher.Launch(
-                unityProject,
-                daemonLogPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!launchResult.IsSuccess)
-        {
-            var cleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, session.IssuedAtUtc, cancellationToken).ConfigureAwait(false);
-            if (!cleanupResult.IsSuccess)
-            {
-                return DaemonStartResult.Failure(ExecutionError.InternalError(
-                    $"Daemon launch failed and cleanup failed. LaunchError={launchResult.Error!.Message} CleanupError={cleanupResult.Error!.Message}"));
+                return DaemonStartResult.Failure(CreateTimeoutError(
+                    "Timed out while probing existing daemon session."));
             }
 
-            return DaemonStartResult.Failure(launchResult.Error!);
-        }
-
-        if (launchResult.ProcessId is int processId)
-        {
-            session = session with { ProcessId = processId };
-            var updateSessionResult = await daemonSessionStore.Write(
-                    unityProject.RepositoryRoot,
-                    session,
+            var existingSessionGateResult = await daemonExistingSessionGateService.TryHandleExistingSession(
+                    unityProject,
+                    readResult.Session!,
+                    existingSessionGateTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!updateSessionResult.IsSuccess)
+            if (existingSessionGateResult is not null)
             {
-                var cleanupResult = await CleanupAfterFailedStart(unityProject, processId, session.IssuedAtUtc, cancellationToken).ConfigureAwait(false);
-                if (!cleanupResult.IsSuccess)
-                {
-                    return DaemonStartResult.Failure(ExecutionError.InternalError(
-                        $"Daemon session update failed and cleanup failed. SessionError={updateSessionResult.Error!.Message} CleanupError={cleanupResult.Error!.Message}"));
-                }
-
-                return DaemonStartResult.Failure(updateSessionResult.Error!);
+                return existingSessionGateResult;
             }
         }
 
-        var probeResult = await startupReadinessProbe.WaitUntilReady(unityProject, timeout, cancellationToken).ConfigureAwait(false);
-        if (probeResult.IsReady)
+        if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
         {
-            return DaemonStartResult.Started(session);
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                "Timed out before daemon launch could start."));
         }
 
-        var finalCleanupResult = await CleanupAfterFailedStart(unityProject, launchResult.ProcessId, session.IssuedAtUtc, cancellationToken).ConfigureAwait(false);
-        if (!finalCleanupResult.IsSuccess)
-        {
-            return DaemonStartResult.Failure(ExecutionError.InternalError(
-                $"Daemon startup readiness probe failed and cleanup failed. ProbeError={probeResult.Error!.Message} CleanupError={finalCleanupResult.Error!.Message}"));
-        }
-
-        return DaemonStartResult.Failure(probeResult.Error!);
+        return await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary> Cleans stale artifacts and stops process after start operation fails. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="processId"> The launched process identifier when available. </param>
-    /// <param name="expectedIssuedAtUtc"> The expected daemon session issuance timestamp used for identity validation. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The cleanup result. </returns>
-    private async ValueTask<DaemonSessionStoreOperationResult> CleanupAfterFailedStart (
+    private async ValueTask<DaemonStartResult> HandleInvalidSessionRead (
         ResolvedUnityProjectContext unityProject,
-        int? processId,
-        DateTimeOffset? expectedIssuedAtUtc,
+        DaemonSessionReadResult readResult,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        var stopResult = await processTerminationService.EnsureStopped(
-                processId,
-                expectedIssuedAtUtc,
-                TimeSpan.FromSeconds(1),
+        if (readResult.FailureKind != DaemonSessionReadFailureKind.InvalidSession)
+        {
+            return DaemonStartResult.Failure(readResult.Error!);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var invalidSessionCleanupTimeout))
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                "Timed out while preparing invalid daemon-session cleanup."));
+        }
+
+        var cleanupResult = await daemonSessionCleanupService.CleanupInvalidSessionArtifacts(
+                unityProject,
+                readResult,
+                invalidSessionCleanupTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!stopResult.IsSuccess)
+        if (!cleanupResult.IsSuccess)
         {
-            return stopResult;
+            return DaemonStartResult.Failure(cleanupResult.Error!);
         }
 
-        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
-    }
+        if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
+        {
+            return DaemonStartResult.Failure(CreateTimeoutError(
+                "Timed out before daemon launch could start."));
+        }
 
-    /// <summary> Gets process stop target from invalid session snapshot when identity can be validated safely. </summary>
-    /// <param name="readResult"> The daemon session read result. </param>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="processId"> The process identifier when stop target can be recovered. </param>
-    /// <param name="issuedAtUtc"> The issued-at timestamp when stop target can be recovered. </param>
-    /// <returns> <see langword="true" /> when stop target is recoverable; otherwise <see langword="false" />. </returns>
-    private static bool TryGetRecoverableInvalidSessionStopTarget (
-        DaemonSessionReadResult readResult,
-        ResolvedUnityProjectContext unityProject,
-        out int processId,
-        out DateTimeOffset issuedAtUtc)
+        return await daemonLaunchService.Launch(unityProject, launchTimeout, cancellationToken).ConfigureAwait(false);
+    }
+    private static ExecutionError CreateTimeoutError (string message)
     {
-        processId = default;
-        issuedAtUtc = default;
-
-        var session = readResult.Session;
-        if (session == null)
-        {
-            return false;
-        }
-
-        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (session.ProcessId is not int candidateProcessId || candidateProcessId <= 0)
-        {
-            return false;
-        }
-
-        if (session.IssuedAtUtc == default)
-        {
-            return false;
-        }
-
-        processId = candidateProcessId;
-        issuedAtUtc = session.IssuedAtUtc;
-        return true;
+        return ExecutionError.Timeout(message);
     }
-
 }

@@ -13,16 +13,21 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IDaemonShutdownSignal daemonShutdownSignal;
 
+        private readonly IUnityMainThreadRequestExecutor mainThreadRequestExecutor;
+
         /// <summary> Initializes a new instance of the <see cref="UnityIpcConnectionHandler" /> class. </summary>
         /// <param name="requestHandler"> The IPC request-handler dependency. </param>
         /// <param name="daemonShutdownSignal"> The daemon shutdown signal dependency. </param>
+        /// <param name="mainThreadRequestExecutor"> The main-thread request-executor dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestHandler" /> is <see langword="null" />. </exception>
         public UnityIpcConnectionHandler (
             IUnityIpcRequestHandler requestHandler,
-            IDaemonShutdownSignal daemonShutdownSignal)
+            IDaemonShutdownSignal daemonShutdownSignal,
+            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
         {
             this.requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
             this.daemonShutdownSignal = daemonShutdownSignal ?? throw new ArgumentNullException(nameof(daemonShutdownSignal));
+            this.mainThreadRequestExecutor = mainThreadRequestExecutor ?? throw new ArgumentNullException(nameof(mainThreadRequestExecutor));
         }
 
         /// <summary> Handles one request-response exchange over a connected transport stream. </summary>
@@ -66,7 +71,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var request = readResult.Value;
-            var response = await requestHandler.Handle(request, cancellationToken);
+            var response = await mainThreadRequestExecutor.Execute(
+                () => requestHandler.Handle(request, cancellationToken),
+                cancellationToken);
             await IpcFrameCodec.WriteModelAsync(
                 stream,
                 response,

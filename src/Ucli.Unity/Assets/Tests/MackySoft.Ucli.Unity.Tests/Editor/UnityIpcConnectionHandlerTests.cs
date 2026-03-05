@@ -19,7 +19,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenMalformedFrameAndErrorResponseWriteFails_DoesNotThrow () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new StubRequestHandler();
-            var handler = new UnityIpcConnectionHandler(requestHandler, new StubDaemonShutdownSignal());
+            var handler = new UnityIpcConnectionHandler(
+                requestHandler,
+                new StubDaemonShutdownSignal(),
+                new InlineMainThreadRequestExecutor());
             using var stream = new ThrowOnReadAndWriteStream();
 
             await handler.Handle(stream, CancellationToken.None);
@@ -33,7 +36,10 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var shutdownSignal = new StubDaemonShutdownSignal();
             var requestHandler = new StubRequestHandler();
-            var handler = new UnityIpcConnectionHandler(requestHandler, shutdownSignal);
+            var handler = new UnityIpcConnectionHandler(
+                requestHandler,
+                shutdownSignal,
+                new InlineMainThreadRequestExecutor());
             var request = new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "req-shutdown",
@@ -85,6 +91,22 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.CompletedTask;
+            }
+        }
+
+        private sealed class InlineMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
+        {
+            public Task<IpcResponse> Execute (
+                Func<Task<IpcResponse>> requestHandler,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (requestHandler == null)
+                {
+                    throw new ArgumentNullException(nameof(requestHandler));
+                }
+
+                return requestHandler();
             }
         }
 

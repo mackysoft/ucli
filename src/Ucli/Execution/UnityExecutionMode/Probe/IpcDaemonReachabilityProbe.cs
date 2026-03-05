@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
@@ -39,6 +40,7 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+        var deadline = ExecutionDeadline.Start(timeout);
 
         var endpoint = endpointResolver.Resolve(
             unityProject.RepositoryRoot,
@@ -53,27 +55,64 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             return DaemonReachabilityProbeResult.NotRunning();
         }
 
-        try
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
         {
-            await daemonPingClient.Ping(
-                    unityProject,
-                    timeout,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-            return DaemonReachabilityProbeResult.Running();
+            return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+
+        while (true)
         {
-            throw;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+            {
+                return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
+            }
+
+            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+                ? remainingTimeout
+                : DaemonTimeouts.ProbeAttemptTimeoutCap;
+            try
+            {
+                await daemonPingClient.Ping(
+                        unityProject,
+                        attemptTimeout,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                return DaemonReachabilityProbeResult.Running();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
+            {
+                return DaemonReachabilityProbeResult.NotRunning();
+            }
+            catch (TimeoutException)
+            {
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
+                        $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
+                }
+
+                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                return DaemonReachabilityProbeResult.Failure(
+                    ExecutionError.InternalError($"Failed to probe daemon reachability. {exception.Message}"));
+            }
         }
-        catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
-        {
-            return DaemonReachabilityProbeResult.NotRunning();
-        }
-        catch (Exception exception)
-        {
-            return DaemonReachabilityProbeResult.Failure(
-                ExecutionError.InternalError($"Failed to probe daemon reachability. {exception.Message}"));
-        }
+    }
+
+    private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
+    {
+        var retryDelayMilliseconds = Math.Min(
+            DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
+            Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
+        return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
     }
 }
