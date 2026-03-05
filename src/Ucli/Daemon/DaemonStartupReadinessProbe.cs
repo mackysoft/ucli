@@ -11,12 +11,18 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 
     private readonly IDaemonPingClient daemonPingClient;
 
+    private readonly IDaemonLogReader daemonLogReader;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
-    public DaemonStartupReadinessProbe (IDaemonPingClient daemonPingClient)
+    /// <param name="daemonLogReader"> The daemon log-reader dependency. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
+    public DaemonStartupReadinessProbe (
+        IDaemonPingClient daemonPingClient,
+        IDaemonLogReader daemonLogReader)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
+        this.daemonLogReader = daemonLogReader ?? throw new ArgumentNullException(nameof(daemonLogReader));
     }
 
     /// <summary> Waits until daemon endpoint becomes reachable, or timeout expires. </summary>
@@ -54,6 +60,15 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
+                var startupFailureError = await TryResolveStartupFailureFromDaemonLog(
+                        unityProject,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (startupFailureError is not null)
+                {
+                    return DaemonStartupReadinessProbeResult.Failure(startupFailureError);
+                }
+
                 var elapsed = DateTimeOffset.UtcNow - startAtUtc;
                 if (elapsed >= timeout)
                 {
@@ -72,5 +87,60 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                     $"Failed while probing daemon startup readiness. {exception.Message}"));
             }
         }
+    }
+
+    private async ValueTask<ExecutionError?> TryResolveStartupFailureFromDaemonLog (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken)
+    {
+        var logReadResult = await daemonLogReader.ReadTail(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        if (!logReadResult.IsSuccess || string.IsNullOrWhiteSpace(logReadResult.Text))
+        {
+            return null;
+        }
+
+        if (TryGetCompilerErrorSummary(logReadResult.Text, out var compilerErrorSummary))
+        {
+            return ExecutionError.InternalError(
+                $"Unity daemon startup failed because scripts have compiler errors. {compilerErrorSummary}");
+        }
+
+        return null;
+    }
+
+    private static bool TryGetCompilerErrorSummary (
+        string logText,
+        out string summary)
+    {
+        const string compilerErrorsMarker = "Scripts have compiler errors";
+        summary = string.Empty;
+
+        var lines = logText.Split('\n');
+        foreach (var line in lines)
+        {
+            var trimmedLine = line.Trim();
+            if (trimmedLine.Length == 0)
+            {
+                continue;
+            }
+
+            if (trimmedLine.Contains("error CS", StringComparison.OrdinalIgnoreCase))
+            {
+                summary = $"FirstError={trimmedLine}";
+                return true;
+            }
+
+            if (trimmedLine.Contains(compilerErrorsMarker, StringComparison.OrdinalIgnoreCase))
+            {
+                summary = $"Marker={trimmedLine}";
+                return true;
+            }
+        }
+
+        return false;
     }
 }
