@@ -61,11 +61,13 @@ internal sealed class LogsDaemonRequestValidator : ILogsDaemonRequestValidator
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(request.QueryTarget)
-            && string.Equals(request.QueryTarget, IpcDaemonLogsQueryTargetCodec.Stack, StringComparison.OrdinalIgnoreCase))
+        if (!IpcDaemonLogsQueryTargetCodec.TryParseForDaemonLogs(
+                request.QueryTarget,
+                out _,
+                out var queryTargetValidationError))
         {
             error = ExecutionError.InvalidArgument(
-                $"queryTarget '{IpcDaemonLogsQueryTargetCodec.Stack}' is not supported for logs daemon. Supported: {IpcDaemonLogsQueryTargetCodec.Message}, {IpcDaemonLogsQueryTargetCodec.Both}.");
+                queryTargetValidationError!);
             return false;
         }
 

@@ -173,6 +173,50 @@ public sealed class IpcCommonContractTests
         Assert.Equal(expectedValue, queryTarget);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null, true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData("", true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData(" message ", true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData("both", true, IpcDaemonLogsQueryTargetCodec.Both)]
+    [InlineData("stack", false, null)]
+    [InlineData("unsupported", false, null)]
+    public void IpcDaemonLogsQueryTargetCodec_TryParseForDaemonLogs_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcDaemonLogsQueryTargetCodec.TryParseForDaemonLogs(value, out var queryTarget, out var errorMessage);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, string.IsNullOrEmpty(queryTarget) ? null : queryTarget);
+        if (expectedResult)
+        {
+            Assert.Null(errorMessage);
+            return;
+        }
+
+        Assert.False(string.IsNullOrWhiteSpace(errorMessage));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsQueryTargetCodec_CreateDaemonLogsUnsupportedValueMessage_ReturnsExpectedText ()
+    {
+        var message = IpcDaemonLogsQueryTargetCodec.CreateDaemonLogsUnsupportedValueMessage("unsupported");
+
+        Assert.Equal("queryTarget must be one of: message, both. Actual: unsupported.", message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsQueryTargetCodec_CreateDaemonLogsStackNotSupportedMessage_ReturnsExpectedText ()
+    {
+        var message = IpcDaemonLogsQueryTargetCodec.CreateDaemonLogsStackNotSupportedMessage();
+
+        Assert.Equal("queryTarget 'stack' is not supported for daemon logs. Supported: message, both.", message);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcDaemonLogsCategoryCodec_HasStableStringValues ()

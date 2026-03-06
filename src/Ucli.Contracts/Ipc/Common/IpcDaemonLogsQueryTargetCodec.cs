@@ -1,3 +1,4 @@
+using System;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
@@ -21,6 +22,21 @@ public static class IpcDaemonLogsQueryTargetCodec
         Both,
     };
 
+    /// <summary> Gets one daemon-logs validation error message for unsupported query-target values. </summary>
+    /// <param name="value"> The raw query-target value. </param>
+    /// <returns> The invalid-argument message text. </returns>
+    public static string CreateDaemonLogsUnsupportedValueMessage (string? value)
+    {
+        return $"queryTarget must be one of: {Message}, {Both}. Actual: {value}.";
+    }
+
+    /// <summary> Gets one daemon-logs validation error message for stack-only query-target value. </summary>
+    /// <returns> The invalid-argument message text. </returns>
+    public static string CreateDaemonLogsStackNotSupportedMessage ()
+    {
+        return $"queryTarget '{Stack}' is not supported for daemon logs. Supported: {Message}, {Both}.";
+    }
+
     /// <summary> Tries to parse one query-target literal to canonical IPC value. </summary>
     /// <param name="value"> The optional query-target literal. </param>
     /// <param name="queryTarget"> The normalized query-target literal when operation succeeds; otherwise <see langword="null" />. </param>
@@ -34,5 +50,41 @@ public static class IpcDaemonLogsQueryTargetCodec
             CanonicalLiterals,
             StringComparison.OrdinalIgnoreCase,
             out queryTarget);
+    }
+
+    /// <summary> Tries to resolve one daemon-logs query-target literal with daemon-specific validation rules. </summary>
+    /// <param name="value"> The optional raw query-target literal. </param>
+    /// <param name="queryTarget"> The normalized query-target literal when operation succeeds. </param>
+    /// <param name="errorMessage"> The daemon-logs validation message when operation fails; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when value is valid for daemon logs; otherwise <see langword="false" />. </returns>
+    public static bool TryParseForDaemonLogs (
+        string? value,
+        out string queryTarget,
+        out string? errorMessage)
+    {
+        if (!StringValueNormalizer.TryTrimToNonEmpty(value, out var normalizedValue))
+        {
+            queryTarget = Message;
+            errorMessage = null;
+            return true;
+        }
+
+        if (!TryParse(normalizedValue, out var normalizedQueryTarget))
+        {
+            queryTarget = string.Empty;
+            errorMessage = CreateDaemonLogsUnsupportedValueMessage(value);
+            return false;
+        }
+
+        if (string.Equals(normalizedQueryTarget, Stack, StringComparison.Ordinal))
+        {
+            queryTarget = string.Empty;
+            errorMessage = CreateDaemonLogsStackNotSupportedMessage();
+            return false;
+        }
+
+        queryTarget = normalizedQueryTarget!;
+        errorMessage = null;
+        return true;
     }
 }

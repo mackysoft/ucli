@@ -211,29 +211,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             out string queryTarget,
             out string errorMessage)
         {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                queryTarget = IpcDaemonLogsQueryTargetCodec.Message;
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (!IpcDaemonLogsQueryTargetCodec.TryParse(value, out var normalizedValue))
+            if (!IpcDaemonLogsQueryTargetCodec.TryParseForDaemonLogs(
+                    value,
+                    out queryTarget,
+                    out var queryTargetValidationError))
             {
                 queryTarget = string.Empty;
-                errorMessage = $"queryTarget must be one of: {IpcDaemonLogsQueryTargetCodec.Message}, {IpcDaemonLogsQueryTargetCodec.Both}. Actual: {value}.";
+                errorMessage = queryTargetValidationError!;
                 return false;
             }
 
-            if (string.Equals(normalizedValue, IpcDaemonLogsQueryTargetCodec.Stack, StringComparison.Ordinal))
-            {
-                queryTarget = string.Empty;
-                errorMessage =
-                    $"queryTarget '{IpcDaemonLogsQueryTargetCodec.Stack}' is not supported for daemon logs. Supported: {IpcDaemonLogsQueryTargetCodec.Message}, {IpcDaemonLogsQueryTargetCodec.Both}.";
-                return false;
-            }
-
-            queryTarget = normalizedValue!;
             errorMessage = string.Empty;
             return true;
         }
