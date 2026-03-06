@@ -117,6 +117,154 @@ public sealed class IpcCommonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcDaemonLogsLevelCodec_HasStableStringValues ()
+    {
+        Assert.Equal("all", IpcDaemonLogsLevelCodec.All);
+        Assert.Equal("error", IpcDaemonLogsLevelCodec.Error);
+        Assert.Equal("warning", IpcDaemonLogsLevelCodec.Warning);
+        Assert.Equal("info", IpcDaemonLogsLevelCodec.Info);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("all", true, IpcDaemonLogsLevelCodec.All)]
+    [InlineData(" WARNING ", true, IpcDaemonLogsLevelCodec.Warning)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcDaemonLogsLevelCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcDaemonLogsLevelCodec.TryParse(value, out var level);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, level);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsQueryTargetCodec_HasStableStringValues ()
+    {
+        Assert.Equal("message", IpcDaemonLogsQueryTargetCodec.Message);
+        Assert.Equal("stack", IpcDaemonLogsQueryTargetCodec.Stack);
+        Assert.Equal("both", IpcDaemonLogsQueryTargetCodec.Both);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("message", true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData(" STACK ", true, IpcDaemonLogsQueryTargetCodec.Stack)]
+    [InlineData("both", true, IpcDaemonLogsQueryTargetCodec.Both)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcDaemonLogsQueryTargetCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcDaemonLogsQueryTargetCodec.TryParse(value, out var queryTarget);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, queryTarget);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null, true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData("", true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData(" message ", true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData("both", true, IpcDaemonLogsQueryTargetCodec.Both)]
+    [InlineData("stack", false, null)]
+    [InlineData("unsupported", false, null)]
+    public void IpcDaemonLogsQueryTargetCodec_TryParseForDaemonLogs_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcDaemonLogsQueryTargetCodec.TryParseForDaemonLogs(value, out var queryTarget, out var errorMessage);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, string.IsNullOrEmpty(queryTarget) ? null : queryTarget);
+        if (expectedResult)
+        {
+            Assert.Null(errorMessage);
+            return;
+        }
+
+        Assert.False(string.IsNullOrWhiteSpace(errorMessage));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsQueryTargetCodec_CreateDaemonLogsUnsupportedValueMessage_ReturnsExpectedText ()
+    {
+        var message = IpcDaemonLogsQueryTargetCodec.CreateDaemonLogsUnsupportedValueMessage("unsupported");
+
+        Assert.Equal("queryTarget must be one of: message, both. Actual: unsupported.", message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsQueryTargetCodec_CreateDaemonLogsStackNotSupportedMessage_ReturnsExpectedText ()
+    {
+        var message = IpcDaemonLogsQueryTargetCodec.CreateDaemonLogsStackNotSupportedMessage();
+
+        Assert.Equal("queryTarget 'stack' is not supported for daemon logs. Supported: message, both.", message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsCategoryCodec_HasStableStringValues ()
+    {
+        Assert.Equal("all", IpcDaemonLogsCategoryCodec.All);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("all", true)]
+    [InlineData(" ALL ", true)]
+    [InlineData("ipc", false)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData(null, false)]
+    public void IpcDaemonLogsCategoryCodec_IsAll_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult)
+    {
+        var result = IpcDaemonLogsCategoryCodec.IsAll(value);
+
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("2026-03-05T10:35:22.0000000+09:00", true, true)]
+    [InlineData("2026-03-05T01:35:22.0000000Z", true, true)]
+    [InlineData("2026-03-05", false, false)]
+    [InlineData("2026-03-05+09:00", false, false)]
+    [InlineData("2026-03-05T10:35:22", false, false)]
+    [InlineData("invalid", false, false)]
+    [InlineData("", true, false)]
+    [InlineData(" ", true, false)]
+    [InlineData(null, true, false)]
+    public void IpcIso8601TimestampCodec_TryParseOptionalWithTimezoneOffset_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        bool expectedHasValue)
+    {
+        var result = IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(value, out var timestamp);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedHasValue, timestamp.HasValue);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcTestRunPlatformCodec_HasStableStringValues ()
     {
         Assert.Equal("editmode", IpcTestRunPlatformCodec.EditMode);

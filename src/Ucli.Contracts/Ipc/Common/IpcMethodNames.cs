@@ -14,4 +14,7 @@ public static class IpcMethodNames
 
     /// <summary> Gets the method name used for daemon shutdown requests. </summary>
     public const string Shutdown = "shutdown";
+
+    /// <summary> Gets the method name used for daemon log stream read requests. </summary>
+    public const string DaemonLogsRead = "daemon.logs.read";
 }

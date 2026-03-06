@@ -485,7 +485,7 @@ public sealed class UcliConfigStoreTests
 
     private static void AssertDefaultIpcTimeouts (IReadOnlyDictionary<string, int?> actual)
     {
-        Assert.Equal(12, actual.Count);
+        Assert.Equal(13, actual.Count);
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandTest));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandStatus));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandValidate));
@@ -498,6 +498,7 @@ public sealed class UcliConfigStoreTests
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandDaemonStart));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandDaemonStop));
         Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandDaemonStatus));
+        Assert.True(actual.ContainsKey(UcliContractConstants.Config.IpcTimeoutCommandLogsDaemon));
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultTestMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandTest]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandStatus]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultValidateMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandValidate]);
@@ -510,5 +511,6 @@ public sealed class UcliConfigStoreTests
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStartMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandDaemonStart]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStopMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandDaemonStop]);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandDaemonStatus]);
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultLogsDaemonMilliseconds, actual[UcliContractConstants.Config.IpcTimeoutCommandLogsDaemon]);
     }
 }

@@ -32,4 +32,32 @@ public sealed class UcliCommandNamesTests
 
         Assert.True(result);
     }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(UcliCommandNames.Daemon, UcliCommandNames.LogsDaemon)]
+    [InlineData(UcliCommandNames.UnitySubcommand, UcliCommandNames.LogsUnity)]
+    [InlineData("foo", UcliCommandNames.Logs)]
+    [InlineData(null, UcliCommandNames.Logs)]
+    public void ResolveResultCommandName_WhenLogsCommandSpecified_ReturnsExpectedCommandName (
+        string? subcommand,
+        string expected)
+    {
+        var args = subcommand is null
+            ? [UcliCommandNames.Logs]
+            : new[] { UcliCommandNames.Logs, subcommand };
+
+        var commandName = UcliCommandNames.ResolveResultCommandName(args);
+
+        Assert.Equal(expected, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenLogsCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Logs);
+
+        Assert.True(result);
+    }
 }

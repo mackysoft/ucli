@@ -138,7 +138,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     new ThrowingTransportListener(IpcTransportKind.NamedPipe, "listener failed"),
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-failure");
-            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: listener failed"));
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
@@ -165,7 +164,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         TimeSpan.FromMilliseconds(50)),
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-delayed-failure");
-            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: listener failed after delay"));
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
@@ -221,7 +219,6 @@ namespace MackySoft.Ucli.Unity.Tests
                         TimeSpan.FromMilliseconds(50)),
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-fault-after-startup");
-            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: listener failed after startup"));
 
             await server.Start(endpoint).AsUniTask();
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
@@ -404,6 +401,27 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleRequest_WhenValidTokenAndDaemonLogsRead_ReturnsDaemonLogEvents () => UniTask.ToCoroutine(async () =>
+        {
+            var server = CreateServerForRequestHandling(
+                new StubSessionTokenValidator(accepted: true),
+                new StubExecuteRequestDispatcher(),
+                new StubUnityTestRunService(),
+                new StubDaemonShutdownSignal());
+            var request = CreateDaemonLogsReadRequest(sessionToken: "valid-token", requestId: "req-daemon-logs");
+
+            var response = await server.HandleRequest(request);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            var payload = response.Payload.Deserialize<IpcDaemonLogsReadResponse>(SerializerOptions);
+            Assert.That(payload, Is.Not.Null);
+            Assert.That(payload.Events.Length, Is.GreaterThanOrEqualTo(1));
+            Assert.That(payload.NextCursor, Is.Not.Empty);
+        });
+
         private static IpcRequest CreatePingRequest (string sessionToken)
         {
             return new IpcRequest(
@@ -475,6 +493,29 @@ namespace MackySoft.Ucli.Unity.Tests
                 Payload: payload);
         }
 
+        private static IpcRequest CreateDaemonLogsReadRequest (
+            string sessionToken,
+            string requestId)
+        {
+            var payload = JsonSerializer.SerializeToElement(
+                new IpcDaemonLogsReadRequest(
+                    Tail: null,
+                    After: null,
+                    Since: null,
+                    Until: null,
+                    Level: null,
+                    Query: null,
+                    QueryTarget: null,
+                    Category: null),
+                SerializerOptions);
+            return new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: requestId,
+                SessionToken: sessionToken,
+                Method: IpcMethodNames.DaemonLogsRead,
+                Payload: payload);
+        }
+
         private static UnityIpcServer CreateServerForLifecycle ()
         {
             return CreateServer(
@@ -510,12 +551,19 @@ namespace MackySoft.Ucli.Unity.Tests
             IDaemonShutdownSignal shutdownSignal,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners)
         {
+            var daemonLogStream = new DaemonLogRingBuffer();
+            daemonLogStream.Write("ipc", "info", "server booted");
             var methodDispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
                     new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider()),
                     new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
                     new TestRunUnityIpcMethodHandler(testRunService),
+                    new DaemonLogsReadUnityIpcMethodHandler(
+                        daemonLogStream,
+                        new DaemonLogsReadRequestValidator(),
+                        new DaemonLogsReadQueryEngine(),
+                        new DaemonLogsReadResponseFactory()),
                     new ShutdownUnityIpcMethodHandler(),
                 });
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);

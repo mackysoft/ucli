@@ -641,8 +641,8 @@ ucli daemon status --projectPath ./UnityProject
 - `ucli logs` の成功時は共通エンベロープを返さず、`stdout` にログイベントを逐次出力する。
 - `--format json` は NDJSON とし、1イベントを1行のJSONオブジェクトで出力する（配列ラップしない）。
 - `--format text` は1イベントを1行のテキストで出力する。
-- `--follow` 未指定時は取得条件に一致する範囲を出力して終了する。
-- `--follow` 指定時は終了条件（`Ctrl+C` / `--idleTimeoutMilliseconds` 到達 / `--until` 到達）まで継続出力する。
+- `--stream` 未指定時は取得条件に一致する範囲を出力して終了する。
+- `--stream` 指定時は終了条件（`Ctrl+C` / `--idleTimeoutMilliseconds` 到達 / `--until` 到達）まで継続出力する。
 - 入力検証エラーなど、ストリーム開始前に失敗した場合は共通エンベロープの `status=error` を1件返して終了する。
 
 #### `logs` 共通 options（`unity` / `daemon`）
@@ -656,9 +656,9 @@ ucli daemon status --projectPath ./UnityProject
 | `--level <string?>` | - | `error` / `warning` / `info` / `all` |
 | `--query <string?>` | - | ログ検索クエリ |
 | `--queryTarget <string?>` | - | `message` / `stack` / `both` |
-| `--follow` | - | 追従取得。新規ログを継続表示する |
-| `--pollIntervalMilliseconds <int?>` | - | `--follow` 時のポーリング間隔（ミリ秒）。`50..60000`、既定 `300` |
-| `--idleTimeoutMilliseconds <int?>` | - | `--follow` 時に新規ログが無い状態で自動終了するまでの時間（ミリ秒）。`1..2147483647` |
+| `--stream` | - | ストリーム取得。新規ログを継続表示する |
+| `--pollIntervalMilliseconds <int?>` | - | `--stream` 時のポーリング間隔（ミリ秒）。`50..60000`、既定 `300` |
+| `--idleTimeoutMilliseconds <int?>` | - | `--stream` 時に新規ログが無い状態で自動終了するまでの時間（ミリ秒）。`1..2147483647` |
 | `--format <string?>` | - | `json` / `text` |
 
 #### `logs unity` options
@@ -682,18 +682,18 @@ ucli daemon status --projectPath ./UnityProject
 - `ucli logs daemon` で `--queryTarget=stack` を指定した場合は `INVALID_ARGUMENT` とする。
 - `--stackTrace=none` の場合、`--stackTraceMaxFrames` と `--stackTraceMaxChars` は無効化される。
 - `--category` は `ucli logs daemon` でのみ指定可能とする。
-- `--follow` はサーバープッシュではなく、`nextCursor` を使った増分ポーリングで実装する。
-- `--pollIntervalMilliseconds` は `--follow` 指定時のみ有効とする。
-- `--idleTimeoutMilliseconds` は `--follow` 指定時のみ有効とし、無通信時間が閾値を超えた時点で正常終了する。
-- `--follow` と `--until` を同時指定した場合、`until` 到達時に正常終了する。
-- `--format=json` は `--follow` 有無にかかわらず NDJSON を出力する。
+- `--stream` はサーバープッシュではなく、`nextCursor` を使った増分ポーリングで実装する。
+- `--pollIntervalMilliseconds` は `--stream` 指定時のみ有効とする。
+- `--idleTimeoutMilliseconds` は `--stream` 指定時のみ有効とし、無通信時間が閾値を超えた時点で正常終了する。
+- `--stream` と `--until` を同時指定した場合、`until` 到達時に正常終了する。
+- `--format=json` は `--stream` 有無にかかわらず NDJSON を出力する。
 
 #### `logs` 実行例
 ```bash
 ucli logs unity --projectPath ./UnityProject --tail 200 --level error --source runtime
-ucli logs unity --projectPath ./UnityProject --after "<cursor>" --follow --format text
+ucli logs unity --projectPath ./UnityProject --after "<cursor>" --stream --format text
 ucli logs daemon --projectPath ./UnityProject --since "2026-03-05T00:00:00+09:00" --format json
-ucli logs daemon --projectPath ./UnityProject --follow --pollIntervalMilliseconds 500 --idleTimeoutMilliseconds 60000 --category ipc
+ucli logs daemon --projectPath ./UnityProject --stream --pollIntervalMilliseconds 500 --idleTimeoutMilliseconds 60000 --category ipc
 ucli logs unity --projectPath ./UnityProject --since "2026-03-05T09:00:00+09:00" --until "2026-03-05T10:00:00+09:00"
 ```
 

@@ -27,6 +27,15 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for <c>daemon status</c> result payloads. </summary>
     public const string DaemonStatus = "daemon.status";
 
+    /// <summary> Gets the top-level command name for logs. </summary>
+    public const string Logs = "logs";
+
+    /// <summary> Gets the command name for <c>logs daemon</c> result payloads. </summary>
+    public const string LogsDaemon = "logs.daemon";
+
+    /// <summary> Gets the command name for <c>logs unity</c> result payloads. </summary>
+    public const string LogsUnity = "logs.unity";
+
     /// <summary> Gets the top-level command name for test. </summary>
     public const string Test = "test";
 
@@ -51,11 +60,15 @@ internal static class UcliCommandNames
     /// <summary> Gets the nested command name for daemon stop. </summary>
     public const string StopSubcommand = "stop";
 
+    /// <summary> Gets the nested command name for logs unity target. </summary>
+    public const string UnitySubcommand = "unity";
+
     private static readonly HashSet<string> RegisteredCommandNames = new(StringComparer.Ordinal)
     {
         Init,
         Status,
         Daemon,
+        Logs,
         Test,
     };
 
@@ -128,6 +141,23 @@ internal static class UcliCommandNames
             }
 
             return Daemon;
+        }
+
+        if (string.Equals(firstArgument, Logs, StringComparison.Ordinal))
+        {
+            if (args.Length >= 2
+                && string.Equals(args[1], Daemon, StringComparison.Ordinal))
+            {
+                return LogsDaemon;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], UnitySubcommand, StringComparison.Ordinal))
+            {
+                return LogsUnity;
+            }
+
+            return Logs;
         }
 
         return IsRegistered(firstArgument) ? firstArgument : Root;

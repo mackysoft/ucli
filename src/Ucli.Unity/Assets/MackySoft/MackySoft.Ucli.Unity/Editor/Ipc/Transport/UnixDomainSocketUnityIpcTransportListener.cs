@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -13,7 +12,16 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly object syncRoot = new object();
 
+        private readonly IDaemonLogger daemonLogger;
+
         private Socket activeListenerSocket;
+
+        /// <summary> Initializes a new instance of the <see cref="UnixDomainSocketUnityIpcTransportListener" /> class. </summary>
+        /// <param name="daemonLogger"> The daemon daemon-logger dependency. </param>
+        public UnixDomainSocketUnityIpcTransportListener (IDaemonLogger daemonLogger = null)
+        {
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+        }
 
         /// <summary> Gets transport kind handled by this listener. </summary>
         public IpcTransportKind TransportKind => IpcTransportKind.UnixDomainSocket;
@@ -86,7 +94,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
                     catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException or SocketException))
                     {
-                        Debug.LogWarning($"Unix domain socket listener ignored recoverable connection error: {exception.Message}");
+                        daemonLogger.Warning(
+                            DaemonLogCategories.Transport,
+                            $"Unix domain socket listener ignored recoverable connection error: {exception.Message}");
                     }
                 }
             }

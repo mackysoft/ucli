@@ -125,6 +125,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("execute", IpcMethodNames.Execute);
         Assert.Equal("test.run", IpcMethodNames.TestRun);
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
+        Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
     }
 
     [Fact]
@@ -173,6 +174,56 @@ public sealed class IpcContractSerializationTests
             .HasString("editorLogPath", "/tmp/editor.log");
         JsonAssert.For(responseDocument.RootElement)
             .HasInt32("exitCode", 2);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcDaemonLogsReadRequest(
+            Tail: 120,
+            After: "stream-1:10",
+            Since: "2026-03-05T10:30:00+09:00",
+            Until: "2026-03-05T10:40:00+09:00",
+            Level: "warning",
+            Query: "connection",
+            QueryTarget: "message",
+            Category: "transport");
+        var responsePayload = new IpcDaemonLogsReadResponse(
+            Events:
+            [
+                new IpcDaemonLogEvent(
+                    Timestamp: "2026-03-05T10:35:22.0000000+09:00",
+                    Level: "warning",
+                    Category: "transport",
+                    Message: "Named pipe listener ignored recoverable connection error.",
+                    Raw: "IOException: broken pipe",
+                    Cursor: "stream-1:42"),
+            ],
+            NextCursor: "stream-1:43");
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasInt32("tail", 120)
+            .HasString("after", "stream-1:10")
+            .HasString("since", "2026-03-05T10:30:00+09:00")
+            .HasString("until", "2026-03-05T10:40:00+09:00")
+            .HasString("level", "warning")
+            .HasString("query", "connection")
+            .HasString("queryTarget", "message")
+            .HasString("category", "transport");
+        JsonAssert.For(responseDocument.RootElement)
+            .HasArrayLength("events", 1)
+            .HasString("nextCursor", "stream-1:43")
+            .HasProperty("events", 0, eventObject => eventObject
+                .HasString("timestamp", "2026-03-05T10:35:22.0000000+09:00")
+                .HasString("level", "warning")
+                .HasString("category", "transport")
+                .HasString("message", "Named pipe listener ignored recoverable connection error.")
+                .HasString("raw", "IOException: broken pipe")
+                .HasString("cursor", "stream-1:42"));
     }
 
     [Fact]
@@ -236,6 +287,15 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("resolve", UcliCommandIds.Resolve.Name);
         Assert.Equal("query", UcliCommandIds.Query.Name);
         Assert.Equal("refresh", UcliCommandIds.Refresh.Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UcliCommandIds_ExposeLogsCommandLiterals ()
+    {
+        Assert.Equal("logs", UcliCommandIds.Logs.Name);
+        Assert.Equal("logs.daemon", UcliCommandIds.LogsDaemon.Name);
+        Assert.Equal("logs.unity", UcliCommandIds.LogsUnity.Name);
     }
 
     [Fact]

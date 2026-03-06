@@ -63,6 +63,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultDaemonStatusMilliseconds = 3000;
 
+        public const int IpcTimeoutDefaultLogsDaemonMilliseconds = 3000;
+
         public const string IpcTimeoutCommandTest = "test";
 
         public const string IpcTimeoutCommandStatus = "status";
@@ -86,6 +88,8 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandDaemonStop = "daemon.stop";
 
         public const string IpcTimeoutCommandDaemonStatus = "daemon.status";
+
+        public const string IpcTimeoutCommandLogsDaemon = "logs.daemon";
     }
 
     internal static class TestProfile

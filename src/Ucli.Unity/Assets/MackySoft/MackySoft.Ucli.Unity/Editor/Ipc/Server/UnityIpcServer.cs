@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -17,6 +16,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IUnityIpcRequestHandler requestHandler;
         private readonly IUnityIpcConnectionHandler connectionHandler;
         private readonly IReadOnlyList<IUnityIpcTransportListener> transportListeners;
+        private readonly IDaemonLogger daemonLogger;
 
         private CancellationTokenSource? listenerCancellationTokenSource;
         private Task? listenerTask;
@@ -31,11 +31,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         public UnityIpcServer (
             IUnityIpcRequestHandler requestHandler,
             IUnityIpcConnectionHandler connectionHandler,
-            IReadOnlyList<IUnityIpcTransportListener> transportListeners)
+            IReadOnlyList<IUnityIpcTransportListener> transportListeners,
+            IDaemonLogger daemonLogger = null)
         {
             this.requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
             this.connectionHandler = connectionHandler ?? throw new ArgumentNullException(nameof(connectionHandler));
             this.transportListeners = transportListeners ?? throw new ArgumentNullException(nameof(transportListeners));
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
         /// <summary> Gets a value indicating whether the server lifecycle is marked as started. </summary>
@@ -148,15 +150,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                Debug.Log("IPC server stop observed internal listener cancellation.");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    "IPC server stop observed internal listener cancellation.");
             }
             catch (ObjectDisposedException exception)
             {
-                Debug.Log($"IPC server stop observed disposed transport handle. {exception.Message}");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    $"IPC server stop observed disposed transport handle. {exception.Message}");
             }
             catch (SocketException exception)
             {
-                Debug.Log($"IPC server stop observed socket shutdown. {exception.SocketErrorCode}");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    $"IPC server stop observed socket shutdown. {exception.SocketErrorCode}");
             }
             finally
             {
@@ -239,17 +247,23 @@ namespace MackySoft.Ucli.Unity.Ipc
             catch (OperationCanceledException) when (!IsRunning || cancellationToken.IsCancellationRequested)
             {
                 startupCoordinator.Cancel();
-                Debug.Log("IPC server loop canceled during shutdown.");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    "IPC server loop canceled during shutdown.");
             }
             catch (ObjectDisposedException exception) when (!IsRunning || cancellationToken.IsCancellationRequested)
             {
                 startupCoordinator.Cancel();
-                Debug.Log($"IPC server loop transport disposed during shutdown. {exception.Message}");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    $"IPC server loop transport disposed during shutdown. {exception.Message}");
             }
             catch (SocketException exception) when (!IsRunning || cancellationToken.IsCancellationRequested)
             {
                 startupCoordinator.Cancel();
-                Debug.Log($"IPC server loop socket closed during shutdown. {exception.SocketErrorCode}");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    $"IPC server loop socket closed during shutdown. {exception.SocketErrorCode}");
             }
             catch (Exception exception)
             {
@@ -260,7 +274,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     isRunning = false;
                 }
 
-                Debug.LogException(exception);
+                daemonLogger.Exception(
+                    DaemonLogCategories.Ipc,
+                    "IPC server loop failed unexpectedly.",
+                    exception);
                 throw;
             }
         }
@@ -308,19 +325,27 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (OperationCanceledException)
             {
-                Debug.Log("IPC server start cleanup observed listener cancellation.");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    "IPC server start cleanup observed listener cancellation.");
             }
             catch (ObjectDisposedException exception)
             {
-                Debug.Log($"IPC server start cleanup observed disposed transport handle. {exception.Message}");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    $"IPC server start cleanup observed disposed transport handle. {exception.Message}");
             }
             catch (SocketException exception)
             {
-                Debug.Log($"IPC server start cleanup observed socket shutdown. {exception.SocketErrorCode}");
+                daemonLogger.Info(
+                    DaemonLogCategories.Ipc,
+                    $"IPC server start cleanup observed socket shutdown. {exception.SocketErrorCode}");
             }
             catch (Exception exception)
             {
-                Debug.Log($"IPC server start cleanup observed listener failure. {exception.Message}");
+                daemonLogger.Warning(
+                    DaemonLogCategories.Ipc,
+                    $"IPC server start cleanup observed listener failure. {exception.Message}");
             }
             finally
             {

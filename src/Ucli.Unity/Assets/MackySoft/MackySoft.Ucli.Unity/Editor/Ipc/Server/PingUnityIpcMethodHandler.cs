@@ -11,12 +11,16 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class PingUnityIpcMethodHandler : IUnityIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
+        private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
-        public PingUnityIpcMethodHandler (IServerVersionProvider serverVersionProvider)
+        public PingUnityIpcMethodHandler (
+            IServerVersionProvider serverVersionProvider,
+            IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
         /// <inheritdoc />
@@ -38,9 +42,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     out IpcPingRequest _,
                     out var errorResponse))
             {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Health,
+                    "Ping payload decode failed.");
                 return new ValueTask<IpcResponse>(errorResponse!);
             }
 
+            daemonLogger.Info(
+                DaemonLogCategories.Health,
+                "Ping request handled.");
             var payload = UnityPingResponseCodec.CreatePayload(
                 Application.unityVersion,
                 serverVersionProvider.GetVersion(),

@@ -10,6 +10,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly ISessionTokenValidator sessionTokenValidator;
         private readonly IUnityIpcMethodDispatcher methodDispatcher;
+        private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcRequestHandler" /> class. </summary>
         /// <param name="sessionTokenValidator"> The session-token validator dependency. </param>
@@ -17,10 +18,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
         public UnityIpcRequestHandler (
             ISessionTokenValidator sessionTokenValidator,
-            IUnityIpcMethodDispatcher methodDispatcher)
+            IUnityIpcMethodDispatcher methodDispatcher,
+            IDaemonLogger daemonLogger = null)
         {
             this.sessionTokenValidator = sessionTokenValidator ?? throw new ArgumentNullException(nameof(sessionTokenValidator));
             this.methodDispatcher = methodDispatcher ?? throw new ArgumentNullException(nameof(methodDispatcher));
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
         /// <summary> Handles one IPC request with strict session-token authorization and method dispatching. </summary>
@@ -41,6 +44,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (string.IsNullOrWhiteSpace(request.SessionToken))
             {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Auth,
+                    "Session token is required but missing.",
+                    $"requestId={request.RequestId}, method={request.Method}");
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     IpcErrorCodes.SessionTokenRequired,
@@ -59,6 +66,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (Exception exception)
             {
+                daemonLogger.Exception(
+                    DaemonLogCategories.Auth,
+                    "Session token validation failed.",
+                    exception);
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     IpcErrorCodes.InternalError,
@@ -68,6 +79,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!tokenAccepted)
             {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Auth,
+                    "Session token validation rejected request.",
+                    $"requestId={request.RequestId}, method={request.Method}");
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     IpcErrorCodes.SessionTokenInvalid,
@@ -77,6 +92,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (request.ProtocolVersion != IpcProtocol.CurrentVersion)
             {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Auth,
+                    $"Protocol version mismatch. requested={request.ProtocolVersion}, supported={IpcProtocol.CurrentVersion}.",
+                    $"requestId={request.RequestId}, method={request.Method}");
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     IpcErrorCodes.ProtocolVersionMismatch,
