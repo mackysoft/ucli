@@ -9,7 +9,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <PackageId>MackySoft.Ucli.Contracts</PackageId>
-    <Version>0.8.0</Version>
+    <Version>0.9.0</Version>
     <Description>Shared contract types for uCLI IPC protocol.</Description>
     <RepositoryUrl>https://github.com/mackysoft/ucli</RepositoryUrl>
     <PackageTags>ucli;unity;ipc</PackageTags>
