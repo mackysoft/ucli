@@ -4,11 +4,11 @@ using MackySoft.Ucli.Unity.Execution.Requests;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Defines one operation implementation used by phase execution. </summary>
-    internal interface IPhaseOperation
+    /// <summary> Defines one extensible operation contract executed by validate/plan/call phases. </summary>
+    public interface IUcliOperation
     {
-        /// <summary> Gets the operation name served by this implementation. </summary>
-        string OperationName { get; }
+        /// <summary> Gets the operation metadata. </summary>
+        UcliOperationMetadata Metadata { get; }
 
         /// <summary> Executes the validate phase for one operation. </summary>
         /// <param name="operation"> The normalized operation. </param>

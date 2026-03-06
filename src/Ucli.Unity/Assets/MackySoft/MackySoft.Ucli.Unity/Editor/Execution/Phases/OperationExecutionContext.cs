@@ -5,7 +5,7 @@ using System;
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one per-request execution context shared by operation phases. </summary>
-    internal sealed class OperationExecutionContext
+    public sealed class OperationExecutionContext
     {
         /// <summary> Initializes a new instance of the <see cref="OperationExecutionContext" /> class. </summary>
         public OperationExecutionContext ()
@@ -22,6 +22,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Gets the alias store used to share resolved references within one request. </summary>
-        public OperationAliasStore AliasStore { get; }
+        internal OperationAliasStore AliasStore { get; }
     }
 }

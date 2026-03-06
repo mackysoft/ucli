@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     /// <param name="Args"> The normalized operation arguments JSON object. </param>
     /// <param name="As"> The optional alias exposed to later operations. </param>
     /// <param name="Expect"> The optional shared expectation constraints. </param>
-    internal sealed record NormalizedOperation (
+    public sealed record NormalizedOperation (
         string Id,
         string Op,
         JsonElement Args,

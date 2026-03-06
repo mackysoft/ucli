@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one touched persistence-unit kind. </summary>
-    internal enum OperationTouchKind
+    public enum OperationTouchKind
     {
         /// <summary> The touched unit kind is unknown. </summary>
         Unknown = 0,

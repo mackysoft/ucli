@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="Kind"> The touched unit kind. </param>
     /// <param name="Path"> The project-relative path. </param>
     /// <param name="Guid"> The optional asset guid. </param>
-    internal sealed record OperationTouch (
+    public sealed record OperationTouch (
         OperationTouchKind Kind,
         string Path,
         string? Guid);

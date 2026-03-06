@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Operations;
+namespace MackySoft.Ucli.Contracts.Configuration;
 
 /// <summary> Defines high-level operation kinds exposed by the operation catalog. </summary>
-internal enum UcliOperationKind
+public enum UcliOperationKind
 {
     /// <summary> Represents read-only operations. </summary>
     Query = 0,

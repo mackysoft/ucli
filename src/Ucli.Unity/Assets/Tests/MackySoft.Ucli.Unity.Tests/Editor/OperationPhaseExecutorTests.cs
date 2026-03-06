@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
@@ -27,23 +28,19 @@ namespace MackySoft.Ucli.Unity.Tests
         public void InMemoryRegistry_WhenOperationNameIsDuplicated_ThrowsArgumentException ()
         {
             var first = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var second = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
 
             Assert.Throws<ArgumentException>(() =>
             {
-                _ = new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
-                {
-                    first,
-                    second,
-                });
+                _ = CreateRegistry(
+                    ("ucli.resolve", first),
+                    ("ucli.resolve", second));
             });
         }
 
@@ -52,17 +49,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public void InMemoryRegistry_WhenOperationNameContainsOuterWhitespace_ThrowsArgumentException ()
         {
             var operation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve ",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
 
             Assert.Throws<ArgumentException>(() =>
             {
-                _ = new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
-                {
-                    operation,
-                });
+                _ = CreateRegistry(("ucli.resolve ", operation));
             });
         }
 
@@ -71,7 +64,6 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCommandIsPlan_ExecutesValidateAndPlanOnly () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(applied: false, changed: true),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
@@ -90,7 +82,6 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCommandIsCall_ExecutesValidatePlanAndCall () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
@@ -108,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenCallContainsDuplicateOperationNames_ReplaysPlanBeforeEachCall () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new StatefulPhaseOperation("ucli.resolve");
+            var operation = new StatefulPhaseOperation();
             var executor = CreateExecutor(operation);
             var request = CreateRequest(
                 ("op-1", "ucli.resolve"),
@@ -126,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsCall_UsesSharedExecutionContextAcrossAllPhases () => UniTask.ToCoroutine(async () =>
         {
-            var operation = new ContextCapturingPhaseOperation("ucli.resolve");
+            var operation = new ContextCapturingPhaseOperation();
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", "ucli.resolve");
 
@@ -143,7 +134,6 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenPlanSucceeds_IssuesPlanToken () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
@@ -151,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 issueResultFactory: _ => PlanTokenIssueResult.Success("issued-token"),
                 validationResultFactory: _ => PlanTokenValidationResult.Success());
             var executor = new OperationPhaseExecutor(
-                new InMemoryPhaseOperationRegistry(new[] { operation }),
+                CreateRegistry(("ucli.resolve", operation)),
                 coordinator);
             var request = CreateRequest("op-1", "ucli.resolve");
 
@@ -168,12 +158,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCallPlanTokenValidationFails_DoesNotExecuteCallPhase () => UniTask.ToCoroutine(async () =>
         {
             var firstOperation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var secondOperation = new RecordingPhaseOperation(
-                operationName: "ucli.scene.open",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
@@ -184,11 +172,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     Message: "invalid token",
                     OpId: null)));
             var executor = new OperationPhaseExecutor(
-                new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
-                {
-                    firstOperation,
-                    secondOperation,
-                }),
+                CreateRegistry(
+                    ("ucli.resolve", firstOperation),
+                    ("ucli.scene.open", secondOperation)),
                 coordinator);
             var request = CreateRequest(
                 ("op-1", "ucli.resolve"),
@@ -211,20 +197,16 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Failed(new OperationFailure(IpcErrorCodes.InvalidArgument, "invalid", "op-1")),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var skippedOperation = new RecordingPhaseOperation(
-                operationName: "ucli.scene.open",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
-            var executor = new OperationPhaseExecutor(new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
-            {
-                failingOperation,
-                skippedOperation,
-            }));
+            var executor = new OperationPhaseExecutor(CreateRegistry(
+                ("ucli.resolve", failingOperation),
+                ("ucli.scene.open", skippedOperation)));
             var request = CreateRequest(
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
@@ -245,20 +227,16 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenPlanFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Failed(new OperationFailure(IpcErrorCodes.InvalidArgument, "plan failed", "op-1")),
                 callResult: OperationPhaseStepResult.Success());
             var skippedOperation = new RecordingPhaseOperation(
-                operationName: "ucli.scene.open",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
-            var executor = new OperationPhaseExecutor(new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
-            {
-                failingOperation,
-                skippedOperation,
-            }));
+            var executor = new OperationPhaseExecutor(CreateRegistry(
+                ("ucli.resolve", failingOperation),
+                ("ucli.scene.open", skippedOperation)));
             var request = CreateRequest(
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
@@ -276,20 +254,16 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCallFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Failed(new OperationFailure(IpcErrorCodes.InvalidArgument, "call failed", "op-1")));
             var skippedOperation = new RecordingPhaseOperation(
-                operationName: "ucli.scene.open",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
-            var executor = new OperationPhaseExecutor(new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
-            {
-                failingOperation,
-                skippedOperation,
-            }));
+            var executor = new OperationPhaseExecutor(CreateRegistry(
+                ("ucli.resolve", failingOperation),
+                ("ucli.scene.open", skippedOperation)));
             var request = CreateRequest(
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
@@ -523,7 +497,6 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenCancellationRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
-                operationName: "ucli.resolve",
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
@@ -538,9 +511,26 @@ namespace MackySoft.Ucli.Unity.Tests
             });
         });
 
-        private static OperationPhaseExecutor CreateExecutor (IPhaseOperation operation)
+        private static OperationPhaseExecutor CreateExecutor (IUcliOperation operation)
         {
-            return new OperationPhaseExecutor(new InMemoryPhaseOperationRegistry(new[] { operation }));
+            return new OperationPhaseExecutor(CreateRegistry(("ucli.resolve", operation)));
+        }
+
+        private static InMemoryPhaseOperationRegistry CreateRegistry (
+            params (string Name, IUcliOperation Operation)[] operations)
+        {
+            var registrations = new UcliOperationRegistration[operations.Length];
+            for (var i = 0; i < operations.Length; i++)
+            {
+                registrations[i] = new UcliOperationRegistration(
+                    new UcliOperationMetadata(
+                        operationName: operations[i].Name,
+                        kind: UcliOperationKind.Query,
+                        policy: OperationPolicy.Safe),
+                    operations[i].Operation);
+            }
+
+            return new InMemoryPhaseOperationRegistry(registrations);
         }
 
         private static NormalizedExecuteRequest CreateRequest (
@@ -554,7 +544,7 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static NormalizedExecuteRequest CreateRequest (
-            (string OpId, string OperationName)[] operations,
+            (string OpId, string Op)[] operations,
             string? planToken,
             string canonicalPayloadJson)
         {
@@ -564,7 +554,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var operation = operations[i];
                 normalizedOperations.Add(new NormalizedOperation(
                     Id: operation.OpId,
-                    Op: operation.OperationName,
+                    Op: operation.Op,
                     Args: JsonSerializer.SerializeToElement(new { }),
                     As: null,
                     Expect: null));
@@ -579,7 +569,7 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static NormalizedExecuteRequest CreateRequest (
-            params (string OpId, string OperationName)[] operations)
+            params (string OpId, string Op)[] operations)
         {
             return CreateRequest(
                 operations: operations,
@@ -730,25 +720,26 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class RecordingPhaseOperation : IPhaseOperation
+        private sealed class RecordingPhaseOperation : IUcliOperation
         {
             private readonly OperationPhaseStepResult validateResult;
             private readonly OperationPhaseStepResult planResult;
             private readonly OperationPhaseStepResult callResult;
 
             public RecordingPhaseOperation (
-                string operationName,
                 OperationPhaseStepResult validateResult,
                 OperationPhaseStepResult planResult,
                 OperationPhaseStepResult callResult)
             {
-                OperationName = operationName;
                 this.validateResult = validateResult;
                 this.planResult = planResult;
                 this.callResult = callResult;
             }
 
-            public string OperationName { get; }
+            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+                operationName: "ucli.tests.recording",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe);
 
             public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();
 
@@ -783,16 +774,14 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class StatefulPhaseOperation : IPhaseOperation
+        private sealed class StatefulPhaseOperation : IUcliOperation
         {
             private string lastPlannedOperationId = string.Empty;
 
-            public StatefulPhaseOperation (string operationName)
-            {
-                OperationName = operationName;
-            }
-
-            public string OperationName { get; }
+            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+                operationName: "ucli.tests.stateful",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe);
 
             public Task<OperationPhaseStepResult> Validate (
                 NormalizedOperation operation,
@@ -831,14 +820,12 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class ContextCapturingPhaseOperation : IPhaseOperation
+        private sealed class ContextCapturingPhaseOperation : IUcliOperation
         {
-            public ContextCapturingPhaseOperation (string operationName)
-            {
-                OperationName = operationName;
-            }
-
-            public string OperationName { get; }
+            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+                operationName: "ucli.tests.context",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe);
 
             public OperationExecutionContext? ValidateContext { get; private set; }
 

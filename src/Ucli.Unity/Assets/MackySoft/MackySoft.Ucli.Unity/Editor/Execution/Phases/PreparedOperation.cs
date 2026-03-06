@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="RequiresPreCallPlanReplay"> Whether plan should be replayed immediately before call. </param>
     internal sealed record PreparedOperation (
         NormalizedOperation Operation,
-        IPhaseOperation PhaseOperation,
+        IUcliOperation PhaseOperation,
         IReadOnlyList<OperationTouch> PlanTouched,
         bool RequiresPreCallPlanReplay);
 }

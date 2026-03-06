@@ -12,6 +12,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides reusable helpers for phase-pass implementations. </summary>
     internal static class OperationPhaseExecutionUtilities
     {
+        /// <summary> Creates one standardized INVALID_ARGUMENT failure result. </summary>
+        /// <param name="operationId"> The operation identifier. </param>
+        /// <param name="message"> The failure message. </param>
+        /// <returns> The failed phase-step result. </returns>
+        public static OperationPhaseStepResult CreateInvalidArgumentFailure (
+            string operationId,
+            string message)
+        {
+            return OperationPhaseStepResult.Failed(new OperationFailure(
+                Code: IpcErrorCodes.InvalidArgument,
+                Message: message,
+                OpId: operationId));
+        }
+
         /// <summary> Executes one phase step with exception-to-failure translation. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="phase"> The phase being executed. </param>
@@ -24,6 +38,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             Func<CancellationToken, Task<OperationPhaseStepResult>> executor,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
                 var stepResult = await executor(cancellationToken).ConfigureAwait(false);

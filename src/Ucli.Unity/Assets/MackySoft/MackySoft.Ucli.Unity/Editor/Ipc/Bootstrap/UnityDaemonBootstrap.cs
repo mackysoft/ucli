@@ -109,10 +109,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher ()
         {
             var normalizer = new ExecuteRequestNormalizer();
-            var operationRegistry = new InMemoryPhaseOperationRegistry(new IPhaseOperation[]
-            {
-                new ResolvePhaseOperation(),
-            });
+            var discoveredOperations = UcliOperationDiscoverer.Discover();
+            var operationRegistry = new InMemoryPhaseOperationRegistry(discoveredOperations);
             var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
             return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
         }

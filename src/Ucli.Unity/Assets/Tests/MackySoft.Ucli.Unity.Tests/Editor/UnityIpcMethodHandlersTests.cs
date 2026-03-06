@@ -67,7 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.LastContext, Is.Not.Null);
             Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo("req-execute-valid"));
             Assert.That(dispatcher.LastRequest, Is.Not.Null);
-            Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(UcliCommandIds.Validate));
+            Assert.That(dispatcher.LastRequest.Command, Is.EqualTo(UcliCommandIds.Validate.Name));
         });
 
         [UnityTest]

@@ -48,6 +48,33 @@ public sealed class OperationCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsSceneTree_ReturnsDepthSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get("ucli.scene.tree", CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var schemaRoot = schemaDocument.RootElement;
+        Assert.Equal(JsonValueKind.Object, schemaRoot.ValueKind);
+        Assert.True(schemaRoot.TryGetProperty("additionalProperties", out var additionalProperties));
+        Assert.False(additionalProperties.GetBoolean());
+        Assert.True(schemaRoot.TryGetProperty("required", out var required));
+        Assert.True(ContainsArrayLiteral(required, "path"));
+        Assert.True(schemaRoot.TryGetProperty("properties", out var properties));
+        Assert.True(properties.TryGetProperty("path", out _));
+        Assert.True(properties.TryGetProperty("depth", out var depthProperty));
+        Assert.True(depthProperty.TryGetProperty("type", out var depthType));
+        Assert.Equal(JsonValueKind.Array, depthType.ValueKind);
+        Assert.True(ContainsArrayLiteral(depthType, "integer"));
+        Assert.True(ContainsArrayLiteral(depthType, "null"));
+        Assert.True(depthProperty.TryGetProperty("minimum", out var depthMinimum));
+        Assert.Equal(0, depthMinimum.GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task GetAll_ReturnsOperationsOrderedByName ()
     {
         var provider = new TestOperationCatalogProvider(
@@ -155,6 +182,21 @@ public sealed class OperationCatalogTests
             var secondRequired = requiredProperties[1].GetString();
             if (string.Equals(firstRequired, firstPropertyName, StringComparison.Ordinal)
                 && string.Equals(secondRequired, secondPropertyName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool ContainsArrayLiteral (
+        JsonElement arrayElement,
+        string literal)
+    {
+        foreach (var element in arrayElement.EnumerateArray())
+        {
+            if (string.Equals(element.GetString(), literal, StringComparison.Ordinal))
             {
                 return true;
             }
