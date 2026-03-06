@@ -43,6 +43,10 @@ public sealed class LogsCliOutputContractTests
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(
+            "queryTarget 'stack' is not supported for logs daemon.",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
     }
 
     [Fact]

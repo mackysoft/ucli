@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Foundation;
 
@@ -103,16 +102,14 @@ internal sealed class LogsDaemonRequestValidator : ILogsDaemonRequestValidator
         out DateTimeOffset? untilTimestamp,
         out ExecutionError? error)
     {
-        sinceTimestamp = TryParseTimestamp(since);
-        if (!string.IsNullOrWhiteSpace(since) && !sinceTimestamp.HasValue)
+        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(since, out sinceTimestamp))
         {
             untilTimestamp = null;
             error = ExecutionError.InvalidArgument($"since must be an ISO 8601 timestamp with timezone offset. Actual: {since}.");
             return false;
         }
 
-        untilTimestamp = TryParseTimestamp(until);
-        if (!string.IsNullOrWhiteSpace(until) && !untilTimestamp.HasValue)
+        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(until, out untilTimestamp))
         {
             error = ExecutionError.InvalidArgument($"until must be an ISO 8601 timestamp with timezone offset. Actual: {until}.");
             return false;
@@ -128,36 +125,5 @@ internal sealed class LogsDaemonRequestValidator : ILogsDaemonRequestValidator
 
         error = null;
         return true;
-    }
-
-    /// <summary> Attempts to parse one ISO 8601 timestamp string. </summary>
-    /// <param name="value"> The raw timestamp value. </param>
-    /// <returns> Parsed timestamp when successful; otherwise <see langword="null" />. </returns>
-    private static DateTimeOffset? TryParseTimestamp (string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        if (!DateTimeOffset.TryParse(
-                value,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind,
-                out var parsedTimestamp))
-        {
-            return null;
-        }
-
-        var normalizedValue = value.Trim();
-        var hasOffset = normalizedValue.EndsWith("Z", StringComparison.OrdinalIgnoreCase)
-            || normalizedValue.Contains('+')
-            || normalizedValue.LastIndexOf('-') > normalizedValue.IndexOf('T');
-        if (!hasOffset)
-        {
-            return null;
-        }
-
-        return parsedTimestamp;
     }
 }

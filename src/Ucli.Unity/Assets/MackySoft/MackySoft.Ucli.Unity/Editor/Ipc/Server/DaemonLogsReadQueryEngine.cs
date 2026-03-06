@@ -8,8 +8,6 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Applies normalized daemon-log read filters to stream snapshot events. </summary>
     internal sealed class DaemonLogsReadQueryEngine : IDaemonLogsReadQueryEngine
     {
-        private const string CategoryAll = "all";
-
         /// <inheritdoc />
         public IReadOnlyList<DaemonLogEvent> Filter (
             IReadOnlyList<DaemonLogEvent> events,
@@ -92,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            return !string.Equals(category, CategoryAll, StringComparison.OrdinalIgnoreCase);
+            return !IpcDaemonLogsCategoryCodec.IsAll(category);
         }
 
         /// <summary> Determines whether one daemon log event matches query filter. </summary>

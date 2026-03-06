@@ -175,6 +175,52 @@ public sealed class IpcCommonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcDaemonLogsCategoryCodec_HasStableStringValues ()
+    {
+        Assert.Equal("all", IpcDaemonLogsCategoryCodec.All);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("all", true)]
+    [InlineData(" ALL ", true)]
+    [InlineData("ipc", false)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData(null, false)]
+    public void IpcDaemonLogsCategoryCodec_IsAll_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult)
+    {
+        var result = IpcDaemonLogsCategoryCodec.IsAll(value);
+
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("2026-03-05T10:35:22.0000000+09:00", true, true)]
+    [InlineData("2026-03-05T01:35:22.0000000Z", true, true)]
+    [InlineData("2026-03-05", false, false)]
+    [InlineData("2026-03-05+09:00", false, false)]
+    [InlineData("2026-03-05T10:35:22", false, false)]
+    [InlineData("invalid", false, false)]
+    [InlineData("", true, false)]
+    [InlineData(" ", true, false)]
+    [InlineData(null, true, false)]
+    public void IpcIso8601TimestampCodec_TryParseOptionalWithTimezoneOffset_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        bool expectedHasValue)
+    {
+        var result = IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(value, out var timestamp);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedHasValue, timestamp.HasValue);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcTestRunPlatformCodec_HasStableStringValues ()
     {
         Assert.Equal("editmode", IpcTestRunPlatformCodec.EditMode);

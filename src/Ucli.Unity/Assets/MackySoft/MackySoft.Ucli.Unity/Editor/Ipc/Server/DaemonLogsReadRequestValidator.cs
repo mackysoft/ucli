@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -146,20 +145,20 @@ namespace MackySoft.Ucli.Unity.Ipc
             string sinceText,
             string untilText,
             out DateTimeOffset? since,
-            out DateTimeOffset? until,
-            out string errorMessage)
+        out DateTimeOffset? until,
+        out string errorMessage)
+    {
+        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(sinceText, out since))
         {
-            if (!TryParseIsoTimestamp(sinceText, out since))
-            {
-                until = null;
-                errorMessage = $"since must be an ISO 8601 timestamp with timezone offset. Actual: {sinceText}.";
-                return false;
-            }
+            until = null;
+            errorMessage = $"since must be an ISO 8601 timestamp with timezone offset. Actual: {sinceText}.";
+            return false;
+        }
 
-            if (!TryParseIsoTimestamp(untilText, out until))
-            {
-                errorMessage = $"until must be an ISO 8601 timestamp with timezone offset. Actual: {untilText}.";
-                return false;
+        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(untilText, out until))
+        {
+            errorMessage = $"until must be an ISO 8601 timestamp with timezone offset. Actual: {untilText}.";
+            return false;
             }
 
             if (since.HasValue && until.HasValue && since.Value > until.Value)
@@ -168,47 +167,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            errorMessage = string.Empty;
-            return true;
-        }
-
-        /// <summary> Tries to parse one ISO 8601 timestamp with explicit timezone offset. </summary>
-        /// <param name="value"> The source timestamp text. </param>
-        /// <param name="timestamp"> The parsed timestamp when successful. </param>
-        /// <returns> <see langword="true" /> when parsing succeeded; otherwise <see langword="false" />. </returns>
-        private static bool TryParseIsoTimestamp (
-            string value,
-            out DateTimeOffset? timestamp)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                timestamp = null;
-                return true;
-            }
-
-            if (!DateTimeOffset.TryParse(
-                    value,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.RoundtripKind,
-                    out var parsedTimestamp))
-            {
-                timestamp = null;
-                return false;
-            }
-
-            var normalizedValue = value.Trim();
-            var hasOffset = normalizedValue.EndsWith("Z", StringComparison.OrdinalIgnoreCase)
-                || normalizedValue.Contains('+')
-                || normalizedValue.LastIndexOf('-') > normalizedValue.IndexOf('T');
-            if (!hasOffset)
-            {
-                timestamp = null;
-                return false;
-            }
-
-            timestamp = parsedTimestamp;
-            return true;
-        }
+        errorMessage = string.Empty;
+        return true;
+    }
 
         /// <summary> Tries to resolve one level filter literal. </summary>
         /// <param name="value"> The optional level literal value. </param>
