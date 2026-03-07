@@ -11,14 +11,22 @@ using UnityEngine;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
-    public static class UnityDaemonBootstrap
+    internal static class UnityDaemonBootstrap
     {
-        /// <summary> Entry point invoked by Unity <c>-executeMethod</c> to start daemon mode. </summary>
-        public static async void Start ()
+        /// <summary> Starts Unity daemon mode after batchmode initialization is ready. </summary>
+        /// <returns> A task that completes after daemon mode exits or bootstrap failure requests process exit. </returns>
+        internal static Task Start ()
         {
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
 
+            return RunSafely(daemonLogStream, daemonLogger);
+        }
+
+        private static async Task RunSafely (
+            IDaemonLogStream daemonLogStream,
+            IDaemonLogger daemonLogger)
+        {
             try
             {
                 await Run(daemonLogStream, daemonLogger);
@@ -75,6 +83,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton(bootstrapArguments);
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
+            services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
+            services.AddSingleton<UnityCompileMessageDedupeCache>();
+            services.AddSingleton<UnityLogCollector>();
+            services.AddSingleton<UnityLogCaptureService>();
             services.AddSingleton<IUnityMainThreadRequestExecutor>(
                 new UnitySynchronizationContextRequestExecutor());
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
@@ -89,10 +101,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IDaemonLogsReadRequestValidator, DaemonLogsReadRequestValidator>();
             services.AddSingleton<IDaemonLogsReadQueryEngine, DaemonLogsReadQueryEngine>();
             services.AddSingleton<DaemonLogsReadResponseFactory>();
+            services.AddSingleton<UnityLogsReadRequestValidator>();
+            services.AddSingleton<UnityLogsReadQueryEngine>();
+            services.AddSingleton<UnityLogsReadResponseFactory>();
             services.AddSingleton<IUnityIpcMethodHandler, PingUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
@@ -115,6 +131,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var serviceProvider = services.BuildServiceProvider();
             var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
             var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
+            using var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
+            unityLogCaptureService.Start();
 
             var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
             await server.Start(endpoint, CancellationToken.None);

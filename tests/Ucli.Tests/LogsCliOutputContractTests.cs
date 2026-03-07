@@ -51,21 +51,54 @@ public sealed class LogsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task LogsUnity_ReturnsCommandNotImplementedError ()
+    public async Task LogsUnity_WithInvalidStackTrace_ReturnsJsonEnvelopeError ()
     {
         var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Logs,
-            UcliCommandNames.UnitySubcommand);
+            UcliCommandNames.UnitySubcommand,
+            "--stack-trace",
+            "unsupported");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.LogsUnity,
             status: "error",
-            exitCode: (int)CliExitCode.ToolError);
+            exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: "COMMAND_NOT_IMPLEMENTED");
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(
+            "stackTrace must be one of: none, error, all. Actual: unsupported.",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task LogsUnity_WithStreamOption_UsesStreamModeValidation ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Logs,
+            UcliCommandNames.UnitySubcommand,
+            "--stream",
+            "--poll-interval-milliseconds",
+            "49");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.LogsUnity,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(
+            "pollIntervalMilliseconds must be between 50 and 60000. Actual: 49.",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
     }
 }

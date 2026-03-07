@@ -80,6 +80,11 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<ILogsDaemonRequestValidator, LogsDaemonRequestValidator>();
         services.AddSingleton<IDaemonLogsStreamTerminationPolicy, DaemonLogsStreamTerminationPolicy>();
         services.AddSingleton<ILogsDaemonService, LogsDaemonService>();
+
+        services.AddSingleton<IUnityLogsClient, IpcUnityLogsClient>();
+        services.AddSingleton<ILogsUnityRequestValidator, LogsUnityRequestValidator>();
+        services.AddSingleton<ILogsUnityService, LogsUnityService>();
+
         services.AddSingleton<IUnityDaemonProcessLauncher, UnityDaemonProcessLauncher>();
         services.AddSingleton<IpcDaemonPingClient>();
         services.AddSingleton<IDaemonPingClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());

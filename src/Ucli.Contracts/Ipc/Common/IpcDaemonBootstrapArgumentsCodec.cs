@@ -3,9 +3,6 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Encodes and decodes Unity daemon bootstrap command-line arguments. </summary>
 public static class IpcDaemonBootstrapArgumentsCodec
 {
-    /// <summary> Gets the Unity execute-method name used for daemon bootstrap. </summary>
-    public const string UnityExecuteMethodName = "MackySoft.Ucli.Unity.Ipc.UnityDaemonBootstrap.Start";
-
     /// <summary> Appends daemon bootstrap argument token pairs to destination list. </summary>
     /// <param name="destination"> The destination token list. </param>
     /// <param name="arguments"> The bootstrap argument payload. </param>

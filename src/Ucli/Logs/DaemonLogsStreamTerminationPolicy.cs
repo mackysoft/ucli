@@ -1,28 +1,46 @@
 using System.Globalization;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Logs;
 
-/// <summary> Provides stop conditions for daemon-log stream polling loop. </summary>
+/// <summary> Provides stop conditions for log-stream polling loops. </summary>
 internal sealed class DaemonLogsStreamTerminationPolicy : IDaemonLogsStreamTerminationPolicy
 {
     /// <inheritdoc />
-    public bool ShouldStop (
-        IReadOnlyList<IpcDaemonLogEvent> events,
+    public bool ShouldStop<TEvent> (
+        IReadOnlyList<TEvent> events,
         DateTimeOffset now,
         DateTimeOffset? untilTimestamp,
         DateTimeOffset lastEventTimestamp,
-        TimeSpan? idleTimeout)
+        TimeSpan? idleTimeout,
+        Func<TEvent, string> getTimestamp)
     {
         ArgumentNullException.ThrowIfNull(events);
+        ArgumentNullException.ThrowIfNull(getTimestamp);
+        return ShouldStopCore(
+            events.Count,
+            now,
+            untilTimestamp,
+            lastEventTimestamp,
+            idleTimeout,
+            index => getTimestamp(events[index]));
+    }
 
-        if (untilTimestamp.HasValue && ShouldStopByUntil(untilTimestamp.Value, events, now))
+    /// <summary> Determines whether stream loop should stop based on current runtime state. </summary>
+    private static bool ShouldStopCore (
+        int eventCount,
+        DateTimeOffset now,
+        DateTimeOffset? untilTimestamp,
+        DateTimeOffset lastEventTimestamp,
+        TimeSpan? idleTimeout,
+        Func<int, string> getTimestamp)
+    {
+        if (untilTimestamp.HasValue && ShouldStopByUntil(untilTimestamp.Value, eventCount, now, getTimestamp))
         {
             return true;
         }
 
         if (idleTimeout.HasValue
-            && events.Count == 0
+            && eventCount == 0
             && now - lastEventTimestamp >= idleTimeout.Value)
         {
             return true;
@@ -31,25 +49,21 @@ internal sealed class DaemonLogsStreamTerminationPolicy : IDaemonLogsStreamTermi
         return false;
     }
 
-    /// <summary> Determines whether stream loop should stop based on <c>until</c> constraint. </summary>
-    /// <param name="until"> The inclusive upper timestamp bound. </param>
-    /// <param name="events"> The current batch events. </param>
-    /// <param name="now"> The current UTC timestamp. </param>
-    /// <returns> <see langword="true" /> when stream loop should stop; otherwise <see langword="false" />. </returns>
     private static bool ShouldStopByUntil (
         DateTimeOffset until,
-        IReadOnlyList<IpcDaemonLogEvent> events,
-        DateTimeOffset now)
+        int eventCount,
+        DateTimeOffset now,
+        Func<int, string> getTimestamp)
     {
-        if (events.Count == 0)
+        if (eventCount == 0)
         {
             return now >= until;
         }
 
-        foreach (var daemonLogEvent in events)
+        for (var i = 0; i < eventCount; i++)
         {
             if (!DateTimeOffset.TryParse(
-                    daemonLogEvent.Timestamp,
+                    getTimestamp(i),
                     CultureInfo.InvariantCulture,
                     DateTimeStyles.RoundtripKind,
                     out var eventTimestamp))

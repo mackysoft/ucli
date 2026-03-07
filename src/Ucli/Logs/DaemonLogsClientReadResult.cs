@@ -16,7 +16,6 @@ internal sealed record DaemonLogsClientReadResult (
     /// <summary> Creates a successful client read result. </summary>
     /// <param name="response"> The decoded response payload. </param>
     /// <returns> The successful client read result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="response" /> is <see langword="null" />. </exception>
     public static DaemonLogsClientReadResult Success (IpcDaemonLogsReadResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -26,7 +25,6 @@ internal sealed record DaemonLogsClientReadResult (
     /// <summary> Creates a failed client read result. </summary>
     /// <param name="error"> The structured execution error. </param>
     /// <returns> The failed client read result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
     public static DaemonLogsClientReadResult Failure (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);

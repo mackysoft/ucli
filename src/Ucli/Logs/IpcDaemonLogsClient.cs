@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -27,7 +28,7 @@ internal sealed class IpcDaemonLogsClient : IDaemonLogsClient
     /// <inheritdoc />
     public async ValueTask<DaemonLogsClientReadResult> Read (
         ResolvedUnityProjectContext unityProject,
-        DaemonLogsReadQuery query,
+        IpcDaemonLogsReadRequest query,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {

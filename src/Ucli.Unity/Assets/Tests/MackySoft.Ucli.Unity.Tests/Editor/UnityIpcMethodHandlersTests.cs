@@ -312,6 +312,200 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Events[0].Message, Is.EqualTo("after"));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityLogsReadHandler_WhenPayloadIsValid_ReturnsFilteredEventsAndNextCursor () => UniTask.ToCoroutine(async () =>
+        {
+            var stream = new UnityLogRingBuffer();
+            stream.Write(IpcUnityLogsSourceCodec.Runtime, IpcDaemonLogsLevelCodec.Info, "player joined");
+            stream.Write(IpcUnityLogsSourceCodec.Compile, IpcDaemonLogsLevelCodec.Warning, "Assets/Test.cs(1,2): warning CS0168");
+            var snapshot = stream.Snapshot();
+            var handler = CreateUnityLogsReadHandler(stream);
+            var request = CreateUnityLogsReadRequest(
+                "req-unity-logs-valid",
+                new IpcUnityLogsReadRequest(
+                    Tail: null,
+                    After: null,
+                    Since: null,
+                    Until: null,
+                    Level: "info",
+                    Query: "player",
+                    QueryTarget: "message",
+                    Source: "runtime",
+                    StackTrace: "all",
+                    StackTraceMaxFrames: null,
+                    StackTraceMaxChars: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityLogsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Events.Length, Is.EqualTo(1));
+            Assert.That(payload.Events[0].Source, Is.EqualTo("runtime"));
+            Assert.That(payload.Events[0].Message, Is.EqualTo("player joined"));
+            Assert.That(payload.NextCursor, Is.EqualTo(snapshot.NextCursor));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityLogsReadHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = CreateUnityLogsReadHandler(new UnityLogRingBuffer());
+            var request = CreateUnityLogsReadRequest("req-unity-logs-invalid", 123);
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityLogsReadHandler_WhenAfterCursorIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = CreateUnityLogsReadHandler(new UnityLogRingBuffer());
+            var request = CreateUnityLogsReadRequest(
+                "req-unity-logs-invalid-after",
+                new IpcUnityLogsReadRequest(
+                    Tail: null,
+                    After: "invalid-cursor",
+                    Since: null,
+                    Until: null,
+                    Level: null,
+                    Query: null,
+                    QueryTarget: null,
+                    Source: null,
+                    StackTrace: null,
+                    StackTraceMaxFrames: null,
+                    StackTraceMaxChars: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityLogsReadHandler_WhenSourceIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = CreateUnityLogsReadHandler(new UnityLogRingBuffer());
+            var request = CreateUnityLogsReadRequest(
+                "req-unity-logs-invalid-source",
+                new IpcUnityLogsReadRequest(
+                    Tail: null,
+                    After: null,
+                    Since: null,
+                    Until: null,
+                    Level: null,
+                    Query: null,
+                    QueryTarget: null,
+                    Source: "editor",
+                    StackTrace: null,
+                    StackTraceMaxFrames: null,
+                    StackTraceMaxChars: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityLogsReadHandler_WhenStackTraceModeIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = CreateUnityLogsReadHandler(new UnityLogRingBuffer());
+            var request = CreateUnityLogsReadRequest(
+                "req-unity-logs-invalid-stack-trace",
+                new IpcUnityLogsReadRequest(
+                    Tail: null,
+                    After: null,
+                    Since: null,
+                    Until: null,
+                    Level: null,
+                    Query: null,
+                    QueryTarget: null,
+                    Source: null,
+                    StackTrace: "warningsOnly",
+                    StackTraceMaxFrames: null,
+                    StackTraceMaxChars: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityLogsReadHandler_WhenQueryTargetIsStack_ReturnsStackMatches () => UniTask.ToCoroutine(async () =>
+        {
+            var stream = new UnityLogRingBuffer();
+            stream.Write(IpcUnityLogsSourceCodec.Runtime, IpcDaemonLogsLevelCodec.Error, "runtime error", "SocketException: broken pipe");
+            var handler = CreateUnityLogsReadHandler(stream);
+            var request = CreateUnityLogsReadRequest(
+                "req-unity-logs-stack-query",
+                new IpcUnityLogsReadRequest(
+                    Tail: null,
+                    After: null,
+                    Since: null,
+                    Until: null,
+                    Level: null,
+                    Query: "SocketException",
+                    QueryTarget: "stack",
+                    Source: null,
+                    StackTrace: "all",
+                    StackTraceMaxFrames: null,
+                    StackTraceMaxChars: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityLogsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Events.Length, Is.EqualTo(1));
+            Assert.That(payload.Events[0].StackTrace, Does.Contain("SocketException"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnityLogsReadHandler_WhenAfterAndSinceSpecified_AfterHasPriority () => UniTask.ToCoroutine(async () =>
+        {
+            var stream = new UnityLogRingBuffer();
+            stream.Write(IpcUnityLogsSourceCodec.Runtime, IpcDaemonLogsLevelCodec.Info, "before");
+            stream.Write(IpcUnityLogsSourceCodec.Compile, IpcDaemonLogsLevelCodec.Warning, "after");
+            var snapshot = stream.Snapshot();
+            var secondCursor = snapshot.Events[1].Cursor;
+            var since = DateTimeOffset.UtcNow.AddDays(1).ToString("O");
+            var handler = CreateUnityLogsReadHandler(stream);
+            var request = CreateUnityLogsReadRequest(
+                "req-unity-logs-after-priority",
+                new IpcUnityLogsReadRequest(
+                    Tail: null,
+                    After: secondCursor,
+                    Since: since,
+                    Until: null,
+                    Level: null,
+                    Query: null,
+                    QueryTarget: null,
+                    Source: null,
+                    StackTrace: null,
+                    StackTraceMaxFrames: null,
+                    StackTraceMaxChars: null));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityLogsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Events.Length, Is.EqualTo(1));
+            Assert.That(payload.Events[0].Message, Is.EqualTo("after"));
+        });
+
         private static object CreateValidTestRunPayload ()
         {
             return new IpcTestRunRequest(
@@ -360,6 +554,13 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateRequest(requestId, IpcMethodNames.DaemonLogsRead, payload);
         }
 
+        private static IpcRequest CreateUnityLogsReadRequest (
+            string requestId,
+            object payload)
+        {
+            return CreateRequest(requestId, IpcMethodNames.UnityLogsRead, payload);
+        }
+
         private static DaemonLogsReadUnityIpcMethodHandler CreateDaemonLogsReadHandler (IDaemonLogStream stream)
         {
             return new DaemonLogsReadUnityIpcMethodHandler(
@@ -367,6 +568,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 new DaemonLogsReadRequestValidator(),
                 new DaemonLogsReadQueryEngine(),
                 new DaemonLogsReadResponseFactory());
+        }
+
+        private static UnityLogsReadUnityIpcMethodHandler CreateUnityLogsReadHandler (IUnityLogStream stream)
+        {
+            return new UnityLogsReadUnityIpcMethodHandler(
+                stream,
+                new UnityLogsReadRequestValidator(),
+                new UnityLogsReadQueryEngine(),
+                new UnityLogsReadResponseFactory());
         }
 
         private static IpcRequest CreateRequest (

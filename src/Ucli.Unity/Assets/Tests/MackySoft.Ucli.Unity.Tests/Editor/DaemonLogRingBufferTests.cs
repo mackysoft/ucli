@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 
@@ -18,11 +19,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var snapshot = stream.Snapshot();
 
             Assert.That(snapshot.Events.Count, Is.EqualTo(2));
-            Assert.That(DaemonLogCursorCodec.TryParse(snapshot.Events[0].Cursor, out var streamId, out var firstSequence), Is.True);
-            Assert.That(DaemonLogCursorCodec.TryParse(snapshot.Events[1].Cursor, out _, out var secondSequence), Is.True);
+            Assert.That(IpcLogCursorCodec.TryParse(snapshot.Events[0].Cursor, out var streamId, out var firstSequence), Is.True);
+            Assert.That(IpcLogCursorCodec.TryParse(snapshot.Events[1].Cursor, out _, out var secondSequence), Is.True);
             Assert.That(streamId, Is.EqualTo(snapshot.StreamId));
             Assert.That(secondSequence, Is.EqualTo(firstSequence + 1));
-            Assert.That(snapshot.NextCursor, Is.EqualTo(DaemonLogCursorCodec.Encode(snapshot.StreamId, secondSequence + 1)));
+            Assert.That(snapshot.NextCursor, Is.EqualTo(IpcLogCursorCodec.Encode(snapshot.StreamId, secondSequence + 1)));
         }
 
         [Test]
@@ -52,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Tests
             stream.Write("transport", "warning", "event-3");
             var snapshot = stream.Snapshot();
             var afterCursor = snapshot.Events[1].Cursor;
-            Assert.That(DaemonLogCursorCodec.TryParse(afterCursor, out _, out var afterSequence), Is.True);
+            Assert.That(IpcLogCursorCodec.TryParse(afterCursor, out _, out var afterSequence), Is.True);
 
             var filtered = new List<DaemonLogEvent>();
             foreach (var daemonLogEvent in snapshot.Events)

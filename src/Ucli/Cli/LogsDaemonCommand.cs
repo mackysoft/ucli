@@ -61,7 +61,7 @@ internal sealed class LogsDaemonCommand
             cancellationToken.ThrowIfCancellationRequested();
             CommandExecutionState.MarkStarted();
 
-            if (!TryParseFormat(format, out var outputFormat, out var formatErrorMessage))
+            if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
             {
                 var invalidFormatResult = CommandResult.InvalidArgument(UcliCommandNames.LogsDaemon, formatErrorMessage!);
                 CommandResultWriter.WriteToStandardOutput(invalidFormatResult);
@@ -105,42 +105,6 @@ internal sealed class LogsDaemonCommand
         }
     }
 
-    /// <summary> Parses output format value used by daemon log stream output. </summary>
-    /// <param name="format"> The raw format option value. </param>
-    /// <param name="parsedFormat"> The parsed format when parse succeeds. </param>
-    /// <param name="errorMessage"> The error message when parse fails. </param>
-    /// <returns> <see langword="true" /> when parse succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryParseFormat (
-        string? format,
-        out string? parsedFormat,
-        out string? errorMessage)
-    {
-        if (string.IsNullOrWhiteSpace(format))
-        {
-            parsedFormat = "text";
-            errorMessage = null;
-            return true;
-        }
-
-        if (string.Equals(format, "text", StringComparison.OrdinalIgnoreCase))
-        {
-            parsedFormat = "text";
-            errorMessage = null;
-            return true;
-        }
-
-        if (string.Equals(format, "json", StringComparison.OrdinalIgnoreCase))
-        {
-            parsedFormat = "json";
-            errorMessage = null;
-            return true;
-        }
-
-        parsedFormat = null;
-        errorMessage = $"format must be one of: text, json. Actual: {format}.";
-        return false;
-    }
-
     /// <summary> Writes one daemon log event to standard output by selected format. </summary>
     /// <param name="format"> The normalized output format. </param>
     /// <param name="daemonLogEvent"> The daemon log event payload. </param>
@@ -150,7 +114,7 @@ internal sealed class LogsDaemonCommand
         IpcDaemonLogEvent daemonLogEvent,
         string nextCursor)
     {
-        if (string.Equals(format, "json", StringComparison.Ordinal))
+        if (string.Equals(format, LogsOutputFormatCodec.Json, StringComparison.Ordinal))
         {
             var jsonLine = JsonSerializer.Serialize(
                 new JsonLinePayload(
@@ -173,23 +137,8 @@ internal sealed class LogsDaemonCommand
             " ",
             daemonLogEvent.Category,
             " ",
-            NormalizeMessageForSingleLine(daemonLogEvent.Message));
+            LogsTextUtilities.NormalizeSingleLine(daemonLogEvent.Message));
         Console.Out.WriteLine(textLine);
-    }
-
-    /// <summary> Normalizes one text message into a single-line representation. </summary>
-    /// <param name="message"> The source message. </param>
-    /// <returns> Single-line normalized message text. </returns>
-    private static string NormalizeMessageForSingleLine (string message)
-    {
-        if (string.IsNullOrEmpty(message))
-        {
-            return string.Empty;
-        }
-
-        return message
-            .Replace('\r', ' ')
-            .Replace('\n', ' ');
     }
 
     /// <summary> Represents one NDJSON output line for daemon log events. </summary>

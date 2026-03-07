@@ -381,6 +381,7 @@ public sealed class CliOutputContractTests
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStopMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStop).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStatus).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultLogsDaemonMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandLogsDaemon).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultLogsUnityMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandLogsUnity).GetInt32());
     }
 
     private static void PrepareLegacyTemplateFiles (

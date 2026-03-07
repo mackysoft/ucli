@@ -30,6 +30,14 @@ public static class IpcDaemonLogsQueryTargetCodec
         return $"queryTarget must be one of: {Message}, {Both}. Actual: {value}.";
     }
 
+    /// <summary> Gets one validation error message for unsupported query-target values. </summary>
+    /// <param name="value"> The raw query-target value. </param>
+    /// <returns> The invalid-argument message text. </returns>
+    public static string CreateUnsupportedValueMessage (string? value)
+    {
+        return $"queryTarget must be one of: {Message}, {Stack}, {Both}. Actual: {value}.";
+    }
+
     /// <summary> Gets one daemon-logs validation error message for stack-only query-target value. </summary>
     /// <returns> The invalid-argument message text. </returns>
     public static string CreateDaemonLogsStackNotSupportedMessage ()
@@ -80,6 +88,35 @@ public static class IpcDaemonLogsQueryTargetCodec
         {
             queryTarget = string.Empty;
             errorMessage = CreateDaemonLogsStackNotSupportedMessage();
+            return false;
+        }
+
+        queryTarget = normalizedQueryTarget!;
+        errorMessage = null;
+        return true;
+    }
+
+    /// <summary> Tries to resolve one Unity-logs query-target literal with Unity-specific defaulting rules. </summary>
+    /// <param name="value"> The optional raw query-target literal. </param>
+    /// <param name="queryTarget"> The normalized query-target literal when operation succeeds. </param>
+    /// <param name="errorMessage"> The validation message when operation fails; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when value is valid for Unity logs; otherwise <see langword="false" />. </returns>
+    public static bool TryParseForUnityLogs (
+        string? value,
+        out string queryTarget,
+        out string? errorMessage)
+    {
+        if (!StringValueNormalizer.TryTrimToNonEmpty(value, out var normalizedValue))
+        {
+            queryTarget = Message;
+            errorMessage = null;
+            return true;
+        }
+
+        if (!TryParse(normalizedValue, out var normalizedQueryTarget))
+        {
+            queryTarget = string.Empty;
+            errorMessage = CreateUnsupportedValueMessage(value);
             return false;
         }
 
