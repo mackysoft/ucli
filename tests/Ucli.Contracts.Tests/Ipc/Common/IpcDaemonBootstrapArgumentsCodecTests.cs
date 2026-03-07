@@ -58,8 +58,6 @@ public sealed class IpcDaemonBootstrapArgumentsCodecTests
         List<string> tokens =
         [
             "-batchmode",
-            "-executeMethod",
-            IpcDaemonBootstrapArgumentsCodec.UnityExecuteMethodName,
         ];
 
         IpcDaemonBootstrapArgumentsCodec.AppendTokens(tokens, source);

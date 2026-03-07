@@ -11,14 +11,22 @@ using UnityEngine;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
-    public static class UnityDaemonBootstrap
+    internal static class UnityDaemonBootstrap
     {
-        /// <summary> Entry point invoked by Unity <c>-executeMethod</c> to start daemon mode. </summary>
-        public static async void Start ()
+        /// <summary> Starts Unity daemon mode after batchmode initialization is ready. </summary>
+        /// <returns> A task that completes after daemon mode exits or bootstrap failure requests process exit. </returns>
+        internal static Task Start ()
         {
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
 
+            return RunSafely(daemonLogStream, daemonLogger);
+        }
+
+        private static async Task RunSafely (
+            IDaemonLogStream daemonLogStream,
+            IDaemonLogger daemonLogger)
+        {
             try
             {
                 await Run(daemonLogStream, daemonLogger);

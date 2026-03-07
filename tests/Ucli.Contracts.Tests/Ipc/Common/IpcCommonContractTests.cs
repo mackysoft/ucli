@@ -36,15 +36,6 @@ public sealed class IpcCommonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcDaemonBootstrapArgumentsCodec_HasStableUnityExecuteMethodName ()
-    {
-        Assert.Equal(
-            "MackySoft.Ucli.Unity.Ipc.UnityDaemonBootstrap.Start",
-            IpcDaemonBootstrapArgumentsCodec.UnityExecuteMethodName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcJsonSerializerOptions_Default_HasStableConfiguration ()
     {
         var options = IpcJsonSerializerOptions.Default;

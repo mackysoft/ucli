@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             isStarted = true;
-            UnityDaemonBootstrap.Start();
+            _ = UnityDaemonBootstrap.Start();
         }
 
         private static void UnregisterUpdateCallback ()
