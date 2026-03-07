@@ -56,6 +56,68 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         }
         """;
 
+    private const string GoCreateArgsSchemaJson =
+        """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "scene": { "type": "string", "minLength": 1 },
+            "parent": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "var": { "type": "string", "minLength": 1 },
+                "globalObjectId": { "type": "string", "minLength": 1 },
+                "scene": { "type": "string", "minLength": 1 },
+                "hierarchyPath": { "type": "string", "minLength": 1 }
+              },
+              "oneOf": [
+                { "required": ["var"] },
+                { "required": ["globalObjectId"] },
+                { "required": ["scene", "hierarchyPath"] }
+              ]
+            }
+          },
+          "required": ["name"],
+          "oneOf": [
+            { "required": ["scene"] },
+            { "required": ["parent"] }
+          ]
+        }
+        """;
+
+    private const string GoDescribeArgsSchemaJson =
+        """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "var": { "type": "string", "minLength": 1 },
+                "globalObjectId": { "type": "string", "minLength": 1 },
+                "scene": { "type": "string", "minLength": 1 },
+                "hierarchyPath": { "type": "string", "minLength": 1 }
+              },
+              "oneOf": [
+                { "required": ["var"] },
+                { "required": ["globalObjectId"] },
+                { "required": ["scene", "hierarchyPath"] }
+              ]
+            },
+            "depth": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            }
+          },
+          "required": ["target"]
+        }
+        """;
+
     private static readonly IReadOnlyList<UcliOperationDescriptor> Operations =
     [
         new UcliOperationDescriptor("ucli.asset.create", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
@@ -70,8 +132,8 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
 
         new UcliOperationDescriptor("ucli.cs.invoke", UcliOperationKind.Mutation, OperationPolicy.Dangerous, DefaultArgsSchemaJson),
 
-        new UcliOperationDescriptor("ucli.go.create", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
-        new UcliOperationDescriptor("ucli.go.describe", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.go.create", UcliOperationKind.Mutation, OperationPolicy.Advanced, GoCreateArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.go.describe", UcliOperationKind.Query, OperationPolicy.Safe, GoDescribeArgsSchemaJson),
 
         new UcliOperationDescriptor("ucli.prefab.create", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
         new UcliOperationDescriptor("ucli.prefab.open", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),

@@ -1,6 +1,5 @@
 using System;
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
@@ -36,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    if (!TryReadRequiredString(property, out scenePath, out errorMessage))
+                    if (!OperationArgumentValueReader.TryReadRequiredString(property, out scenePath, out errorMessage))
                     {
                         return false;
                     }
@@ -91,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    if (!TryReadRequiredString(property, out scenePath, out errorMessage))
+                    if (!OperationArgumentValueReader.TryReadRequiredString(property, out scenePath, out errorMessage))
                     {
                         return false;
                     }
@@ -108,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    if (!TryReadDepth(property, out depth, out errorMessage))
+                    if (!OperationArgumentValueReader.TryReadNonNegativeInt32OrNull(property, out depth, out errorMessage))
                     {
                         return false;
                     }
@@ -127,81 +126,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return true;
-        }
-
-        /// <summary> Reads one required strict string property. </summary>
-        /// <param name="property"> The source JSON property. </param>
-        /// <param name="value"> The parsed value when successful. </param>
-        /// <param name="errorMessage"> The parse error message when failed. </param>
-        /// <returns> <see langword="true" /> when property is valid; otherwise <see langword="false" />. </returns>
-        private static bool TryReadRequiredString (
-            JsonProperty property,
-            out string value,
-            out string errorMessage)
-        {
-            value = string.Empty;
-            if (property.Value.ValueKind != JsonValueKind.String)
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must be a string.";
-                return false;
-            }
-
-            var parsedValue = property.Value.GetString();
-            if (string.IsNullOrWhiteSpace(parsedValue))
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must not be empty or whitespace.";
-                return false;
-            }
-
-            if (StringValueValidator.HasOuterWhitespace(parsedValue))
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must not contain leading or trailing whitespace.";
-                return false;
-            }
-
-            value = parsedValue;
-            errorMessage = string.Empty;
-            return true;
-        }
-
-        /// <summary> Reads one scene-tree depth property. </summary>
-        /// <param name="property"> The source JSON property. </param>
-        /// <param name="depth"> The parsed depth value. <see langword="null" /> means unlimited depth. </param>
-        /// <param name="errorMessage"> The parse error message when failed. </param>
-        /// <returns> <see langword="true" /> when property is valid; otherwise <see langword="false" />. </returns>
-        private static bool TryReadDepth (
-            JsonProperty property,
-            out int? depth,
-            out string errorMessage)
-        {
-            depth = null;
-            if (property.Value.ValueKind == JsonValueKind.Null)
-            {
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (property.Value.ValueKind != JsonValueKind.Number)
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must be an integer or null.";
-                return false;
-            }
-
-            if (!property.Value.TryGetInt32(out var parsedDepth))
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must be an integer or null.";
-                return false;
-            }
-
-            if (parsedDepth < 0)
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must be greater than or equal to 0.";
-                return false;
-            }
-
-            depth = parsedDepth;
-            errorMessage = string.Empty;
             return true;
         }
     }
