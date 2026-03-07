@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Logs;
@@ -13,7 +14,7 @@ internal interface IDaemonLogsClient
     /// <returns> The daemon-log read attempt result. </returns>
     ValueTask<DaemonLogsClientReadResult> Read (
         ResolvedUnityProjectContext unityProject,
-        DaemonLogsReadQuery query,
+        IpcDaemonLogsReadRequest query,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

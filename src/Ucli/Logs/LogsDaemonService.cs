@@ -33,7 +33,7 @@ internal sealed class LogsDaemonService : ILogsDaemonService
     }
 
     /// <inheritdoc />
-    public async ValueTask<LogsDaemonServiceResult> Execute (
+    public ValueTask<LogsDaemonServiceResult> Execute (
         LogsDaemonServiceRequest request,
         Func<IpcDaemonLogEvent, string, CancellationToken, ValueTask> onEvent,
         CancellationToken cancellationToken = default)
@@ -42,79 +42,30 @@ internal sealed class LogsDaemonService : ILogsDaemonService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(onEvent);
 
-        if (!requestValidator.TryValidate(request, out var validatedRequest, out var argumentValidationError))
+        if (!requestValidator.TryValidate(request, out var query, out var streamOptions, out var argumentValidationError))
         {
-            return LogsDaemonServiceResult.Failure(argumentValidationError!);
+            return ValueTask.FromResult(LogsDaemonServiceResult.Failure(argumentValidationError!));
         }
 
-        var contextResolutionResult = await daemonCommandExecutionContextResolver.Resolve(
-                UcliCommandIds.LogsDaemon,
-                request.ProjectPath,
-                timeout: null,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!contextResolutionResult.IsSuccess)
-        {
-            return LogsDaemonServiceResult.Failure(contextResolutionResult.Error!);
-        }
-
-        var executionContext = contextResolutionResult.Context!;
-        string? nextAfterCursor = request.After;
-        var lastEventTimestamp = DateTimeOffset.UtcNow;
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var readQuery = new DaemonLogsReadQuery(
-                Tail: request.Tail,
-                After: nextAfterCursor,
-                Since: request.Since,
-                Until: request.Until,
-                Level: request.Level,
-                Query: request.Query,
-                QueryTarget: request.QueryTarget,
-                Category: request.Category);
-            var readResult = await daemonLogsClient.Read(
-                    executionContext.Context.UnityProject,
-                    readQuery,
-                    executionContext.Timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!readResult.IsSuccess)
+        return LogsStreamPollingExecutor.Execute(
+            daemonCommandExecutionContextResolver,
+            UcliCommandIds.LogsDaemon,
+            request.ProjectPath,
+            query!,
+            request.Stream,
+            streamOptions!,
+            daemonLogsClient.Read,
+            static readResult => readResult.Response,
+            static readResult => readResult.Error,
+            static (query, after) => query with
             {
-                return LogsDaemonServiceResult.Failure(readResult.Error!);
-            }
-
-            var payload = readResult.Response!;
-            if (payload.Events.Length > 0)
-            {
-                lastEventTimestamp = DateTimeOffset.UtcNow;
-            }
-
-            foreach (var daemonLogEvent in payload.Events)
-            {
-                await onEvent(daemonLogEvent, payload.NextCursor, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (!request.Stream)
-            {
-                return LogsDaemonServiceResult.Success();
-            }
-
-            nextAfterCursor = payload.NextCursor;
-            var now = DateTimeOffset.UtcNow;
-            if (streamTerminationPolicy.ShouldStop(
-                    payload.Events,
-                    now,
-                    validatedRequest.UntilTimestamp,
-                    lastEventTimestamp,
-                    validatedRequest.IdleTimeout))
-            {
-                return LogsDaemonServiceResult.Success();
-            }
-
-            await Task.Delay(validatedRequest.PollInterval, cancellationToken).ConfigureAwait(false);
-        }
+                After = after,
+            },
+            static response => response.Events,
+            static response => response.NextCursor,
+            onEvent,
+            streamTerminationPolicy,
+            static daemonLogEvent => daemonLogEvent.Timestamp,
+            cancellationToken);
     }
 }

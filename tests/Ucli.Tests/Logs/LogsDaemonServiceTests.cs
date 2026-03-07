@@ -190,7 +190,7 @@ public sealed class LogsDaemonServiceTests
 
         public ValueTask<DaemonLogsClientReadResult> Read (
             ResolvedUnityProjectContext unityProject,
-            DaemonLogsReadQuery query,
+            IpcDaemonLogsReadRequest query,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {

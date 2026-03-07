@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -21,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message,
             string raw = null)
         {
-            WriteAndEmit(DaemonLogLevels.Info, category, message, raw);
+            WriteAndEmit(IpcDaemonLogsLevelCodec.Info, category, message, raw);
             Debug.Log(FormatMessage(category, message));
         }
 
@@ -31,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message,
             string raw = null)
         {
-            WriteAndEmit(DaemonLogLevels.Warning, category, message, raw);
+            WriteAndEmit(IpcDaemonLogsLevelCodec.Warning, category, message, raw);
             Debug.LogWarning(FormatMessage(category, message));
         }
 
@@ -41,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message,
             string raw = null)
         {
-            WriteAndEmit(DaemonLogLevels.Error, category, message, raw);
+            WriteAndEmit(IpcDaemonLogsLevelCodec.Error, category, message, raw);
             Debug.LogError(FormatMessage(category, message));
         }
 
@@ -56,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(exception));
             }
 
-            WriteAndEmit(DaemonLogLevels.Error, category, message, exception.ToString());
+            WriteAndEmit(IpcDaemonLogsLevelCodec.Error, category, message, exception.ToString());
             Debug.LogError(FormatMessage(category, message));
             Debug.LogException(exception);
         }

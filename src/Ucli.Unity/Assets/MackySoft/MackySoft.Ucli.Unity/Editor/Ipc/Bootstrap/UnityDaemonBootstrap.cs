@@ -75,6 +75,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton(bootstrapArguments);
             services.AddSingleton<IDaemonLogStream>(daemonLogStream);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
+            services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
+            services.AddSingleton<UnityCompileMessageDedupeCache>();
+            services.AddSingleton<UnityLogCollector>();
+            services.AddSingleton<UnityLogCaptureService>();
             services.AddSingleton<IUnityMainThreadRequestExecutor>(
                 new UnitySynchronizationContextRequestExecutor());
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
@@ -89,10 +93,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IDaemonLogsReadRequestValidator, DaemonLogsReadRequestValidator>();
             services.AddSingleton<IDaemonLogsReadQueryEngine, DaemonLogsReadQueryEngine>();
             services.AddSingleton<DaemonLogsReadResponseFactory>();
+            services.AddSingleton<UnityLogsReadRequestValidator>();
+            services.AddSingleton<UnityLogsReadQueryEngine>();
+            services.AddSingleton<UnityLogsReadResponseFactory>();
             services.AddSingleton<IUnityIpcMethodHandler, PingUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
@@ -115,6 +123,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var serviceProvider = services.BuildServiceProvider();
             var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
             var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
+            using var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
+            unityLogCaptureService.Start();
 
             var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
             await server.Start(endpoint, CancellationToken.None);

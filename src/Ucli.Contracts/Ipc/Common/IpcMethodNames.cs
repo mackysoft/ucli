@@ -17,4 +17,7 @@ public static class IpcMethodNames
 
     /// <summary> Gets the method name used for daemon log stream read requests. </summary>
     public const string DaemonLogsRead = "daemon.logs.read";
+
+    /// <summary> Gets the method name used for Unity log stream read requests. </summary>
+    public const string UnityLogsRead = "unity.logs.read";
 }

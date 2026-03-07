@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -24,22 +23,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var filteredEvents = new List<DaemonLogEvent>(events.Count);
-            var shouldApplySinceFilter = filter.Since.HasValue && !filter.AfterSequence.HasValue;
             foreach (var daemonLogEvent in events)
             {
-                if (filter.AfterSequence.HasValue && daemonLogEvent.Sequence < filter.AfterSequence.Value)
-                {
-                    continue;
-                }
-
-                if (shouldApplySinceFilter
-                    && TryParseEventTimestamp(daemonLogEvent.Timestamp, out var eventTimestampSince)
-                    && eventTimestampSince < filter.Since!.Value)
-                {
-                    continue;
-                }
-
-                if (filter.Until.HasValue && TryParseEventTimestamp(daemonLogEvent.Timestamp, out var eventTimestampUntil) && eventTimestampUntil > filter.Until.Value)
+                if (!LogReadFilterUtilities.PassesSequenceAndTimeWindow(
+                        daemonLogEvent.Sequence,
+                        daemonLogEvent.Timestamp,
+                        filter.AfterSequence,
+                        filter.Since,
+                        filter.Until))
                 {
                     continue;
                 }
@@ -57,7 +48,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 if (!string.IsNullOrWhiteSpace(filter.Query)
-                    && !MatchesQuery(daemonLogEvent, filter.Query, filter.QueryTarget))
+                    && !LogReadFilterUtilities.MatchesQuery(
+                        daemonLogEvent.Message,
+                        daemonLogEvent.Raw,
+                        filter.Query,
+                        searchPrimaryText: true,
+                        searchSecondaryText: string.Equals(filter.QueryTarget, IpcDaemonLogsQueryTargetCodec.Both, StringComparison.Ordinal)))
                 {
                     continue;
                 }
@@ -65,25 +61,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 filteredEvents.Add(daemonLogEvent);
             }
 
-            if (!filter.Tail.HasValue || filteredEvents.Count <= filter.Tail.Value)
-            {
-                return filteredEvents;
-            }
-
-            var tailEvents = new List<DaemonLogEvent>(filter.Tail.Value);
-            var startIndex = filteredEvents.Count - filter.Tail.Value;
-            for (var i = startIndex; i < filteredEvents.Count; i++)
-            {
-                tailEvents.Add(filteredEvents[i]);
-            }
-
-            return tailEvents;
+            return LogReadFilterUtilities.ApplyTail(filteredEvents, filter.Tail);
         }
 
-        /// <summary> Determines whether category filter should be applied. </summary>
-        /// <param name="category"> The normalized category literal. </param>
-        /// <returns> <see langword="true" /> when category-specific filtering should run; otherwise <see langword="false" />. </returns>
-        private static bool ShouldApplyCategoryFilter (string category)
+        private static bool ShouldApplyCategoryFilter (string? category)
         {
             if (string.IsNullOrWhiteSpace(category))
             {
@@ -91,43 +72,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return !IpcDaemonLogsCategoryCodec.IsAll(category);
-        }
-
-        /// <summary> Determines whether one daemon log event matches query filter. </summary>
-        /// <param name="daemonLogEvent"> The daemon log event value. </param>
-        /// <param name="query"> The normalized query value. </param>
-        /// <param name="queryTarget"> The normalized query-target literal. </param>
-        /// <returns> <see langword="true" /> when event matches query; otherwise <see langword="false" />. </returns>
-        private static bool MatchesQuery (
-            DaemonLogEvent daemonLogEvent,
-            string query,
-            string queryTarget)
-        {
-            var messageHit = daemonLogEvent.Message != null
-                && daemonLogEvent.Message.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
-            if (string.Equals(queryTarget, IpcDaemonLogsQueryTargetCodec.Message, StringComparison.Ordinal))
-            {
-                return messageHit;
-            }
-
-            var rawHit = daemonLogEvent.Raw != null
-                && daemonLogEvent.Raw.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
-            return messageHit || rawHit;
-        }
-
-        /// <summary> Tries to parse one daemon-log event timestamp string. </summary>
-        /// <param name="timestampText"> The source timestamp text. </param>
-        /// <param name="timestamp"> The parsed timestamp when successful. </param>
-        /// <returns> <see langword="true" /> when parsing succeeded; otherwise <see langword="false" />. </returns>
-        private static bool TryParseEventTimestamp (
-            string timestampText,
-            out DateTimeOffset timestamp)
-        {
-            return DateTimeOffset.TryParse(
-                timestampText,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind,
-                out timestamp);
         }
     }
 }

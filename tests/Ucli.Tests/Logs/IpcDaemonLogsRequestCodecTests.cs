@@ -9,7 +9,7 @@ public sealed class IpcDaemonLogsRequestCodecTests
     [Trait("Size", "Small")]
     public void CreateRequest_WithQueryValues_ReturnsDaemonLogsReadRequestEnvelope ()
     {
-        var query = new DaemonLogsReadQuery(
+        var query = new IpcDaemonLogsReadRequest(
             Tail: 32,
             After: "stream-1:44",
             Since: "2026-03-05T01:00:00Z",

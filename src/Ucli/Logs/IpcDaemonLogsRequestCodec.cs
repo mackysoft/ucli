@@ -12,22 +12,13 @@ internal static class IpcDaemonLogsRequestCodec
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="query" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
     public static IpcRequest CreateRequest (
-        DaemonLogsReadQuery query,
+        IpcDaemonLogsReadRequest query,
         string sessionToken)
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
 
-        var payload = IpcPayloadCodec.SerializeToElement(
-            new IpcDaemonLogsReadRequest(
-                Tail: query.Tail,
-                After: query.After,
-                Since: query.Since,
-                Until: query.Until,
-                Level: query.Level,
-                Query: query.Query,
-                QueryTarget: query.QueryTarget,
-                Category: query.Category));
+        var payload = IpcPayloadCodec.SerializeToElement(query);
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: $"daemon-logs-read-{Guid.NewGuid():N}",

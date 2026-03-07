@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -35,6 +36,57 @@ namespace MackySoft.Ucli.Unity.Tests
                     typeof(InvalidAttributedType),
                 });
             });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Discover_WhenCurrentDomainContainsInvalidAttributedTestType_IgnoresTestAssembly ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            Assert.That(operations.Count, Is.GreaterThan(0));
+
+            var containsResolveOperation = false;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                if (operations[i].Metadata.OperationName == "ucli.resolve")
+                {
+                    containsResolveOperation = true;
+                    break;
+                }
+            }
+
+            Assert.That(containsResolveOperation, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Discover_WhenUcliDefinedAssembliesAreExcluded_ReturnsNoBuiltInOperations ()
+        {
+            var operations = UcliOperationDiscoverer.Discover(
+                new Assembly[]
+                {
+                    typeof(ResolvePhaseOperation).Assembly,
+                },
+                includeUcliDefinedAssemblies: false,
+                includeUserDefinedAssemblies: true);
+
+            Assert.That(operations, Is.Empty);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Discover_WhenOnlyTestAssemblyIsProvided_ReturnsNoOperations ()
+        {
+            var operations = UcliOperationDiscoverer.Discover(
+                new Assembly[]
+                {
+                    typeof(UcliOperationDiscovererTests).Assembly,
+                },
+                includeUcliDefinedAssemblies: true,
+                includeUserDefinedAssemblies: true);
+
+            Assert.That(operations, Is.Empty);
         }
 
         [UcliOperation]

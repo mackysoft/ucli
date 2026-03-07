@@ -136,8 +136,6 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
             unityProject.UnityProjectRoot,
             "-logFile",
             daemonLogPath,
-            "-executeMethod",
-            IpcDaemonBootstrapArgumentsCodec.UnityExecuteMethodName,
         };
         IpcDaemonBootstrapArgumentsCodec.AppendTokens(
             tokens,

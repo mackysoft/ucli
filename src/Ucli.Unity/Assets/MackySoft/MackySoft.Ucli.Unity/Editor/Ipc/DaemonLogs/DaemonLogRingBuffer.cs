@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -47,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             lock (syncRoot)
             {
                 var sequence = nextSequence++;
-                var cursor = DaemonLogCursorCodec.Encode(streamId, sequence);
+                var cursor = IpcLogCursorCodec.Encode(streamId, sequence);
                 var daemonLogEvent = new DaemonLogEvent(
                     Sequence: sequence,
                     Timestamp: DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
@@ -87,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 return new DaemonLogSnapshot(
                     StreamId: streamId,
-                    NextCursor: DaemonLogCursorCodec.Encode(streamId, nextSequence),
+                    NextCursor: IpcLogCursorCodec.Encode(streamId, nextSequence),
                     Events: snapshotEvents);
             }
         }

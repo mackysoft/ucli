@@ -217,6 +217,234 @@ public sealed class IpcCommonContractTests
         Assert.Equal("queryTarget 'stack' is not supported for daemon logs. Supported: message, both.", message);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null, true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData("", true, IpcDaemonLogsQueryTargetCodec.Message)]
+    [InlineData(" stack ", true, IpcDaemonLogsQueryTargetCodec.Stack)]
+    [InlineData("both", true, IpcDaemonLogsQueryTargetCodec.Both)]
+    [InlineData("unsupported", false, null)]
+    public void IpcDaemonLogsQueryTargetCodec_TryParseForUnityLogs_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcDaemonLogsQueryTargetCodec.TryParseForUnityLogs(value, out var queryTarget, out var errorMessage);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, string.IsNullOrEmpty(queryTarget) ? null : queryTarget);
+        if (expectedResult)
+        {
+            Assert.Null(errorMessage);
+            return;
+        }
+
+        Assert.False(string.IsNullOrWhiteSpace(errorMessage));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsQueryTargetCodec_CreateUnsupportedValueMessage_ReturnsExpectedText ()
+    {
+        var message = IpcDaemonLogsQueryTargetCodec.CreateUnsupportedValueMessage("unsupported");
+
+        Assert.Equal("queryTarget must be one of: message, stack, both. Actual: unsupported.", message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcUnityLogsSourceCodec_HasStableStringValues ()
+    {
+        Assert.Equal("compile", IpcUnityLogsSourceCodec.Compile);
+        Assert.Equal("runtime", IpcUnityLogsSourceCodec.Runtime);
+        Assert.Equal("all", IpcUnityLogsSourceCodec.All);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("compile", true, IpcUnityLogsSourceCodec.Compile)]
+    [InlineData(" RUNTIME ", true, IpcUnityLogsSourceCodec.Runtime)]
+    [InlineData("all", true, IpcUnityLogsSourceCodec.All)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcUnityLogsSourceCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcUnityLogsSourceCodec.TryParse(value, out var source);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, source);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("all", true)]
+    [InlineData(" ALL ", true)]
+    [InlineData("runtime", false)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData(null, false)]
+    public void IpcUnityLogsSourceCodec_IsAll_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult)
+    {
+        var result = IpcUnityLogsSourceCodec.IsAll(value);
+
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcUnityLogsStackTraceModeCodec_HasStableStringValues ()
+    {
+        Assert.Equal("none", IpcUnityLogsStackTraceModeCodec.None);
+        Assert.Equal("error", IpcUnityLogsStackTraceModeCodec.Error);
+        Assert.Equal("all", IpcUnityLogsStackTraceModeCodec.All);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("none", true, IpcUnityLogsStackTraceModeCodec.None)]
+    [InlineData(" ERROR ", true, IpcUnityLogsStackTraceModeCodec.Error)]
+    [InlineData("all", true, IpcUnityLogsStackTraceModeCodec.All)]
+    [InlineData("unsupported", false, null)]
+    [InlineData("", false, null)]
+    [InlineData(" ", false, null)]
+    [InlineData(null, false, null)]
+    public void IpcUnityLogsStackTraceModeCodec_TryParse_ReturnsExpectedResult (
+        string? value,
+        bool expectedResult,
+        string? expectedValue)
+    {
+        var result = IpcUnityLogsStackTraceModeCodec.TryParse(value, out var stackTraceMode);
+
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, stackTraceMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcUnityLogsReadRequestNormalizer_TryNormalize_WhenStackTraceModeIsNone_ClearsStackTraceLimits ()
+    {
+        var result = IpcUnityLogsReadRequestNormalizer.TryNormalize(
+            new IpcUnityLogsReadRequest(
+                Tail: 4,
+                After: "stream-1:4",
+                Since: "2026-03-05T10:35:22.0000000+09:00",
+                Until: "2026-03-05T10:36:22.0000000+09:00",
+                Level: null,
+                Query: " socket ",
+                QueryTarget: null,
+                Source: null,
+                StackTrace: "none",
+                StackTraceMaxFrames: 8,
+                StackTraceMaxChars: 4096),
+            out var normalizedRequest,
+            out var sinceTimestamp,
+            out var untilTimestamp,
+            out var errorMessage);
+
+        Assert.True(result);
+        Assert.NotNull(normalizedRequest);
+        Assert.Equal(IpcDaemonLogsLevelCodec.All, normalizedRequest.Level);
+        Assert.Equal(IpcDaemonLogsQueryTargetCodec.Message, normalizedRequest.QueryTarget);
+        Assert.Equal(IpcUnityLogsSourceCodec.All, normalizedRequest.Source);
+        Assert.Equal(IpcUnityLogsStackTraceModeCodec.None, normalizedRequest.StackTrace);
+        Assert.Null(normalizedRequest.StackTraceMaxFrames);
+        Assert.Null(normalizedRequest.StackTraceMaxChars);
+        Assert.Equal("socket", normalizedRequest.Query);
+        Assert.True(sinceTimestamp.HasValue);
+        Assert.True(untilTimestamp.HasValue);
+        Assert.Null(errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcUnityLogsReadRequestNormalizer_TryNormalize_WhenStackTraceCharLimitIsTooSmall_ReturnsError ()
+    {
+        var result = IpcUnityLogsReadRequestNormalizer.TryNormalize(
+            new IpcUnityLogsReadRequest(
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: null,
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Source: null,
+                StackTrace: IpcUnityLogsStackTraceModeCodec.All,
+                StackTraceMaxFrames: null,
+                StackTraceMaxChars: IpcUnityLogsReadRequestNormalizer.MinimumStackTraceMaxChars - 1),
+            out var normalizedRequest,
+            out _,
+            out _,
+            out var errorMessage);
+
+        Assert.False(result);
+        Assert.Null(normalizedRequest);
+        Assert.Equal(
+            $"stackTraceMaxChars must be between {IpcUnityLogsReadRequestNormalizer.MinimumStackTraceMaxChars} and {IpcUnityLogsReadRequestNormalizer.MaximumStackTraceMaxChars}. Actual: {IpcUnityLogsReadRequestNormalizer.MinimumStackTraceMaxChars - 1}.",
+            errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsReadRequestNormalizer_TryNormalize_WhenRequestIsValid_ReturnsCanonicalValues ()
+    {
+        var result = IpcDaemonLogsReadRequestNormalizer.TryNormalize(
+            new IpcDaemonLogsReadRequest(
+                Tail: 4,
+                After: "stream-1:4",
+                Since: "2026-03-05T10:35:22.0000000+09:00",
+                Until: "2026-03-05T10:36:22.0000000+09:00",
+                Level: null,
+                Query: " socket ",
+                QueryTarget: null,
+                Category: " ALL "),
+            out var normalizedRequest,
+            out var sinceTimestamp,
+            out var untilTimestamp,
+            out var errorMessage);
+
+        Assert.True(result);
+        Assert.NotNull(normalizedRequest);
+        Assert.Equal(IpcDaemonLogsLevelCodec.All, normalizedRequest.Level);
+        Assert.Equal(IpcDaemonLogsQueryTargetCodec.Message, normalizedRequest.QueryTarget);
+        Assert.Equal(IpcDaemonLogsCategoryCodec.All, normalizedRequest.Category);
+        Assert.Equal("socket", normalizedRequest.Query);
+        Assert.True(sinceTimestamp.HasValue);
+        Assert.True(untilTimestamp.HasValue);
+        Assert.Null(errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsReadRequestNormalizer_TryNormalize_WhenQueryTargetIsStack_ReturnsError ()
+    {
+        var result = IpcDaemonLogsReadRequestNormalizer.TryNormalize(
+            new IpcDaemonLogsReadRequest(
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: null,
+                Level: null,
+                Query: null,
+                QueryTarget: IpcDaemonLogsQueryTargetCodec.Stack,
+                Category: null),
+            out var normalizedRequest,
+            out _,
+            out _,
+            out var errorMessage);
+
+        Assert.False(result);
+        Assert.Null(normalizedRequest);
+        Assert.Equal(IpcDaemonLogsQueryTargetCodec.CreateDaemonLogsStackNotSupportedMessage(), errorMessage);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcDaemonLogsCategoryCodec_HasStableStringValues ()
@@ -261,6 +489,37 @@ public sealed class IpcCommonContractTests
 
         Assert.Equal(expectedResult, result);
         Assert.Equal(expectedHasValue, timestamp.HasValue);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcLogCursorCodec_EncodeAndTryParse_RoundTripsValues ()
+    {
+        var cursor = IpcLogCursorCodec.Encode("stream-1", 42);
+
+        var result = IpcLogCursorCodec.TryParse(cursor, out var streamId, out var sequence);
+
+        Assert.True(result);
+        Assert.Equal("stream-1", streamId);
+        Assert.Equal(42, sequence);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("stream")]
+    [InlineData("stream-1:")]
+    [InlineData(":1")]
+    [InlineData("stream-1:-1")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData(null)]
+    public void IpcLogCursorCodec_TryParse_InvalidValue_ReturnsFalse (string? value)
+    {
+        var result = IpcLogCursorCodec.TryParse(value, out var streamId, out var sequence);
+
+        Assert.False(result);
+        Assert.Equal(string.Empty, streamId);
+        Assert.Equal(default, sequence);
     }
 
     [Fact]
