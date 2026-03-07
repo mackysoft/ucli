@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
@@ -185,8 +187,8 @@ namespace MackySoft.Ucli.Unity.Tests
         private static string ToAbsolutePath (string assetPath)
         {
             return Path.Combine(
-                Directory.GetParent(Application.dataPath)!.FullName,
-                assetPath.Replace('/', Path.DirectorySeparatorChar));
+                UnityProjectPathResolver.ResolveProjectRootPath(),
+                PathStringNormalizer.ToPlatformSeparated(assetPath));
         }
 
         private static void DeleteAssetAndFiles (string assetPath)

@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Paths;
 using UnityEditor;
-using UnityEngine;
 
 #nullable enable
 
@@ -40,25 +40,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return true;
-        }
-
-        /// <summary> Resolves the current Unity project root path. </summary>
-        /// <returns> The absolute Unity project root path. </returns>
-        public static string ResolveProjectRootPath ()
-        {
-            var dataPath = Application.dataPath;
-            if (string.IsNullOrWhiteSpace(dataPath))
-            {
-                return Directory.GetCurrentDirectory();
-            }
-
-            var projectRoot = Path.GetDirectoryName(Path.GetFullPath(dataPath));
-            if (string.IsNullOrWhiteSpace(projectRoot))
-            {
-                return Directory.GetCurrentDirectory();
-            }
-
-            return projectRoot;
         }
 
         /// <summary> Captures the current file-state snapshot under <c>ProjectSettings/</c>. </summary>
@@ -274,7 +255,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The normalized project-relative path. </returns>
         private static string NormalizeProjectRelativePath (string path)
         {
-            var normalizedPath = path.Replace('\\', '/');
+            var normalizedPath = PathStringNormalizer.ToSlashSeparated(path);
             if (normalizedPath.StartsWith("./", StringComparison.Ordinal))
             {
                 return normalizedPath.Substring(2);

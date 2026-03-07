@@ -72,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
             }
 
-            var projectRoot = ProjectOperationUtilities.ResolveProjectRootPath();
+            var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
             var beforeSnapshot = ProjectOperationUtilities.CaptureProjectSettingsSnapshot(projectRoot);
             var scopeId = ProjectOperationCallbackRegistry.BeginRefreshCapture();
             IReadOnlyList<string> callbackPaths;
