@@ -7,6 +7,14 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
 {
     private const string DefaultArgsSchemaJson = """{"type":"object"}""";
 
+    private const string EmptyObjectArgsSchemaJson =
+        """
+        {
+          "type": "object",
+          "additionalProperties": false
+        }
+        """;
+
     private const string ResolveArgsSchemaJson =
         """
         {
@@ -139,8 +147,8 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         new UcliOperationDescriptor("ucli.prefab.open", UcliOperationKind.Query, OperationPolicy.Safe, DefaultArgsSchemaJson),
         new UcliOperationDescriptor("ucli.prefab.save", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
 
-        new UcliOperationDescriptor("ucli.project.refresh", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
-        new UcliOperationDescriptor("ucli.project.save", UcliOperationKind.Mutation, OperationPolicy.Advanced, DefaultArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.project.refresh", UcliOperationKind.Mutation, OperationPolicy.Advanced, EmptyObjectArgsSchemaJson),
+        new UcliOperationDescriptor("ucli.project.save", UcliOperationKind.Mutation, OperationPolicy.Advanced, EmptyObjectArgsSchemaJson),
 
         new UcliOperationDescriptor("ucli.resolve", UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
 
