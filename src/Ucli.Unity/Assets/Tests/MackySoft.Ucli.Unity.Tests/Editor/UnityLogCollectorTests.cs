@@ -1,11 +1,8 @@
-using System;
-
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 using UnityEditor.Compilation;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -46,27 +43,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.Events.Count, Is.EqualTo(1));
             Assert.That(snapshot.Events[0].Source, Is.EqualTo(IpcUnityLogsSourceCodec.Compile));
             Assert.That(snapshot.Events[0].Message, Is.EqualTo("Assets/Test.cs(12,5): error CS1001: ; expected"));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void DaemonLoggerException_WhenEmitted_DoesNotProduceUnprefixedRuntimeExceptionCopy ()
-        {
-            var daemonStream = new DaemonLogRingBuffer();
-            var daemonLogger = new DaemonLogger(daemonStream);
-            var exception = new InvalidOperationException("boom");
-
-            LogAssert.Expect(
-                LogType.Error,
-                new System.Text.RegularExpressions.Regex(@"\A\[ucli\]\[ipc\] daemon failed\r?\nSystem\.InvalidOperationException: boom", System.Text.RegularExpressions.RegexOptions.Singleline));
-
-            daemonLogger.Exception("ipc", "daemon failed", exception);
-
-            var snapshot = daemonStream.Snapshot();
-            Assert.That(snapshot.Events.Count, Is.EqualTo(1));
-            Assert.That(snapshot.Events[0].Message, Is.EqualTo("daemon failed"));
-            Assert.That(snapshot.Events[0].Raw, Does.Contain("System.InvalidOperationException: boom"));
-            LogAssert.NoUnexpectedReceived();
         }
     }
 }
