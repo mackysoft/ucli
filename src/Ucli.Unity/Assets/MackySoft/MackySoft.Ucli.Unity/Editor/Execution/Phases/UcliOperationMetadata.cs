@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy)
-            : this(operationName, kind, policy, """{"type":"object"}""")
+            : this(operationName, kind, policy, "{\"type\":\"object\"}")
         {
         }
 

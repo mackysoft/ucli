@@ -16,25 +16,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson:
-            """
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "globalObjectId": { "type": "string", "minLength": 1 },
-                "assetGuid": { "type": "string", "minLength": 1 },
-                "assetPath": { "type": "string", "minLength": 1 },
-                "scene": { "type": "string", "minLength": 1 },
-                "hierarchyPath": { "type": "string", "minLength": 1 }
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false,
+              ""properties"": {
+                ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+                ""assetGuid"": { ""type"": ""string"", ""minLength"": 1 },
+                ""assetPath"": { ""type"": ""string"", ""minLength"": 1 },
+                ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+                ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
               },
-              "oneOf": [
-                { "required": ["globalObjectId"] },
-                { "required": ["assetGuid"] },
-                { "required": ["assetPath"] },
-                { "required": ["scene", "hierarchyPath"] }
+              ""oneOf"": [
+                { ""required"": [""globalObjectId""] },
+                { ""required"": [""assetGuid""] },
+                { ""required"": [""assetPath""] },
+                { ""required"": [""scene"", ""hierarchyPath""] }
               ]
-            }
-            """);
+            }");
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

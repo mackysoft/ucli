@@ -18,36 +18,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson:
-            """
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "name": { "type": "string", "minLength": 1 },
-                "scene": { "type": "string", "minLength": 1 },
-                "parent": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "var": { "type": "string", "minLength": 1 },
-                    "globalObjectId": { "type": "string", "minLength": 1 },
-                    "scene": { "type": "string", "minLength": 1 },
-                    "hierarchyPath": { "type": "string", "minLength": 1 }
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false,
+              ""properties"": {
+                ""name"": { ""type"": ""string"", ""minLength"": 1 },
+                ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+                ""parent"": {
+                  ""type"": ""object"",
+                  ""additionalProperties"": false,
+                  ""properties"": {
+                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
                   },
-                  "oneOf": [
-                    { "required": ["var"] },
-                    { "required": ["globalObjectId"] },
-                    { "required": ["scene", "hierarchyPath"] }
+                  ""oneOf"": [
+                    { ""required"": [""var""] },
+                    { ""required"": [""globalObjectId""] },
+                    { ""required"": [""scene"", ""hierarchyPath""] }
                   ]
                 }
               },
-              "required": ["name"],
-              "oneOf": [
-                { "required": ["scene"] },
-                { "required": ["parent"] }
+              ""required"": [""name""],
+              ""oneOf"": [
+                { ""required"": [""scene""] },
+                { ""required"": [""parent""] }
               ]
-            }
-            """);
+            }");
 
         /// <summary> Executes validate phase for <c>ucli.go.create</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

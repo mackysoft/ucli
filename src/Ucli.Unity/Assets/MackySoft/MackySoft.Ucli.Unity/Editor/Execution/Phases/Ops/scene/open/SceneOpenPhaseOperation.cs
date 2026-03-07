@@ -17,16 +17,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson:
-            """
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "path": { "type": "string", "minLength": 1 }
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false,
+              ""properties"": {
+                ""path"": { ""type"": ""string"", ""minLength"": 1 }
               },
-              "required": ["path"]
-            }
-            """);
+              ""required"": [""path""]
+            }");
 
         /// <summary> Executes validate phase for <c>ucli.scene.open</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

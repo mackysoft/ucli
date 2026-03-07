@@ -18,34 +18,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson:
-            """
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "target": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "var": { "type": "string", "minLength": 1 },
-                    "globalObjectId": { "type": "string", "minLength": 1 },
-                    "scene": { "type": "string", "minLength": 1 },
-                    "hierarchyPath": { "type": "string", "minLength": 1 }
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false,
+              ""properties"": {
+                ""target"": {
+                  ""type"": ""object"",
+                  ""additionalProperties"": false,
+                  ""properties"": {
+                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
                   },
-                  "oneOf": [
-                    { "required": ["var"] },
-                    { "required": ["globalObjectId"] },
-                    { "required": ["scene", "hierarchyPath"] }
+                  ""oneOf"": [
+                    { ""required"": [""var""] },
+                    { ""required"": [""globalObjectId""] },
+                    { ""required"": [""scene"", ""hierarchyPath""] }
                   ]
                 },
-                "depth": {
-                  "type": ["integer", "null"],
-                  "minimum": 0
+                ""depth"": {
+                  ""type"": [""integer"", ""null""],
+                  ""minimum"": 0
                 }
               },
-              "required": ["target"]
-            }
-            """);
+              ""required"": [""target""]
+            }");
 
         /// <summary> Executes validate phase for <c>ucli.go.describe</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
