@@ -10,8 +10,6 @@ namespace MackySoft.Ucli.Unity.Ipc
     [InitializeOnLoad]
     internal static class UnityDaemonBootstrapInitializer
     {
-        private static bool isRegistered;
-
         private static bool isStarted;
 
         static UnityDaemonBootstrapInitializer ()
@@ -21,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            RegisterUpdateCallback();
+            EditorApplication.update += StartOnEditorUpdate;
         }
 
         internal static bool ShouldScheduleBootstrap (
@@ -34,17 +32,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return IpcDaemonBootstrapArgumentsCodec.TryParse(args, out _, out _);
-        }
-
-        private static void RegisterUpdateCallback ()
-        {
-            if (isRegistered)
-            {
-                return;
-            }
-
-            EditorApplication.update += StartOnEditorUpdate;
-            isRegistered = true;
         }
 
         private static void StartOnEditorUpdate ()
@@ -60,18 +47,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             isStarted = true;
-            _ = UnityDaemonBootstrap.Start();
-        }
-
-        private static void UnregisterUpdateCallback ()
-        {
-            if (!isRegistered)
-            {
-                return;
-            }
-
             EditorApplication.update -= StartOnEditorUpdate;
-            isRegistered = false;
+            _ = UnityDaemonBootstrap.Start();
         }
     }
 }
