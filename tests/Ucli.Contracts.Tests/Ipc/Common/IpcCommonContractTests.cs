@@ -25,6 +25,21 @@ public sealed class IpcCommonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcBatchmodeBootstrapArgumentNames_HasStableStringValues ()
+    {
+        Assert.Equal("-ucliBootstrapTarget", IpcBatchmodeBootstrapArgumentNames.Target);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcBatchmodeBootstrapTargetValues_HasStableStringValues ()
+    {
+        Assert.Equal("daemon", IpcBatchmodeBootstrapTargetValues.Daemon);
+        Assert.Equal("oneshot", IpcBatchmodeBootstrapTargetValues.Oneshot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcDaemonBootstrapArgumentNames_HasStableStringValues ()
     {
         Assert.Equal("-ucliRepositoryRoot", IpcDaemonBootstrapArgumentNames.RepositoryRoot);
@@ -32,6 +47,13 @@ public sealed class IpcCommonContractTests
         Assert.Equal("-ucliSessionPath", IpcDaemonBootstrapArgumentNames.SessionPath);
         Assert.Equal("-ucliEndpointTransportKind", IpcDaemonBootstrapArgumentNames.EndpointTransportKind);
         Assert.Equal("-ucliEndpointAddress", IpcDaemonBootstrapArgumentNames.EndpointAddress);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcOneshotBootstrapArgumentNames_HasStableStringValues ()
+    {
+        Assert.Equal("-ucliOneshotOutputPath", IpcOneshotBootstrapArgumentNames.OutputPath);
     }
 
     [Fact]

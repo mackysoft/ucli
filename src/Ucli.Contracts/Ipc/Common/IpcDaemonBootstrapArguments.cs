@@ -11,4 +11,5 @@ public sealed record IpcDaemonBootstrapArguments (
     string ProjectFingerprint,
     string SessionPath,
     string EndpointTransportKind,
-    string EndpointAddress);
+    string EndpointAddress)
+    : IpcBatchmodeBootstrapArguments;

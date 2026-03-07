@@ -137,7 +137,7 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
             "-logFile",
             daemonLogPath,
         };
-        IpcDaemonBootstrapArgumentsCodec.AppendTokens(
+        IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(
             tokens,
             new IpcDaemonBootstrapArguments(
                 RepositoryRoot: unityProject.RepositoryRoot,
