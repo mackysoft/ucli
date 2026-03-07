@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
 using NUnit.Framework;
 using UnityEditor;
@@ -324,7 +325,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static string ResolveProjectRootPath ()
         {
-            return Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            return UnityProjectPathResolver.ResolveProjectRootPath();
         }
 
         private static IndexCatalogBuilder CreateBuilder (

@@ -131,6 +131,27 @@ public sealed class OperationCatalogTests
         Assert.Equal(0, depthMinimum.GetInt32());
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("ucli.project.refresh")]
+    [InlineData("ucli.project.save")]
+    public async Task Get_WhenOperationIsProjectMutation_ReturnsStrictEmptyObjectSchema (string operationName)
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(operationName, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var schemaRoot = schemaDocument.RootElement;
+        Assert.Equal(JsonValueKind.Object, schemaRoot.ValueKind);
+        Assert.True(schemaRoot.TryGetProperty("type", out var typeProperty));
+        Assert.Equal("object", typeProperty.GetString());
+        Assert.True(schemaRoot.TryGetProperty("additionalProperties", out var additionalProperties));
+        Assert.False(additionalProperties.GetBoolean());
+        Assert.False(schemaRoot.TryGetProperty("properties", out _));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task GetAll_ReturnsOperationsOrderedByName ()

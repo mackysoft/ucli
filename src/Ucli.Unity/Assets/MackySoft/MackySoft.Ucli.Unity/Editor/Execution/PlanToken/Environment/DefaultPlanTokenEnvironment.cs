@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
@@ -20,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The captured snapshot. </returns>
         public PlanTokenEnvironmentSnapshot Capture ()
         {
-            var projectRoot = ResolveProjectRoot();
+            var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
             var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
             var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, projectRoot);
 
@@ -37,25 +36,5 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 CompileState: compileState,
                 DomainReloadGeneration: "na");
         }
-
-        /// <summary> Resolves the current Unity project root path. </summary>
-        /// <returns> The project root path. </returns>
-        private static string ResolveProjectRoot ()
-        {
-            var dataPath = Application.dataPath;
-            if (string.IsNullOrWhiteSpace(dataPath))
-            {
-                return Directory.GetCurrentDirectory();
-            }
-
-            var projectRoot = Path.GetDirectoryName(Path.GetFullPath(dataPath));
-            if (string.IsNullOrWhiteSpace(projectRoot))
-            {
-                return Directory.GetCurrentDirectory();
-            }
-
-            return projectRoot;
-        }
-
     }
 }
