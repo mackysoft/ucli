@@ -75,6 +75,64 @@ public sealed class OperationCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsGoCreate_ReturnsSceneOrParentSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get("ucli.go.create", CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var schemaRoot = schemaDocument.RootElement;
+        Assert.Equal(JsonValueKind.Object, schemaRoot.ValueKind);
+        Assert.True(schemaRoot.TryGetProperty("required", out var required));
+        Assert.True(ContainsArrayLiteral(required, "name"));
+        Assert.True(schemaRoot.TryGetProperty("properties", out var properties));
+        Assert.True(properties.TryGetProperty("scene", out _));
+        Assert.True(properties.TryGetProperty("parent", out var parentProperty));
+        Assert.True(parentProperty.TryGetProperty("oneOf", out var parentOneOf));
+        Assert.Equal(3, parentOneOf.GetArrayLength());
+        Assert.True(ContainsRequiredProperty(parentOneOf, "var"));
+        Assert.True(ContainsRequiredProperty(parentOneOf, "globalObjectId"));
+        Assert.True(ContainsRequiredProperties(parentOneOf, "scene", "hierarchyPath"));
+        Assert.True(schemaRoot.TryGetProperty("oneOf", out var rootOneOf));
+        Assert.Equal(2, rootOneOf.GetArrayLength());
+        Assert.True(ContainsRequiredProperty(rootOneOf, "scene"));
+        Assert.True(ContainsRequiredProperty(rootOneOf, "parent"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsGoDescribe_ReturnsTargetAndDepthSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get("ucli.go.describe", CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var schemaRoot = schemaDocument.RootElement;
+        Assert.Equal(JsonValueKind.Object, schemaRoot.ValueKind);
+        Assert.True(schemaRoot.TryGetProperty("required", out var required));
+        Assert.True(ContainsArrayLiteral(required, "target"));
+        Assert.True(schemaRoot.TryGetProperty("properties", out var properties));
+        Assert.True(properties.TryGetProperty("target", out var targetProperty));
+        Assert.True(targetProperty.TryGetProperty("oneOf", out var targetOneOf));
+        Assert.Equal(3, targetOneOf.GetArrayLength());
+        Assert.True(ContainsRequiredProperty(targetOneOf, "var"));
+        Assert.True(ContainsRequiredProperty(targetOneOf, "globalObjectId"));
+        Assert.True(ContainsRequiredProperties(targetOneOf, "scene", "hierarchyPath"));
+        Assert.True(properties.TryGetProperty("depth", out var depthProperty));
+        Assert.True(depthProperty.TryGetProperty("type", out var depthType));
+        Assert.Equal(JsonValueKind.Array, depthType.ValueKind);
+        Assert.True(ContainsArrayLiteral(depthType, "integer"));
+        Assert.True(ContainsArrayLiteral(depthType, "null"));
+        Assert.True(depthProperty.TryGetProperty("minimum", out var depthMinimum));
+        Assert.Equal(0, depthMinimum.GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task GetAll_ReturnsOperationsOrderedByName ()
     {
         var provider = new TestOperationCatalogProvider(

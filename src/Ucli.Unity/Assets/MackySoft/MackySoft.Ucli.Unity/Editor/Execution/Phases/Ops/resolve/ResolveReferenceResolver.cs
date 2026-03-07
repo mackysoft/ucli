@@ -150,8 +150,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The normalized resolved reference. </returns>
         private static ResolvedReference CreateResolvedReference (UnityEngine.Object unityObject)
         {
-            var globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(unityObject);
-            return new ResolvedReference(globalObjectId.ToString());
+            return UnityObjectReferenceResolver.CreateResolvedReference(unityObject);
         }
     }
 }

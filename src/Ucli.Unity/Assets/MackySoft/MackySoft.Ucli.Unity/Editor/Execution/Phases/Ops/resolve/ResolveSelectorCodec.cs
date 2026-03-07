@@ -1,6 +1,5 @@
 using System;
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
@@ -242,7 +241,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!TryReadRequiredString(property, out value, out errorMessage))
+            if (!OperationArgumentValueReader.TryReadRequiredString(property, out value, out errorMessage))
             {
                 return false;
             }
@@ -278,41 +277,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return selectorCount;
-        }
-
-        /// <summary> Reads one required strict string property from selector arguments. </summary>
-        /// <param name="property"> The JSON property to parse. </param>
-        /// <param name="value"> The parsed string when successful. </param>
-        /// <param name="errorMessage"> The parse error message when failed. </param>
-        /// <returns> <see langword="true" /> when property is a valid strict string; otherwise <see langword="false" />. </returns>
-        private static bool TryReadRequiredString (
-            JsonProperty property,
-            out string? value,
-            out string errorMessage)
-        {
-            value = null;
-            if (property.Value.ValueKind != JsonValueKind.String)
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must be a string.";
-                return false;
-            }
-
-            var parsedValue = property.Value.GetString();
-            if (string.IsNullOrWhiteSpace(parsedValue))
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must not be empty or whitespace.";
-                return false;
-            }
-
-            if (StringValueValidator.HasOuterWhitespace(parsedValue))
-            {
-                errorMessage = $"Operation 'args.{property.Name}' must not contain leading or trailing whitespace.";
-                return false;
-            }
-
-            value = parsedValue;
-            errorMessage = string.Empty;
-            return true;
         }
     }
 }
