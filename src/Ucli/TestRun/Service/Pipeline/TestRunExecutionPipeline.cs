@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.TestRun.Artifacts;

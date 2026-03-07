@@ -11,6 +11,7 @@ using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Logs;
 using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Status;
 using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.TestRun.Artifacts;
@@ -50,6 +51,8 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
+        services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
+        services.AddSingleton<IProcessRunner, ProcessRunner>();
         services.AddSingleton<IOperationCatalogProvider, InMemoryOperationCatalogProvider>();
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
         services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
@@ -119,9 +122,7 @@ internal static class UcliServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<ITestProfileInitService, TestProfileInitService>();
-        services.AddSingleton<IProcessRunner, ProcessRunner>();
         services.AddSingleton<ITestRunMetaStore, TestRunMetaStore>();
         services.AddSingleton<ITestRunArtifactsService, TestRunArtifactsService>();
         services.AddSingleton<IUnityCommandBuilder, UnityCommandBuilder>();
@@ -150,6 +151,20 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IStatusExecutionContextResolver, StatusExecutionContextResolver>();
         services.AddSingleton<IStatusDaemonObservationService, StatusDaemonObservationService>();
         services.AddSingleton<IStatusService, StatusService>();
+        return services;
+    }
+
+    /// <summary> Registers <c>ops</c> command services. </summary>
+    /// <param name="services"> The target service collection. </param>
+    /// <returns> The updated service collection. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="services" /> is <see langword="null" />. </exception>
+    public static IServiceCollection AddUcliOpsServices (this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<IOpsCatalogLiveReader, OpsCatalogLiveReader>();
+        services.AddSingleton<IOpsCatalogStore, FileOpsCatalogStore>();
+        services.AddSingleton<IOpsService, OpsService>();
         return services;
     }
 }

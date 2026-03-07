@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Execution;
+namespace MackySoft.Ucli.Contracts.Execution;
 
 /// <summary> Defines the resolved execution target selected after mode decision. </summary>
 internal enum UnityExecutionTarget

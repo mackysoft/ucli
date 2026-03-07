@@ -60,4 +60,32 @@ public sealed class UcliCommandNamesTests
 
         Assert.True(result);
     }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(UcliCommandNames.ListSubcommand, UcliCommandNames.OpsList)]
+    [InlineData(UcliCommandNames.DescribeSubcommand, UcliCommandNames.OpsDescribe)]
+    [InlineData("foo", UcliCommandNames.Ops)]
+    [InlineData(null, UcliCommandNames.Ops)]
+    public void ResolveResultCommandName_WhenOpsCommandSpecified_ReturnsExpectedCommandName (
+        string? subcommand,
+        string expected)
+    {
+        var args = subcommand is null
+            ? [UcliCommandNames.Ops]
+            : new[] { UcliCommandNames.Ops, subcommand };
+
+        var commandName = UcliCommandNames.ResolveResultCommandName(args);
+
+        Assert.Equal(expected, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenOpsCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Ops);
+
+        Assert.True(result);
+    }
 }

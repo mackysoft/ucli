@@ -54,7 +54,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
             if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
                 && File.Exists(endpoint.Address))
             {
-                File.Delete(endpoint.Address);
+                FileUtilities.DeleteIfExists(endpoint.Address);
             }
 
             return DaemonSessionStoreOperationResult.Success();

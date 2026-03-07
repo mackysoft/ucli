@@ -210,7 +210,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
 
         try
         {
-            await sessionFileAccess.DeleteIfExists(sessionPath, cancellationToken).ConfigureAwait(false);
+            await sessionFileAccess.Delete(sessionPath, cancellationToken).ConfigureAwait(false);
             return DaemonSessionStoreOperationResult.Success();
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))

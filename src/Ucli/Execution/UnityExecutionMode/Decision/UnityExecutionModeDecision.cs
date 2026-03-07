@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Execution;
+
 namespace MackySoft.Ucli.Execution;
 
 /// <summary> Represents one resolved mode decision ready for command execution. </summary>

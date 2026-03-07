@@ -9,6 +9,26 @@ namespace MackySoft.Ucli.Index;
 /// <summary> Provides filesystem-backed access to index catalog contract files. </summary>
 internal sealed class FileIndexCatalogReader : IIndexCatalogReader
 {
+    /// <summary> Reads one <c>ops.catalog.json</c> contract. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to catalog-read result. </returns>
+    public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
+        string storageRoot,
+        string projectFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        return ReadContract(
+            storageRoot,
+            projectFingerprint,
+            UcliStoragePathResolver.ResolveOpsCatalogPath,
+            static json => IndexOpsCatalogJsonContractSerializer.Deserialize(json),
+            static contract => IndexCatalogContractValidator.IsValidOpsCatalog(contract),
+            "ops.catalog.json",
+            cancellationToken);
+    }
+
     /// <summary> Reads one <c>types.catalog.json</c> contract. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>

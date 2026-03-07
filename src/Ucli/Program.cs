@@ -2,6 +2,7 @@ using ConsoleAppFramework;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Composition;
 using MackySoft.Ucli.Execution;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli;
 
@@ -10,6 +11,25 @@ internal static class Program
     private const string InternalErrorMessage = "An unexpected internal error occurred.";
 
     private const string CanceledMessage = "Command execution was canceled.";
+
+    private static readonly string[] DaemonSubcommands =
+    [
+        UcliCommandNames.StartSubcommand,
+        UcliCommandNames.StopSubcommand,
+        UcliCommandNames.Status,
+    ];
+
+    private static readonly string[] LogsSubcommands =
+    [
+        UcliCommandNames.Daemon,
+        UcliCommandNames.UnitySubcommand,
+    ];
+
+    private static readonly string[] OpsSubcommands =
+    [
+        UcliCommandNames.ListSubcommand,
+        UcliCommandNames.DescribeSubcommand,
+    ];
 
     /// <summary> Executes the CLI command pipeline and emits JSON command results. </summary>
     /// <param name="args"> The command-line arguments passed to the process. </param>
@@ -34,13 +54,7 @@ internal static class Program
         }
 
         var app = ConsoleApp.Create()
-            .ConfigureServices(services =>
-            {
-                services.AddUcliCoreServices();
-                services.AddUcliDaemonServices();
-                services.AddUcliTestRunServices();
-                services.AddUcliStatusServices();
-            });
+            .ConfigureServices(ConfigureServices);
         app.UseFilter<OperationCatalogWarmupFilter>();
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
@@ -54,6 +68,11 @@ internal static class Program
 
         try
         {
+            if (await OpsCliDispatcher.TryDispatch(args, ConfigureServices).ConfigureAwait(false))
+            {
+                return Environment.ExitCode;
+            }
+
             await app.RunAsync(args);
         }
         catch (OperationCanceledException)
@@ -86,6 +105,15 @@ internal static class Program
         return Environment.ExitCode;
     }
 
+    private static void ConfigureServices (IServiceCollection services)
+    {
+        services.AddUcliCoreServices();
+        services.AddUcliDaemonServices();
+        services.AddUcliTestRunServices();
+        services.AddUcliOpsServices();
+        services.AddUcliStatusServices();
+    }
+
     /// <summary> Handles unknown command names before framework dispatch starts. </summary>
     /// <param name="args"> The command-line arguments passed to the process. </param>
     /// <returns>
@@ -109,13 +137,19 @@ internal static class Program
         }
 
         if (string.Equals(firstArgument, UcliCommandNames.Daemon, StringComparison.Ordinal)
-            && TryHandleInvalidDaemonSubcommand(args))
+            && TryHandleInvalidSubcommand(args, UcliCommandNames.Daemon, DaemonSubcommands))
         {
             return true;
         }
 
         if (string.Equals(firstArgument, UcliCommandNames.Logs, StringComparison.Ordinal)
-            && TryHandleInvalidLogsSubcommand(args))
+            && TryHandleInvalidSubcommand(args, UcliCommandNames.Logs, LogsSubcommands))
+        {
+            return true;
+        }
+
+        if (string.Equals(firstArgument, UcliCommandNames.Ops, StringComparison.Ordinal)
+            && TryHandleInvalidSubcommand(args, UcliCommandNames.Ops, OpsSubcommands))
         {
             return true;
         }
@@ -134,89 +168,32 @@ internal static class Program
         return true;
     }
 
-    /// <summary> Handles invalid <c>daemon</c> subcommand tokens before framework dispatch starts. </summary>
+    /// <summary> Handles invalid top-level subcommand tokens before framework dispatch starts. </summary>
     /// <param name="args"> The command-line arguments passed to the process. </param>
+    /// <param name="commandName"> The top-level command name. </param>
+    /// <param name="supportedSubcommands"> The supported subcommand token list. </param>
     /// <returns>
     /// <para> <see langword="true" /> when this method writes an error response and sets <see cref="Environment.ExitCode" />. </para>
     /// <para> Otherwise, <see langword="false" />. </para>
     /// </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
-    private static bool TryHandleInvalidDaemonSubcommand (string[] args)
+    /// <exception cref="ArgumentNullException"> Thrown when one argument is <see langword="null" />. </exception>
+    private static bool TryHandleInvalidSubcommand (
+        string[] args,
+        string commandName,
+        IReadOnlyList<string> supportedSubcommands)
     {
         ArgumentNullException.ThrowIfNull(args);
+        ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
+        ArgumentNullException.ThrowIfNull(supportedSubcommands);
 
-        if (args.Length == 1)
-        {
-            var missingSubcommandResult = CommandResult.InvalidArgument(
-                command: UcliCommandNames.Daemon,
-                message: "Subcommand is required for command 'daemon'. Supported subcommands: start, stop, status.");
-            CommandResultWriter.WriteToStandardOutput(missingSubcommandResult);
-            Environment.ExitCode = missingSubcommandResult.ExitCode;
-            return true;
-        }
-
-        var secondArgument = args[1];
-        if (CommandTokenClassifier.IsHelpOptionToken(secondArgument)
-            || CommandTokenClassifier.IsVersionOptionToken(secondArgument))
+        var result = SubcommandValidationHelper.TryCreateInvalidSubcommandResult(args, commandName, supportedSubcommands);
+        if (result == null)
         {
             return false;
         }
 
-        if (string.Equals(secondArgument, UcliCommandNames.StartSubcommand, StringComparison.Ordinal)
-            || string.Equals(secondArgument, UcliCommandNames.StopSubcommand, StringComparison.Ordinal)
-            || string.Equals(secondArgument, UcliCommandNames.Status, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var invalidSubcommandResult = CommandResult.InvalidArgument(
-            command: UcliCommandNames.Daemon,
-            message: $"Subcommand '{secondArgument}' is not recognized for command 'daemon'.");
-        CommandResultWriter.WriteToStandardOutput(invalidSubcommandResult);
-        Environment.ExitCode = invalidSubcommandResult.ExitCode;
+        CommandResultWriter.WriteToStandardOutput(result);
+        Environment.ExitCode = result.ExitCode;
         return true;
     }
-
-    /// <summary> Handles invalid <c>logs</c> subcommand tokens before framework dispatch starts. </summary>
-    /// <param name="args"> The command-line arguments passed to the process. </param>
-    /// <returns>
-    /// <para> <see langword="true" /> when this method writes an error response and sets <see cref="Environment.ExitCode" />. </para>
-    /// <para> Otherwise, <see langword="false" />. </para>
-    /// </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
-    private static bool TryHandleInvalidLogsSubcommand (string[] args)
-    {
-        ArgumentNullException.ThrowIfNull(args);
-
-        if (args.Length == 1)
-        {
-            var missingSubcommandResult = CommandResult.InvalidArgument(
-                command: UcliCommandNames.Logs,
-                message: "Subcommand is required for command 'logs'. Supported subcommands: daemon, unity.");
-            CommandResultWriter.WriteToStandardOutput(missingSubcommandResult);
-            Environment.ExitCode = missingSubcommandResult.ExitCode;
-            return true;
-        }
-
-        var secondArgument = args[1];
-        if (CommandTokenClassifier.IsHelpOptionToken(secondArgument)
-            || CommandTokenClassifier.IsVersionOptionToken(secondArgument))
-        {
-            return false;
-        }
-
-        if (string.Equals(secondArgument, UcliCommandNames.Daemon, StringComparison.Ordinal)
-            || string.Equals(secondArgument, UcliCommandNames.UnitySubcommand, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var invalidSubcommandResult = CommandResult.InvalidArgument(
-            command: UcliCommandNames.Logs,
-            message: $"Subcommand '{secondArgument}' is not recognized for command 'logs'.");
-        CommandResultWriter.WriteToStandardOutput(invalidSubcommandResult);
-        Environment.ExitCode = invalidSubcommandResult.ExitCode;
-        return true;
-    }
-
 }
