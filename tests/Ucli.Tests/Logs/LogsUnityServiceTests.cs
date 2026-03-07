@@ -69,6 +69,52 @@ public sealed class LogsUnityServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenTailIsProvidedForStream_ClearsTailAfterInitialRead ()
+    {
+        var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);
+        var resolver = new DaemonCommandServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var unityLogsClient = new StubUnityLogsClient(
+            [
+                UnityLogsClientReadResult.Success(CreatePayload(
+                    events:
+                    [
+                        CreateEvent("stream-1:100", "alpha"),
+                    ],
+                    nextCursor: "stream-1:101")),
+                UnityLogsClientReadResult.Success(CreatePayload(
+                    events: Array.Empty<IpcUnityLogEvent>(),
+                    nextCursor: "stream-1:101")),
+            ]);
+        var service = CreateService(resolver, unityLogsClient);
+
+        var result = await service.Execute(
+            new LogsUnityServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: 100,
+                After: null,
+                Since: null,
+                Until: null,
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Source: null,
+                StackTrace: null,
+                StackTraceMaxFrames: null,
+                StackTraceMaxChars: null,
+                Stream: true,
+                PollIntervalMilliseconds: 50,
+                IdleTimeoutMilliseconds: 1),
+            static (_, _, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        Assert.Equal(100, unityLogsClient.CapturedQueries[0].Tail);
+        Assert.Null(unityLogsClient.CapturedQueries[1].Tail);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenIdleTimeoutIsReached_StopsStreamLoop ()
     {
         var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 3000);

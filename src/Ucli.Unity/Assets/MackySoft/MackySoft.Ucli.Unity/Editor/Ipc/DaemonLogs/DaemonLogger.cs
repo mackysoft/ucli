@@ -58,8 +58,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             WriteAndEmit(IpcDaemonLogsLevelCodec.Error, category, message, exception.ToString());
-            Debug.LogError(FormatMessage(category, message));
-            Debug.LogException(exception);
+            Debug.LogError(FormatExceptionMessage(category, message, exception));
         }
 
         /// <summary> Writes one daemon log event to in-memory stream with normalized values. </summary>
@@ -104,6 +103,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message)
         {
             return string.Concat("[ucli][", category, "] ", message);
+        }
+
+        private static string FormatExceptionMessage (
+            string category,
+            string message,
+            Exception exception)
+        {
+            return string.Concat(FormatMessage(category, message), Environment.NewLine, exception);
         }
     }
 }

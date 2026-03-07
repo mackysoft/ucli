@@ -55,6 +55,7 @@ internal sealed class LogsUnityService : ILogsUnityService
             static readResult => readResult.Error,
             static (query, after) => query with
             {
+                Tail = null,
                 After = after,
             },
             static response => response.Events,
