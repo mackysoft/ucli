@@ -1,0 +1,14 @@
+{
+    "name": "MackySoft.Ucli.Unity.Tests.Runtime",
+    "rootNamespace": "MackySoft.Ucli.Unity.Tests",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

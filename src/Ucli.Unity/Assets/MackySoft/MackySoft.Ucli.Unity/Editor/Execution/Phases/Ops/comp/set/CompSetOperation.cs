@@ -14,10 +14,45 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class CompSetOperation : IUcliOperation
     {
+        private const string ArgsSchemaJson =
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false,
+              ""properties"": {
+                ""target"": {
+                  ""type"": ""object"",
+                  ""additionalProperties"": false,
+                  ""properties"": {
+                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 }
+                  },
+                  ""oneOf"": [
+                    { ""required"": [""var""] },
+                    { ""required"": [""globalObjectId""] }
+                  ]
+                },
+                ""sets"": {
+                  ""type"": ""array"",
+                  ""minItems"": 1,
+                  ""items"": {
+                    ""type"": ""object"",
+                    ""additionalProperties"": false,
+                    ""properties"": {
+                      ""path"": { ""type"": ""string"", ""minLength"": 1 },
+                      ""value"": {}
+                    },
+                    ""required"": [""path"", ""value""]
+                  }
+                }
+              },
+              ""required"": [""target"", ""sets""]
+            }";
+
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
             operationName: "ucli.comp.set",
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced);
+            policy: OperationPolicy.Advanced,
+            argsSchemaJson: ArgsSchemaJson);
 
         public Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
