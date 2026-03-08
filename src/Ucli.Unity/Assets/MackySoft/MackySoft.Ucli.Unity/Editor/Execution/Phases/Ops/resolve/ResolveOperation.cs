@@ -9,13 +9,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements selector resolution flow for the <c>ucli.resolve</c> operation. </summary>
     [UcliOperation]
-    internal sealed class ResolvePhaseOperation : IUcliOperation
+    internal sealed class ResolveOperation : IUcliOperation
     {
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.resolve",
-            kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
-            argsSchemaJson:
+        private const string ArgsSchemaJson =
             @"{
               ""type"": ""object"",
               ""additionalProperties"": false,
@@ -32,7 +28,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 { ""required"": [""assetPath""] },
                 { ""required"": [""scene"", ""hierarchyPath""] }
               ]
-            }");
+            }";
+
+        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            operationName: "ucli.resolve",
+            kind: UcliOperationKind.Query,
+            policy: OperationPolicy.Safe,
+            argsSchemaJson: ArgsSchemaJson);
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

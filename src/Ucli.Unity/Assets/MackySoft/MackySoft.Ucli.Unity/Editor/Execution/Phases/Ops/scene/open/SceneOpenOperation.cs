@@ -10,13 +10,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.open</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneOpenPhaseOperation : IUcliOperation
+    internal sealed class SceneOpenOperation : IUcliOperation
     {
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.scene.open",
-            kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
-            argsSchemaJson:
+        private const string ArgsSchemaJson =
             @"{
               ""type"": ""object"",
               ""additionalProperties"": false,
@@ -24,7 +20,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ""path"": { ""type"": ""string"", ""minLength"": 1 }
               },
               ""required"": [""path""]
-            }");
+            }";
+
+        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            operationName: "ucli.scene.open",
+            kind: UcliOperationKind.Query,
+            policy: OperationPolicy.Safe,
+            argsSchemaJson: ArgsSchemaJson);
 
         /// <summary> Executes validate phase for <c>ucli.scene.open</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

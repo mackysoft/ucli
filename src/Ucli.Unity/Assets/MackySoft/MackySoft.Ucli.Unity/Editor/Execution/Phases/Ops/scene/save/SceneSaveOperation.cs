@@ -11,13 +11,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.save</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneSavePhaseOperation : IUcliOperation
+    internal sealed class SceneSaveOperation : IUcliOperation
     {
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.scene.save",
-            kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
-            argsSchemaJson:
+        private const string ArgsSchemaJson =
             @"{
               ""type"": ""object"",
               ""additionalProperties"": false,
@@ -25,7 +21,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ""path"": { ""type"": ""string"", ""minLength"": 1 }
               },
               ""required"": [""path""]
-            }");
+            }";
+
+        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            operationName: "ucli.scene.save",
+            kind: UcliOperationKind.Mutation,
+            policy: OperationPolicy.Advanced,
+            argsSchemaJson: ArgsSchemaJson);
 
         /// <summary> Executes validate phase for <c>ucli.scene.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

@@ -13,13 +13,13 @@ using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
-    public sealed class ResolvePhaseOperationTests
+    public sealed class ResolveOperationTests
     {
         [Test]
         [Category("Size.Small")]
         public void Validate_WhenArgsContainMultipleSelectors_ReturnsInvalidArgument ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 args: new
@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Validate_WhenGlobalObjectIdIsMalformed_ReturnsInvalidArgument ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var requestOperation = CreateOperation(
                 opId: "op-1",
                 args: new
@@ -75,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Plan_WhenArgsContainGlobalObjectId_StoresResolvedReferenceToAliasStore ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var assetPath = CreateTemporaryAssetPath();
             var asset = ScriptableObject.CreateInstance<ResolveTestAsset>();
             try
@@ -114,8 +114,8 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Plan_WhenArgsContainAssetGuid_ResolvesMainAsset ()
         {
-            var operation = new ResolvePhaseOperation();
-            var assetPath = $"Assets/ResolvePhaseOperationTests_{Guid.NewGuid():N}.asset";
+            var operation = new ResolveOperation();
+            var assetPath = $"Assets/ResolveOperationTests_{Guid.NewGuid():N}.asset";
             var asset = ScriptableObject.CreateInstance<ResolveTestAsset>();
             try
             {
@@ -154,8 +154,8 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Plan_WhenArgsContainAssetPath_ResolvesMainAsset ()
         {
-            var operation = new ResolvePhaseOperation();
-            var assetPath = $"Assets/ResolvePhaseOperationTests_{Guid.NewGuid():N}.asset";
+            var operation = new ResolveOperation();
+            var assetPath = $"Assets/ResolveOperationTests_{Guid.NewGuid():N}.asset";
             var asset = ScriptableObject.CreateInstance<ResolveTestAsset>();
             try
             {
@@ -193,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Plan_WhenArgsContainSceneHierarchyPath_ResolvesGameObjectInLoadedScene ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
             var fallbackScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             try
@@ -238,7 +238,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Plan_WhenSceneIsNotLoaded_ReturnsInvalidArgument ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -270,7 +270,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Plan_WhenHierarchyPathResolvesNoObject_ReturnsInvalidArgument ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -300,7 +300,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Plan_WhenHierarchyPathResolvesMultipleObjects_ReturnsInvalidArgument ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -334,7 +334,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Call_WhenResolutionSucceeds_ReturnsAppliedTrueAndChangedFalse ()
         {
-            var operation = new ResolvePhaseOperation();
+            var operation = new ResolveOperation();
             var assetPath = CreateTemporaryAssetPath();
             var asset = ScriptableObject.CreateInstance<ResolveTestAsset>();
             try
@@ -369,12 +369,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static string CreateTemporaryScenePath ()
         {
-            return $"Assets/ResolvePhaseOperationTests_{Guid.NewGuid():N}.unity";
+            return $"Assets/ResolveOperationTests_{Guid.NewGuid():N}.unity";
         }
 
         private static string CreateTemporaryAssetPath ()
         {
-            return $"Assets/ResolvePhaseOperationTests_{Guid.NewGuid():N}.asset";
+            return $"Assets/ResolveOperationTests_{Guid.NewGuid():N}.asset";
         }
 
         private static NormalizedOperation CreateOperation (

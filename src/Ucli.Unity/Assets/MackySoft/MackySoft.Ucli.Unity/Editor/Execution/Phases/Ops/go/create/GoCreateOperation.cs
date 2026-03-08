@@ -11,13 +11,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoCreatePhaseOperation : IUcliOperation
+    internal sealed class GoCreateOperation : IUcliOperation
     {
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.go.create",
-            kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
-            argsSchemaJson:
+        private const string ArgsSchemaJson =
             @"{
               ""type"": ""object"",
               ""additionalProperties"": false,
@@ -45,7 +41,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 { ""required"": [""scene""] },
                 { ""required"": [""parent""] }
               ]
-            }");
+            }";
+
+        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            operationName: "ucli.go.create",
+            kind: UcliOperationKind.Mutation,
+            policy: OperationPolicy.Advanced,
+            argsSchemaJson: ArgsSchemaJson);
 
         /// <summary> Executes validate phase for <c>ucli.go.create</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

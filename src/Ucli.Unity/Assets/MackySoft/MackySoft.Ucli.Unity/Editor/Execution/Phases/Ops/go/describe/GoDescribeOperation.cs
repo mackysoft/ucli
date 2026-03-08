@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -11,13 +12,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.describe</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoDescribePhaseOperation : IUcliOperation
+    internal sealed class GoDescribeOperation : IUcliOperation
     {
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.go.describe",
-            kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
-            argsSchemaJson:
+        private const string ArgsSchemaJson =
             @"{
               ""type"": ""object"",
               ""additionalProperties"": false,
@@ -43,7 +40,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
               },
               ""required"": [""target""]
-            }");
+            }";
+
+        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+            operationName: "ucli.go.describe",
+            kind: UcliOperationKind.Query,
+            policy: OperationPolicy.Safe,
+            argsSchemaJson: ArgsSchemaJson);
 
         /// <summary> Executes validate phase for <c>ucli.go.describe</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -107,14 +110,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            _ = GameObjectDescriptionBuilder.Build(target, depth);
+            var description = GameObjectDescriptionBuilder.Build(target, depth);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
                 touched: new[]
                 {
                     SceneOperationUtilities.CreateSceneTouch(scene.path),
-                }));
+                },
+                result: IpcPayloadCodec.SerializeToElement(description)));
         }
 
         /// <summary> Validates arguments and resolves the target loaded-scene GameObject. </summary>

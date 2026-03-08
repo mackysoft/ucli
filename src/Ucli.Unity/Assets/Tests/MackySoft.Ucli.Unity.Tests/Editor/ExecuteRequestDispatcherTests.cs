@@ -57,6 +57,45 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenOperationTraceContainsResult_MapsResultToPayload () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var operationTrace = new OperationPhaseTrace(
+                "op-1",
+                "ucli.go.describe",
+                OperationPhase.Plan,
+                false,
+                false,
+                System.Array.Empty<OperationTouch>(),
+                null)
+            {
+                Result = JsonSerializer.SerializeToElement(new
+                {
+                    name = "Root",
+                }),
+            };
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: new[]
+                {
+                    operationTrace,
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan, operationName: "ucli.go.describe");
+
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
+            Assert.That(opResult.TryGetProperty("result", out var result), Is.True);
+            Assert.That(result.GetProperty("name").GetString(), Is.EqualTo("Root"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenSameRequestIdAndSamePayload_ReusesCompletedResponse () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest();

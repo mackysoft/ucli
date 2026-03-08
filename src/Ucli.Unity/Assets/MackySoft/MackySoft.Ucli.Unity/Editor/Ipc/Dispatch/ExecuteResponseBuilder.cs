@@ -116,7 +116,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     Phase: ToOperationPhaseName(operationTrace.Phase),
                     Applied: operationTrace.Applied,
                     Changed: operationTrace.Changed,
-                    Touched: touchedResources);
+                    Touched: touchedResources)
+                {
+                    Result = operationTrace.Result,
+                };
             }
 
             return new IpcExecuteResponse(opResults)

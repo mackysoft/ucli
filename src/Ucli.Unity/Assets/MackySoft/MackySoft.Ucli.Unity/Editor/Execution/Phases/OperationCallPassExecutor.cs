@@ -70,7 +70,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             Applied: replayedPlanStepResult.Applied,
                             Changed: replayedPlanStepResult.Changed,
                             Touched: replayTouchedSnapshot,
-                            Failure: replayedPlanStepResult.Failure));
+                            Failure: replayedPlanStepResult.Failure)
+                        {
+                            Result = replayedPlanStepResult.Result,
+                        });
                         errors.Add(replayedPlanStepResult.Failure!);
                         hasFailed = true;
                         continue;
@@ -95,7 +98,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Applied: callStepResult.Applied,
                         Changed: callStepResult.Changed,
                         Touched: touchedSnapshot,
-                        Failure: callStepResult.Failure));
+                        Failure: callStepResult.Failure)
+                    {
+                        Result = callStepResult.Result,
+                    });
                     errors.Add(callStepResult.Failure!);
                     hasFailed = true;
                     continue;
@@ -108,7 +114,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Applied: callStepResult.Applied,
                     Changed: callStepResult.Changed,
                     Touched: touchedSnapshot,
-                    Failure: null));
+                    Failure: null)
+                {
+                    Result = callStepResult.Result,
+                });
             }
 
             return new CallPassResult(

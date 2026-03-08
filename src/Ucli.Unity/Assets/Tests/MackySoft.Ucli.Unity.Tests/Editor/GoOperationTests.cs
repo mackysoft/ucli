@@ -13,13 +13,13 @@ using UnityEngine.SceneManagement;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
-    public sealed class GoPhaseOperationTests
+    public sealed class GoOperationTests
     {
         [Test]
         [Category("Size.Small")]
         public void Create_Call_WhenScenePathIsValid_CreatesRootGameObjectAndStoresAlias ()
         {
-            var operation = new GoCreatePhaseOperation();
+            var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -57,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_Call_WhenParentUsesAlias_CreatesChildUnderParent ()
         {
-            var operation = new GoCreatePhaseOperation();
+            var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -98,7 +98,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_Call_WhenParentUsesSelector_CreatesChildUnderParent ()
         {
-            var operation = new GoCreatePhaseOperation();
+            var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -135,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_Plan_WhenAliasIsSpecified_DoesNotStoreAlias ()
         {
-            var operation = new GoCreatePhaseOperation();
+            var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -168,7 +168,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_Validate_WhenSceneAndParentAreBothSpecified_ReturnsInvalidArgument ()
         {
-            var operation = new GoCreatePhaseOperation();
+            var operation = new GoCreateOperation();
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: "ucli.go.create",
@@ -191,7 +191,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_Validate_WhenSceneAndParentAreBothMissing_ReturnsInvalidArgument ()
         {
-            var operation = new GoCreatePhaseOperation();
+            var operation = new GoCreateOperation();
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: "ucli.go.create",
@@ -209,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Create_Validate_WhenParentResolvesAsset_ReturnsInvalidArgument ()
         {
-            var operation = new GoCreatePhaseOperation();
+            var operation = new GoCreateOperation();
             var assetPath = CreateTemporaryAssetPath();
             var asset = ScriptableObject.CreateInstance<IndexCatalogTestAsset>();
             try
@@ -247,7 +247,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Describe_Plan_WhenTargetUsesAlias_ReturnsSuccess ()
         {
-            var operation = new GoDescribePhaseOperation();
+            var operation = new GoDescribeOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -284,7 +284,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Describe_Plan_WhenTargetUsesSelector_ReturnsSuccess ()
         {
-            var operation = new GoDescribePhaseOperation();
+            var operation = new GoDescribeOperation();
             var scenePath = CreateTemporaryScenePath();
             try
             {
@@ -308,6 +308,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
 
                 AssertSuccess(result, applied: false, changed: false);
+                Assert.That(result.Result.HasValue, Is.True);
+                Assert.That(result.Result!.Value.GetProperty("name").GetString(), Is.EqualTo("Child"));
+                Assert.That(result.Result.Value.GetProperty("children").GetArrayLength(), Is.EqualTo(0));
             }
             finally
             {
@@ -320,7 +323,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Describe_Validate_WhenDepthIsNegative_ReturnsInvalidArgument ()
         {
-            var operation = new GoDescribePhaseOperation();
+            var operation = new GoDescribeOperation();
             var requestOperation = CreateOperation(
                 opId: "op-describe",
                 opName: "ucli.go.describe",
@@ -342,7 +345,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Describe_Validate_WhenTargetResolvesAsset_ReturnsInvalidArgument ()
         {
-            var operation = new GoDescribePhaseOperation();
+            var operation = new GoDescribeOperation();
             var assetPath = CreateTemporaryAssetPath();
             var asset = ScriptableObject.CreateInstance<IndexCatalogTestAsset>();
             try
@@ -409,12 +412,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static string CreateTemporaryScenePath ()
         {
-            return $"Assets/GoPhaseOperationTests_{Guid.NewGuid():N}.unity";
+            return $"Assets/GoOperationTests_{Guid.NewGuid():N}.unity";
         }
 
         private static string CreateTemporaryAssetPath ()
         {
-            return $"Assets/GoPhaseOperationTests_{Guid.NewGuid():N}.asset";
+            return $"Assets/GoOperationTests_{Guid.NewGuid():N}.asset";
         }
 
         private static NormalizedOperation CreateOperation (

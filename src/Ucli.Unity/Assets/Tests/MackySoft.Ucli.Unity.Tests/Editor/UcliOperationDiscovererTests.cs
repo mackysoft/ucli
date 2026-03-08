@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -61,12 +63,32 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Discover_WhenBuiltInOperationsAreRead_ReturnsConcreteArgsSchemas ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var resolveMetadata = FindMetadata(operations, "ucli.resolve");
+            using var resolveSchemaDocument = JsonDocument.Parse(resolveMetadata.ArgsSchemaJson);
+            Assert.That(
+                resolveSchemaDocument.RootElement.GetProperty("properties").TryGetProperty("globalObjectId", out _),
+                Is.True);
+            Assert.That(resolveSchemaDocument.RootElement.GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
+
+            var compSetMetadata = FindMetadata(operations, "ucli.comp.set");
+            using var compSetSchemaDocument = JsonDocument.Parse(compSetMetadata.ArgsSchemaJson);
+            var compSetProperties = compSetSchemaDocument.RootElement.GetProperty("properties");
+            Assert.That(compSetProperties.TryGetProperty("target", out _), Is.True);
+            Assert.That(compSetProperties.GetProperty("sets").GetProperty("minItems").GetInt32(), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Discover_WhenUcliDefinedAssembliesAreExcluded_ReturnsNoBuiltInOperations ()
         {
             var operations = UcliOperationDiscoverer.Discover(
                 new Assembly[]
                 {
-                    typeof(ResolvePhaseOperation).Assembly,
+                    typeof(ResolveOperation).Assembly,
                 },
                 includeUcliDefinedAssemblies: false,
                 includeUserDefinedAssemblies: true);
@@ -125,6 +147,22 @@ namespace MackySoft.Ucli.Unity.Tests
         [UcliOperation]
         private sealed class InvalidAttributedType
         {
+        }
+
+        private static UcliOperationMetadata FindMetadata (
+            IReadOnlyList<UcliOperationRegistration> operations,
+            string operationName)
+        {
+            for (var i = 0; i < operations.Count; i++)
+            {
+                if (operations[i].Metadata.OperationName == operationName)
+                {
+                    return operations[i].Metadata;
+                }
+            }
+
+            Assert.Fail($"Operation metadata was not discovered: {operationName}");
+            return null!;
         }
     }
 }
