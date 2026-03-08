@@ -10,6 +10,37 @@ public sealed class FileIndexCatalogReaderTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ReadOpsCatalog_ReturnsContract_WhenCatalogExists ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-success");
+        var reader = new FileIndexCatalogReader();
+        const string fingerprint = "fingerprint";
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                new IndexOpEntryJsonContract(
+                    Name: "ucli.go.describe",
+                    Kind: "query",
+                    Policy: "safe",
+                    ArgsSchemaJson: """{"type":"object"}"""),
+            ]);
+        WriteText(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint), IndexOpsCatalogJsonContractSerializer.Serialize(contract));
+
+        var result = await reader.ReadOpsCatalog(scope.FullPath, fingerprint, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(1, result.Value.SchemaVersion);
+        Assert.NotNull(result.Value.Entries);
+        Assert.Single(result.Value.Entries);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ReadTypesCatalog_ReturnsContract_WhenCatalogExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "types-success");

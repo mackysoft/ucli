@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Execution;
@@ -31,12 +32,16 @@ internal static class UnityExecutionModeDecisionResultFactory
     /// <summary> Creates a decision result from requested mode and daemon running state. </summary>
     /// <param name="requestedMode"> The parsed requested mode. </param>
     /// <param name="daemonRunning"> Whether daemon is reachable. </param>
+    /// <param name="timeout"> The resolved timeout applied to probing and request execution. </param>
     /// <returns> The resolved mode decision result. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="requestedMode" /> is outside supported values. </exception>
     public static UnityExecutionModeDecisionResult FromRequestedMode (
         UnityExecutionMode requestedMode,
-        bool daemonRunning)
+        bool daemonRunning,
+        TimeSpan timeout)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
         var contractError = ResolveContractError(requestedMode, daemonRunning);
         if (contractError is not null)
         {
@@ -44,7 +49,7 @@ internal static class UnityExecutionModeDecisionResultFactory
         }
 
         var target = ResolveTarget(requestedMode, daemonRunning);
-        var decision = new UnityExecutionModeDecision(requestedMode, daemonRunning, target);
+        var decision = new UnityExecutionModeDecision(requestedMode, daemonRunning, target, timeout);
         return UnityExecutionModeDecisionResult.Success(decision);
     }
 

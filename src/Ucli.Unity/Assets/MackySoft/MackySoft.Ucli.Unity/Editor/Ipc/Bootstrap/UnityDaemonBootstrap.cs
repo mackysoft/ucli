@@ -2,11 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Phases;
-using MackySoft.Ucli.Unity.Execution.Requests;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -15,21 +12,27 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         /// <summary> Starts Unity daemon mode after batchmode initialization is ready. </summary>
         /// <returns> A task that completes after daemon mode exits or bootstrap failure requests process exit. </returns>
-        internal static Task Start ()
+        internal static Task Start (IpcDaemonBootstrapArguments bootstrapArguments)
         {
+            if (bootstrapArguments == null)
+            {
+                throw new ArgumentNullException(nameof(bootstrapArguments));
+            }
+
             var daemonLogStream = new DaemonLogRingBuffer();
             var daemonLogger = new DaemonLogger(daemonLogStream);
 
-            return RunSafely(daemonLogStream, daemonLogger);
+            return RunSafely(bootstrapArguments, daemonLogStream, daemonLogger);
         }
 
         private static async Task RunSafely (
+            IpcDaemonBootstrapArguments bootstrapArguments,
             IDaemonLogStream daemonLogStream,
             IDaemonLogger daemonLogger)
         {
             try
             {
-                await Run(daemonLogStream, daemonLogger);
+                await Run(bootstrapArguments, daemonLogStream, daemonLogger);
             }
             catch (Exception exception)
             {
@@ -44,9 +47,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Starts IPC server and blocks until shutdown request is received. </summary>
         /// <returns> A task that completes after process-exit request has been issued. </returns>
         private static async Task Run (
+            IpcDaemonBootstrapArguments bootstrapArguments,
             IDaemonLogStream daemonLogStream,
             IDaemonLogger daemonLogger)
         {
+            if (bootstrapArguments == null)
+            {
+                throw new ArgumentNullException(nameof(bootstrapArguments));
+            }
+
             if (daemonLogStream == null)
             {
                 throw new ArgumentNullException(nameof(daemonLogStream));
@@ -55,19 +64,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (daemonLogger == null)
             {
                 throw new ArgumentNullException(nameof(daemonLogger));
-            }
-
-            if (!IpcDaemonBootstrapArgumentsCodec.TryParse(
-                    Environment.GetCommandLineArgs(),
-                    out var bootstrapArguments,
-                    out var parseError))
-            {
-                daemonLogger.Error(
-                    DaemonLogCategories.Lifecycle,
-                    "Daemon bootstrap arguments parse failed.",
-                    parseError.Message);
-                EditorApplication.Exit(1);
-                return;
             }
 
             if (!IpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
@@ -80,53 +76,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var services = new ServiceCollection();
-            services.AddSingleton(bootstrapArguments);
-            services.AddSingleton<IDaemonLogStream>(daemonLogStream);
-            services.AddSingleton<IDaemonLogger>(daemonLogger);
-            services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
-            services.AddSingleton<UnityCompileMessageDedupeCache>();
-            services.AddSingleton<UnityLogCollector>();
-            services.AddSingleton<UnityLogCaptureService>();
-            services.AddSingleton<IUnityMainThreadRequestExecutor>(
-                new UnitySynchronizationContextRequestExecutor());
-            services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
-            services.AddSingleton<ISessionTokenValidator>(new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath));
-            services.AddSingleton<IExecuteRequestDispatcher>(static _ => CreateExecuteRequestDispatcher());
-            services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();
-            services.AddSingleton<IUnityTestRunRequestContextFactory, UnityTestRunRequestContextFactory>();
-            services.AddSingleton<IUnityTestRunner, UnityTestRunner>();
-            services.AddSingleton<IUnityTestResultsXmlWriter, UnityTestResultsXmlWriter>();
-            services.AddSingleton<IUnityTestRunService, UnityTestRunService>();
-            services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
-            services.AddSingleton<IDaemonLogsReadRequestValidator, DaemonLogsReadRequestValidator>();
-            services.AddSingleton<IDaemonLogsReadQueryEngine, DaemonLogsReadQueryEngine>();
-            services.AddSingleton<DaemonLogsReadResponseFactory>();
-            services.AddSingleton<UnityLogsReadRequestValidator>();
-            services.AddSingleton<UnityLogsReadQueryEngine>();
-            services.AddSingleton<UnityLogsReadResponseFactory>();
-            services.AddSingleton<IUnityIpcMethodHandler, PingUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
-            services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
-            services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
-            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
-            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
-            services.AddSingleton<IUnityIpcServer>(serviceProvider =>
-            {
-                return new UnityIpcServer(
-                    serviceProvider.GetRequiredService<IUnityIpcRequestHandler>(),
-                    serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
-                    new IUnityIpcTransportListener[]
-                    {
-                        serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
-                        serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
-                    },
-                    serviceProvider.GetRequiredService<IDaemonLogger>());
-            });
+            services
+                .AddUnityIpcApplicationServices(
+                    new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath),
+                    daemonLogger)
+                .AddUnityIpcDaemonHostServices(
+                    bootstrapArguments,
+                    daemonLogStream);
 
             using var serviceProvider = services.BuildServiceProvider();
             var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
@@ -161,17 +117,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DaemonLogCategories.Lifecycle,
                 "IPC server stop completed. Exiting Unity batchmode process.");
             EditorApplication.Exit(0);
-        }
-
-        /// <summary> Creates execute-request dispatcher used by Unity daemon mode. </summary>
-        /// <returns> The execute-request dispatcher instance. </returns>
-        private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher ()
-        {
-            var normalizer = new ExecuteRequestNormalizer();
-            var discoveredOperations = UcliOperationDiscoverer.Discover();
-            var operationRegistry = new InMemoryPhaseOperationRegistry(discoveredOperations);
-            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
         }
     }
 }

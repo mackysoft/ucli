@@ -190,6 +190,27 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ResolveOpsCatalogPath_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveOpsCatalogPath(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.CatalogsDirectoryName,
+                UcliStoragePathNames.OpsCatalogFileName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ResolveIndexInputsManifestPath_ReturnsFingerprintScopedPath ()
     {
         var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");

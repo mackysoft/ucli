@@ -25,7 +25,7 @@ internal interface IDaemonSessionFileAccess
     /// <param name="sessionPath"> The session JSON file path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when deletion operation finishes. </returns>
-    ValueTask DeleteIfExists (
+    ValueTask Delete (
         string sessionPath,
         CancellationToken cancellationToken = default);
 }

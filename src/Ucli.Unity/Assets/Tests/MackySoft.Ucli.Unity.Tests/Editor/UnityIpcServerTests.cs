@@ -622,11 +622,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     new ShutdownUnityIpcMethodHandler(),
                 });
             var requestHandler = new UnityIpcRequestHandler(sessionTokenValidator, methodDispatcher);
-            var connectionHandler = new UnityIpcConnectionHandler(
+            var requestProcessor = new UnityIpcRequestProcessor(
                 requestHandler,
-                shutdownSignal,
                 new InlineMainThreadRequestExecutor());
-            return new UnityIpcServer(requestHandler, connectionHandler, transportListeners);
+            var connectionHandler = new UnityIpcConnectionHandler(
+                requestProcessor,
+                shutdownSignal);
+            return new UnityIpcServer(requestProcessor, connectionHandler, transportListeners);
         }
 
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal

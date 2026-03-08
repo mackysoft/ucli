@@ -14,6 +14,8 @@ internal static class UcliContractConstants
 
         public const string Mode = "--mode";
 
+        public const string ReadIndexMode = "--readIndexMode";
+
         public const string Unknown = "--unknown";
     }
 

@@ -33,6 +33,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the read-index schemas catalog file name. </summary>
     public const string SchemasCatalogFileName = "schemas.catalog.json";
 
+    /// <summary> Gets the read-index ops catalog file name. </summary>
+    public const string OpsCatalogFileName = "ops.catalog.json";
+
     /// <summary> Gets the read-index inputs manifest file name. </summary>
     public const string IndexInputsManifestFileName = "manifest.json";
 

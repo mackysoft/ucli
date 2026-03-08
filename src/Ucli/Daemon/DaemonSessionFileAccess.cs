@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Foundation;
+
 namespace MackySoft.Ucli.Daemon;
 
 /// <summary> Implements filesystem operations for daemon session persistence files. </summary>
@@ -51,10 +53,7 @@ internal sealed class DaemonSessionFileAccess : IDaemonSessionFileAccess
         }
         finally
         {
-            if (File.Exists(temporaryPath))
-            {
-                File.Delete(temporaryPath);
-            }
+            FileUtilities.DeleteIfExists(temporaryPath);
         }
     }
 
@@ -62,16 +61,13 @@ internal sealed class DaemonSessionFileAccess : IDaemonSessionFileAccess
     /// <param name="sessionPath"> The session JSON file path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when deletion operation finishes. </returns>
-    public ValueTask DeleteIfExists (
+    public ValueTask Delete (
         string sessionPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (File.Exists(sessionPath))
-        {
-            File.Delete(sessionPath);
-        }
+        FileUtilities.DeleteIfExists(sessionPath);
 
         return ValueTask.CompletedTask;
     }

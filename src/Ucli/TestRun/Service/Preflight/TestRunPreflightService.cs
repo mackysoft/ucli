@@ -59,22 +59,10 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(configLoadResult.Error!));
         }
 
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
-            configuration.TimeoutMilliseconds?.ToString(CultureInfo.InvariantCulture),
-            UcliCommandIds.Test,
-            configLoadResult.Config!);
-        if (!timeoutResolutionResult.IsSuccess)
-        {
-            return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapExecutionError(timeoutResolutionResult.Error!));
-        }
-
-        var timeout = timeoutResolutionResult.Timeout!.Value;
-        var timeoutOption = checked(((int)timeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
         var modeDecisionResult = await modeDecisionService.Decide(
             command: UcliCommandIds.Test,
             mode: configuration.Mode,
-            timeout: timeoutOption,
+            timeout: configuration.TimeoutMilliseconds?.ToString(CultureInfo.InvariantCulture),
             config: configLoadResult.Config!,
             unityProject: configuration.UnityProject,
             cancellationToken).ConfigureAwait(false);
@@ -94,7 +82,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         var context = new TestRunExecutionContext(
             Configuration: configuration,
             Target: modeDecisionResult.Decision!.Target,
-            Timeout: timeout);
+            Timeout: modeDecisionResult.Decision.Timeout);
         return TestRunPreflightResult.Success(context);
     }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -13,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly Queue<MainThreadInvocation> pendingInvocations = new Queue<MainThreadInvocation>();
 
-        private readonly SynchronizationContext mainThreadSynchronizationContext;
+        private readonly SynchronizationContext? mainThreadSynchronizationContext;
 
         private readonly int mainThreadId;
 
@@ -23,10 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Initializes a new instance of the <see cref="UnitySynchronizationContextRequestExecutor" /> class. </summary>
         public UnitySynchronizationContextRequestExecutor ()
-            : this(
-                SynchronizationContext.Current
-                ?? throw new InvalidOperationException("Unity main-thread SynchronizationContext is not available."),
-                Thread.CurrentThread.ManagedThreadId)
+            : this(SynchronizationContext.Current, Thread.CurrentThread.ManagedThreadId)
         {
         }
 
@@ -34,11 +32,19 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="mainThreadSynchronizationContext"> The captured Unity main-thread synchronization context. </param>
         /// <param name="mainThreadId"> The Unity main-thread identifier. </param>
         internal UnitySynchronizationContextRequestExecutor (
-            SynchronizationContext mainThreadSynchronizationContext,
+            SynchronizationContext? mainThreadSynchronizationContext,
             int mainThreadId)
         {
-            this.mainThreadSynchronizationContext = mainThreadSynchronizationContext ?? throw new ArgumentNullException(nameof(mainThreadSynchronizationContext));
+            this.mainThreadSynchronizationContext = mainThreadSynchronizationContext;
             this.mainThreadId = mainThreadId;
+
+            if (this.mainThreadSynchronizationContext == null)
+            {
+                // NOTE:
+                // Unity batchmode does not guarantee SynchronizationContext.Current during InitializeOnLoad.
+                // Keep one update-loop pump attached so background IPC work can still hop onto the main thread.
+                EditorApplication.update += ProcessQueueOnEditorUpdate;
+            }
         }
 
         /// <summary> Executes one request-handling delegate on Unity main thread. </summary>
@@ -93,6 +99,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return;
                 }
 
+                if (mainThreadSynchronizationContext == null)
+                {
+                    return;
+                }
+
                 mainThreadSynchronizationContext.Post(static state =>
                 {
                     var executor = (UnitySynchronizationContextRequestExecutor)state!;
@@ -103,6 +114,17 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 FailPendingInvocations(exception);
             }
+        }
+
+        /// <summary> Processes queued invocations during the Unity editor update loop when SynchronizationContext is unavailable. </summary>
+        private void ProcessQueueOnEditorUpdate ()
+        {
+            if (mainThreadSynchronizationContext != null)
+            {
+                return;
+            }
+
+            ProcessQueueOnMainThread();
         }
 
         /// <summary> Processes queued main-thread invocations via Unity synchronization context. </summary>

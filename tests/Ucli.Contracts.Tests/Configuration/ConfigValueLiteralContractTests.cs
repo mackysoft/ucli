@@ -21,4 +21,12 @@ public sealed class ConfigValueLiteralContractTests
         Assert.Equal("allowStale", ReadIndexModeValues.AllowStale);
         Assert.Equal("requireFresh", ReadIndexModeValues.RequireFresh);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UcliOperationKindValues_HasStableStringValues ()
+    {
+        Assert.Equal("mutation", UcliOperationKindValues.Mutation);
+        Assert.Equal("query", UcliOperationKindValues.Query);
+    }
 }

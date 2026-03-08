@@ -18,16 +18,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Handle_WhenMalformedFrameAndErrorResponseWriteFails_DoesNotThrow () => UniTask.ToCoroutine(async () =>
         {
-            var requestHandler = new StubRequestHandler();
+            var requestProcessor = new StubRequestProcessor();
             var handler = new UnityIpcConnectionHandler(
-                requestHandler,
-                new StubDaemonShutdownSignal(),
-                new InlineMainThreadRequestExecutor());
+                requestProcessor,
+                new StubDaemonShutdownSignal());
             using var stream = new ThrowOnReadAndWriteStream();
 
             await handler.Handle(stream, CancellationToken.None);
 
-            Assert.That(requestHandler.CallCount, Is.EqualTo(0));
+            Assert.That(requestProcessor.CallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
@@ -35,11 +34,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenShutdownResponseWritten_SignalsShutdownAfterWrite () => UniTask.ToCoroutine(async () =>
         {
             var shutdownSignal = new StubDaemonShutdownSignal();
-            var requestHandler = new StubRequestHandler();
+            var requestProcessor = new StubRequestProcessor();
             var handler = new UnityIpcConnectionHandler(
-                requestHandler,
-                shutdownSignal,
-                new InlineMainThreadRequestExecutor());
+                requestProcessor,
+                shutdownSignal);
             var request = new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "req-shutdown",
@@ -60,11 +58,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(shutdownSignal.SignalCount, Is.EqualTo(1));
         });
 
-        private sealed class StubRequestHandler : IUnityIpcRequestHandler
+        private sealed class StubRequestProcessor : IUnityIpcRequestProcessor
         {
             public int CallCount { get; private set; }
 
-            public Task<IpcResponse> Handle (
+            public Task<IpcResponse> Process (
                 IpcRequest request,
                 CancellationToken cancellationToken = default)
             {
@@ -91,22 +89,6 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.CompletedTask;
-            }
-        }
-
-        private sealed class InlineMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
-        {
-            public Task<IpcResponse> Execute (
-                Func<Task<IpcResponse>> requestHandler,
-                CancellationToken cancellationToken = default)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (requestHandler == null)
-                {
-                    throw new ArgumentNullException(nameof(requestHandler));
-                }
-
-                return requestHandler();
             }
         }
 

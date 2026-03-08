@@ -30,11 +30,20 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for logs. </summary>
     public const string Logs = "logs";
 
+    /// <summary> Gets the top-level command name for ops. </summary>
+    public const string Ops = "ops";
+
     /// <summary> Gets the command name for <c>logs daemon</c> result payloads. </summary>
     public const string LogsDaemon = "logs.daemon";
 
     /// <summary> Gets the command name for <c>logs unity</c> result payloads. </summary>
     public const string LogsUnity = "logs.unity";
+
+    /// <summary> Gets the command name for <c>ops list</c> result payloads. </summary>
+    public const string OpsList = "ops.list";
+
+    /// <summary> Gets the command name for <c>ops describe</c> result payloads. </summary>
+    public const string OpsDescribe = "ops.describe";
 
     /// <summary> Gets the top-level command name for test. </summary>
     public const string Test = "test";
@@ -54,6 +63,12 @@ internal static class UcliCommandNames
     /// <summary> Gets the nested command name for init. </summary>
     public const string InitSubcommand = "init";
 
+    /// <summary> Gets the nested command name for <c>ops list</c>. </summary>
+    public const string ListSubcommand = "list";
+
+    /// <summary> Gets the nested command name for <c>ops describe</c>. </summary>
+    public const string DescribeSubcommand = "describe";
+
     /// <summary> Gets the nested command name for daemon start. </summary>
     public const string StartSubcommand = "start";
 
@@ -69,6 +84,7 @@ internal static class UcliCommandNames
         Status,
         Daemon,
         Logs,
+        Ops,
         Test,
     };
 
@@ -158,6 +174,23 @@ internal static class UcliCommandNames
             }
 
             return Logs;
+        }
+
+        if (string.Equals(firstArgument, Ops, StringComparison.Ordinal))
+        {
+            if (args.Length >= 2
+                && string.Equals(args[1], ListSubcommand, StringComparison.Ordinal))
+            {
+                return OpsList;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], DescribeSubcommand, StringComparison.Ordinal))
+            {
+                return OpsDescribe;
+            }
+
+            return Ops;
         }
 
         return IsRegistered(firstArgument) ? firstArgument : Root;

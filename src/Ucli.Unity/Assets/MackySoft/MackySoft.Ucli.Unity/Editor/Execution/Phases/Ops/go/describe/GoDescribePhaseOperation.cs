@@ -16,7 +16,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
             operationName: "ucli.go.describe",
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe);
+            policy: OperationPolicy.Safe,
+            argsSchemaJson:
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false,
+              ""properties"": {
+                ""target"": {
+                  ""type"": ""object"",
+                  ""additionalProperties"": false,
+                  ""properties"": {
+                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
+                  },
+                  ""oneOf"": [
+                    { ""required"": [""var""] },
+                    { ""required"": [""globalObjectId""] },
+                    { ""required"": [""scene"", ""hierarchyPath""] }
+                  ]
+                },
+                ""depth"": {
+                  ""type"": [""integer"", ""null""],
+                  ""minimum"": 0
+                }
+              },
+              ""required"": [""target""]
+            }");
 
         /// <summary> Executes validate phase for <c>ucli.go.describe</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

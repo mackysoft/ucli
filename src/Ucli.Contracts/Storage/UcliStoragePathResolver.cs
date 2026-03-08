@@ -172,6 +172,20 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.SchemasCatalogFileName);
     }
 
+    /// <summary> Resolves the absolute path to one read-index ops catalog file. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index ops catalog file path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveOpsCatalogPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexCatalogsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.OpsCatalogFileName);
+    }
+
     /// <summary> Resolves the absolute path to one read-index inputs manifest file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>

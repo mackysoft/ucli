@@ -107,4 +107,46 @@ public sealed class ConfigModeCodecContractTests
     {
         Assert.False(ReadIndexModeCodec.TryParse(null, out _));
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UcliOperationKind_HasStableEnumValues ()
+    {
+        Assert.Equal(0, (int)UcliOperationKind.Query);
+        Assert.Equal(1, (int)UcliOperationKind.Mutation);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UcliOperationKindCodec_ToValue_ReturnsStableLiterals ()
+    {
+        Assert.Equal(UcliOperationKindValues.Mutation, UcliOperationKindCodec.ToValue(UcliOperationKind.Mutation));
+        Assert.Equal(UcliOperationKindValues.Query, UcliOperationKindCodec.ToValue(UcliOperationKind.Query));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("mutation", UcliOperationKind.Mutation)]
+    [InlineData("MUTATION", UcliOperationKind.Mutation)]
+    [InlineData("query", UcliOperationKind.Query)]
+    public void UcliOperationKindCodec_TryParse_ParsesCaseInsensitiveLiterals (
+        string value,
+        UcliOperationKind expected)
+    {
+        var result = UcliOperationKindCodec.TryParse(value, out var parsed);
+
+        Assert.True(result);
+        Assert.Equal(expected, parsed);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("unsupported")]
+    public void UcliOperationKindCodec_TryParse_UnknownValue_ReturnsFalse (
+        string value)
+    {
+        Assert.False(UcliOperationKindCodec.TryParse(value, out _));
+    }
 }

@@ -16,7 +16,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
             operationName: "ucli.scene.save",
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced);
+            policy: OperationPolicy.Advanced,
+            argsSchemaJson:
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false,
+              ""properties"": {
+                ""path"": { ""type"": ""string"", ""minLength"": 1 }
+              },
+              ""required"": [""path""]
+            }");
 
         /// <summary> Executes validate phase for <c>ucli.scene.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
@@ -123,10 +124,41 @@ public sealed class IpcContractSerializationTests
     {
         Assert.Equal("ping", IpcMethodNames.Ping);
         Assert.Equal("execute", IpcMethodNames.Execute);
+        Assert.Equal("ops.read", IpcMethodNames.OpsRead);
         Assert.Equal("test.run", IpcMethodNames.TestRun);
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
         Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcOpsReadContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcOpsReadRequest();
+        var responsePayload = new IpcOpsReadResponse(
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+            Operations:
+            [
+                new IndexOpEntryJsonContract(
+                    Name: "ucli.go.describe",
+                    Kind: "query",
+                    Policy: "safe",
+                    ArgsSchemaJson: """{"type":"object"}"""),
+            ]);
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        Assert.Equal(JsonValueKind.Object, requestDocument.RootElement.ValueKind);
+        JsonAssert.For(responseDocument.RootElement)
+            .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
+            .HasArrayLength("operations", 1)
+            .HasProperty("operations", 0, operation => operation
+                .HasString("name", "ucli.go.describe")
+                .HasString("kind", "query")
+                .HasString("policy", "safe")
+                .HasString("argsSchemaJson", """{"type":"object"}"""));
     }
 
     [Fact]

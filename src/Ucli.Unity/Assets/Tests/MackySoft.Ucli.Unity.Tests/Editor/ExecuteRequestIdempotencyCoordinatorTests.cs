@@ -144,6 +144,58 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public async Task Execute_WhenWaiterCancellationRequestedDuringInFlight_ThrowsWithoutCancelingOwner ()
+        {
+            var coordinator = new ExecuteRequestIdempotencyCoordinator();
+            var requestId = "req-1";
+            var ownerExecutionCount = 0;
+            var waiterExecutionCount = 0;
+            var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var ownerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var ownerTask = coordinator.Execute(
+                requestId: requestId,
+                requestFingerprint: "fingerprint-1",
+                executeRequest: async _ =>
+                {
+                    Interlocked.Increment(ref ownerExecutionCount);
+                    ownerStarted.TrySetResult(true);
+                    await ownerRelease.Task.ConfigureAwait(false);
+                    return CreateSuccessResponse(requestId, "owner");
+                },
+                createConflictResponse: () => CreateConflictResponse(requestId));
+
+            await ownerStarted.Task.ConfigureAwait(false);
+
+            using var waiterCancellationTokenSource = new CancellationTokenSource();
+            var waiterTask = coordinator.Execute(
+                requestId: requestId,
+                requestFingerprint: "fingerprint-1",
+                executeRequest: _ =>
+                {
+                    Interlocked.Increment(ref waiterExecutionCount);
+                    return Task.FromResult(CreateSuccessResponse(requestId, "waiter"));
+                },
+                createConflictResponse: () => CreateConflictResponse(requestId),
+                cancellationToken: waiterCancellationTokenSource.Token);
+
+            Assert.That(waiterTask.IsCompleted, Is.False);
+
+            waiterCancellationTokenSource.Cancel();
+
+            Assert.CatchAsync<OperationCanceledException>(async () => await waiterTask.ConfigureAwait(false));
+            Assert.That(ownerTask.IsCompleted, Is.False);
+
+            ownerRelease.TrySetResult(true);
+
+            var ownerResponse = await ownerTask.ConfigureAwait(false);
+            Assert.That(ownerExecutionCount, Is.EqualTo(1));
+            Assert.That(waiterExecutionCount, Is.EqualTo(0));
+            Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();

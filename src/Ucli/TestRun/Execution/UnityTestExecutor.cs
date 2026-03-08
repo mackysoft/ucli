@@ -40,7 +40,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var arguments = unityCommandBuilder.BuildArguments(configuration, artifactPaths);
-        var timeoutSeconds = ConvertTimeoutMillisecondsToProcessTimeoutSeconds(timeout);
+        var timeoutSeconds = ProcessTimeoutConverter.ConvertToSeconds(timeout);
 
         ProcessRunResult processRunResult;
         try
@@ -107,19 +107,5 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         }
 
         return UnityTestExecutionResult.Success(processRunResult.ExitCode!.Value);
-    }
-
-    /// <summary> Converts one millisecond timeout to process timeout seconds with ceil and minimum one second. </summary>
-    /// <param name="timeout"> The timeout to convert. </param>
-    /// <returns> The converted timeout in seconds. </returns>
-    private static int ConvertTimeoutMillisecondsToProcessTimeoutSeconds (TimeSpan timeout)
-    {
-        var timeoutSeconds = (int)Math.Ceiling(timeout.TotalSeconds);
-        if (timeoutSeconds < 1)
-        {
-            return 1;
-        }
-
-        return timeoutSeconds;
     }
 }
