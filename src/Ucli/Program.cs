@@ -55,7 +55,6 @@ internal static class Program
 
         var app = ConsoleApp.Create()
             .ConfigureServices(ConfigureServices);
-        app.UseFilter<OperationCatalogWarmupFilter>();
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
         app.Add<DaemonStartCommand>("daemon");

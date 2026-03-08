@@ -58,7 +58,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IUnityIpcRequestExecutor, UnityIpcRequestExecutor>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<IProcessRunner, ProcessRunner>();
-        services.AddSingleton<IOperationCatalogProvider, InMemoryOperationCatalogProvider>();
+        services.AddSingleton<IOperationCatalogProvider, OperationCatalogProvider>();
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
         services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
         services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
