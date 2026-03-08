@@ -1,7 +1,9 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents one Unity oneshot bootstrap argument payload. </summary>
-/// <param name="OutputPath"> The output file path that receives one serialized ops snapshot. </param>
+/// <param name="RequestPath"> The serialized IPC request file path. </param>
+/// <param name="ResponsePath"> The serialized IPC response file path. </param>
 public sealed record IpcOneshotBootstrapArguments (
-    string OutputPath)
+    string RequestPath,
+    string ResponsePath)
     : IpcBatchmodeBootstrapArguments;

@@ -62,7 +62,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         var args = new[]
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.OutputPath,
+            IpcOneshotBootstrapArgumentNames.RequestPath, "/tmp/request.json",
+            IpcOneshotBootstrapArgumentNames.ResponsePath,
             IpcBatchmodeBootstrapArgumentNames.Target,
         };
 
@@ -102,7 +103,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         var args = new[]
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.OutputPath, "-tmp-output.json",
+            IpcOneshotBootstrapArgumentNames.RequestPath, "-tmp-request.json",
+            IpcOneshotBootstrapArgumentNames.ResponsePath, "-tmp-response.json",
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out var bootstrapArguments, out var error);
@@ -110,7 +112,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.True(parsed);
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var oneshotArguments = Assert.IsType<IpcOneshotBootstrapArguments>(bootstrapArguments);
-        Assert.Equal("-tmp-output.json", oneshotArguments.OutputPath);
+        Assert.Equal("-tmp-request.json", oneshotArguments.RequestPath);
+        Assert.Equal("-tmp-response.json", oneshotArguments.ResponsePath);
     }
 
     [Fact]
@@ -140,7 +143,9 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     [Trait("Size", "Small")]
     public void AppendTokens_ThenTryParse_RoundTripsOneshotValues ()
     {
-        IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments("/tmp/ucli-ops.json");
+        IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments(
+            "/tmp/ucli-request.json",
+            "/tmp/ucli-response.json");
         List<string> tokens =
         [
             "-batchmode",
@@ -161,7 +166,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         var args = new[]
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.OutputPath, " ",
+            IpcOneshotBootstrapArgumentNames.RequestPath, " ",
+            IpcOneshotBootstrapArgumentNames.ResponsePath, "/tmp/response.json",
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);

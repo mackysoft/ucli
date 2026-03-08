@@ -2,11 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Phases;
-using MackySoft.Ucli.Unity.Execution.Requests;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -79,56 +76,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var services = new ServiceCollection();
-            services.AddSingleton(static _ => UcliOperationCatalogSnapshotBuilder.Build());
-            services.AddSingleton(bootstrapArguments);
-            services.AddSingleton<IDaemonLogStream>(daemonLogStream);
-            services.AddSingleton<IDaemonLogger>(daemonLogger);
-            services.AddSingleton<IUnityLogStream, UnityLogRingBuffer>();
-            services.AddSingleton<UnityCompileMessageDedupeCache>();
-            services.AddSingleton<UnityLogCollector>();
-            services.AddSingleton<UnityLogCaptureService>();
-            services.AddSingleton<IUnityMainThreadRequestExecutor>(
-                new UnitySynchronizationContextRequestExecutor());
-            services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
-            services.AddSingleton<ISessionTokenValidator>(new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath));
-            services.AddSingleton<IExecuteRequestDispatcher>(serviceProvider => CreateExecuteRequestDispatcher(
-                serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>()));
-            services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();
-            services.AddSingleton<IUnityTestRunRequestContextFactory, UnityTestRunRequestContextFactory>();
-            services.AddSingleton<IUnityTestRunner, UnityTestRunner>();
-            services.AddSingleton<IUnityTestResultsXmlWriter, UnityTestResultsXmlWriter>();
-            services.AddSingleton<IUnityTestRunService, UnityTestRunService>();
-            services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
-            services.AddSingleton<IDaemonLogsReadRequestValidator, DaemonLogsReadRequestValidator>();
-            services.AddSingleton<IDaemonLogsReadQueryEngine, DaemonLogsReadQueryEngine>();
-            services.AddSingleton<DaemonLogsReadResponseFactory>();
-            services.AddSingleton<UnityLogsReadRequestValidator>();
-            services.AddSingleton<UnityLogsReadQueryEngine>();
-            services.AddSingleton<UnityLogsReadResponseFactory>();
-            services.AddSingleton<IUnityIpcMethodHandler, PingUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
-            services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
-            services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
-            services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
-            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
-            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
-            services.AddSingleton<IUnityIpcServer>(serviceProvider =>
-            {
-                return new UnityIpcServer(
-                    serviceProvider.GetRequiredService<IUnityIpcRequestHandler>(),
-                    serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
-                    new IUnityIpcTransportListener[]
-                    {
-                        serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
-                        serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
-                    },
-                    serviceProvider.GetRequiredService<IDaemonLogger>());
-            });
+            services
+                .AddUnityIpcApplicationServices(
+                    new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath),
+                    daemonLogger)
+                .AddUnityIpcDaemonHostServices(
+                    bootstrapArguments,
+                    daemonLogStream);
 
             using var serviceProvider = services.BuildServiceProvider();
             var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
@@ -163,16 +117,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DaemonLogCategories.Lifecycle,
                 "IPC server stop completed. Exiting Unity batchmode process.");
             EditorApplication.Exit(0);
-        }
-
-        /// <summary> Creates execute-request dispatcher used by Unity daemon mode. </summary>
-        /// <returns> The execute-request dispatcher instance. </returns>
-        private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher (UcliOperationCatalogSnapshot snapshot)
-        {
-            var normalizer = new ExecuteRequestNormalizer();
-            var operationRegistry = new InMemoryPhaseOperationRegistry(snapshot.Registrations);
-            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
         }
     }
 }

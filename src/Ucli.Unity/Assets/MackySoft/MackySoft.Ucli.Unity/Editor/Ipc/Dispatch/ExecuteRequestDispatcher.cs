@@ -88,46 +88,18 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestFingerprint = ExecuteRequestFingerprintCalculator.Create(request);
-            var idempotencyDecision = requestIdempotencyCoordinator.Acquire(context.RequestId, requestFingerprint);
-            switch (idempotencyDecision.Kind)
-            {
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ReplayCompleted:
-                    return idempotencyDecision.Response!;
-
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.Conflict:
-                    return ExecuteResponseBuilder.CreateErrorResponse(
+            return await requestIdempotencyCoordinator.Execute(
+                    context.RequestId,
+                    requestFingerprint,
+                    _ => DispatchCore(request, context, cancellationToken),
+                    () => ExecuteResponseBuilder.CreateErrorResponse(
                         context,
                         IpcErrorCodes.RequestIdConflict,
                         "Request id conflict. The same requestId was already used for a different request content.",
                         null,
-                        SerializerOptions);
-
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.WaitInFlight:
-                    return await WaitForSharedResponse(idempotencyDecision.SharedResponseTask!, cancellationToken).ConfigureAwait(false);
-
-                case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner:
-                    break;
-
-                default:
-                    throw new InvalidOperationException($"Unknown idempotency decision kind: {idempotencyDecision.Kind}.");
-            }
-
-            try
-            {
-                var response = await DispatchCore(request, context, cancellationToken).ConfigureAwait(false);
-                requestIdempotencyCoordinator.CompleteSuccess(context.RequestId, requestFingerprint, response);
-                return response;
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                requestIdempotencyCoordinator.CompleteCanceled(context.RequestId);
-                throw;
-            }
-            catch (Exception exception)
-            {
-                requestIdempotencyCoordinator.CompleteFailed(context.RequestId, exception);
-                throw;
-            }
+                        SerializerOptions),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary> Executes one dispatch flow without idempotency coordination. </summary>
@@ -183,34 +155,5 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Waits for one owner execution result while preserving caller-local cancellation. </summary>
-        /// <param name="sharedResponseTask"> The owner execution task shared by callers. </param>
-        /// <param name="cancellationToken"> The caller cancellation token. </param>
-        /// <returns> The owner execution response. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="sharedResponseTask" /> is <see langword="null" />. </exception>
-        /// <exception cref="System.OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before owner completion. </exception>
-        private static async Task<IpcResponse> WaitForSharedResponse (
-            Task<IpcResponse> sharedResponseTask,
-            CancellationToken cancellationToken)
-        {
-            if (sharedResponseTask == null)
-            {
-                throw new ArgumentNullException(nameof(sharedResponseTask));
-            }
-
-            if (!cancellationToken.CanBeCanceled)
-            {
-                return await sharedResponseTask.ConfigureAwait(false);
-            }
-
-            var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
-            var completedTask = await Task.WhenAny(sharedResponseTask, cancellationTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completedTask, sharedResponseTask))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            return await sharedResponseTask.ConfigureAwait(false);
-        }
     }
 }

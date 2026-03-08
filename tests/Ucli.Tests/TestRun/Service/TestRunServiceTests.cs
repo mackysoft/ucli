@@ -35,7 +35,7 @@ public sealed class TestRunServiceTests
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
@@ -63,7 +63,7 @@ public sealed class TestRunServiceTests
                     ExecutionError.InvalidArgument("testPlatform must be editmode or playmode."),
                 ])),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubArtifactsService(
                 prepare: _ => throw new InvalidOperationException(),
                 complete: (_, _) => throw new InvalidOperationException()),
@@ -123,7 +123,7 @@ public sealed class TestRunServiceTests
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon))),
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, true, UnityExecutionTarget.Daemon, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(CreateArtifactsSession(configuration)),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
@@ -149,7 +149,7 @@ public sealed class TestRunServiceTests
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
@@ -177,7 +177,7 @@ public sealed class TestRunServiceTests
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
@@ -205,7 +205,7 @@ public sealed class TestRunServiceTests
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),
@@ -232,7 +232,7 @@ public sealed class TestRunServiceTests
         var service = CreateService(
             configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot))),
+                new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
                 complete: (_, _) => ArtifactsCompletionResult.Success()),

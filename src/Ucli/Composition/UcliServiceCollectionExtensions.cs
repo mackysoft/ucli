@@ -12,6 +12,9 @@ using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Logs;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.Ops;
+using MackySoft.Ucli.Ops.Access;
+using MackySoft.Ucli.Ops.Mapping;
+using MackySoft.Ucli.Ops.Preflight;
 using MackySoft.Ucli.Status;
 using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.TestRun.Artifacts;
@@ -51,6 +54,8 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
+        services.AddSingleton<IUnityOneshotIpcClient, UnityOneshotIpcClient>();
+        services.AddSingleton<IUnityIpcRequestExecutor, UnityIpcRequestExecutor>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<IProcessRunner, ProcessRunner>();
         services.AddSingleton<IOperationCatalogProvider, InMemoryOperationCatalogProvider>();
@@ -162,8 +167,13 @@ internal static class UcliServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IOpsCatalogLiveReader, OpsCatalogLiveReader>();
+        services.AddSingleton<IOpsCatalogReader, OpsCatalogReader>();
         services.AddSingleton<IOpsCatalogStore, FileOpsCatalogStore>();
+        services.AddSingleton<IOpsPreflightService, OpsPreflightService>();
+        services.AddSingleton<IOpsCatalogAccessService, OpsCatalogAccessService>();
+        services.AddSingleton<OpsReadIndexInfoMapper>();
+        services.AddSingleton<IOpsListResultMapper, OpsListResultMapper>();
+        services.AddSingleton<IOpsDescribeResultMapper, OpsDescribeResultMapper>();
         services.AddSingleton<IOpsService, OpsService>();
         return services;
     }

@@ -11,7 +11,8 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         IpcDaemonBootstrapArgumentNames.SessionPath,
         IpcDaemonBootstrapArgumentNames.EndpointTransportKind,
         IpcDaemonBootstrapArgumentNames.EndpointAddress,
-        IpcOneshotBootstrapArgumentNames.OutputPath,
+        IpcOneshotBootstrapArgumentNames.RequestPath,
+        IpcOneshotBootstrapArgumentNames.ResponsePath,
     };
 
     /// <summary> Appends batchmode bootstrap argument token pairs to destination list. </summary>
@@ -52,8 +53,10 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             case IpcOneshotBootstrapArguments oneshotArguments:
                 destination.Add(IpcBatchmodeBootstrapArgumentNames.Target);
                 destination.Add(IpcBatchmodeBootstrapTargetValues.Oneshot);
-                destination.Add(IpcOneshotBootstrapArgumentNames.OutputPath);
-                destination.Add(oneshotArguments.OutputPath);
+                destination.Add(IpcOneshotBootstrapArgumentNames.RequestPath);
+                destination.Add(oneshotArguments.RequestPath);
+                destination.Add(IpcOneshotBootstrapArgumentNames.ResponsePath);
+                destination.Add(oneshotArguments.ResponsePath);
                 return;
 
             default:
@@ -146,19 +149,21 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         arguments = default!;
-        if (!TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.OutputPath, out var outputPath))
+        if (!TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.RequestPath, out var requestPath)
+            || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ResponsePath, out var responsePath))
         {
             error = MissingRequiredArguments("uCLI oneshot bootstrap arguments are missing.");
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(outputPath))
+        if (string.IsNullOrWhiteSpace(requestPath)
+            || string.IsNullOrWhiteSpace(responsePath))
         {
             error = EmptyRequiredValue("uCLI oneshot bootstrap arguments must not be empty.");
             return false;
         }
 
-        arguments = new IpcOneshotBootstrapArguments(outputPath);
+        arguments = new IpcOneshotBootstrapArguments(requestPath, responsePath);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
     }

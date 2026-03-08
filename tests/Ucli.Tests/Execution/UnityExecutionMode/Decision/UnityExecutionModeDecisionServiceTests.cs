@@ -30,6 +30,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Equal(UnityExecutionMode.Daemon, decision.RequestedMode);
         Assert.True(decision.DaemonRunning);
         Assert.Equal(UnityExecutionTarget.Daemon, decision.Target);
+        Assert.Equal(TimeSpan.FromMilliseconds(IpcTimeoutDefaults.GlobalTimeoutMilliseconds), decision.Timeout);
     }
 
     [Fact]
@@ -66,6 +67,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Equal(UnityExecutionMode.Auto, decision.RequestedMode);
         Assert.True(decision.DaemonRunning);
         Assert.Equal(UnityExecutionTarget.Daemon, decision.Target);
+        Assert.Equal(TimeSpan.FromMilliseconds(IpcTimeoutDefaults.GlobalTimeoutMilliseconds), decision.Timeout);
     }
 
     [Fact]
@@ -83,6 +85,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Equal(UnityExecutionMode.Auto, decision.RequestedMode);
         Assert.False(decision.DaemonRunning);
         Assert.Equal(UnityExecutionTarget.Oneshot, decision.Target);
+        Assert.Equal(TimeSpan.FromMilliseconds(IpcTimeoutDefaults.GlobalTimeoutMilliseconds), decision.Timeout);
     }
 
     [Fact]
@@ -119,6 +122,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Equal(UnityExecutionMode.Oneshot, decision.RequestedMode);
         Assert.False(decision.DaemonRunning);
         Assert.Equal(UnityExecutionTarget.Oneshot, decision.Target);
+        Assert.Equal(TimeSpan.FromMilliseconds(IpcTimeoutDefaults.GlobalTimeoutMilliseconds), decision.Timeout);
     }
 
     [Theory]
@@ -193,6 +197,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(4500), probe.LastTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(4500), result.Decision!.Timeout);
     }
 
     [Fact]
@@ -207,6 +212,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3200), probe.LastTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(3200), result.Decision!.Timeout);
     }
 
     [Fact]
@@ -226,6 +232,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(7300), probe.LastTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(7300), result.Decision!.Timeout);
     }
 
     [Fact]
@@ -245,6 +252,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3200), probe.LastTimeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(3200), result.Decision!.Timeout);
     }
 
     [Theory]

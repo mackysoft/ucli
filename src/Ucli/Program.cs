@@ -63,16 +63,13 @@ internal static class Program
         app.Add<DaemonStatusCommand>("daemon");
         app.Add<LogsDaemonCommand>("logs");
         app.Add<LogsUnityCommand>("logs");
+        app.Add<OpsListCommand>("ops");
+        app.Add<OpsDescribeCommand>("ops");
         app.Add<TestRunCommand>("test");
         app.Add<TestProfileInitCommand>("test profile");
 
         try
         {
-            if (await OpsCliDispatcher.TryDispatch(args, ConfigureServices).ConfigureAwait(false))
-            {
-                return Environment.ExitCode;
-            }
-
             await app.RunAsync(args);
         }
         catch (OperationCanceledException)

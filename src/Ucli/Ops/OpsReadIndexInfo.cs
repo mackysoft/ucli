@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Ops;
 /// <param name="Source"> The selected result source (<c>index</c> or <c>unity</c>). </param>
 /// <param name="Freshness"> The selected result freshness (<c>fresh</c>, <c>probable</c>, or <c>stale</c>). </param>
 /// <param name="GeneratedAtUtc"> The selected snapshot generation timestamp. </param>
-/// <param name="FallbackReason"> The fallback reason when Unity live read was selected. </param>
+/// <param name="FallbackReason"> The fallback reason when the source read path was selected. </param>
 internal sealed record OpsReadIndexInfo (
     bool Used,
     bool Hit,

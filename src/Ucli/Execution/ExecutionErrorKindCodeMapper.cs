@@ -1,7 +1,8 @@
+using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Foundation;
 
-namespace MackySoft.Ucli.Cli;
+namespace MackySoft.Ucli.Execution;
 
 /// <summary> Maps <see cref="ExecutionErrorKind" /> values to command-facing machine-readable error codes. </summary>
 internal static class ExecutionErrorKindCodeMapper

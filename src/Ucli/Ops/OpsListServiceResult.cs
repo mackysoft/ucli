@@ -1,15 +1,13 @@
 namespace MackySoft.Ucli.Ops;
 
-/// <summary> Represents one normalized <c>ops</c> service result. </summary>
-/// <typeparam name="T"> The successful output type. </typeparam>
+/// <summary> Represents one normalized <c>ops list</c> service result. </summary>
 /// <param name="Output"> The successful output; otherwise <see langword="null" />. </param>
 /// <param name="Message"> The user-facing result message. </param>
 /// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
-internal sealed record OpsServiceResult<T> (
-    T? Output,
+internal sealed record OpsListServiceResult (
+    OpsListExecutionOutput? Output,
     string Message,
     string? ErrorCode)
-    where T : class
 {
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -18,22 +16,22 @@ internal sealed record OpsServiceResult<T> (
     /// <param name="output"> The successful output. </param>
     /// <param name="message"> The success message. </param>
     /// <returns> The successful result. </returns>
-    public static OpsServiceResult<T> Success (
-        T output,
+    public static OpsListServiceResult Success (
+        OpsListExecutionOutput output,
         string message)
     {
         ArgumentNullException.ThrowIfNull(output);
-        return new OpsServiceResult<T>(output, message, null);
+        return new OpsListServiceResult(output, message, null);
     }
 
     /// <summary> Creates a failed service result. </summary>
     /// <param name="message"> The failure message. </param>
     /// <param name="errorCode"> The machine-readable failure code. </param>
     /// <returns> The failed result. </returns>
-    public static OpsServiceResult<T> Failure (
+    public static OpsListServiceResult Failure (
         string message,
         string errorCode)
     {
-        return new OpsServiceResult<T>(null, message, errorCode);
+        return new OpsListServiceResult(null, message, errorCode);
     }
 }

@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static readonly TimeSpan WaitForTerminationRaceGracePeriod = TimeSpan.FromMilliseconds(10);
 
         private readonly object syncRoot = new object();
-        private readonly IUnityIpcRequestHandler requestHandler;
+        private readonly IUnityIpcRequestProcessor requestProcessor;
         private readonly IUnityIpcConnectionHandler connectionHandler;
         private readonly IReadOnlyList<IUnityIpcTransportListener> transportListeners;
         private readonly IDaemonLogger daemonLogger;
@@ -24,17 +24,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         private bool isRunning;
 
         /// <summary> Initializes a new instance of the <see cref="UnityIpcServer" /> class. </summary>
-        /// <param name="requestHandler"> The request-handler dependency. </param>
+        /// <param name="requestProcessor"> The shared request-processor dependency. </param>
         /// <param name="connectionHandler"> The connection-handler dependency. </param>
         /// <param name="transportListeners"> The transport-listener dependencies. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
         public UnityIpcServer (
-            IUnityIpcRequestHandler requestHandler,
+            IUnityIpcRequestProcessor requestProcessor,
             IUnityIpcConnectionHandler connectionHandler,
             IReadOnlyList<IUnityIpcTransportListener> transportListeners,
             IDaemonLogger daemonLogger = null)
         {
-            this.requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
+            this.requestProcessor = requestProcessor ?? throw new ArgumentNullException(nameof(requestProcessor));
             this.connectionHandler = connectionHandler ?? throw new ArgumentNullException(nameof(connectionHandler));
             this.transportListeners = transportListeners ?? throw new ArgumentNullException(nameof(transportListeners));
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
@@ -223,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             CancellationToken cancellationToken = default)
         {
-            return requestHandler.Handle(request, cancellationToken);
+            return requestProcessor.Process(request, cancellationToken);
         }
 
         /// <summary> Runs endpoint-specific listener loop. </summary>

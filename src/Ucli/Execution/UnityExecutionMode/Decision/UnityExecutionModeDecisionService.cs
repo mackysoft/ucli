@@ -56,9 +56,11 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
             return UnityExecutionModeDecisionResultFactory.ProbeFailure(timeoutResolutionResult.Error!);
         }
 
+        var timeoutValue = timeoutResolutionResult.Timeout!.Value;
+
         var reachabilityResult = await daemonReachabilityProbe.Probe(
                 unityProject,
-                timeoutResolutionResult.Timeout!.Value,
+                timeoutValue,
                 cancellationToken)
             .ConfigureAwait(false);
         if (reachabilityResult.HasError)
@@ -68,6 +70,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
 
         return UnityExecutionModeDecisionResultFactory.FromRequestedMode(
             requestedMode,
-            reachabilityResult.IsRunning);
+            reachabilityResult.IsRunning,
+            timeoutValue);
     }
 }

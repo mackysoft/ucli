@@ -9,64 +9,64 @@ internal static class OpsCommandResultFactory
     /// <summary> Creates one command result for <c>ops list</c>. </summary>
     /// <param name="serviceResult"> The service result. </param>
     /// <returns> The command result serialized to stdout. </returns>
-    public static CommandResult CreateList (OpsServiceResult<OpsListExecutionOutput> serviceResult)
+    public static CommandResult CreateList (OpsListServiceResult serviceResult)
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
-        return Create(
-            UcliCommandNames.OpsList,
-            serviceResult,
-            static output => new
-            {
-                operations = output.Operations,
-                readIndex = output.ReadIndex,
-            });
+
+        if (serviceResult.IsSuccess)
+        {
+            return CommandResult.Success(
+                command: UcliCommandNames.OpsList,
+                message: serviceResult.Message,
+                payload: new
+                {
+                    operations = serviceResult.Output!.Operations,
+                    readIndex = serviceResult.Output.ReadIndex,
+                });
+        }
+
+        return CreateFailure(UcliCommandNames.OpsList, serviceResult.Message, serviceResult.ErrorCode);
     }
 
     /// <summary> Creates one command result for <c>ops describe</c>. </summary>
     /// <param name="serviceResult"> The service result. </param>
     /// <returns> The command result serialized to stdout. </returns>
-    public static CommandResult CreateDescribe (OpsServiceResult<OpsDescribeExecutionOutput> serviceResult)
+    public static CommandResult CreateDescribe (OpsDescribeServiceResult serviceResult)
     {
         ArgumentNullException.ThrowIfNull(serviceResult);
-        return Create(
-            UcliCommandNames.OpsDescribe,
-            serviceResult,
-            static output => new
-            {
-                operation = output.Operation,
-                readIndex = output.ReadIndex,
-            });
-    }
-
-    private static CommandResult Create<T> (
-        string command,
-        OpsServiceResult<T> serviceResult,
-        Func<T, object> payloadFactory)
-        where T : class
-    {
-        ArgumentNullException.ThrowIfNull(serviceResult);
-        ArgumentNullException.ThrowIfNull(payloadFactory);
 
         if (serviceResult.IsSuccess)
         {
             return CommandResult.Success(
-                command: command,
+                command: UcliCommandNames.OpsDescribe,
                 message: serviceResult.Message,
-                payload: payloadFactory(serviceResult.Output!));
+                payload: new
+                {
+                    operation = serviceResult.Output!.Operation,
+                    readIndex = serviceResult.Output.ReadIndex,
+                });
         }
 
+        return CreateFailure(UcliCommandNames.OpsDescribe, serviceResult.Message, serviceResult.ErrorCode);
+    }
+
+    private static CommandResult CreateFailure (
+        string command,
+        string message,
+        string? errorCode)
+    {
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: command,
             Status: IpcProtocol.StatusError,
-            ExitCode: (int)ResolveExitCode(serviceResult.ErrorCode),
-            Message: serviceResult.Message,
+            ExitCode: (int)ResolveExitCode(errorCode),
+            Message: message,
             Payload: new { },
             Errors:
             [
                 new CommandError(
-                    ResolveErrorCode(serviceResult.ErrorCode),
-                    serviceResult.Message,
+                    ResolveErrorCode(errorCode),
+                    message,
                     null),
             ]);
     }

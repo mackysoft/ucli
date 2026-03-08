@@ -73,7 +73,9 @@ namespace MackySoft.Ucli.Unity.Tests
             };
             IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(
                 args,
-                new IpcOneshotBootstrapArguments("/tmp/ops.json"));
+                new IpcOneshotBootstrapArguments(
+                    "/tmp/request.json",
+                    "/tmp/response.json"));
             return args;
         }
     }

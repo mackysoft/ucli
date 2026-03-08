@@ -53,7 +53,8 @@ public sealed class IpcCommonContractTests
     [Trait("Size", "Small")]
     public void IpcOneshotBootstrapArgumentNames_HasStableStringValues ()
     {
-        Assert.Equal("-ucliOneshotOutputPath", IpcOneshotBootstrapArgumentNames.OutputPath);
+        Assert.Equal("-ucliOneshotRequestPath", IpcOneshotBootstrapArgumentNames.RequestPath);
+        Assert.Equal("-ucliOneshotResponsePath", IpcOneshotBootstrapArgumentNames.ResponsePath);
     }
 
     [Fact]

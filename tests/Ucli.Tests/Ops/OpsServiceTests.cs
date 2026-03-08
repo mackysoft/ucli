@@ -1,15 +1,7 @@
-using MackySoft.Ucli.Configuration;
-using MackySoft.Ucli.Context;
-using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Execution;
-using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Execution;
-using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Ops;
-using MackySoft.Ucli.UnityProject;
+using MackySoft.Ucli.Ops.Access;
+using MackySoft.Ucli.Ops.Mapping;
+using MackySoft.Ucli.Ops.Preflight;
 
 namespace MackySoft.Ucli.Tests.Ops;
 
@@ -17,311 +9,128 @@ public sealed class OpsServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task List_WhenAllowStaleIndexExists_ReturnsIndexWithoutEvaluatingLiveOptions ()
+    public async Task GetAll_WhenPreflightFails_ReturnsFailureWithoutReadingCatalog ()
     {
-        var context = CreateContext();
-        var initResolver = new StubInitStatusContextResolver(context);
-        var indexReader = new StubIndexCatalogReader
+        var preflightService = new StubOpsPreflightService
         {
-            OpsCatalogResult = IndexAccessResult<IndexOpsCatalogJsonContract>.Success(
-                new IndexOpsCatalogJsonContract(
-                    SchemaVersion: 1,
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    SourceInputsHash: "source-hash",
-                    Entries:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: "ucli.go.describe",
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
-                    ])),
+            Result = OpsPreflightResult.Failure("invalid readIndexMode", "INVALID_ARGUMENT"),
         };
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator
-        {
-            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
-        };
-        var modeDecisionService = new StubUnityExecutionModeDecisionService();
-        var liveReader = new StubOpsCatalogLiveReader();
-        var store = new StubOpsCatalogStore();
-        var service = CreateService(
-            initResolver,
-            indexReader,
-            freshnessEvaluator,
-            new StubIndexInputFingerprintCalculator(),
-            modeDecisionService,
-            liveReader,
-            store);
+        var catalogAccessService = new StubOpsCatalogAccessService();
+        var listResultMapper = new StubOpsListResultMapper();
+        var describeResultMapper = new StubOpsDescribeResultMapper();
+        var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.List(
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: "unsupported",
-                Timeout: "abc",
-                ReadIndexMode: ReadIndexModeValues.AllowStale));
+        var result = await service.GetAll(new OpsCommandInput(null, null, null, "broken"));
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Output);
-        Assert.Single(result.Output.Operations);
-        Assert.Equal("ucli.go.describe", result.Output.Operations[0].Name);
-        Assert.Equal("index", result.Output.ReadIndex.Source);
-        Assert.True(result.Output.ReadIndex.Used);
-        Assert.True(result.Output.ReadIndex.Hit);
-        Assert.Equal("probable", result.Output.ReadIndex.Freshness);
-        Assert.Equal(0, modeDecisionService.CallCount);
-        Assert.Equal(0, liveReader.CallCount);
-        Assert.Equal(0, store.CallCount);
+        Assert.False(result.IsSuccess);
+        Assert.Equal("invalid readIndexMode", result.Message);
+        Assert.Equal("INVALID_ARGUMENT", result.ErrorCode);
+        Assert.Equal(0, catalogAccessService.CallCount);
+        Assert.Equal(0, listResultMapper.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task List_WhenRequireFreshIndexIsStale_FallsBackToLiveUnity ()
+    public async Task GetAll_WhenCatalogReadSucceeds_UsesListResultMapper ()
     {
-        var context = CreateContext();
-        var initResolver = new StubInitStatusContextResolver(context);
-        var indexReader = new StubIndexCatalogReader
+        var preflightContext = new OpsPreflightContext(default!, default);
+        var preflightService = new StubOpsPreflightService
         {
-            OpsCatalogResult = IndexAccessResult<IndexOpsCatalogJsonContract>.Success(
-                new IndexOpsCatalogJsonContract(
-                    SchemaVersion: 1,
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    SourceInputsHash: "stale-hash",
-                    Entries:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: "ucli.go.describe",
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
-                    ])),
+            Result = OpsPreflightResult.Success(preflightContext),
         };
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator
+        var catalogOutput = new OpsCatalogReadOutput(
+            Operations:
+            [
+                new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
+                    Name: "ucli.scene.save",
+                    Kind: "mutation",
+                    Policy: "advanced",
+                    ArgsSchemaJson: """{"type":"object"}"""),
+            ],
+            AccessInfo: new OpsCatalogAccessInfo(
+                true,
+                true,
+                OpsCatalogSource.Index,
+                MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
+                DateTimeOffset.UtcNow,
+                null));
+        var catalogAccessService = new StubOpsCatalogAccessService
         {
-            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Stale),
+            Result = OpsCatalogReadResult.Success(catalogOutput, "read ok"),
         };
-        var liveGeneratedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
-        var modeDecisionService = new StubUnityExecutionModeDecisionService
+        var expectedResult = OpsListServiceResult.Success(
+            new OpsListExecutionOutput(
+                Operations:
+                [
+                    new OpsOperationListItem("ucli.scene.save", "mutation", "advanced"),
+                ],
+                ReadIndex: new OpsReadIndexInfo(true, true, "index", "fresh", DateTimeOffset.UtcNow, null)),
+            "mapped");
+        var listResultMapper = new StubOpsListResultMapper
         {
-            Result = UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(
-                    RequestedMode: UnityExecutionMode.Auto,
-                    DaemonRunning: true,
-                    Target: UnityExecutionTarget.Daemon)),
+            Result = expectedResult,
         };
-        var liveReader = new StubOpsCatalogLiveReader
-        {
-            Result = OpsCatalogLiveReadResult.Success(
-                new IpcOpsReadResponse(
-                    GeneratedAtUtc: liveGeneratedAtUtc,
-                    Operations:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: "ucli.scene.save",
-                            Kind: "mutation",
-                            Policy: "advanced",
-                            ArgsSchemaJson: """{"type":"object"}"""),
-                    ])),
-        };
-        var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
-        {
-            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "combined"),
-        };
-        var store = new StubOpsCatalogStore();
-        var service = CreateService(
-            initResolver,
-            indexReader,
-            freshnessEvaluator,
-            inputFingerprintCalculator,
-            modeDecisionService,
-            liveReader,
-            store);
+        var describeResultMapper = new StubOpsDescribeResultMapper();
+        var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.List(
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.RequireFresh));
+        var result = await service.GetAll(new OpsCommandInput("/repo", "auto", "1000", "allowStale"));
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Output);
-        Assert.Single(result.Output.Operations);
-        Assert.Equal("ucli.scene.save", result.Output.Operations[0].Name);
-        Assert.Equal("unity", result.Output.ReadIndex.Source);
-        Assert.False(result.Output.ReadIndex.Used);
-        Assert.True(result.Output.ReadIndex.Hit);
-        Assert.Equal("fresh", result.Output.ReadIndex.Freshness);
-        Assert.Equal(liveGeneratedAtUtc, result.Output.ReadIndex.GeneratedAtUtc);
-        Assert.Contains("Existing ops index freshness is 'stale'.", result.Output.ReadIndex.FallbackReason, StringComparison.Ordinal);
-        Assert.Equal(1, modeDecisionService.CallCount);
-        Assert.Equal(1, liveReader.CallCount);
-        Assert.Equal(1, store.CallCount);
-        Assert.Equal(context.UnityProject.RepositoryRoot, store.StorageRoot);
-        Assert.Equal(context.UnityProject.ProjectFingerprint, store.ProjectFingerprint);
+        Assert.Same(expectedResult, result);
+        Assert.Equal(1, catalogAccessService.CallCount);
+        Assert.Equal(1, listResultMapper.CallCount);
+        Assert.Same(catalogOutput, listResultMapper.LastOutput);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Describe_WhenLivePersistenceFails_ReturnsUnityResultWithFallbackReason ()
+    public async Task Describe_WhenCatalogReadSucceeds_UsesDescribeResultMapper ()
     {
-        var context = CreateContext();
-        var initResolver = new StubInitStatusContextResolver(context);
-        var modeDecisionService = new StubUnityExecutionModeDecisionService
+        var preflightContext = new OpsPreflightContext(default!, default);
+        var preflightService = new StubOpsPreflightService
         {
-            Result = UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(
-                    RequestedMode: UnityExecutionMode.Auto,
-                    DaemonRunning: false,
-                    Target: UnityExecutionTarget.Oneshot)),
+            Result = OpsPreflightResult.Success(preflightContext),
         };
-        var liveReader = new StubOpsCatalogLiveReader
+        var catalogOutput = new OpsCatalogReadOutput(
+            Operations: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract>(),
+            AccessInfo: new OpsCatalogAccessInfo(
+                true,
+                true,
+                OpsCatalogSource.Index,
+                MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
+                DateTimeOffset.UtcNow,
+                null));
+        var catalogAccessService = new StubOpsCatalogAccessService
         {
-            Result = OpsCatalogLiveReadResult.Success(
-                new IpcOpsReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
-                    Operations:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: "ucli.go.describe",
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
-                    ])),
+            Result = OpsCatalogReadResult.Success(catalogOutput, "read ok"),
         };
-        var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
+        var expectedResult = OpsDescribeServiceResult.Failure("missing", "INVALID_ARGUMENT");
+        var listResultMapper = new StubOpsListResultMapper();
+        var describeResultMapper = new StubOpsDescribeResultMapper
         {
-            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "combined"),
+            Result = expectedResult,
         };
-        var store = new StubOpsCatalogStore
-        {
-            WriteException = new InvalidOperationException("disk full"),
-        };
-        var service = CreateService(
-            initResolver,
-            new StubIndexCatalogReader(),
-            new StubIndexFreshnessEvaluator(),
-            inputFingerprintCalculator,
-            modeDecisionService,
-            liveReader,
-            store);
+        var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
         var result = await service.Describe(
             new OpsDescribeCommandInput(
-                OperationName: "ucli.go.describe",
-                ProjectPath: null,
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.Disabled));
+                OperationName: "ucli.unknown",
+                ProjectPath: "/repo",
+                Mode: "auto",
+                Timeout: "1000",
+                ReadIndexMode: "allowStale"));
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Output);
-        Assert.Equal("ucli.go.describe", result.Output.Operation.Name);
-        Assert.Equal("unity", result.Output.ReadIndex.Source);
-        Assert.Contains("readIndex disabled by mode.", result.Output.ReadIndex.FallbackReason, StringComparison.Ordinal);
-        Assert.Contains("Failed to persist refreshed ops readIndex. disk full", result.Output.ReadIndex.FallbackReason, StringComparison.Ordinal);
-        Assert.Equal("object", result.Output.Operation.ArgsSchema.GetProperty("type").GetString());
+        Assert.Same(expectedResult, result);
+        Assert.Equal(1, describeResultMapper.CallCount);
+        Assert.Same(catalogOutput, describeResultMapper.LastOutput);
+        Assert.Equal("ucli.unknown", describeResultMapper.LastOperationName);
     }
 
-    private static InitStatusContext CreateContext ()
+    private sealed class StubOpsPreflightService : IOpsPreflightService
     {
-        return new InitStatusContext(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/repo/UnityProject",
-                RepositoryRoot: "/repo",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
-            UcliConfig.CreateDefault(),
-            ConfigSource.Default);
-    }
+        public OpsPreflightResult Result { get; set; } = OpsPreflightResult.Failure("not configured", "INTERNAL_ERROR");
 
-    private static OpsService CreateService (
-        IInitStatusContextResolver initStatusContextResolver,
-        IIndexCatalogReader indexCatalogReader,
-        IIndexFreshnessEvaluator indexFreshnessEvaluator,
-        IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
-        IUnityExecutionModeDecisionService modeDecisionService,
-        IOpsCatalogLiveReader opsCatalogLiveReader,
-        IOpsCatalogStore opsCatalogStore)
-    {
-        return new OpsService(
-            initStatusContextResolver,
-            indexCatalogReader,
-            indexFreshnessEvaluator,
-            indexInputFingerprintCalculator,
-            modeDecisionService,
-            opsCatalogLiveReader,
-            opsCatalogStore);
-    }
-
-    private sealed class StubInitStatusContextResolver : IInitStatusContextResolver
-    {
-        private readonly InitStatusContext context;
-
-        public StubInitStatusContextResolver (InitStatusContext context)
-        {
-            this.context = context;
-        }
-
-        public ValueTask<InitStatusContextResolutionResult> Resolve (
-            string? projectPath,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(InitStatusContextResolutionResult.Success(context));
-        }
-    }
-
-    private sealed class StubIndexCatalogReader : IIndexCatalogReader
-    {
-        public IndexAccessResult<IndexOpsCatalogJsonContract> OpsCatalogResult { get; set; }
-            = IndexAccessResult<IndexOpsCatalogJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
-                "Index contract file was not found: ops.catalog.json.");
-
-        public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(OpsCatalogResult);
-        }
-
-        public ValueTask<IndexAccessResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IndexAccessResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
-    private sealed class StubIndexFreshnessEvaluator : IIndexFreshnessEvaluator
-    {
-        public IndexFreshnessEvaluationResult Result { get; set; }
-            = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
-
-        public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            string storageRoot,
-            string projectFingerprint,
-            string projectRoot,
-            ReadIndexMode mode,
+        public ValueTask<OpsPreflightResult> Execute (
+            OpsCommandInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -329,36 +138,15 @@ public sealed class OpsServiceTests
         }
     }
 
-    private sealed class StubIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
-    {
-        public IndexInputHashSnapshot? Snapshot { get; set; }
-
-        public ValueTask<IndexInputHashSnapshot?> TryCompute (
-            string projectRootPath,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(Snapshot);
-        }
-    }
-
-    private sealed class StubUnityExecutionModeDecisionService : IUnityExecutionModeDecisionService
+    private sealed class StubOpsCatalogAccessService : IOpsCatalogAccessService
     {
         public int CallCount { get; private set; }
 
-        public UnityExecutionModeDecisionResult Result { get; set; }
-            = UnityExecutionModeDecisionResult.Success(
-                new UnityExecutionModeDecision(
-                    RequestedMode: UnityExecutionMode.Auto,
-                    DaemonRunning: true,
-                    Target: UnityExecutionTarget.Daemon));
+        public OpsCatalogReadResult Result { get; set; } = OpsCatalogReadResult.Failure("not configured", "INTERNAL_ERROR");
 
-        public ValueTask<UnityExecutionModeDecisionResult> Decide (
-            UcliCommand command,
-            string? mode,
-            string? timeout,
-            UcliConfig config,
-            ResolvedUnityProjectContext unityProject,
+        public ValueTask<OpsCatalogReadResult> Read (
+            OpsPreflightContext context,
+            OpsCommandInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -367,54 +155,40 @@ public sealed class OpsServiceTests
         }
     }
 
-    private sealed class StubOpsCatalogLiveReader : IOpsCatalogLiveReader
+    private sealed class StubOpsListResultMapper : IOpsListResultMapper
     {
         public int CallCount { get; private set; }
 
-        public OpsCatalogLiveReadResult Result { get; set; }
-            = OpsCatalogLiveReadResult.Failure("not configured", IpcErrorCodes.InternalError);
+        public OpsCatalogReadOutput? LastOutput { get; private set; }
 
-        public ValueTask<OpsCatalogLiveReadResult> Read (
-            ResolvedUnityProjectContext unityProject,
-            UnityExecutionTarget target,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
+        public OpsListServiceResult Result { get; set; } = OpsListServiceResult.Failure("not configured", "INTERNAL_ERROR");
+
+        public OpsListServiceResult Map (OpsCatalogReadOutput output)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            return ValueTask.FromResult(Result);
+            LastOutput = output;
+            return Result;
         }
     }
 
-    private sealed class StubOpsCatalogStore : IOpsCatalogStore
+    private sealed class StubOpsDescribeResultMapper : IOpsDescribeResultMapper
     {
         public int CallCount { get; private set; }
 
-        public string? StorageRoot { get; private set; }
+        public OpsCatalogReadOutput? LastOutput { get; private set; }
 
-        public string? ProjectFingerprint { get; private set; }
+        public string? LastOperationName { get; private set; }
 
-        public Exception? WriteException { get; set; }
+        public OpsDescribeServiceResult Result { get; set; } = OpsDescribeServiceResult.Failure("not configured", "INTERNAL_ERROR");
 
-        public ValueTask Write (
-            string storageRoot,
-            string projectFingerprint,
-            DateTimeOffset generatedAtUtc,
-            IReadOnlyList<IndexOpEntryJsonContract> operations,
-            IndexInputHashSnapshot inputSnapshot,
-            CancellationToken cancellationToken = default)
+        public OpsDescribeServiceResult Map (
+            OpsCatalogReadOutput output,
+            string? operationName)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            StorageRoot = storageRoot;
-            ProjectFingerprint = projectFingerprint;
-
-            if (WriteException != null)
-            {
-                throw WriteException;
-            }
-
-            return ValueTask.CompletedTask;
+            LastOutput = output;
+            LastOperationName = operationName;
+            return Result;
         }
     }
 }
