@@ -69,6 +69,11 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
                 projectContext.Config,
                 cancellationToken)
             .ConfigureAwait(false);
+        if (validationResult.Error != null)
+        {
+            return PhaseExecutionPreflightResult.Failure(validationResult.Error);
+        }
+
         if (!validationResult.IsValid)
         {
             return PhaseExecutionPreflightResult.ValidationFailure(validationResult.Errors);

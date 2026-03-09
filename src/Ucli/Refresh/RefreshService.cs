@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Execution.OperationExecute;
+using MackySoft.Ucli.Operations;
 
 namespace MackySoft.Ucli.Refresh;
 
@@ -10,7 +12,11 @@ internal sealed class RefreshService : IRefreshService
     private static readonly OperationExecuteDefinition RefreshOperation = new(
         Command: UcliCommandIds.Refresh,
         OperationId: "refresh",
-        OperationName: "ucli.project.refresh",
+        Descriptor: new UcliOperationDescriptor(
+            Name: "ucli.project.refresh",
+            Kind: UcliOperationKind.Mutation,
+            Policy: OperationPolicy.Advanced,
+            ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
         Args: JsonSerializer.SerializeToElement(new { }));
 
     private readonly IOperationExecuteService operationExecuteService;

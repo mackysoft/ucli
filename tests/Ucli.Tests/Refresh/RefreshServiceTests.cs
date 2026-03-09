@@ -1,6 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Execution.OperationExecute;
+using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.Refresh;
 
 namespace MackySoft.Ucli.Tests.Refresh;
@@ -24,7 +26,8 @@ public sealed class RefreshServiceTests
         Assert.NotNull(operationExecuteService.CapturedDefinition);
         Assert.Equal(UcliCommandIds.Refresh, operationExecuteService.CapturedDefinition!.Command);
         Assert.Equal("refresh", operationExecuteService.CapturedDefinition.OperationId);
-        Assert.Equal("ucli.project.refresh", operationExecuteService.CapturedDefinition.OperationName);
+        Assert.Equal("ucli.project.refresh", operationExecuteService.CapturedDefinition.Descriptor.Name);
+        Assert.Equal(OperationPolicy.Advanced, operationExecuteService.CapturedDefinition.Descriptor.Policy);
         Assert.Equal(JsonValueKind.Object, operationExecuteService.CapturedDefinition.Args.ValueKind);
         Assert.Equal("/repo/UnityProject", operationExecuteService.CapturedProjectPath);
         Assert.Equal("oneshot", operationExecuteService.CapturedMode);

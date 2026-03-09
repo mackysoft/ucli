@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Operations;
@@ -69,7 +70,17 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
             return new ValidationResult(errors);
         }
 
-        var operations = await operationCatalog.GetAll(unityProject, config, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<UcliOperationDescriptor> operations;
+        try
+        {
+            operations = await operationCatalog.GetAll(unityProject, config, cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return ValidationResult.Failure(ExecutionError.InternalError(
+                $"Static validation could not load operation metadata. {exception.Message}"));
+        }
+
         var operationsByName = new Dictionary<string, UcliOperationDescriptor>(operations.Count, StringComparer.Ordinal);
         for (var i = 0; i < operations.Count; i++)
         {

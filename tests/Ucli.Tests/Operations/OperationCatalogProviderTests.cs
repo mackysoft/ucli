@@ -73,6 +73,8 @@ public sealed class OperationCatalogProviderTests
             cancellationToken.ThrowIfCancellationRequested();
             ReceivedProject = project;
             ReceivedConfig = config;
+            Assert.Null(mode);
+            Assert.Null(timeout);
 
             return ValueTask.FromResult(OpsCatalogFetchResult.Success(new IpcOpsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.UtcNow,
