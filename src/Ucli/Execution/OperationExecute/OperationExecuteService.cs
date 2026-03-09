@@ -65,6 +65,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         var validationResult = await requestStaticValidator.Validate(
                 CreateValidationRequest(definition, requestId),
+                projectContext.UnityProject,
                 config,
                 cancellationToken)
             .ConfigureAwait(false);

@@ -29,7 +29,7 @@ public sealed class OperationCatalogProviderTests
             PlanTokenMode: PlanTokenMode.Optional,
             ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
             OperationAllowlist: Array.Empty<string>());
-        var contextResolver = new SpyInitStatusContextResolver();
+        var contextResolver = new SpyProjectContextResolver();
         var catalogReader = new SpyOpsCatalogReader();
         var provider = new OperationCatalogProvider(contextResolver, catalogReader);
 
@@ -42,17 +42,17 @@ public sealed class OperationCatalogProviderTests
         Assert.Equal("ucli.scene.open", operations[0].Name);
     }
 
-    private sealed class SpyInitStatusContextResolver : IInitStatusContextResolver
+    private sealed class SpyProjectContextResolver : IProjectContextResolver
     {
         public bool WasCalled { get; private set; }
 
-        public ValueTask<InitStatusContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> Resolve (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
             WasCalled = true;
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(InitStatusContextResolutionResult.Failure(
+            return ValueTask.FromResult(ProjectContextResolutionResult.Failure(
                 ExecutionError.InternalError("Should not be called.")));
         }
     }

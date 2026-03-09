@@ -360,13 +360,17 @@ public sealed class OperationExecuteServiceTests
 
         public ValidateRequest? CapturedRequest { get; private set; }
 
+        public ResolvedUnityProjectContext? CapturedUnityProject { get; private set; }
+
         public ValueTask<ValidationResult> Validate (
             ValidateRequest request,
+            ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CapturedRequest = request;
+            CapturedUnityProject = unityProject;
             return ValueTask.FromResult(result);
         }
     }

@@ -9,18 +9,18 @@ namespace MackySoft.Ucli.Operations;
 /// <summary> Builds the operation catalog from discovered operation metadata. </summary>
 internal sealed class OperationCatalogProvider : IOperationCatalogProvider
 {
-    private readonly IInitStatusContextResolver initStatusContextResolver;
+    private readonly IProjectContextResolver projectContextResolver;
 
     private readonly IOpsCatalogReader opsCatalogReader;
 
     /// <summary> Initializes a new instance of the <see cref="OperationCatalogProvider" /> class. </summary>
-    /// <param name="initStatusContextResolver"> The shared context resolver dependency. </param>
+    /// <param name="projectContextResolver"> The shared context resolver dependency. </param>
     /// <param name="opsCatalogReader"> The ops catalog reader dependency. </param>
     public OperationCatalogProvider (
-        IInitStatusContextResolver initStatusContextResolver,
+        IProjectContextResolver projectContextResolver,
         IOpsCatalogReader opsCatalogReader)
     {
-        this.initStatusContextResolver = initStatusContextResolver ?? throw new ArgumentNullException(nameof(initStatusContextResolver));
+        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.opsCatalogReader = opsCatalogReader ?? throw new ArgumentNullException(nameof(opsCatalogReader));
     }
 
@@ -29,7 +29,7 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResult = await initStatusContextResolver.Resolve(
+        var contextResult = await projectContextResolver.Resolve(
                 projectPath: null,
                 cancellationToken)
             .ConfigureAwait(false);
