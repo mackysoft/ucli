@@ -63,6 +63,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId,
+            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
             IpcBatchmodeBootstrapArgumentNames.Target,
@@ -105,6 +106,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -115,6 +117,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var oneshotArguments = Assert.IsType<IpcOneshotBootstrapArguments>(bootstrapArguments);
         Assert.Equal(123, oneshotArguments.ParentProcessId);
+        Assert.Equal("oneshot-token", oneshotArguments.SessionToken);
         Assert.Equal(IpcTransportKindValues.NamedPipe, oneshotArguments.EndpointTransportKind);
         Assert.Equal("ucli-endpoint", oneshotArguments.EndpointAddress);
     }
@@ -148,6 +151,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments(
             456,
+            "oneshot-token",
             IpcTransportKindValues.UnixDomainSocket,
             "/tmp/ucli.sock");
         List<string> tokens =
@@ -171,6 +175,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, " ",
+            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -190,6 +195,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
             IpcOneshotBootstrapArgumentNames.ParentProcessId, "0",
+            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -199,5 +205,25 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.False(parsed);
         Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
         Assert.Equal("uCLI oneshot bootstrap parent process identifier must be a positive integer.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenOneshotSessionTokenIsWhitespace_ReturnsEmptyRequiredValue ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
+            IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcOneshotBootstrapArgumentNames.SessionToken, " ",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
+        Assert.Equal("uCLI oneshot bootstrap arguments must not be empty.", error.Message);
     }
 }

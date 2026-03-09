@@ -46,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var parentProcessWatcher = OneshotParentProcessWatcher.Start(bootstrapArguments.ParentProcessId);
             var services = new ServiceCollection();
             services.AddUnityIpcApplicationServices(
-                new PermitAllSessionTokenValidator(),
+                new ExactSessionTokenValidator(bootstrapArguments.SessionToken),
                 NoOpDaemonLogger.Instance);
             services.AddUnityIpcOneshotHostServices();
 

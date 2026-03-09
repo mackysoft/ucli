@@ -20,30 +20,55 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var completionSignal = new OneshotRequestCompletionSignal();
             var request = CreateRequest(IpcMethodNames.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest("tests")));
-            var handler = CreateHandler(request, completionSignal);
+            var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
             using var stream = CreateStream(request);
-            var handledRequest = await handler.Handle(stream, CancellationToken.None);
+            var handledResult = await handler.Handle(stream, CancellationToken.None);
 
-            Assert.That(handledRequest, Is.Not.Null);
-            Assert.That(handledRequest.Method, Is.EqualTo(IpcMethodNames.Ping));
+            Assert.That(handledResult.Request, Is.Not.Null);
+            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Ping));
             Assert.That(await WaitForSignal(completionSignal, TimeSpan.FromMilliseconds(50)), Is.False);
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenNonPingRequestHandled_SignalsCompletion () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenSuccessfulNonPingRequestHandled_SignalsCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
             var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
-            var handler = CreateHandler(request, completionSignal);
+            var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
             using var stream = CreateStream(request);
-            var handledRequest = await handler.Handle(stream, CancellationToken.None);
+            var handledResult = await handler.Handle(stream, CancellationToken.None);
 
-            Assert.That(handledRequest, Is.Not.Null);
-            Assert.That(handledRequest.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(handledResult.Request, Is.Not.Null);
+            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
             Assert.That(await WaitForSignal(completionSignal, TimeSpan.FromMilliseconds(50)), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenNonPingRequestReturnsError_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
+        {
+            var completionSignal = new OneshotRequestCompletionSignal();
+            var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
+            var errorResponse = new IpcResponse(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: request.RequestId,
+                Status: IpcProtocol.StatusError,
+                Payload: JsonSerializer.SerializeToElement(new { }),
+                Errors: new[]
+                {
+                    new IpcError(IpcErrorCodes.InvalidArgument, "invalid", null),
+                });
+            var handler = CreateHandler(request, errorResponse, completionSignal);
+
+            using var stream = CreateStream(request);
+            var handledResult = await handler.Handle(stream, CancellationToken.None);
+
+            Assert.That(handledResult.Request, Is.Not.Null);
+            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(await WaitForSignal(completionSignal, TimeSpan.FromMilliseconds(50)), Is.False);
         });
 
         private static async Task<bool> WaitForSignal (
@@ -57,11 +82,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityOneshotConnectionHandler CreateHandler (
             IpcRequest expectedRequest,
+            IpcResponse response,
             OneshotRequestCompletionSignal completionSignal)
         {
             return new UnityOneshotConnectionHandler(
                 new UnityIpcConnectionHandler(
-                    new StubRequestProcessor(expectedRequest),
+                    new StubRequestProcessor(expectedRequest, response),
                     new StubDaemonShutdownSignal()),
                 completionSignal);
         }
@@ -96,9 +122,14 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly IpcRequest expectedRequest;
 
-            public StubRequestProcessor (IpcRequest expectedRequest)
+            private readonly IpcResponse response;
+
+            public StubRequestProcessor (
+                IpcRequest expectedRequest,
+                IpcResponse response)
             {
                 this.expectedRequest = expectedRequest;
+                this.response = response;
             }
 
             public Task<IpcResponse> Process (
@@ -108,13 +139,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken.ThrowIfCancellationRequested();
                 Assert.That(request.Method, Is.EqualTo(expectedRequest.Method));
                 Assert.That(request.RequestId, Is.EqualTo(expectedRequest.RequestId));
-                return Task.FromResult(new IpcResponse(
-                    ProtocolVersion: IpcProtocol.CurrentVersion,
-                    RequestId: request.RequestId,
-                    Status: IpcProtocol.StatusOk,
-                    Payload: JsonSerializer.SerializeToElement(new { ok = true }),
-                    Errors: System.Array.Empty<IpcError>()));
+                return Task.FromResult(response);
             }
+        }
+
+        private static IpcResponse CreateSuccessResponse (string requestId)
+        {
+            return new IpcResponse(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: requestId,
+                Status: IpcProtocol.StatusOk,
+                Payload: JsonSerializer.SerializeToElement(new { ok = true }),
+                Errors: System.Array.Empty<IpcError>());
         }
 
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal

@@ -11,8 +11,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Handles one request-response exchange over a connected transport stream. </summary>
         /// <param name="stream"> The connected transport stream. </param>
         /// <param name="cancellationToken"> The cancellation token for request handling. </param>
-        /// <returns> The handled request when one request frame was decoded successfully; otherwise <see langword="null" />. </returns>
-        Task<IpcRequest?> Handle (
+        /// <returns> The handled connection exchange result. </returns>
+        Task<UnityIpcConnectionHandleResult> Handle (
             Stream stream,
             CancellationToken cancellationToken = default);
     }

@@ -6,7 +6,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Decorates one shared IPC connection handler and signals oneshot completion after the first handled request. </summary>
+    /// <summary> Decorates one shared IPC connection handler and signals oneshot completion after the first successful non-ping request. </summary>
     internal sealed class UnityOneshotConnectionHandler : IUnityIpcConnectionHandler
     {
         private readonly UnityIpcConnectionHandler innerConnectionHandler;
@@ -25,17 +25,18 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public async Task<IpcRequest?> Handle (
+        public async Task<UnityIpcConnectionHandleResult> Handle (
             Stream stream,
             CancellationToken cancellationToken = default)
         {
-            var request = await innerConnectionHandler.Handle(stream, cancellationToken);
-            if (request != null && !string.Equals(request.Method, IpcMethodNames.Ping, StringComparison.Ordinal))
+            var result = await innerConnectionHandler.Handle(stream, cancellationToken);
+            if (result.HasSuccessfulResponse
+                && !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal))
             {
                 completionSignal.Signal();
             }
 
-            return request;
+            return result;
         }
     }
 }

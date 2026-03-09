@@ -29,6 +29,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result, Is.True);
             Assert.That(bootstrapArguments, Is.TypeOf<IpcOneshotBootstrapArguments>());
             Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).ParentProcessId, Is.EqualTo(123));
+            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).SessionToken, Is.EqualTo("oneshot-token"));
             Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointTransportKind, Is.EqualTo("unixDomainSocket"));
             Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointAddress, Is.EqualTo("/tmp/ucli.sock"));
         }
@@ -78,6 +79,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 args,
                 new IpcOneshotBootstrapArguments(
                     123,
+                    "oneshot-token",
                     "unixDomainSocket",
                     "/tmp/ucli.sock"));
             return args;

@@ -11,8 +11,6 @@ namespace MackySoft.Ucli.Ipc;
 /// <summary> Executes one IPC request through Unity oneshot batchmode startup and shared IPC transport. </summary>
 internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 {
-    private const string OneshotSessionToken = "oneshot";
-
     private const string StartupProbeClientVersion = "ucli-oneshot-startup";
 
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(50);
@@ -91,10 +89,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 return CreateTimeoutFailure(timeout);
             }
 
+            var sessionToken = CreateSessionToken();
             var launchResult = await batchmodeProcessLauncher.Launch(
                     unityProject,
                     new IpcOneshotBootstrapArguments(
                         ParentProcessId: Environment.ProcessId,
+                        SessionToken: sessionToken,
                         EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
                         EndpointAddress: endpoint.Address),
                     unityLogPath,
@@ -108,50 +108,62 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             }
 
             await using var processHandle = launchResult.ProcessHandle!;
-            var startupProbeError = await WaitUntilReady(
-                    unityProject,
-                    deadline,
-                    processHandle,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (startupProbeError != null)
+            var shouldTerminateProcess = true;
+            try
             {
-                await processHandle.Terminate(CancellationToken.None).ConfigureAwait(false);
-                return UnityIpcRequestExecutionResult.Failure(
-                    startupProbeError.Message,
-                    ExecutionErrorKindCodeMapper.ToCode(startupProbeError.Kind));
-            }
+                var startupProbeError = await WaitUntilReady(
+                        unityProject,
+                        sessionToken,
+                        deadline,
+                        processHandle,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (startupProbeError != null)
+                {
+                    return UnityIpcRequestExecutionResult.Failure(
+                        startupProbeError.Message,
+                        ExecutionErrorKindCodeMapper.ToCode(startupProbeError.Kind));
+                }
 
-            if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+                if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+                {
+                    return CreateTimeoutFailure(timeout);
+                }
+
+                var response = await transportClient.SendAsync(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        UnityIpcRequestFactory.Create(sessionToken, method, payload),
+                        requestTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!deadline.TryGetRemainingTimeout(out var exitTimeout))
+                {
+                    return CreateTimeoutFailure(timeout);
+                }
+
+                var exitWaitError = await WaitForExit(processHandle, exitTimeout, cancellationToken).ConfigureAwait(false);
+                if (exitWaitError != null)
+                {
+                    return UnityIpcRequestExecutionResult.Failure(
+                        exitWaitError.Message,
+                        ExecutionErrorKindCodeMapper.ToCode(exitWaitError.Kind));
+                }
+
+                shouldTerminateProcess = false;
+                return UnityIpcRequestExecutionResult.Success(response);
+            }
+            finally
             {
-                await processHandle.Terminate(CancellationToken.None).ConfigureAwait(false);
-                return CreateTimeoutFailure(timeout);
+                if (shouldTerminateProcess && !processHandle.HasExited)
+                {
+                    // NOTE:
+                    // A launched oneshot child must not outlive a failed request attempt because the shared endpoint
+                    // would accept stray follow-up traffic and interfere with immediate retries.
+                    await processHandle.Terminate(CancellationToken.None).ConfigureAwait(false);
+                }
             }
-
-            var response = await transportClient.SendAsync(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    UnityIpcRequestFactory.Create(OneshotSessionToken, method, payload),
-                    requestTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!deadline.TryGetRemainingTimeout(out var exitTimeout))
-            {
-                await processHandle.Terminate(CancellationToken.None).ConfigureAwait(false);
-                return CreateTimeoutFailure(timeout);
-            }
-
-            var exitWaitError = await WaitForExit(processHandle, exitTimeout, cancellationToken).ConfigureAwait(false);
-            if (exitWaitError != null)
-            {
-                await processHandle.Terminate(CancellationToken.None).ConfigureAwait(false);
-                return UnityIpcRequestExecutionResult.Failure(
-                    exitWaitError.Message,
-                    ExecutionErrorKindCodeMapper.ToCode(exitWaitError.Kind));
-            }
-
-            return UnityIpcRequestExecutionResult.Success(response);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -178,6 +190,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private async ValueTask<ExecutionError?> WaitUntilReady (
         ResolvedUnityProjectContext unityProject,
+        string sessionToken,
         ExecutionDeadline deadline,
         IUnityBatchmodeProcessHandle processHandle,
         TimeSpan timeout,
@@ -210,7 +223,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var pingResponse = await transportClient.SendAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
-                        CreateStartupProbeRequest(),
+                        CreateStartupProbeRequest(sessionToken),
                         attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -249,10 +262,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         return StartupRetryDelay;
     }
 
-    private static IpcRequest CreateStartupProbeRequest ()
+    private static string CreateSessionToken ()
+    {
+        return Guid.NewGuid().ToString("N");
+    }
+
+    private static IpcRequest CreateStartupProbeRequest (string sessionToken)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(StartupProbeClientVersion));
-        return UnityIpcRequestFactory.Create(OneshotSessionToken, IpcMethodNames.Ping, payload);
+        return UnityIpcRequestFactory.Create(sessionToken, IpcMethodNames.Ping, payload);
     }
 
     private static async ValueTask<ExecutionError?> WaitForExit (

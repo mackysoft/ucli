@@ -60,6 +60,7 @@ public sealed class IpcCommonContractTests
     public void IpcOneshotBootstrapArgumentNames_HasStableStringValues ()
     {
         Assert.Equal("-ucliOneshotParentProcessId", IpcOneshotBootstrapArgumentNames.ParentProcessId);
+        Assert.Equal("-ucliOneshotSessionToken", IpcOneshotBootstrapArgumentNames.SessionToken);
     }
 
     [Fact]

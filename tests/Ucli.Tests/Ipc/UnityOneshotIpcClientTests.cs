@@ -23,8 +23,6 @@ public sealed class UnityOneshotIpcClientTests
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new StubUnityIpcTransportClient(request =>
         {
-            Assert.Equal("oneshot", request.SessionToken);
-
             return request.Method switch
             {
                 IpcMethodNames.Ping => CreateResponse(request.RequestId),
@@ -55,12 +53,16 @@ public sealed class UnityOneshotIpcClientTests
 
         var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(launcher.LastBootstrapArguments);
         Assert.Equal(Environment.ProcessId, bootstrapArguments.ParentProcessId);
+        Assert.False(string.IsNullOrWhiteSpace(bootstrapArguments.SessionToken));
         Assert.Equal(IpcTransportKindValues.UnixDomainSocket, bootstrapArguments.EndpointTransportKind);
         Assert.Equal(endpoint.Address, bootstrapArguments.EndpointAddress);
 
         Assert.Equal(2, transportClient.CallCount);
         Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
         Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[1].Method);
+        Assert.All(
+            transportClient.Requests,
+            request => Assert.Equal(bootstrapArguments.SessionToken, request.SessionToken));
         Assert.Equal(1, processHandle.WaitForExitCallCount);
         Assert.Equal(0, processHandle.TerminateCallCount);
     }
@@ -91,6 +93,43 @@ public sealed class UnityOneshotIpcClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRequestTransportTimesOut_TerminatesLaunchedChildProcess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "request-timeout");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreateResponse(request.RequestId),
+                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider());
+
+        var result = await client.SendAsync(
+            unityProject,
+            IpcMethodNames.OpsRead,
+            EmptyPayload(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(1, processHandle.TerminateCallCount);
+        Assert.Equal(0, processHandle.WaitForExitCallCount);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject (TestDirectoryScope scope)
