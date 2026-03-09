@@ -208,9 +208,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Dispatch_WhenCommandIsRefresh_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Dispatch_WhenCommandIsRefresh_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
         {
-            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Refresh);
+            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Refresh, PhaseExecutionCommand.Call, "ucli.project.refresh");
         });
 
         [UnityTest]
@@ -336,9 +336,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static async UniTask AssertDelegatesToPhaseExecutor (
             string commandName,
-            PhaseExecutionCommand expectedCommand)
+            PhaseExecutionCommand expectedCommand,
+            string operationName = "ucli.resolve")
         {
-            var normalizedRequest = CreateNormalizedRequest();
+            var normalizedRequest = CreateNormalizedRequest(operationName);
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
                 protocolVersion: IpcProtocol.CurrentVersion,
@@ -347,7 +348,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new OperationPhaseTrace(
                         "op-1",
-                        "ucli.resolve",
+                        operationName,
                         OperationPhase.Plan,
                         false,
                         true,
@@ -359,7 +360,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(commandName);
+            var request = CreateExecuteRequest(commandName, operationName: operationName);
 
             var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
@@ -373,7 +374,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var opResult = GetSingleArrayElement(opResults);
             Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("op-1"));
-            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("ucli.resolve"));
+            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo(operationName));
             Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(IpcExecuteOperationPhaseNames.Plan));
             Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.True);
@@ -453,7 +454,7 @@ namespace MackySoft.Ucli.Unity.Tests
             };
         }
 
-        private static NormalizedExecuteRequest CreateNormalizedRequest ()
+        private static NormalizedExecuteRequest CreateNormalizedRequest (string operationName = "ucli.resolve")
         {
             return new NormalizedExecuteRequest(
                 ProtocolVersion: 1,
@@ -462,7 +463,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new NormalizedOperation(
                         Id: "op-1",
-                        Op: "ucli.resolve",
+                        Op: operationName,
                         Args: JsonSerializer.SerializeToElement(new { }),
                         As: null,
                         Expect: null),

@@ -34,9 +34,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return true;
             }
 
+            if (commandId == UcliCommandIds.Refresh)
+            {
+                command = PhaseExecutionCommand.Call;
+                return true;
+            }
+
             if (commandId == UcliCommandIds.Resolve
-                || commandId == UcliCommandIds.Query
-                || commandId == UcliCommandIds.Refresh)
+                || commandId == UcliCommandIds.Query)
             {
                 command = default;
                 return false;
