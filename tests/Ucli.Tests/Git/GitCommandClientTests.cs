@@ -8,7 +8,7 @@ public sealed class GitCommandClientTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetCurrentWorktreeRoot_WhenSuccessful_UsesGitCommandCap ()
+    public async Task GetCurrentWorktreeRoot_WhenSuccessful_UsesProvidedTimeout ()
     {
         var processRunner = new StubProcessRunner(
         [
@@ -24,12 +24,12 @@ public sealed class GitCommandClientTests
         Assert.True(result.IsSuccess);
         Assert.Equal("/repo/wt-current" + Environment.NewLine, result.Text);
         Assert.Equal(["-C", "/repo/wt-current/UnityProject", "rev-parse", "--show-toplevel"], processRunner.Requests.Single().Arguments);
-        Assert.Equal(TimeSpan.FromSeconds(5), processRunner.Requests.Single().Timeout);
+        Assert.Equal(TimeSpan.FromSeconds(30), processRunner.Requests.Single().Timeout);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetCurrentWorktreeRoot_WhenTimeoutIsShorterThanGitCommandCap_UsesProvidedTimeout ()
+    public async Task GetCurrentWorktreeRoot_WhenTimeoutIsShorter_UsesProvidedTimeout ()
     {
         var processRunner = new StubProcessRunner(
         [
@@ -48,11 +48,11 @@ public sealed class GitCommandClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetCurrentProjectRelativePath_WhenRevParseFails_ReturnsInvalidArgument ()
+    public async Task GetCurrentProjectRelativePath_WhenRevParseFails_ReturnsInternalError ()
     {
         var client = new GitCommandClient(new StubProcessRunner(
         [
-            ProcessRunResult.Exited(128, "fatal: not a git repository"),
+            ProcessRunResult.Exited(128, "fatal: git リポジトリではありません"),
         ]));
 
         var result = await client.GetCurrentProjectRelativePath(
@@ -61,8 +61,8 @@ public sealed class GitCommandClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
-        Assert.Contains("inside a Git worktree", result.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
+        Assert.Contains("リポジトリ", result.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

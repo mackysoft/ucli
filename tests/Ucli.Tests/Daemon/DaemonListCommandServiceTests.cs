@@ -36,6 +36,9 @@ public sealed class DaemonListCommandServiceTests
             Result = DaemonListExecutionResult.Success(new DaemonListExecutionOutput(
                 TimeoutMilliseconds: 4321,
                 ProjectRelativePath: "UnityProject",
+                IsComplete: true,
+                CompletionReason: null,
+                RemainingWorktreeCount: 0,
                 Items: Array.Empty<DaemonListItemOutput>())),
         };
         var service = new DaemonListCommandService(resolver, queryService);
@@ -63,6 +66,9 @@ public sealed class DaemonListCommandServiceTests
         public DaemonListExecutionResult Result { get; set; } = DaemonListExecutionResult.Success(new DaemonListExecutionOutput(
             TimeoutMilliseconds: 1000,
             ProjectRelativePath: ".",
+            IsComplete: true,
+            CompletionReason: null,
+            RemainingWorktreeCount: 0,
             Items: Array.Empty<DaemonListItemOutput>()));
 
         public int CallCount { get; private set; }

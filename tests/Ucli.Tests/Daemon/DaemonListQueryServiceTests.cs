@@ -55,6 +55,9 @@ public sealed class DaemonListQueryServiceTests
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         Assert.Equal(2500, output.TimeoutMilliseconds);
         Assert.Equal("UnityProject", output.ProjectRelativePath);
+        Assert.True(output.IsComplete);
+        Assert.Null(output.CompletionReason);
+        Assert.Equal(0, output.RemainingWorktreeCount);
         Assert.Collection(
             output.Items,
             item =>
@@ -122,7 +125,11 @@ public sealed class DaemonListQueryServiceTests
         var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(3000), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var item = Assert.Single(result.Output!.Items);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        Assert.True(output.IsComplete);
+        Assert.Null(output.CompletionReason);
+        Assert.Equal(0, output.RemainingWorktreeCount);
+        var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListStateCodec.Error, item.State);
         Assert.Equal(DaemonListReasonCodec.InvalidSession, item.Reason);
         Assert.Null(item.IssuedAtUtc);
@@ -147,7 +154,11 @@ public sealed class DaemonListQueryServiceTests
         var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var item = Assert.Single(result.Output!.Items);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        Assert.True(output.IsComplete);
+        Assert.Null(output.CompletionReason);
+        Assert.Equal(0, output.RemainingWorktreeCount);
+        var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListStateCodec.Error, item.State);
         Assert.Equal(DaemonListReasonCodec.ProbeTimeout, item.Reason);
         Assert.Equal(2100, item.ProcessId);
@@ -157,25 +168,50 @@ public sealed class DaemonListQueryServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task List_WhenSharedDeadlineExpiresDuringProbe_ReturnsTimeoutFailure ()
+    public async Task List_WhenSharedDeadlineExpiresDuringProbe_ReturnsPartialSuccess ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var session = CreateSession("fp-current", "endpoint-timeout", 2400);
-        var service = CreateSingleWorktreeService(
-            currentProject,
-            DaemonSessionReadResult.Success(session),
-            new StubDaemonPingClient(async (_, _, _, cancellationToken) =>
+        var worktreeA = CreateUnityProject("/repo/wt-a", "UnityProject", "fp-a");
+        var worktreeB = CreateUnityProject("/repo/wt-b", "UnityProject", "fp-b");
+        var gitWorktreeQueryService = new StubGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
+            CurrentWorktreeRoot: currentProject.RepositoryRoot,
+            ProjectRelativePath: "UnityProject",
+            Worktrees:
+            [
+                new GitWorktreeInfo("/repo/wt-a", "aaaaaaaa", "refs/heads/a"),
+                new GitWorktreeInfo("/repo/wt-b", "bbbbbbbb", "refs/heads/b"),
+            ])));
+        var unityProjectResolver = new StubUnityProjectResolver(worktreeA, worktreeB);
+        var sessionStore = new StubDaemonSessionStore((_, projectFingerprint) => projectFingerprint switch
+        {
+            "fp-a" => DaemonSessionReadResult.Success(CreateSession("fp-a", "endpoint-a", 2401)),
+            "fp-b" => DaemonSessionReadResult.Success(CreateSession("fp-b", "endpoint-b", 2402)),
+            _ => throw new InvalidOperationException($"Unexpected fingerprint: {projectFingerprint}"),
+        });
+        var service = new DaemonListQueryService(
+            gitWorktreeQueryService,
+            unityProjectResolver,
+            sessionStore,
+            new StubDaemonPingClient(async (unityProject, _, _, cancellationToken) =>
             {
-                await Task.Delay(50, cancellationToken);
-                throw new TimeoutException("probe timed out");
+                if (unityProject.ProjectFingerprint == "fp-b")
+                {
+                    await Task.Delay(50, cancellationToken);
+                    throw new TimeoutException("probe timed out");
+                }
             }),
             new StubDaemonReachabilityClassifier(static _ => false));
 
         var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(10), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-        Assert.Equal("Timed out while probing daemon session.", result.Error.Message);
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        Assert.False(output.IsComplete);
+        Assert.Equal(DaemonListCompletionReasonCodec.Timeout, output.CompletionReason);
+        Assert.Equal(1, output.RemainingWorktreeCount);
+        var item = Assert.Single(output.Items);
+        Assert.Equal("/repo/wt-a", item.WorktreePath);
+        Assert.Equal(DaemonListStateCodec.Running, item.State);
     }
 
     [Fact]
@@ -193,7 +229,11 @@ public sealed class DaemonListQueryServiceTests
         var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var item = Assert.Single(result.Output!.Items);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        Assert.True(output.IsComplete);
+        Assert.Null(output.CompletionReason);
+        Assert.Equal(0, output.RemainingWorktreeCount);
+        var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListStateCodec.Stale, item.State);
         Assert.Equal(DaemonListReasonCodec.StaleSession, item.Reason);
         Assert.Equal("Daemon session exists but daemon is not reachable.", item.Message);
@@ -215,7 +255,11 @@ public sealed class DaemonListQueryServiceTests
         var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var item = Assert.Single(result.Output!.Items);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        Assert.True(output.IsComplete);
+        Assert.Null(output.CompletionReason);
+        Assert.Equal(0, output.RemainingWorktreeCount);
+        var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListStateCodec.Error, item.State);
         Assert.Equal(DaemonListReasonCodec.ProbeFailed, item.Reason);
         Assert.Equal("boom", item.Message);

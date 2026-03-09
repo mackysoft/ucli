@@ -161,6 +161,9 @@ public sealed class DaemonCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonListMilliseconds)
                 .HasString("projectRelativePath", "UnityProject")
+                .HasBoolean("isComplete", true)
+                .IsNull("completionReason")
+                .HasInt32("remainingWorktreeCount", 0)
                 .HasArrayLength("items", 0));
     }
 
