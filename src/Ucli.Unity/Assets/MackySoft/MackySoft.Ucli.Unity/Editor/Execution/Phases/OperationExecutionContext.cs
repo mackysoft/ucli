@@ -16,6 +16,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly Dictionary<string, ComponentShadowValue> componentShadowsByGlobalObjectId =
             new Dictionary<string, ComponentShadowValue>(StringComparer.Ordinal);
 
+        private readonly Dictionary<EnsuredComponentKey, EnsuredComponentValue> ensuredComponentsByKey =
+            new Dictionary<EnsuredComponentKey, EnsuredComponentValue>();
+
         private readonly List<UnityEngine.Object> temporaryObjects = new List<UnityEngine.Object>();
 
         /// <summary> Initializes a new instance of the <see cref="OperationExecutionContext" /> class. </summary>
@@ -42,7 +45,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal void SetTemporaryAlias (
             string alias,
             UnityEngine.Object unityObject,
-            string scenePath)
+            string scenePath,
+            string? sourceGlobalObjectId = null)
         {
             ValidateAlias(alias);
             if (unityObject == null)
@@ -55,7 +59,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentException("Scene path must not be null, empty, or whitespace.", nameof(scenePath));
             }
 
-            temporaryAliasesByName[alias] = new TemporaryAliasValue(unityObject, scenePath);
+            if (sourceGlobalObjectId != null
+                && string.IsNullOrWhiteSpace(sourceGlobalObjectId))
+            {
+                throw new ArgumentException("Source GlobalObjectId must not be empty when provided.", nameof(sourceGlobalObjectId));
+            }
+
+            temporaryAliasesByName[alias] = new TemporaryAliasValue(unityObject, scenePath, sourceGlobalObjectId);
         }
 
         /// <summary> Tries to get one temporary alias value. </summary>
@@ -68,8 +78,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out UnityEngine.Object? unityObject,
             out string scenePath)
         {
+            return TryGetTemporaryAlias(alias, out unityObject, out scenePath, out _);
+        }
+
+        /// <summary> Tries to get one temporary alias value together with the tracked source GlobalObjectId. </summary>
+        /// <param name="alias"> The alias name. </param>
+        /// <param name="unityObject"> The temporary live object when found. </param>
+        /// <param name="scenePath"> The logical scene path when found. </param>
+        /// <param name="sourceGlobalObjectId"> The source GlobalObjectId when tracked; otherwise <see langword="null" />. </param>
+        /// <returns> <see langword="true" /> when temporary alias exists; otherwise <see langword="false" />. </returns>
+        internal bool TryGetTemporaryAlias (
+            string alias,
+            out UnityEngine.Object? unityObject,
+            out string scenePath,
+            out string? sourceGlobalObjectId)
+        {
             unityObject = null;
             scenePath = string.Empty;
+            sourceGlobalObjectId = null;
             if (string.IsNullOrWhiteSpace(alias))
             {
                 return false;
@@ -87,6 +113,77 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             unityObject = value.UnityObject;
+            scenePath = value.ScenePath;
+            sourceGlobalObjectId = value.SourceGlobalObjectId;
+            return true;
+        }
+
+        /// <summary> Stores or replaces one plan-time ensured component keyed by target GameObject and component type. </summary>
+        /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
+        /// <param name="componentType"> The ensured component runtime type. </param>
+        /// <param name="component"> The temporary ensured component. </param>
+        /// <param name="scenePath"> The owning scene path. </param>
+        internal void SetEnsuredComponent (
+            string targetGlobalObjectId,
+            Type componentType,
+            Component component,
+            string scenePath)
+        {
+            if (string.IsNullOrWhiteSpace(targetGlobalObjectId))
+            {
+                throw new ArgumentException("Target GlobalObjectId must not be null, empty, or whitespace.", nameof(targetGlobalObjectId));
+            }
+
+            if (componentType == null)
+            {
+                throw new ArgumentNullException(nameof(componentType));
+            }
+
+            if (component == null)
+            {
+                throw new ArgumentNullException(nameof(component));
+            }
+
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
+                throw new ArgumentException("Scene path must not be null, empty, or whitespace.", nameof(scenePath));
+            }
+
+            ensuredComponentsByKey[new EnsuredComponentKey(targetGlobalObjectId, componentType)] =
+                new EnsuredComponentValue(component, scenePath);
+        }
+
+        /// <summary> Tries to get one plan-time ensured component keyed by target GameObject and component type. </summary>
+        /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
+        /// <param name="componentType"> The ensured component runtime type. </param>
+        /// <param name="component"> The temporary ensured component when found. </param>
+        /// <param name="scenePath"> The owning scene path when found. </param>
+        /// <returns> <see langword="true" /> when ensured component exists; otherwise <see langword="false" />. </returns>
+        internal bool TryGetEnsuredComponent (
+            string targetGlobalObjectId,
+            Type componentType,
+            out Component? component,
+            out string scenePath)
+        {
+            component = null;
+            scenePath = string.Empty;
+            if (string.IsNullOrWhiteSpace(targetGlobalObjectId) || componentType == null)
+            {
+                return false;
+            }
+
+            if (!ensuredComponentsByKey.TryGetValue(new EnsuredComponentKey(targetGlobalObjectId, componentType), out var value))
+            {
+                return false;
+            }
+
+            if (value.Component == null)
+            {
+                ensuredComponentsByKey.Remove(new EnsuredComponentKey(targetGlobalObjectId, componentType));
+                return false;
+            }
+
+            component = value.Component;
             scenePath = value.ScenePath;
             return true;
         }
@@ -116,6 +213,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             componentShadowsByGlobalObjectId[globalObjectId] = new ComponentShadowValue(component, scenePath);
+            SynchronizeTemporaryAliases(globalObjectId, component, scenePath);
         }
 
         /// <summary> Tries to get one temporary component shadow. </summary>
@@ -178,6 +276,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             temporaryObjects.Clear();
             temporaryAliasesByName.Clear();
             componentShadowsByGlobalObjectId.Clear();
+            ensuredComponentsByKey.Clear();
         }
 
         private static void ValidateAlias (string alias)
@@ -193,24 +292,107 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
         }
 
+        private void SynchronizeTemporaryAliases (
+            string globalObjectId,
+            Component component,
+            string scenePath)
+        {
+            List<string>? aliasesToSynchronize = null;
+            foreach (var pair in temporaryAliasesByName)
+            {
+                if (!string.Equals(pair.Value.SourceGlobalObjectId, globalObjectId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                aliasesToSynchronize ??= new List<string>();
+                aliasesToSynchronize.Add(pair.Key);
+            }
+
+            if (aliasesToSynchronize == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < aliasesToSynchronize.Count; i++)
+            {
+                var alias = aliasesToSynchronize[i];
+                temporaryAliasesByName[alias] = new TemporaryAliasValue(component, scenePath, globalObjectId);
+            }
+        }
+
         private readonly struct TemporaryAliasValue
         {
             public TemporaryAliasValue (
                 UnityEngine.Object unityObject,
-                string scenePath)
+                string scenePath,
+                string? sourceGlobalObjectId)
             {
                 UnityObject = unityObject;
                 ScenePath = scenePath;
+                SourceGlobalObjectId = sourceGlobalObjectId;
             }
 
             public UnityEngine.Object UnityObject { get; }
 
             public string ScenePath { get; }
+
+            public string? SourceGlobalObjectId { get; }
         }
 
         private readonly struct ComponentShadowValue
         {
             public ComponentShadowValue (
+                Component component,
+                string scenePath)
+            {
+                Component = component;
+                ScenePath = scenePath;
+            }
+
+            public Component Component { get; }
+
+            public string ScenePath { get; }
+        }
+
+        private readonly struct EnsuredComponentKey : IEquatable<EnsuredComponentKey>
+        {
+            public EnsuredComponentKey (
+                string targetGlobalObjectId,
+                Type componentType)
+            {
+                TargetGlobalObjectId = targetGlobalObjectId;
+                ComponentType = componentType;
+            }
+
+            public string TargetGlobalObjectId { get; }
+
+            public Type ComponentType { get; }
+
+            public bool Equals (EnsuredComponentKey other)
+            {
+                return string.Equals(TargetGlobalObjectId, other.TargetGlobalObjectId, StringComparison.Ordinal)
+                    && ComponentType == other.ComponentType;
+            }
+
+            public override bool Equals (object? obj)
+            {
+                return obj is EnsuredComponentKey other && Equals(other);
+            }
+
+            public override int GetHashCode ()
+            {
+                unchecked
+                {
+                    return ((TargetGlobalObjectId != null ? StringComparer.Ordinal.GetHashCode(TargetGlobalObjectId) : 0) * 397)
+                        ^ (ComponentType != null ? ComponentType.GetHashCode() : 0);
+                }
+            }
+        }
+
+        private readonly struct EnsuredComponentValue
+        {
+            public EnsuredComponentValue (
                 Component component,
                 string scenePath)
             {

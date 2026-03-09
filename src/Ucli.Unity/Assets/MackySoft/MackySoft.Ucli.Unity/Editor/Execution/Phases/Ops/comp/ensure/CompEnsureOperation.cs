@@ -87,27 +87,65 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var existingComponents = target.GetComponents(componentType);
-            var component = existingComponents.Length > 0
-                ? existingComponents[0]
-                : null;
-            var changed = component == null;
+            var component = default(Component);
+            var changed = false;
+            var usesTemporaryComponent = false;
+            if (applied)
+            {
+                var existingComponents = target.GetComponents(componentType);
+                component = existingComponents.Length > 0
+                    ? existingComponents[0]
+                    : null;
+                changed = component == null;
+            }
+            else
+            {
+                var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
+                if (!string.IsNullOrWhiteSpace(targetGlobalObjectId)
+                    && executionContext.TryGetEnsuredComponent(targetGlobalObjectId, componentType, out component, out _))
+                {
+                    changed = false;
+                    usesTemporaryComponent = true;
+                }
+                else
+                {
+                    var existingComponents = target.GetComponents(componentType);
+                    component = existingComponents.Length > 0
+                        ? existingComponents[0]
+                        : null;
+                    changed = component == null;
+                    if (component == null)
+                    {
+                        if (!ComponentOperationUtilities.TryCreateTemporaryComponent(componentType, executionContext, out component, out var errorMessage))
+                        {
+                            return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
+                                Code: MackySoft.Ucli.Contracts.Ipc.IpcErrorCodes.InternalError,
+                                Message: errorMessage,
+                                OpId: operation.Id)));
+                        }
+
+                        executionContext.SetEnsuredComponent(targetGlobalObjectId, componentType, component!, scene.path);
+                        usesTemporaryComponent = true;
+                    }
+                }
+            }
+
             if (!applied && operation.As != null)
             {
                 if (component != null)
                 {
-                    executionContext.AliasStore.Set(operation.As, UnityObjectReferenceResolver.CreateResolvedReference(component));
-                }
-                else if (ComponentOperationUtilities.TryCreateTemporaryComponent(componentType, executionContext, out var temporaryComponent, out var errorMessage))
-                {
-                    executionContext.SetTemporaryAlias(operation.As, temporaryComponent!, scene.path);
+                    if (usesTemporaryComponent)
+                    {
+                        executionContext.SetTemporaryAlias(operation.As, component, scene.path);
+                    }
+                    else
+                    {
+                        executionContext.AliasStore.Set(operation.As, UnityObjectReferenceResolver.CreateResolvedReference(component));
+                    }
                 }
                 else
                 {
-                    return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: MackySoft.Ucli.Contracts.Ipc.IpcErrorCodes.InternalError,
-                        Message: errorMessage,
-                        OpId: operation.Id)));
+                    throw new InvalidOperationException("Component planning state could not be resolved.");
                 }
             }
 

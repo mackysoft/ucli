@@ -58,6 +58,60 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Ensure_Plan_WhenSameEnsureWasAlreadyPlanned_UsesPlannedEnsureState ()
+        {
+            var operation = new CompEnsureOperation();
+            var scenePath = CreateTemporaryScenePath();
+            try
+            {
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                _ = new GameObject("Root");
+                EditorSceneManager.SaveScene(scene, scenePath);
+                var firstRequest = CreateOperation(
+                    opId: "op-ensure-1",
+                    opName: "ucli.comp.ensure",
+                    args: new
+                    {
+                        target = new
+                        {
+                            scene = scenePath,
+                            hierarchyPath = "Root",
+                        },
+                        type = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
+                    });
+                var secondRequest = CreateOperation(
+                    opId: "op-ensure-2",
+                    opName: "ucli.comp.ensure",
+                    args: new
+                    {
+                        target = new
+                        {
+                            scene = scenePath,
+                            hierarchyPath = "Root",
+                        },
+                        type = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
+                    },
+                    alias: "ensured");
+                var context = new OperationExecutionContext();
+
+                var firstResult = operation.Plan(firstRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var secondResult = operation.Plan(secondRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+
+                AssertSuccess(firstResult, applied: false, changed: true, scenePath);
+                AssertSuccess(secondResult, applied: false, changed: false, scenePath);
+                Assert.That(context.TryGetTemporaryAlias("ensured", out var temporaryObject, out var temporaryScenePath), Is.True);
+                Assert.That(temporaryScenePath, Is.EqualTo(scenePath));
+                Assert.That(temporaryObject, Is.TypeOf<CompOperationTestComponent>());
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                AssetDatabase.DeleteAsset(scenePath);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Ensure_Call_WhenMultipleComponentsExist_ReusesFirstExistingComponent ()
         {
             var operation = new CompEnsureOperation();
@@ -620,6 +674,136 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssertSuccess(setResult, applied: false, changed: true, scenePath);
                 Assert.That(context.TryGetTemporaryAlias("ensured", out var temporaryObject, out _), Is.True);
                 Assert.That(((CompOperationTestComponent)temporaryObject!).IntegerValue, Is.EqualTo(99));
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                AssetDatabase.DeleteAsset(scenePath);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Set_Plan_WhenAliasStateIsReusedBeforeGlobalObjectId_KeepsAliasStateSynchronized ()
+        {
+            var operation = new CompSetOperation();
+            var scenePath = CreateTemporaryScenePath();
+            try
+            {
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var root = new GameObject("Root");
+                var target = root.AddComponent<CompOperationTestComponent>();
+                EditorSceneManager.SaveScene(scene, scenePath);
+                var context = new OperationExecutionContext();
+                context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(target));
+                var globalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
+                var firstRequest = CreateOperation(
+                    opId: "op-set-alias-1",
+                    opName: "ucli.comp.set",
+                    args: new
+                    {
+                        target = new
+                        {
+                            @var = "target",
+                        },
+                        sets = new object[]
+                        {
+                            new
+                            {
+                                path = "nestedList",
+                                value = new object[]
+                                {
+                                    new
+                                    {
+                                        number = 10,
+                                        label = "first",
+                                    },
+                                },
+                            },
+                        },
+                    });
+                var secondRequest = CreateOperation(
+                    opId: "op-set-alias-2",
+                    opName: "ucli.comp.set",
+                    args: new
+                    {
+                        target = new
+                        {
+                            @var = "target",
+                        },
+                        sets = new object[]
+                        {
+                            new
+                            {
+                                path = "integerValue",
+                                value = 5,
+                            },
+                        },
+                    });
+                var thirdRequest = CreateOperation(
+                    opId: "op-set-global",
+                    opName: "ucli.comp.set",
+                    args: new
+                    {
+                        target = new
+                        {
+                            globalObjectId,
+                        },
+                        sets = new object[]
+                        {
+                            new
+                            {
+                                path = "nestedList",
+                                value = new object[]
+                                {
+                                    new
+                                    {
+                                        number = 10,
+                                        label = "first",
+                                    },
+                                    new
+                                    {
+                                        number = 20,
+                                        label = "second",
+                                    },
+                                },
+                            },
+                        },
+                    });
+                var fourthRequest = CreateOperation(
+                    opId: "op-set-alias-3",
+                    opName: "ucli.comp.set",
+                    args: new
+                    {
+                        target = new
+                        {
+                            @var = "target",
+                        },
+                        sets = new object[]
+                        {
+                            new
+                            {
+                                path = "nestedList.Array.data[1].number",
+                                value = 30,
+                            },
+                        },
+                    });
+
+                var firstResult = operation.Plan(firstRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var secondResult = operation.Plan(secondRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var thirdResult = operation.Plan(thirdRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var fourthResult = operation.Plan(fourthRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+
+                AssertSuccess(firstResult, applied: false, changed: true, scenePath);
+                AssertSuccess(secondResult, applied: false, changed: true, scenePath);
+                AssertSuccess(thirdResult, applied: false, changed: true, scenePath);
+                AssertSuccess(fourthResult, applied: false, changed: true, scenePath);
+                Assert.That(context.TryGetTemporaryAlias("target", out var temporaryObject, out _), Is.True);
+                var temporaryComponent = (CompOperationTestComponent)temporaryObject!;
+                Assert.That(temporaryComponent.IntegerValue, Is.EqualTo(5));
+                Assert.That(temporaryComponent.NestedList.Count, Is.EqualTo(2));
+                Assert.That(temporaryComponent.NestedList[1].Number, Is.EqualTo(30));
+                Assert.That(temporaryComponent.NestedList[1].Label, Is.EqualTo("second"));
             }
             finally
             {

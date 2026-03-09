@@ -101,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 if (binding.Alias != null)
                 {
-                    executionContext.SetTemporaryAlias(binding.Alias, sandbox!, binding.ScenePath);
+                    executionContext.SetTemporaryAlias(binding.Alias, sandbox!, binding.ScenePath, binding.SourceGlobalObjectId);
                 }
             }
 
@@ -208,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ? targetReference.Alias
                 : null;
             if (alias != null
-                && executionContext.TryGetTemporaryAlias(alias, out var temporaryObject, out var temporaryScenePath))
+                && executionContext.TryGetTemporaryAlias(alias, out var temporaryObject, out var temporaryScenePath, out var temporarySourceGlobalObjectId))
             {
                 var temporaryComponent = temporaryObject as Component;
                 if (temporaryComponent == null)
@@ -219,7 +219,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                binding = new TargetBinding(temporaryComponent, temporaryScenePath, sourceGlobalObjectId: null, alias);
+                binding = new TargetBinding(temporaryComponent, temporaryScenePath, temporarySourceGlobalObjectId, alias);
                 sets = parsedArguments.Value.Sets;
                 return true;
             }
