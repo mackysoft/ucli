@@ -84,6 +84,8 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         var diagnosis = new DaemonDiagnosis(
             Reason: contract.Reason!,
             Message: contract.Message!,
+            ReportedBy: contract.ReportedBy!,
+            IsInferred: contract.IsInferred!.Value,
             UpdatedAtUtc: contract.UpdatedAtUtc,
             ProcessId: contract.ProcessId,
             SessionIssuedAtUtc: contract.SessionIssuedAtUtc);
@@ -119,6 +121,8 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         var contract = new DaemonDiagnosisJsonContract(
             Reason: diagnosis.Reason,
             Message: diagnosis.Message,
+            ReportedBy: diagnosis.ReportedBy,
+            IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             ProcessId: diagnosis.ProcessId,
             SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc);
@@ -205,6 +209,19 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             return false;
         }
 
+        if (string.IsNullOrWhiteSpace(contract.ReportedBy)
+            || !DaemonDiagnosisReportedByValues.IsSupported(contract.ReportedBy))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis reportedBy is invalid: {diagnosisPath}");
+            return false;
+        }
+
+        if (contract.IsInferred is null)
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis isInferred is invalid: {diagnosisPath}");
+            return false;
+        }
+
         if (contract.UpdatedAtUtc == default)
         {
             error = ExecutionError.InvalidArgument($"Daemon diagnosis updatedAtUtc is invalid: {diagnosisPath}");
@@ -238,6 +255,13 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             return false;
         }
 
+        if (string.IsNullOrWhiteSpace(diagnosis.ReportedBy)
+            || !DaemonDiagnosisReportedByValues.IsSupported(diagnosis.ReportedBy))
+        {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis reportedBy is invalid: {diagnosisPath}");
+            return false;
+        }
+
         if (diagnosis.UpdatedAtUtc == default)
         {
             error = ExecutionError.InvalidArgument($"Daemon diagnosis updatedAtUtc is invalid: {diagnosisPath}");
@@ -259,5 +283,4 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         return exception is IOException
             or UnauthorizedAccessException;
     }
-
 }

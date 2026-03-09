@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Cli;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 
@@ -28,6 +29,8 @@ public sealed class DaemonListCommandTests
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: "shutdownRequested",
                 Message: "daemon shutdown completed",
+                ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+                IsInferred: false,
                 UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
                 ProcessId: 1234));
         var service = new StubDaemonListCommandService(
@@ -66,6 +69,8 @@ public sealed class DaemonListCommandTests
                     .HasProperty("diagnosis", diagnosis => diagnosis
                         .HasString("reason", "shutdownRequested")
                         .HasString("message", "daemon shutdown completed")
+                        .HasString("reportedBy", DaemonDiagnosisReportedByValues.Unity)
+                        .HasBoolean("isInferred", false)
                         .HasInt32("processId", 1234))));
 
         var itemJson = outputJson.RootElement

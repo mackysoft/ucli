@@ -14,6 +14,8 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
             {
               "reason": "shutdownRequested",
               "message": "daemon shutdown completed",
+              "reportedBy": "unity",
+              "isInferred": false,
               "updatedAtUtc": "2026-03-09T00:00:00+00:00",
               "processId": 1234,
               "sessionIssuedAtUtc": "2026-03-09T00:00:01+00:00"
@@ -25,6 +27,8 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         Assert.NotNull(contract);
         Assert.Equal("shutdownRequested", contract.Reason);
         Assert.Equal("daemon shutdown completed", contract.Message);
+        Assert.Equal("unity", contract.ReportedBy);
+        Assert.False(contract.IsInferred);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00+00:00"), contract.UpdatedAtUtc);
         Assert.Equal(1234, contract.ProcessId);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:01+00:00"), contract.SessionIssuedAtUtc);
@@ -56,6 +60,8 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         var contract = new DaemonDiagnosisJsonContract(
             Reason: "shutdownRequested",
             Message: "daemon shutdown completed",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
             UpdatedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:00+00:00"),
             ProcessId: 1234,
             SessionIssuedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:01+00:00"));
@@ -71,6 +77,8 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         builder => builder
             .Required("reason", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("message", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("reportedBy", JsonSchemaNode.Value(JsonSchemaType.String))
+            .Required("isInferred", JsonSchemaNode.Value(JsonSchemaType.Boolean))
             .Required("updatedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32))
             .Required("sessionIssuedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String)),

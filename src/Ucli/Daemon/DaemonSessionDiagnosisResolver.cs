@@ -43,6 +43,8 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
         var diagnosis = new DaemonDiagnosis(
             Reason: DaemonDiagnosisReasonValues.ExternalTerminationSuspected,
             Message: "Daemon process is no longer alive and no persisted diagnosis matched the current session.",
+            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            IsInferred: true,
             UpdatedAtUtc: DateTimeOffset.UtcNow,
             ProcessId: resolvedProcessId,
             SessionIssuedAtUtc: session.IssuedAtUtc);

@@ -42,6 +42,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(contract, Is.Not.Null);
                 Assert.That(contract!.Reason, Is.EqualTo(DaemonDiagnosisReasonValues.ListenerTerminated));
                 Assert.That(contract.Message, Is.EqualTo("listener terminated"));
+                Assert.That(contract.ReportedBy, Is.EqualTo(DaemonDiagnosisReportedByValues.Unity));
+                Assert.That(contract.IsInferred, Is.False);
                 Assert.That(contract.ProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
                 Assert.That(contract.SessionIssuedAtUtc, Is.EqualTo(bootstrapArguments.SessionIssuedAtUtc));
             }

@@ -14,6 +14,8 @@ internal sealed class DaemonDiagnosisOutputMapper : IDaemonDiagnosisOutputMapper
         return new DaemonDiagnosisOutput(
             Reason: diagnosis.Reason,
             Message: diagnosis.Message,
+            ReportedBy: diagnosis.ReportedBy,
+            IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             ProcessId: diagnosis.ProcessId);
     }

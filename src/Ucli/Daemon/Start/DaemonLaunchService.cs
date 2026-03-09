@@ -167,6 +167,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 new DaemonDiagnosis(
                     Reason: DaemonDiagnosisReasonValues.StartupFailed,
                     Message: primaryError.Message,
+                    ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+                    IsInferred: false,
                     UpdatedAtUtc: DateTimeOffset.UtcNow,
                     ProcessId: processId,
                     SessionIssuedAtUtc: expectedIssuedAtUtc),

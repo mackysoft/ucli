@@ -43,6 +43,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             var diagnosisContract = new DaemonDiagnosisJsonContract(
                 Reason: reason,
                 Message: message,
+                ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+                IsInferred: false,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
                 ProcessId: Process.GetCurrentProcess().Id,
                 SessionIssuedAtUtc: bootstrapArguments.SessionIssuedAtUtc);

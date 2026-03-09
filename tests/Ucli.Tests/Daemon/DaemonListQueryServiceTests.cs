@@ -254,6 +254,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.NotNull(item.Diagnosis);
         Assert.Equal(diagnosis.Reason, item.Diagnosis!.Reason);
         Assert.Equal(diagnosis.Message, item.Diagnosis.Message);
+        Assert.Equal(diagnosis.ReportedBy, item.Diagnosis.ReportedBy);
+        Assert.Equal(diagnosis.IsInferred, item.Diagnosis.IsInferred);
         Assert.Equal(diagnosis.UpdatedAtUtc, item.Diagnosis.UpdatedAtUtc);
         Assert.Equal(diagnosis.ProcessId, item.Diagnosis.ProcessId);
     }
@@ -281,6 +283,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.Equal(DaemonListReasonCodec.StaleSession, item.Reason);
         Assert.NotNull(item.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, item.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, item.Diagnosis.ReportedBy);
+        Assert.True(item.Diagnosis.IsInferred);
         Assert.Equal(session.ProcessId, item.Diagnosis.ProcessId);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
@@ -394,6 +398,8 @@ public sealed class DaemonListQueryServiceTests
         return new DaemonDiagnosis(
             Reason: reason,
             Message: $"diagnosis:{reason}",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
             SessionIssuedAtUtc: session.IssuedAtUtc);

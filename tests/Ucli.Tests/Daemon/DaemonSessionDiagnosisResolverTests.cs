@@ -42,6 +42,8 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
         Assert.NotNull(result);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.ReportedBy);
+        Assert.True(result.IsInferred);
         Assert.Equal(session.ProcessId, result.ProcessId);
         Assert.Equal(session.IssuedAtUtc, result.SessionIssuedAtUtc);
         Assert.Equal(result, diagnosisStore.LastDiagnosis);
@@ -79,6 +81,8 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
         Assert.NotNull(result);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.ReportedBy);
+        Assert.True(result.IsInferred);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
 
@@ -115,6 +119,8 @@ public sealed class DaemonSessionDiagnosisResolverTests
         return new DaemonDiagnosis(
             Reason: reason,
             Message: $"diagnosis:{reason}",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 1, 0, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
             SessionIssuedAtUtc: session.IssuedAtUtc);

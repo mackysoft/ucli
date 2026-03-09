@@ -77,6 +77,8 @@ public sealed class DaemonDiagnosisStoreTests
         return new DaemonDiagnosis(
             Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
             Message: "daemon shutdown completed",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: processId,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero));
