@@ -57,6 +57,45 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenOperationTraceContainsResult_MapsResultToPayload () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var operationTrace = new OperationPhaseTrace(
+                "op-1",
+                "ucli.go.describe",
+                OperationPhase.Plan,
+                false,
+                false,
+                System.Array.Empty<OperationTouch>(),
+                null)
+            {
+                Result = JsonSerializer.SerializeToElement(new
+                {
+                    name = "Root",
+                }),
+            };
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: new[]
+                {
+                    operationTrace,
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan, operationName: "ucli.go.describe");
+
+            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
+            Assert.That(opResult.TryGetProperty("result", out var result), Is.True);
+            Assert.That(result.GetProperty("name").GetString(), Is.EqualTo("Root"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenSameRequestIdAndSamePayload_ReusesCompletedResponse () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest();
@@ -297,9 +336,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static async UniTask AssertDelegatesToPhaseExecutor (
             string commandName,
-            PhaseExecutionCommand expectedCommand)
+            PhaseExecutionCommand expectedCommand,
+            string operationName = "ucli.resolve")
         {
-            var normalizedRequest = CreateNormalizedRequest();
+            var normalizedRequest = CreateNormalizedRequest(operationName);
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
                 protocolVersion: IpcProtocol.CurrentVersion,
@@ -308,7 +348,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new OperationPhaseTrace(
                         "op-1",
-                        "ucli.resolve",
+                        operationName,
                         OperationPhase.Plan,
                         false,
                         true,
@@ -320,7 +360,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 }));
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(commandName);
+            var request = CreateExecuteRequest(commandName, operationName: operationName);
 
             var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
 
@@ -334,7 +374,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var opResult = GetSingleArrayElement(opResults);
             Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("op-1"));
-            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("ucli.resolve"));
+            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo(operationName));
             Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(IpcExecuteOperationPhaseNames.Plan));
             Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
             Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.True);
@@ -414,7 +454,7 @@ namespace MackySoft.Ucli.Unity.Tests
             };
         }
 
-        private static NormalizedExecuteRequest CreateNormalizedRequest ()
+        private static NormalizedExecuteRequest CreateNormalizedRequest (string operationName = "ucli.resolve")
         {
             return new NormalizedExecuteRequest(
                 ProtocolVersion: 1,
@@ -423,7 +463,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new NormalizedOperation(
                         Id: "op-1",
-                        Op: "ucli.resolve",
+                        Op: operationName,
                         Args: JsonSerializer.SerializeToElement(new { }),
                         As: null,
                         Expect: null),

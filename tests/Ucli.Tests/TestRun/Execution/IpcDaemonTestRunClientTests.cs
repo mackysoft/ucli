@@ -16,7 +16,7 @@ public sealed class IpcDaemonTestRunClientTests
     [Trait("Size", "Small")]
     public async Task Execute_WithValidResponse_ReturnsSuccess ()
     {
-        var unityIpcClient = new StubUnityIpcClient(request =>
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
             CreateResponse(
                 request,
                 IpcProtocol.StatusOk,
@@ -29,7 +29,7 @@ public sealed class IpcDaemonTestRunClientTests
         var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
         scope.WriteFile("run/results.xml", "<test-run />");
         scope.WriteFile("run/editor.log", "log");
-        var client = new IpcDaemonTestRunClient(unityIpcClient, sessionTokenProvider);
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
             configuration,
@@ -39,8 +39,8 @@ public sealed class IpcDaemonTestRunClientTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, result.ProcessExitCode);
-        Assert.Equal(1, unityIpcClient.CallCount);
-        var request = Assert.IsType<IpcRequest>(unityIpcClient.LastRequest);
+        Assert.Equal(1, daemonTransportClient.CallCount);
+        var request = Assert.IsType<IpcRequest>(daemonTransportClient.LastRequest);
         Assert.Equal(IpcMethodNames.TestRun, request.Method);
         Assert.Equal("session-token", request.SessionToken);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest payload, out _));
@@ -53,7 +53,7 @@ public sealed class IpcDaemonTestRunClientTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenResponsePayloadIsInvalid_ReturnsAbnormalExitFailure ()
     {
-        var unityIpcClient = new StubUnityIpcClient(request =>
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
             CreateResponse(
                 request,
                 IpcProtocol.StatusOk,
@@ -67,7 +67,7 @@ public sealed class IpcDaemonTestRunClientTests
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "invalid-payload");
         var configuration = CreateConfiguration(scope);
         var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
-        var client = new IpcDaemonTestRunClient(unityIpcClient, sessionTokenProvider);
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
             configuration,
@@ -84,13 +84,13 @@ public sealed class IpcDaemonTestRunClientTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenIpcRequestTimesOut_ReturnsTimedOutFailure ()
     {
-        var unityIpcClient = new StubUnityIpcClient((_) => throw new TimeoutException("timeout"));
+        var daemonTransportClient = new StubUnityIpcTransportClient((_) => throw new TimeoutException("timeout"));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(
             DaemonSessionTokenResolutionResult.Success("session-token"));
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "timeout");
         var configuration = CreateConfiguration(scope);
         var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
-        var client = new IpcDaemonTestRunClient(unityIpcClient, sessionTokenProvider);
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
             configuration,
@@ -123,11 +123,11 @@ public sealed class IpcDaemonTestRunClientTests
             TimeoutMilliseconds: null);
     }
 
-    private sealed class StubUnityIpcClient : IUnityIpcClient
+    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {
         private readonly Func<IpcRequest, IpcResponse> responseFactory;
 
-        public StubUnityIpcClient (Func<IpcRequest, IpcResponse> responseFactory)
+        public StubUnityIpcTransportClient (Func<IpcRequest, IpcResponse> responseFactory)
         {
             this.responseFactory = responseFactory;
         }

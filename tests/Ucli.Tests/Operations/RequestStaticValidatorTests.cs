@@ -4,8 +4,10 @@ using System.Text.Json;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.ReadIndex;
+using MackySoft.Ucli.UnityProject;
 
 public sealed class RequestStaticValidatorTests
 {
@@ -30,7 +32,7 @@ public sealed class RequestStaticValidatorTests
         var validator = CreateValidator();
         var request = CreateInvalidRequest(scenario);
 
-        var result = await validator.Validate(request, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         AssertContainsError(result, expectedErrorCode);
     }
@@ -46,7 +48,7 @@ public sealed class RequestStaticValidatorTests
                 null,
             ]);
 
-        var result = await validator.Validate(request, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.False(result.IsValid);
         AssertContainsError(result, ValidationErrorCodes.OpIdRequired);
@@ -65,10 +67,31 @@ public sealed class RequestStaticValidatorTests
                 new ValidateRequestOperation("op-2", "ucli.scene.tree", CreateArgs()),
             ]);
 
-        var result = await validator.Validate(request, CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenCatalogDiscoveryThrows_ReturnsFailureResult ()
+    {
+        var authorizationService = new OperationAuthorizationService();
+        var validator = new RequestStaticValidator(new ThrowingOperationCatalog(), authorizationService);
+
+        var result = await validator.Validate(
+            CreateRequest(),
+            CreateUnityProject(),
+            CreateConfig(OperationPolicy.Safe, "^ucli\\."),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Empty(result.Errors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("operation metadata", error.Message, StringComparison.Ordinal);
     }
 
     private static IRequestStaticValidator CreateValidator ()
@@ -140,10 +163,41 @@ public sealed class RequestStaticValidatorTests
         return JsonSerializer.SerializeToElement(new { });
     }
 
+    private static ResolvedUnityProjectContext CreateUnityProject ()
+    {
+        return new ResolvedUnityProjectContext(
+            UnityProjectRoot: "/tmp/project",
+            RepositoryRoot: "/tmp/repository",
+            ProjectFingerprint: "project-fingerprint",
+            PathSource: UnityProjectPathSource.CommandOption);
+    }
+
     private static void AssertContainsError (ValidationResult result, string errorCode)
     {
         Assert.Contains(
             result.Errors,
             error => string.Equals(error.Code, errorCode, StringComparison.Ordinal));
+    }
+
+    private sealed class ThrowingOperationCatalog : IOperationCatalog
+    {
+        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+            ResolvedUnityProjectContext unityProject,
+            UcliConfig config,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new InvalidOperationException("catalog discovery failed");
+        }
     }
 }

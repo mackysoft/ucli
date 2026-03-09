@@ -1,6 +1,7 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -10,8 +11,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Handles one request-response exchange over a connected transport stream. </summary>
         /// <param name="stream"> The connected transport stream. </param>
         /// <param name="cancellationToken"> The cancellation token for request handling. </param>
-        /// <returns> A task that completes after one response frame is written. </returns>
-        Task Handle (
+        /// <returns> The handled connection exchange result. </returns>
+        Task<UnityIpcConnectionHandleResult> Handle (
             Stream stream,
             CancellationToken cancellationToken = default);
     }

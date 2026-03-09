@@ -8,8 +8,6 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements orchestration for filesystem-backed daemon session persistence. </summary>
 internal sealed class DaemonSessionStore : IDaemonSessionStore
 {
-    private readonly IDaemonSessionFileAccess sessionFileAccess;
-
     private readonly IDaemonSessionSerializer sessionSerializer;
 
     private readonly IDaemonSessionValidator sessionValidator;
@@ -17,23 +15,19 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <summary> Initializes a new instance of the <see cref="DaemonSessionStore" /> class with default dependencies. </summary>
     public DaemonSessionStore ()
         : this(
-            new DaemonSessionFileAccess(),
             new DaemonSessionJsonSerializer(),
             new DaemonSessionValidator())
     {
     }
 
     /// <summary> Initializes a new instance of the <see cref="DaemonSessionStore" /> class. </summary>
-    /// <param name="sessionFileAccess"> The daemon session file-access dependency. </param>
     /// <param name="sessionSerializer"> The daemon session serializer dependency. </param>
     /// <param name="sessionValidator"> The daemon session validator dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonSessionStore (
-        IDaemonSessionFileAccess sessionFileAccess,
         IDaemonSessionSerializer sessionSerializer,
         IDaemonSessionValidator sessionValidator)
     {
-        this.sessionFileAccess = sessionFileAccess ?? throw new ArgumentNullException(nameof(sessionFileAccess));
         this.sessionSerializer = sessionSerializer ?? throw new ArgumentNullException(nameof(sessionSerializer));
         this.sessionValidator = sessionValidator ?? throw new ArgumentNullException(nameof(sessionValidator));
     }
@@ -65,7 +59,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         string? json;
         try
         {
-            json = await sessionFileAccess.ReadOrNull(sessionPath, cancellationToken).ConfigureAwait(false);
+            json = await FileUtilities.ReadAllTextOrNull(sessionPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -170,7 +164,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
 
         try
         {
-            await sessionFileAccess.WriteAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
+            await FileUtilities.WriteAllTextAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
             return DaemonSessionStoreOperationResult.Success();
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
@@ -210,7 +204,8 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
 
         try
         {
-            await sessionFileAccess.Delete(sessionPath, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            FileUtilities.DeleteIfExists(sessionPath);
             return DaemonSessionStoreOperationResult.Success();
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))

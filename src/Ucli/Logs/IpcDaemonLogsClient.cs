@@ -10,18 +10,18 @@ namespace MackySoft.Ucli.Logs;
 /// <summary> Implements daemon-log reads over Unity IPC transport. </summary>
 internal sealed class IpcDaemonLogsClient : IDaemonLogsClient
 {
-    private readonly IUnityIpcClient unityIpcClient;
+    private readonly IUnityIpcTransportClient transportClient;
 
     private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
 
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonLogsClient" /> class. </summary>
-    /// <param name="unityIpcClient"> The Unity IPC client dependency. </param>
+    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
     /// <param name="daemonSessionTokenProvider"> The daemon session-token provider dependency. </param>
     public IpcDaemonLogsClient (
-        IUnityIpcClient unityIpcClient,
+        IUnityIpcTransportClient transportClient,
         IDaemonSessionTokenProvider daemonSessionTokenProvider)
     {
-        this.unityIpcClient = unityIpcClient ?? throw new ArgumentNullException(nameof(unityIpcClient));
+        this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
     }
 
@@ -55,7 +55,7 @@ internal sealed class IpcDaemonLogsClient : IDaemonLogsClient
             var request = IpcDaemonLogsRequestCodec.CreateRequest(
                 query,
                 sessionTokenResolutionResult.Token!);
-            var response = await unityIpcClient.SendAsync(
+            var response = await transportClient.SendAsync(
                     unityProject.RepositoryRoot,
                     unityProject.ProjectFingerprint,
                     request,

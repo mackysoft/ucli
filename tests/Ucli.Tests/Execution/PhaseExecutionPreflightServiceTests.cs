@@ -458,6 +458,44 @@ public sealed class PhaseExecutionPreflightServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsExecutionError_WhenStaticValidationCannotLoadCatalog ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "validation-catalog-failure");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "ops": [
+                {
+                  "id": "op-1",
+                  "op": "ucli.scene.open",
+                  "args": {}
+                }
+              ]
+            }
+            """;
+        var validator = new SpyRequestStaticValidator
+        {
+            Result = ValidationResult.Failure(ExecutionError.InternalError("catalog discovery failed")),
+        };
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: validator);
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Prepare_PropagatesCancellationTokenToDependencies ()
     {
         var request = new ValidateRequest(
@@ -482,6 +520,8 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.Equal(token, requestInputReader.ReceivedToken);
         Assert.Equal(token, configStore.ReceivedToken);
         Assert.Equal(token, validator.ReceivedToken);
+        Assert.NotNull(validator.ReceivedUnityProject);
+        Assert.Equal("/tmp/project", validator.ReceivedUnityProject!.UnityProjectRoot);
     }
 
     private static PhaseExecutionPreflightService CreateService (
@@ -592,15 +632,21 @@ public sealed class PhaseExecutionPreflightServiceTests
 
     private sealed class SpyRequestStaticValidator : IRequestStaticValidator
     {
+        public ValidationResult Result { get; set; } = ValidationResult.Success();
+
         public CancellationToken ReceivedToken { get; private set; }
+
+        public ResolvedUnityProjectContext? ReceivedUnityProject { get; private set; }
 
         public ValueTask<ValidationResult> Validate (
             ValidateRequest request,
+            ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             CancellationToken cancellationToken = default)
         {
             ReceivedToken = cancellationToken;
-            return ValueTask.FromResult(ValidationResult.Success());
+            ReceivedUnityProject = unityProject;
+            return ValueTask.FromResult(Result);
         }
     }
 }

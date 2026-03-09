@@ -106,10 +106,10 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestA = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan,
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"setSpawner\",\"op\":\"ucli.comp.set\",\"args\":{\"mode\":\"atomic\",\"target\":{\"var\":\"spawner\"},\"sets\":[{\"path\":\"spawnInterval\",\"value\":3.0}]}}]}");
+                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"setSpawner\",\"op\":\"ucli.comp.set\",\"args\":{\"target\":{\"var\":\"spawner\"},\"sets\":[{\"path\":\"spawnInterval\",\"value\":3.0}]}}]}");
             var requestB = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan,
-                "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"op\":\"ucli.comp.set\",\"args\":{\"target\":{\"var\":\"spawner\"},\"sets\":[{\"value\":3.0,\"path\":\"spawnInterval\"}],\"mode\":\"atomic\"},\"id\":\"setSpawner\"}],\"protocolVersion\":1}");
+                "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"op\":\"ucli.comp.set\",\"args\":{\"target\":{\"var\":\"spawner\"},\"sets\":[{\"value\":3.0,\"path\":\"spawnInterval\"}]},\"id\":\"setSpawner\"}],\"protocolVersion\":1}");
             var normalizer = new ExecuteRequestNormalizer();
 
             var resultA = normalizer.Normalize(requestA);
@@ -210,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenOperationIdIsDuplicated_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Refresh,
+                UcliCommandIds.Call,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,

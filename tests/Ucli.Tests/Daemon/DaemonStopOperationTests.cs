@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Daemon;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
@@ -28,7 +29,7 @@ public sealed class DaemonStopOperationTests
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
         var operation = new DaemonStopOperation(
-            lifecycleLockProvider: new StubDaemonLifecycleLockProvider(),
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
             daemonSessionStore: sessionStore,
             shutdownClient: shutdownClient,
             processTerminationService: processTerminationService,
@@ -66,7 +67,7 @@ public sealed class DaemonStopOperationTests
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
         var operation = new DaemonStopOperation(
-            lifecycleLockProvider: new StubDaemonLifecycleLockProvider(),
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
             daemonSessionStore: sessionStore,
             shutdownClient: shutdownClient,
             processTerminationService: processTerminationService,
@@ -85,7 +86,7 @@ public sealed class DaemonStopOperationTests
     [Trait("Size", "Small")]
     public async Task Stop_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
     {
-        var lockProvider = new StubDaemonLifecycleLockProvider
+        var lockProvider = new StubProjectLifecycleLockProvider
         {
             ThrowTimeoutOnAcquire = true,
         };
@@ -129,7 +130,7 @@ public sealed class DaemonStopOperationTests
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
         var operation = new DaemonStopOperation(
-            lifecycleLockProvider: new StubDaemonLifecycleLockProvider(),
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(),
             daemonSessionStore: sessionStore,
             shutdownClient: shutdownClient,
             processTerminationService: processTerminationService,
@@ -173,7 +174,7 @@ public sealed class DaemonStopOperationTests
             ProcessId: processId);
     }
 
-    private sealed class StubDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
+    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
     {
         public bool ThrowTimeoutOnAcquire { get; set; }
 

@@ -74,7 +74,14 @@ internal sealed class DaemonStatusCommandService : IDaemonStatusCommandService
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: statusResult.Session is null
                 ? null
-                : daemonSessionOutputMapper.ToOutput(statusResult.Session));
+                : daemonSessionOutputMapper.ToOutput(statusResult.Session),
+            Diagnosis: statusResult.Diagnosis is null
+                ? null
+                : new DaemonDiagnosisOutput(
+                    Reason: statusResult.Diagnosis.Reason,
+                    Message: statusResult.Diagnosis.Message,
+                    UpdatedAtUtc: statusResult.Diagnosis.UpdatedAtUtc,
+                    ProcessId: statusResult.Diagnosis.ProcessId));
         return DaemonStatusExecutionResult.Success(output);
     }
 }

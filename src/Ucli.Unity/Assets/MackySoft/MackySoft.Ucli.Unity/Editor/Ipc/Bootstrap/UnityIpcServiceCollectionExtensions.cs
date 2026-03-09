@@ -115,6 +115,37 @@ namespace MackySoft.Ucli.Unity.Ipc
             return services;
         }
 
+        /// <summary> Registers oneshot-only transport and completion services. </summary>
+        /// <param name="services"> The target service collection. </param>
+        /// <returns> The updated service collection. </returns>
+        public static IServiceCollection AddUnityIpcOneshotHostServices (this IServiceCollection services)
+        {
+            if (services == null)
+            {
+                throw new ArgumentNullException(nameof(services));
+            }
+
+            services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
+            services.AddSingleton<OneshotRequestCompletionSignal>();
+            services.AddSingleton<UnityIpcConnectionHandler>();
+            services.AddSingleton<IUnityIpcConnectionHandler, UnityOneshotConnectionHandler>();
+            services.AddSingleton<NamedPipeUnityIpcTransportListener>();
+            services.AddSingleton<UnixDomainSocketUnityIpcTransportListener>();
+            services.AddSingleton<IUnityIpcServer>(serviceProvider =>
+            {
+                return new UnityIpcServer(
+                    serviceProvider.GetRequiredService<IUnityIpcRequestProcessor>(),
+                    serviceProvider.GetRequiredService<IUnityIpcConnectionHandler>(),
+                    new IUnityIpcTransportListener[]
+                    {
+                        serviceProvider.GetRequiredService<NamedPipeUnityIpcTransportListener>(),
+                        serviceProvider.GetRequiredService<UnixDomainSocketUnityIpcTransportListener>(),
+                    },
+                    serviceProvider.GetRequiredService<IDaemonLogger>());
+            });
+            return services;
+        }
+
         private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher (UcliOperationCatalogSnapshot snapshot)
         {
             var normalizer = new ExecuteRequestNormalizer();

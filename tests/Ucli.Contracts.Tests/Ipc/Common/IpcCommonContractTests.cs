@@ -45,16 +45,22 @@ public sealed class IpcCommonContractTests
         Assert.Equal("-ucliRepositoryRoot", IpcDaemonBootstrapArgumentNames.RepositoryRoot);
         Assert.Equal("-ucliProjectFingerprint", IpcDaemonBootstrapArgumentNames.ProjectFingerprint);
         Assert.Equal("-ucliSessionPath", IpcDaemonBootstrapArgumentNames.SessionPath);
-        Assert.Equal("-ucliEndpointTransportKind", IpcDaemonBootstrapArgumentNames.EndpointTransportKind);
-        Assert.Equal("-ucliEndpointAddress", IpcDaemonBootstrapArgumentNames.EndpointAddress);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcEndpointBootstrapArgumentNames_HasStableStringValues ()
+    {
+        Assert.Equal("-ucliEndpointTransportKind", IpcEndpointBootstrapArgumentNames.TransportKind);
+        Assert.Equal("-ucliEndpointAddress", IpcEndpointBootstrapArgumentNames.Address);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcOneshotBootstrapArgumentNames_HasStableStringValues ()
     {
-        Assert.Equal("-ucliOneshotRequestPath", IpcOneshotBootstrapArgumentNames.RequestPath);
-        Assert.Equal("-ucliOneshotResponsePath", IpcOneshotBootstrapArgumentNames.ResponsePath);
+        Assert.Equal("-ucliOneshotParentProcessId", IpcOneshotBootstrapArgumentNames.ParentProcessId);
+        Assert.Equal("-ucliOneshotSessionToken", IpcOneshotBootstrapArgumentNames.SessionToken);
     }
 
     [Fact]

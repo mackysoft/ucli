@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 
 #nullable enable
 
@@ -19,5 +20,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         bool Applied,
         bool Changed,
         IReadOnlyList<OperationTouch> Touched,
-        OperationFailure? Failure);
+        OperationFailure? Failure)
+    {
+        /// <summary> Gets the optional query result payload produced by the final phase. </summary>
+        public JsonElement? Result { get; init; }
+    }
 }

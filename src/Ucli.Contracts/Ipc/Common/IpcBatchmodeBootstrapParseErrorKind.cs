@@ -17,4 +17,5 @@ public enum IpcBatchmodeBootstrapParseErrorKind
 
     /// <summary> One or more required argument values are empty. </summary>
     EmptyRequiredValue,
+
 }

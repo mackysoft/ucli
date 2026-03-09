@@ -34,7 +34,8 @@ public sealed class DaemonCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "notRunning")
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds)
-                .IsNull("session"));
+                .IsNull("session")
+                .IsNull("diagnosis"));
     }
 
     [Fact]

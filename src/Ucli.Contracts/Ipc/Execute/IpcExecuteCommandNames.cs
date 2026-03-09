@@ -13,7 +13,6 @@ public static class IpcExecuteCommandNames
         UcliCommandIds.Call,
         UcliCommandIds.Resolve,
         UcliCommandIds.Query,
-        UcliCommandIds.Refresh,
     ];
 
     /// <summary> Gets the execute-command identifiers that require operation-pipeline execution. </summary>
@@ -23,7 +22,6 @@ public static class IpcExecuteCommandNames
         UcliCommandIds.Call,
         UcliCommandIds.Resolve,
         UcliCommandIds.Query,
-        UcliCommandIds.Refresh,
     ];
 
     private static readonly HashSet<UcliCommand> KnownCommandSet = new(KnownCommands);

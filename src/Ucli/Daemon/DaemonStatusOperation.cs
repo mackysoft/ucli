@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -8,6 +10,8 @@ namespace MackySoft.Ucli.Daemon;
 internal sealed class DaemonStatusOperation : IDaemonStatusOperation
 {
     private readonly IDaemonSessionStore daemonSessionStore;
+
+    private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
 
     private readonly IDaemonPingClient daemonPingClient;
 
@@ -20,10 +24,12 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStatusOperation (
         IDaemonSessionStore daemonSessionStore,
+        IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
+        this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
     }
@@ -44,6 +50,15 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
+        var diagnosisReadResult = await daemonDiagnosisStore.Read(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var persistedDiagnosis = diagnosisReadResult.IsSuccess
+            ? diagnosisReadResult.Diagnosis
+            : null;
+
         var readResult = await daemonSessionStore.Read(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -56,7 +71,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
 
         if (!readResult.Exists)
         {
-            return DaemonStatusResult.NotRunning();
+            return DaemonStatusResult.NotRunning(persistedDiagnosis);
         }
 
         try
@@ -80,12 +95,61 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
-            return DaemonStatusResult.Stale(readResult.Session!);
+            var staleDiagnosis = await ResolveStaleDiagnosis(
+                    unityProject,
+                    readResult.Session!,
+                    persistedDiagnosis)
+                .ConfigureAwait(false);
+            return DaemonStatusResult.Stale(
+                readResult.Session!,
+                staleDiagnosis);
         }
         catch (Exception exception)
         {
             return DaemonStatusResult.Failure(ExecutionError.InternalError(
                 $"Failed to probe daemon status. {exception.Message}"));
         }
+    }
+
+    private async ValueTask<DaemonDiagnosis?> ResolveStaleDiagnosis (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        DaemonDiagnosis? persistedDiagnosis)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(session);
+
+        if (persistedDiagnosis is not null
+            && persistedDiagnosis.SessionIssuedAtUtc == session.IssuedAtUtc)
+        {
+            return persistedDiagnosis;
+        }
+
+        var processId = session.ProcessId;
+        if (processId is not int resolvedProcessId || ProcessLivenessProbe.IsAlive(resolvedProcessId))
+        {
+            return null;
+        }
+
+        var diagnosis = new DaemonDiagnosis(
+            Reason: DaemonDiagnosisReasonValues.ExternalTerminationSuspected,
+            Message: "Daemon process is no longer alive and no persisted diagnosis matched the current session.",
+            UpdatedAtUtc: DateTimeOffset.UtcNow,
+            ProcessId: resolvedProcessId,
+            SessionIssuedAtUtc: session.IssuedAtUtc);
+
+        var writeResult = await daemonDiagnosisStore.Write(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                diagnosis,
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!writeResult.IsSuccess)
+        {
+            // NOTE: Synthesized diagnosis is supplemental metadata for later inspection.
+            // Status should still return the inferred diagnosis even if sidecar persistence fails.
+        }
+
+        return diagnosis;
     }
 }

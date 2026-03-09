@@ -7,7 +7,6 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Execution.OperationExecute;
-using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.UnityProject;
@@ -21,15 +20,19 @@ public sealed class OperationExecuteServiceTests
     private static readonly OperationExecuteDefinition RefreshOperation = new(
         Command: UcliCommandIds.Refresh,
         OperationId: "refresh",
-        OperationName: "ucli.project.refresh",
+        Descriptor: new UcliOperationDescriptor(
+            Name: "ucli.project.refresh",
+            Kind: UcliOperationKind.Mutation,
+            Policy: OperationPolicy.Advanced,
+            ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
         Args: EmptyArgs);
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenValidationAndUnityExecutionSucceed_UsesFixedOperationRequest ()
+    public async Task Execute_WhenAuthorizationAndUnityExecutionSucceed_UsesFixedOperationRequest ()
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var requestStaticValidator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
             UnityIpcRequestExecutionResult.Success(
                 CreateResponse(
@@ -51,7 +54,7 @@ public sealed class OperationExecuteServiceTests
                             ]),
                     ],
                     errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, requestStaticValidator, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -67,13 +70,8 @@ public sealed class OperationExecuteServiceTests
         Assert.Empty(result.Errors);
         Assert.Single(result.OpResults);
 
-        var capturedValidationRequest = Assert.IsType<ValidateRequest>(requestStaticValidator.CapturedRequest);
-        Assert.Equal(result.RequestId, capturedValidationRequest.RequestId);
-        var validationOperation = Assert.Single(Assert.IsAssignableFrom<IReadOnlyList<ValidateRequestOperation?>>(capturedValidationRequest.Ops!));
-        Assert.NotNull(validationOperation);
-        Assert.Equal("refresh", validationOperation!.OpId);
-        Assert.Equal("ucli.project.refresh", validationOperation.Op);
-        Assert.Equal(JsonValueKind.Object, validationOperation.Args.ValueKind);
+        Assert.Equal("ucli.project.refresh", authorizationService.CapturedOperation!.Name);
+        Assert.Equal(OperationPolicy.Advanced, authorizationService.CapturedOperation.Policy);
 
         Assert.Equal(UcliCommandIds.Refresh, ipcRequestExecutor.CapturedCommand);
         Assert.Equal("daemon", ipcRequestExecutor.CapturedMode);
@@ -105,7 +103,7 @@ public sealed class OperationExecuteServiceTests
             PlanTokenMode = PlanTokenMode.Required,
         };
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
-        var requestStaticValidator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
             UnityIpcRequestExecutionResult.Success(
                 CreateResponse(
@@ -136,7 +134,7 @@ public sealed class OperationExecuteServiceTests
                             Touched: []),
                     ],
                     errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, requestStaticValidator, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -169,22 +167,18 @@ public sealed class OperationExecuteServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenStaticValidationFails_DoesNotCallUnityExecutor ()
+    public async Task Execute_WhenAuthorizationFails_DoesNotCallUnityExecutor ()
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var requestStaticValidator = new SpyRequestStaticValidator(new ValidationResult(
-        [
-            new ValidationError(
-                Code: ValidationErrorCodes.OperationNotAllowed,
-                Message: "Operation 'ucli.project.refresh' is blocked by operationPolicy='safe'.",
-                OpId: "refresh"),
-        ]));
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Denied(
+            ValidationErrorCodes.OperationNotAllowed,
+            "Operation 'ucli.project.refresh' is blocked by operationPolicy='safe'."));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
                 opResults: [],
                 errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, requestStaticValidator, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -211,11 +205,11 @@ public sealed class OperationExecuteServiceTests
         int expectedExitCode)
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var requestStaticValidator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Failure(
             message: "execution failed",
             errorCode: errorCode));
-        var service = new OperationExecuteService(projectContextResolver, requestStaticValidator, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -237,7 +231,7 @@ public sealed class OperationExecuteServiceTests
     public async Task Execute_WhenUnityReturnsErrorResponse_PreservesOpResultsAndErrors ()
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var requestStaticValidator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusError,
@@ -255,7 +249,7 @@ public sealed class OperationExecuteServiceTests
                 [
                     new IpcError(IpcErrorCodes.InvalidArgument, "refresh failed", "refresh"),
                 ])));
-        var service = new OperationExecuteService(projectContextResolver, requestStaticValidator, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -277,7 +271,7 @@ public sealed class OperationExecuteServiceTests
     public async Task Execute_WhenUnityPayloadIsInvalid_ReturnsInternalError ()
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
-        var requestStaticValidator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
             new IpcResponse(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -285,7 +279,7 @@ public sealed class OperationExecuteServiceTests
                 Status: IpcProtocol.StatusOk,
                 Payload: JsonSerializer.SerializeToElement(new { invalid = true }),
                 Errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, requestStaticValidator, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -349,24 +343,24 @@ public sealed class OperationExecuteServiceTests
         }
     }
 
-    private sealed class SpyRequestStaticValidator : IRequestStaticValidator
+    private sealed class SpyOperationAuthorizationService : IOperationAuthorizationService
     {
-        private readonly ValidationResult result;
+        private readonly OperationAuthorizationResult result;
 
-        public SpyRequestStaticValidator (ValidationResult result)
+        public SpyOperationAuthorizationService (OperationAuthorizationResult result)
         {
             this.result = result;
         }
 
-        public ValidateRequest? CapturedRequest { get; private set; }
+        public UcliOperationDescriptor? CapturedOperation { get; private set; }
 
-        public ValueTask<ValidationResult> Validate (
-            ValidateRequest request,
+        public ValueTask<OperationAuthorizationResult> Authorize (
+            UcliOperationDescriptor operation,
             UcliConfig config,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            CapturedRequest = request;
+            CapturedOperation = operation;
             return ValueTask.FromResult(result);
         }
     }

@@ -48,7 +48,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Applied: false,
                         Changed: false,
                         Touched: Array.Empty<OperationTouch>(),
-                        Failure: missingOperationFailure),
+                        Failure: missingOperationFailure)
+                    {
+                        Result = null,
+                    },
                     Error: missingOperationFailure,
                     PreparedOperation: null);
             }
@@ -70,7 +73,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Applied: validateStepResult.Applied,
                         Changed: validateStepResult.Changed,
                         Touched: touched.ToArray(),
-                        Failure: validateStepResult.Failure),
+                        Failure: validateStepResult.Failure)
+                    {
+                        Result = validateStepResult.Result,
+                    },
                     Error: validateStepResult.Failure,
                     PreparedOperation: null);
             }
@@ -91,7 +97,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Applied: planStepResult.Applied,
                         Changed: planStepResult.Changed,
                         Touched: touched.ToArray(),
-                        Failure: planStepResult.Failure),
+                        Failure: planStepResult.Failure)
+                    {
+                        Result = planStepResult.Result,
+                    },
                     Error: planStepResult.Failure,
                     PreparedOperation: null);
             }
@@ -105,7 +114,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Applied: planStepResult.Applied,
                     Changed: planStepResult.Changed,
                     Touched: successfulTouched,
-                    Failure: null),
+                    Failure: null)
+                {
+                    Result = planStepResult.Result,
+                },
                 Error: null,
                 PreparedOperation: new PreparedOperation(
                     Operation: operation,

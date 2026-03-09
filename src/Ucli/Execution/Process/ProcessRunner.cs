@@ -33,11 +33,12 @@ internal sealed class ProcessRunner : IProcessRunner
         }
 
         var standardOutput = new StringBuilder();
+        var fullStandardOutput = request.CaptureStandardOutput ? new StringBuilder() : null;
         var standardError = new StringBuilder();
         var standardOutputCompleted = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var standardErrorCompleted = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        process.OutputDataReceived += (_, eventArgs) => HandleOutputData(standardOutput, standardOutputCompleted, eventArgs.Data);
+        process.OutputDataReceived += (_, eventArgs) => HandleOutputData(standardOutput, fullStandardOutput, standardOutputCompleted, eventArgs.Data);
         process.ErrorDataReceived += (_, eventArgs) => HandleOutputData(standardError, standardErrorCompleted, eventArgs.Data);
 
         try
@@ -87,13 +88,13 @@ internal sealed class ProcessRunner : IProcessRunner
         {
             return ProcessRunResult.Exited(
                 0,
-                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
+                standardOutput: GetCapturedStandardOutput(standardOutput, fullStandardOutput));
         }
 
         return ProcessRunResult.Exited(
             process.ExitCode,
             $"Process exited with code {process.ExitCode}.{BuildOutputSnippet(standardError, standardOutput)}",
-            standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
+            standardOutput: GetCapturedStandardOutput(standardOutput, fullStandardOutput));
     }
 
     /// <summary> Tries to terminate one running process and waits for process exit. </summary>
@@ -142,6 +143,22 @@ internal sealed class ProcessRunner : IProcessRunner
     /// <param name="line"> The emitted output line. </param>
     private static void HandleOutputData (
         StringBuilder buffer,
+        StringBuilder? fullBuffer,
+        TaskCompletionSource<object?> completionSource,
+        string? line)
+    {
+        if (line is null)
+        {
+            completionSource.TrySetResult(null);
+            return;
+        }
+
+        AppendOutput(buffer, line);
+        AppendFullOutput(fullBuffer, line);
+    }
+
+    private static void HandleOutputData (
+        StringBuilder buffer,
         TaskCompletionSource<object?> completionSource,
         string? line)
     {
@@ -174,6 +191,34 @@ internal sealed class ProcessRunner : IProcessRunner
         }
 
         buffer.Append(line.AsSpan(0, Math.Min(line.Length, remainingChars)));
+    }
+
+    private static void AppendFullOutput (
+        StringBuilder? buffer,
+        string line)
+    {
+        if (buffer == null)
+        {
+            return;
+        }
+
+        buffer.AppendLine(line);
+    }
+
+    /// <summary> Gets the captured standard-output text according to the request mode. </summary>
+    /// <param name="boundedBuffer"> The bounded diagnostic output buffer. </param>
+    /// <param name="fullBuffer"> The full output buffer when capture is enabled. </param>
+    /// <returns> The captured standard-output text when available; otherwise <see langword="null" />. </returns>
+    private static string? GetCapturedStandardOutput (
+        StringBuilder boundedBuffer,
+        StringBuilder? fullBuffer)
+    {
+        if (fullBuffer != null)
+        {
+            return fullBuffer.Length > 0 ? fullBuffer.ToString() : null;
+        }
+
+        return boundedBuffer.Length > 0 ? boundedBuffer.ToString() : null;
     }
 
     /// <summary> Builds one concise output snippet from captured output buffers. </summary>

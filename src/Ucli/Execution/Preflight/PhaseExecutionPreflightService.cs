@@ -63,7 +63,17 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
 
         var projectContext = projectContextResult.Context!;
         var request = parseResult.Request!;
-        var validationResult = await requestStaticValidator.Validate(request, projectContext.Config, cancellationToken).ConfigureAwait(false);
+        var validationResult = await requestStaticValidator.Validate(
+                request,
+                projectContext.UnityProject,
+                projectContext.Config,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (validationResult.Error != null)
+        {
+            return PhaseExecutionPreflightResult.Failure(validationResult.Error);
+        }
+
         if (!validationResult.IsValid)
         {
             return PhaseExecutionPreflightResult.ValidationFailure(validationResult.Errors);

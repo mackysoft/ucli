@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Execution;
 /// <param name="Status"> The process status. </param>
 /// <param name="ExitCode"> The process exit code when available. </param>
 /// <param name="ErrorMessage"> The process error message when available. </param>
-/// <param name="StandardOutput"> The captured standard-output text when available. </param>
+/// <param name="StandardOutput"> The full captured standard-output text when requested by the caller. </param>
 internal sealed record ProcessRunResult (
     ProcessRunStatus Status,
     int? ExitCode,
