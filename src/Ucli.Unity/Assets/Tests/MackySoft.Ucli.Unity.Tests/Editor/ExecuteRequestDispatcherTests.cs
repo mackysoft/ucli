@@ -208,9 +208,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Dispatch_WhenCommandIsRefresh_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Dispatch_WhenCommandIsRefresh_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
-            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Refresh, PhaseExecutionCommand.Call, "ucli.project.refresh");
+            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Refresh);
         });
 
         [UnityTest]

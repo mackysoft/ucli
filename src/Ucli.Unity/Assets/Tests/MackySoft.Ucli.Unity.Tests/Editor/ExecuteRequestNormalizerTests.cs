@@ -210,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenOperationIdIsDuplicated_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Refresh,
+                UcliCommandIds.Call,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
