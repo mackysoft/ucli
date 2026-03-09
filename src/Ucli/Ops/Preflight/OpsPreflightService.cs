@@ -8,13 +8,13 @@ namespace MackySoft.Ucli.Ops.Preflight;
 /// <summary> Implements preflight flow for context resolution and read-index mode resolution. </summary>
 internal sealed class OpsPreflightService : IOpsPreflightService
 {
-    private readonly IInitStatusContextResolver initStatusContextResolver;
+    private readonly IProjectContextResolver projectContextResolver;
 
     /// <summary> Initializes a new instance of the <see cref="OpsPreflightService" /> class. </summary>
-    /// <param name="initStatusContextResolver"> The shared init/status context resolver dependency. </param>
-    public OpsPreflightService (IInitStatusContextResolver initStatusContextResolver)
+    /// <param name="projectContextResolver"> The shared project-context resolver dependency. </param>
+    public OpsPreflightService (IProjectContextResolver projectContextResolver)
     {
-        this.initStatusContextResolver = initStatusContextResolver ?? throw new ArgumentNullException(nameof(initStatusContextResolver));
+        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
     }
 
     /// <inheritdoc />
@@ -25,7 +25,7 @@ internal sealed class OpsPreflightService : IOpsPreflightService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var contextResult = await initStatusContextResolver.Resolve(
+        var contextResult = await projectContextResolver.Resolve(
                 input.ProjectPath,
                 cancellationToken)
             .ConfigureAwait(false);

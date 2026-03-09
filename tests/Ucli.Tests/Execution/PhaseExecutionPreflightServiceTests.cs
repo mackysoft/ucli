@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Operations;
@@ -493,8 +494,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         return new PhaseExecutionPreflightService(
             requestInputReader,
             requestJsonParser,
-            unityProjectResolver,
-            configStore,
+            new ProjectContextResolver(unityProjectResolver, configStore),
             requestStaticValidator);
     }
 

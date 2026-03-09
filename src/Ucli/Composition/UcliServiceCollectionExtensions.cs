@@ -6,6 +6,7 @@ using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.Daemon.Start;
 using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Execution.OperationExecute;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
@@ -15,6 +16,7 @@ using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Ops.Access;
 using MackySoft.Ucli.Ops.Mapping;
 using MackySoft.Ucli.Ops.Preflight;
+using MackySoft.Ucli.Refresh;
 using MackySoft.Ucli.Status;
 using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.TestRun.Artifacts;
@@ -50,7 +52,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IIndexCatalogReader, FileIndexCatalogReader>();
         services.AddSingleton<IIndexInputFingerprintCalculator, FileSystemIndexInputFingerprintCalculator>();
         services.AddSingleton<IIndexFreshnessEvaluator, IndexFreshnessEvaluator>();
-        services.AddSingleton<IInitStatusContextResolver, InitStatusContextResolver>();
+        services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
@@ -65,6 +67,19 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IRequestInputReader, RequestInputReader>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
         services.AddSingleton<IPhaseExecutionPreflightService, PhaseExecutionPreflightService>();
+        services.AddSingleton<IOperationExecuteService, OperationExecuteService>();
+        return services;
+    }
+
+    /// <summary> Registers <c>refresh</c> command services. </summary>
+    /// <param name="services"> The target service collection. </param>
+    /// <returns> The updated service collection. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="services" /> is <see langword="null" />. </exception>
+    public static IServiceCollection AddUcliRefreshServices (this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<IRefreshService, RefreshService>();
         return services;
     }
 

@@ -7,14 +7,14 @@ namespace MackySoft.Ucli.Daemon.Command;
 /// <summary> Resolves daemon-command preflight values from project context and timeout options. </summary>
 internal sealed class DaemonCommandExecutionContextResolver : IDaemonCommandExecutionContextResolver
 {
-    private readonly IInitStatusContextResolver initStatusContextResolver;
+    private readonly IProjectContextResolver projectContextResolver;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonCommandExecutionContextResolver" /> class. </summary>
-    /// <param name="initStatusContextResolver"> The init/status context resolver dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="initStatusContextResolver" /> is <see langword="null" />. </exception>
-    public DaemonCommandExecutionContextResolver (IInitStatusContextResolver initStatusContextResolver)
+    /// <param name="projectContextResolver"> The shared project-context resolver dependency. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectContextResolver" /> is <see langword="null" />. </exception>
+    public DaemonCommandExecutionContextResolver (IProjectContextResolver projectContextResolver)
     {
-        this.initStatusContextResolver = initStatusContextResolver ?? throw new ArgumentNullException(nameof(initStatusContextResolver));
+        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
     }
 
     /// <summary> Resolves project context and timeout values for one daemon subcommand execution. </summary>
@@ -36,7 +36,7 @@ internal sealed class DaemonCommandExecutionContextResolver : IDaemonCommandExec
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResolutionResult = await initStatusContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
+        var contextResolutionResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResolutionResult.IsSuccess)
         {
             return DaemonCommandExecutionContextResolutionResult.Failure(contextResolutionResult.Error!);

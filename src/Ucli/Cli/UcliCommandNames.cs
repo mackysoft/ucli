@@ -15,6 +15,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for status. </summary>
     public const string Status = "status";
 
+    /// <summary> Gets the command name for refresh. </summary>
+    public const string Refresh = "refresh";
+
     /// <summary> Gets the top-level command name for daemon. </summary>
     public const string Daemon = "daemon";
 
@@ -82,6 +85,7 @@ internal static class UcliCommandNames
     {
         Init,
         Status,
+        Refresh,
         Daemon,
         Logs,
         Ops,

@@ -3,17 +3,17 @@ using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Context;
 
-/// <summary> Resolves shared foundation context for init/status command pipelines. </summary>
-internal sealed class InitStatusContextResolver : IInitStatusContextResolver
+/// <summary> Resolves shared project/config context for command pipelines. </summary>
+internal sealed class ProjectContextResolver : IProjectContextResolver
 {
     private readonly IUnityProjectResolver unityProjectResolver;
     private readonly IUcliConfigStore configStore;
 
-    /// <summary> Initializes a new instance of the <see cref="InitStatusContextResolver" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="ProjectContextResolver" /> class. </summary>
     /// <param name="unityProjectResolver"> The UnityProject resolver dependency. </param>
     /// <param name="configStore"> The config-store dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProjectResolver" /> or <paramref name="configStore" /> is <see langword="null" />. </exception>
-    public InitStatusContextResolver (
+    public ProjectContextResolver (
         IUnityProjectResolver unityProjectResolver,
         IUcliConfigStore configStore)
     {
@@ -21,11 +21,11 @@ internal sealed class InitStatusContextResolver : IInitStatusContextResolver
         this.configStore = configStore ?? throw new ArgumentNullException(nameof(configStore));
     }
 
-    /// <summary> Resolves UnityProject and config values into a shared init/status context. </summary>
+    /// <summary> Resolves UnityProject and config values into a shared command context. </summary>
     /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the context-resolution result that contains either a fully resolved context or a structured error. </returns>
-    public async ValueTask<InitStatusContextResolutionResult> Resolve (
+    public async ValueTask<ProjectContextResolutionResult> Resolve (
         string? projectPath,
         CancellationToken cancellationToken = default)
     {
@@ -34,20 +34,20 @@ internal sealed class InitStatusContextResolver : IInitStatusContextResolver
         var unityProjectResult = unityProjectResolver.Resolve(projectPath);
         if (!unityProjectResult.IsSuccess)
         {
-            return InitStatusContextResolutionResult.Failure(unityProjectResult.Error!);
+            return ProjectContextResolutionResult.Failure(unityProjectResult.Error!);
         }
 
         var unityProjectContext = unityProjectResult.Context!;
         var configLoadResult = await configStore.Load(unityProjectContext.RepositoryRoot, cancellationToken).ConfigureAwait(false);
         if (!configLoadResult.IsSuccess)
         {
-            return InitStatusContextResolutionResult.Failure(configLoadResult.Error!);
+            return ProjectContextResolutionResult.Failure(configLoadResult.Error!);
         }
 
-        var context = new InitStatusContext(
+        var context = new ProjectContext(
             UnityProject: unityProjectContext,
             Config: configLoadResult.Config!,
             ConfigSource: configLoadResult.Source);
-        return InitStatusContextResolutionResult.Success(context);
+        return ProjectContextResolutionResult.Success(context);
     }
 }

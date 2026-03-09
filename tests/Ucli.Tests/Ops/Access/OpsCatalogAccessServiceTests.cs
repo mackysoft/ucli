@@ -195,9 +195,9 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Contains("Failed to persist refreshed ops readIndex. disk full", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
     }
 
-    private static InitStatusContext CreateContext ()
+    private static ProjectContext CreateContext ()
     {
-        return new InitStatusContext(
+        return new ProjectContext(
             new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/repo/UnityProject",
                 RepositoryRoot: "/repo",
