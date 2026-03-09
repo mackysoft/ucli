@@ -55,6 +55,7 @@ internal sealed class DaemonStatusCommand
                     daemonStatus = output.DaemonStatus,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
+                    diagnosis = output.Diagnosis,
                 });
         }
 

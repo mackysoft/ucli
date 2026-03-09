@@ -11,6 +11,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         IpcDaemonBootstrapArgumentNames.RepositoryRoot,
         IpcDaemonBootstrapArgumentNames.ProjectFingerprint,
         IpcDaemonBootstrapArgumentNames.SessionPath,
+        IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc,
         IpcEndpointBootstrapArgumentNames.TransportKind,
         IpcEndpointBootstrapArgumentNames.Address,
         IpcOneshotBootstrapArgumentNames.ParentProcessId,
@@ -46,6 +47,8 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
                 destination.Add(daemonArguments.ProjectFingerprint);
                 destination.Add(IpcDaemonBootstrapArgumentNames.SessionPath);
                 destination.Add(daemonArguments.SessionPath);
+                destination.Add(IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc);
+                destination.Add(daemonArguments.SessionIssuedAtUtc.ToString("O", CultureInfo.InvariantCulture));
                 destination.Add(IpcEndpointBootstrapArgumentNames.TransportKind);
                 destination.Add(daemonArguments.EndpointTransportKind);
                 destination.Add(IpcEndpointBootstrapArgumentNames.Address);
@@ -122,6 +125,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         if (!TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.RepositoryRoot, out var repositoryRoot)
             || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
             || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionPath, out var sessionPath)
+            || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, out var sessionIssuedAtUtcText)
             || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
             || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
         {
@@ -132,6 +136,7 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         if (string.IsNullOrWhiteSpace(repositoryRoot)
             || string.IsNullOrWhiteSpace(projectFingerprint)
             || string.IsNullOrWhiteSpace(sessionPath)
+            || string.IsNullOrWhiteSpace(sessionIssuedAtUtcText)
             || string.IsNullOrWhiteSpace(endpointTransportKind)
             || string.IsNullOrWhiteSpace(endpointAddress))
         {
@@ -139,10 +144,18 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
+        if (!IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(sessionIssuedAtUtcText, out var sessionIssuedAtUtc)
+            || sessionIssuedAtUtc is not DateTimeOffset parsedSessionIssuedAtUtc)
+        {
+            error = EmptyRequiredValue("uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.");
+            return false;
+        }
+
         arguments = new IpcDaemonBootstrapArguments(
             RepositoryRoot: repositoryRoot,
             ProjectFingerprint: projectFingerprint,
             SessionPath: sessionPath,
+            SessionIssuedAtUtc: parsedSessionIssuedAtUtc,
             EndpointTransportKind: endpointTransportKind,
             EndpointAddress: endpointAddress);
         error = IpcBatchmodeBootstrapParseError.None;

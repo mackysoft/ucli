@@ -41,9 +41,12 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     public async ValueTask<UnityDaemonLaunchResult> Launch (
         ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
         string unityLogPath,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(session);
+
         var endpoint = endpointResolver.Resolve(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
@@ -55,6 +58,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                     SessionPath: UcliStoragePathResolver.ResolveSessionPath(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint),
+                    SessionIssuedAtUtc: session.IssuedAtUtc,
                     EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
                     EndpointAddress: endpoint.Address),
                 unityLogPath,

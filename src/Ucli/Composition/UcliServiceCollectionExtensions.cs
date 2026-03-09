@@ -93,10 +93,10 @@ internal static class UcliServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
-        services.AddSingleton<IDaemonSessionFileAccess, DaemonSessionFileAccess>();
         services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
         services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
+        services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
         services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
         services.AddSingleton<IUnityLogReader, UnityLogReader>();

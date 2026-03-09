@@ -48,6 +48,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the daemon session file name under one fingerprint directory. </summary>
     public const string SessionFileName = "session.json";
 
+    /// <summary> Gets the daemon diagnosis file name under one fingerprint directory. </summary>
+    public const string DaemonDiagnosisFileName = "daemon-diagnosis.json";
+
     /// <summary> Gets the Unity batchmode log file name under one fingerprint directory. </summary>
     public const string UnityLogFileName = "unity.log";
 

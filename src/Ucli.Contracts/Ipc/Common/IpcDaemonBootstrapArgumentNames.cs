@@ -11,4 +11,7 @@ public static class IpcDaemonBootstrapArgumentNames
 
     /// <summary> Gets the argument name that carries daemon session path. </summary>
     public const string SessionPath = "-ucliSessionPath";
+
+    /// <summary> Gets the argument name that carries daemon session issuance timestamp. </summary>
+    public const string SessionIssuedAtUtc = "-ucliSessionIssuedAtUtc";
 }

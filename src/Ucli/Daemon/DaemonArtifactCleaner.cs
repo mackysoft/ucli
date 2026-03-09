@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;

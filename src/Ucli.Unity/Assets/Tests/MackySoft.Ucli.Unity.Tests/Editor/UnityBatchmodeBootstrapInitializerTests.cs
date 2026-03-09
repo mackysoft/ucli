@@ -16,6 +16,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result, Is.True);
             Assert.That(bootstrapArguments, Is.TypeOf<IpcDaemonBootstrapArguments>());
+            Assert.That(((IpcDaemonBootstrapArguments)bootstrapArguments).SessionIssuedAtUtc, Is.EqualTo(new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero)));
         }
 
         [Test]
@@ -63,6 +64,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     RepositoryRoot: "/repo",
                     ProjectFingerprint: "fingerprint",
                     SessionPath: "/repo/.ucli/session.json",
+                    SessionIssuedAtUtc: new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero),
                     EndpointTransportKind: "unixDomainSocket",
                     EndpointAddress: "/tmp/ucli.sock"));
             return args;

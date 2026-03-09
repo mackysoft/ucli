@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Start;
 using MackySoft.Ucli.Foundation;
@@ -28,11 +29,13 @@ public sealed class DaemonLaunchServiceTests
             NextResult = DaemonStartupReadinessProbeResult.Ready(),
         };
         var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -43,6 +46,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, launchSessionService.UpdateProcessIdCallCount);
         Assert.Equal(1, launcher.CallCount);
         Assert.Equal(0, compensationService.CallCount);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -58,11 +62,13 @@ public sealed class DaemonLaunchServiceTests
         var launcher = new StubUnityDaemonProcessLauncher();
         var readinessProbe = new StubDaemonStartupReadinessProbe();
         var compensationService = new StubDaemonLaunchCompensationService();
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -72,6 +78,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(0, launchSessionService.UpdateProcessIdCallCount);
         Assert.Equal(0, launcher.CallCount);
         Assert.Equal(0, compensationService.CallCount);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -94,11 +101,13 @@ public sealed class DaemonLaunchServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -108,6 +117,11 @@ public sealed class DaemonLaunchServiceTests
         Assert.Null(compensationService.LastProcessId);
         Assert.Equal(initialSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
         Assert.Equal(0, launchSessionService.UpdateProcessIdCallCount);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.StartupFailed, diagnosisStore.LastDiagnosis!.Reason);
+        Assert.Equal(launchError.Message, diagnosisStore.LastDiagnosis.Message);
+        Assert.Equal(initialSession.IssuedAtUtc, diagnosisStore.LastDiagnosis.SessionIssuedAtUtc);
     }
 
     [Fact]
@@ -131,11 +145,13 @@ public sealed class DaemonLaunchServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -145,6 +161,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(2222, compensationService.LastProcessId);
         Assert.Equal(initialSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -172,11 +189,13 @@ public sealed class DaemonLaunchServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -186,6 +205,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(7777, compensationService.LastProcessId);
         Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
         Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -209,11 +229,13 @@ public sealed class DaemonLaunchServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Failure(cleanupError),
         };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -222,6 +244,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("Daemon launch failed and cleanup failed.", error.Message, StringComparison.Ordinal);
         Assert.Contains("LaunchError=launch failed", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("DiagnosisError=", error.Message, StringComparison.Ordinal);
         Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
     }
 
@@ -246,11 +269,13 @@ public sealed class DaemonLaunchServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(1), CancellationToken.None);
 
@@ -258,6 +283,95 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(launchError, result.Error);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenDiagnosisWriteFails_PreservesPrimaryTimeoutErrorKind ()
+    {
+        var context = CreateContext("fingerprint-diagnosis-write-timeout");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7777 };
+        var probeError = ExecutionError.Timeout("probe failed");
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(7777),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(probeError),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            WriteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis write failed")),
+        };
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService,
+            diagnosisStore);
+
+        var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("ProbeError=probe failed", error.Message, StringComparison.Ordinal);
+        Assert.Contains("DiagnosisError=diagnosis write failed", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenCleanupFails_PreservesPrimaryTimeoutErrorKind ()
+    {
+        var context = CreateContext("fingerprint-cleanup-timeout");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var updatedSession = initialSession with { ProcessId = 7777 };
+        var probeError = ExecutionError.Timeout("probe failed");
+        var cleanupError = ExecutionError.InternalError("cleanup failed");
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+            UpdateProcessIdResult = DaemonLaunchSessionWriteResult.Success(updatedSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Success(7777),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe
+        {
+            NextResult = DaemonStartupReadinessProbeResult.Failure(probeError),
+        };
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Failure(cleanupError),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService,
+            diagnosisStore);
+
+        var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("ProbeError=probe failed", error.Message, StringComparison.Ordinal);
+        Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -282,11 +396,13 @@ public sealed class DaemonLaunchServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), cancellationSource.Token);
 
@@ -295,6 +411,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.True(cancellationSource.IsCancellationRequested);
         Assert.Equal(1, compensationService.CallCount);
         Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -323,11 +440,13 @@ public sealed class DaemonLaunchServiceTests
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
         };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var service = CreateService(
             launchSessionService,
             launcher,
             readinessProbe,
-            compensationService);
+            compensationService,
+            diagnosisStore);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
@@ -339,19 +458,66 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal(7777, compensationService.LastProcessId);
         Assert.Equal(updatedSession.IssuedAtUtc, compensationService.LastExpectedIssuedAtUtc);
         Assert.Equal(TimeSpan.FromSeconds(10), compensationService.LastTimeout);
+        Assert.Equal(0, diagnosisStore.WriteCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Launch_WhenDiagnosisWriteFails_ReturnsInternalError ()
+    {
+        var context = CreateContext("fingerprint-launch-diagnosis-fail");
+        var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var launchError = ExecutionError.InternalError("launch failed");
+        var diagnosisError = ExecutionError.InternalError("diagnosis failed");
+        var launchSessionService = new StubDaemonLaunchSessionService
+        {
+            InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
+        };
+        var launcher = new StubUnityDaemonProcessLauncher
+        {
+            NextResult = UnityDaemonLaunchResult.Failure(launchError),
+        };
+        var readinessProbe = new StubDaemonStartupReadinessProbe();
+        var compensationService = new StubDaemonLaunchCompensationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            WriteResult = DaemonDiagnosisStoreOperationResult.Failure(diagnosisError),
+        };
+        var service = CreateService(
+            launchSessionService,
+            launcher,
+            readinessProbe,
+            compensationService,
+            diagnosisStore);
+
+        var result = await service.Launch(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("Daemon launch failed and diagnosis persistence failed.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("LaunchError=launch failed", error.Message, StringComparison.Ordinal);
+        Assert.Contains("DiagnosisError=diagnosis failed", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, compensationService.CallCount);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
 
     private static DaemonLaunchService CreateService (
         IDaemonLaunchSessionService launchSessionService,
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
-        IDaemonLaunchCompensationService launchCompensationService)
+        IDaemonLaunchCompensationService launchCompensationService,
+        IDaemonDiagnosisStore? daemonDiagnosisStore = null)
     {
         return new DaemonLaunchService(
             daemonLaunchSessionService: launchSessionService,
             unityDaemonProcessLauncher: unityDaemonProcessLauncher,
             startupReadinessProbe: startupReadinessProbe,
-            daemonLaunchCompensationService: launchCompensationService);
+            daemonLaunchCompensationService: launchCompensationService,
+            daemonDiagnosisStore: daemonDiagnosisStore ?? new StubDaemonDiagnosisStore());
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
@@ -429,6 +595,7 @@ public sealed class DaemonLaunchServiceTests
 
         public async ValueTask<UnityDaemonLaunchResult> Launch (
             ResolvedUnityProjectContext unityProject,
+            DaemonSession session,
             string daemonLogPath,
             CancellationToken cancellationToken = default)
         {
@@ -465,6 +632,42 @@ public sealed class DaemonLaunchServiceTests
             }
 
             return ValueTask.FromResult(NextResult);
+        }
+    }
+
+    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
+    {
+        public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } = DaemonDiagnosisStoreOperationResult.Success();
+
+        public int WriteCallCount { get; private set; }
+
+        public DaemonDiagnosis? LastDiagnosis { get; private set; }
+
+        public ValueTask<DaemonDiagnosisReadResult> Read (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonDiagnosis diagnosis,
+            CancellationToken cancellationToken = default)
+        {
+            WriteCallCount++;
+            LastDiagnosis = diagnosis;
+            return ValueTask.FromResult(WriteResult);
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
         }
     }
 

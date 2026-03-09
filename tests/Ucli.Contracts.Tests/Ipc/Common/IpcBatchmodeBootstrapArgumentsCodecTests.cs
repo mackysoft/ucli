@@ -86,6 +86,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "-tmp-repository",
             IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -96,6 +97,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var daemonArguments = Assert.IsType<IpcDaemonBootstrapArguments>(bootstrapArguments);
         Assert.Equal("-tmp-repository", daemonArguments.RepositoryRoot);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00.0000000+00:00"), daemonArguments.SessionIssuedAtUtc);
     }
 
     [Fact]
@@ -130,6 +132,7 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             RepositoryRoot: "/repo/root",
             ProjectFingerprint: "project-fingerprint",
             SessionPath: "/repo/root/.ucli/local/fingerprints/project-fingerprint/session.json",
+            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             EndpointTransportKind: IpcTransportKindValues.UnixDomainSocket,
             EndpointAddress: "/tmp/ucli.sock");
         List<string> tokens =
@@ -143,6 +146,28 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.True(parsed);
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         Assert.Equal(source, bootstrapArguments);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenDaemonSessionIssuedAtUtcIsInvalid_ReturnsEmptyRequiredValue ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
+            IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
+            IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "not-a-timestamp",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
+        Assert.Equal("uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", error.Message);
     }
 
     [Fact]
