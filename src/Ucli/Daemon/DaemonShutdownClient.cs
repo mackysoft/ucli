@@ -9,14 +9,14 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon shutdown request sending through Unity IPC client. </summary>
 internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 {
-    private readonly IUnityIpcClient unityIpcClient;
+    private readonly IUnityIpcTransportClient transportClient;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonShutdownClient" /> class. </summary>
-    /// <param name="unityIpcClient"> The Unity IPC client dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityIpcClient" /> is <see langword="null" />. </exception>
-    public DaemonShutdownClient (IUnityIpcClient unityIpcClient)
+    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="transportClient" /> is <see langword="null" />. </exception>
+    public DaemonShutdownClient (IUnityIpcTransportClient transportClient)
     {
-        this.unityIpcClient = unityIpcClient ?? throw new ArgumentNullException(nameof(unityIpcClient));
+        this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
     }
 
     /// <summary> Sends one shutdown request using persisted daemon session token. </summary>
@@ -47,7 +47,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
                 SessionToken: session.SessionToken,
                 Method: IpcMethodNames.Shutdown,
                 Payload: payload);
-            var response = await unityIpcClient.SendAsync(
+            var response = await transportClient.SendAsync(
                     unityProject.RepositoryRoot,
                     unityProject.ProjectFingerprint,
                     request,

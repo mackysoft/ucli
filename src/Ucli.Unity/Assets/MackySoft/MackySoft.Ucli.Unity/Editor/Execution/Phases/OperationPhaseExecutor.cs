@@ -74,20 +74,42 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             cancellationToken.ThrowIfCancellationRequested();
 
             var executionContext = new OperationExecutionContext();
-            var planPassResult = await planPassExecutor.Execute(request, executionContext, cancellationToken).ConfigureAwait(false);
-            if (!planPassResult.IsSuccess)
+            try
             {
-                return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
-                    operationTraces: planPassResult.OperationTraces,
-                    errors: planPassResult.Errors);
-            }
+                var planPassResult = await planPassExecutor.Execute(request, executionContext, cancellationToken).ConfigureAwait(false);
+                if (!planPassResult.IsSuccess)
+                {
+                    return PhaseExecutionTrace.Failure(
+                        protocolVersion: request.ProtocolVersion,
+                        requestId: request.RequestId,
+                        operationTraces: planPassResult.OperationTraces,
+                        errors: planPassResult.Errors);
+                }
 
-            if (command == PhaseExecutionCommand.Plan)
-            {
-                var issueResult = planTokenCoordinator.Issue(request, planPassResult.OperationTraces, cancellationToken);
-                if (!issueResult.IsSuccess)
+                if (command == PhaseExecutionCommand.Plan)
+                {
+                    var issueResult = planTokenCoordinator.Issue(request, planPassResult.OperationTraces, cancellationToken);
+                    if (!issueResult.IsSuccess)
+                    {
+                        return PhaseExecutionTrace.Failure(
+                            protocolVersion: request.ProtocolVersion,
+                            requestId: request.RequestId,
+                            operationTraces: planPassResult.OperationTraces,
+                            errors: new[]
+                            {
+                                issueResult.Failure!,
+                            });
+                    }
+
+                    return PhaseExecutionTrace.Success(
+                        protocolVersion: request.ProtocolVersion,
+                        requestId: request.RequestId,
+                        operationTraces: planPassResult.OperationTraces,
+                        planToken: issueResult.PlanToken);
+                }
+
+                var validationResult = planTokenCoordinator.ValidateCall(request, planPassResult.OperationTraces, cancellationToken);
+                if (!validationResult.IsSuccess)
                 {
                     return PhaseExecutionTrace.Failure(
                         protocolVersion: request.ProtocolVersion,
@@ -95,34 +117,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         operationTraces: planPassResult.OperationTraces,
                         errors: new[]
                         {
-                            issueResult.Failure!,
+                            validationResult.Failure!,
                         });
                 }
 
-                return PhaseExecutionTrace.Success(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
-                    operationTraces: planPassResult.OperationTraces,
-                    planToken: issueResult.PlanToken);
+                var callPassResult = await callPassExecutor.Execute(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
+                return callPassResult.IsSuccess
+                    ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, callPassResult.OperationTraces)
+                    : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, callPassResult.OperationTraces, callPassResult.Errors);
             }
-
-            var validationResult = planTokenCoordinator.ValidateCall(request, planPassResult.OperationTraces, cancellationToken);
-            if (!validationResult.IsSuccess)
+            finally
             {
-                return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
-                    operationTraces: planPassResult.OperationTraces,
-                    errors: new[]
-                    {
-                        validationResult.Failure!,
-                    });
+                executionContext.CleanupTemporaryObjects();
             }
-
-            var callPassResult = await callPassExecutor.Execute(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
-            return callPassResult.IsSuccess
-                ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, callPassResult.OperationTraces)
-                : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, callPassResult.OperationTraces, callPassResult.Errors);
         }
     }
 }

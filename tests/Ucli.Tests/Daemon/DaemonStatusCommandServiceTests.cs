@@ -31,6 +31,7 @@ public sealed class DaemonStatusCommandServiceTests
         Assert.Equal("stale", output.DaemonStatus);
         Assert.Equal(5678, output.TimeoutMilliseconds);
         Assert.Equal(mapper.Output, output.Session);
+        Assert.Null(output.Diagnosis);
         Assert.Equal(1, resolver.CallCount);
         Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);
         Assert.Equal(1, mapper.CallCount);
@@ -107,6 +108,7 @@ public sealed class DaemonStatusCommandServiceTests
         Assert.Equal("notRunning", output.DaemonStatus);
         Assert.Equal(2222, output.TimeoutMilliseconds);
         Assert.Null(output.Session);
+        Assert.Null(output.Diagnosis);
         Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);
         Assert.Equal(0, mapper.CallCount);
     }
@@ -120,7 +122,7 @@ public sealed class DaemonStatusCommandServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var daemonStatusOperation = new DaemonCommandServiceTestContext.StubDaemonStatusOperation
         {
-            StatusResult = new DaemonStatusResult(DaemonStatusKind.Failed, null, null),
+            StatusResult = new DaemonStatusResult(DaemonStatusKind.Failed, null, null, null),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
         var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
@@ -148,6 +150,7 @@ public sealed class DaemonStatusCommandServiceTests
             StatusResult = new DaemonStatusResult(
                 Status: (DaemonStatusKind)int.MaxValue,
                 Session: DaemonCommandServiceTestContext.CreateSession(),
+                Diagnosis: null,
                 Error: null),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
@@ -193,5 +196,31 @@ public sealed class DaemonStatusCommandServiceTests
         Assert.Equal(context.Context.UnityProject, daemonStatusOperation.LastUnityProject);
         Assert.Equal(context.Timeout, daemonStatusOperation.LastTimeout);
         Assert.Equal(cancellationToken, daemonStatusOperation.LastCancellationToken);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenDiagnosisExists_MapsDiagnosisToOutput ()
+    {
+        var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 2400);
+        var resolver = new DaemonCommandServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var diagnosis = DaemonCommandServiceTestContext.CreateDiagnosis();
+        var daemonStatusOperation = new DaemonCommandServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.NotRunning(diagnosis),
+        };
+        var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
+        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+
+        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
+        Assert.NotNull(output.Diagnosis);
+        Assert.Equal(diagnosis.Reason, output.Diagnosis!.Reason);
+        Assert.Equal(diagnosis.Message, output.Diagnosis.Message);
+        Assert.Equal(diagnosis.UpdatedAtUtc, output.Diagnosis.UpdatedAtUtc);
+        Assert.Equal(diagnosis.ProcessId, output.Diagnosis.ProcessId);
     }
 }

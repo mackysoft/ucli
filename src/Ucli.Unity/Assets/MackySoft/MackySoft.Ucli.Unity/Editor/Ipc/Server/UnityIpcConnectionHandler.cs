@@ -28,9 +28,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Handles one request-response exchange over a connected transport stream. </summary>
         /// <param name="stream"> The connected transport stream. </param>
         /// <param name="cancellationToken"> The cancellation token for request handling. </param>
-        /// <returns> A task that completes after one response frame is written. </returns>
+        /// <returns> The handled connection exchange result. </returns>
         /// <exception cref="OperationCanceledException"> Thrown when operation is canceled. </exception>
-        public async Task Handle (
+        public async Task<UnityIpcConnectionHandleResult> Handle (
             Stream stream,
             CancellationToken cancellationToken = default)
         {
@@ -62,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     // Treat response-write failures as connection-local and do not escalate to listener loop.
                 }
 
-                return;
+                return default;
             }
 
             var request = readResult.Value;
@@ -77,6 +77,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 daemonShutdownSignal.Signal();
             }
+
+            return new UnityIpcConnectionHandleResult(request, response);
         }
 
         /// <summary> Determines whether shutdown signal should be emitted for one completed response write. </summary>

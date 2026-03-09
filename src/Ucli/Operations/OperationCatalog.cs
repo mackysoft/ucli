@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.UnityProject;
+
 namespace MackySoft.Ucli.Operations;
 
 /// <summary> Provides operation lookup and listing backed by one provider snapshot. </summary>
@@ -53,6 +56,25 @@ internal sealed class OperationCatalog : IOperationCatalog
         return snapshot.SortedOperations;
     }
 
+    /// <summary> Asynchronously gets all registered operation descriptors for the specified resolved Unity project. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="config"> The loaded configuration used to execute catalog discovery. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
+    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        ResolvedUnityProjectContext unityProject,
+        UcliConfig config,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(config);
+
+        var loadedOperations = await provider.GetOperations(unityProject, config, cancellationToken).ConfigureAwait(false);
+        var snapshot = CreateSnapshot(loadedOperations, cancellationToken);
+        return snapshot.SortedOperations;
+    }
+
     /// <summary> Gets or creates the immutable catalog snapshot. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the loaded catalog snapshot. </returns>
@@ -97,6 +119,18 @@ internal sealed class OperationCatalog : IOperationCatalog
         cancellationToken.ThrowIfCancellationRequested();
 
         var loadedOperations = await provider.GetOperations(cancellationToken).ConfigureAwait(false);
+        return CreateSnapshot(loadedOperations, cancellationToken);
+    }
+
+    /// <summary> Builds one immutable catalog snapshot from provider data. </summary>
+    /// <param name="loadedOperations"> The loaded descriptor sequence. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The built catalog snapshot. </returns>
+    /// <exception cref="InvalidOperationException"> Thrown when provider data includes duplicated or invalid operation names. </exception>
+    private static CatalogSnapshot CreateSnapshot (
+        IReadOnlyList<UcliOperationDescriptor> loadedOperations,
+        CancellationToken cancellationToken)
+    {
         if (loadedOperations is null)
         {
             throw new InvalidOperationException("Operation catalog provider returned null.");

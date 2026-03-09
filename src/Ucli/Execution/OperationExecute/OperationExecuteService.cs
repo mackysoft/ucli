@@ -12,27 +12,27 @@ using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Execution.OperationExecute;
 
-/// <summary> Executes fixed operations by reusing the shared static validation and Unity IPC pipeline. </summary>
+/// <summary> Executes fixed operations by authorizing one embedded operation descriptor and dispatching it through Unity IPC. </summary>
 internal sealed class OperationExecuteService : IOperationExecuteService
 {
     private readonly IProjectContextResolver projectContextResolver;
 
-    private readonly IRequestStaticValidator requestStaticValidator;
+    private readonly IOperationAuthorizationService operationAuthorizationService;
 
     private readonly IUnityIpcRequestExecutor unityIpcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="OperationExecuteService" /> class. </summary>
     /// <param name="projectContextResolver"> The shared project-context resolver dependency. </param>
-    /// <param name="requestStaticValidator"> The static request validator dependency. </param>
+    /// <param name="operationAuthorizationService"> The operation authorization dependency. </param>
     /// <param name="unityIpcRequestExecutor"> The Unity IPC request executor dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
     public OperationExecuteService (
         IProjectContextResolver projectContextResolver,
-        IRequestStaticValidator requestStaticValidator,
+        IOperationAuthorizationService operationAuthorizationService,
         IUnityIpcRequestExecutor unityIpcRequestExecutor)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.requestStaticValidator = requestStaticValidator ?? throw new ArgumentNullException(nameof(requestStaticValidator));
+        this.operationAuthorizationService = operationAuthorizationService ?? throw new ArgumentNullException(nameof(operationAuthorizationService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
     }
 
@@ -63,14 +63,21 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             return CreateFailureFromExecutionError(requestId, timeoutResolutionResult.Error!);
         }
 
-        var validationResult = await requestStaticValidator.Validate(
-                CreateValidationRequest(definition, requestId),
+        var authorizationResult = await operationAuthorizationService.Authorize(
+                definition.Descriptor,
                 config,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!validationResult.IsValid)
+        if (!authorizationResult.IsAllowed)
         {
-            return CreateValidationFailure(requestId, validationResult.Errors);
+            return CreateValidationFailure(
+                requestId,
+                [
+                    new ValidationError(
+                        authorizationResult.ErrorCode ?? ValidationErrorCodes.OperationNotAllowed,
+                        authorizationResult.Message,
+                        definition.OperationId),
+                ]);
         }
 
         string? planToken = null;
@@ -203,29 +210,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         return (payload.PlanToken, null);
     }
 
-    /// <summary> Creates the static-validation request for one fixed operation execution. </summary>
-    /// <param name="definition"> The fixed operation definition. </param>
-    /// <param name="requestId"> The generated request identifier. </param>
-    /// <returns> The validate request model. </returns>
-    private static ValidateRequest CreateValidationRequest (
-        OperationExecuteDefinition definition,
-        string requestId)
-    {
-        ArgumentNullException.ThrowIfNull(definition);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-
-        return new ValidateRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Ops:
-            [
-                new ValidateRequestOperation(
-                    OpId: definition.OperationId,
-                    Op: definition.OperationName,
-                    Args: definition.Args),
-            ]);
-    }
-
     /// <summary> Creates the execute payload for one fixed operation execution. </summary>
     /// <param name="definition"> The fixed operation definition. </param>
     /// <param name="requestId"> The generated request identifier. </param>
@@ -250,7 +234,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 new
                 {
                     id = definition.OperationId,
-                    op = definition.OperationName,
+                    op = definition.Descriptor.Name,
                     args = definition.Args,
                 },
             },

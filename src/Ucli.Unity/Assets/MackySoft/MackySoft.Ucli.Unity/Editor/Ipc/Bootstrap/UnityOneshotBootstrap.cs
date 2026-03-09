@@ -1,6 +1,4 @@
 using System;
-using System.IO;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -10,106 +8,72 @@ using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Bootstraps one batchmode oneshot IPC request and terminates Unity. </summary>
+    /// <summary> Bootstraps one batchmode oneshot IPC server and terminates Unity after one handled request. </summary>
     internal static class UnityOneshotBootstrap
     {
         /// <summary> Starts one oneshot bootstrap after batchmode initialization is ready. </summary>
         /// <returns> A task that completes after the request finishes and process exit is requested. </returns>
-        internal static Task Start (IpcOneshotBootstrapArguments bootstrapArguments)
+        internal static async Task Start (IpcOneshotBootstrapArguments bootstrapArguments)
         {
             if (bootstrapArguments == null)
             {
                 throw new ArgumentNullException(nameof(bootstrapArguments));
             }
 
-            return RunSafely(bootstrapArguments);
-        }
-
-        private static async Task RunSafely (IpcOneshotBootstrapArguments bootstrapArguments)
-        {
             try
             {
-                await Run(bootstrapArguments);
+                using var parentProcessWatcher = OneshotParentProcessWatcher.Start(bootstrapArguments.ParentProcessId);
+                var services = new ServiceCollection();
+                services.AddUnityIpcApplicationServices(
+                    new ExactSessionTokenValidator(bootstrapArguments.SessionToken),
+                    NoOpDaemonLogger.Instance);
+                services.AddUnityIpcOneshotHostServices();
+
+                IServiceProvider serviceProvider = services.BuildServiceProvider();
+                try
+                {
+                    var completionSignal = serviceProvider.GetRequiredService<OneshotRequestCompletionSignal>();
+                    var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+                    if (!IpcTransportKindCodec.TryParse(bootstrapArguments.EndpointTransportKind, out var transportKind))
+                    {
+                        throw new InvalidOperationException($"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}");
+                    }
+
+                    var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
+                    await server.Start(endpoint, CancellationToken.None);
+                    if (parentProcessWatcher.HasRequestedExit)
+                    {
+                        await server.Stop(CancellationToken.None);
+                        return;
+                    }
+
+                    var requestCompletionTask = completionSignal.Wait(CancellationToken.None);
+                    var serverTerminationTask = server.WaitForTermination(CancellationToken.None);
+                    var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask);
+                    if (ReferenceEquals(completedTask, serverTerminationTask))
+                    {
+                        await serverTerminationTask;
+                        throw new InvalidOperationException("IPC server loop terminated before oneshot request completion was observed.");
+                    }
+
+                    await requestCompletionTask;
+                    await server.Stop(CancellationToken.None);
+                    parentProcessWatcher.Dispose();
+                    EditorApplication.Exit(0);
+                }
+                finally
+                {
+                    if (serviceProvider is IDisposable disposableServiceProvider)
+                    {
+                        disposableServiceProvider.Dispose();
+                    }
+                }
             }
             catch (Exception exception)
             {
                 Debug.LogException(exception);
                 EditorApplication.Exit(1);
             }
-        }
-
-        private static async Task Run (IpcOneshotBootstrapArguments bootstrapArguments)
-        {
-            if (bootstrapArguments == null)
-            {
-                throw new ArgumentNullException(nameof(bootstrapArguments));
-            }
-
-            var request = await ReadRequest(bootstrapArguments.RequestPath);
-            var responseDirectoryPath = Path.GetDirectoryName(bootstrapArguments.ResponsePath);
-            if (!string.IsNullOrWhiteSpace(responseDirectoryPath))
-            {
-                Directory.CreateDirectory(responseDirectoryPath);
-            }
-
-            var services = new ServiceCollection();
-            services.AddUnityIpcApplicationServices(
-                new PermitAllSessionTokenValidator(),
-                NoOpDaemonLogger.Instance);
-
-            using var serviceProvider = services.BuildServiceProvider();
-            var requestProcessor = serviceProvider.GetRequiredService<IUnityIpcRequestProcessor>();
-            var response = await requestProcessor.Process(
-                    request,
-                    CancellationToken.None);
-
-            await WriteResponse(
-                    bootstrapArguments.ResponsePath,
-                    response);
-            EditorApplication.Exit(0);
-        }
-
-        private static async Task<IpcRequest> ReadRequest (string requestPath)
-        {
-            if (string.IsNullOrWhiteSpace(requestPath))
-            {
-                throw new ArgumentException("Request path must not be empty.", nameof(requestPath));
-            }
-
-            var json = await File.ReadAllTextAsync(requestPath);
-            var request = JsonSerializer.Deserialize<IpcRequest>(json, IpcJsonSerializerOptions.Default);
-            if (request == null)
-            {
-                throw new InvalidOperationException("Unity oneshot IPC request is invalid.");
-            }
-
-            return request;
-        }
-
-        private static async Task WriteResponse (
-            string responsePath,
-            IpcResponse response)
-        {
-            if (string.IsNullOrWhiteSpace(responsePath))
-            {
-                throw new ArgumentException("Response path must not be empty.", nameof(responsePath));
-            }
-
-            if (response == null)
-            {
-                throw new ArgumentNullException(nameof(response));
-            }
-
-            var directoryPath = Path.GetDirectoryName(responsePath);
-            if (!string.IsNullOrWhiteSpace(directoryPath))
-            {
-                Directory.CreateDirectory(directoryPath);
-            }
-
-            var json = JsonSerializer.Serialize(response, IpcJsonSerializerOptions.Default);
-            await File.WriteAllTextAsync(
-                responsePath,
-                json + Environment.NewLine);
         }
     }
 }

@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.UnityProject;
+
 namespace MackySoft.Ucli.Operations;
 
 /// <summary> Provides lookup and listing over registered operation metadata. </summary>
@@ -16,4 +19,14 @@ internal interface IOperationCatalog
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
     ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default);
+
+    /// <summary> Asynchronously gets all registered operation descriptors for the specified resolved Unity project. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="config"> The loaded configuration used to execute catalog discovery. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
+    ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+        ResolvedUnityProjectContext unityProject,
+        UcliConfig config,
+        CancellationToken cancellationToken = default);
 }

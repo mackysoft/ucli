@@ -13,10 +13,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class ProjectRefreshPhaseOperation : IUcliOperation
     {
+        private const string ArgsSchemaJson =
+            @"{
+              ""type"": ""object"",
+              ""additionalProperties"": false
+            }";
+
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
             operationName: "ucli.project.refresh",
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced);
+            policy: OperationPolicy.Advanced,
+            argsSchemaJson: ArgsSchemaJson);
 
         /// <summary> Executes validate phase for <c>ucli.project.refresh</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

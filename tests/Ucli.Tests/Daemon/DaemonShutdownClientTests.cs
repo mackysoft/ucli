@@ -13,7 +13,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenIpcTimesOut_ReturnsTimeoutFailure ()
     {
-        var client = new DaemonShutdownClient(new StubUnityIpcClient(
+        var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
             static () => throw new TimeoutException("ipc timeout")));
 
         var result = await client.SendShutdown(
@@ -32,7 +32,7 @@ public sealed class DaemonShutdownClientTests
     [Trait("Size", "Small")]
     public async Task SendShutdown_WhenSocketConnectionIsRefused_ReturnsNotRunning ()
     {
-        var client = new DaemonShutdownClient(new StubUnityIpcClient(
+        var client = new DaemonShutdownClient(new StubUnityIpcTransportClient(
             static () => throw new SocketException((int)SocketError.ConnectionRefused)));
 
         var result = await client.SendShutdown(
@@ -70,11 +70,11 @@ public sealed class DaemonShutdownClientTests
             ProcessId: 1234);
     }
 
-    private sealed class StubUnityIpcClient : IUnityIpcClient
+    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {
         private readonly Func<IpcResponse> responseFactory;
 
-        public StubUnityIpcClient (Func<IpcResponse> responseFactory)
+        public StubUnityIpcTransportClient (Func<IpcResponse> responseFactory)
         {
             this.responseFactory = responseFactory;
         }

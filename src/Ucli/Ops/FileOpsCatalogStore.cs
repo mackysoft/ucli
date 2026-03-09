@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Ops;
 
@@ -41,38 +40,15 @@ internal sealed class FileOpsCatalogStore : IOpsCatalogStore
             AssemblyDefinitionHash: inputSnapshot.AssemblyDefinitionHash,
             CombinedHash: inputSnapshot.CombinedHash);
 
-        await WriteAtomically(
+        await FileUtilities.WriteAllTextAtomically(
                 opsCatalogPath,
                 IndexOpsCatalogJsonContractSerializer.Serialize(opsCatalog) + Environment.NewLine,
                 cancellationToken)
             .ConfigureAwait(false);
-        await WriteAtomically(
+        await FileUtilities.WriteAllTextAtomically(
                 inputsManifestPath,
                 IndexInputsManifestJsonContractSerializer.Serialize(inputsManifest) + Environment.NewLine,
                 cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private static async ValueTask WriteAtomically (
-        string path,
-        string contents,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var directoryPath = Path.GetDirectoryName(path)
-            ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
-        var temporaryPath = path + $".tmp.{Guid.NewGuid():N}";
-
-        try
-        {
-            Directory.CreateDirectory(directoryPath);
-            await File.WriteAllTextAsync(temporaryPath, contents, cancellationToken).ConfigureAwait(false);
-            File.Move(temporaryPath, path, overwrite: true);
-        }
-        finally
-        {
-            FileUtilities.DeleteIfExists(temporaryPath);
-        }
     }
 }

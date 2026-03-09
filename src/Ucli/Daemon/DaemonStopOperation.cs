@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon stop workflow orchestration for one project fingerprint. </summary>
 internal sealed class DaemonStopOperation : IDaemonStopOperation
 {
-    private readonly IDaemonLifecycleLockProvider lifecycleLockProvider;
+    private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
 
     private readonly IDaemonSessionStore daemonSessionStore;
 
@@ -18,14 +18,14 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStopOperation" /> class. </summary>
-    /// <param name="lifecycleLockProvider"> The lifecycle lock provider dependency. </param>
+    /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
     /// <param name="shutdownClient"> The shutdown client dependency. </param>
     /// <param name="processTerminationService"> The process termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact cleaner dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStopOperation (
-        IDaemonLifecycleLockProvider lifecycleLockProvider,
+        IProjectLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
         IDaemonShutdownClient shutdownClient,
         IDaemonProcessTerminationService processTerminationService,
@@ -73,7 +73,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         catch (TimeoutException exception)
         {
             return DaemonStopResult.Failure(CreateTimeoutError(
-                $"Timed out while waiting for daemon lifecycle lock. {exception.Message}"));
+                $"Timed out while waiting for project lifecycle lock. {exception.Message}"));
         }
 
         await using var acquiredLock = lockHandle;

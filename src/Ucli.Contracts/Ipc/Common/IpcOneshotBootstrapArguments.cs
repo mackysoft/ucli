@@ -1,9 +1,13 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents one Unity oneshot bootstrap argument payload. </summary>
-/// <param name="RequestPath"> The serialized IPC request file path. </param>
-/// <param name="ResponsePath"> The serialized IPC response file path. </param>
+/// <param name="ParentProcessId"> The originating CLI process identifier used for parent-liveness monitoring. </param>
+/// <param name="SessionToken"> The dedicated oneshot session token accepted by the temporary IPC host. </param>
+/// <param name="EndpointTransportKind"> The transport kind literal used by the oneshot IPC server endpoint. </param>
+/// <param name="EndpointAddress"> The endpoint address used by the oneshot IPC server. </param>
 public sealed record IpcOneshotBootstrapArguments (
-    string RequestPath,
-    string ResponsePath)
+    int ParentProcessId,
+    string SessionToken,
+    string EndpointTransportKind,
+    string EndpointAddress)
     : IpcBatchmodeBootstrapArguments;

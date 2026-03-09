@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Operations;
 
@@ -25,17 +27,20 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
     /// <summary> Asynchronously validates one normalized request against structure and operation authorization constraints. </summary>
     /// <param name="request"> The normalized request. </param>
+    /// <param name="unityProject"> The resolved Unity project context used to read project-scoped operation metadata. </param>
     /// <param name="config"> The configuration values used for operation authorization checks. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the aggregated validation result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> or <paramref name="config" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" />, <paramref name="unityProject" />, or <paramref name="config" /> is <see langword="null" />. </exception>
     public async ValueTask<ValidationResult> Validate (
         ValidateRequest request,
+        ResolvedUnityProjectContext unityProject,
         UcliConfig config,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(config);
 
         var errors = new List<ValidationError>();
@@ -63,6 +68,25 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 Message: "ops must contain at least one operation.",
                 OpId: null));
             return new ValidationResult(errors);
+        }
+
+        IReadOnlyList<UcliOperationDescriptor> operations;
+        try
+        {
+            operations = await operationCatalog.GetAll(unityProject, config, cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return ValidationResult.Failure(ExecutionError.InternalError(
+                $"Static validation could not load operation metadata. {exception.Message}"));
+        }
+
+        var operationsByName = new Dictionary<string, UcliOperationDescriptor>(operations.Count, StringComparer.Ordinal);
+        for (var i = 0; i < operations.Count; i++)
+        {
+            var operationDescriptor = operations[i];
+            cancellationToken.ThrowIfCancellationRequested();
+            operationsByName[operationDescriptor.Name] = operationDescriptor;
         }
 
         var usedOpIds = new HashSet<string>(StringComparer.Ordinal);
@@ -107,8 +131,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 continue;
             }
 
-            var descriptor = await operationCatalog.Get(normalizedOperationName, cancellationToken).ConfigureAwait(false);
-            if (descriptor is null)
+            if (!operationsByName.TryGetValue(normalizedOperationName, out var descriptor))
             {
                 errors.Add(new ValidationError(
                     Code: ValidationErrorCodes.OperationNotFound,

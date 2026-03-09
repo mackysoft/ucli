@@ -16,6 +16,8 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
     private readonly IDaemonLaunchCompensationService daemonLaunchCompensationService;
 
+    private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonLaunchService" /> class. </summary>
     /// <param name="daemonLaunchSessionService"> The daemon launch-session service dependency. </param>
     /// <param name="unityDaemonProcessLauncher"> The Unity daemon process-launcher dependency. </param>
@@ -26,12 +28,14 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         IDaemonLaunchSessionService daemonLaunchSessionService,
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
-        IDaemonLaunchCompensationService daemonLaunchCompensationService)
+        IDaemonLaunchCompensationService daemonLaunchCompensationService,
+        IDaemonDiagnosisStore daemonDiagnosisStore)
     {
         this.daemonLaunchSessionService = daemonLaunchSessionService ?? throw new ArgumentNullException(nameof(daemonLaunchSessionService));
         this.unityDaemonProcessLauncher = unityDaemonProcessLauncher ?? throw new ArgumentNullException(nameof(unityDaemonProcessLauncher));
         this.startupReadinessProbe = startupReadinessProbe ?? throw new ArgumentNullException(nameof(startupReadinessProbe));
         this.daemonLaunchCompensationService = daemonLaunchCompensationService ?? throw new ArgumentNullException(nameof(daemonLaunchCompensationService));
+        this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
     }
 
     /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
@@ -62,12 +66,13 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
         try
         {
-            var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
+            var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
             var launchResult = await unityDaemonProcessLauncher.Launch(
                     unityProject,
-                    daemonLogPath,
+                    session,
+                    unityLogPath,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!launchResult.IsSuccess)
@@ -156,6 +161,17 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         string primaryErrorMessagePrefix,
         string primaryErrorLabel)
     {
+        var diagnosisWriteResult = await daemonDiagnosisStore.Write(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                new DaemonDiagnosis(
+                    Reason: DaemonDiagnosisReasonValues.StartupFailed,
+                    Message: primaryError.Message,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow,
+                    ProcessId: processId,
+                    SessionIssuedAtUtc: expectedIssuedAtUtc),
+                CancellationToken.None)
+            .ConfigureAwait(false);
         var compensationResult = await daemonLaunchCompensationService.CleanupFailedLaunch(
                 unityProject,
                 processId,
@@ -163,12 +179,50 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                 DaemonTimeouts.LaunchCompensationTimeout,
                 CancellationToken.None)
             .ConfigureAwait(false);
+        if (!diagnosisWriteResult.IsSuccess && !compensationResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                $"{primaryErrorMessagePrefix}, diagnosis persistence failed, and cleanup failed. " +
+                $"{primaryErrorLabel}={primaryError.Message} " +
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message} " +
+                $"CleanupError={compensationResult.Error!.Message}"));
+        }
+
+        if (!diagnosisWriteResult.IsSuccess)
+        {
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                $"{primaryErrorMessagePrefix} and diagnosis persistence failed. " +
+                $"{primaryErrorLabel}={primaryError.Message} " +
+                $"DiagnosisError={diagnosisWriteResult.Error!.Message}"));
+        }
+
         if (!compensationResult.IsSuccess)
         {
-            return DaemonStartResult.Failure(ExecutionError.InternalError(
-                $"{primaryErrorMessagePrefix} and cleanup failed. {primaryErrorLabel}={primaryError.Message} CleanupError={compensationResult.Error!.Message}"));
+            return DaemonStartResult.Failure(CreateAugmentedPrimaryError(
+                primaryError,
+                $"{primaryErrorMessagePrefix} and cleanup failed. " +
+                $"{primaryErrorLabel}={primaryError.Message} " +
+                $"CleanupError={compensationResult.Error!.Message}"));
         }
 
         return DaemonStartResult.Failure(primaryError);
+    }
+
+    private static ExecutionError CreateAugmentedPrimaryError (
+        ExecutionError primaryError,
+        string message)
+    {
+        ArgumentNullException.ThrowIfNull(primaryError);
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
+        return primaryError.Kind switch
+        {
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
+            ExecutionErrorKind.InternalError => ExecutionError.InternalError(message),
+            _ => throw new ArgumentOutOfRangeException(nameof(primaryError), primaryError.Kind, "Unsupported execution error kind."),
+        };
     }
 }

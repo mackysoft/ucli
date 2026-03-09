@@ -396,7 +396,7 @@ public sealed class IpcContractSerializationTests
         Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Call.Name));
         Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Resolve.Name));
         Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Query.Name));
-        Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Refresh.Name));
+        Assert.False(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Refresh.Name));
         Assert.False(IpcExecuteCommandNames.IsKnown("unknown"));
 
         Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Validate.Name));
@@ -404,7 +404,7 @@ public sealed class IpcContractSerializationTests
         Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Call.Name));
         Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Resolve.Name));
         Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Query.Name));
-        Assert.True(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Refresh.Name));
+        Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand(UcliCommandIds.Refresh.Name));
         Assert.False(IpcExecuteCommandNames.IsOperationPipelineCommand("unknown"));
     }
 

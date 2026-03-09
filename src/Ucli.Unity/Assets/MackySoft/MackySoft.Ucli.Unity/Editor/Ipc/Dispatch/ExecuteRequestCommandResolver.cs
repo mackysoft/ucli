@@ -35,8 +35,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (commandId == UcliCommandIds.Resolve
-                || commandId == UcliCommandIds.Query
-                || commandId == UcliCommandIds.Refresh)
+                || commandId == UcliCommandIds.Query)
             {
                 command = default;
                 return false;

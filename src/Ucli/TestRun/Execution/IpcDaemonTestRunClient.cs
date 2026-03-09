@@ -10,18 +10,18 @@ namespace MackySoft.Ucli.TestRun.Execution;
 /// <summary> Implements daemon-backed Unity test-run execution over IPC transport. </summary>
 internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
 {
-    private readonly IUnityIpcClient unityIpcClient;
+    private readonly IUnityIpcTransportClient transportClient;
 
     private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
 
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonTestRunClient" /> class. </summary>
-    /// <param name="unityIpcClient"> The Unity IPC client dependency. </param>
+    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
     /// <param name="daemonSessionTokenProvider"> The daemon session-token provider dependency. </param>
     public IpcDaemonTestRunClient (
-        IUnityIpcClient unityIpcClient,
+        IUnityIpcTransportClient transportClient,
         IDaemonSessionTokenProvider daemonSessionTokenProvider)
     {
-        this.unityIpcClient = unityIpcClient ?? throw new ArgumentNullException(nameof(unityIpcClient));
+        this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
     }
 
@@ -46,7 +46,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
         {
             var sessionToken = await ResolveSessionToken(configuration, cancellationToken).ConfigureAwait(false);
             var request = IpcDaemonTestRunRequestCodec.CreateRequest(configuration, artifactPaths, sessionToken);
-            var response = await unityIpcClient.SendAsync(
+            var response = await transportClient.SendAsync(
                     configuration.UnityProject.RepositoryRoot,
                     configuration.UnityProject.ProjectFingerprint,
                     request,

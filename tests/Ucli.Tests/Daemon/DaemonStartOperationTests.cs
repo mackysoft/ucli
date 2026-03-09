@@ -10,6 +10,102 @@ public sealed class DaemonStartOperationTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenWorkflowBegins_DeletesExistingDiagnosisBeforeReadingSession ()
+    {
+        var context = CreateContext("fingerprint-start-delete-diagnosis");
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(null),
+            OnRead = () => Assert.Equal(1, diagnosisStore.DeleteCallCount),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: new StubDaemonLaunchService
+            {
+                NextResult = DaemonStartResult.Started(CreateSession(processId: 2024, projectFingerprint: context.ProjectFingerprint)),
+            },
+            daemonDiagnosisStore: diagnosisStore);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, diagnosisStore.DeleteCallCount);
+        Assert.Equal(context.RepositoryRoot, diagnosisStore.LastStorageRoot);
+        Assert.Equal(context.ProjectFingerprint, diagnosisStore.LastProjectFingerprint);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenDiagnosisDeleteFails_ContinuesSessionReadAndLaunch ()
+    {
+        var context = CreateContext("fingerprint-start-delete-diagnosis-fail");
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
+        };
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(null),
+        };
+        var launchService = new StubDaemonLaunchService
+        {
+            NextResult = DaemonStartResult.Started(CreateSession(processId: 2025, projectFingerprint: context.ProjectFingerprint)),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: launchService,
+            daemonDiagnosisStore: diagnosisStore);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, diagnosisStore.DeleteCallCount);
+        Assert.Equal(1, launchService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenDiagnosisDeleteFailsAndLaunchFails_ReturnsAugmentedFailure ()
+    {
+        var context = CreateContext("fingerprint-start-delete-diagnosis-augmented");
+        var diagnosisDeleteError = ExecutionError.InternalError("diagnosis delete failed");
+        var launchError = ExecutionError.InternalError("launch failed");
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(diagnosisDeleteError),
+        };
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = DaemonSessionReadResult.Success(null),
+        };
+        var launchService = new StubDaemonLaunchService
+        {
+            NextResult = DaemonStartResult.Failure(launchError),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonSessionCleanupService: new StubDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: launchService,
+            daemonDiagnosisStore: diagnosisStore);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(launchError.Message, error.Message, StringComparison.Ordinal);
+        Assert.Contains(diagnosisDeleteError.Message, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadReturnsInvalidSession_CallsCleanupAndLaunch ()
     {
         var context = CreateContext("fingerprint-start-invalid-session");
@@ -242,7 +338,7 @@ public sealed class DaemonStartOperationTests
     [Trait("Size", "Small")]
     public async Task Start_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
     {
-        var lockProvider = new StubDaemonLifecycleLockProvider
+        var lockProvider = new StubProjectLifecycleLockProvider
         {
             ThrowTimeoutOnAcquire = true,
         };
@@ -269,10 +365,12 @@ public sealed class DaemonStartOperationTests
         IDaemonSessionCleanupService daemonSessionCleanupService,
         IDaemonExistingSessionGateService daemonExistingSessionGateService,
         IDaemonLaunchService daemonLaunchService,
-        IDaemonLifecycleLockProvider? lifecycleLockProvider = null)
+        IDaemonDiagnosisStore? daemonDiagnosisStore = null,
+        IProjectLifecycleLockProvider? lifecycleLockProvider = null)
     {
         return new DaemonStartOperation(
-            lifecycleLockProvider: lifecycleLockProvider ?? new StubDaemonLifecycleLockProvider(),
+            lifecycleLockProvider: lifecycleLockProvider ?? new StubProjectLifecycleLockProvider(),
+            daemonDiagnosisStore: daemonDiagnosisStore ?? new StubDaemonDiagnosisStore(),
             daemonSessionStore: daemonSessionStore,
             daemonSessionCleanupService: daemonSessionCleanupService,
             daemonExistingSessionGateService: daemonExistingSessionGateService,
@@ -305,7 +403,7 @@ public sealed class DaemonStartOperationTests
             ProcessId: processId);
     }
 
-    private sealed class StubDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
+    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
     {
         public bool ThrowTimeoutOnAcquire { get; set; }
 
@@ -336,11 +434,14 @@ public sealed class DaemonStartOperationTests
     {
         public DaemonSessionReadResult ReadResult { get; set; } = DaemonSessionReadResult.Success(null);
 
+        public Action? OnRead { get; set; }
+
         public ValueTask<DaemonSessionReadResult> Read (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
         {
+            OnRead?.Invoke();
             return ValueTask.FromResult(ReadResult);
         }
 
@@ -425,6 +526,45 @@ public sealed class DaemonStartOperationTests
         {
             CallCount++;
             return ValueTask.FromResult(NextResult);
+        }
+    }
+
+    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
+    {
+        public DaemonDiagnosisStoreOperationResult DeleteResult { get; set; } = DaemonDiagnosisStoreOperationResult.Success();
+
+        public int DeleteCallCount { get; private set; }
+
+        public string? LastStorageRoot { get; private set; }
+
+        public string? LastProjectFingerprint { get; private set; }
+
+        public ValueTask<DaemonDiagnosisReadResult> Read (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonDiagnosis diagnosis,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            DeleteCallCount++;
+            LastStorageRoot = storageRoot;
+            LastProjectFingerprint = projectFingerprint;
+            return ValueTask.FromResult(DeleteResult);
         }
     }
 }

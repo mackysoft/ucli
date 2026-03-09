@@ -1,0 +1,114 @@
+using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Ipc;
+
+namespace MackySoft.Ucli.Tests.Ipc;
+
+public sealed class UnityIpcTransportClientTests
+{
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenNamedPipeServerIsMissing_ThrowsConnectTimeoutException ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var endpointResolver = new FixedEndpointResolver(
+            new IpcEndpoint(
+                IpcTransportKind.NamedPipe,
+                $"ucli-missing-{Guid.NewGuid():N}"));
+        var client = new UnityIpcTransportClient(endpointResolver);
+        var request = new IpcRequest(
+            IpcProtocol.CurrentVersion,
+            "request-1",
+            "token",
+            IpcMethodNames.Ping,
+            JsonDocument.Parse("{}").RootElement.Clone());
+
+        var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
+        {
+            await client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask();
+        });
+        Assert.Contains("timed out", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenCancellationIsRequested_ThrowsOperationCanceledException ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var endpointResolver = new FixedEndpointResolver(
+            new IpcEndpoint(
+                IpcTransportKind.NamedPipe,
+                $"ucli-missing-{Guid.NewGuid():N}"));
+        var client = new UnityIpcTransportClient(endpointResolver);
+        var request = new IpcRequest(
+            IpcProtocol.CurrentVersion,
+            "request-1",
+            "token",
+            IpcMethodNames.Ping,
+            JsonDocument.Parse("{}").RootElement.Clone());
+        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await client.SendAsync(
+                    "storage-root",
+                    "fingerprint",
+                    request,
+                    TimeSpan.FromSeconds(5),
+                    cancellationTokenSource.Token)
+                .AsTask();
+        });
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task SendAsync_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
+    {
+        var endpointResolver = new FixedEndpointResolver(
+            new IpcEndpoint(
+                IpcTransportKind.NamedPipe,
+                $"ucli-invalid-timeout-{Guid.NewGuid():N}"));
+        var client = new UnityIpcTransportClient(endpointResolver);
+        var request = new IpcRequest(
+            IpcProtocol.CurrentVersion,
+            "request-1",
+            "token",
+            IpcMethodNames.Ping,
+            JsonDocument.Parse("{}").RootElement.Clone());
+        var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
+        {
+            await client.SendAsync("storage-root", "fingerprint", request, timeout).AsTask();
+        });
+    }
+
+    private sealed class FixedEndpointResolver : IIpcEndpointResolver
+    {
+        private readonly IpcEndpoint endpoint;
+
+        public FixedEndpointResolver (IpcEndpoint endpoint)
+        {
+            this.endpoint = endpoint;
+        }
+
+        public IpcEndpoint Resolve (
+            string storageRoot,
+            string projectFingerprint)
+        {
+            return endpoint;
+        }
+    }
+}

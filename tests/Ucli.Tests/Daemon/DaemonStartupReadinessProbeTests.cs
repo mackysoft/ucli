@@ -13,9 +13,9 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenPingSucceeds_ReturnsReadyWithoutLogInspection ()
     {
         var pingClient = new StubDaemonPingClient(static () => ValueTask.CompletedTask);
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(string.Empty, false, "/tmp/daemon.log", 0),
+            NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
 
@@ -35,12 +35,12 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenDaemonLogContainsCompilerErrorMarker_ReturnsInternalErrorImmediately ()
     {
         var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(
+            NextResult = UnityLogReadResult.Success(
                 "Aborting batchmode due to failure:\nScripts have compiler errors.\n",
                 truncated: false,
-                path: "/tmp/daemon.log",
+                path: "/tmp/unity.log",
                 sizeBytes: 128),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
@@ -64,12 +64,12 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenDaemonLogContainsCompilerErrorCode_ReturnsInternalErrorWithFirstErrorLine ()
     {
         var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(
+            NextResult = UnityLogReadResult.Success(
                 "Assets/Foo.cs(10,1): error CS0246: MissingType\n",
                 truncated: false,
-                path: "/tmp/daemon.log",
+                path: "/tmp/unity.log",
                 sizeBytes: 64),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
@@ -90,16 +90,16 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenDaemonLogContainsPackageResolutionFailure_ReturnsInternalErrorImmediately ()
     {
         var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(
+            NextResult = UnityLogReadResult.Success(
                 """
                 An error occurred while resolving packages:
                   Project has invalid dependencies:
                     com.unity.test-framework: Package [com.unity.test-framework@1.6.0] cannot be found
                 """,
                 truncated: false,
-                path: "/tmp/daemon.log",
+                path: "/tmp/unity.log",
                 sizeBytes: 256),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
@@ -123,9 +123,9 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenOnlyPreviousSessionHasPackageResolutionFailure_ReturnsTimeout ()
     {
         var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(
+            NextResult = UnityLogReadResult.Success(
                 """
                 COMMAND LINE ARGUMENTS:
                 -projectPath
@@ -139,7 +139,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 [Package Manager] Done resolving packages in 1.00 seconds
                 """,
                 truncated: false,
-                path: "/tmp/daemon.log",
+                path: "/tmp/unity.log",
                 sizeBytes: 512),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
@@ -160,12 +160,12 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenDaemonProcessExitedBeforeReady_ReturnsInternalErrorImmediately ()
     {
         var pingClient = new StubDaemonPingClient(static () => ValueTask.CompletedTask);
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(
+            NextResult = UnityLogReadResult.Success(
                 "daemon bootstrap in progress\n",
                 truncated: false,
-                path: "/tmp/daemon.log",
+                path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
@@ -190,12 +190,12 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenNotRunningContinuesWithoutCompilerErrors_ReturnsTimeout ()
     {
         var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(
+            NextResult = UnityLogReadResult.Success(
                 "daemon bootstrap in progress\n",
                 truncated: false,
-                path: "/tmp/daemon.log",
+                path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
@@ -216,12 +216,12 @@ public sealed class DaemonStartupReadinessProbeTests
     public async Task WaitUntilReady_WhenPingTimesOutUntilDeadline_ReturnsTimeout ()
     {
         var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout")));
-        var logReader = new StubDaemonLogReader
+        var logReader = new StubUnityLogReader
         {
-            NextResult = DaemonLogReadResult.Success(
+            NextResult = UnityLogReadResult.Success(
                 "daemon bootstrap in progress\n",
                 truncated: false,
-                path: "/tmp/daemon.log",
+                path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
         var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
@@ -268,16 +268,16 @@ public sealed class DaemonStartupReadinessProbeTests
         }
     }
 
-    private sealed class StubDaemonLogReader : IDaemonLogReader
+    private sealed class StubUnityLogReader : IUnityLogReader
     {
-        public DaemonLogReadResult NextResult { get; set; } = DaemonLogReadResult.Success(string.Empty, false, "/tmp/daemon.log", 0);
+        public UnityLogReadResult NextResult { get; set; } = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0);
 
         public int CallCount { get; private set; }
 
-        public ValueTask<DaemonLogReadResult> ReadTail (
+        public ValueTask<UnityLogReadResult> ReadTail (
             string storageRoot,
             string projectFingerprint,
-            int maxBytes = DaemonLogReader.DefaultMaxBytes,
+            int maxBytes = UnityLogReader.DefaultMaxBytes,
             CancellationToken cancellationToken = default)
         {
             CallCount++;

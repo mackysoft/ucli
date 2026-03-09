@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents one operation result within an <c>execute</c> response payload. </summary>
@@ -13,4 +16,9 @@ public sealed record IpcExecuteOperationResult (
     string Phase,
     bool Applied,
     bool Changed,
-    IReadOnlyList<IpcExecuteTouchedResource> Touched);
+    IReadOnlyList<IpcExecuteTouchedResource> Touched)
+{
+    /// <summary> Gets the optional query result payload produced by the operation. </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Result { get; init; }
+}

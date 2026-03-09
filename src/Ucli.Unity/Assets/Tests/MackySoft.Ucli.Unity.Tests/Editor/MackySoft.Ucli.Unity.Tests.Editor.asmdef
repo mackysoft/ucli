@@ -3,6 +3,7 @@
     "rootNamespace": "MackySoft.Ucli.Unity.Tests",
     "references": [
         "MackySoft.Ucli.Unity.Editor",
+        "MackySoft.Ucli.Unity.Tests.Runtime",
         "UniTask"
     ],
     "includePlatforms": [

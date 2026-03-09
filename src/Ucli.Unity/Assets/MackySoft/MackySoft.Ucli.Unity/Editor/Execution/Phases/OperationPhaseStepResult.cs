@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 
 #nullable enable
 
@@ -16,6 +17,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         IReadOnlyList<OperationTouch> Touched,
         OperationFailure? Failure)
     {
+        /// <summary> Gets the optional query result payload produced by this step. </summary>
+        public JsonElement? Result { get; init; }
+
         /// <summary> Gets a value indicating whether this step succeeded. </summary>
         public bool IsSuccess => Failure is null;
 
@@ -23,12 +27,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="touched"> The touched persistence-unit list. </param>
         /// <returns> The successful phase-step result. </returns>
         public static OperationPhaseStepResult Success (
-            IReadOnlyList<OperationTouch>? touched = null)
+            IReadOnlyList<OperationTouch>? touched = null,
+            JsonElement? result = null)
         {
             return Success(
                 applied: false,
                 changed: false,
-                touched: touched);
+                touched: touched,
+                result: result);
         }
 
         /// <summary> Creates a successful phase-step result. </summary>
@@ -39,13 +45,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static OperationPhaseStepResult Success (
             bool applied,
             bool changed,
-            IReadOnlyList<OperationTouch>? touched = null)
+            IReadOnlyList<OperationTouch>? touched = null,
+            JsonElement? result = null)
         {
             return new OperationPhaseStepResult(
                 Applied: applied,
                 Changed: changed,
                 Touched: touched ?? Array.Empty<OperationTouch>(),
-                Failure: null);
+                Failure: null)
+            {
+                Result = CloneResult(result),
+            };
         }
 
         /// <summary> Creates a failed phase-step result. </summary>
@@ -55,13 +65,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="failure" /> is <see langword="null" />. </exception>
         public static OperationPhaseStepResult Failed (
             OperationFailure failure,
-            IReadOnlyList<OperationTouch>? touched = null)
+            IReadOnlyList<OperationTouch>? touched = null,
+            JsonElement? result = null)
         {
             return Failed(
                 failure,
                 applied: false,
                 changed: false,
-                touched: touched);
+                touched: touched,
+                result: result);
         }
 
         /// <summary> Creates a failed phase-step result. </summary>
@@ -75,7 +87,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationFailure failure,
             bool applied,
             bool changed,
-            IReadOnlyList<OperationTouch>? touched = null)
+            IReadOnlyList<OperationTouch>? touched = null,
+            JsonElement? result = null)
         {
             if (failure == null)
             {
@@ -86,7 +99,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Applied: applied,
                 Changed: changed,
                 Touched: touched ?? Array.Empty<OperationTouch>(),
-                Failure: failure);
+                Failure: failure)
+            {
+                Result = CloneResult(result),
+            };
+        }
+
+        private static JsonElement? CloneResult (JsonElement? result)
+        {
+            if (!result.HasValue)
+            {
+                return null;
+            }
+
+            return result.Value.Clone();
         }
     }
 }

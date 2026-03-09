@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.UnityProject;
@@ -49,6 +50,16 @@ internal static class DaemonCommandServiceTestContext
             EndpointTransportKind: "mapped-transport",
             EndpointAddress: "mapped-endpoint",
             ProcessId: 4321);
+    }
+
+    public static DaemonDiagnosis CreateDiagnosis ()
+    {
+        return new DaemonDiagnosis(
+            Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
+            Message: "daemon shutdown completed",
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
+            ProcessId: 1234,
+            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero));
     }
 
     internal sealed class StubDaemonCommandExecutionContextResolver : IDaemonCommandExecutionContextResolver
