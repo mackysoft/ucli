@@ -77,9 +77,13 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
         var gitWorktreeQuery = gitWorktreeQueryResult.Output!;
         var items = new List<DaemonListItemOutput>();
-        foreach (var worktree in gitWorktreeQuery.Worktrees.OrderBy(static x => x.WorktreePath, StringComparer.Ordinal))
+        var orderedWorktrees = gitWorktreeQuery.Worktrees
+            .OrderBy(static x => x.WorktreePath, StringComparer.Ordinal)
+            .ToArray();
+        for (var index = 0; index < orderedWorktrees.Length; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var worktree = orderedWorktrees[index];
 
             var observationResult = await TryObserveWorktree(
                     worktree,
@@ -89,6 +93,15 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 .ConfigureAwait(false);
             if (!observationResult.IsSuccess)
             {
+                if (observationResult.Error!.Kind == ExecutionErrorKind.Timeout)
+                {
+                    return DaemonListExecutionResult.Success(CreatePartialOutput(
+                        timeout,
+                        gitWorktreeQuery.ProjectRelativePath,
+                        items,
+                        orderedWorktrees.Length - index));
+                }
+
                 return DaemonListExecutionResult.Failure(observationResult.Error!);
             }
 
@@ -98,10 +111,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             }
         }
 
-        return DaemonListExecutionResult.Success(new DaemonListExecutionOutput(
-            TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
-            ProjectRelativePath: gitWorktreeQuery.ProjectRelativePath,
-            Items: items));
+        return DaemonListExecutionResult.Success(CreateCompleteOutput(
+            timeout,
+            gitWorktreeQuery.ProjectRelativePath,
+            items));
     }
 
     /// <summary> Reads daemon session and probe state for one worktree candidate. </summary>
@@ -337,6 +350,48 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             EndpointTransportKind: session?.EndpointTransportKind,
             EndpointAddress: session?.EndpointAddress,
             Message: message);
+    }
+
+    /// <summary> Creates one complete daemon-list execution output. </summary>
+    /// <param name="timeout"> The requested shared timeout budget. </param>
+    /// <param name="projectRelativePath"> The current project path relative to the current worktree root. </param>
+    /// <param name="items"> The observed daemon-list items. </param>
+    /// <returns> The complete daemon-list execution output. </returns>
+    private static DaemonListExecutionOutput CreateCompleteOutput (
+        TimeSpan timeout,
+        string projectRelativePath,
+        IReadOnlyList<DaemonListItemOutput> items)
+    {
+        return new DaemonListExecutionOutput(
+            TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
+            ProjectRelativePath: projectRelativePath,
+            IsComplete: true,
+            CompletionReason: null,
+            RemainingWorktreeCount: 0,
+            Items: items);
+    }
+
+    /// <summary> Creates one partial daemon-list execution output after shared timeout exhaustion. </summary>
+    /// <param name="timeout"> The requested shared timeout budget. </param>
+    /// <param name="projectRelativePath"> The current project path relative to the current worktree root. </param>
+    /// <param name="items"> The observed daemon-list items completed before timeout. </param>
+    /// <param name="remainingWorktreeCount"> The number of worktrees left unobserved. </param>
+    /// <returns> The partial daemon-list execution output. </returns>
+    private static DaemonListExecutionOutput CreatePartialOutput (
+        TimeSpan timeout,
+        string projectRelativePath,
+        IReadOnlyList<DaemonListItemOutput> items,
+        int remainingWorktreeCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(remainingWorktreeCount);
+
+        return new DaemonListExecutionOutput(
+            TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
+            ProjectRelativePath: projectRelativePath,
+            IsComplete: false,
+            CompletionReason: DaemonListCompletionReasonCodec.Timeout,
+            RemainingWorktreeCount: remainingWorktreeCount,
+            Items: items);
     }
 
     /// <summary> Resolves one candidate Unity project path for the specified worktree root. </summary>

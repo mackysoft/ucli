@@ -49,11 +49,16 @@ internal sealed class DaemonListCommand
             var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.DaemonList,
-                message: "uCLI daemon list retrieval completed.",
+                message: output.IsComplete
+                    ? "uCLI daemon list retrieval completed."
+                    : "uCLI daemon list retrieval completed with partial results.",
                 payload: new
                 {
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     projectRelativePath = output.ProjectRelativePath,
+                    isComplete = output.IsComplete,
+                    completionReason = output.CompletionReason,
+                    remainingWorktreeCount = output.RemainingWorktreeCount,
                     items = output.Items,
                 });
         }

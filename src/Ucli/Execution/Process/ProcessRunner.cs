@@ -218,7 +218,7 @@ internal sealed class ProcessRunner : IProcessRunner
             return fullBuffer.Length > 0 ? fullBuffer.ToString() : null;
         }
 
-        return boundedBuffer.Length > 0 ? boundedBuffer.ToString() : null;
+        return null;
     }
 
     /// <summary> Builds one concise output snippet from captured output buffers. </summary>

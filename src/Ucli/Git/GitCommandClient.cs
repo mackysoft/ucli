@@ -8,8 +8,6 @@ internal sealed class GitCommandClient : IGitCommandClient
 {
     private const string GitExecutableName = "git";
 
-    private static readonly TimeSpan GitCommandTimeout = TimeSpan.FromSeconds(5);
-
     private readonly IProcessRunner processRunner;
 
     /// <summary> Initializes a new instance of the <see cref="GitCommandClient" /> class. </summary>
@@ -119,14 +117,12 @@ internal sealed class GitCommandClient : IGitCommandClient
         };
         gitArguments.AddRange(arguments);
 
-        var effectiveTimeout = timeout <= GitCommandTimeout
-            ? timeout
-            : GitCommandTimeout;
         var processResult = await processRunner.RunAsync(
                 new ProcessRunRequest(
                     FileName: GitExecutableName,
                     Arguments: gitArguments,
-                    Timeout: effectiveTimeout),
+                    Timeout: timeout,
+                    CaptureStandardOutput: true),
                 cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
@@ -156,12 +152,6 @@ internal sealed class GitCommandClient : IGitCommandClient
                 return GitCommandTextResult.Success(processResult.StandardOutput);
 
             case ProcessRunStatus.Exited:
-                if (IsNotGitRepositoryFailure(processResult.ErrorMessage))
-                {
-                    return GitCommandTextResult.Failure(ExecutionError.InvalidArgument(
-                        "daemon list requires the target Unity project to be inside a Git worktree."));
-                }
-
                 return GitCommandTextResult.Failure(ExecutionError.InternalError(
                     processResult.ErrorMessage ?? "Git rev-parse failed."));
 
@@ -201,19 +191,5 @@ internal sealed class GitCommandClient : IGitCommandClient
                 return GitCommandTextResult.Failure(ExecutionError.InternalError(
                     "Git worktree list returned an unknown process status."));
         }
-    }
-
-    /// <summary> Determines whether one rev-parse failure indicates that the path is outside a Git worktree. </summary>
-    /// <param name="errorMessage"> The process error message. </param>
-    /// <returns> <see langword="true" /> when the failure indicates a non-Git path; otherwise <see langword="false" />. </returns>
-    private static bool IsNotGitRepositoryFailure (string? errorMessage)
-    {
-        if (string.IsNullOrWhiteSpace(errorMessage))
-        {
-            return false;
-        }
-
-        return errorMessage.Contains("not a git repository", StringComparison.OrdinalIgnoreCase)
-            || errorMessage.Contains("must be run in a work tree", StringComparison.OrdinalIgnoreCase);
     }
 }

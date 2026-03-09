@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -37,17 +38,22 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var deadline = ExecutionDeadline.Start(timeout);
-        if (!TryGetRemainingTimeout(
-                deadline,
-                "Timed out before git rev-parse --show-toplevel could begin.",
-                out var currentWorktreeRootTimeout,
-                out var currentWorktreeRootTimeoutError))
+        try
         {
-            return GitWorktreeQueryResult.Failure(currentWorktreeRootTimeoutError!);
+            if (UcliStoragePathResolver.TryResolveRepositoryRoot(path) == null)
+            {
+                return GitWorktreeQueryResult.Failure(ExecutionError.InvalidArgument(
+                    "daemon list requires the target Unity project to be inside a Git worktree."));
+            }
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            return GitWorktreeQueryResult.Failure(ExecutionError.InvalidArgument(
+                $"Git worktree path is invalid. {exception.Message}"));
         }
 
-        var currentWorktreeRootResult = await gitCommandClient.GetCurrentWorktreeRoot(path, currentWorktreeRootTimeout, cancellationToken).ConfigureAwait(false);
+        var deadline = ExecutionDeadline.Start(timeout);
+        var currentWorktreeRootResult = await gitCommandClient.GetCurrentWorktreeRoot(path, timeout, cancellationToken).ConfigureAwait(false);
         if (!currentWorktreeRootResult.IsSuccess)
         {
             return GitWorktreeQueryResult.Failure(currentWorktreeRootResult.Error!);
