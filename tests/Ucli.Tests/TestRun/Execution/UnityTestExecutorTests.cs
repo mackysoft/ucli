@@ -83,7 +83,7 @@ public sealed class UnityTestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithSubSecondTimeout_RoundsUpToOneSecond ()
+    public async Task Execute_WithSubSecondTimeout_PreservesExactTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-test-executor", "timeout-round-up");
         var configuration = CreateConfiguration(scope);
@@ -102,7 +102,7 @@ public sealed class UnityTestExecutorTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(1, processRunner.LastRequest.TimeoutSeconds);
+        Assert.Equal(TimeSpan.FromMilliseconds(1), processRunner.LastRequest.Timeout);
     }
 
     private static ResolvedTestRunConfiguration CreateConfiguration (TestDirectoryScope scope)

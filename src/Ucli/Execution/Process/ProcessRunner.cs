@@ -55,7 +55,7 @@ internal sealed class ProcessRunner : IProcessRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        using var timeoutCancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(request.TimeoutSeconds));
+        using var timeoutCancellationTokenSource = new CancellationTokenSource(request.Timeout);
         using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             timeoutCancellationTokenSource.Token);
@@ -69,25 +69,31 @@ internal sealed class ProcessRunner : IProcessRunner
             await TryKillProcessAsync(process).ConfigureAwait(false);
             await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
             return ProcessRunResult.TimedOut(
-                $"Process timed out after {request.TimeoutSeconds} seconds.{BuildOutputSnippet(standardError, standardOutput)}");
+                $"Process timed out after {request.Timeout.TotalMilliseconds:0} milliseconds.{BuildOutputSnippet(standardError, standardOutput)}",
+                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await TryKillProcessAsync(process).ConfigureAwait(false);
             await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
-            return ProcessRunResult.Canceled($"Process execution was canceled.{BuildOutputSnippet(standardError, standardOutput)}");
+            return ProcessRunResult.Canceled(
+                $"Process execution was canceled.{BuildOutputSnippet(standardError, standardOutput)}",
+                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
         }
 
         await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
 
         if (process.ExitCode == 0)
         {
-            return ProcessRunResult.Exited(0);
+            return ProcessRunResult.Exited(
+                0,
+                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
         }
 
         return ProcessRunResult.Exited(
             process.ExitCode,
-            $"Process exited with code {process.ExitCode}.{BuildOutputSnippet(standardError, standardOutput)}");
+            $"Process exited with code {process.ExitCode}.{BuildOutputSnippet(standardError, standardOutput)}",
+            standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
     }
 
     /// <summary> Tries to terminate one running process and waits for process exit. </summary>

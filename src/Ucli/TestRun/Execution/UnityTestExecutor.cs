@@ -40,8 +40,6 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var arguments = unityCommandBuilder.BuildArguments(configuration, artifactPaths);
-        var timeoutSeconds = ProcessTimeoutConverter.ConvertToSeconds(timeout);
-
         ProcessRunResult processRunResult;
         try
         {
@@ -49,7 +47,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                 new ProcessRunRequest(
                     FileName: configuration.UnityEditorPath,
                     Arguments: arguments,
-                    TimeoutSeconds: timeoutSeconds),
+                    Timeout: timeout),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -69,7 +67,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
             case ProcessRunStatus.TimedOut:
                 return UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.TimedOut,
-                    processRunResult.ErrorMessage ?? $"Unity process timed out after {timeoutSeconds} seconds.");
+                    processRunResult.ErrorMessage ?? $"Unity process timed out after {timeout.TotalMilliseconds:0} milliseconds.");
 
             case ProcessRunStatus.Canceled:
                 return UnityTestExecutionResult.Failure(

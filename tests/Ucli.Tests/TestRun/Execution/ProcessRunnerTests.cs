@@ -14,7 +14,7 @@ public sealed class ProcessRunnerTests
             new ProcessRunRequest(
                 FileName: "__ucli_missing_executable__",
                 Arguments: Array.Empty<string>(),
-                TimeoutSeconds: 1),
+                Timeout: TimeSpan.FromSeconds(1)),
             CancellationToken.None);
 
         Assert.Equal(ProcessRunStatus.StartFailed, result.Status);

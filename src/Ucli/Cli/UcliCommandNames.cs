@@ -30,6 +30,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for <c>daemon status</c> result payloads. </summary>
     public const string DaemonStatus = "daemon.status";
 
+    /// <summary> Gets the command name for <c>daemon list</c> result payloads. </summary>
+    public const string DaemonList = "daemon.list";
+
     /// <summary> Gets the top-level command name for logs. </summary>
     public const string Logs = "logs";
 
@@ -158,6 +161,12 @@ internal static class UcliCommandNames
                 && string.Equals(args[1], Status, StringComparison.Ordinal))
             {
                 return DaemonStatus;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], ListSubcommand, StringComparison.Ordinal))
+            {
+                return DaemonList;
             }
 
             return Daemon;

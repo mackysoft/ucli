@@ -90,7 +90,7 @@ internal sealed class UnityOneshotIpcClient : IUnityOneshotIpcClient
                     new ProcessRunRequest(
                         FileName: unityEditorPathResult.UnityEditorPath!,
                         Arguments: arguments,
-                        TimeoutSeconds: ProcessTimeoutConverter.ConvertToSeconds(timeout)),
+                        Timeout: timeout),
                     cancellationToken)
                 .ConfigureAwait(false);
             switch (processResult.Status)

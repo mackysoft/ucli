@@ -8,6 +8,7 @@ public sealed class UcliCommandTests
     [Trait("Size", "Small")]
     [InlineData("status")]
     [InlineData("daemon.status")]
+    [InlineData("daemon.list")]
     [InlineData("test.run")]
     [InlineData("logs.daemon")]
     public void Constructor_WithValidName_CreatesCommand (string name)
@@ -21,6 +22,7 @@ public sealed class UcliCommandTests
     [Trait("Size", "Small")]
     [InlineData("status")]
     [InlineData("daemon.status")]
+    [InlineData("daemon.list")]
     [InlineData("test.run")]
     [InlineData("logs.unity")]
     public void IsValidName_WithValidName_ReturnsTrue (string name)

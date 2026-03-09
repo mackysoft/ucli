@@ -389,6 +389,17 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void UcliCommandIds_ExposeDaemonCommandLiterals ()
+    {
+        Assert.Equal("daemon", UcliCommandIds.Daemon.Name);
+        Assert.Equal("daemon.start", UcliCommandIds.DaemonStart.Name);
+        Assert.Equal("daemon.stop", UcliCommandIds.DaemonStop.Name);
+        Assert.Equal("daemon.status", UcliCommandIds.DaemonStatus.Name);
+        Assert.Equal("daemon.list", UcliCommandIds.DaemonList.Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteCommandNames_ClassifiesKnownAndOperationPipelineCommands ()
     {
         Assert.True(IpcExecuteCommandNames.IsKnown(UcliCommandIds.Validate.Name));
