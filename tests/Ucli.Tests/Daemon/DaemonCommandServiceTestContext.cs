@@ -12,7 +12,7 @@ internal static class DaemonCommandServiceTestContext
     public static DaemonCommandExecutionContext CreateExecutionContext (int timeoutMilliseconds)
     {
         return new DaemonCommandExecutionContext(
-            Context: new InitStatusContext(
+            Context: new ProjectContext(
                 UnityProject: new ResolvedUnityProjectContext(
                     UnityProjectRoot: "/tmp/unity-project",
                     RepositoryRoot: "/tmp/repo-root",

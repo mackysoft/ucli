@@ -17,7 +17,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonIsRunning_ReturnsPingInfoAndResolvedUnityVersion ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
@@ -50,7 +50,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonIsNotRunning_ReturnsStatusWithNullPingFields ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
@@ -80,7 +80,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonIsStale_ReturnsStatusWithNullPingFields ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Stale(CreateSession("stale-session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
@@ -110,7 +110,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenTimeoutOptionIsInvalid_ReturnsInvalidArgumentWithoutDaemonCall ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
         var daemonPingInfoClient = new StubDaemonPingInfoClient(new IpcPingResponse(
@@ -138,7 +138,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenContextResolutionFails_ReturnsResolutionError ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Failure(
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Failure(
             ExecutionError.InvalidArgument("Unity project path is invalid.")));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.NotRunning());
@@ -168,7 +168,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDaemonStatusFails_ReturnsDaemonStatusError ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Failure(
             ExecutionError.InternalError("Failed to read daemon session.")));
@@ -197,7 +197,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPingInfoTimesOut_ReturnsTimeoutError ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(
@@ -221,7 +221,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPingInfoBecomesUnreachable_ReturnsStaleStatus ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(
@@ -246,7 +246,7 @@ public sealed class StatusServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPingInfoFails_ReturnsInternalError ()
     {
-        var contextResolver = new StubInitStatusContextResolver(InitStatusContextResolutionResult.Success(CreateContext()));
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(
@@ -267,7 +267,7 @@ public sealed class StatusServiceTests
     }
 
     private static StatusService CreateService (
-        IInitStatusContextResolver contextResolver,
+        IProjectContextResolver contextResolver,
         IUnityVersionResolver unityVersionResolver,
         IDaemonStatusOperation daemonStatusOperation,
         IDaemonPingInfoClient daemonPingInfoClient)
@@ -280,10 +280,10 @@ public sealed class StatusServiceTests
                 new DaemonReachabilityClassifier()));
     }
 
-    private static InitStatusContext CreateContext ()
+    private static ProjectContext CreateContext ()
     {
         var unityProjectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
-        return new InitStatusContext(
+        return new ProjectContext(
             UnityProject: new ResolvedUnityProjectContext(
                 UnityProjectRoot: unityProjectRoot,
                 RepositoryRoot: unityProjectRoot,
@@ -308,16 +308,16 @@ public sealed class StatusServiceTests
             ProcessId: 1234);
     }
 
-    private sealed class StubInitStatusContextResolver : IInitStatusContextResolver
+    private sealed class StubProjectContextResolver : IProjectContextResolver
     {
-        private readonly InitStatusContextResolutionResult resolutionResult;
+        private readonly ProjectContextResolutionResult resolutionResult;
 
-        public StubInitStatusContextResolver (InitStatusContextResolutionResult resolutionResult)
+        public StubProjectContextResolver (ProjectContextResolutionResult resolutionResult)
         {
             this.resolutionResult = resolutionResult;
         }
 
-        public ValueTask<InitStatusContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> Resolve (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {

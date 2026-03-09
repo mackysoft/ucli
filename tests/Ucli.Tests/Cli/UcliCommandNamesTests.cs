@@ -88,4 +88,22 @@ public sealed class UcliCommandNamesTests
 
         Assert.True(result);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveResultCommandName_WhenRefreshCommandSpecified_ReturnsRefresh ()
+    {
+        var commandName = UcliCommandNames.ResolveResultCommandName([UcliCommandNames.Refresh]);
+
+        Assert.Equal(UcliCommandNames.Refresh, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenRefreshCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Refresh);
+
+        Assert.True(result);
+    }
 }

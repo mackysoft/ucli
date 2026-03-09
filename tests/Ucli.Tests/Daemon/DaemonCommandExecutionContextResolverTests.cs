@@ -22,8 +22,8 @@ public sealed class DaemonCommandExecutionContextResolverTests
             },
         };
         var initStatusContext = CreateContext(config);
-        var initStatusContextResolver = new StubInitStatusContextResolver(
-            InitStatusContextResolutionResult.Success(initStatusContext));
+        var initStatusContextResolver = new StubProjectContextResolver(
+            ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         var result = await resolver.Resolve(
@@ -51,8 +51,8 @@ public sealed class DaemonCommandExecutionContextResolverTests
             },
         };
         var initStatusContext = CreateContext(config);
-        var initStatusContextResolver = new StubInitStatusContextResolver(
-            InitStatusContextResolutionResult.Success(initStatusContext));
+        var initStatusContextResolver = new StubProjectContextResolver(
+            ProjectContextResolutionResult.Success(initStatusContext));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         var result = await resolver.Resolve(
@@ -70,8 +70,8 @@ public sealed class DaemonCommandExecutionContextResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenTimeoutOptionIsInvalid_ReturnsInvalidArgument ()
     {
-        var initStatusContextResolver = new StubInitStatusContextResolver(
-            InitStatusContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
+        var initStatusContextResolver = new StubProjectContextResolver(
+            ProjectContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         var result = await resolver.Resolve(
@@ -91,8 +91,8 @@ public sealed class DaemonCommandExecutionContextResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenTimeoutCommandNameIsInvalid_ThrowsArgumentException ()
     {
-        var initStatusContextResolver = new StubInitStatusContextResolver(
-            InitStatusContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
+        var initStatusContextResolver = new StubProjectContextResolver(
+            ProjectContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
@@ -105,9 +105,9 @@ public sealed class DaemonCommandExecutionContextResolverTests
         });
     }
 
-    private static InitStatusContext CreateContext (UcliConfig config)
+    private static ProjectContext CreateContext (UcliConfig config)
     {
-        return new InitStatusContext(
+        return new ProjectContext(
             UnityProject: new ResolvedUnityProjectContext(
                 UnityProjectRoot: "/tmp/unity-project",
                 RepositoryRoot: "/tmp/repo-root",
@@ -117,18 +117,18 @@ public sealed class DaemonCommandExecutionContextResolverTests
             ConfigSource: ConfigSource.Default);
     }
 
-    private sealed class StubInitStatusContextResolver : IInitStatusContextResolver
+    private sealed class StubProjectContextResolver : IProjectContextResolver
     {
-        private readonly InitStatusContextResolutionResult result;
+        private readonly ProjectContextResolutionResult result;
 
-        public StubInitStatusContextResolver (InitStatusContextResolutionResult result)
+        public StubProjectContextResolver (ProjectContextResolutionResult result)
         {
             this.result = result;
         }
 
         public int CallCount { get; private set; }
 
-        public ValueTask<InitStatusContextResolutionResult> Resolve (
+        public ValueTask<ProjectContextResolutionResult> Resolve (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
