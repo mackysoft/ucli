@@ -1,5 +1,7 @@
+using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -132,6 +134,17 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
 
     public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(Operations);
+    }
+
+    public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (
+        ResolvedUnityProjectContext unityProject,
+        UcliConfig config,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(config);
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult(Operations);
     }

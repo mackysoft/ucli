@@ -1,6 +1,8 @@
+using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Ops;
+using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Operations;
 
@@ -37,9 +39,26 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
                 $"Operation catalog context could not be resolved. {contextResult.Error!.Message}");
         }
 
-        var catalogResult = await opsCatalogReader.Read(
+        return await GetOperations(
                 contextResult.Context!.UnityProject,
                 contextResult.Context.Config,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (
+        ResolvedUnityProjectContext unityProject,
+        UcliConfig config,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(config);
+
+        var catalogResult = await opsCatalogReader.Read(
+                unityProject,
+                config,
                 mode: null,
                 timeout: null,
                 cancellationToken)

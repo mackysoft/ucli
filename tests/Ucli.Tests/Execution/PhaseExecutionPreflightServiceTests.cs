@@ -481,6 +481,8 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.Equal(token, requestInputReader.ReceivedToken);
         Assert.Equal(token, configStore.ReceivedToken);
         Assert.Equal(token, validator.ReceivedToken);
+        Assert.NotNull(validator.ReceivedUnityProject);
+        Assert.Equal("/tmp/project", validator.ReceivedUnityProject!.UnityProjectRoot);
     }
 
     private static PhaseExecutionPreflightService CreateService (
@@ -594,12 +596,16 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         public CancellationToken ReceivedToken { get; private set; }
 
+        public ResolvedUnityProjectContext? ReceivedUnityProject { get; private set; }
+
         public ValueTask<ValidationResult> Validate (
             ValidateRequest request,
+            ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             CancellationToken cancellationToken = default)
         {
             ReceivedToken = cancellationToken;
+            ReceivedUnityProject = unityProject;
             return ValueTask.FromResult(ValidationResult.Success());
         }
     }
