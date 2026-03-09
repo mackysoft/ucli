@@ -1,0 +1,180 @@
+using System.Text.Json;
+using MackySoft.Tests;
+using MackySoft.Ucli.Cli;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
+
+namespace MackySoft.Ucli.Tests;
+
+public sealed class RefreshCliOutputContractTests
+{
+    private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Refresh_WithUnknownOption_ReturnsCommandResultInvalidArgumentAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Refresh, UcliContractConstants.CliOption.Unknown);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Refresh_WithInvalidTimeoutOption_ReturnsCommandResultInvalidArgumentAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "invalid-timeout");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Refresh,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            "abc");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Refresh_WithShortProjectPathAliasAndInvalidProjectPath_ReturnsCommandResultInvalidArgumentAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "invalid-project-path");
+        var invalidProjectPath = Path.Combine(scope.FullPath, "NotUnityProject");
+        Directory.CreateDirectory(invalidProjectPath);
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Refresh,
+            "-p",
+            invalidProjectPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.DoesNotContain("Argument '-p' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Refresh_WithModeDaemonAndNoDaemonRunning_ReturnsCommandResultToolError ()
+    {
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "daemon-not-running");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        WriteRefreshAllowedConfig(scope, unityProjectPath);
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Refresh,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Mode,
+            "daemon");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Refresh_WhenOperationPolicyBlocksRefresh_ReturnsCommandResultInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "operation-policy-blocked");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        WriteRefreshBlockedConfig(scope, unityProjectPath);
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Refresh,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasArrayLength("errors", 1)
+            .HasProperty("errors", 0, error => error
+                .HasString("code", "OPERATION_NOT_ALLOWED")
+                .HasValueKind("message", JsonValueKind.String)
+                .HasString("opId", "refresh"));
+    }
+
+    private static void WriteRefreshAllowedConfig (
+        TestDirectoryScope scope,
+        string unityProjectPath)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectPath);
+
+        WriteConfigJson(
+            scope,
+            unityProjectPath,
+            UcliContractConstants.Config.OperationPolicyDangerous);
+    }
+
+    private static void WriteRefreshBlockedConfig (
+        TestDirectoryScope scope,
+        string unityProjectPath)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectPath);
+
+        WriteConfigJson(
+            scope,
+            unityProjectPath,
+            UcliContractConstants.Config.OperationPolicySafe);
+    }
+
+    private static void WriteConfigJson (
+        TestDirectoryScope scope,
+        string unityProjectPath,
+        string operationPolicy)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationPolicy);
+
+        var configPath = Path.Combine(unityProjectPath, ".ucli", "config.json");
+        var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
+        var configJson = JsonSerializer.Serialize(new
+        {
+            schemaVersion = UcliContractConstants.Config.SchemaVersion,
+            operationPolicy,
+            planTokenMode = UcliContractConstants.Config.PlanTokenModeOptional,
+            readIndexDefaultMode = UcliContractConstants.Config.ReadIndexModeRequireFresh,
+            operationAllowlist = new[]
+            {
+                UcliContractConstants.Config.DefaultOperationAllowlistPattern,
+            },
+        });
+
+        scope.WriteFile(relativeConfigPath, configJson);
+    }
+}

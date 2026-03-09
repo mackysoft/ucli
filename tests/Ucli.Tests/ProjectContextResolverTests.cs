@@ -8,7 +8,7 @@ using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
 
-public sealed class InitStatusContextResolverTests
+public sealed class ProjectContextResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -22,7 +22,7 @@ public sealed class InitStatusContextResolverTests
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
-        var context = Assert.IsType<InitStatusContext>(result.Context);
+        var context = Assert.IsType<ProjectContext>(result.Context);
         Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot);
         Assert.Equal(unityProjectPath, context.UnityProject.RepositoryRoot);
         Assert.Equal(ConfigSource.Default, context.ConfigSource);
@@ -53,12 +53,12 @@ public sealed class InitStatusContextResolverTests
             CancellationToken.None);
         Assert.True(saveResult.IsSuccess);
 
-        var resolver = new InitStatusContextResolver(new UnityProjectResolver(), configStore);
+        var resolver = new ProjectContextResolver(new UnityProjectResolver(), configStore);
 
         var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var context = Assert.IsType<InitStatusContext>(result.Context);
+        var context = Assert.IsType<ProjectContext>(result.Context);
         Assert.Equal(ConfigSource.File, context.ConfigSource);
         Assert.Equal(OperationPolicy.Advanced, context.Config.OperationPolicy);
         Assert.Equal(PlanTokenMode.Required, context.Config.PlanTokenMode);
@@ -92,7 +92,7 @@ public sealed class InitStatusContextResolverTests
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         scope.WriteFile(relativeConfigPath, "{");
-        var resolver = new InitStatusContextResolver(new UnityProjectResolver(), configStore);
+        var resolver = new ProjectContextResolver(new UnityProjectResolver(), configStore);
 
         var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
 
@@ -102,9 +102,9 @@ public sealed class InitStatusContextResolverTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
     }
 
-    private static InitStatusContextResolver CreateResolver ()
+    private static ProjectContextResolver CreateResolver ()
     {
-        return new InitStatusContextResolver(
+        return new ProjectContextResolver(
             new UnityProjectResolver(),
             new UcliConfigStore());
     }

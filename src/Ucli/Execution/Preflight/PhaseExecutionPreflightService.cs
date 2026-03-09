@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Cli.Requests;
-using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Operations;
-using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Execution;
 
@@ -10,28 +9,24 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
 {
     private readonly IRequestInputReader requestInputReader;
     private readonly IValidateRequestJsonParser requestJsonParser;
-    private readonly IUnityProjectResolver unityProjectResolver;
-    private readonly IUcliConfigStore configStore;
+    private readonly IProjectContextResolver projectContextResolver;
     private readonly IRequestStaticValidator requestStaticValidator;
 
     /// <summary> Initializes a new instance of the <see cref="PhaseExecutionPreflightService" /> class. </summary>
     /// <param name="requestInputReader"> The request-input reader dependency. </param>
     /// <param name="requestJsonParser"> The request-json parser dependency. </param>
-    /// <param name="unityProjectResolver"> The Unity project resolver dependency. </param>
-    /// <param name="configStore"> The config store dependency. </param>
+    /// <param name="projectContextResolver"> The shared project-context resolver dependency. </param>
     /// <param name="requestStaticValidator"> The request static-validator dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
     public PhaseExecutionPreflightService (
         IRequestInputReader requestInputReader,
         IValidateRequestJsonParser requestJsonParser,
-        IUnityProjectResolver unityProjectResolver,
-        IUcliConfigStore configStore,
+        IProjectContextResolver projectContextResolver,
         IRequestStaticValidator requestStaticValidator)
     {
         this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
         this.requestJsonParser = requestJsonParser ?? throw new ArgumentNullException(nameof(requestJsonParser));
-        this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
-        this.configStore = configStore ?? throw new ArgumentNullException(nameof(configStore));
+        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.requestStaticValidator = requestStaticValidator ?? throw new ArgumentNullException(nameof(requestStaticValidator));
     }
 
@@ -60,22 +55,20 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
             return PhaseExecutionPreflightResult.Failure(parseResult.Error!);
         }
 
-        var unityProjectResult = unityProjectResolver.Resolve(projectPath);
-        if (!unityProjectResult.IsSuccess)
+        var projectContextResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
+        if (!projectContextResult.IsSuccess)
         {
-            return PhaseExecutionPreflightResult.Failure(unityProjectResult.Error!);
+            return PhaseExecutionPreflightResult.Failure(projectContextResult.Error!);
         }
 
-        var unityProjectContext = unityProjectResult.Context!;
-        var configLoadResult = await configStore.Load(unityProjectContext.RepositoryRoot, cancellationToken).ConfigureAwait(false);
-        if (!configLoadResult.IsSuccess)
-        {
-            return PhaseExecutionPreflightResult.Failure(configLoadResult.Error!);
-        }
-
+        var projectContext = projectContextResult.Context!;
         var request = parseResult.Request!;
-        var config = configLoadResult.Config!;
-        var validationResult = await requestStaticValidator.Validate(request, unityProjectContext, config, cancellationToken).ConfigureAwait(false);
+        var validationResult = await requestStaticValidator.Validate(
+                request,
+                projectContext.UnityProject,
+                projectContext.Config,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (!validationResult.IsValid)
         {
             return PhaseExecutionPreflightResult.ValidationFailure(validationResult.Errors);
@@ -85,9 +78,9 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
             RequestJson: requestJson,
             InputSource: inputReadResult.Source!.Value,
             Request: request,
-            UnityProject: unityProjectContext,
-            Config: config,
-            ConfigSource: configLoadResult.Source);
+            UnityProject: projectContext.UnityProject,
+            Config: projectContext.Config,
+            ConfigSource: projectContext.ConfigSource);
         return PhaseExecutionPreflightResult.Success(preparedRequest);
     }
 }

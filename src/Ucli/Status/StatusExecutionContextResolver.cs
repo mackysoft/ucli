@@ -9,19 +9,19 @@ namespace MackySoft.Ucli.Status;
 /// <summary> Resolves status workflow preflight values from project context, timeout option, and Unity version. </summary>
 internal sealed class StatusExecutionContextResolver : IStatusExecutionContextResolver
 {
-    private readonly IInitStatusContextResolver initStatusContextResolver;
+    private readonly IProjectContextResolver projectContextResolver;
 
     private readonly IUnityVersionResolver unityVersionResolver;
 
     /// <summary> Initializes a new instance of the <see cref="StatusExecutionContextResolver" /> class. </summary>
-    /// <param name="initStatusContextResolver"> The init/status context resolver dependency. </param>
+    /// <param name="projectContextResolver"> The shared project-context resolver dependency. </param>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public StatusExecutionContextResolver (
-        IInitStatusContextResolver initStatusContextResolver,
+        IProjectContextResolver projectContextResolver,
         IUnityVersionResolver unityVersionResolver)
     {
-        this.initStatusContextResolver = initStatusContextResolver ?? throw new ArgumentNullException(nameof(initStatusContextResolver));
+        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
     }
 
@@ -37,7 +37,7 @@ internal sealed class StatusExecutionContextResolver : IStatusExecutionContextRe
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var contextResolutionResult = await initStatusContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
+        var contextResolutionResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
         if (!contextResolutionResult.IsSuccess)
         {
             return StatusExecutionContextResolutionResult.Failure(contextResolutionResult.Error!);

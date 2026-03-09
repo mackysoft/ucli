@@ -57,6 +57,7 @@ internal static class Program
             .ConfigureServices(ConfigureServices);
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
+        app.Add<RefreshCommand>();
         app.Add<DaemonStartCommand>("daemon");
         app.Add<DaemonStopCommand>("daemon");
         app.Add<DaemonStatusCommand>("daemon");
@@ -104,6 +105,7 @@ internal static class Program
     private static void ConfigureServices (IServiceCollection services)
     {
         services.AddUcliCoreServices();
+        services.AddUcliRefreshServices();
         services.AddUcliDaemonServices();
         services.AddUcliTestRunServices();
         services.AddUcliOpsServices();
