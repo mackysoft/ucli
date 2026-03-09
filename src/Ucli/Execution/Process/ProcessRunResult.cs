@@ -14,25 +14,31 @@ internal sealed record ProcessRunResult (
     /// <summary> Creates one start-failed process result. </summary>
     /// <param name="errorMessage"> The failure message. </param>
     /// <returns> The start-failed result. </returns>
-    public static ProcessRunResult StartFailed (string errorMessage)
+    public static ProcessRunResult StartFailed (
+        string errorMessage,
+        string? standardOutput = null)
     {
-        return new ProcessRunResult(ProcessRunStatus.StartFailed, null, errorMessage, null);
+        return new ProcessRunResult(ProcessRunStatus.StartFailed, null, errorMessage, standardOutput);
     }
 
     /// <summary> Creates one timeout process result. </summary>
     /// <param name="errorMessage"> The timeout message. </param>
     /// <returns> The timeout result. </returns>
-    public static ProcessRunResult TimedOut (string errorMessage)
+    public static ProcessRunResult TimedOut (
+        string errorMessage,
+        string? standardOutput = null)
     {
-        return new ProcessRunResult(ProcessRunStatus.TimedOut, null, errorMessage, null);
+        return new ProcessRunResult(ProcessRunStatus.TimedOut, null, errorMessage, standardOutput);
     }
 
     /// <summary> Creates one canceled process result. </summary>
     /// <param name="errorMessage"> The canceled message. </param>
     /// <returns> The canceled result. </returns>
-    public static ProcessRunResult Canceled (string errorMessage)
+    public static ProcessRunResult Canceled (
+        string errorMessage,
+        string? standardOutput = null)
     {
-        return new ProcessRunResult(ProcessRunStatus.Canceled, null, errorMessage, null);
+        return new ProcessRunResult(ProcessRunStatus.Canceled, null, errorMessage, standardOutput);
     }
 
     /// <summary> Creates one exited process result. </summary>

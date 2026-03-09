@@ -22,6 +22,7 @@ internal static class IpcTimeoutDefaults
         (UcliCommandIds.DaemonStart, 60000),
         (UcliCommandIds.DaemonStop, 10000),
         (UcliCommandIds.DaemonStatus, 3000),
+        (UcliCommandIds.DaemonList, 3000),
         (UcliCommandIds.LogsDaemon, 3000),
         (UcliCommandIds.LogsUnity, 3000),
     ];

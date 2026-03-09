@@ -17,21 +17,27 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
+    private readonly IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStatusOperation" /> class. </summary>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
+    /// <param name="daemonDiagnosisStore"> The daemon diagnosis store dependency. </param>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability classifier dependency. </param>
+    /// <param name="daemonSessionDiagnosisResolver"> The daemon session-diagnosis resolver dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStatusOperation (
         IDaemonSessionStore daemonSessionStore,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingClient daemonPingClient,
-        IDaemonReachabilityClassifier reachabilityClassifier)
+        IDaemonReachabilityClassifier reachabilityClassifier,
+        IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
+        this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
     }
 
     /// <summary> Gets daemon status for the specified Unity project context. </summary>
@@ -95,10 +101,11 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
-            var staleDiagnosis = await ResolveStaleDiagnosis(
+            var staleDiagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
                     unityProject,
                     readResult.Session!,
-                    persistedDiagnosis)
+                    persistedDiagnosis,
+                    cancellationToken)
                 .ConfigureAwait(false);
             return DaemonStatusResult.Stale(
                 readResult.Session!,
@@ -109,47 +116,5 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
             return DaemonStatusResult.Failure(ExecutionError.InternalError(
                 $"Failed to probe daemon status. {exception.Message}"));
         }
-    }
-
-    private async ValueTask<DaemonDiagnosis?> ResolveStaleDiagnosis (
-        ResolvedUnityProjectContext unityProject,
-        DaemonSession session,
-        DaemonDiagnosis? persistedDiagnosis)
-    {
-        ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(session);
-
-        if (persistedDiagnosis is not null
-            && persistedDiagnosis.SessionIssuedAtUtc == session.IssuedAtUtc)
-        {
-            return persistedDiagnosis;
-        }
-
-        var processId = session.ProcessId;
-        if (processId is not int resolvedProcessId || ProcessLivenessProbe.IsAlive(resolvedProcessId))
-        {
-            return null;
-        }
-
-        var diagnosis = new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.ExternalTerminationSuspected,
-            Message: "Daemon process is no longer alive and no persisted diagnosis matched the current session.",
-            UpdatedAtUtc: DateTimeOffset.UtcNow,
-            ProcessId: resolvedProcessId,
-            SessionIssuedAtUtc: session.IssuedAtUtc);
-
-        var writeResult = await daemonDiagnosisStore.Write(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
-            .ConfigureAwait(false);
-        if (!writeResult.IsSuccess)
-        {
-            // NOTE: Synthesized diagnosis is supplemental metadata for later inspection.
-            // Status should still return the inferred diagnosis even if sidecar persistence fails.
-        }
-
-        return diagnosis;
     }
 }

@@ -57,6 +57,8 @@ internal static class DaemonCommandServiceTestContext
         return new DaemonDiagnosis(
             Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
             Message: "daemon shutdown completed",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero));
@@ -184,6 +186,30 @@ internal static class DaemonCommandServiceTestContext
             ArgumentNullException.ThrowIfNull(session);
 
             LastSession = session;
+            CallCount++;
+            return Output;
+        }
+    }
+
+    internal sealed class StubDaemonDiagnosisOutputMapper : IDaemonDiagnosisOutputMapper
+    {
+        public DaemonDiagnosisOutput Output { get; set; } = new(
+            Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
+            Message: "mapped diagnosis",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
+            ProcessId: 4321);
+
+        public DaemonDiagnosis? LastDiagnosis { get; private set; }
+
+        public int CallCount { get; private set; }
+
+        public DaemonDiagnosisOutput ToOutput (DaemonDiagnosis diagnosis)
+        {
+            ArgumentNullException.ThrowIfNull(diagnosis);
+
+            LastDiagnosis = diagnosis;
             CallCount++;
             return Output;
         }

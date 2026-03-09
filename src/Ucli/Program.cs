@@ -17,6 +17,7 @@ internal static class Program
         UcliCommandNames.StartSubcommand,
         UcliCommandNames.StopSubcommand,
         UcliCommandNames.Status,
+        UcliCommandNames.ListSubcommand,
     ];
 
     private static readonly string[] LogsSubcommands =
@@ -61,6 +62,7 @@ internal static class Program
         app.Add<DaemonStartCommand>("daemon");
         app.Add<DaemonStopCommand>("daemon");
         app.Add<DaemonStatusCommand>("daemon");
+        app.Add<DaemonListCommand>("daemon");
         app.Add<LogsDaemonCommand>("logs");
         app.Add<LogsUnityCommand>("logs");
         app.Add<OpsListCommand>("ops");

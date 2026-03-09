@@ -14,7 +14,7 @@ public sealed class ProcessRunnerTests
             new ProcessRunRequest(
                 FileName: "__ucli_missing_executable__",
                 Arguments: Array.Empty<string>(),
-                TimeoutSeconds: 1),
+                Timeout: TimeSpan.FromSeconds(1)),
             CancellationToken.None);
 
         Assert.Equal(ProcessRunStatus.StartFailed, result.Status);
@@ -66,7 +66,7 @@ public sealed class ProcessRunnerTests
                     "-Command",
                     "Write-Output ('x' * 5000)",
                 ],
-                TimeoutSeconds: 5,
+                Timeout: TimeSpan.FromSeconds(5),
                 CaptureStandardOutput: captureStandardOutput);
         }
 
@@ -77,7 +77,7 @@ public sealed class ProcessRunnerTests
                 "-c",
                 "i=0; while [ \"$i\" -lt 5000 ]; do printf x; i=$((i+1)); done; printf '\\n'",
             ],
-            TimeoutSeconds: 5,
+            Timeout: TimeSpan.FromSeconds(5),
             CaptureStandardOutput: captureStandardOutput);
     }
 }

@@ -7,6 +7,7 @@ using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.Daemon.Start;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Execution.OperationExecute;
+using MackySoft.Ucli.Git;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Init;
 using MackySoft.Ucli.Ipc;
@@ -61,6 +62,9 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IUnityIpcRequestExecutor, UnityIpcRequestExecutor>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<IProcessRunner, ProcessRunner>();
+        services.AddSingleton<IGitCommandClient, GitCommandClient>();
+        services.AddSingleton<IGitWorktreeListPorcelainParser, GitWorktreeListPorcelainParser>();
+        services.AddSingleton<IGitWorktreeQueryService, GitWorktreeQueryService>();
         services.AddSingleton<IOperationCatalogProvider, OperationCatalogProvider>();
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
         services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
@@ -97,6 +101,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
+        services.AddSingleton<IDaemonSessionDiagnosisResolver, DaemonSessionDiagnosisResolver>();
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
         services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
         services.AddSingleton<IUnityLogReader, UnityLogReader>();
@@ -130,9 +135,12 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
         services.AddSingleton<IDaemonCommandExecutionContextResolver, DaemonCommandExecutionContextResolver>();
         services.AddSingleton<IDaemonSessionOutputMapper, DaemonSessionOutputMapper>();
+        services.AddSingleton<IDaemonDiagnosisOutputMapper, DaemonDiagnosisOutputMapper>();
         services.AddSingleton<IDaemonStartCommandService, DaemonStartCommandService>();
         services.AddSingleton<IDaemonStopCommandService, DaemonStopCommandService>();
         services.AddSingleton<IDaemonStatusCommandService, DaemonStatusCommandService>();
+        services.AddSingleton<IDaemonListQueryService, DaemonListQueryService>();
+        services.AddSingleton<IDaemonListCommandService, DaemonListCommandService>();
         services.AddSingleton<IDaemonReachabilityProbe, IpcDaemonReachabilityProbe>();
         return services;
     }

@@ -24,7 +24,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -49,7 +50,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -79,7 +81,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -108,7 +111,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -136,7 +140,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -144,6 +149,8 @@ public sealed class DaemonStatusOperationTests
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.Diagnosis.ReportedBy);
+        Assert.True(result.Diagnosis.IsInferred);
         Assert.Equal(session.ProcessId, result.Diagnosis.ProcessId);
         Assert.Equal(session.IssuedAtUtc, result.Diagnosis.SessionIssuedAtUtc);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
@@ -169,7 +176,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -177,6 +185,8 @@ public sealed class DaemonStatusOperationTests
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.Diagnosis.ReportedBy);
+        Assert.True(result.Diagnosis.IsInferred);
         Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
 
@@ -198,7 +208,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -241,6 +252,8 @@ public sealed class DaemonStatusOperationTests
         return new DaemonDiagnosis(
             Reason: reason,
             Message: $"diagnosis:{reason}",
+            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
             SessionIssuedAtUtc: session.IssuedAtUtc);
