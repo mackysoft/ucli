@@ -242,7 +242,7 @@ public sealed class DaemonStartOperationTests
     [Trait("Size", "Small")]
     public async Task Start_WhenLifecycleLockAcquireTimesOut_ReturnsTimeoutFailure ()
     {
-        var lockProvider = new StubDaemonLifecycleLockProvider
+        var lockProvider = new StubProjectLifecycleLockProvider
         {
             ThrowTimeoutOnAcquire = true,
         };
@@ -269,10 +269,10 @@ public sealed class DaemonStartOperationTests
         IDaemonSessionCleanupService daemonSessionCleanupService,
         IDaemonExistingSessionGateService daemonExistingSessionGateService,
         IDaemonLaunchService daemonLaunchService,
-        IDaemonLifecycleLockProvider? lifecycleLockProvider = null)
+        IProjectLifecycleLockProvider? lifecycleLockProvider = null)
     {
         return new DaemonStartOperation(
-            lifecycleLockProvider: lifecycleLockProvider ?? new StubDaemonLifecycleLockProvider(),
+            lifecycleLockProvider: lifecycleLockProvider ?? new StubProjectLifecycleLockProvider(),
             daemonSessionStore: daemonSessionStore,
             daemonSessionCleanupService: daemonSessionCleanupService,
             daemonExistingSessionGateService: daemonExistingSessionGateService,
@@ -305,7 +305,7 @@ public sealed class DaemonStartOperationTests
             ProcessId: processId);
     }
 
-    private sealed class StubDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
+    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
     {
         public bool ThrowTimeoutOnAcquire { get; set; }
 

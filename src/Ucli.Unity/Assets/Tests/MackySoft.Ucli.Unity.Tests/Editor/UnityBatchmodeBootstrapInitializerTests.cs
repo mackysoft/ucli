@@ -28,6 +28,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result, Is.True);
             Assert.That(bootstrapArguments, Is.TypeOf<IpcOneshotBootstrapArguments>());
+            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).ParentProcessId, Is.EqualTo(123));
+            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointTransportKind, Is.EqualTo("unixDomainSocket"));
+            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointAddress, Is.EqualTo("/tmp/ucli.sock"));
         }
 
         [Test]
@@ -74,8 +77,9 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(
                 args,
                 new IpcOneshotBootstrapArguments(
-                    "/tmp/request.json",
-                    "/tmp/response.json"));
+                    123,
+                    "unixDomainSocket",
+                    "/tmp/ucli.sock"));
             return args;
         }
     }

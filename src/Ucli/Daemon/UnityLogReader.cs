@@ -5,19 +5,19 @@ using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Daemon;
 
-/// <summary> Implements daemon log tail reads from fingerprint-local daemon log files. </summary>
-internal sealed class DaemonLogReader : IDaemonLogReader
+/// <summary> Implements Unity log tail reads from fingerprint-local Unity log files. </summary>
+internal sealed class UnityLogReader : IUnityLogReader
 {
-    /// <summary> Gets the default maximum byte count for daemon log tail reads. </summary>
+    /// <summary> Gets the default maximum byte count for Unity log tail reads. </summary>
     public const int DefaultMaxBytes = 65536;
 
-    /// <summary> Reads the tail segment of daemon log file for one project fingerprint. </summary>
+    /// <summary> Reads the tail segment of Unity log file for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
-    /// <param name="maxBytes"> The maximum number of bytes to read from the end of daemon log file. </param>
+    /// <param name="maxBytes"> The maximum number of bytes to read from the end of Unity log file. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The daemon log read result. </returns>
-    public async ValueTask<DaemonLogReadResult> ReadTail (
+    /// <returns> The Unity log read result. </returns>
+    public async ValueTask<UnityLogReadResult> ReadTail (
         string storageRoot,
         string projectFingerprint,
         int maxBytes = DefaultMaxBytes,
@@ -25,36 +25,36 @@ internal sealed class DaemonLogReader : IDaemonLogReader
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string daemonLogPath;
+        string unityLogPath;
         try
         {
-            daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(storageRoot, projectFingerprint);
+            unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(storageRoot, projectFingerprint);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return DaemonLogReadResult.Failure(string.Empty, ExecutionError.InvalidArgument(
-                $"Daemon log path is invalid. {exception.Message}"));
+            return UnityLogReadResult.Failure(string.Empty, ExecutionError.InvalidArgument(
+                $"Unity log path is invalid. {exception.Message}"));
         }
 
         if (maxBytes <= 0)
         {
-            return DaemonLogReadResult.Failure(daemonLogPath, ExecutionError.InvalidArgument(
-                $"Daemon log maxBytes must be greater than zero. Actual: {maxBytes}."));
+            return UnityLogReadResult.Failure(unityLogPath, ExecutionError.InvalidArgument(
+                $"Unity log maxBytes must be greater than zero. Actual: {maxBytes}."));
         }
 
-        if (!File.Exists(daemonLogPath))
+        if (!File.Exists(unityLogPath))
         {
-            return DaemonLogReadResult.Success(
+            return UnityLogReadResult.Success(
                 text: string.Empty,
                 truncated: false,
-                path: daemonLogPath,
+                path: unityLogPath,
                 sizeBytes: 0);
         }
 
         try
         {
             await using var stream = new FileStream(
-                daemonLogPath,
+                unityLogPath,
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete,
@@ -64,10 +64,10 @@ internal sealed class DaemonLogReader : IDaemonLogReader
             var sizeBytes = stream.Length;
             if (sizeBytes == 0)
             {
-                return DaemonLogReadResult.Success(
+                return UnityLogReadResult.Success(
                     text: string.Empty,
                     truncated: false,
-                    path: daemonLogPath,
+                    path: unityLogPath,
                     sizeBytes: 0);
             }
 
@@ -94,37 +94,37 @@ internal sealed class DaemonLogReader : IDaemonLogReader
             }
 
             var text = Encoding.UTF8.GetString(buffer, 0, totalRead);
-            return DaemonLogReadResult.Success(
+            return UnityLogReadResult.Success(
                 text: text,
                 truncated: truncated,
-                path: daemonLogPath,
+                path: unityLogPath,
                 sizeBytes: sizeBytes);
         }
         catch (FileNotFoundException)
         {
-            return DaemonLogReadResult.Success(
+            return UnityLogReadResult.Success(
                 text: string.Empty,
                 truncated: false,
-                path: daemonLogPath,
+                path: unityLogPath,
                 sizeBytes: 0);
         }
         catch (DirectoryNotFoundException)
         {
-            return DaemonLogReadResult.Success(
+            return UnityLogReadResult.Success(
                 text: string.Empty,
                 truncated: false,
-                path: daemonLogPath,
+                path: unityLogPath,
                 sizeBytes: 0);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return DaemonLogReadResult.Failure(daemonLogPath, ExecutionError.InvalidArgument(
-                $"Daemon log path is invalid: {daemonLogPath}. {exception.Message}"));
+            return UnityLogReadResult.Failure(unityLogPath, ExecutionError.InvalidArgument(
+                $"Unity log path is invalid: {unityLogPath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
-            return DaemonLogReadResult.Failure(daemonLogPath, ExecutionError.InternalError(
-                $"Failed to read daemon log file: {daemonLogPath}. {exception.Message}"));
+            return UnityLogReadResult.Failure(unityLogPath, ExecutionError.InternalError(
+                $"Failed to read Unity log file: {unityLogPath}. {exception.Message}"));
         }
     }
 

@@ -272,17 +272,17 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.SessionFileName);
     }
 
-    /// <summary> Resolves the absolute path to daemon <c>daemon.log</c>. </summary>
+    /// <summary> Resolves the absolute path to Unity batchmode <c>unity.log</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
-    /// <returns> The absolute daemon log file path. </returns>
-    public static string ResolveDaemonLogPath (
+    /// <returns> The absolute Unity log file path. </returns>
+    public static string ResolveUnityLogPath (
         string storageRoot,
         string projectFingerprint)
     {
         return Path.Combine(
             ResolveFingerprintDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.DaemonLogFileName);
+            UcliStoragePathNames.UnityLogFileName);
     }
 
     /// <summary> Resolves the absolute path to daemon <c>lifecycle.lock</c>. </summary>

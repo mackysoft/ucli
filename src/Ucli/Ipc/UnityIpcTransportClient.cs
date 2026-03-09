@@ -4,15 +4,15 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Ipc;
 
-/// <summary> Implements transport-level IPC communication with Unity daemon endpoints. </summary>
-internal sealed class UnityIpcClient : IUnityIpcClient
+/// <summary> Implements transport-level IPC communication with Unity IPC endpoints. </summary>
+internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
 {
     private readonly IIpcEndpointResolver endpointResolver;
 
-    /// <summary> Initializes a new instance of the <see cref="UnityIpcClient" /> class. </summary>
-    /// <param name="endpointResolver"> The endpoint resolver used to locate daemon endpoints. </param>
+    /// <summary> Initializes a new instance of the <see cref="UnityIpcTransportClient" /> class. </summary>
+    /// <param name="endpointResolver"> The endpoint resolver used to locate Unity IPC endpoints. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpointResolver" /> is <see langword="null" />. </exception>
-    public UnityIpcClient (IIpcEndpointResolver endpointResolver)
+    public UnityIpcTransportClient (IIpcEndpointResolver endpointResolver)
     {
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
     }

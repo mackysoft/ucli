@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon start workflow orchestration for one project fingerprint. </summary>
 internal sealed class DaemonStartOperation : IDaemonStartOperation
 {
-    private readonly IDaemonLifecycleLockProvider lifecycleLockProvider;
+    private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
 
     private readonly IDaemonSessionStore daemonSessionStore;
 
@@ -19,14 +19,14 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     private readonly IDaemonLaunchService daemonLaunchService;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartOperation" /> class. </summary>
-    /// <param name="lifecycleLockProvider"> The lifecycle lock provider dependency. </param>
+    /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
     /// <param name="daemonSessionCleanupService"> The daemon session-cleanup service dependency. </param>
     /// <param name="daemonExistingSessionGateService"> The daemon existing-session gate service dependency. </param>
     /// <param name="daemonLaunchService"> The daemon launch service dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartOperation (
-        IDaemonLifecycleLockProvider lifecycleLockProvider,
+        IProjectLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
         IDaemonSessionCleanupService daemonSessionCleanupService,
         IDaemonExistingSessionGateService daemonExistingSessionGateService,
@@ -74,7 +74,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         catch (TimeoutException exception)
         {
             return DaemonStartResult.Failure(CreateTimeoutError(
-                $"Timed out while waiting for daemon lifecycle lock. {exception.Message}"));
+                $"Timed out while waiting for project lifecycle lock. {exception.Message}"));
         }
 
         await using var acquiredLock = lockHandle;

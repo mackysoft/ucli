@@ -1,10 +1,11 @@
 using System.Collections.Concurrent;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Daemon;
+namespace MackySoft.Ucli.Execution;
 
 /// <summary> Implements process-local in-memory lifecycle locks scoped by storage root and project fingerprint. </summary>
-internal sealed class InMemoryDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
+internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLockProvider
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> LocksByFingerprint = new(StringComparer.Ordinal);
 
@@ -34,7 +35,9 @@ internal sealed class InMemoryDaemonLifecycleLockProvider : IDaemonLifecycleLock
         }
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var lockKey = $"{Path.GetFullPath(storageRoot)}\n{normalizedProjectFingerprint}";
+        var lockKey = UcliStoragePathResolver.ResolveLifecycleLockPath(
+            storageRoot,
+            normalizedProjectFingerprint);
         var semaphore = LocksByFingerprint.GetOrAdd(
             lockKey,
             static _ => new SemaphoreSlim(1, 1));
@@ -42,7 +45,7 @@ internal sealed class InMemoryDaemonLifecycleLockProvider : IDaemonLifecycleLock
         if (!acquired)
         {
             throw new TimeoutException(
-                $"Timed out while waiting to acquire daemon lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");
+                $"Timed out while waiting to acquire project lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");
         }
 
         return new LockHandle(semaphore);

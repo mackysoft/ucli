@@ -11,10 +11,4 @@ public static class IpcDaemonBootstrapArgumentNames
 
     /// <summary> Gets the argument name that carries daemon session path. </summary>
     public const string SessionPath = "-ucliSessionPath";
-
-    /// <summary> Gets the argument name that carries endpoint transport kind literal. </summary>
-    public const string EndpointTransportKind = "-ucliEndpointTransportKind";
-
-    /// <summary> Gets the argument name that carries endpoint address. </summary>
-    public const string EndpointAddress = "-ucliEndpointAddress";
 }

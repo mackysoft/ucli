@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -10,18 +10,18 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 {
     private readonly IDaemonPingClient daemonPingClient;
 
-    private readonly IDaemonLogReader daemonLogReader;
+    private readonly IUnityLogReader unityLogReader;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
-    /// <param name="daemonLogReader"> The daemon log-reader dependency. </param>
+    /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
         IDaemonPingClient daemonPingClient,
-        IDaemonLogReader daemonLogReader)
+        IUnityLogReader unityLogReader)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
-        this.daemonLogReader = daemonLogReader ?? throw new ArgumentNullException(nameof(daemonLogReader));
+        this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
     }
 
     /// <summary> Waits until daemon endpoint becomes reachable, or timeout expires. </summary>
@@ -49,7 +49,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (daemonProcessId is int processId && IsProcessExited(processId))
+            if (daemonProcessId is int processId && !ProcessLivenessProbe.IsAlive(processId))
             {
                 var startupFailureError = await TryResolveStartupFailureFromDaemonLog(
                         unityProject,
@@ -123,26 +123,6 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
     }
 
-    private static bool IsProcessExited (int processId)
-    {
-        try
-        {
-            using var process = Process.GetProcessById(processId);
-            try
-            {
-                return process.HasExited;
-            }
-            catch (InvalidOperationException)
-            {
-                return true;
-            }
-        }
-        catch (ArgumentException)
-        {
-            return true;
-        }
-    }
-
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
     {
         var retryDelayMilliseconds = Math.Min(
@@ -155,7 +135,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken)
     {
-        var logReadResult = await daemonLogReader.ReadTail(
+        var logReadResult = await unityLogReader.ReadTail(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken: cancellationToken)

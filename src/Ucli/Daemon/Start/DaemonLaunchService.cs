@@ -62,12 +62,12 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
         try
         {
-            var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(
+            var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
             var launchResult = await unityDaemonProcessLauncher.Launch(
                     unityProject,
-                    daemonLogPath,
+                    unityLogPath,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!launchResult.IsSuccess)

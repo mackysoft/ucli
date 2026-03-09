@@ -4,7 +4,7 @@ using MackySoft.Ucli.Ipc;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
-public sealed class UnityIpcClientTests
+public sealed class UnityIpcTransportClientTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
 
@@ -21,7 +21,7 @@ public sealed class UnityIpcClientTests
             new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
                 $"ucli-missing-{Guid.NewGuid():N}"));
-        var client = new UnityIpcClient(endpointResolver);
+        var client = new UnityIpcTransportClient(endpointResolver);
         var request = new IpcRequest(
             IpcProtocol.CurrentVersion,
             "request-1",
@@ -49,7 +49,7 @@ public sealed class UnityIpcClientTests
             new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
                 $"ucli-missing-{Guid.NewGuid():N}"));
-        var client = new UnityIpcClient(endpointResolver);
+        var client = new UnityIpcTransportClient(endpointResolver);
         var request = new IpcRequest(
             IpcProtocol.CurrentVersion,
             "request-1",
@@ -80,7 +80,7 @@ public sealed class UnityIpcClientTests
             new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
                 $"ucli-invalid-timeout-{Guid.NewGuid():N}"));
-        var client = new UnityIpcClient(endpointResolver);
+        var client = new UnityIpcTransportClient(endpointResolver);
         var request = new IpcRequest(
             IpcProtocol.CurrentVersion,
             "request-1",

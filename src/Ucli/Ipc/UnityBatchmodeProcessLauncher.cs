@@ -1,18 +1,17 @@
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Paths;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityProject;
 using MackySoft.Ucli.UnityProject.Resolution;
 
-namespace MackySoft.Ucli.Daemon;
+namespace MackySoft.Ucli.Ipc;
 
-/// <summary> Implements Unity batchmode daemon process launch using resolved Unity editor executable paths. </summary>
-internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
+/// <summary> Implements Unity batchmode child-process launch using resolved Unity editor executable paths. </summary>
+internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLauncher, IUnityBatchmodeProcessLauncher
 {
     private readonly IUnityVersionResolver unityVersionResolver;
 
@@ -20,12 +19,12 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
 
     private readonly IIpcEndpointResolver endpointResolver;
 
-    /// <summary> Initializes a new instance of the <see cref="UnityDaemonProcessLauncher" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="UnityBatchmodeProcessLauncher" /> class. </summary>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
     /// <param name="unityEditorPathResolver"> The Unity editor path resolver dependency. </param>
     /// <param name="endpointResolver"> The IPC endpoint resolver dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    public UnityDaemonProcessLauncher (
+    public UnityBatchmodeProcessLauncher (
         IUnityVersionResolver unityVersionResolver,
         IUnityEditorPathResolver unityEditorPathResolver,
         IIpcEndpointResolver endpointResolver)
@@ -37,50 +36,81 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
 
     /// <summary> Launches one Unity batchmode daemon process for the specified project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="daemonLogPath"> The daemon log file path passed to Unity <c>-logFile</c>. </param>
+    /// <param name="unityLogPath"> The Unity log file path passed to Unity <c>-logFile</c>. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon launch result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public ValueTask<UnityDaemonLaunchResult> Launch (
+    public async ValueTask<UnityDaemonLaunchResult> Launch (
         ResolvedUnityProjectContext unityProject,
-        string daemonLogPath,
+        string unityLogPath,
+        CancellationToken cancellationToken = default)
+    {
+        var endpoint = endpointResolver.Resolve(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint);
+        var batchmodeLaunchResult = await Launch(
+                unityProject,
+                new IpcDaemonBootstrapArguments(
+                    RepositoryRoot: unityProject.RepositoryRoot,
+                    ProjectFingerprint: unityProject.ProjectFingerprint,
+                    SessionPath: UcliStoragePathResolver.ResolveSessionPath(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint),
+                    EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+                    EndpointAddress: endpoint.Address),
+                unityLogPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!batchmodeLaunchResult.IsSuccess)
+        {
+            return UnityDaemonLaunchResult.Failure(batchmodeLaunchResult.Error!);
+        }
+
+        await using var processHandle = batchmodeLaunchResult.ProcessHandle!;
+        return UnityDaemonLaunchResult.Success(processHandle.ProcessId);
+    }
+
+    /// <inheritdoc />
+    public ValueTask<UnityBatchmodeProcessLaunchResult> Launch (
+        ResolvedUnityProjectContext unityProject,
+        IpcBatchmodeBootstrapArguments bootstrapArguments,
+        string unityLogPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(bootstrapArguments);
 
-        if (string.IsNullOrWhiteSpace(daemonLogPath))
+        if (string.IsNullOrWhiteSpace(unityLogPath))
         {
-            return ValueTask.FromResult(UnityDaemonLaunchResult.Failure(ExecutionError.InvalidArgument(
-                "Daemon log path must not be empty.")));
+            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
+                "Unity log path must not be empty.")));
         }
 
         var unityVersionResult = unityVersionResolver.Resolve(unityProject.UnityProjectRoot, preferredUnityVersion: null);
         if (!unityVersionResult.IsSuccess)
         {
-            return ValueTask.FromResult(UnityDaemonLaunchResult.Failure(unityVersionResult.Error!));
+            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(unityVersionResult.Error!));
         }
 
         var unityEditorPathResult = unityEditorPathResolver.Resolve(unityVersionResult.UnityVersion!, preferredUnityEditorPath: null);
         if (!unityEditorPathResult.IsSuccess)
         {
-            return ValueTask.FromResult(UnityDaemonLaunchResult.Failure(unityEditorPathResult.Error!));
+            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(unityEditorPathResult.Error!));
         }
 
         try
         {
-            var daemonDirectoryPath = Path.GetDirectoryName(daemonLogPath);
-            if (!string.IsNullOrWhiteSpace(daemonDirectoryPath))
+            var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
+            if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
             {
-                Directory.CreateDirectory(daemonDirectoryPath);
+                Directory.CreateDirectory(unityLogDirectoryPath);
             }
 
             var processStartInfo = new ProcessStartInfo
             {
                 FileName = unityEditorPathResult.UnityEditorPath!,
-                Arguments = BuildArguments(unityProject, daemonLogPath, endpointResolver.Resolve(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint)),
+                Arguments = BuildArguments(unityProject.UnityProjectRoot, unityLogPath, bootstrapArguments),
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = false,
@@ -90,63 +120,47 @@ internal sealed class UnityDaemonProcessLauncher : IUnityDaemonProcessLauncher
             var process = Process.Start(processStartInfo);
             if (process == null)
             {
-                return ValueTask.FromResult(UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
-                    "Unity daemon process could not be started.")));
+                return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
+                    "Unity batchmode process could not be started.")));
             }
 
-            try
-            {
-                return ValueTask.FromResult(UnityDaemonLaunchResult.Success(process.Id));
-            }
-            finally
-            {
-                process.Dispose();
-            }
+            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Success(new UnityBatchmodeProcessHandle(process)));
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return ValueTask.FromResult(UnityDaemonLaunchResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity daemon launch path is invalid. {exception.Message}")));
+            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
+                $"Unity batchmode launch path is invalid. {exception.Message}")));
         }
         catch (Exception exception)
         {
-            return ValueTask.FromResult(UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
-                $"Failed to start Unity daemon process. {exception.Message}")));
+            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
+                $"Failed to start Unity batchmode process. {exception.Message}")));
         }
     }
 
-    /// <summary> Builds Unity editor command-line arguments for batchmode daemon startup. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="daemonLogPath"> The daemon log file path. </param>
-    /// <param name="endpoint"> The resolved IPC endpoint. </param>
+    /// <summary> Builds Unity editor command-line arguments for batchmode host startup. </summary>
+    /// <param name="unityProjectRoot"> The Unity project root path. </param>
+    /// <param name="unityLogPath"> The Unity log file path. </param>
+    /// <param name="bootstrapArguments"> The bootstrap argument payload. </param>
     /// <returns> The command-line arguments string. </returns>
     private static string BuildArguments (
-        ResolvedUnityProjectContext unityProject,
-        string daemonLogPath,
-        IpcEndpoint endpoint)
+        string unityProjectRoot,
+        string unityLogPath,
+        IpcBatchmodeBootstrapArguments bootstrapArguments)
     {
-        ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(bootstrapArguments);
 
         var tokens = new List<string>
         {
             "-batchmode",
             "-nographics",
             "-projectPath",
-            unityProject.UnityProjectRoot,
+            unityProjectRoot,
             "-logFile",
-            daemonLogPath,
+            unityLogPath,
         };
-        IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(
-            tokens,
-            new IpcDaemonBootstrapArguments(
-                RepositoryRoot: unityProject.RepositoryRoot,
-                ProjectFingerprint: unityProject.ProjectFingerprint,
-                SessionPath: UcliStoragePathResolver.ResolveSessionPath(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint),
-                EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
-                EndpointAddress: endpoint.Address));
+        IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(tokens, bootstrapArguments);
 
         var builder = new StringBuilder();
         for (var i = 0; i < tokens.Count; i++)

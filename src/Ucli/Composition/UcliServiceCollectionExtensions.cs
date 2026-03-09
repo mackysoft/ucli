@@ -53,8 +53,9 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IInitStatusContextResolver, InitStatusContextResolver>();
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
-        services.AddSingleton<IUnityIpcClient, UnityIpcClient>();
-        services.AddSingleton<IUnityOneshotIpcClient, UnityOneshotIpcClient>();
+        services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
+        services.AddSingleton<IUnityIpcClient, UnityDaemonIpcClient>();
+        services.AddSingleton<IUnityIpcClient, UnityOneshotIpcClient>();
         services.AddSingleton<IUnityIpcRequestExecutor, UnityIpcRequestExecutor>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<IProcessRunner, ProcessRunner>();
@@ -76,14 +77,14 @@ internal static class UcliServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IDaemonLifecycleLockProvider, FileSystemDaemonLifecycleLockProvider>();
+        services.AddSingleton<IProjectLifecycleLockProvider, FileSystemProjectLifecycleLockProvider>();
         services.AddSingleton<IDaemonSessionFileAccess, DaemonSessionFileAccess>();
         services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
         services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
         services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
-        services.AddSingleton<IDaemonLogReader, DaemonLogReader>();
+        services.AddSingleton<IUnityLogReader, UnityLogReader>();
         services.AddSingleton<IDaemonLogsClient, IpcDaemonLogsClient>();
         services.AddSingleton<ILogsDaemonRequestValidator, LogsDaemonRequestValidator>();
         services.AddSingleton<IDaemonLogsStreamTerminationPolicy, DaemonLogsStreamTerminationPolicy>();
@@ -93,7 +94,9 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<ILogsUnityRequestValidator, LogsUnityRequestValidator>();
         services.AddSingleton<ILogsUnityService, LogsUnityService>();
 
-        services.AddSingleton<IUnityDaemonProcessLauncher, UnityDaemonProcessLauncher>();
+        services.AddSingleton<UnityBatchmodeProcessLauncher>();
+        services.AddSingleton<IUnityDaemonProcessLauncher>(provider => provider.GetRequiredService<UnityBatchmodeProcessLauncher>());
+        services.AddSingleton<IUnityBatchmodeProcessLauncher>(provider => provider.GetRequiredService<UnityBatchmodeProcessLauncher>());
         services.AddSingleton<IpcDaemonPingClient>();
         services.AddSingleton<IDaemonPingClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());

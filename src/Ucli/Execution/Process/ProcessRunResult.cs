@@ -37,7 +37,9 @@ internal sealed record ProcessRunResult (
     /// <param name="exitCode"> The process exit code. </param>
     /// <param name="errorMessage"> The optional error message. </param>
     /// <returns> The exited result. </returns>
-    public static ProcessRunResult Exited (int exitCode, string? errorMessage = null)
+    public static ProcessRunResult Exited (
+        int exitCode,
+        string? errorMessage = null)
     {
         return new ProcessRunResult(ProcessRunStatus.Exited, exitCode, errorMessage);
     }

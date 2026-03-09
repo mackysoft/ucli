@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Encodes and decodes Unity batchmode bootstrap command-line arguments. </summary>
@@ -9,10 +11,9 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         IpcDaemonBootstrapArgumentNames.RepositoryRoot,
         IpcDaemonBootstrapArgumentNames.ProjectFingerprint,
         IpcDaemonBootstrapArgumentNames.SessionPath,
-        IpcDaemonBootstrapArgumentNames.EndpointTransportKind,
-        IpcDaemonBootstrapArgumentNames.EndpointAddress,
-        IpcOneshotBootstrapArgumentNames.RequestPath,
-        IpcOneshotBootstrapArgumentNames.ResponsePath,
+        IpcEndpointBootstrapArgumentNames.TransportKind,
+        IpcEndpointBootstrapArgumentNames.Address,
+        IpcOneshotBootstrapArgumentNames.ParentProcessId,
     };
 
     /// <summary> Appends batchmode bootstrap argument token pairs to destination list. </summary>
@@ -44,19 +45,21 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
                 destination.Add(daemonArguments.ProjectFingerprint);
                 destination.Add(IpcDaemonBootstrapArgumentNames.SessionPath);
                 destination.Add(daemonArguments.SessionPath);
-                destination.Add(IpcDaemonBootstrapArgumentNames.EndpointTransportKind);
+                destination.Add(IpcEndpointBootstrapArgumentNames.TransportKind);
                 destination.Add(daemonArguments.EndpointTransportKind);
-                destination.Add(IpcDaemonBootstrapArgumentNames.EndpointAddress);
+                destination.Add(IpcEndpointBootstrapArgumentNames.Address);
                 destination.Add(daemonArguments.EndpointAddress);
                 return;
 
             case IpcOneshotBootstrapArguments oneshotArguments:
                 destination.Add(IpcBatchmodeBootstrapArgumentNames.Target);
                 destination.Add(IpcBatchmodeBootstrapTargetValues.Oneshot);
-                destination.Add(IpcOneshotBootstrapArgumentNames.RequestPath);
-                destination.Add(oneshotArguments.RequestPath);
-                destination.Add(IpcOneshotBootstrapArgumentNames.ResponsePath);
-                destination.Add(oneshotArguments.ResponsePath);
+                destination.Add(IpcOneshotBootstrapArgumentNames.ParentProcessId);
+                destination.Add(oneshotArguments.ParentProcessId.ToString(CultureInfo.InvariantCulture));
+                destination.Add(IpcEndpointBootstrapArgumentNames.TransportKind);
+                destination.Add(oneshotArguments.EndpointTransportKind);
+                destination.Add(IpcEndpointBootstrapArgumentNames.Address);
+                destination.Add(oneshotArguments.EndpointAddress);
                 return;
 
             default:
@@ -116,8 +119,8 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         if (!TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.RepositoryRoot, out var repositoryRoot)
             || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.ProjectFingerprint, out var projectFingerprint)
             || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.SessionPath, out var sessionPath)
-            || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.EndpointTransportKind, out var endpointTransportKind)
-            || !TryGetArgumentValue(args, IpcDaemonBootstrapArgumentNames.EndpointAddress, out var endpointAddress))
+            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
+            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
         {
             error = MissingRequiredArguments("uCLI daemon bootstrap arguments are missing.");
             return false;
@@ -149,21 +152,30 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         arguments = default!;
-        if (!TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.RequestPath, out var requestPath)
-            || !TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ResponsePath, out var responsePath))
+        if (!TryGetArgumentValue(args, IpcOneshotBootstrapArgumentNames.ParentProcessId, out var parentProcessIdText)
+            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.TransportKind, out var endpointTransportKind)
+            || !TryGetArgumentValue(args, IpcEndpointBootstrapArgumentNames.Address, out var endpointAddress))
         {
             error = MissingRequiredArguments("uCLI oneshot bootstrap arguments are missing.");
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(requestPath)
-            || string.IsNullOrWhiteSpace(responsePath))
+        if (string.IsNullOrWhiteSpace(parentProcessIdText)
+            || string.IsNullOrWhiteSpace(endpointTransportKind)
+            || string.IsNullOrWhiteSpace(endpointAddress))
         {
             error = EmptyRequiredValue("uCLI oneshot bootstrap arguments must not be empty.");
             return false;
         }
 
-        arguments = new IpcOneshotBootstrapArguments(requestPath, responsePath);
+        if (!int.TryParse(parentProcessIdText, NumberStyles.None, CultureInfo.InvariantCulture, out var parentProcessId)
+            || parentProcessId <= 0)
+        {
+            error = EmptyRequiredValue("uCLI oneshot bootstrap parent process identifier must be a positive integer.");
+            return false;
+        }
+
+        arguments = new IpcOneshotBootstrapArguments(parentProcessId, endpointTransportKind, endpointAddress);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
     }

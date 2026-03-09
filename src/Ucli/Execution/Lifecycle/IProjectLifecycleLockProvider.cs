@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Daemon;
+namespace MackySoft.Ucli.Execution;
 
-/// <summary> Provides project-fingerprint scoped asynchronous lifecycle locks for daemon management operations. </summary>
-internal interface IDaemonLifecycleLockProvider
+/// <summary> Provides project-fingerprint scoped asynchronous lifecycle locks for Unity project execution operations. </summary>
+internal interface IProjectLifecycleLockProvider
 {
     /// <summary> Acquires the lifecycle lock for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>

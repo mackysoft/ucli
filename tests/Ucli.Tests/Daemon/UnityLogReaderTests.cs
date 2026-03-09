@@ -6,14 +6,14 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 
-public sealed class DaemonLogReaderTests
+public sealed class UnityLogReaderTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public async Task ReadTail_WhenLogFileDoesNotExist_ReturnsEmptyText ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "missing-log");
-        var logReader = new DaemonLogReader();
+        var logReader = new UnityLogReader();
 
         var readResult = await logReader.ReadTail(scope.FullPath, "fingerprint-missing", cancellationToken: CancellationToken.None);
 
@@ -29,13 +29,13 @@ public sealed class DaemonLogReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "tail-bytes");
         var projectFingerprint = "fingerprint-tail";
-        var logReader = new DaemonLogReader();
-        var daemonLogPath = UcliStoragePathResolver.ResolveDaemonLogPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(daemonLogPath)!);
+        var logReader = new UnityLogReader();
+        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(unityLogPath)!);
 
         var content = "line-1\nline-2\nline-3\n";
         var contentBytes = Encoding.UTF8.GetBytes(content);
-        await File.WriteAllTextAsync(daemonLogPath, content, CancellationToken.None);
+        await File.WriteAllTextAsync(unityLogPath, content, CancellationToken.None);
 
         var readResult = await logReader.ReadTail(scope.FullPath, projectFingerprint, maxBytes: 8, cancellationToken: CancellationToken.None);
 
@@ -50,7 +50,7 @@ public sealed class DaemonLogReaderTests
     public async Task ReadTail_WhenMaxBytesIsNotPositive_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "invalid-max-bytes");
-        var logReader = new DaemonLogReader();
+        var logReader = new UnityLogReader();
 
         var readResult = await logReader.ReadTail(scope.FullPath, "fingerprint-invalid", maxBytes: 0, cancellationToken: CancellationToken.None);
 

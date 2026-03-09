@@ -1,10 +1,10 @@
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
 
-namespace MackySoft.Ucli.Daemon;
+namespace MackySoft.Ucli.Execution;
 
 /// <summary> Implements filesystem-backed lifecycle locks scoped by storage root and project fingerprint. </summary>
-internal sealed class FileSystemDaemonLifecycleLockProvider : IDaemonLifecycleLockProvider
+internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycleLockProvider
 {
     private const int RetryDelayMilliseconds = 50;
 
@@ -59,7 +59,7 @@ internal sealed class FileSystemDaemonLifecycleLockProvider : IDaemonLifecycleLo
                 if (!deadline.TryGetRemainingTimeout(out var remaining))
                 {
                     throw new TimeoutException(
-                        $"Timed out while waiting to acquire daemon lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");
+                        $"Timed out while waiting to acquire project lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");
                 }
 
                 var retryDelay = TimeSpan.FromMilliseconds(RetryDelayMilliseconds);

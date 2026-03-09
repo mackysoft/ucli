@@ -48,10 +48,10 @@ public static class UcliStoragePathNames
     /// <summary> Gets the daemon session file name under one fingerprint directory. </summary>
     public const string SessionFileName = "session.json";
 
-    /// <summary> Gets the daemon log file name under one fingerprint directory. </summary>
-    public const string DaemonLogFileName = "daemon.log";
+    /// <summary> Gets the Unity batchmode log file name under one fingerprint directory. </summary>
+    public const string UnityLogFileName = "unity.log";
 
-    /// <summary> Gets the daemon lifecycle lock file name under one fingerprint directory. </summary>
+    /// <summary> Gets the project lifecycle lock file name under one fingerprint directory. </summary>
     public const string LifecycleLockFileName = "lifecycle.lock";
 
     /// <summary> Gets the plan-token signing key file name under one fingerprint directory. </summary>

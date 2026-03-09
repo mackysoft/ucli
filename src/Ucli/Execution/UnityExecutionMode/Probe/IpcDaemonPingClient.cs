@@ -10,19 +10,19 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
 {
     private const string ProbeClientVersion = "ucli-mode-probe";
 
-    private readonly IUnityIpcClient unityIpcClient;
+    private readonly IUnityIpcTransportClient transportClient;
 
     private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
 
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonPingClient" /> class. </summary>
-    /// <param name="unityIpcClient"> The Unity IPC client dependency. </param>
+    /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
     /// <param name="daemonSessionTokenProvider"> The daemon session token provider dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public IpcDaemonPingClient (
-        IUnityIpcClient unityIpcClient,
+        IUnityIpcTransportClient transportClient,
         IDaemonSessionTokenProvider daemonSessionTokenProvider)
     {
-        this.unityIpcClient = unityIpcClient ?? throw new ArgumentNullException(nameof(unityIpcClient));
+        this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
     }
 
@@ -91,7 +91,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
 
         var effectiveSessionToken = await ResolveSessionToken(unityProject, sessionToken, cancellationToken).ConfigureAwait(false);
 
-        return await unityIpcClient.SendAsync(
+        return await transportClient.SendAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 CreatePingRequest(effectiveSessionToken),

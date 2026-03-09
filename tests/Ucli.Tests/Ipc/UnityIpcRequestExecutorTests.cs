@@ -1,13 +1,14 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
-using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
+using MackySoft.Ucli.UnityProject.Resolution;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -19,49 +20,47 @@ public sealed class UnityIpcRequestExecutorTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenModeDecisionReturnsContractError_ReturnsContractFailureWithoutCallingClients ()
     {
-        var daemonClient = new StubUnityIpcClient();
-        var oneshotClient = new StubUnityOneshotIpcClient();
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider();
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "contract-error");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => CreateResponse("unused"));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => CreateResponse("unused"));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var executor = new UnityIpcRequestExecutor(
             new StubModeDecisionService(
                 UnityExecutionModeDecisionResult.ContractFailure(
                     new UnityExecutionModeDecisionContractError(
                         UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                         "Daemon is not running for mode=daemon."))),
-            daemonClient,
-            oneshotClient,
-            sessionTokenProvider);
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
             "daemon",
             null,
             UcliConfig.CreateDefault(),
-            CreateContext(),
+            CreateContext(scope),
             IpcMethodNames.OpsRead,
             EmptyPayload());
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
-        Assert.Equal(0, daemonClient.CallCount);
-        Assert.Equal(0, oneshotClient.CallCount);
-        Assert.Equal(0, sessionTokenProvider.CallCount);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenTargetIsDaemon_UsesDaemonClient ()
     {
-        var response = CreateResponse("req-1");
-        var daemonClient = new StubUnityIpcClient
-        {
-            Response = response,
-        };
-        var oneshotClient = new StubUnityOneshotIpcClient();
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon");
+        var response = CreateResponse("req-daemon");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => response);
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider
         {
             Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
         };
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var executor = new UnityIpcRequestExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
@@ -69,40 +68,43 @@ public sealed class UnityIpcRequestExecutorTests
                     true,
                     UnityExecutionTarget.Daemon,
                     DefaultTimeout))),
-            daemonClient,
-            oneshotClient,
-            sessionTokenProvider);
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
             null,
             null,
             UcliConfig.CreateDefault(),
-            CreateContext(),
+            CreateContext(scope),
             IpcMethodNames.OpsRead,
             EmptyPayload());
 
         Assert.True(result.IsSuccess);
         Assert.Same(response, result.Response);
-        Assert.Equal(1, daemonClient.CallCount);
-        Assert.Equal(0, oneshotClient.CallCount);
+        Assert.Equal(1, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
-        Assert.Equal("daemon-token", daemonClient.LastRequest!.SessionToken);
-        Assert.Equal(IpcMethodNames.OpsRead, daemonClient.LastRequest.Method);
-        Assert.Equal(DefaultTimeout, daemonClient.LastTimeout);
+        Assert.Equal("daemon-token", daemonTransportClient.Requests[0].SessionToken);
+        Assert.Equal(0, launcher.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenTargetIsOneshot_UsesOneshotClient ()
     {
-        var response = CreateResponse("req-2");
-        var daemonClient = new StubUnityIpcClient();
-        var oneshotClient = new StubUnityOneshotIpcClient
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "oneshot");
+        var response = CreateResponse("req-oneshot");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(request =>
         {
-            Result = UnityIpcRequestExecutionResult.Success(response),
-        };
-        var sessionTokenProvider = new StubDaemonSessionTokenProvider();
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreateResponse(request.RequestId),
+                IpcMethodNames.OpsRead => response,
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var executor = new UnityIpcRequestExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
@@ -110,34 +112,46 @@ public sealed class UnityIpcRequestExecutorTests
                     false,
                     UnityExecutionTarget.Oneshot,
                     DefaultTimeout))),
-            daemonClient,
-            oneshotClient,
-            sessionTokenProvider);
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
             null,
             null,
             UcliConfig.CreateDefault(),
-            CreateContext(),
+            CreateContext(scope),
             IpcMethodNames.OpsRead,
             EmptyPayload());
 
         Assert.True(result.IsSuccess);
         Assert.Same(response, result.Response);
-        Assert.Equal(0, daemonClient.CallCount);
-        Assert.Equal(1, oneshotClient.CallCount);
-        Assert.Equal(0, sessionTokenProvider.CallCount);
-        Assert.Equal("oneshot", oneshotClient.LastRequest!.SessionToken);
-        Assert.Equal(IpcMethodNames.OpsRead, oneshotClient.LastRequest.Method);
-        Assert.Equal(DefaultTimeout, oneshotClient.LastTimeout);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(2, oneshotTransportClient.CallCount);
+        Assert.Equal(1, launcher.CallCount);
     }
 
-    private static ResolvedUnityProjectContext CreateContext ()
+    private static IUnityIpcClient[] CreateClients (
+        StubUnityIpcTransportClient daemonTransportClient,
+        StubUnityIpcTransportClient oneshotTransportClient,
+        StubDaemonSessionTokenProvider sessionTokenProvider,
+        StubUnityBatchmodeProcessLauncher launcher)
+    {
+        return
+        [
+            new UnityDaemonIpcClient(daemonTransportClient, sessionTokenProvider),
+            new UnityOneshotIpcClient(
+                launcher,
+                new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
+                oneshotTransportClient,
+                new StubProjectLifecycleLockProvider()),
+        ];
+    }
+
+    private static ResolvedUnityProjectContext CreateContext (TestDirectoryScope scope)
     {
         return new ResolvedUnityProjectContext(
-            UnityProjectRoot: "/repo/UnityProject",
-            RepositoryRoot: "/repo",
+            UnityProjectRoot: scope.GetPath("UnityProject"),
+            RepositoryRoot: scope.FullPath,
             ProjectFingerprint: "project-fingerprint",
             PathSource: UnityProjectPathSource.CommandOption);
     }
@@ -179,15 +193,18 @@ public sealed class UnityIpcRequestExecutorTests
         }
     }
 
-    private sealed class StubUnityIpcClient : IUnityIpcClient
+    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {
+        private readonly Func<IpcRequest, IpcResponse> responseFactory;
+
+        public StubUnityIpcTransportClient (Func<IpcRequest, IpcResponse> responseFactory)
+        {
+            this.responseFactory = responseFactory;
+        }
+
         public int CallCount { get; private set; }
 
-        public IpcRequest? LastRequest { get; private set; }
-
-        public TimeSpan LastTimeout { get; private set; }
-
-        public IpcResponse Response { get; set; } = CreateResponse("default-daemon");
+        public List<IpcRequest> Requests { get; } = new List<IpcRequest>();
 
         public ValueTask<IpcResponse> SendAsync (
             string storageRoot,
@@ -198,34 +215,8 @@ public sealed class UnityIpcRequestExecutorTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            LastRequest = request;
-            LastTimeout = timeout;
-            return ValueTask.FromResult(Response);
-        }
-    }
-
-    private sealed class StubUnityOneshotIpcClient : IUnityOneshotIpcClient
-    {
-        public int CallCount { get; private set; }
-
-        public IpcRequest? LastRequest { get; private set; }
-
-        public TimeSpan LastTimeout { get; private set; }
-
-        public UnityIpcRequestExecutionResult Result { get; set; }
-            = UnityIpcRequestExecutionResult.Success(CreateResponse("default-oneshot"));
-
-        public ValueTask<UnityIpcRequestExecutionResult> SendAsync (
-            string unityProjectRoot,
-            IpcRequest request,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            LastRequest = request;
-            LastTimeout = timeout;
-            return ValueTask.FromResult(Result);
+            Requests.Add(request);
+            return ValueTask.FromResult(responseFactory(request));
         }
     }
 
@@ -243,6 +234,95 @@ public sealed class UnityIpcRequestExecutorTests
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubUnityBatchmodeProcessLauncher : IUnityBatchmodeProcessLauncher
+    {
+        private readonly UnityBatchmodeProcessLaunchResult result;
+
+        public StubUnityBatchmodeProcessLauncher (UnityBatchmodeProcessLaunchResult result)
+        {
+            this.result = result;
+        }
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<UnityBatchmodeProcessLaunchResult> Launch (
+            ResolvedUnityProjectContext unityProject,
+            IpcBatchmodeBootstrapArguments bootstrapArguments,
+            string unityLogPath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class StubUnityBatchmodeProcessHandle : IUnityBatchmodeProcessHandle
+    {
+        public int ProcessId => 1234;
+
+        public bool HasExited { get; private set; }
+
+        public int? ExitCode => HasExited ? 0 : null;
+
+        public Task WaitForExit (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            HasExited = true;
+            return Task.CompletedTask;
+        }
+
+        public Task Terminate (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            HasExited = true;
+            return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync ()
+        {
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class StubIpcEndpointResolver : IIpcEndpointResolver
+    {
+        private readonly IpcEndpoint endpoint;
+
+        public StubIpcEndpointResolver (IpcEndpoint endpoint)
+        {
+            this.endpoint = endpoint;
+        }
+
+        public IpcEndpoint Resolve (
+            string storageRoot,
+            string projectFingerprint)
+        {
+            return endpoint;
+        }
+    }
+
+    private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
+    {
+        public ValueTask<IAsyncDisposable> Acquire (
+            string storageRoot,
+            string projectFingerprint,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult<IAsyncDisposable>(new NoOpAsyncDisposable());
+        }
+    }
+
+    private sealed class NoOpAsyncDisposable : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync ()
+        {
+            return ValueTask.CompletedTask;
         }
     }
 }

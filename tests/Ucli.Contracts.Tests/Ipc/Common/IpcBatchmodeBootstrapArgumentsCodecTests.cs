@@ -44,8 +44,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcDaemonBootstrapArgumentNames.RepositoryRoot,
             IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
-            IpcDaemonBootstrapArgumentNames.EndpointTransportKind, IpcTransportKindValues.NamedPipe,
-            IpcDaemonBootstrapArgumentNames.EndpointAddress, "ucli-endpoint",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
@@ -62,8 +62,9 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         var args = new[]
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.RequestPath, "/tmp/request.json",
-            IpcOneshotBootstrapArgumentNames.ResponsePath,
+            IpcOneshotBootstrapArgumentNames.ParentProcessId,
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
             IpcBatchmodeBootstrapArgumentNames.Target,
         };
 
@@ -84,8 +85,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "-tmp-repository",
             IpcDaemonBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
-            IpcDaemonBootstrapArgumentNames.EndpointTransportKind, IpcTransportKindValues.NamedPipe,
-            IpcDaemonBootstrapArgumentNames.EndpointAddress, "ucli-endpoint",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out var bootstrapArguments, out var error);
@@ -98,13 +99,14 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryParse_WhenOneshotValueStartsWithHyphenButIsNotArgumentName_ParsesSuccessfully ()
+    public void TryParse_WhenOneshotParentProcessIdExists_ParsesSuccessfully ()
     {
         var args = new[]
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.RequestPath, "-tmp-request.json",
-            IpcOneshotBootstrapArgumentNames.ResponsePath, "-tmp-response.json",
+            IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out var bootstrapArguments, out var error);
@@ -112,8 +114,9 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.True(parsed);
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var oneshotArguments = Assert.IsType<IpcOneshotBootstrapArguments>(bootstrapArguments);
-        Assert.Equal("-tmp-request.json", oneshotArguments.RequestPath);
-        Assert.Equal("-tmp-response.json", oneshotArguments.ResponsePath);
+        Assert.Equal(123, oneshotArguments.ParentProcessId);
+        Assert.Equal(IpcTransportKindValues.NamedPipe, oneshotArguments.EndpointTransportKind);
+        Assert.Equal("ucli-endpoint", oneshotArguments.EndpointAddress);
     }
 
     [Fact]
@@ -144,8 +147,9 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     public void AppendTokens_ThenTryParse_RoundTripsOneshotValues ()
     {
         IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments(
-            "/tmp/ucli-request.json",
-            "/tmp/ucli-response.json");
+            456,
+            IpcTransportKindValues.UnixDomainSocket,
+            "/tmp/ucli.sock");
         List<string> tokens =
         [
             "-batchmode",
@@ -166,8 +170,9 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         var args = new[]
         {
             IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.RequestPath, " ",
-            IpcOneshotBootstrapArgumentNames.ResponsePath, "/tmp/response.json",
+            IpcOneshotBootstrapArgumentNames.ParentProcessId, " ",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
@@ -175,5 +180,24 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.False(parsed);
         Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
         Assert.Equal("uCLI oneshot bootstrap arguments must not be empty.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenOneshotParentProcessIdIsInvalid_ReturnsEmptyRequiredValue ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
+            IpcOneshotBootstrapArgumentNames.ParentProcessId, "0",
+            IpcEndpointBootstrapArgumentNames.TransportKind, IpcTransportKindValues.NamedPipe,
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
+        Assert.Equal("uCLI oneshot bootstrap parent process identifier must be a positive integer.", error.Message);
     }
 }

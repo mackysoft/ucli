@@ -16,7 +16,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task Ping_SendsPingRequestWithProbeContract ()
     {
-        var unityIpcClient = new StubUnityIpcClient();
+        var unityIpcClient = new StubUnityIpcTransportClient();
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
         var context = CreateContext();
@@ -40,7 +40,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task Ping_WhenCanceled_ThrowsOperationCanceledException ()
     {
-        var unityIpcClient = new StubUnityIpcClient();
+        var unityIpcClient = new StubUnityIpcTransportClient();
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
         using var cancellationTokenSource = new CancellationTokenSource();
@@ -58,7 +58,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task Ping_WithProvidedSessionToken_SendsPingWithoutResolvingToken ()
     {
-        var unityIpcClient = new StubUnityIpcClient();
+        var unityIpcClient = new StubUnityIpcTransportClient();
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
         var context = CreateContext();
@@ -75,7 +75,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task PingAndRead_ReturnsDecodedPingPayload ()
     {
-        var unityIpcClient = new StubUnityIpcClient(request =>
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
             CreateResponse(
                 request,
                 IpcProtocol.StatusOk,
@@ -102,7 +102,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task PingAndRead_WhenPayloadIsInvalid_ThrowsDaemonPingResponseException ()
     {
-        var unityIpcClient = new StubUnityIpcClient(request =>
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
             CreateResponse(
                 request,
                 IpcProtocol.StatusOk,
@@ -122,7 +122,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task PingAndRead_WhenCompileStateIsMissing_ReturnsPayload ()
     {
-        var unityIpcClient = new StubUnityIpcClient(request =>
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
             CreateResponse(
                 request,
                 IpcProtocol.StatusOk,
@@ -148,7 +148,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task Ping_WhenResponseStatusIsError_ThrowsDaemonPingResponseException ()
     {
-        var unityIpcClient = new StubUnityIpcClient(request =>
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
             CreateResponse(
                 request,
                 IpcProtocol.StatusError,
@@ -166,7 +166,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task Ping_WhenResponseContainsErrors_ThrowsDaemonPingResponseException ()
     {
-        var unityIpcClient = new StubUnityIpcClient(request =>
+        var unityIpcClient = new StubUnityIpcTransportClient(request =>
             CreateResponse(
                 request,
                 IpcProtocol.StatusOk,
@@ -189,7 +189,7 @@ public sealed class IpcDaemonPingClientTests
     [Trait("Size", "Small")]
     public async Task Ping_WhenSessionIsNotAvailable_ThrowsDaemonPingResponseExceptionWithSessionTokenRequired ()
     {
-        var unityIpcClient = new StubUnityIpcClient();
+        var unityIpcClient = new StubUnityIpcTransportClient();
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.SessionNotAvailable());
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
 
@@ -209,7 +209,7 @@ public sealed class IpcDaemonPingClientTests
     [InlineData((int)ExecutionErrorKind.InternalError)]
     public async Task Ping_WhenSessionTokenResolutionFailsForLocalError_ThrowsDaemonPingResponseExceptionWithoutTokenErrorCode (int errorKind)
     {
-        var unityIpcClient = new StubUnityIpcClient();
+        var unityIpcClient = new StubUnityIpcTransportClient();
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Failure(
             new ExecutionError((ExecutionErrorKind)errorKind, "session token read failed")));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
@@ -231,7 +231,7 @@ public sealed class IpcDaemonPingClientTests
     [InlineData(-1)]
     public async Task Ping_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
     {
-        var unityIpcClient = new StubUnityIpcClient();
+        var unityIpcClient = new StubUnityIpcTransportClient();
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(DaemonSessionTokenResolutionResult.Success("resolved-token"));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, sessionTokenProvider);
         var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
@@ -255,11 +255,11 @@ public sealed class IpcDaemonPingClientTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private sealed class StubUnityIpcClient : IUnityIpcClient
+    private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {
         private readonly Func<IpcRequest, IpcResponse> responseFactory;
 
-        public StubUnityIpcClient (Func<IpcRequest, IpcResponse>? responseFactory = null)
+        public StubUnityIpcTransportClient (Func<IpcRequest, IpcResponse>? responseFactory = null)
         {
             this.responseFactory = responseFactory ?? (request =>
                 CreateResponse(
