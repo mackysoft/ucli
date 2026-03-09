@@ -24,7 +24,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -49,7 +50,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout"))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -79,7 +81,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -108,7 +111,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -136,7 +140,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -169,7 +174,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -198,7 +204,8 @@ public sealed class DaemonStatusOperationTests
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
             daemonPingClient: new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            reachabilityClassifier: new DaemonReachabilityClassifier());
+            reachabilityClassifier: new DaemonReachabilityClassifier(),
+            daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore));
 
         var result = await operation.GetStatus(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 

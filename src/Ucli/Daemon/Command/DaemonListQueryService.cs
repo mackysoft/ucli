@@ -8,37 +8,50 @@ namespace MackySoft.Ucli.Daemon.Command;
 /// <summary> Implements daemon registration enumeration across Git worktrees. </summary>
 internal sealed class DaemonListQueryService : IDaemonListQueryService
 {
-    private const string StaleSessionMessage = "Daemon session exists but daemon is not reachable.";
-
     private readonly IGitWorktreeQueryService gitWorktreeQueryService;
 
     private readonly IUnityProjectResolver unityProjectResolver;
 
     private readonly IDaemonSessionStore daemonSessionStore;
 
+    private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
+
     private readonly IDaemonPingClient daemonPingClient;
 
     private readonly IDaemonReachabilityClassifier daemonReachabilityClassifier;
+
+    private readonly IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver;
+
+    private readonly IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonListQueryService" /> class. </summary>
     /// <param name="gitWorktreeQueryService"> The Git worktree query-service dependency. </param>
     /// <param name="unityProjectResolver"> The Unity-project resolver dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
+    /// <param name="daemonDiagnosisStore"> The daemon diagnosis-store dependency. </param>
     /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
     /// <param name="daemonReachabilityClassifier"> The daemon reachability-classifier dependency. </param>
+    /// <param name="daemonSessionDiagnosisResolver"> The daemon session-diagnosis resolver dependency. </param>
+    /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonListQueryService (
         IGitWorktreeQueryService gitWorktreeQueryService,
         IUnityProjectResolver unityProjectResolver,
         IDaemonSessionStore daemonSessionStore,
+        IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingClient daemonPingClient,
-        IDaemonReachabilityClassifier daemonReachabilityClassifier)
+        IDaemonReachabilityClassifier daemonReachabilityClassifier,
+        IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver,
+        IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper)
     {
         this.gitWorktreeQueryService = gitWorktreeQueryService ?? throw new ArgumentNullException(nameof(gitWorktreeQueryService));
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
+        this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.daemonReachabilityClassifier = daemonReachabilityClassifier ?? throw new ArgumentNullException(nameof(daemonReachabilityClassifier));
+        this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
+        this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
     }
 
     /// <summary> Resolves daemon registrations across Git worktrees for one Unity project context. </summary>
@@ -228,7 +241,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 DaemonListStateCodec.Running,
                 null,
                 session,
-                message: null));
+                diagnosis: null));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -239,7 +252,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Failure(ExecutionError.Timeout(
                 "Timed out while probing daemon session."));
         }
-        catch (TimeoutException exception)
+        catch (TimeoutException)
         {
             if (deadline.IsExpired)
             {
@@ -253,19 +266,24 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 DaemonListStateCodec.Error,
                 DaemonListReasonCodec.ProbeTimeout,
                 session,
-                exception.Message));
+                diagnosis: null));
         }
         catch (Exception exception) when (daemonReachabilityClassifier.IsNotRunning(exception))
         {
+            var diagnosis = await ResolveStaleDiagnosis(
+                    candidateProject,
+                    session,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
                 DaemonListStateCodec.Stale,
                 DaemonListReasonCodec.StaleSession,
                 session,
-                StaleSessionMessage));
+                diagnosis));
         }
-        catch (Exception exception)
+        catch (Exception)
         {
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
@@ -273,7 +291,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 DaemonListStateCodec.Error,
                 DaemonListReasonCodec.ProbeFailed,
                 session,
-                exception.Message));
+                diagnosis: null));
         }
     }
 
@@ -318,7 +336,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             DaemonListStateCodec.Error,
             reason,
             session: null,
-            sessionReadResult.Error!.Message);
+            diagnosis: null);
     }
 
     /// <summary> Creates one daemon-list item from worktree, project, and optional session values. </summary>
@@ -327,7 +345,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="state"> The daemon-list state literal. </param>
     /// <param name="reason"> The daemon-list reason literal when applicable. </param>
     /// <param name="session"> The valid daemon session metadata when available; otherwise <see langword="null" />. </param>
-    /// <param name="message"> The diagnostic message when available; otherwise <see langword="null" />. </param>
+    /// <param name="diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
     /// <returns> The daemon-list item output. </returns>
     private static DaemonListItemOutput CreateItem (
         GitWorktreeInfo worktree,
@@ -335,7 +353,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         string state,
         string? reason,
         DaemonSession? session,
-        string? message)
+        DaemonDiagnosisOutput? diagnosis)
     {
         return new DaemonListItemOutput(
             WorktreePath: worktree.WorktreePath,
@@ -349,7 +367,41 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             ProcessId: session?.ProcessId,
             EndpointTransportKind: session?.EndpointTransportKind,
             EndpointAddress: session?.EndpointAddress,
-            Message: message);
+            Diagnosis: diagnosis);
+    }
+
+    /// <summary> Resolves diagnosis payload for one stale daemon session when available. </summary>
+    /// <param name="candidateProject"> The resolved Unity project context for the candidate worktree. </param>
+    /// <param name="session"> The stale daemon session metadata. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The daemon diagnosis payload when available; otherwise <see langword="null" />. </returns>
+    private async ValueTask<DaemonDiagnosisOutput?> ResolveStaleDiagnosis (
+        ResolvedUnityProjectContext candidateProject,
+        DaemonSession session,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(candidateProject);
+        ArgumentNullException.ThrowIfNull(session);
+
+        var diagnosisReadResult = await daemonDiagnosisStore.Read(
+                candidateProject.RepositoryRoot,
+                candidateProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var persistedDiagnosis = diagnosisReadResult.IsSuccess
+            ? diagnosisReadResult.Diagnosis
+            : null;
+
+        var diagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
+                candidateProject,
+                session,
+                persistedDiagnosis,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return diagnosis is null
+            ? null
+            : daemonDiagnosisOutputMapper.ToOutput(diagnosis);
     }
 
     /// <summary> Creates one complete daemon-list execution output. </summary>

@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.Execution;
@@ -31,7 +32,7 @@ public sealed class DaemonListQueryServiceTests
             currentProject,
             worktreeA,
             worktreeB);
-        var sessionStore = new StubDaemonSessionStore((storageRoot, projectFingerprint) =>
+        var sessionStore = new StubDaemonSessionStore((_, projectFingerprint) =>
         {
             return projectFingerprint switch
             {
@@ -41,11 +42,13 @@ public sealed class DaemonListQueryServiceTests
                 _ => throw new InvalidOperationException($"Unexpected fingerprint: {projectFingerprint}"),
             };
         });
+        var diagnosisStore = new StubDaemonDiagnosisStore();
         var pingClient = new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask);
-        var service = new DaemonListQueryService(
+        var service = CreateService(
             gitWorktreeQueryService,
             unityProjectResolver,
             sessionStore,
+            diagnosisStore,
             pingClient,
             new StubDaemonReachabilityClassifier(static _ => false));
 
@@ -71,7 +74,7 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Null(item.Reason);
                 Assert.Equal(1001, item.ProcessId);
                 Assert.Equal("endpoint-a", item.EndpointAddress);
-                Assert.Null(item.Message);
+                Assert.Null(item.Diagnosis);
             },
             item =>
             {
@@ -84,7 +87,7 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Null(item.Reason);
                 Assert.Equal(1002, item.ProcessId);
                 Assert.Equal("endpoint-b", item.EndpointAddress);
-                Assert.Null(item.Message);
+                Assert.Null(item.Diagnosis);
             });
 
         Assert.Equal([currentProject.UnityProjectRoot], gitWorktreeQueryService.QueryPaths);
@@ -95,10 +98,11 @@ public sealed class DaemonListQueryServiceTests
     public async Task List_WhenGitWorktreeQueryFails_ReturnsFailure ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
-        var service = new DaemonListQueryService(
+        var service = CreateService(
             new StubGitWorktreeQueryService(GitWorktreeQueryResult.Failure(ExecutionError.InternalError("git failed"))),
             new StubUnityProjectResolver(currentProject),
             new StubDaemonSessionStore(static (_, _) => DaemonSessionReadResult.Success(null)),
+            new StubDaemonDiagnosisStore(),
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask),
             new StubDaemonReachabilityClassifier(static _ => false));
 
@@ -119,6 +123,7 @@ public sealed class DaemonListQueryServiceTests
             DaemonSessionReadResult.Failure(
                 ExecutionError.InvalidArgument("Daemon session JSON is invalid."),
                 DaemonSessionReadFailureKind.InvalidSession),
+            new StubDaemonDiagnosisStore(),
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask),
             new StubDaemonReachabilityClassifier(static _ => false));
 
@@ -136,7 +141,7 @@ public sealed class DaemonListQueryServiceTests
         Assert.Null(item.ProcessId);
         Assert.Null(item.EndpointTransportKind);
         Assert.Null(item.EndpointAddress);
-        Assert.Equal("Daemon session JSON is invalid.", item.Message);
+        Assert.Null(item.Diagnosis);
     }
 
     [Fact]
@@ -148,6 +153,7 @@ public sealed class DaemonListQueryServiceTests
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResult.Success(session),
+            new StubDaemonDiagnosisStore(),
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new TimeoutException("probe timed out"))),
             new StubDaemonReachabilityClassifier(static _ => false));
 
@@ -163,7 +169,7 @@ public sealed class DaemonListQueryServiceTests
         Assert.Equal(DaemonListReasonCodec.ProbeTimeout, item.Reason);
         Assert.Equal(2100, item.ProcessId);
         Assert.Equal("endpoint-timeout", item.EndpointAddress);
-        Assert.Equal("probe timed out", item.Message);
+        Assert.Null(item.Diagnosis);
     }
 
     [Fact]
@@ -188,10 +194,12 @@ public sealed class DaemonListQueryServiceTests
             "fp-b" => DaemonSessionReadResult.Success(CreateSession("fp-b", "endpoint-b", 2402)),
             _ => throw new InvalidOperationException($"Unexpected fingerprint: {projectFingerprint}"),
         });
-        var service = new DaemonListQueryService(
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateService(
             gitWorktreeQueryService,
             unityProjectResolver,
             sessionStore,
+            diagnosisStore,
             new StubDaemonPingClient(async (unityProject, _, _, cancellationToken) =>
             {
                 if (unityProject.ProjectFingerprint == "fp-b")
@@ -216,13 +224,19 @@ public sealed class DaemonListQueryServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task List_WhenProbeClassifiesNotRunning_ReturnsStaleItem ()
+    public async Task List_WhenProbeClassifiesNotRunningAndPersistedDiagnosisMatches_ReturnsStaleItemWithDiagnosis ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = CreateSession("fp-current", "endpoint-stale", 2200);
+        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            OnRead = (_, _) => DaemonDiagnosisReadResult.Success(diagnosis),
+        };
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResult.Success(session),
+            diagnosisStore,
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             new StubDaemonReachabilityClassifier(static exception => exception is SocketException));
 
@@ -236,8 +250,39 @@ public sealed class DaemonListQueryServiceTests
         var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListStateCodec.Stale, item.State);
         Assert.Equal(DaemonListReasonCodec.StaleSession, item.Reason);
-        Assert.Equal("Daemon session exists but daemon is not reachable.", item.Message);
         Assert.Equal(2200, item.ProcessId);
+        Assert.NotNull(item.Diagnosis);
+        Assert.Equal(diagnosis.Reason, item.Diagnosis!.Reason);
+        Assert.Equal(diagnosis.Message, item.Diagnosis.Message);
+        Assert.Equal(diagnosis.UpdatedAtUtc, item.Diagnosis.UpdatedAtUtc);
+        Assert.Equal(diagnosis.ProcessId, item.Diagnosis.ProcessId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenProbeClassifiesNotRunningWithoutPersistedDiagnosis_ReturnsExternalTerminationDiagnosis ()
+    {
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var session = CreateSession("fp-current", "endpoint-stale", int.MaxValue);
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var service = CreateSingleWorktreeService(
+            currentProject,
+            DaemonSessionReadResult.Success(session),
+            diagnosisStore,
+            new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
+            new StubDaemonReachabilityClassifier(static exception => exception is SocketException));
+
+        var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(1200), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        var item = Assert.Single(output.Items);
+        Assert.Equal(DaemonListStateCodec.Stale, item.State);
+        Assert.Equal(DaemonListReasonCodec.StaleSession, item.Reason);
+        Assert.NotNull(item.Diagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, item.Diagnosis!.Reason);
+        Assert.Equal(session.ProcessId, item.Diagnosis.ProcessId);
+        Assert.Equal(1, diagnosisStore.WriteCallCount);
     }
 
     [Fact]
@@ -249,6 +294,7 @@ public sealed class DaemonListQueryServiceTests
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResult.Success(session),
+            new StubDaemonDiagnosisStore(),
             new StubDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new InvalidOperationException("boom"))),
             new StubDaemonReachabilityClassifier(static _ => false));
 
@@ -262,17 +308,18 @@ public sealed class DaemonListQueryServiceTests
         var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListStateCodec.Error, item.State);
         Assert.Equal(DaemonListReasonCodec.ProbeFailed, item.Reason);
-        Assert.Equal("boom", item.Message);
         Assert.Equal(2300, item.ProcessId);
+        Assert.Null(item.Diagnosis);
     }
 
     private static DaemonListQueryService CreateSingleWorktreeService (
         ResolvedUnityProjectContext currentProject,
         DaemonSessionReadResult sessionReadResult,
+        IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier)
     {
-        return new DaemonListQueryService(
+        return CreateService(
             new StubGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
                 CurrentWorktreeRoot: currentProject.RepositoryRoot,
                 ProjectRelativePath: currentProject.UnityProjectRoot == currentProject.RepositoryRoot ? "." : "UnityProject",
@@ -282,8 +329,28 @@ public sealed class DaemonListQueryServiceTests
                 ]))),
             new StubUnityProjectResolver(currentProject),
             new StubDaemonSessionStore((_, _) => sessionReadResult),
+            daemonDiagnosisStore,
             daemonPingClient,
             reachabilityClassifier);
+    }
+
+    private static DaemonListQueryService CreateService (
+        IGitWorktreeQueryService gitWorktreeQueryService,
+        IUnityProjectResolver unityProjectResolver,
+        IDaemonSessionStore daemonSessionStore,
+        IDaemonDiagnosisStore daemonDiagnosisStore,
+        IDaemonPingClient daemonPingClient,
+        IDaemonReachabilityClassifier daemonReachabilityClassifier)
+    {
+        return new DaemonListQueryService(
+            gitWorktreeQueryService,
+            unityProjectResolver,
+            daemonSessionStore,
+            daemonDiagnosisStore,
+            daemonPingClient,
+            daemonReachabilityClassifier,
+            new DaemonSessionDiagnosisResolver(daemonDiagnosisStore),
+            new DaemonDiagnosisOutputMapper());
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject (
@@ -318,6 +385,18 @@ public sealed class DaemonListQueryServiceTests
             EndpointTransportKind: "namedPipe",
             EndpointAddress: endpointAddress,
             ProcessId: processId);
+    }
+
+    private static DaemonDiagnosis CreateDiagnosis (
+        DaemonSession session,
+        string reason)
+    {
+        return new DaemonDiagnosis(
+            Reason: reason,
+            Message: $"diagnosis:{reason}",
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
+            ProcessId: session.ProcessId,
+            SessionIssuedAtUtc: session.IssuedAtUtc);
     }
 
     private sealed class StubGitWorktreeQueryService : IGitWorktreeQueryService
@@ -390,6 +469,44 @@ public sealed class DaemonListQueryServiceTests
         }
 
         public ValueTask<DaemonSessionStoreOperationResult> Delete (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
+    {
+        public Func<string, string, DaemonDiagnosisReadResult> OnRead { get; set; } = static (_, _) => DaemonDiagnosisReadResult.Success(null);
+
+        public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } = DaemonDiagnosisStoreOperationResult.Success();
+
+        public int WriteCallCount { get; private set; }
+
+        public DaemonDiagnosis? LastDiagnosis { get; private set; }
+
+        public ValueTask<DaemonDiagnosisReadResult> Read (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(OnRead(storageRoot, projectFingerprint));
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonDiagnosis diagnosis,
+            CancellationToken cancellationToken = default)
+        {
+            WriteCallCount++;
+            LastDiagnosis = diagnosis;
+            return ValueTask.FromResult(WriteResult);
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)

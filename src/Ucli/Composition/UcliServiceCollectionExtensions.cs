@@ -101,6 +101,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
+        services.AddSingleton<IDaemonSessionDiagnosisResolver, DaemonSessionDiagnosisResolver>();
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
         services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
         services.AddSingleton<IUnityLogReader, UnityLogReader>();
@@ -134,6 +135,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
         services.AddSingleton<IDaemonCommandExecutionContextResolver, DaemonCommandExecutionContextResolver>();
         services.AddSingleton<IDaemonSessionOutputMapper, DaemonSessionOutputMapper>();
+        services.AddSingleton<IDaemonDiagnosisOutputMapper, DaemonDiagnosisOutputMapper>();
         services.AddSingleton<IDaemonStartCommandService, DaemonStartCommandService>();
         services.AddSingleton<IDaemonStopCommandService, DaemonStopCommandService>();
         services.AddSingleton<IDaemonStatusCommandService, DaemonStatusCommandService>();

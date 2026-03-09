@@ -188,4 +188,26 @@ internal static class DaemonCommandServiceTestContext
             return Output;
         }
     }
+
+    internal sealed class StubDaemonDiagnosisOutputMapper : IDaemonDiagnosisOutputMapper
+    {
+        public DaemonDiagnosisOutput Output { get; set; } = new(
+            Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
+            Message: "mapped diagnosis",
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
+            ProcessId: 4321);
+
+        public DaemonDiagnosis? LastDiagnosis { get; private set; }
+
+        public int CallCount { get; private set; }
+
+        public DaemonDiagnosisOutput ToOutput (DaemonDiagnosis diagnosis)
+        {
+            ArgumentNullException.ThrowIfNull(diagnosis);
+
+            LastDiagnosis = diagnosis;
+            CallCount++;
+            return Output;
+        }
+    }
 }

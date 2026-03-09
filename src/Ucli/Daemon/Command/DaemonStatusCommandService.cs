@@ -13,19 +13,24 @@ internal sealed class DaemonStatusCommandService : IDaemonStatusCommandService
 
     private readonly IDaemonSessionOutputMapper daemonSessionOutputMapper;
 
+    private readonly IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStatusCommandService" /> class. </summary>
     /// <param name="daemonCommandExecutionContextResolver"> The daemon-command execution-context resolver dependency. </param>
     /// <param name="daemonStatusOperation"> The daemon status-operation dependency. </param>
     /// <param name="daemonSessionOutputMapper"> The daemon session-output mapper dependency. </param>
+    /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStatusCommandService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         IDaemonStatusOperation daemonStatusOperation,
-        IDaemonSessionOutputMapper daemonSessionOutputMapper)
+        IDaemonSessionOutputMapper daemonSessionOutputMapper,
+        IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
         this.daemonStatusOperation = daemonStatusOperation ?? throw new ArgumentNullException(nameof(daemonStatusOperation));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
+        this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
     }
 
     /// <summary> Executes one daemon-status workflow. </summary>
@@ -77,11 +82,7 @@ internal sealed class DaemonStatusCommandService : IDaemonStatusCommandService
                 : daemonSessionOutputMapper.ToOutput(statusResult.Session),
             Diagnosis: statusResult.Diagnosis is null
                 ? null
-                : new DaemonDiagnosisOutput(
-                    Reason: statusResult.Diagnosis.Reason,
-                    Message: statusResult.Diagnosis.Message,
-                    UpdatedAtUtc: statusResult.Diagnosis.UpdatedAtUtc,
-                    ProcessId: statusResult.Diagnosis.ProcessId));
+                : daemonDiagnosisOutputMapper.ToOutput(statusResult.Diagnosis));
         return DaemonStatusExecutionResult.Success(output);
     }
 }

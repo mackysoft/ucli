@@ -12,7 +12,7 @@ namespace MackySoft.Ucli.Daemon.Command;
 /// <param name="ProcessId"> The daemon process identifier when valid session metadata is available; otherwise <see langword="null" />. </param>
 /// <param name="EndpointTransportKind"> The daemon endpoint transport kind when valid session metadata is available; otherwise <see langword="null" />. </param>
 /// <param name="EndpointAddress"> The daemon endpoint address when valid session metadata is available; otherwise <see langword="null" />. </param>
-/// <param name="Message"> The diagnostic observation message when available; otherwise <see langword="null" />. </param>
+/// <param name="Diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonListItemOutput (
     string WorktreePath,
     string? BranchRef,
@@ -25,4 +25,4 @@ internal sealed record DaemonListItemOutput (
     int? ProcessId,
     string? EndpointTransportKind,
     string? EndpointAddress,
-    string? Message);
+    DaemonDiagnosisOutput? Diagnosis);

@@ -22,7 +22,8 @@ public sealed class DaemonStatusCommandServiceTests
         {
             Output = DaemonCommandServiceTestContext.CreateSessionOutput(),
         };
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var diagnosisMapper = new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper();
+        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper, diagnosisMapper);
 
         var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
 
@@ -35,6 +36,7 @@ public sealed class DaemonStatusCommandServiceTests
         Assert.Equal(1, resolver.CallCount);
         Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);
         Assert.Equal(1, mapper.CallCount);
+        Assert.Equal(0, diagnosisMapper.CallCount);
     }
 
     [Fact]
@@ -49,7 +51,11 @@ public sealed class DaemonStatusCommandServiceTests
             StatusResult = DaemonStatusResult.Failure(ExecutionError.InternalError("status failed")),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var service = new DaemonStatusCommandService(
+            resolver,
+            daemonStatusOperation,
+            mapper,
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
         var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
 
@@ -74,7 +80,11 @@ public sealed class DaemonStatusCommandServiceTests
             StatusResult = DaemonStatusResult.Failure(ExecutionError.Timeout("probe timeout")),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var service = new DaemonStatusCommandService(
+            resolver,
+            daemonStatusOperation,
+            mapper,
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
         var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
 
@@ -99,7 +109,11 @@ public sealed class DaemonStatusCommandServiceTests
             StatusResult = DaemonStatusResult.NotRunning(),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var service = new DaemonStatusCommandService(
+            resolver,
+            daemonStatusOperation,
+            mapper,
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
         var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
 
@@ -125,7 +139,11 @@ public sealed class DaemonStatusCommandServiceTests
             StatusResult = new DaemonStatusResult(DaemonStatusKind.Failed, null, null, null),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var service = new DaemonStatusCommandService(
+            resolver,
+            daemonStatusOperation,
+            mapper,
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
         var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
 
@@ -154,7 +172,11 @@ public sealed class DaemonStatusCommandServiceTests
                 Error: null),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var service = new DaemonStatusCommandService(
+            resolver,
+            daemonStatusOperation,
+            mapper,
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
         var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
 
@@ -179,7 +201,11 @@ public sealed class DaemonStatusCommandServiceTests
             StatusResult = DaemonStatusResult.NotRunning(),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var service = new DaemonStatusCommandService(
+            resolver,
+            daemonStatusOperation,
+            mapper,
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper());
         using var cancellationSource = new CancellationTokenSource();
         var cancellationToken = cancellationSource.Token;
 
@@ -211,16 +237,16 @@ public sealed class DaemonStatusCommandServiceTests
             StatusResult = DaemonStatusResult.NotRunning(diagnosis),
         };
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
-        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper);
+        var diagnosisMapper = new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper();
+        var service = new DaemonStatusCommandService(resolver, daemonStatusOperation, mapper, diagnosisMapper);
 
         var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.NotNull(output.Diagnosis);
-        Assert.Equal(diagnosis.Reason, output.Diagnosis!.Reason);
-        Assert.Equal(diagnosis.Message, output.Diagnosis.Message);
-        Assert.Equal(diagnosis.UpdatedAtUtc, output.Diagnosis.UpdatedAtUtc);
-        Assert.Equal(diagnosis.ProcessId, output.Diagnosis.ProcessId);
+        Assert.Equal(diagnosisMapper.Output, output.Diagnosis);
+        Assert.Equal(1, diagnosisMapper.CallCount);
+        Assert.Equal(diagnosis, diagnosisMapper.LastDiagnosis);
     }
 }
