@@ -94,6 +94,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (changed)
             {
+                executionContext.ReplaceTrackedTemporaryComponent(binding.Component, sandbox!, binding.ScenePath);
+
                 if (binding.SourceGlobalObjectId != null)
                 {
                     executionContext.SetComponentShadow(binding.SourceGlobalObjectId, sandbox!, binding.ScenePath);

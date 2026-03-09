@@ -216,6 +216,38 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SynchronizeTemporaryAliases(globalObjectId, component, scenePath);
         }
 
+        /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
+        /// <param name="sourceComponent"> The previous temporary component instance. </param>
+        /// <param name="replacementComponent"> The replacement temporary component instance. </param>
+        /// <param name="scenePath"> The owning scene path. </param>
+        internal void ReplaceTrackedTemporaryComponent (
+            Component sourceComponent,
+            Component replacementComponent,
+            string scenePath)
+        {
+            if (sourceComponent == null)
+            {
+                throw new ArgumentNullException(nameof(sourceComponent));
+            }
+
+            if (replacementComponent == null)
+            {
+                throw new ArgumentNullException(nameof(replacementComponent));
+            }
+
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
+                throw new ArgumentException("Scene path must not be null, empty, or whitespace.", nameof(scenePath));
+            }
+
+            // NOTE:
+            // Plan-time component mutations replace the temporary component instance with a cloned sandbox.
+            // Every tracked state that still points at the previous clone must advance together or later
+            // plan steps can observe stale serialized data.
+            SynchronizeTemporaryAliases(sourceComponent, replacementComponent, scenePath);
+            SynchronizeEnsuredComponents(sourceComponent, replacementComponent, scenePath);
+        }
+
         /// <summary> Tries to get one temporary component shadow. </summary>
         /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
         /// <param name="component"> The temporary shadow component when found. </param>
@@ -318,6 +350,65 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 var alias = aliasesToSynchronize[i];
                 temporaryAliasesByName[alias] = new TemporaryAliasValue(component, scenePath, globalObjectId);
+            }
+        }
+
+        private void SynchronizeTemporaryAliases (
+            Component sourceComponent,
+            Component replacementComponent,
+            string scenePath)
+        {
+            List<string>? aliasesToSynchronize = null;
+            foreach (var pair in temporaryAliasesByName)
+            {
+                if (pair.Value.UnityObject != sourceComponent)
+                {
+                    continue;
+                }
+
+                aliasesToSynchronize ??= new List<string>();
+                aliasesToSynchronize.Add(pair.Key);
+            }
+
+            if (aliasesToSynchronize == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < aliasesToSynchronize.Count; i++)
+            {
+                var alias = aliasesToSynchronize[i];
+                var sourceGlobalObjectId = temporaryAliasesByName[alias].SourceGlobalObjectId;
+                temporaryAliasesByName[alias] = new TemporaryAliasValue(replacementComponent, scenePath, sourceGlobalObjectId);
+            }
+        }
+
+        private void SynchronizeEnsuredComponents (
+            Component sourceComponent,
+            Component replacementComponent,
+            string scenePath)
+        {
+            List<EnsuredComponentKey>? keysToSynchronize = null;
+            foreach (var pair in ensuredComponentsByKey)
+            {
+                if (pair.Value.Component != sourceComponent)
+                {
+                    continue;
+                }
+
+                keysToSynchronize ??= new List<EnsuredComponentKey>();
+                keysToSynchronize.Add(pair.Key);
+            }
+
+            if (keysToSynchronize == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < keysToSynchronize.Count; i++)
+            {
+                var key = keysToSynchronize[i];
+                ensuredComponentsByKey[key] = new EnsuredComponentValue(replacementComponent, scenePath);
             }
         }
 

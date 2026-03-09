@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Daemon;
@@ -110,12 +109,17 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             var processStartInfo = new ProcessStartInfo
             {
                 FileName = unityEditorPathResult.UnityEditorPath!,
-                Arguments = BuildArguments(unityProject.UnityProjectRoot, unityLogPath, bootstrapArguments),
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = false,
                 RedirectStandardError = false,
             };
+
+            var argumentTokens = BuildArgumentTokens(unityProject.UnityProjectRoot, unityLogPath, bootstrapArguments);
+            for (var i = 0; i < argumentTokens.Count; i++)
+            {
+                processStartInfo.ArgumentList.Add(argumentTokens[i]);
+            }
 
             var process = Process.Start(processStartInfo);
             if (process == null)
@@ -138,17 +142,18 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         }
     }
 
-    /// <summary> Builds Unity editor command-line arguments for batchmode host startup. </summary>
+    /// <summary> Builds Unity editor command-line argument tokens for batchmode host startup. </summary>
     /// <param name="unityProjectRoot"> The Unity project root path. </param>
     /// <param name="unityLogPath"> The Unity log file path. </param>
     /// <param name="bootstrapArguments"> The bootstrap argument payload. </param>
-    /// <returns> The command-line arguments string. </returns>
-    private static string BuildArguments (
+    /// <returns> The ordered command-line argument token list. </returns>
+    internal static IReadOnlyList<string> BuildArgumentTokens (
         string unityProjectRoot,
         string unityLogPath,
         IpcBatchmodeBootstrapArguments bootstrapArguments)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
         ArgumentNullException.ThrowIfNull(bootstrapArguments);
 
         var tokens = new List<string>
@@ -161,36 +166,6 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             unityLogPath,
         };
         IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(tokens, bootstrapArguments);
-
-        var builder = new StringBuilder();
-        for (var i = 0; i < tokens.Count; i++)
-        {
-            AppendArgument(builder, tokens[i]);
-        }
-
-        return builder.ToString();
-    }
-
-    /// <summary> Appends one shell-safe argument token to command-line builder. </summary>
-    /// <param name="builder"> The string builder instance. </param>
-    /// <param name="argument"> The argument token. </param>
-    private static void AppendArgument (
-        StringBuilder builder,
-        string argument)
-    {
-        if (builder.Length > 0)
-        {
-            builder.Append(' ');
-        }
-
-        if (argument.IndexOfAny([' ', '\t', '"']) < 0)
-        {
-            builder.Append(argument);
-            return;
-        }
-
-        builder.Append('"');
-        builder.Append(argument.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal));
-        builder.Append('"');
+        return tokens;
     }
 }

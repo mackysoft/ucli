@@ -684,6 +684,117 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Set_Plan_WhenEnsureStateWasMutated_KeepsEnsuredComponentStateSynchronized ()
+        {
+            var ensureOperation = new CompEnsureOperation();
+            var setOperation = new CompSetOperation();
+            var scenePath = CreateTemporaryScenePath();
+            try
+            {
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                _ = new GameObject("Root");
+                EditorSceneManager.SaveScene(scene, scenePath);
+                var typeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+                var context = new OperationExecutionContext();
+                var firstEnsureRequest = CreateOperation(
+                    opId: "op-ensure-1",
+                    opName: "ucli.comp.ensure",
+                    args: new
+                    {
+                        target = new
+                        {
+                            scene = scenePath,
+                            hierarchyPath = "Root",
+                        },
+                        type = typeId,
+                    },
+                    alias: "ensured");
+                var setRequest = CreateOperation(
+                    opId: "op-set",
+                    opName: "ucli.comp.set",
+                    args: new
+                    {
+                        target = new
+                        {
+                            @var = "ensured",
+                        },
+                        sets = new object[]
+                        {
+                            new
+                            {
+                                path = "nestedList",
+                                value = new object[]
+                                {
+                                    new
+                                    {
+                                        number = 10,
+                                        label = "first",
+                                    },
+                                    new
+                                    {
+                                        number = 20,
+                                        label = "second",
+                                    },
+                                },
+                            },
+                        },
+                    });
+                var secondEnsureRequest = CreateOperation(
+                    opId: "op-ensure-2",
+                    opName: "ucli.comp.ensure",
+                    args: new
+                    {
+                        target = new
+                        {
+                            scene = scenePath,
+                            hierarchyPath = "Root",
+                        },
+                        type = typeId,
+                    },
+                    alias: "ensuredAgain");
+                var secondSetRequest = CreateOperation(
+                    opId: "op-set-2",
+                    opName: "ucli.comp.set",
+                    args: new
+                    {
+                        target = new
+                        {
+                            @var = "ensuredAgain",
+                        },
+                        sets = new object[]
+                        {
+                            new
+                            {
+                                path = "nestedList.Array.data[1].number",
+                                value = 30,
+                            },
+                        },
+                    });
+
+                var firstEnsureResult = ensureOperation.Plan(firstEnsureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var firstSetResult = setOperation.Plan(setRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var secondEnsureResult = ensureOperation.Plan(secondEnsureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var secondSetResult = setOperation.Plan(secondSetRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+
+                AssertSuccess(firstEnsureResult, applied: false, changed: true, scenePath);
+                AssertSuccess(firstSetResult, applied: false, changed: true, scenePath);
+                AssertSuccess(secondEnsureResult, applied: false, changed: false, scenePath);
+                AssertSuccess(secondSetResult, applied: false, changed: true, scenePath);
+                Assert.That(context.TryGetTemporaryAlias("ensuredAgain", out var temporaryObject, out _), Is.True);
+                var temporaryComponent = (CompOperationTestComponent)temporaryObject!;
+                Assert.That(temporaryComponent.NestedList.Count, Is.EqualTo(2));
+                Assert.That(temporaryComponent.NestedList[1].Number, Is.EqualTo(30));
+                Assert.That(temporaryComponent.NestedList[1].Label, Is.EqualTo("second"));
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                AssetDatabase.DeleteAsset(scenePath);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Set_Plan_WhenAliasStateIsReusedBeforeGlobalObjectId_KeepsAliasStateSynchronized ()
         {
             var operation = new CompSetOperation();
