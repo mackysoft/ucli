@@ -59,18 +59,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Parses scene-tree arguments used by <c>ucli.scene.tree</c>. </summary>
         /// <param name="args"> The operation arguments element. </param>
-        /// <param name="scenePath"> The parsed scene path when successful. </param>
-        /// <param name="depth"> The parsed depth. <see langword="null" /> means unlimited depth. </param>
+        /// <param name="arguments"> The parsed tree arguments when successful. </param>
         /// <param name="errorMessage"> The parse error message when failed. </param>
         /// <returns> <see langword="true" /> when parsing succeeds; otherwise <see langword="false" />. </returns>
         public static bool TryParseTreeArguments (
             JsonElement args,
-            out string scenePath,
-            out int? depth,
+            out TreeArguments arguments,
             out string errorMessage)
         {
-            scenePath = string.Empty;
-            depth = null;
+            arguments = default;
             errorMessage = string.Empty;
             if (args.ValueKind != JsonValueKind.Object)
             {
@@ -78,6 +75,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            var scenePath = string.Empty;
+            int? depth = null;
             var hasPath = false;
             var hasDepth = false;
             foreach (var property in args.EnumerateObject())
@@ -126,7 +125,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            arguments = new TreeArguments(scenePath, depth);
             return true;
+        }
+
+        internal readonly struct TreeArguments
+        {
+            public TreeArguments (
+                string scenePath,
+                int? depth)
+            {
+                ScenePath = scenePath;
+                Depth = depth;
+            }
+
+            public string ScenePath { get; }
+
+            public int? Depth { get; }
         }
     }
 }

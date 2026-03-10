@@ -82,13 +82,60 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
         public static ResolvedReference CreateResolvedReference (UnityEngine.Object unityObject)
         {
+            if (!TryCreateResolvedReference(unityObject, out var resolvedReference))
+            {
+                throw new InvalidOperationException("Unity object does not expose a stable GlobalObjectId in the current editor state.");
+            }
+
+            return resolvedReference!;
+        }
+
+        /// <summary> Tries to create one normalized resolved reference from a live Unity object. </summary>
+        /// <param name="unityObject"> The live Unity object. </param>
+        /// <param name="resolvedReference"> The normalized resolved reference when successful. </param>
+        /// <returns> <see langword="true" /> when the object exposes a stable GlobalObjectId; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
+        public static bool TryCreateResolvedReference (
+            UnityEngine.Object unityObject,
+            out ResolvedReference? resolvedReference)
+        {
             if (unityObject == null)
             {
                 throw new ArgumentNullException(nameof(unityObject));
             }
 
-            var globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(unityObject);
-            return new ResolvedReference(globalObjectId.ToString());
+            var globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(unityObject).ToString();
+            if (!GlobalObjectId.TryParse(globalObjectId, out var parsedGlobalObjectId))
+            {
+                resolvedReference = null;
+                return false;
+            }
+
+            resolvedReference = new ResolvedReference(parsedGlobalObjectId.ToString());
+            return true;
+        }
+
+        /// <summary> Creates one request-local tracking key for a live Unity object. </summary>
+        /// <param name="unityObject"> The live Unity object. </param>
+        /// <returns> One stable tracking key for the current request. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
+        public static string CreateTrackingKey (UnityEngine.Object unityObject)
+        {
+            if (unityObject == null)
+            {
+                throw new ArgumentNullException(nameof(unityObject));
+            }
+
+            if (TryCreateResolvedReference(unityObject, out var resolvedReference))
+            {
+                return resolvedReference!.GlobalObjectId;
+            }
+
+            // NOTE:
+            // Objects inside prefab stages or request-local planning sandboxes can be live and editable
+            // without exposing a stable GlobalObjectId. Within one request, instance IDs are sufficient
+            // to correlate operation-local state such as ensured components and component shadows.
+            return $"instance:{unityObject.GetInstanceID()}";
         }
 
         /// <summary> Tries to resolve one alias to a live Unity object. </summary>

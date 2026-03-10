@@ -4,7 +4,6 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 #nullable enable
 
@@ -59,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, executionContext, out _, out _, out _, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -105,41 +104,42 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             bool applied)
         {
-            if (!TryValidateArguments(operation, executionContext, out var target, out var scene, out var depth, out var failure))
+            if (!TryValidateArguments(
+                operation,
+                executionContext,
+                allowTemporaryState: !applied,
+                out var validationState,
+                out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var description = GameObjectDescriptionBuilder.Build(target, depth);
+            var description = GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(scene.path),
+                    OperationResourceUtilities.CreateTouch(validationState.Resource),
                 },
                 result: IpcPayloadCodec.SerializeToElement(description)));
         }
 
-        /// <summary> Validates arguments and resolves the target loaded-scene GameObject. </summary>
+        /// <summary> Validates arguments and resolves the target editable GameObject. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="target"> The resolved target GameObject when validation succeeds. </param>
-        /// <param name="scene"> The owning loaded scene when validation succeeds. </param>
-        /// <param name="depth"> The requested depth value when validation succeeds. </param>
+        /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy target resolution. </param>
+        /// <param name="validationState"> The validated operation state when validation succeeds. </param>
         /// <param name="failure"> The failure result when validation fails. </param>
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            out GameObject target,
-            out Scene scene,
-            out int? depth,
+            bool allowTemporaryState,
+            out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
-            target = null!;
-            scene = default;
-            depth = null;
+            validationState = default;
             failure = null;
             if (!GoDescribeArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var parseErrorMessage))
             {
@@ -147,20 +147,41 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            depth = parsedArguments.Depth;
-            if (!GoOperationUtilities.TryResolveLoadedSceneGameObject(
+            if (!GoOperationUtilities.TryResolveEditableGameObject(
                 parsedArguments.TargetReference,
                 executionContext,
-                out var resolvedTarget,
-                out scene,
+                allowTemporaryState,
+                out var targetResolution,
                 out var targetErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, targetErrorMessage);
                 return false;
             }
 
-            target = resolvedTarget!;
+            validationState = new ValidationState(
+                targetResolution.GameObject!,
+                targetResolution.Resource,
+                parsedArguments.Depth);
             return true;
+        }
+
+        private readonly struct ValidationState
+        {
+            public ValidationState (
+                GameObject target,
+                OperationResource resource,
+                int? depth)
+            {
+                Target = target;
+                Resource = resource;
+                Depth = depth;
+            }
+
+            public GameObject? Target { get; }
+
+            public OperationResource Resource { get; }
+
+            public int? Depth { get; }
         }
     }
 }

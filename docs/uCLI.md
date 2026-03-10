@@ -538,6 +538,19 @@ public static class RebuildNavmesh
 
 `ucli.comp.set` は常に atomic に評価・適用し、`mode` 引数は受け付けない。
 
+### Prefab op 契約
+- `ucli.prefab.create`
+  - `args = { "target": <GameObjectRef>, "path": "<Assets/...>.prefab" }`
+  - `target` は必須。Loaded Scene 上の既存 GameObject だけを受け付ける
+  - 空の Prefab を新規作成する用途は扱わない
+- `ucli.prefab.open`
+  - `args = { "path": "<Assets/...>.prefab" }`
+  - `as` を指定した場合は、開いた Prefab の root GameObject を alias 保存する
+- `ucli.prefab.save`
+  - `args = { "path": "<Assets/...>.prefab" }`
+  - `path` は、現在開いている Prefab と一致しなければならない
+- `prefab.open` 後の編集は、`as` で受けた root alias を起点に `ucli.go.create` / `ucli.comp.ensure` / `ucli.comp.set` を連鎖させる
+
 ## コマンド
 Unityプロジェクトを対象に実行するコマンドは、CWDがUnityプロジェクトと判定可能な場合はそれを使う。そうでない場合は `--projectPath` を指定する。
 

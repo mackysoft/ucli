@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Plan_WhenAliasIsSpecified_DoesNotStoreAlias ()
+        public void Create_Plan_WhenAliasIsSpecified_StoresTemporaryAlias ()
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -155,7 +155,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
 
                 AssertSuccess(result, applied: false, changed: true);
+                Assert.That(context.TryGetTemporaryAliasState("created", out var temporaryAliasState), Is.True);
                 Assert.That(context.AliasStore.TryGet("created", out _), Is.False);
+                Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(scenePath));
+                Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<GameObject>());
+                Assert.That(((GameObject)temporaryAliasState.UnityObject!).name, Is.EqualTo("CreatedRoot"));
             }
             finally
             {

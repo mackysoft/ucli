@@ -45,9 +45,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
 
                 AssertSuccess(result, applied: false, changed: true, scenePath);
-                Assert.That(context.TryGetTemporaryAlias("ensured", out var temporaryObject, out var temporaryScenePath), Is.True);
-                Assert.That(temporaryScenePath, Is.EqualTo(scenePath));
-                Assert.That(temporaryObject, Is.TypeOf<CompOperationTestComponent>());
+                Assert.That(context.TryGetTemporaryAliasState("ensured", out var temporaryAliasState), Is.True);
+                Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(scenePath));
+                Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<CompOperationTestComponent>());
             }
             finally
             {
@@ -99,9 +99,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 AssertSuccess(firstResult, applied: false, changed: true, scenePath);
                 AssertSuccess(secondResult, applied: false, changed: false, scenePath);
-                Assert.That(context.TryGetTemporaryAlias("ensured", out var temporaryObject, out var temporaryScenePath), Is.True);
-                Assert.That(temporaryScenePath, Is.EqualTo(scenePath));
-                Assert.That(temporaryObject, Is.TypeOf<CompOperationTestComponent>());
+                Assert.That(context.TryGetTemporaryAliasState("ensured", out var temporaryAliasState), Is.True);
+                Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(scenePath));
+                Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<CompOperationTestComponent>());
             }
             finally
             {
@@ -488,13 +488,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityObjectReference.FromAlias("target"),
                     context,
                     allowTemporaryState: false,
-                    out var resolvedComponent,
-                    out var resolvedScenePath,
+                    out var resolutionState,
                     out var errorMessage);
 
                 Assert.That(result, Is.True, errorMessage);
-                Assert.That(resolvedScenePath, Is.EqualTo(scenePath));
-                Assert.That(resolvedComponent, Is.EqualTo(target));
+                Assert.That(resolutionState.Resource.Path, Is.EqualTo(scenePath));
+                Assert.That(resolutionState.Component, Is.EqualTo(target));
             }
             finally
             {
@@ -672,8 +671,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 AssertSuccess(ensureResult, applied: false, changed: true, scenePath);
                 AssertSuccess(setResult, applied: false, changed: true, scenePath);
-                Assert.That(context.TryGetTemporaryAlias("ensured", out var temporaryObject, out _), Is.True);
-                Assert.That(((CompOperationTestComponent)temporaryObject!).IntegerValue, Is.EqualTo(99));
+                Assert.That(context.TryGetTemporaryAliasState("ensured", out var temporaryAliasState), Is.True);
+                Assert.That(((CompOperationTestComponent)temporaryAliasState.UnityObject!).IntegerValue, Is.EqualTo(99));
             }
             finally
             {
@@ -780,8 +779,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssertSuccess(firstSetResult, applied: false, changed: true, scenePath);
                 AssertSuccess(secondEnsureResult, applied: false, changed: false, scenePath);
                 AssertSuccess(secondSetResult, applied: false, changed: true, scenePath);
-                Assert.That(context.TryGetTemporaryAlias("ensuredAgain", out var temporaryObject, out _), Is.True);
-                var temporaryComponent = (CompOperationTestComponent)temporaryObject!;
+                Assert.That(context.TryGetTemporaryAliasState("ensuredAgain", out var temporaryAliasState), Is.True);
+                var temporaryComponent = (CompOperationTestComponent)temporaryAliasState.UnityObject!;
                 Assert.That(temporaryComponent.NestedList.Count, Is.EqualTo(2));
                 Assert.That(temporaryComponent.NestedList[1].Number, Is.EqualTo(30));
                 Assert.That(temporaryComponent.NestedList[1].Label, Is.EqualTo("second"));
@@ -909,8 +908,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssertSuccess(secondResult, applied: false, changed: true, scenePath);
                 AssertSuccess(thirdResult, applied: false, changed: true, scenePath);
                 AssertSuccess(fourthResult, applied: false, changed: true, scenePath);
-                Assert.That(context.TryGetTemporaryAlias("target", out var temporaryObject, out _), Is.True);
-                var temporaryComponent = (CompOperationTestComponent)temporaryObject!;
+                Assert.That(context.TryGetTemporaryAliasState("target", out var temporaryAliasState), Is.True);
+                var temporaryComponent = (CompOperationTestComponent)temporaryAliasState.UnityObject!;
                 Assert.That(temporaryComponent.IntegerValue, Is.EqualTo(5));
                 Assert.That(temporaryComponent.NestedList.Count, Is.EqualTo(2));
                 Assert.That(temporaryComponent.NestedList[1].Number, Is.EqualTo(30));

@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveValidateTarget(operation, executionContext, out _, out _, out var failure))
+            if (!TryResolveValidateTarget(operation, executionContext, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -74,12 +74,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolvePlanBinding(operation, executionContext, out var binding, out var sets, out var failure))
+            if (!TryResolvePlanBinding(operation, executionContext, out var bindingState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
+            if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(bindingState.Binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
@@ -87,23 +87,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
-            if (!CompSetValueApplier.TryApply(sandbox!, sets!, executionContext, allowTemporaryState: true, out var changed, out var applyErrorMessage))
+            if (!CompSetValueApplier.TryApply(sandbox!, bindingState.Sets, executionContext, allowTemporaryState: true, out var changed, out var applyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, applyErrorMessage));
             }
 
             if (changed)
             {
-                executionContext.ReplaceTrackedTemporaryComponent(binding.Component, sandbox!, binding.ScenePath);
+                executionContext.ReplaceTrackedTemporaryComponent(bindingState.Binding.Component, sandbox!, bindingState.Binding.Resource);
 
-                if (binding.SourceGlobalObjectId != null)
+                if (bindingState.Binding.SourceGlobalObjectId != null)
                 {
-                    executionContext.SetComponentShadow(binding.SourceGlobalObjectId, sandbox!, binding.ScenePath);
+                    executionContext.SetComponentShadow(bindingState.Binding.SourceGlobalObjectId, sandbox!, bindingState.Binding.Resource);
                 }
 
-                if (binding.Alias != null)
+                if (bindingState.Binding.Alias != null)
                 {
-                    executionContext.SetTemporaryAlias(binding.Alias, sandbox!, binding.ScenePath, binding.SourceGlobalObjectId);
+                    executionContext.SetTemporaryAlias(bindingState.Binding.Alias, sandbox!, bindingState.Binding.Resource, bindingState.Binding.SourceGlobalObjectId);
                 }
             }
 
@@ -112,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: changed,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(binding.ScenePath),
+                    OperationResourceUtilities.CreateTouch(bindingState.Binding.Resource),
                 }));
         }
 
@@ -122,12 +122,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveCallBinding(operation, executionContext, out var binding, out var sets, out var failure))
+            if (!TryResolveCallBinding(operation, executionContext, out var bindingState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
+            if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(bindingState.Binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
@@ -135,13 +135,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
-            if (!CompSetValueApplier.TryApply(sandbox!, sets!, executionContext, allowTemporaryState: false, out var changed, out var applyErrorMessage))
+            if (!CompSetValueApplier.TryApply(sandbox!, bindingState.Sets, executionContext, allowTemporaryState: false, out var changed, out var applyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, applyErrorMessage));
             }
 
             if (changed
-                && !CompSetValueApplier.TryApply(binding.Component, sets!, executionContext, allowTemporaryState: false, out _, out var commitErrorMessage))
+                && !CompSetValueApplier.TryApply(bindingState.Binding.Component, bindingState.Sets, executionContext, allowTemporaryState: false, out _, out var commitErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
@@ -154,19 +154,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: changed,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(binding.ScenePath),
+                    OperationResourceUtilities.CreateTouch(bindingState.Binding.Resource),
                 }));
         }
 
         private static bool TryResolveValidateTarget (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            out Component? component,
-            out CompSetArguments? parsedArguments,
+            out ValidatedTargetState validatedTargetState,
             out OperationPhaseStepResult? failure)
         {
-            component = null;
-            parsedArguments = null;
+            validatedTargetState = default;
             failure = null;
             if (!CompSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
             {
@@ -178,41 +176,38 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 arguments.TargetReference,
                 executionContext,
                 allowTemporaryState: true,
-                out component,
-                out _,
+                out var componentResolution,
                 out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            parsedArguments = arguments;
+            validatedTargetState = new ValidatedTargetState(componentResolution.Component!, arguments);
             return true;
         }
 
         private static bool TryResolvePlanBinding (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            out TargetBinding binding,
-            out System.Collections.Generic.IReadOnlyList<CompSetAssignment>? sets,
+            out ResolvedBindingState bindingState,
             out OperationPhaseStepResult? failure)
         {
-            binding = default;
-            sets = null;
+            bindingState = default;
             failure = null;
-            if (!TryResolveValidateTarget(operation, executionContext, out _, out var parsedArguments, out failure))
+            if (!TryResolveValidateTarget(operation, executionContext, out var validatedTargetState, out failure))
             {
                 return false;
             }
 
-            var targetReference = parsedArguments!.Value.TargetReference;
+            var targetReference = validatedTargetState.ParsedArguments.TargetReference;
             var alias = targetReference.Kind == UnityObjectReferenceKind.Alias
                 ? targetReference.Alias
                 : null;
             if (alias != null
-                && executionContext.TryGetTemporaryAlias(alias, out var temporaryObject, out var temporaryScenePath, out var temporarySourceGlobalObjectId))
+                && executionContext.TryGetTemporaryAliasState(alias, out var temporaryAliasState))
             {
-                var temporaryComponent = temporaryObject as Component;
+                var temporaryComponent = temporaryAliasState.UnityObject as Component;
                 if (temporaryComponent == null)
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
@@ -221,8 +216,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                binding = new TargetBinding(temporaryComponent, temporaryScenePath, temporarySourceGlobalObjectId, alias);
-                sets = parsedArguments.Value.Sets;
+                bindingState = new ResolvedBindingState(
+                    new TargetBinding(
+                        temporaryComponent,
+                        temporaryAliasState.Resource,
+                        temporaryAliasState.SourceGlobalObjectId,
+                        alias),
+                    validatedTargetState.ParsedArguments.Sets);
                 return true;
             }
 
@@ -230,38 +230,40 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 targetReference,
                 executionContext,
                 allowTemporaryState: false,
-                out var resolvedComponent,
-                out var scenePath,
+                out var componentResolution,
                 out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            var sourceGlobalObjectId = GetSourceGlobalObjectId(targetReference, resolvedComponent!);
+            var sourceGlobalObjectId = GetSourceReferenceKey(targetReference, componentResolution.Component!);
+            TargetBinding binding;
             if (!string.IsNullOrWhiteSpace(sourceGlobalObjectId)
-                && executionContext.TryGetComponentShadow(sourceGlobalObjectId, out var shadowComponent, out var shadowScenePath))
+                && executionContext.TryGetComponentShadowState(sourceGlobalObjectId, out var componentShadowState))
             {
-                binding = new TargetBinding(shadowComponent!, shadowScenePath, sourceGlobalObjectId, alias);
+                binding = new TargetBinding(
+                    componentShadowState.Component!,
+                    componentShadowState.Resource,
+                    sourceGlobalObjectId,
+                    alias);
             }
             else
             {
-                binding = new TargetBinding(resolvedComponent!, scenePath, sourceGlobalObjectId, alias);
+                binding = new TargetBinding(componentResolution.Component!, componentResolution.Resource, sourceGlobalObjectId, alias);
             }
 
-            sets = parsedArguments.Value.Sets;
+            bindingState = new ResolvedBindingState(binding, validatedTargetState.ParsedArguments.Sets);
             return true;
         }
 
         private static bool TryResolveCallBinding (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            out TargetBinding binding,
-            out System.Collections.Generic.IReadOnlyList<CompSetAssignment>? sets,
+            out ResolvedBindingState bindingState,
             out OperationPhaseStepResult? failure)
         {
-            binding = default;
-            sets = null;
+            bindingState = default;
             failure = null;
             if (!CompSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
             {
@@ -273,20 +275,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 arguments.TargetReference,
                 executionContext,
                 allowTemporaryState: false,
-                out var component,
-                out var scenePath,
+                out var componentResolution,
                 out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            binding = new TargetBinding(component!, scenePath, GetSourceGlobalObjectId(arguments.TargetReference, component!), alias: null);
-            sets = arguments.Sets;
+            bindingState = new ResolvedBindingState(
+                new TargetBinding(
+                    componentResolution.Component!,
+                    componentResolution.Resource,
+                    GetSourceReferenceKey(arguments.TargetReference, componentResolution.Component!),
+                    alias: null),
+                arguments.Sets);
             return true;
         }
 
-        private static string GetSourceGlobalObjectId (
+        private static string GetSourceReferenceKey (
             UnityObjectReference targetReference,
             Component component)
         {
@@ -296,30 +302,60 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return targetReference.Selector.GlobalObjectId!;
             }
 
-            return UnityObjectReferenceResolver.CreateResolvedReference(component).GlobalObjectId;
+            return UnityObjectReferenceResolver.CreateTrackingKey(component);
         }
 
         private readonly struct TargetBinding
         {
             public TargetBinding (
                 Component component,
-                string scenePath,
+                OperationResource resource,
                 string? sourceGlobalObjectId,
                 string? alias)
             {
                 Component = component;
-                ScenePath = scenePath;
+                Resource = resource;
                 SourceGlobalObjectId = sourceGlobalObjectId;
                 Alias = alias;
             }
 
             public Component Component { get; }
 
-            public string ScenePath { get; }
+            public OperationResource Resource { get; }
 
             public string? SourceGlobalObjectId { get; }
 
             public string? Alias { get; }
+        }
+
+        private readonly struct ValidatedTargetState
+        {
+            public ValidatedTargetState (
+                Component component,
+                CompSetArguments parsedArguments)
+            {
+                Component = component;
+                ParsedArguments = parsedArguments;
+            }
+
+            public Component? Component { get; }
+
+            public CompSetArguments ParsedArguments { get; }
+        }
+
+        private readonly struct ResolvedBindingState
+        {
+            public ResolvedBindingState (
+                TargetBinding binding,
+                System.Collections.Generic.IReadOnlyList<CompSetAssignment> sets)
+            {
+                Binding = binding;
+                Sets = sets;
+            }
+
+            public TargetBinding Binding { get; }
+
+            public System.Collections.Generic.IReadOnlyList<CompSetAssignment> Sets { get; }
         }
     }
 }

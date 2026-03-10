@@ -19,6 +19,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly Dictionary<EnsuredComponentKey, EnsuredComponentValue> ensuredComponentsByKey =
             new Dictionary<EnsuredComponentKey, EnsuredComponentValue>();
 
+        private readonly Dictionary<string, GameObject> temporaryPrefabContentsRootsByPath =
+            new Dictionary<string, GameObject>(StringComparer.Ordinal);
+
         private readonly List<UnityEngine.Object> temporaryObjects = new List<UnityEngine.Object>();
 
         /// <summary> Initializes a new instance of the <see cref="OperationExecutionContext" /> class. </summary>
@@ -41,11 +44,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Stores or replaces one temporary alias value used during plan execution. </summary>
         /// <param name="alias"> The alias name. </param>
         /// <param name="unityObject"> The temporary live object. </param>
-        /// <param name="scenePath"> The logical scene path associated with the temporary object. </param>
+        /// <param name="scenePath"> The logical resource path associated with the temporary object. </param>
         internal void SetTemporaryAlias (
             string alias,
             UnityEngine.Object unityObject,
             string scenePath,
+            string? sourceGlobalObjectId = null)
+        {
+            SetTemporaryAlias(
+                alias,
+                unityObject,
+                new OperationResource(OperationTouchKind.Scene, scenePath),
+                sourceGlobalObjectId);
+        }
+
+        /// <summary> Stores or replaces one temporary alias value used during plan execution. </summary>
+        /// <param name="alias"> The alias name. </param>
+        /// <param name="unityObject"> The temporary live object. </param>
+        /// <param name="resource"> The logical owner resource associated with the temporary object. </param>
+        /// <param name="sourceGlobalObjectId"> The optional source GlobalObjectId used to synchronize shadows. </param>
+        internal void SetTemporaryAlias (
+            string alias,
+            UnityEngine.Object unityObject,
+            OperationResource resource,
             string? sourceGlobalObjectId = null)
         {
             ValidateAlias(alias);
@@ -54,48 +75,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(unityObject));
             }
 
-            if (string.IsNullOrWhiteSpace(scenePath))
-            {
-                throw new ArgumentException("Scene path must not be null, empty, or whitespace.", nameof(scenePath));
-            }
-
+            ValidateResource(resource, nameof(resource));
             if (sourceGlobalObjectId != null
                 && string.IsNullOrWhiteSpace(sourceGlobalObjectId))
             {
                 throw new ArgumentException("Source GlobalObjectId must not be empty when provided.", nameof(sourceGlobalObjectId));
             }
 
-            temporaryAliasesByName[alias] = new TemporaryAliasValue(unityObject, scenePath, sourceGlobalObjectId);
+            temporaryAliasesByName[alias] = new TemporaryAliasValue(unityObject, resource, sourceGlobalObjectId);
         }
 
-        /// <summary> Tries to get one temporary alias value. </summary>
+        /// <summary> Tries to get one temporary alias state. </summary>
         /// <param name="alias"> The alias name. </param>
-        /// <param name="unityObject"> The temporary live object when found. </param>
-        /// <param name="scenePath"> The logical scene path when found. </param>
+        /// <param name="state"> The tracked alias state when found. </param>
         /// <returns> <see langword="true" /> when temporary alias exists; otherwise <see langword="false" />. </returns>
-        internal bool TryGetTemporaryAlias (
+        internal bool TryGetTemporaryAliasState (
             string alias,
-            out UnityEngine.Object? unityObject,
-            out string scenePath)
+            out TemporaryAliasState state)
         {
-            return TryGetTemporaryAlias(alias, out unityObject, out scenePath, out _);
-        }
-
-        /// <summary> Tries to get one temporary alias value together with the tracked source GlobalObjectId. </summary>
-        /// <param name="alias"> The alias name. </param>
-        /// <param name="unityObject"> The temporary live object when found. </param>
-        /// <param name="scenePath"> The logical scene path when found. </param>
-        /// <param name="sourceGlobalObjectId"> The source GlobalObjectId when tracked; otherwise <see langword="null" />. </param>
-        /// <returns> <see langword="true" /> when temporary alias exists; otherwise <see langword="false" />. </returns>
-        internal bool TryGetTemporaryAlias (
-            string alias,
-            out UnityEngine.Object? unityObject,
-            out string scenePath,
-            out string? sourceGlobalObjectId)
-        {
-            unityObject = null;
-            scenePath = string.Empty;
-            sourceGlobalObjectId = null;
+            state = default;
             if (string.IsNullOrWhiteSpace(alias))
             {
                 return false;
@@ -112,9 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            unityObject = value.UnityObject;
-            scenePath = value.ScenePath;
-            sourceGlobalObjectId = value.SourceGlobalObjectId;
+            state = new TemporaryAliasState(value.UnityObject, value.Resource, value.SourceGlobalObjectId);
             return true;
         }
 
@@ -122,12 +118,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
         /// <param name="componentType"> The ensured component runtime type. </param>
         /// <param name="component"> The temporary ensured component. </param>
-        /// <param name="scenePath"> The owning scene path. </param>
+        /// <param name="scenePath"> The owning resource path. </param>
         internal void SetEnsuredComponent (
             string targetGlobalObjectId,
             Type componentType,
             Component component,
             string scenePath)
+        {
+            SetEnsuredComponent(
+                targetGlobalObjectId,
+                componentType,
+                component,
+                new OperationResource(OperationTouchKind.Scene, scenePath));
+        }
+
+        /// <summary> Stores or replaces one plan-time ensured component keyed by target GameObject and component type. </summary>
+        /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
+        /// <param name="componentType"> The ensured component runtime type. </param>
+        /// <param name="component"> The temporary ensured component. </param>
+        /// <param name="resource"> The owning resource. </param>
+        internal void SetEnsuredComponent (
+            string targetGlobalObjectId,
+            Type componentType,
+            Component component,
+            OperationResource resource)
         {
             if (string.IsNullOrWhiteSpace(targetGlobalObjectId))
             {
@@ -144,29 +158,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(component));
             }
 
-            if (string.IsNullOrWhiteSpace(scenePath))
-            {
-                throw new ArgumentException("Scene path must not be null, empty, or whitespace.", nameof(scenePath));
-            }
-
+            ValidateResource(resource, nameof(resource));
             ensuredComponentsByKey[new EnsuredComponentKey(targetGlobalObjectId, componentType)] =
-                new EnsuredComponentValue(component, scenePath);
+                new EnsuredComponentValue(component, resource);
         }
 
-        /// <summary> Tries to get one plan-time ensured component keyed by target GameObject and component type. </summary>
+        /// <summary> Tries to get one plan-time ensured component state keyed by target GameObject and component type. </summary>
         /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
         /// <param name="componentType"> The ensured component runtime type. </param>
-        /// <param name="component"> The temporary ensured component when found. </param>
-        /// <param name="scenePath"> The owning scene path when found. </param>
+        /// <param name="state"> The ensured component state when found. </param>
         /// <returns> <see langword="true" /> when ensured component exists; otherwise <see langword="false" />. </returns>
-        internal bool TryGetEnsuredComponent (
+        internal bool TryGetEnsuredComponentState (
             string targetGlobalObjectId,
             Type componentType,
-            out Component? component,
-            out string scenePath)
+            out EnsuredComponentState state)
         {
-            component = null;
-            scenePath = string.Empty;
+            state = default;
             if (string.IsNullOrWhiteSpace(targetGlobalObjectId) || componentType == null)
             {
                 return false;
@@ -183,19 +190,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            component = value.Component;
-            scenePath = value.ScenePath;
+            state = new EnsuredComponentState(value.Component, value.Resource);
             return true;
         }
 
         /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
         /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
         /// <param name="component"> The temporary shadow component. </param>
-        /// <param name="scenePath"> The owning scene path. </param>
+        /// <param name="scenePath"> The owning resource path. </param>
         internal void SetComponentShadow (
             string globalObjectId,
             Component component,
             string scenePath)
+        {
+            SetComponentShadow(
+                globalObjectId,
+                component,
+                new OperationResource(OperationTouchKind.Scene, scenePath));
+        }
+
+        /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
+        /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
+        /// <param name="component"> The temporary shadow component. </param>
+        /// <param name="resource"> The owning resource. </param>
+        internal void SetComponentShadow (
+            string globalObjectId,
+            Component component,
+            OperationResource resource)
         {
             if (string.IsNullOrWhiteSpace(globalObjectId))
             {
@@ -207,23 +228,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(component));
             }
 
-            if (string.IsNullOrWhiteSpace(scenePath))
-            {
-                throw new ArgumentException("Scene path must not be null, empty, or whitespace.", nameof(scenePath));
-            }
-
-            componentShadowsByGlobalObjectId[globalObjectId] = new ComponentShadowValue(component, scenePath);
-            SynchronizeTemporaryAliases(globalObjectId, component, scenePath);
+            ValidateResource(resource, nameof(resource));
+            componentShadowsByGlobalObjectId[globalObjectId] = new ComponentShadowValue(component, resource);
+            SynchronizeTemporaryAliases(globalObjectId, component, resource);
         }
 
         /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
         /// <param name="sourceComponent"> The previous temporary component instance. </param>
         /// <param name="replacementComponent"> The replacement temporary component instance. </param>
-        /// <param name="scenePath"> The owning scene path. </param>
+        /// <param name="scenePath"> The owning resource path. </param>
         internal void ReplaceTrackedTemporaryComponent (
             Component sourceComponent,
             Component replacementComponent,
             string scenePath)
+        {
+            ReplaceTrackedTemporaryComponent(
+                sourceComponent,
+                replacementComponent,
+                new OperationResource(OperationTouchKind.Scene, scenePath));
+        }
+
+        /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
+        /// <param name="sourceComponent"> The previous temporary component instance. </param>
+        /// <param name="replacementComponent"> The replacement temporary component instance. </param>
+        /// <param name="resource"> The owning resource. </param>
+        internal void ReplaceTrackedTemporaryComponent (
+            Component sourceComponent,
+            Component replacementComponent,
+            OperationResource resource)
         {
             if (sourceComponent == null)
             {
@@ -235,31 +267,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(replacementComponent));
             }
 
-            if (string.IsNullOrWhiteSpace(scenePath))
-            {
-                throw new ArgumentException("Scene path must not be null, empty, or whitespace.", nameof(scenePath));
-            }
-
+            ValidateResource(resource, nameof(resource));
             // NOTE:
             // Plan-time component mutations replace the temporary component instance with a cloned sandbox.
             // Every tracked state that still points at the previous clone must advance together or later
             // plan steps can observe stale serialized data.
-            SynchronizeTemporaryAliases(sourceComponent, replacementComponent, scenePath);
-            SynchronizeEnsuredComponents(sourceComponent, replacementComponent, scenePath);
+            SynchronizeTemporaryAliases(sourceComponent, replacementComponent, resource);
+            SynchronizeEnsuredComponents(sourceComponent, replacementComponent, resource);
         }
 
-        /// <summary> Tries to get one temporary component shadow. </summary>
+        /// <summary> Tries to get one temporary component shadow state. </summary>
         /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
-        /// <param name="component"> The temporary shadow component when found. </param>
-        /// <param name="scenePath"> The owning scene path when found. </param>
+        /// <param name="state"> The component shadow state when found. </param>
         /// <returns> <see langword="true" /> when shadow exists; otherwise <see langword="false" />. </returns>
-        internal bool TryGetComponentShadow (
+        internal bool TryGetComponentShadowState (
             string globalObjectId,
-            out Component? component,
-            out string scenePath)
+            out ComponentShadowState state)
         {
-            component = null;
-            scenePath = string.Empty;
+            state = default;
             if (string.IsNullOrWhiteSpace(globalObjectId))
             {
                 return false;
@@ -276,8 +301,56 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            component = value.Component;
-            scenePath = value.ScenePath;
+            state = new ComponentShadowState(value.Component, value.Resource);
+            return true;
+        }
+
+        /// <summary> Tracks one temporary prefab-contents root for unload at the end of request execution. </summary>
+        /// <param name="prefabPath"> The prefab asset path associated with the loaded contents. </param>
+        /// <param name="prefabContentsRoot"> The loaded prefab-contents root. </param>
+        internal void TrackTemporaryPrefabContentsRoot (
+            string prefabPath,
+            GameObject prefabContentsRoot)
+        {
+            if (string.IsNullOrWhiteSpace(prefabPath))
+            {
+                throw new ArgumentException("Prefab path must not be null, empty, or whitespace.", nameof(prefabPath));
+            }
+
+            if (prefabContentsRoot == null)
+            {
+                throw new ArgumentNullException(nameof(prefabContentsRoot));
+            }
+
+            temporaryPrefabContentsRootsByPath[prefabPath] = prefabContentsRoot;
+        }
+
+        /// <summary> Tries to get one request-local temporary prefab-contents root. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <param name="prefabContentsRoot"> The loaded prefab-contents root when found. </param>
+        /// <returns> <see langword="true" /> when tracked root exists; otherwise <see langword="false" />. </returns>
+        internal bool TryGetTemporaryPrefabContentsRoot (
+            string prefabPath,
+            out GameObject? prefabContentsRoot)
+        {
+            prefabContentsRoot = null;
+            if (string.IsNullOrWhiteSpace(prefabPath))
+            {
+                return false;
+            }
+
+            if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var value))
+            {
+                return false;
+            }
+
+            if (value == null)
+            {
+                temporaryPrefabContentsRootsByPath.Remove(prefabPath);
+                return false;
+            }
+
+            prefabContentsRoot = value;
             return true;
         }
 
@@ -296,6 +369,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Destroys all tracked temporary objects and clears temporary state. </summary>
         internal void CleanupTemporaryObjects ()
         {
+            foreach (var pair in temporaryPrefabContentsRootsByPath)
+            {
+                var prefabContentsRoot = pair.Value;
+                if (prefabContentsRoot != null)
+                {
+                    UnityEditor.PrefabUtility.UnloadPrefabContents(prefabContentsRoot);
+                }
+            }
+
+            temporaryPrefabContentsRootsByPath.Clear();
+
             for (var i = temporaryObjects.Count - 1; i >= 0; i--)
             {
                 var temporaryObject = temporaryObjects[i];
@@ -324,10 +408,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
         }
 
+        private static void ValidateResource (
+            OperationResource resource,
+            string parameterName)
+        {
+            if (string.IsNullOrWhiteSpace(resource.Path))
+            {
+                throw new ArgumentException("Operation resource path must not be null, empty, or whitespace.", parameterName);
+            }
+        }
+
         private void SynchronizeTemporaryAliases (
             string globalObjectId,
             Component component,
-            string scenePath)
+            OperationResource resource)
         {
             List<string>? aliasesToSynchronize = null;
             foreach (var pair in temporaryAliasesByName)
@@ -349,14 +443,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < aliasesToSynchronize.Count; i++)
             {
                 var alias = aliasesToSynchronize[i];
-                temporaryAliasesByName[alias] = new TemporaryAliasValue(component, scenePath, globalObjectId);
+                temporaryAliasesByName[alias] = new TemporaryAliasValue(component, resource, globalObjectId);
             }
         }
 
         private void SynchronizeTemporaryAliases (
             Component sourceComponent,
             Component replacementComponent,
-            string scenePath)
+            OperationResource resource)
         {
             List<string>? aliasesToSynchronize = null;
             foreach (var pair in temporaryAliasesByName)
@@ -379,14 +473,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 var alias = aliasesToSynchronize[i];
                 var sourceGlobalObjectId = temporaryAliasesByName[alias].SourceGlobalObjectId;
-                temporaryAliasesByName[alias] = new TemporaryAliasValue(replacementComponent, scenePath, sourceGlobalObjectId);
+                temporaryAliasesByName[alias] = new TemporaryAliasValue(replacementComponent, resource, sourceGlobalObjectId);
             }
         }
 
         private void SynchronizeEnsuredComponents (
             Component sourceComponent,
             Component replacementComponent,
-            string scenePath)
+            OperationResource resource)
         {
             List<EnsuredComponentKey>? keysToSynchronize = null;
             foreach (var pair in ensuredComponentsByKey)
@@ -408,7 +502,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < keysToSynchronize.Count; i++)
             {
                 var key = keysToSynchronize[i];
-                ensuredComponentsByKey[key] = new EnsuredComponentValue(replacementComponent, scenePath);
+                ensuredComponentsByKey[key] = new EnsuredComponentValue(replacementComponent, resource);
             }
         }
 
@@ -416,17 +510,36 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public TemporaryAliasValue (
                 UnityEngine.Object unityObject,
-                string scenePath,
+                OperationResource resource,
                 string? sourceGlobalObjectId)
             {
                 UnityObject = unityObject;
-                ScenePath = scenePath;
+                Resource = resource;
                 SourceGlobalObjectId = sourceGlobalObjectId;
             }
 
             public UnityEngine.Object UnityObject { get; }
 
-            public string ScenePath { get; }
+            public OperationResource Resource { get; }
+
+            public string? SourceGlobalObjectId { get; }
+        }
+
+        internal readonly struct TemporaryAliasState
+        {
+            public TemporaryAliasState (
+                UnityEngine.Object unityObject,
+                OperationResource resource,
+                string? sourceGlobalObjectId)
+            {
+                UnityObject = unityObject;
+                Resource = resource;
+                SourceGlobalObjectId = sourceGlobalObjectId;
+            }
+
+            public UnityEngine.Object? UnityObject { get; }
+
+            public OperationResource Resource { get; }
 
             public string? SourceGlobalObjectId { get; }
         }
@@ -435,15 +548,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ComponentShadowValue (
                 Component component,
-                string scenePath)
+                OperationResource resource)
             {
                 Component = component;
-                ScenePath = scenePath;
+                Resource = resource;
             }
 
             public Component Component { get; }
 
-            public string ScenePath { get; }
+            public OperationResource Resource { get; }
+        }
+
+        internal readonly struct ComponentShadowState
+        {
+            public ComponentShadowState (
+                Component component,
+                OperationResource resource)
+            {
+                Component = component;
+                Resource = resource;
+            }
+
+            public Component? Component { get; }
+
+            public OperationResource Resource { get; }
         }
 
         private readonly struct EnsuredComponentKey : IEquatable<EnsuredComponentKey>
@@ -485,15 +613,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public EnsuredComponentValue (
                 Component component,
-                string scenePath)
+                OperationResource resource)
             {
                 Component = component;
-                ScenePath = scenePath;
+                Resource = resource;
             }
 
             public Component Component { get; }
 
-            public string ScenePath { get; }
+            public OperationResource Resource { get; }
+        }
+
+        internal readonly struct EnsuredComponentState
+        {
+            public EnsuredComponentState (
+                Component component,
+                OperationResource resource)
+            {
+                Component = component;
+                Resource = resource;
+            }
+
+            public Component? Component { get; }
+
+            public OperationResource Resource { get; }
         }
     }
 }
