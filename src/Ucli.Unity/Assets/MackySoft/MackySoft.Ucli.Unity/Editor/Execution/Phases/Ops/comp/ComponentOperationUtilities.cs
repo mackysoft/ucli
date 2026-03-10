@@ -13,22 +13,41 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Resolves one reference to a loaded-scene GameObject. </summary>
         /// <param name="reference"> The parsed Unity-object reference. </param>
         /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="gameObject"> The resolved GameObject when successful. </param>
-        /// <param name="scene"> The owning loaded scene when successful. </param>
+        /// <param name="resolution"> The loaded-scene GameObject resolution when successful. </param>
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when the reference resolves to one loaded-scene GameObject; otherwise <see langword="false" />. </returns>
         public static bool TryResolveLoadedSceneGameObject (
             UnityObjectReference reference,
             OperationExecutionContext executionContext,
-            out GameObject? gameObject,
-            out Scene scene,
+            out GoOperationUtilities.LoadedSceneGameObjectResolutionState resolution,
             out string errorMessage)
         {
             return GoOperationUtilities.TryResolveLoadedSceneGameObject(
                 reference,
                 executionContext,
-                out gameObject,
-                out scene,
+                out resolution,
+                out errorMessage);
+        }
+
+        /// <summary> Resolves one reference to an editable GameObject. Temporary plan aliases can be enabled when required. </summary>
+        /// <param name="reference"> The parsed Unity-object reference. </param>
+        /// <param name="executionContext"> The request execution context. </param>
+        /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy the reference. </param>
+        /// <param name="resolution"> The editable GameObject resolution when successful. </param>
+        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
+        /// <returns> <see langword="true" /> when the reference resolves to one editable GameObject; otherwise <see langword="false" />. </returns>
+        public static bool TryResolveEditableGameObject (
+            UnityObjectReference reference,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
+            out GoOperationUtilities.EditableGameObjectResolutionState resolution,
+            out string errorMessage)
+        {
+            return GoOperationUtilities.TryResolveEditableGameObject(
+                reference,
+                executionContext,
+                allowTemporaryState,
+                out resolution,
                 out errorMessage);
         }
 
@@ -36,31 +55,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="reference"> The parsed Unity-object reference. </param>
         /// <param name="executionContext"> The request execution context. </param>
         /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy the reference. </param>
-        /// <param name="component"> The resolved component when successful. </param>
-        /// <param name="scenePath"> The owning scene path when successful. </param>
+        /// <param name="resolution"> The resolved component state when successful. </param>
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when the reference resolves to one Component target; otherwise <see langword="false" />. </returns>
         public static bool TryResolveComponent (
             UnityObjectReference reference,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out Component? component,
-            out string scenePath,
+            out ComponentResolutionState resolution,
             out string errorMessage)
         {
-            component = null;
-            scenePath = string.Empty;
-            if (allowTemporaryState
-                && reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAlias(reference.Alias!, out var temporaryObject, out scenePath))
+            resolution = default;
+            if (reference.Kind == UnityObjectReferenceKind.Alias
+                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
             {
-                component = temporaryObject as Component;
-                if (component == null)
+                var temporaryComponent = temporaryAliasState.UnityObject as Component;
+                if (temporaryComponent == null)
                 {
                     errorMessage = "Reference did not resolve to a Component.";
                     return false;
                 }
 
+                resolution = new ComponentResolutionState(temporaryComponent, temporaryAliasState.Resource);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -70,14 +86,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            component = unityObject as Component;
+            var component = unityObject as Component;
             if (component == null)
             {
                 errorMessage = "Reference did not resolve to a Component.";
                 return false;
             }
 
-            return TryGetLoadedScenePath(component, out scenePath, out errorMessage);
+            if (!TryGetOwnerResource(component, out var resource, out errorMessage))
+            {
+                return false;
+            }
+
+            resolution = new ComponentResolutionState(component, resource);
+            return true;
         }
 
         /// <summary> Resolves one reference to a Unity object. Temporary plan aliases can be enabled when required. </summary>
@@ -95,11 +117,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             unityObject = null;
-            if (allowTemporaryState
-                && reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAlias(reference.Alias!, out var temporaryObject, out _))
+            if (reference.Kind == UnityObjectReferenceKind.Alias
+                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
             {
-                unityObject = temporaryObject;
+                unityObject = temporaryAliasState.UnityObject;
                 errorMessage = string.Empty;
                 return true;
             }
@@ -117,21 +138,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string scenePath,
             out string errorMessage)
         {
-            scenePath = string.Empty;
+            var result = TryGetOwnerResource(component, out var resource, out errorMessage);
+            scenePath = resource.Path;
+            return result;
+        }
+
+        /// <summary> Tries to resolve one owner resource from a Component. </summary>
+        /// <param name="component"> The source component. </param>
+        /// <param name="resource"> The owning resource when successful. </param>
+        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
+        /// <returns> <see langword="true" /> when the component belongs to an editable resource; otherwise <see langword="false" />. </returns>
+        public static bool TryGetOwnerResource (
+            Component component,
+            out OperationResource resource,
+            out string errorMessage)
+        {
+            resource = default;
             if (component == null)
             {
                 throw new ArgumentNullException(nameof(component));
             }
 
-            var gameObject = component.gameObject;
-            if (!GoOperationUtilities.TryGetLoadedSceneFromGameObject(gameObject, out var scene, out errorMessage))
-            {
-                return false;
-            }
-
-            scenePath = scene.path;
-            errorMessage = string.Empty;
-            return true;
+            return OperationResourceUtilities.TryResolveOwnerResource(component, out resource, out errorMessage);
         }
 
         /// <summary> Creates one temporary component instance for plan-time simulation. </summary>
@@ -225,6 +253,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return host.AddComponent(componentType);
+        }
+
+        internal readonly struct ComponentResolutionState
+        {
+            public ComponentResolutionState (
+                Component component,
+                OperationResource resource)
+            {
+                Component = component;
+                Resource = resource;
+            }
+
+            public Component? Component { get; }
+
+            public OperationResource Resource { get; }
         }
     }
 }

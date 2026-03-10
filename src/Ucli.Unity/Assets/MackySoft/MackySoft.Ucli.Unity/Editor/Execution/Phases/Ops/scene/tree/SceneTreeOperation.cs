@@ -46,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, out _, out _, out _, out var failure))
+            if (!TryValidateArguments(operation, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -90,58 +90,54 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             bool applied)
         {
-            if (!TryValidateArguments(operation, out var scenePath, out var scene, out var depth, out var failure))
+            if (!TryValidateArguments(operation, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var tree = BuildSceneTree(scenePath, scene, depth);
+            var tree = BuildSceneTree(validationState.ScenePath, validationState.Scene, validationState.Depth);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(scenePath),
+                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
                 },
                 result: IpcPayloadCodec.SerializeToElement(tree)));
         }
 
         /// <summary> Validates operation arguments and resolves loaded scene. </summary>
         /// <param name="operation"> The normalized operation. </param>
-        /// <param name="scenePath"> The parsed scene path when successful. </param>
-        /// <param name="scene"> The resolved loaded scene when successful. </param>
-        /// <param name="depth"> The parsed depth. <see langword="null" /> means unlimited. </param>
+        /// <param name="validationState"> The validated operation state when successful. </param>
         /// <param name="failure"> The failure result when validation fails. </param>
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            out string scenePath,
-            out Scene scene,
-            out int? depth,
+            out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
-            scenePath = string.Empty;
-            scene = default;
-            depth = null;
+            validationState = default;
             failure = null;
-            if (!SceneOperationArgumentsCodec.TryParseTreeArguments(operation.Args, out scenePath, out depth, out var parseErrorMessage))
+            if (!SceneOperationArgumentsCodec.TryParseTreeArguments(operation.Args, out var parsedArguments, out var parseErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
                 return false;
             }
 
+            var scenePath = parsedArguments.ScenePath;
             if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out scene, out sceneErrorMessage))
+            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out var scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
+            validationState = new ValidationState(scenePath, scene, parsedArguments.Depth);
             return true;
         }
 
@@ -217,5 +213,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string Name,
             string GlobalObjectId,
             IReadOnlyList<SceneTreeNodeDescription> Children);
+
+        private readonly struct ValidationState
+        {
+            public ValidationState (
+                string scenePath,
+                Scene scene,
+                int? depth)
+            {
+                ScenePath = scenePath;
+                Scene = scene;
+                Depth = depth;
+            }
+
+            public string ScenePath { get; }
+
+            public Scene Scene { get; }
+
+            public int? Depth { get; }
+        }
     }
 }

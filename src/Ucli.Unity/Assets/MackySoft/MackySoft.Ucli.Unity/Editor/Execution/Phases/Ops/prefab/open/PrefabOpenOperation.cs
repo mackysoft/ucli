@@ -3,14 +3,15 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 
 #nullable enable
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Implements <c>ucli.scene.open</c> operation flow. </summary>
+    /// <summary> Implements <c>ucli.prefab.open</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneOpenOperation : IUcliOperation
+    internal sealed class PrefabOpenOperation : IUcliOperation
     {
         private const string ArgsSchemaJson =
             @"{
@@ -23,21 +24,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.scene.open",
+            operationName: "ucli.prefab.open",
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
 
-        /// <summary> Executes validate phase for <c>ucli.scene.open</c>. </summary>
-        /// <param name="operation"> The normalized operation. </param>
-        /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
-        /// <returns> The phase-step result. </returns>
         public Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!TryValidateArguments(operation, out _, out var failure))
             {
                 return Task.FromResult(failure!);
@@ -46,19 +43,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        /// <summary> Executes plan phase for <c>ucli.scene.open</c>. </summary>
-        /// <param name="operation"> The normalized operation. </param>
-        /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
-        /// <returns> The phase-step result. </returns>
         public Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!TryValidateArguments(operation, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
+            }
+
+            if (!PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
+                validationState.PrefabPath,
+                executionContext,
+                out var prefabContentsRoot,
+                out var errorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
+            }
+
+            if (operation.As != null)
+            {
+                executionContext.SetTemporaryAlias(
+                    operation.As,
+                    prefabContentsRoot!,
+                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -66,31 +76,44 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
+                    PrefabOperationUtilities.CreatePrefabTouch(validationState.PrefabPath),
                 }));
         }
 
-        /// <summary> Executes call phase for <c>ucli.scene.open</c>. </summary>
-        /// <param name="operation"> The normalized operation. </param>
-        /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
-        /// <returns> The phase-step result. </returns>
         public Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (!TryValidateArguments(operation, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var openedScene = EditorSceneManager.OpenScene(validationState.ScenePath, OpenSceneMode.Single);
-            if (!openedScene.IsValid() || !openedScene.isLoaded)
+            if (!PrefabOperationUtilities.TryOpenPrefabStage(validationState.PrefabPath, out var prefabStage, out var errorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
+            }
+
+            var prefabContentsRoot = prefabStage!.prefabContentsRoot;
+            if (prefabContentsRoot == null)
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
-                    $"Scene could not be opened: {validationState.ScenePath}."));
+                    $"Prefab root is not available after open: {validationState.PrefabPath}."));
+            }
+
+            if (operation.As != null)
+            {
+                executionContext.SetTemporaryAlias(
+                    operation.As,
+                    prefabContentsRoot,
+                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
+                if (UnityObjectReferenceResolver.TryCreateResolvedReference(prefabContentsRoot, out var resolvedReference))
+                {
+                    executionContext.AliasStore.Set(operation.As, resolvedReference!);
+                }
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -98,15 +121,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
+                    PrefabOperationUtilities.CreatePrefabTouch(validationState.PrefabPath),
                 }));
         }
 
-        /// <summary> Validates operation arguments and scene path. </summary>
-        /// <param name="operation"> The normalized operation. </param>
-        /// <param name="validationState"> The validated operation state when successful. </param>
-        /// <param name="failure"> The failure result when validation fails. </param>
-        /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
             out ValidationState validationState,
@@ -114,30 +132,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!SceneOperationArgumentsCodec.TryParsePathArguments(operation.Args, out var scenePath, out var parseErrorMessage))
+            if (!PrefabOperationArgumentsCodec.TryParsePathArguments(operation.Args, out var prefabPath, out var parseErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(prefabPath, out var errorMessage))
             {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            validationState = new ValidationState(scenePath);
+            validationState = new ValidationState(prefabPath);
             return true;
         }
 
         private readonly struct ValidationState
         {
-            public ValidationState (string scenePath)
+            public ValidationState (string prefabPath)
             {
-                ScenePath = scenePath;
+                PrefabPath = prefabPath;
             }
 
-            public string ScenePath { get; }
+            public string PrefabPath { get; }
         }
     }
 }

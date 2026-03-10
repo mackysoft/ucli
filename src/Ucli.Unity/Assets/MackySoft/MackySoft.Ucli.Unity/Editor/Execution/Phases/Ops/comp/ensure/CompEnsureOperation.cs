@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 #nullable enable
 
@@ -51,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, executionContext, out _, out _, out _, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -82,17 +81,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             bool applied)
         {
-            if (!TryValidateArguments(operation, executionContext, out var target, out var scene, out var componentType, out var failure))
+            if (!TryValidateArguments(
+                operation,
+                executionContext,
+                allowTemporaryState: !applied,
+                out var validationState,
+                out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
             var component = default(Component);
             var changed = false;
-            var usesTemporaryComponent = false;
             if (applied)
             {
-                var existingComponents = target.GetComponents(componentType);
+                var existingComponents = validationState.Target.GetComponents(validationState.ComponentType);
                 component = existingComponents.Length > 0
                     ? existingComponents[0]
                     : null;
@@ -100,23 +103,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
             else
             {
-                var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
-                if (!string.IsNullOrWhiteSpace(targetGlobalObjectId)
-                    && executionContext.TryGetEnsuredComponent(targetGlobalObjectId, componentType, out component, out _))
+                var targetReferenceKey = UnityObjectReferenceResolver.CreateTrackingKey(validationState.Target);
+                if (executionContext.TryGetEnsuredComponentState(targetReferenceKey, validationState.ComponentType, out var ensuredComponentState))
                 {
+                    component = ensuredComponentState.Component;
                     changed = false;
-                    usesTemporaryComponent = true;
                 }
                 else
                 {
-                    var existingComponents = target.GetComponents(componentType);
+                    var existingComponents = validationState.Target.GetComponents(validationState.ComponentType);
                     component = existingComponents.Length > 0
                         ? existingComponents[0]
                         : null;
                     changed = component == null;
                     if (component == null)
                     {
-                        if (!ComponentOperationUtilities.TryCreateTemporaryComponent(componentType, executionContext, out component, out var errorMessage))
+                        if (!ComponentOperationUtilities.TryCreateTemporaryComponent(validationState.ComponentType, executionContext, out component, out var errorMessage))
                         {
                             return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                                 Code: MackySoft.Ucli.Contracts.Ipc.IpcErrorCodes.InternalError,
@@ -124,8 +126,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                                 OpId: operation.Id)));
                         }
 
-                        executionContext.SetEnsuredComponent(targetGlobalObjectId, componentType, component!, scene.path);
-                        usesTemporaryComponent = true;
+                        executionContext.SetEnsuredComponent(targetReferenceKey, validationState.ComponentType, component!, validationState.Resource);
                     }
                 }
             }
@@ -134,14 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 if (component != null)
                 {
-                    if (usesTemporaryComponent)
-                    {
-                        executionContext.SetTemporaryAlias(operation.As, component, scene.path);
-                    }
-                    else
-                    {
-                        executionContext.AliasStore.Set(operation.As, UnityObjectReferenceResolver.CreateResolvedReference(component));
-                    }
+                    executionContext.SetTemporaryAlias(operation.As, component, validationState.Resource, UnityObjectReferenceResolver.CreateTrackingKey(component));
                 }
                 else
                 {
@@ -153,12 +147,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 if (component == null)
                 {
-                    component = AddComponent(target, componentType);
+                    component = AddComponent(validationState.Target, validationState.ComponentType);
                 }
 
                 if (operation.As != null)
                 {
-                    executionContext.AliasStore.Set(operation.As, UnityObjectReferenceResolver.CreateResolvedReference(component!));
+                    StoreAliasIfNeeded(operation.As, executionContext, component!, validationState.Resource);
                 }
             }
 
@@ -167,21 +161,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: changed,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(scene.path),
+                    OperationResourceUtilities.CreateTouch(validationState.Resource),
                 }));
         }
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            out GameObject target,
-            out Scene scene,
-            out Type componentType,
+            bool allowTemporaryState,
+            out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
-            target = null!;
-            scene = default;
-            componentType = null!;
+            validationState = default;
             failure = null;
             if (!CompEnsureArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var errorMessage))
             {
@@ -189,11 +180,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentOperationUtilities.TryResolveLoadedSceneGameObject(
+            if (!ComponentOperationUtilities.TryResolveEditableGameObject(
                 parsedArguments.TargetReference,
                 executionContext,
-                out var resolvedTarget,
-                out scene,
+                allowTemporaryState,
+                out var targetResolution,
                 out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
@@ -206,8 +197,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            target = resolvedTarget!;
-            componentType = resolvedComponentType!;
+            validationState = new ValidationState(
+                targetResolution.GameObject!,
+                targetResolution.Resource,
+                resolvedComponentType!);
             return true;
         }
 
@@ -228,6 +221,43 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return component;
+        }
+
+        private static void StoreAliasIfNeeded (
+            string? alias,
+            OperationExecutionContext executionContext,
+            Component component,
+            OperationResource resource)
+        {
+            if (alias == null)
+            {
+                return;
+            }
+
+            executionContext.SetTemporaryAlias(alias, component, resource, UnityObjectReferenceResolver.CreateTrackingKey(component));
+            if (UnityObjectReferenceResolver.TryCreateResolvedReference(component, out var resolvedReference))
+            {
+                executionContext.AliasStore.Set(alias, resolvedReference!);
+            }
+        }
+
+        private readonly struct ValidationState
+        {
+            public ValidationState (
+                GameObject target,
+                OperationResource resource,
+                Type componentType)
+            {
+                Target = target;
+                Resource = resource;
+                ComponentType = componentType;
+            }
+
+            public GameObject? Target { get; }
+
+            public OperationResource Resource { get; }
+
+            public Type? ComponentType { get; }
         }
     }
 }

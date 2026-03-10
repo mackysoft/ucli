@@ -69,19 +69,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             bool applied,
             CancellationToken cancellationToken)
         {
-            if (!TryValidateArguments(operation, out var componentType, out var failure))
+            if (!TryValidateArguments(operation, out var validationState, out var failure))
             {
                 return failure!;
             }
 
             var extractionResult = await schemaExtractor.Extract(
-                new[] { componentType! },
+                new[] { validationState.ComponentType! },
                 cancellationToken).ConfigureAwait(false);
             if (extractionResult.Entries.Count == 0)
             {
                 return OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
-                    Message: $"Schema could not be extracted for type '{componentType!.FullName}'.",
+                    Message: $"Schema could not be extracted for type '{validationState.ComponentType!.FullName}'.",
                     OpId: operation.Id));
             }
 
@@ -93,10 +93,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            out System.Type? componentType,
+            out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
-            componentType = null;
+            validationState = default;
             failure = null;
             if (!CompSchemaArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var errorMessage))
             {
@@ -104,13 +104,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentTypeResolver.TryResolveComponentType(parsedArguments.TypeId, out componentType, out errorMessage))
+            if (!ComponentTypeResolver.TryResolveComponentType(parsedArguments.TypeId, out var componentType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
+            validationState = new ValidationState(componentType);
             return true;
+        }
+
+        private readonly struct ValidationState
+        {
+            public ValidationState (System.Type componentType)
+            {
+                ComponentType = componentType;
+            }
+
+            public System.Type? ComponentType { get; }
         }
     }
 }

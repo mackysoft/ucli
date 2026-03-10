@@ -780,12 +780,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!TryParseManagedReferenceContract(value, logicalPath, out var typeId, out var payload, out errorMessage))
+            if (!TryParseManagedReferenceContract(value, logicalPath, out var contract, out errorMessage))
             {
                 return false;
             }
 
-            if (!ComponentTypeResolver.TryResolveRuntimeType(typeId!, out var runtimeType, out errorMessage))
+            if (!ComponentTypeResolver.TryResolveRuntimeType(contract.TypeId, out var runtimeType, out errorMessage))
             {
                 errorMessage = $"Managed reference typeId is invalid for '{logicalPath}'. {errorMessage}";
                 return false;
@@ -820,7 +820,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 serializedObject,
                 rootType,
                 refreshedProperty,
-                payload!.Value,
+                contract.Payload,
                 executionContext,
                 allowTemporaryState,
                 logicalPath,
@@ -987,14 +987,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             var propertyPath = property.propertyPath;
             var originalPropertyPath = propertyPath;
-            while (TryGetParentPropertyPath(propertyPath, out var parentPath, out var relativePath))
+            while (TryGetParentPropertyPath(propertyPath, out var parentPathState))
             {
-                var parentProperty = serializedObject.FindProperty(parentPath);
+                var parentProperty = serializedObject.FindProperty(parentPathState.ParentPath);
                 if (parentProperty != null
                     && parentProperty.propertyType == SerializedPropertyType.ManagedReference
                     && parentProperty.managedReferenceValue != null)
                 {
-                    relativePath = originalPropertyPath.Substring(parentPath.Length + 1);
+                    var relativePath = originalPropertyPath.Substring(parentPathState.ParentPath.Length + 1);
                     var resolution = IndexDeclaredTypeResolver.Resolve(parentProperty.managedReferenceValue.GetType(), relativePath);
                     if (resolution.IsResolved)
                     {
@@ -1004,7 +1004,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
                 }
 
-                propertyPath = parentPath;
+                propertyPath = parentPathState.ParentPath;
             }
 
             declaredType = null!;
@@ -1014,19 +1014,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryGetParentPropertyPath (
             string propertyPath,
-            out string parentPath,
-            out string relativePath)
+            out ParentPropertyPathState state)
         {
+            state = default;
             var parentSeparatorIndex = propertyPath.LastIndexOf('.');
             if (parentSeparatorIndex < 0)
             {
-                parentPath = string.Empty;
-                relativePath = string.Empty;
                 return false;
             }
 
-            parentPath = propertyPath.Substring(0, parentSeparatorIndex);
-            relativePath = propertyPath.Substring(parentSeparatorIndex + 1);
+            state = new ParentPropertyPathState(
+                propertyPath.Substring(0, parentSeparatorIndex),
+                propertyPath.Substring(parentSeparatorIndex + 1));
             return true;
         }
 
@@ -1614,18 +1613,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static bool TryParseManagedReferenceContract (
             JsonElement value,
             string logicalPath,
-            out string? typeId,
-            out JsonElement? payload,
+            out ManagedReferenceContract contract,
             out string errorMessage)
         {
-            typeId = null;
-            payload = null;
+            contract = default;
             errorMessage = string.Empty;
             if (!TryReadObject(value, logicalPath, out var properties, out errorMessage))
             {
                 return false;
             }
 
+            string? typeId = null;
             if (!properties.TryGetValue("type", out var typeElement)
                 || !OperationArgumentValueReader.TryReadRequiredString(
                     typeElement,
@@ -1643,7 +1641,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            payload = valueElement;
+            contract = new ManagedReferenceContract(typeId!, valueElement);
             return true;
         }
 
@@ -1667,6 +1665,36 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             errorMessage = string.Empty;
             return true;
+        }
+
+        private readonly struct ManagedReferenceContract
+        {
+            public ManagedReferenceContract (
+                string typeId,
+                JsonElement payload)
+            {
+                TypeId = typeId;
+                Payload = payload;
+            }
+
+            public string TypeId { get; }
+
+            public JsonElement Payload { get; }
+        }
+
+        private readonly struct ParentPropertyPathState
+        {
+            public ParentPropertyPathState (
+                string parentPath,
+                string relativePath)
+            {
+                ParentPath = parentPath;
+                RelativePath = relativePath;
+            }
+
+            public string ParentPath { get; }
+
+            public string RelativePath { get; }
         }
 
         private static bool TryGetRequiredNumber (
