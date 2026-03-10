@@ -39,9 +39,9 @@
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.prefab.create` | mutation | advanced | mvp-core | GameObjectからPrefabを新規作成する。 | 予定 |
-| `ucli.prefab.open` | query | safe | mvp-core | 指定Prefabを編集コンテキストとして開く。 | 予定 |
-| `ucli.prefab.save` | mutation | advanced | mvp-core | 編集中のPrefabを保存する。 | 予定 |
+| `ucli.prefab.create` | mutation | advanced | mvp-core | Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | 予定 |
+| `ucli.prefab.open` | query | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。`as` 指定時は Prefab root を alias 保存する。 | 予定 |
+| `ucli.prefab.save` | mutation | advanced | mvp-core | 現在開いている指定 Prefab を保存する。 | 予定 |
 
 ## project
 
