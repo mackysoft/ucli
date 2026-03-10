@@ -1,0 +1,6 @@
+interface:
+  display_name: "Code Quality Review"
+  short_description: "重複実装や凝集低下、冗長状態管理を重点レビューする"
+  default_prompt: "Use $code-quality-review to assess code quality and, when appropriate, carry safe structural improvements through after the review."
+policy:
+  allow_implicit_invocation: true
