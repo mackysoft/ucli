@@ -79,6 +79,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var compSetProperties = compSetSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(compSetProperties.TryGetProperty("target", out _), Is.True);
             Assert.That(compSetProperties.GetProperty("sets").GetProperty("minItems").GetInt32(), Is.EqualTo(1));
+
+            var prefabCreateMetadata = FindMetadata(operations, "ucli.prefab.create");
+            using var prefabCreateSchemaDocument = JsonDocument.Parse(prefabCreateMetadata.ArgsSchemaJson);
+            var prefabCreateProperties = prefabCreateSchemaDocument.RootElement.GetProperty("properties");
+            Assert.That(prefabCreateProperties.TryGetProperty("target", out _), Is.True);
+            Assert.That(prefabCreateProperties.TryGetProperty("path", out _), Is.True);
+            Assert.That(prefabCreateSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(2));
+
+            var prefabOpenMetadata = FindMetadata(operations, "ucli.prefab.open");
+            using var prefabOpenSchemaDocument = JsonDocument.Parse(prefabOpenMetadata.ArgsSchemaJson);
+            var prefabOpenProperties = prefabOpenSchemaDocument.RootElement.GetProperty("properties");
+            Assert.That(prefabOpenProperties.TryGetProperty("path", out _), Is.True);
+            Assert.That(prefabOpenSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(1));
         }
 
         [Test]
