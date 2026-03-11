@@ -6,12 +6,20 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Parses and validates argument contracts for <c>ucli.comp.set</c>. </summary>
-    internal static class CompSetArgumentsCodec
+    /// <summary> Parses and validates the shared argument contract for serialized-object set operations. </summary>
+    internal static class SerializedObjectSetArgumentsCodec
     {
+        private const string TargetPropertyName = "target";
+
+        private const string SetsPropertyName = "sets";
+
+        private const string PathPropertyName = "path";
+
+        private const string ValuePropertyName = "value";
+
         public static bool TryParse (
             JsonElement args,
-            out CompSetArguments parsedArguments,
+            out SerializedObjectSetArguments parsedArguments,
             out string errorMessage)
         {
             parsedArguments = default;
@@ -25,14 +33,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var hasTarget = false;
             var hasSets = false;
             var targetReference = default(UnityObjectReference);
-            List<CompSetAssignment>? assignments = null;
+            List<SerializedPropertyAssignment>? assignments = null;
             foreach (var property in args.EnumerateObject())
             {
-                if (string.Equals(property.Name, CompOperationPropertyNames.Target, StringComparison.Ordinal))
+                if (string.Equals(property.Name, TargetPropertyName, StringComparison.Ordinal))
                 {
                     if (hasTarget)
                     {
-                        errorMessage = $"Operation 'args' contains duplicated property: {CompOperationPropertyNames.Target}.";
+                        errorMessage = $"Operation 'args' contains duplicated property: {TargetPropertyName}.";
                         return false;
                     }
 
@@ -45,11 +53,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                if (string.Equals(property.Name, CompOperationPropertyNames.Sets, StringComparison.Ordinal))
+                if (string.Equals(property.Name, SetsPropertyName, StringComparison.Ordinal))
                 {
                     if (hasSets)
                     {
-                        errorMessage = $"Operation 'args' contains duplicated property: {CompOperationPropertyNames.Sets}.";
+                        errorMessage = $"Operation 'args' contains duplicated property: {SetsPropertyName}.";
                         return false;
                     }
 
@@ -68,23 +76,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!hasTarget)
             {
-                errorMessage = $"Operation 'args' requires property '{CompOperationPropertyNames.Target}'.";
+                errorMessage = $"Operation 'args' requires property '{TargetPropertyName}'.";
                 return false;
             }
 
             if (!hasSets)
             {
-                errorMessage = $"Operation 'args' requires property '{CompOperationPropertyNames.Sets}'.";
+                errorMessage = $"Operation 'args' requires property '{SetsPropertyName}'.";
                 return false;
             }
 
-            parsedArguments = new CompSetArguments(targetReference, assignments!);
+            parsedArguments = new SerializedObjectSetArguments(targetReference, assignments!);
             return true;
         }
 
         private static bool TryParseAssignments (
             JsonElement element,
-            out List<CompSetAssignment>? assignments,
+            out List<SerializedPropertyAssignment>? assignments,
             out string errorMessage)
         {
             assignments = null;
@@ -95,7 +103,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            assignments = new List<CompSetAssignment>();
+            assignments = new List<SerializedPropertyAssignment>();
             var index = 0;
             foreach (var assignmentElement in element.EnumerateArray())
             {
@@ -111,11 +119,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var value = default(JsonElement);
                 foreach (var property in assignmentElement.EnumerateObject())
                 {
-                    if (string.Equals(property.Name, CompOperationPropertyNames.Path, StringComparison.Ordinal))
+                    if (string.Equals(property.Name, PathPropertyName, StringComparison.Ordinal))
                     {
                         if (hasPath)
                         {
-                            errorMessage = $"Operation 'args.sets[{index}]' contains duplicated property: {CompOperationPropertyNames.Path}.";
+                            errorMessage = $"Operation 'args.sets[{index}]' contains duplicated property: {PathPropertyName}.";
                             return false;
                         }
 
@@ -133,11 +141,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         continue;
                     }
 
-                    if (string.Equals(property.Name, CompOperationPropertyNames.Value, StringComparison.Ordinal))
+                    if (string.Equals(property.Name, ValuePropertyName, StringComparison.Ordinal))
                     {
                         if (hasValue)
                         {
-                            errorMessage = $"Operation 'args.sets[{index}]' contains duplicated property: {CompOperationPropertyNames.Value}.";
+                            errorMessage = $"Operation 'args.sets[{index}]' contains duplicated property: {ValuePropertyName}.";
                             return false;
                         }
 
@@ -152,17 +160,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 if (!hasPath)
                 {
-                    errorMessage = $"Operation 'args.sets[{index}]' requires property '{CompOperationPropertyNames.Path}'.";
+                    errorMessage = $"Operation 'args.sets[{index}]' requires property '{PathPropertyName}'.";
                     return false;
                 }
 
                 if (!hasValue)
                 {
-                    errorMessage = $"Operation 'args.sets[{index}]' requires property '{CompOperationPropertyNames.Value}'.";
+                    errorMessage = $"Operation 'args.sets[{index}]' requires property '{ValuePropertyName}'.";
                     return false;
                 }
 
-                assignments.Add(new CompSetAssignment(path!, value));
+                assignments.Add(new SerializedPropertyAssignment(path!, value));
                 index++;
             }
 

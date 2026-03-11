@@ -9,20 +9,20 @@ using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Applies validated <c>ucli.comp.set</c> assignments to one temporary component sandbox. </summary>
-    internal static class CompSetValueApplier
+    /// <summary> Applies validated assignment payloads to one serialized Unity object. </summary>
+    internal static class SerializedObjectValueApplier
     {
         public static bool TryApply (
-            Component component,
-            IReadOnlyList<CompSetAssignment> assignments,
+            UnityEngine.Object unityObject,
+            IReadOnlyList<SerializedPropertyAssignment> assignments,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out bool changed,
             out string errorMessage)
         {
-            if (component == null)
+            if (unityObject == null)
             {
-                throw new ArgumentNullException(nameof(component));
+                throw new ArgumentNullException(nameof(unityObject));
             }
 
             if (assignments == null)
@@ -30,8 +30,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(assignments));
             }
 
-            var serializedObject = new SerializedObject(component);
-            var rootType = component.GetType();
+            var serializedObject = new SerializedObject(unityObject);
+            var rootType = unityObject.GetType();
             changed = false;
             errorMessage = string.Empty;
             serializedObject.UpdateIfRequiredOrScript();
@@ -65,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             _ = serializedObject.ApplyModifiedProperties();
             if (changed)
             {
-                EditorUtility.SetDirty(component);
+                EditorUtility.SetDirty(unityObject);
             }
 
             return true;
@@ -214,7 +214,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         out errorMessage);
 
                 default:
-                    errorMessage = $"SerializedProperty type is not supported by ucli.comp.set: {property.propertyType}.";
+                    errorMessage = $"SerializedProperty type is not supported by serialized-object assignment: {property.propertyType}.";
                     return false;
             }
         }
@@ -480,14 +480,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             changed = false;
             if (!TryResolveDeclaredType(serializedObject, rootType, property, out var declaredType, out errorMessage))
             {
-                return false;
+                return TryApplyEnumWithoutDeclaredType(property, value, logicalPath, out changed, out errorMessage);
             }
 
             declaredType = NormalizeNullableType(declaredType);
             if (!declaredType.IsEnum)
             {
-                errorMessage = $"SerializedProperty '{logicalPath}' declared type is not an enum.";
-                return false;
+                return TryApplyEnumWithoutDeclaredType(property, value, logicalPath, out changed, out errorMessage);
             }
 
             if (!TryParseEnumRawValue(declaredType, value, logicalPath, out var rawValue, out errorMessage))
@@ -785,7 +784,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentTypeResolver.TryResolveRuntimeType(contract.TypeId, out var runtimeType, out errorMessage))
+            if (!OperationRuntimeTypeResolver.TryResolveRuntimeType(contract.TypeId, out var runtimeType, out errorMessage))
             {
                 errorMessage = $"Managed reference typeId is invalid for '{logicalPath}'. {errorMessage}";
                 return false;
@@ -953,80 +952,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out Type declaredType,
             out string errorMessage)
         {
-            if (property.propertyType == SerializedPropertyType.ArraySize
-                || property.propertyType == SerializedPropertyType.FixedBufferSize)
-            {
-                declaredType = typeof(int);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            var resolution = IndexDeclaredTypeResolver.Resolve(rootType, property.propertyPath);
-            if (!resolution.IsResolved)
-            {
-                if (TryResolveManagedReferenceDeclaredType(serializedObject, property, out declaredType, out errorMessage))
-                {
-                    return true;
-                }
-
-                declaredType = null!;
-                errorMessage = $"Declared type could not be resolved for SerializedProperty path '{property.propertyPath}'.";
-                return false;
-            }
-
-            declaredType = resolution.DeclaredType;
-            errorMessage = string.Empty;
-            return true;
-        }
-
-        private static bool TryResolveManagedReferenceDeclaredType (
-            SerializedObject serializedObject,
-            SerializedProperty property,
-            out Type declaredType,
-            out string errorMessage)
-        {
-            var propertyPath = property.propertyPath;
-            var originalPropertyPath = propertyPath;
-            while (TryGetParentPropertyPath(propertyPath, out var parentPathState))
-            {
-                var parentProperty = serializedObject.FindProperty(parentPathState.ParentPath);
-                if (parentProperty != null
-                    && parentProperty.propertyType == SerializedPropertyType.ManagedReference
-                    && parentProperty.managedReferenceValue != null)
-                {
-                    var relativePath = originalPropertyPath.Substring(parentPathState.ParentPath.Length + 1);
-                    var resolution = IndexDeclaredTypeResolver.Resolve(parentProperty.managedReferenceValue.GetType(), relativePath);
-                    if (resolution.IsResolved)
-                    {
-                        declaredType = resolution.DeclaredType;
-                        errorMessage = string.Empty;
-                        return true;
-                    }
-                }
-
-                propertyPath = parentPathState.ParentPath;
-            }
-
-            declaredType = null!;
-            errorMessage = string.Empty;
-            return false;
-        }
-
-        private static bool TryGetParentPropertyPath (
-            string propertyPath,
-            out ParentPropertyPathState state)
-        {
-            state = default;
-            var parentSeparatorIndex = propertyPath.LastIndexOf('.');
-            if (parentSeparatorIndex < 0)
-            {
-                return false;
-            }
-
-            state = new ParentPropertyPathState(
-                propertyPath.Substring(0, parentSeparatorIndex),
-                propertyPath.Substring(parentSeparatorIndex + 1));
-            return true;
+            return SerializedObjectDeclaredTypeResolver.TryResolve(
+                serializedObject,
+                rootType,
+                property,
+                out declaredType,
+                out errorMessage);
         }
 
         private static bool IsReadOnlyProperty (SerializedProperty property)
@@ -1055,12 +986,58 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return ComponentOperationUtilities.TryResolveUnityObject(
+            return OperationObjectReferenceUtilities.TryResolveUnityObject(
                 reference,
                 executionContext,
                 allowTemporaryState,
                 out unityObject,
                 out errorMessage);
+        }
+
+        private static bool TryApplyEnumWithoutDeclaredType (
+            SerializedProperty property,
+            JsonElement value,
+            string logicalPath,
+            out bool changed,
+            out string errorMessage)
+        {
+            changed = false;
+            if (value.ValueKind == JsonValueKind.String)
+            {
+                var enumName = value.GetString();
+                if (string.IsNullOrWhiteSpace(enumName))
+                {
+                    errorMessage = $"SerializedProperty '{logicalPath}' enum name must not be empty.";
+                    return false;
+                }
+
+                var enumNames = property.enumNames;
+                for (var i = 0; i < enumNames.Length; i++)
+                {
+                    if (!string.Equals(enumNames[i], enumName, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    changed = property.enumValueIndex != i;
+                    property.enumValueIndex = i;
+                    errorMessage = string.Empty;
+                    return true;
+                }
+
+                errorMessage = $"SerializedProperty '{logicalPath}' enum name is invalid: {enumName}.";
+                return false;
+            }
+
+            if (!TryGetInt32(value, logicalPath, out var intValue, out errorMessage))
+            {
+                return false;
+            }
+
+            changed = property.intValue != intValue;
+            property.intValue = intValue;
+            errorMessage = string.Empty;
+            return true;
         }
 
         private static Type NormalizeNullableType (Type type)
@@ -1944,5 +1921,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             return true;
         }
+
     }
 }

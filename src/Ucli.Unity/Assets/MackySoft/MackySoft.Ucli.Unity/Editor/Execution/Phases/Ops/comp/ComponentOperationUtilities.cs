@@ -1,7 +1,6 @@
 using System;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 #nullable enable
 
@@ -10,47 +9,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides reusable helpers shared by component-domain operations. </summary>
     internal static class ComponentOperationUtilities
     {
-        /// <summary> Resolves one reference to a loaded-scene GameObject. </summary>
-        /// <param name="reference"> The parsed Unity-object reference. </param>
-        /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="resolution"> The loaded-scene GameObject resolution when successful. </param>
-        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when the reference resolves to one loaded-scene GameObject; otherwise <see langword="false" />. </returns>
-        public static bool TryResolveLoadedSceneGameObject (
-            UnityObjectReference reference,
-            OperationExecutionContext executionContext,
-            out GoOperationUtilities.LoadedSceneGameObjectResolutionState resolution,
-            out string errorMessage)
-        {
-            return GoOperationUtilities.TryResolveLoadedSceneGameObject(
-                reference,
-                executionContext,
-                out resolution,
-                out errorMessage);
-        }
-
-        /// <summary> Resolves one reference to an editable GameObject. Temporary plan aliases can be enabled when required. </summary>
-        /// <param name="reference"> The parsed Unity-object reference. </param>
-        /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy the reference. </param>
-        /// <param name="resolution"> The editable GameObject resolution when successful. </param>
-        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when the reference resolves to one editable GameObject; otherwise <see langword="false" />. </returns>
-        public static bool TryResolveEditableGameObject (
-            UnityObjectReference reference,
-            OperationExecutionContext executionContext,
-            bool allowTemporaryState,
-            out GoOperationUtilities.EditableGameObjectResolutionState resolution,
-            out string errorMessage)
-        {
-            return GoOperationUtilities.TryResolveEditableGameObject(
-                reference,
-                executionContext,
-                allowTemporaryState,
-                out resolution,
-                out errorMessage);
-        }
-
         /// <summary> Resolves one reference to a Component. Temporary plan aliases can be enabled when required. </summary>
         /// <param name="reference"> The parsed Unity-object reference. </param>
         /// <param name="executionContext"> The request execution context. </param>
@@ -93,73 +51,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!TryGetOwnerResource(component, out var resource, out errorMessage))
+            if (!OperationResourceUtilities.TryResolveOwnerResource(component, out var resource, out errorMessage))
             {
                 return false;
             }
 
             resolution = new ComponentResolutionState(component, resource);
             return true;
-        }
-
-        /// <summary> Resolves one reference to a Unity object. Temporary plan aliases can be enabled when required. </summary>
-        /// <param name="reference"> The parsed Unity-object reference. </param>
-        /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy the reference. </param>
-        /// <param name="unityObject"> The resolved object when successful. </param>
-        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when the reference resolves; otherwise <see langword="false" />. </returns>
-        public static bool TryResolveUnityObject (
-            UnityObjectReference reference,
-            OperationExecutionContext executionContext,
-            bool allowTemporaryState,
-            out UnityEngine.Object? unityObject,
-            out string errorMessage)
-        {
-            unityObject = null;
-            if (reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
-            {
-                unityObject = temporaryAliasState.UnityObject;
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            return UnityObjectReferenceResolver.TryResolve(reference, executionContext, out unityObject, out errorMessage);
-        }
-
-        /// <summary> Tries to resolve one loaded-scene path from a Component. </summary>
-        /// <param name="component"> The source component. </param>
-        /// <param name="scenePath"> The owning scene path when successful. </param>
-        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when the component belongs to a loaded scene; otherwise <see langword="false" />. </returns>
-        public static bool TryGetLoadedScenePath (
-            Component component,
-            out string scenePath,
-            out string errorMessage)
-        {
-            var result = TryGetOwnerResource(component, out var resource, out errorMessage);
-            scenePath = resource.Path;
-            return result;
-        }
-
-        /// <summary> Tries to resolve one owner resource from a Component. </summary>
-        /// <param name="component"> The source component. </param>
-        /// <param name="resource"> The owning resource when successful. </param>
-        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when the component belongs to an editable resource; otherwise <see langword="false" />. </returns>
-        public static bool TryGetOwnerResource (
-            Component component,
-            out OperationResource resource,
-            out string errorMessage)
-        {
-            resource = default;
-            if (component == null)
-            {
-                throw new ArgumentNullException(nameof(component));
-            }
-
-            return OperationResourceUtilities.TryResolveOwnerResource(component, out resource, out errorMessage);
         }
 
         /// <summary> Creates one temporary component instance for plan-time simulation. </summary>
