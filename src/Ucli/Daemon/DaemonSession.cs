@@ -11,6 +11,7 @@ namespace MackySoft.Ucli.Daemon;
 /// <param name="EndpointTransportKind"> The transport kind string used by daemon endpoint. </param>
 /// <param name="EndpointAddress"> The endpoint address string used by daemon endpoint. </param>
 /// <param name="ProcessId"> The daemon process identifier when available. </param>
+/// <param name="OwnerProcessId"> The owner process identifier when available. </param>
 internal sealed record DaemonSession (
     int SchemaVersion,
     string SessionToken,
@@ -21,7 +22,8 @@ internal sealed record DaemonSession (
     bool CanShutdownProcess,
     string EndpointTransportKind,
     string EndpointAddress,
-    int? ProcessId)
+    int? ProcessId,
+    int? OwnerProcessId)
 {
     /// <summary> Gets the schema version used by daemon session persistence. </summary>
     public const int CurrentSchemaVersion = 1;
@@ -29,6 +31,6 @@ internal sealed record DaemonSession (
     /// <summary> Gets the runtime kind value used for CLI-started batchmode daemon sessions. </summary>
     public const string RuntimeKindBatchmode = "batchmode";
 
-    /// <summary> Gets the owner kind value used for CLI-managed daemon sessions. </summary>
-    public const string OwnerKindCli = "cli";
+    /// <summary> Gets the owner kind value used for supervisor-managed daemon sessions. </summary>
+    public const string OwnerKindSupervisor = "supervisor";
 }

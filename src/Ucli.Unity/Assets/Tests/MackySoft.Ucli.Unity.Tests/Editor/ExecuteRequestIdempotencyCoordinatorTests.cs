@@ -13,12 +13,12 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse ()
+        public async Task Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var executeCount = 0;
             var requestId = "req-1";
-            var firstResponse = coordinator.Execute(
+            var firstResponse = await coordinator.Execute(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -26,11 +26,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     executeCount++;
                     return Task.FromResult(CreateSuccessResponse(requestId, "first"));
                 },
-                createConflictResponse: () => CreateConflictResponse(requestId))
-                .GetAwaiter()
-                .GetResult();
+                createConflictResponse: () => CreateConflictResponse(requestId));
 
-            var secondResponse = coordinator.Execute(
+            var secondResponse = await coordinator.Execute(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -38,9 +36,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     executeCount++;
                     return Task.FromResult(CreateSuccessResponse(requestId, "second"));
                 },
-                createConflictResponse: () => CreateConflictResponse(requestId))
-                .GetAwaiter()
-                .GetResult();
+                createConflictResponse: () => CreateConflictResponse(requestId));
 
             Assert.That(executeCount, Is.EqualTo(1));
             Assert.That(firstResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
@@ -50,13 +46,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndDifferentFingerprintAfterCompletion_ReturnsConflict ()
+        public async Task Execute_WhenSameRequestIdAndDifferentFingerprintAfterCompletion_ReturnsConflict ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var executeCount = 0;
             var conflictCount = 0;
             var requestId = "req-1";
-            _ = coordinator.Execute(
+            _ = await coordinator.Execute(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -68,11 +64,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     conflictCount++;
                     return CreateConflictResponse(requestId);
-                })
-                .GetAwaiter()
-                .GetResult();
+                });
 
-            var conflictResponse = coordinator.Execute(
+            var conflictResponse = await coordinator.Execute(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-2",
                 executeRequest: _ =>
@@ -84,9 +78,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     conflictCount++;
                     return CreateConflictResponse(requestId);
-                })
-                .GetAwaiter()
-                .GetResult();
+                });
 
             Assert.That(executeCount, Is.EqualTo(1));
             Assert.That(conflictCount, Is.EqualTo(1));
@@ -97,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse ()
+        public async Task Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var requestId = "req-1";
@@ -118,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            ownerStarted.Task.GetAwaiter().GetResult();
+            await ownerStarted.Task;
 
             var waiterTask = coordinator.Execute(
                 requestId: requestId,
@@ -133,8 +125,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(waiterTask.IsCompleted, Is.False);
             ownerRelease.TrySetResult(true);
 
-            var ownerResponse = ownerTask.GetAwaiter().GetResult();
-            var waiterResponse = waiterTask.GetAwaiter().GetResult();
+            var ownerResponse = await ownerTask;
+            var waiterResponse = await waiterTask;
 
             Assert.That(ownerExecutionCount, Is.EqualTo(1));
             Assert.That(waiterExecutionCount, Is.EqualTo(0));
@@ -196,7 +188,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting ()
+        public async Task Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting ()
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var requestId = "req-1";
@@ -214,9 +206,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     return CreateSuccessResponse(requestId, "owner");
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
-            ownerStarted.Task.GetAwaiter().GetResult();
+            await ownerStarted.Task;
 
-            var conflictResponse = coordinator.Execute(
+            var conflictResponse = await coordinator.Execute(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-2",
                 executeRequest: _ =>
@@ -224,9 +216,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     conflictExecutionCount++;
                     return Task.FromResult(CreateSuccessResponse(requestId, "conflict-path"));
                 },
-                createConflictResponse: () => CreateConflictResponse(requestId))
-                .GetAwaiter()
-                .GetResult();
+                createConflictResponse: () => CreateConflictResponse(requestId));
 
             Assert.That(conflictExecutionCount, Is.EqualTo(0));
             Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
@@ -234,12 +224,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
 
             ownerRelease.TrySetResult(true);
-            _ = ownerTask.GetAwaiter().GetResult();
+            _ = await ownerTask;
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenEntryExpires_ReexecutesRequest ()
+        public async Task Execute_WhenEntryExpires_ReexecutesRequest ()
         {
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
             var coordinator = new ExecuteRequestIdempotencyCoordinator(
@@ -249,7 +239,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executeCount = 0;
             var requestId = "req-1";
 
-            var firstResponse = coordinator.Execute(
+            var firstResponse = await coordinator.Execute(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -257,12 +247,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     executeCount++;
                     return Task.FromResult(CreateSuccessResponse(requestId, "first"));
                 },
-                createConflictResponse: () => CreateConflictResponse(requestId))
-                .GetAwaiter()
-                .GetResult();
+                createConflictResponse: () => CreateConflictResponse(requestId));
 
             nowUtc = nowUtc.AddHours(25);
-            var secondResponse = coordinator.Execute(
+            var secondResponse = await coordinator.Execute(
                 requestId: requestId,
                 requestFingerprint: "fingerprint-1",
                 executeRequest: _ =>
@@ -270,9 +258,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     executeCount++;
                     return Task.FromResult(CreateSuccessResponse(requestId, "second"));
                 },
-                createConflictResponse: () => CreateConflictResponse(requestId))
-                .GetAwaiter()
-                .GetResult();
+                createConflictResponse: () => CreateConflictResponse(requestId));
 
             Assert.That(executeCount, Is.EqualTo(2));
             Assert.That(GetMarker(firstResponse), Is.EqualTo("first"));
@@ -281,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Execute_WhenCacheExceedsMaxEntries_EvictsOldestEntry ()
+        public async Task Execute_WhenCacheExceedsMaxEntries_EvictsOldestEntry ()
         {
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
             var coordinator = new ExecuteRequestIdempotencyCoordinator(
@@ -290,26 +276,26 @@ namespace MackySoft.Ucli.Unity.Tests
                 utcNowProvider: () => nowUtc);
             var executeCount = 0;
 
-            Execute("req-1", "fingerprint-1", "first-1");
+            await Execute("req-1", "fingerprint-1", "first-1");
             nowUtc = nowUtc.AddMinutes(1);
-            Execute("req-2", "fingerprint-2", "second-1");
+            await Execute("req-2", "fingerprint-2", "second-1");
             nowUtc = nowUtc.AddMinutes(1);
-            Execute("req-3", "fingerprint-3", "third-1");
+            await Execute("req-3", "fingerprint-3", "third-1");
 
             // req-1 should be evicted because max entries is 2.
             nowUtc = nowUtc.AddMinutes(1);
-            var req1ResponseAfterEviction = Execute("req-1", "fingerprint-1", "first-2");
+            var req1ResponseAfterEviction = await Execute("req-1", "fingerprint-1", "first-2");
 
             // req-2 should still be cached.
-            var req2ResponseFromCache = Execute("req-2", "fingerprint-2", "second-2");
+            var req2ResponseFromCache = await Execute("req-2", "fingerprint-2", "second-2");
 
             Assert.That(executeCount, Is.EqualTo(5));
             Assert.That(GetMarker(req1ResponseAfterEviction), Is.EqualTo("first-2"));
             Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-2"));
 
-            IpcResponse Execute (string requestId, string requestFingerprint, string marker)
+            async Task<IpcResponse> Execute (string requestId, string requestFingerprint, string marker)
             {
-                return coordinator.Execute(
+                return await coordinator.Execute(
                     requestId: requestId,
                     requestFingerprint: requestFingerprint,
                     executeRequest: _ =>
@@ -317,9 +303,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         executeCount++;
                         return Task.FromResult(CreateSuccessResponse(requestId, marker));
                     },
-                    createConflictResponse: () => CreateConflictResponse(requestId))
-                    .GetAwaiter()
-                    .GetResult();
+                    createConflictResponse: () => CreateConflictResponse(requestId));
             }
         }
 

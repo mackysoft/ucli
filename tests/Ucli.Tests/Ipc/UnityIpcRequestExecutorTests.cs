@@ -1,11 +1,13 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 using MackySoft.Ucli.UnityProject.Resolution;
@@ -30,6 +32,7 @@ public sealed class UnityIpcRequestExecutorTests
                     new UnityExecutionModeDecisionContractError(
                         UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                         "Daemon is not running for mode=daemon."))),
+            new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
         var result = await executor.Execute(
@@ -61,6 +64,11 @@ public sealed class UnityIpcRequestExecutorTests
             Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
         };
         var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var pluginLocator = new StubUnityUcliPluginLocator
+        {
+            Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
+                "Unity project does not contain the uCLI Unity plugin.")),
+        };
         var executor = new UnityIpcRequestExecutor(
             new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(
@@ -68,6 +76,7 @@ public sealed class UnityIpcRequestExecutorTests
                     true,
                     UnityExecutionTarget.Daemon,
                     DefaultTimeout))),
+            pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
 
         var result = await executor.Execute(
@@ -85,6 +94,7 @@ public sealed class UnityIpcRequestExecutorTests
         Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
         Assert.Equal("daemon-token", daemonTransportClient.Requests[0].SessionToken);
+        Assert.Equal(0, pluginLocator.CallCount);
         Assert.Equal(0, launcher.CallCount);
     }
 
@@ -112,6 +122,7 @@ public sealed class UnityIpcRequestExecutorTests
                     false,
                     UnityExecutionTarget.Oneshot,
                     DefaultTimeout))),
+            new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
         var result = await executor.Execute(
@@ -128,6 +139,130 @@ public sealed class UnityIpcRequestExecutorTests
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(2, oneshotTransportClient.CallCount);
         Assert.Equal(1, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUnityPluginMarkerIsMissing_ReturnsInvalidArgumentWithoutCallingClients ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "plugin-missing");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var pluginLocator = new StubUnityUcliPluginLocator
+        {
+            Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
+                "Unity project does not contain the uCLI Unity plugin.")),
+        };
+        var executor = new UnityIpcRequestExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Auto,
+                    false,
+                    UnityExecutionTarget.Oneshot,
+                    DefaultTimeout))),
+            pluginLocator,
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            "oneshot",
+            null,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            IpcMethodNames.OpsRead,
+            EmptyPayload());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(1, pluginLocator.CallCount);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenDaemonModeReportsNotRunningAndUnityPluginMarkerIsMissing_ReturnsPluginFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-plugin-missing");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var pluginLocator = new StubUnityUcliPluginLocator
+        {
+            Result = UnityUcliPluginLocateResult.NotFound(ExecutionError.InvalidArgument(
+                "Unity project does not contain the uCLI Unity plugin.")),
+        };
+        var executor = new UnityIpcRequestExecutor(
+            new StubModeDecisionService(
+                UnityExecutionModeDecisionResult.ContractFailure(
+                    new UnityExecutionModeDecisionContractError(
+                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                        "Daemon is not running for mode=daemon."))),
+            pluginLocator,
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            "daemon",
+            null,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            IpcMethodNames.OpsRead,
+            EmptyPayload());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal(1, pluginLocator.CallCount);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenUnityPluginVerificationExceedsTimeout_ReturnsTimeoutWithoutCallingClients ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "plugin-timeout");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var pluginLocator = new StubUnityUcliPluginLocator
+        {
+            Handler = async cancellationToken =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                return UnityUcliPluginLocateResult.Found(
+                    "/tmp/ucli-plugin.json",
+                    UnityUcliPluginLocator.ExpectedProtocolVersion);
+            },
+        };
+        var executor = new UnityIpcRequestExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Auto,
+                    false,
+                    UnityExecutionTarget.Oneshot,
+                    TimeSpan.FromMilliseconds(120)))),
+            pluginLocator,
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            "oneshot",
+            "120",
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            IpcMethodNames.OpsRead,
+            EmptyPayload());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.True(pluginLocator.ObservedCancellation);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
     }
 
     private static IUnityIpcClient[] CreateClients (
@@ -257,6 +392,47 @@ public sealed class UnityIpcRequestExecutorTests
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class StubUnityUcliPluginLocator : IUnityUcliPluginLocator
+    {
+        public int CallCount { get; private set; }
+
+        public Func<CancellationToken, ValueTask<UnityUcliPluginLocateResult>>? Handler { get; set; }
+
+        public bool ObservedCancellation { get; private set; }
+
+        public UnityUcliPluginLocateResult Result { get; set; }
+            = UnityUcliPluginLocateResult.Found(
+                "/tmp/ucli-plugin.json",
+                UnityUcliPluginLocator.ExpectedProtocolVersion);
+
+        public ValueTask<UnityUcliPluginLocateResult> Locate (
+            string unityProjectRoot,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            if (Handler == null)
+            {
+                return ValueTask.FromResult(Result);
+            }
+
+            return LocateCore(cancellationToken);
+        }
+
+        private async ValueTask<UnityUcliPluginLocateResult> LocateCore (CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await Handler!(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                ObservedCancellation = true;
+                throw;
+            }
         }
     }
 

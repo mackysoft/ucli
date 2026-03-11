@@ -25,10 +25,11 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
               "projectFingerprint": "{{projectFingerprint}}",
               "issuedAtUtc": "2026-01-01T00:00:00+00:00",
               "runtimeKind": "batchmode",
-              "ownerKind": "cli",
+              "ownerKind": "supervisor",
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-test",
-              "processId": 1234
+              "processId": 1234,
+              "ownerProcessId": 9876
             }
             """,
             CancellationToken.None);
@@ -55,11 +56,13 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
             ProjectFingerprint: "fingerprint-can-shutdown-process-false",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: false,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test",
-            ProcessId: 1234);
+            ProcessId: 1234,
+
+            OwnerProcessId: 9876);
 
         var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
 

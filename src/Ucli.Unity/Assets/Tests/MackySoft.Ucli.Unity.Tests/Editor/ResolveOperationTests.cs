@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -17,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Validate_WhenArgsContainMultipleSelectors_ReturnsInvalidArgument ()
+        public async Task Validate_WhenArgsContainMultipleSelectors_ReturnsInvalidArgument ()
         {
             var operation = new ResolveOperation();
             var requestOperation = CreateOperation(
@@ -28,14 +29,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     assetGuid = "11111111111111111111111111111111",
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Validate_WhenGlobalObjectIdIsMalformed_ReturnsInvalidArgument ()
+        public async Task Validate_WhenGlobalObjectIdIsMalformed_ReturnsInvalidArgument ()
         {
             var operation = new ResolveOperation();
             var requestOperation = CreateOperation(
@@ -45,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     globalObjectId = "invalid-global-object-id",
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
         }
@@ -73,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Plan_WhenArgsContainGlobalObjectId_StoresResolvedReferenceToAliasStore ()
+        public async Task Plan_WhenArgsContainGlobalObjectId_StoresResolvedReferenceToAliasStore ()
         {
             var operation = new ResolveOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -92,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     });
                 var context = new OperationExecutionContext();
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
                 Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -112,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Plan_WhenArgsContainAssetGuid_ResolvesMainAsset ()
+        public async Task Plan_WhenArgsContainAssetGuid_ResolvesMainAsset ()
         {
             var operation = new ResolveOperation();
             var assetPath = $"Assets/ResolveOperationTests_{Guid.NewGuid():N}.asset";
@@ -132,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     });
                 var context = new OperationExecutionContext();
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
                 Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -152,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Plan_WhenArgsContainAssetPath_ResolvesMainAsset ()
+        public async Task Plan_WhenArgsContainAssetPath_ResolvesMainAsset ()
         {
             var operation = new ResolveOperation();
             var assetPath = $"Assets/ResolveOperationTests_{Guid.NewGuid():N}.asset";
@@ -171,7 +172,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     });
                 var context = new OperationExecutionContext();
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
                 Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -191,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Plan_WhenArgsContainSceneHierarchyPath_ResolvesGameObjectInLoadedScene ()
+        public async Task Plan_WhenArgsContainSceneHierarchyPath_ResolvesGameObjectInLoadedScene ()
         {
             var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -216,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     });
                 var context = new OperationExecutionContext();
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
                 Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
@@ -236,7 +237,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Plan_WhenSceneIsNotLoaded_ReturnsInvalidArgument ()
+        public async Task Plan_WhenSceneIsNotLoaded_ReturnsInvalidArgument ()
         {
             var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -256,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         hierarchyPath = "Root/Child",
                     });
 
-                var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-1");
             }
@@ -268,7 +269,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Plan_WhenHierarchyPathResolvesNoObject_ReturnsInvalidArgument ()
+        public async Task Plan_WhenHierarchyPathResolvesNoObject_ReturnsInvalidArgument ()
         {
             var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -285,7 +286,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         hierarchyPath = "Root/Missing",
                     });
 
-                var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-1");
             }
@@ -298,7 +299,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Plan_WhenHierarchyPathResolvesMultipleObjects_ReturnsInvalidArgument ()
+        public async Task Plan_WhenHierarchyPathResolvesMultipleObjects_ReturnsInvalidArgument ()
         {
             var operation = new ResolveOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -319,7 +320,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         hierarchyPath = "Root/Dup",
                     });
 
-                var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-1");
             }
@@ -332,7 +333,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Call_WhenResolutionSucceeds_ReturnsAppliedTrueAndChangedFalse ()
+        public async Task Call_WhenResolutionSucceeds_ReturnsAppliedTrueAndChangedFalse ()
         {
             var operation = new ResolveOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -350,7 +351,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     });
                 var context = new OperationExecutionContext();
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: false);
                 Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);

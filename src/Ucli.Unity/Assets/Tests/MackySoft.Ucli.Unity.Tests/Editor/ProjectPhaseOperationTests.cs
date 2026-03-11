@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Unity.Execution;
@@ -20,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Refresh_Validate_WhenArgsContainUnknownProperty_ReturnsInvalidArgument ()
+        public async Task Refresh_Validate_WhenArgsContainUnknownProperty_ReturnsInvalidArgument ()
         {
             var operation = new ProjectRefreshPhaseOperation();
             var requestOperation = CreateOperation(
@@ -31,14 +32,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     unexpected = true,
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-refresh");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Refresh_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources ()
+        public async Task Refresh_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources ()
         {
             var operation = new ProjectRefreshPhaseOperation();
             var requestOperation = CreateOperation(
@@ -46,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: "ucli.project.refresh",
                 args: new { });
 
-            var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
@@ -54,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Refresh_Call_WhenExternalAssetIsCreated_ImportsAssetAndReturnsTouchedAsset ()
+        public async Task Refresh_Call_WhenExternalAssetIsCreated_ImportsAssetAndReturnsTouchedAsset ()
         {
             var operation = new ProjectRefreshPhaseOperation();
             var assetPath = CreateTemporaryTextAssetPath();
@@ -73,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     opName: "ucli.project.refresh",
                     args: new { });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true);
                 Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath), Is.Not.Null);
@@ -87,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Save_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources ()
+        public async Task Save_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources ()
         {
             var operation = new ProjectSavePhaseOperation();
             var requestOperation = CreateOperation(
@@ -95,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: "ucli.project.save",
                 args: new { });
 
-            var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
@@ -103,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Save_Call_WhenScriptableObjectAssetIsDirty_SavesAssetAndReturnsTouchedAsset ()
+        public async Task Save_Call_WhenScriptableObjectAssetIsDirty_SavesAssetAndReturnsTouchedAsset ()
         {
             var operation = new ProjectSavePhaseOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -124,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     opName: "ucli.project.save",
                     args: new { });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true);
                 Assert.That(EditorUtility.IsDirty(asset), Is.False);
@@ -139,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Save_Call_WhenOnlySceneIsDirty_DoesNotSaveScene ()
+        public async Task Save_Call_WhenOnlySceneIsDirty_DoesNotSaveScene ()
         {
             var operation = new ProjectSavePhaseOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -156,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     opName: "ucli.project.save",
                     args: new { });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: false);
                 Assert.That(scene.isDirty, Is.True);

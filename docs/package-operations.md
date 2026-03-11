@@ -70,9 +70,15 @@ nuget restore "src/Ucli.Unity/Assets/packages.config" \
   -ConfigFile "src/Ucli.Unity/Assets/NuGet.config" \
   -NonInteractive
 ```
+3. `nuget restore` が生成した package 配下の簡易 `.meta` を削除し、次回 Unity 起動で importer 設定を再生成させる。
+```bash
+find "src/Ucli.Unity/Assets/Packages" -type f -name '*.meta' -delete
+```
 
 ### バッチモード運用での注意
 `nuget restore` を直接使うと、同一アセンブリ名の複数ターゲットフレームワーク DLL が同時に import され、`Multiple precompiled assemblies with the same name ...` で失敗することがある。
+
+また、fresh worktree では `nuget restore` が置いた簡易 `.meta` のままだと `MackySoft.Ucli.Contracts.dll` の importer 設定が不足し、Unity が共有契約 DLL を解決できずコンパイルエラーになることがある。`scripts/update-local-contracts-package.sh` は復元後にその `.meta` を削除し、次回 Unity 起動で Unity 正規の `.meta` を再生成させる。
 
 その場合は生成物を整理してから batchmode を実行する。
 
@@ -84,7 +90,7 @@ find "$ROOT" -type d \( -name build -o -name buildMultiTargeting -o -name buildT
 for pkg in "$ROOT"/*; do
   [ -d "$pkg/lib" ] || continue
   keep=""
-  for tfm in netstandard2.0 netstandard2.1 net462 net461; do
+  for tfm in netstandard2.1 netstandard2.0 net462 net461; do
     if [ -d "$pkg/lib/$tfm" ]; then
       keep="$tfm"
       break

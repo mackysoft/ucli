@@ -121,6 +121,25 @@ internal sealed class TestDirectoryScope : IDisposable
         return fullPath;
     }
 
+    internal async Task<string> WriteFileAsync (
+        string relativePath,
+        string contents,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var fullPath = GetPath(relativePath);
+        var directoryPath = Path.GetDirectoryName(fullPath);
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            throw new InvalidOperationException($"Directory path could not be determined: {fullPath}");
+        }
+
+        Directory.CreateDirectory(directoryPath);
+        await File.WriteAllTextAsync(fullPath, contents, cancellationToken).ConfigureAwait(false);
+        return fullPath;
+    }
+
     internal void Preserve ()
     {
         lifetimeOwner.preserve = true;

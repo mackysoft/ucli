@@ -1,0 +1,13 @@
+namespace MackySoft.Ucli.UnityProject;
+
+/// <summary> Locates the uCLI Unity plugin marker inside one Unity project. </summary>
+internal interface IUnityUcliPluginLocator
+{
+    /// <summary> Locates the uCLI Unity plugin marker for one Unity project root. </summary>
+    /// <param name="unityProjectRoot"> The absolute Unity project root path. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The plugin locate result. </returns>
+    ValueTask<UnityUcliPluginLocateResult> Locate (
+        string unityProjectRoot,
+        CancellationToken cancellationToken = default);
+}

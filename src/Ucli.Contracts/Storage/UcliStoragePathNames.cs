@@ -12,6 +12,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the local-state directory name under <c>.ucli</c>. </summary>
     public const string LocalDirectoryName = "local";
 
+    /// <summary> Gets the supervisor runtime-state directory name under <c>.ucli/local</c>. </summary>
+    public const string SupervisorDirectoryName = "supervisor";
+
     /// <summary> Gets the project-fingerprint directory name under <c>.ucli/local</c>. </summary>
     public const string FingerprintsDirectoryName = "fingerprints";
 
@@ -51,8 +54,23 @@ public static class UcliStoragePathNames
     /// <summary> Gets the daemon diagnosis file name under one fingerprint directory. </summary>
     public const string DaemonDiagnosisFileName = "daemon-diagnosis.json";
 
+    /// <summary> Gets the uCLI Unity plugin marker cache file name under one fingerprint directory. </summary>
+    public const string UnityUcliPluginMarkerCacheFileName = "ucli-plugin-marker-cache.json";
+
     /// <summary> Gets the Unity batchmode log file name under one fingerprint directory. </summary>
     public const string UnityLogFileName = "unity.log";
+
+    /// <summary> Gets the supervisor manifest file name under <c>.ucli/local/supervisor</c>. </summary>
+    public const string SupervisorManifestFileName = "manifest.json";
+
+    /// <summary> Gets the supervisor bootstrap lock file name under <c>.ucli/local/supervisor</c>. </summary>
+    public const string SupervisorBootstrapLockFileName = "bootstrap.lock";
+
+    /// <summary> Gets the supervisor log file name under <c>.ucli/local/supervisor</c>. </summary>
+    public const string SupervisorLogFileName = "supervisor.log";
+
+    /// <summary> Gets the launch-agent plist file name under <c>.ucli/local/supervisor</c>. </summary>
+    public const string SupervisorLaunchAgentPlistFileName = "launch.agent.plist";
 
     /// <summary> Gets the project lifecycle lock file name under one fingerprint directory. </summary>
     public const string LifecycleLockFileName = "lifecycle.lock";

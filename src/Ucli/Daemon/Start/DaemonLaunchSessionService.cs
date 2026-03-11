@@ -47,11 +47,12 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
             ProjectFingerprint: unityProject.ProjectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
             EndpointAddress: endpoint.Address,
-            ProcessId: null);
+            ProcessId: null,
+            OwnerProcessId: Environment.ProcessId);
 
         var writeResult = await daemonSessionStore.Write(
                 unityProject.RepositoryRoot,

@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -16,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Open_Call_WhenScenePathIsValid_OpensTargetScene ()
+        public async Task Open_Call_WhenScenePathIsValid_OpensTargetScene ()
         {
             var operation = new SceneOpenOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -34,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         path = scenePath,
                     });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: false);
                 Assert.That(SceneManager.GetActiveScene().path, Is.EqualTo(scenePath));
@@ -48,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Save_Call_WhenSceneIsDirty_ReturnsChangedTrueAndSavesScene ()
+        public async Task Save_Call_WhenSceneIsDirty_ReturnsChangedTrueAndSavesScene ()
         {
             var operation = new SceneSaveOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -68,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         path = scenePath,
                     });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true);
                 Assert.That(scene.isDirty, Is.False);
@@ -82,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Tree_Validate_WhenDepthIsNegative_ReturnsInvalidArgument ()
+        public async Task Tree_Validate_WhenDepthIsNegative_ReturnsInvalidArgument ()
         {
             var operation = new SceneTreeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -100,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         depth = -1,
                     });
 
-                var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-tree");
             }
@@ -113,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Tree_Plan_WhenDepthIsNull_AcceptsUnlimitedDepth ()
+        public async Task Tree_Plan_WhenDepthIsNull_AcceptsUnlimitedDepth ()
         {
             var operation = new SceneTreeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -133,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         depth = (int?)null,
                     });
 
-                var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
                 Assert.That(result.Result.HasValue, Is.True);
@@ -150,7 +151,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Tree_Plan_WhenDepthIsOmitted_AcceptsUnlimitedDepth ()
+        public async Task Tree_Plan_WhenDepthIsOmitted_AcceptsUnlimitedDepth ()
         {
             var operation = new SceneTreeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -169,7 +170,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         path = scenePath,
                     });
 
-                var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
             }

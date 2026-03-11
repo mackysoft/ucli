@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon.Start;
@@ -39,6 +40,11 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(readResult);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        if (TryCreateUnsafeInvalidSessionRelaunchError(readResult, unityProject, out var unsafeRelaunchError))
+        {
+            return DaemonSessionStoreOperationResult.Failure(unsafeRelaunchError!);
+        }
 
         if (TryGetInvalidSessionStopTarget(readResult, unityProject, out var processId, out var issuedAtUtc))
         {
@@ -90,6 +96,39 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
     }
 
+    private static bool TryCreateUnsafeInvalidSessionRelaunchError (
+        DaemonSessionReadResult readResult,
+        ResolvedUnityProjectContext unityProject,
+        out ExecutionError? error)
+    {
+        error = null;
+
+        var session = readResult.Session;
+        if (session == null)
+        {
+            return false;
+        }
+
+        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (session.ProcessId is not int processId || processId <= 0 || session.IssuedAtUtc == default)
+        {
+            return false;
+        }
+
+        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out _, out _))
+        {
+            return false;
+        }
+
+        error = ExecutionError.InternalError(
+            $"Daemon session is invalid and cannot be safely replaced because the previously launched daemon may still be running. fingerprint={unityProject.ProjectFingerprint} pid={processId}");
+        return true;
+    }
+
     /// <summary> Gets process stop target from invalid session snapshot when identity can be validated safely. </summary>
     /// <param name="readResult"> The daemon session read result. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
@@ -112,6 +151,20 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         }
 
         if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        // NOTE:
+        // invalid-session cleanup must not terminate daemons launched by a different local
+        // implementation shape. Only snapshots that still prove current supervisor ownership
+        // are allowed to drive process termination.
+        if (session.SchemaVersion != DaemonSession.CurrentSchemaVersion
+            || !string.Equals(session.RuntimeKind, DaemonSession.RuntimeKindBatchmode, StringComparison.Ordinal)
+            || !string.Equals(session.OwnerKind, DaemonSession.OwnerKindSupervisor, StringComparison.Ordinal)
+            || !session.CanShutdownProcess
+            || session.OwnerProcessId is not int ownerProcessId
+            || ownerProcessId <= 0)
         {
             return false;
         }

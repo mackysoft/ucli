@@ -21,7 +21,7 @@ public sealed class UnityIpcTransportClientTests
             new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
                 $"ucli-missing-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver);
+        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
         var request = new IpcRequest(
             IpcProtocol.CurrentVersion,
             "request-1",
@@ -49,7 +49,7 @@ public sealed class UnityIpcTransportClientTests
             new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
                 $"ucli-missing-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver);
+        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
         var request = new IpcRequest(
             IpcProtocol.CurrentVersion,
             "request-1",
@@ -80,7 +80,7 @@ public sealed class UnityIpcTransportClientTests
             new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
                 $"ucli-invalid-timeout-{Guid.NewGuid():N}"));
-        var client = new UnityIpcTransportClient(endpointResolver);
+        var client = new UnityIpcTransportClient(endpointResolver, new IpcTransportClient());
         var request = new IpcRequest(
             IpcProtocol.CurrentVersion,
             "request-1",

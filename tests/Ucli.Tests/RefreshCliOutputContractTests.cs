@@ -76,9 +76,9 @@ public sealed class RefreshCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Refresh_WithModeDaemonAndNoDaemonRunning_ReturnsCommandResultToolError ()
+    public async Task Refresh_WithModeDaemonAndPluginMissing_ReturnsCommandResultInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "daemon-not-running");
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "plugin-missing");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         WriteRefreshAllowedConfig(scope, unityProjectPath);
         var result = await CliProcessRunner.RunCommand(
@@ -89,13 +89,13 @@ public sealed class RefreshCliOutputContractTests
             "daemon");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
-            (int)CliExitCode.ToolError);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
     }
 
     [Fact]

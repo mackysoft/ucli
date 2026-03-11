@@ -1,0 +1,19 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
+namespace MackySoft.Ucli.Ipc;
+
+/// <summary> Sends one IPC request to an explicitly resolved transport endpoint. </summary>
+internal interface IIpcTransportClient
+{
+    /// <summary> Sends one IPC request and returns the response envelope. </summary>
+    /// <param name="endpoint"> The explicit IPC endpoint. </param>
+    /// <param name="request"> The request envelope. </param>
+    /// <param name="timeout"> The timeout for one request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The response envelope. </returns>
+    ValueTask<IpcResponse> SendAsync (
+        IpcEndpoint endpoint,
+        IpcRequest request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default);
+}

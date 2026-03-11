@@ -63,11 +63,13 @@ public sealed class DaemonShutdownClientTests
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test-endpoint",
-            ProcessId: 1234);
+            ProcessId: 1234,
+
+            OwnerProcessId: 9876);
     }
 
     private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient

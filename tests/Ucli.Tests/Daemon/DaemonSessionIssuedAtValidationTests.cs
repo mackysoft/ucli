@@ -53,11 +53,13 @@ public sealed class DaemonSessionIssuedAtValidationTests
             ProjectFingerprint: "fingerprint-default-issued-at",
             IssuedAtUtc: default,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test",
-            ProcessId: 1234);
+            ProcessId: 1234,
+
+            OwnerProcessId: 9876);
 
         var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
 

@@ -193,10 +193,12 @@ public sealed class DaemonSessionStoreTests
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test",
-            ProcessId: 1234);
+            ProcessId: 1234,
+
+            OwnerProcessId: 9876);
     }
 }

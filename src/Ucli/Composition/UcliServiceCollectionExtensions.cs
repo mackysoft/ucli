@@ -20,6 +20,7 @@ using MackySoft.Ucli.Ops.Mapping;
 using MackySoft.Ucli.Ops.Preflight;
 using MackySoft.Ucli.Refresh;
 using MackySoft.Ucli.Status;
+using MackySoft.Ucli.Supervisor;
 using MackySoft.Ucli.TestProfile;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -46,6 +47,11 @@ internal static class UcliServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddSingleton<UnityUcliPluginMarkerDiscovery>();
+        services.AddSingleton<UnityUcliPluginMarkerValidator>();
+        services.AddSingleton<UnityUcliPluginMarkerCacheStore>();
+        services.AddSingleton<UnityUcliPluginMarkerCacheCoordinator>();
+        services.AddSingleton<IUnityUcliPluginLocator, UnityUcliPluginLocator>();
         services.AddSingleton<IEnvironmentVariableReader, ProcessEnvironmentVariableReader>();
         services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
         services.AddSingleton<IUnityProjectResolver>(provider => new UnityProjectResolver(
@@ -60,6 +66,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
+        services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
         services.AddSingleton<IUnityIpcClient, UnityDaemonIpcClient>();
         services.AddSingleton<IUnityIpcClient, UnityOneshotIpcClient>();
@@ -146,6 +153,38 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonListQueryService, DaemonListQueryService>();
         services.AddSingleton<IDaemonListCommandService, DaemonListCommandService>();
         services.AddSingleton<IDaemonReachabilityProbe, IpcDaemonReachabilityProbe>();
+        return services;
+    }
+
+    /// <summary> Registers worktree-local supervisor services for daemon lifecycle ownership. </summary>
+    /// <param name="services"> The target service collection. </param>
+    /// <returns> The updated service collection. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="services" /> is <see langword="null" />. </exception>
+    public static IServiceCollection AddUcliSupervisorServices (this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<SupervisorActivityTracker>();
+        services.AddSingleton<SupervisorRuntimeLogger>();
+        services.AddSingleton<SupervisorManifestStore>();
+        services.AddSingleton<SupervisorEndpointResolver>();
+        services.AddSingleton<SupervisorBootstrapLockProvider>();
+        services.AddSingleton<SupervisorDiagnosisWriter>();
+        services.AddSingleton<SupervisorExitHandler>();
+        services.AddSingleton<SupervisorStabilityVerifier>();
+        services.AddSingleton<SupervisorProjectCoordinator>();
+        services.AddSingleton<SupervisorRequestDispatcher>();
+        services.AddSingleton<SupervisorTransportServer>();
+        services.AddSingleton<SupervisorLaunchCommandResolver>();
+        services.AddSingleton<SupervisorExternalProcessRunner>();
+        services.AddSingleton<LaunchdSupervisorProcessLauncher>();
+        services.AddSingleton<SystemdRunSupervisorProcessLauncher>();
+        services.AddSingleton<WindowsDetachedSupervisorProcessLauncher>();
+        services.AddSingleton<SupervisorProcessLauncher>();
+        services.AddSingleton<ISupervisorProcessLauncher>(provider => provider.GetRequiredService<SupervisorProcessLauncher>());
+        services.AddSingleton<SupervisorBootstrapper>();
+        services.AddSingleton<SupervisorClient>();
+        services.AddSingleton<SupervisorHost>();
         return services;
     }
 

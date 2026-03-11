@@ -27,7 +27,8 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
             CanShutdownProcess: contract.CanShutdownProcess,
             EndpointTransportKind: StringValueNormalizer.TrimOrEmpty(contract.EndpointTransportKind),
             EndpointAddress: StringValueNormalizer.TrimOrEmpty(contract.EndpointAddress),
-            ProcessId: contract.ProcessId);
+            ProcessId: contract.ProcessId,
+            OwnerProcessId: contract.OwnerProcessId);
     }
 
     /// <summary> Serializes daemon session model to JSON text. </summary>
@@ -48,7 +49,8 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
             CanShutdownProcess: session.CanShutdownProcess,
             EndpointTransportKind: session.EndpointTransportKind,
             EndpointAddress: session.EndpointAddress,
-            ProcessId: session.ProcessId);
+            ProcessId: session.ProcessId,
+            OwnerProcessId: session.OwnerProcessId);
 
         return DaemonSessionJsonContractSerializer.Serialize(contract);
     }

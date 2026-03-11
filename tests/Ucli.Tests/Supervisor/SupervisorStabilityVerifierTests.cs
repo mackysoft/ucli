@@ -1,0 +1,183 @@
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Daemon;
+using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Supervisor;
+using MackySoft.Ucli.UnityProject;
+
+namespace MackySoft.Ucli.Tests.Supervisor;
+
+public sealed class SupervisorStabilityVerifierTests
+{
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureStable_WhenRemainingTimeoutIsExhausted_ReturnsTimeout ()
+    {
+        var pingClient = new StubDaemonPingClient
+        {
+            PingHandler = async (_, _, cancellationToken) =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(40), cancellationToken).ConfigureAwait(false);
+            },
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var verifier = new SupervisorStabilityVerifier(
+            pingClient,
+            new SupervisorDiagnosisWriter(diagnosisStore));
+        var unityProject = CreateUnityProject();
+        var session = CreateSession();
+
+        var result = await verifier.EnsureStable(
+            unityProject,
+            session,
+            TimeSpan.FromMilliseconds(180),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+        Assert.Equal(DaemonDiagnosisReasonValues.StartupUnstable, diagnosisStore.LastDiagnosis.Reason);
+        Assert.Equal("Unity daemon stability verification exceeded the remaining timeout.", diagnosisStore.LastDiagnosis.Message);
+        Assert.NotEmpty(pingClient.Timeouts);
+        if (pingClient.Timeouts.Count >= 2)
+        {
+            Assert.True(pingClient.Timeouts[^1] < pingClient.Timeouts[0]);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureStable_WhenPingFails_ReturnsFailureWithoutCompensationStop ()
+    {
+        var pingClient = new StubDaemonPingClient
+        {
+            PingHandler = static (_, _, _) => ValueTask.FromException(new InvalidOperationException("ping failed")),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var verifier = new SupervisorStabilityVerifier(
+            pingClient,
+            new SupervisorDiagnosisWriter(diagnosisStore));
+
+        var result = await verifier.EnsureStable(
+            CreateUnityProject(),
+            CreateSession(),
+            TimeSpan.FromMilliseconds(400),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
+        Assert.Contains("Unity daemon failed the supervisor stability window. ping failed", result.Error.Message, StringComparison.Ordinal);
+        Assert.NotNull(diagnosisStore.LastDiagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureStable_WhenDiagnosisWriteFails_ReturnsAugmentedFailure ()
+    {
+        var pingClient = new StubDaemonPingClient
+        {
+            PingHandler = static (_, _, _) => ValueTask.FromException(new InvalidOperationException("ping failed")),
+        };
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            WriteResult = DaemonDiagnosisStoreOperationResult.Failure(
+                ExecutionError.InternalError("diagnosis failed")),
+        };
+        var verifier = new SupervisorStabilityVerifier(
+            pingClient,
+            new SupervisorDiagnosisWriter(diagnosisStore));
+
+        var result = await verifier.EnsureStable(
+            CreateUnityProject(),
+            CreateSession(),
+            TimeSpan.FromMilliseconds(400),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Contains("DiagnosisError=diagnosis failed", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    private static ResolvedUnityProjectContext CreateUnityProject ()
+    {
+        return new ResolvedUnityProjectContext(
+            UnityProjectRoot: "/tmp/unity-project",
+            RepositoryRoot: "/tmp/repo-root",
+            ProjectFingerprint: "fingerprint",
+            PathSource: UnityProjectPathSource.CommandOption);
+    }
+
+    private static DaemonSession CreateSession ()
+    {
+        return new DaemonSession(
+            SchemaVersion: DaemonSession.CurrentSchemaVersion,
+            SessionToken: "session-token",
+            ProjectFingerprint: "fingerprint",
+            IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
+            RuntimeKind: DaemonSession.RuntimeKindBatchmode,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
+            CanShutdownProcess: true,
+            EndpointTransportKind: "namedPipe",
+            EndpointAddress: "ucli-endpoint",
+            ProcessId: 1234,
+            OwnerProcessId: 9876);
+    }
+
+    private sealed class StubDaemonPingClient : IDaemonPingClient
+    {
+        public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask>? PingHandler { get; set; }
+
+        public List<TimeSpan> Timeouts { get; } = [];
+
+        public async ValueTask Ping (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            string? sessionToken = null,
+            CancellationToken cancellationToken = default)
+        {
+            Timeouts.Add(timeout);
+            if (PingHandler == null)
+            {
+                throw new InvalidOperationException("Ping handler is not configured.");
+            }
+
+            await PingHandler(unityProject, timeout, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private sealed class StubDaemonDiagnosisStore : IDaemonDiagnosisStore
+    {
+        public DaemonDiagnosis? LastDiagnosis { get; private set; }
+
+        public DaemonDiagnosisStoreOperationResult WriteResult { get; set; } =
+            DaemonDiagnosisStoreOperationResult.Success();
+
+        public ValueTask<DaemonDiagnosisReadResult> Read (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisReadResult.Success(null));
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Write (
+            string storageRoot,
+            string projectFingerprint,
+            DaemonDiagnosis diagnosis,
+            CancellationToken cancellationToken = default)
+        {
+            LastDiagnosis = diagnosis;
+            return ValueTask.FromResult(WriteResult);
+        }
+
+        public ValueTask<DaemonDiagnosisStoreOperationResult> Delete (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+    }
+}

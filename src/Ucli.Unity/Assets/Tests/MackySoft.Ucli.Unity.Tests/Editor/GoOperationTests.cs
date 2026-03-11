@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -17,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Create_Call_WhenScenePathIsValid_CreatesRootGameObjectAndStoresAlias ()
+        public async Task Create_Call_WhenScenePathIsValid_CreatesRootGameObjectAndStoresAlias ()
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -36,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     alias: "created");
                 var context = new OperationExecutionContext();
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true);
                 var loadedScene = SceneManager.GetSceneByPath(scenePath);
@@ -55,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Call_WhenParentUsesAlias_CreatesChildUnderParent ()
+        public async Task Create_Call_WhenParentUsesAlias_CreatesChildUnderParent ()
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -79,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     alias: "created");
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true);
                 Assert.That(parent.transform.childCount, Is.EqualTo(1));
@@ -96,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Call_WhenParentUsesSelector_CreatesChildUnderParent ()
+        public async Task Create_Call_WhenParentUsesSelector_CreatesChildUnderParent ()
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -118,7 +119,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true);
                 Assert.That(parent.transform.childCount, Is.EqualTo(1));
@@ -133,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Plan_WhenAliasIsSpecified_StoresTemporaryAlias ()
+        public async Task Create_Plan_WhenAliasIsSpecified_StoresTemporaryAlias ()
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -152,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     alias: "created");
                 var context = new OperationExecutionContext();
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: true);
                 Assert.That(context.TryGetTemporaryAliasState("created", out var temporaryAliasState), Is.True);
@@ -170,7 +171,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Validate_WhenSceneAndParentAreBothSpecified_ReturnsInvalidArgument ()
+        public async Task Create_Validate_WhenSceneAndParentAreBothSpecified_ReturnsInvalidArgument ()
         {
             var operation = new GoCreateOperation();
             var requestOperation = CreateOperation(
@@ -186,14 +187,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Validate_WhenSceneAndParentAreBothMissing_ReturnsInvalidArgument ()
+        public async Task Create_Validate_WhenSceneAndParentAreBothMissing_ReturnsInvalidArgument ()
         {
             var operation = new GoCreateOperation();
             var requestOperation = CreateOperation(
@@ -204,14 +205,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     name = "CreatedRoot",
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Validate_WhenParentResolvesAsset_ReturnsInvalidArgument ()
+        public async Task Create_Validate_WhenParentResolvesAsset_ReturnsInvalidArgument ()
         {
             var operation = new GoCreateOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -232,7 +233,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-create");
             }
@@ -249,7 +250,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Describe_Plan_WhenTargetUsesAlias_ReturnsSuccess ()
+        public async Task Describe_Plan_WhenTargetUsesAlias_ReturnsSuccess ()
         {
             var operation = new GoDescribeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -273,7 +274,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         depth = 1,
                     });
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
             }
@@ -286,7 +287,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Describe_Plan_WhenTargetUsesSelector_ReturnsSuccess ()
+        public async Task Describe_Plan_WhenTargetUsesSelector_ReturnsSuccess ()
         {
             var operation = new GoDescribeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -309,7 +310,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
                 Assert.That(result.Result.HasValue, Is.True);
@@ -325,7 +326,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Describe_Validate_WhenDepthIsNegative_ReturnsInvalidArgument ()
+        public async Task Describe_Validate_WhenDepthIsNegative_ReturnsInvalidArgument ()
         {
             var operation = new GoDescribeOperation();
             var requestOperation = CreateOperation(
@@ -340,14 +341,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     depth = -1,
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-describe");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Describe_Validate_WhenTargetResolvesAsset_ReturnsInvalidArgument ()
+        public async Task Describe_Validate_WhenTargetResolvesAsset_ReturnsInvalidArgument ()
         {
             var operation = new GoDescribeOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -367,7 +368,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-describe");
             }
