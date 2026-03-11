@@ -551,6 +551,65 @@ public static class RebuildNavmesh
   - `path` は、現在開いている Prefab と一致しなければならない
 - `prefab.open` 後の編集は、`as` で受けた root alias を起点に `ucli.go.create` / `ucli.comp.ensure` / `ucli.comp.set` を連鎖させる
 
+### Asset操作例
+```json
+{
+  "protocolVersion": 1,
+  "requestId": "ab2f4a7a-9b5d-4e0d-bc71-11b1d4f1ab73",
+  "ops": [
+    {
+      "id": "createConfig",
+      "op": "ucli.asset.create",
+      "as": "config",
+      "args": {
+        "type": "Game.ConfigAsset, Assembly-CSharp",
+        "path": "Assets/Data/GameConfig.asset"
+      }
+    },
+    {
+      "id": "setConfig",
+      "op": "ucli.asset.set",
+      "args": {
+        "target": {
+          "var": "config"
+        },
+        "sets": [
+          {
+            "path": "spawnInterval",
+            "value": 3.0
+          },
+          {
+            "path": "displayName",
+            "value": "Main Config"
+          }
+        ]
+      }
+    },
+    {
+      "id": "saveProject",
+      "op": "ucli.project.save",
+      "args": {}
+    }
+  ]
+}
+```
+
+- `ucli.asset.create`
+  - `type` は concrete な `ScriptableObject` の `typeId` を受け付ける
+  - `path` は `Assets/` 配下の project-relative path かつ `.asset` 拡張子必須
+  - 親フォルダは既存必須、既存 path の上書きは行わない
+- `ucli.asset.set`
+  - `target` は `var` / `globalObjectId` / `assetGuid` / `assetPath` を受け付ける
+  - 対象は `Assets/` 配下の existing main asset に限る
+  - `ScriptableObject` だけでなく `Material` などの既存 main asset も対象に含む
+  - sub-asset、scene asset、prefab asset は対象外
+  - `call` は dirty 化までを行い、永続化は `ucli.project.save` に委ねる
+- `ucli.asset.schema`
+  - `{ "type": "<typeId>" }` は concrete な `ScriptableObject` 型のみ受け付ける
+  - `{ "target": ... }` は `Assets/` 配下の existing main asset を受け付け、実ランタイム型の schema を返す
+
+`ucli.asset.set` も `ucli.comp.set` と同様に atomic に評価・適用し、`mode` 引数は受け付けない。
+
 ## コマンド
 Unityプロジェクトを対象に実行するコマンドは、CWDがUnityプロジェクトと判定可能な場合はそれを使う。そうでない場合は `--projectPath` を指定する。
 
