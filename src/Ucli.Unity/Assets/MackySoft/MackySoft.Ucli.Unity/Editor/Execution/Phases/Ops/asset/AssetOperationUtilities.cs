@@ -125,6 +125,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
+            if (allowTemporaryState
+                && reference.Kind == UnityObjectReferenceKind.Selector
+                && reference.Selector.Kind == ResolveSelectorKind.AssetPath
+                && executionContext.TryGetPlannedAssetState(reference.Selector.AssetPath!, out var plannedAssetState))
+            {
+                unityObject = plannedAssetState.UnityObject;
+                assetPath = plannedAssetState.AssetPath;
+                sourceGlobalObjectId = null;
+                errorMessage = string.Empty;
+                return true;
+            }
+
             if (!OperationObjectReferenceUtilities.TryResolveUnityObject(
                 reference,
                 executionContext,
@@ -234,6 +246,37 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 clone = null;
                 errorMessage = $"Temporary asset clone could not be created for type '{source.GetType().FullName}'. {exception.Message}";
+                return false;
+            }
+        }
+
+        /// <summary> Copies serialized state from one asset object to another object of the same runtime type. </summary>
+        /// <param name="source"> The source object. </param>
+        /// <param name="target"> The target object. </param>
+        public static bool TryCopySerializedState (
+            UnityEngine.Object source,
+            UnityEngine.Object target,
+            out string errorMessage)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (target == null)
+            {
+                throw new ArgumentNullException(nameof(target));
+            }
+
+            try
+            {
+                EditorUtility.CopySerialized(source, target);
+                errorMessage = string.Empty;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                errorMessage = $"Serialized asset state could not be copied to '{target.GetType().FullName}'. {exception.Message}";
                 return false;
             }
         }

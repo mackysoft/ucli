@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly AssetSandboxRegistry assetSandboxRegistry = new AssetSandboxRegistry();
 
+        private readonly PlannedAssetRegistry plannedAssetRegistry = new PlannedAssetRegistry();
+
         private readonly TemporaryObjectScope temporaryObjectScope = new TemporaryObjectScope();
 
         /// <summary> Initializes a new instance of the <see cref="OperationExecutionContext" /> class. </summary>
@@ -235,6 +237,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return assetSandboxRegistry.TryGetAssetShadow(globalObjectId, out unityObject, out assetPath);
         }
 
+        /// <summary> Stores or replaces one plan-time created asset keyed by its reserved asset path. </summary>
+        /// <param name="assetPath"> The reserved asset path. </param>
+        /// <param name="ownerOperationId"> The operation id that owns the reservation. </param>
+        /// <param name="unityObject"> The current temporary asset instance. </param>
+        internal void SetPlannedAsset (
+            string assetPath,
+            string ownerOperationId,
+            UnityEngine.Object unityObject)
+        {
+            plannedAssetRegistry.SetPlannedAsset(assetPath, ownerOperationId, unityObject, temporaryAliasRegistry);
+        }
+
+        /// <summary> Tries to get one plan-time created asset state keyed by asset path. </summary>
+        /// <param name="assetPath"> The reserved asset path. </param>
+        /// <param name="state"> The planned asset state when found. </param>
+        /// <returns> <see langword="true" /> when the planned asset exists; otherwise <see langword="false" />. </returns>
+        internal bool TryGetPlannedAssetState (
+            string assetPath,
+            out PlannedAssetRegistry.PlannedAssetState state)
+        {
+            return plannedAssetRegistry.TryGetState(assetPath, out state);
+        }
+
         /// <summary> Tracks one temporary object for cleanup at the end of request execution. </summary>
         /// <param name="unityObject"> The temporary object to destroy. </param>
         internal void TrackTemporaryObject (UnityEngine.Object unityObject)
@@ -249,6 +274,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             temporaryAliasRegistry.Clear();
             componentSandboxRegistry.Clear();
             assetSandboxRegistry.Clear();
+            plannedAssetRegistry.Clear();
         }
     }
 }

@@ -37,7 +37,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(TryValidate(operation, out _, out _, out var failure)
+            if (!TryValidate(operation, out _, out var assetPath, out var failure))
+            {
+                return Task.FromResult(failure!);
+            }
+
+            return Task.FromResult(TryValidatePlannedAssetPath(operation, executionContext, assetPath!, out failure)
                 ? OperationPhaseStepResult.Success(applied: false, changed: false)
                 : failure!);
         }
@@ -53,13 +58,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!TryValidatePlannedAssetPath(operation, executionContext, assetPath!, out failure))
+            {
+                return Task.FromResult(failure!);
+            }
+
             UnityEngine.Object? temporaryAsset = null;
-            if (operation.As != null
-                && !AssetOperationUtilities.TryCreateTemporaryAssetInstance(
-                    assetType!,
-                    executionContext,
-                    out temporaryAsset,
-                    out var errorMessage))
+            if (executionContext.TryGetPlannedAssetState(assetPath!, out var plannedAssetState))
+            {
+                temporaryAsset = plannedAssetState.UnityObject;
+            }
+            else if (!AssetOperationUtilities.TryCreateTemporaryAssetInstance(
+                assetType!,
+                executionContext,
+                out temporaryAsset,
+                out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
@@ -67,6 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
+            executionContext.SetPlannedAsset(assetPath!, operation.Id, temporaryAsset!);
             if (operation.As != null)
             {
                 executionContext.SetTemporaryAlias(
@@ -160,6 +174,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return true;
+        }
+
+        private static bool TryValidatePlannedAssetPath (
+            NormalizedOperation operation,
+            OperationExecutionContext executionContext,
+            string assetPath,
+            out OperationPhaseStepResult? failure)
+        {
+            failure = null;
+            if (!executionContext.TryGetPlannedAssetState(assetPath, out var plannedAssetState))
+            {
+                return true;
+            }
+
+            if (string.Equals(plannedAssetState.OwnerOperationId, operation.Id, System.StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                operation.Id,
+                $"Asset path is already reserved by another planned create operation: {plannedAssetState.AssetPath}.");
+            return false;
         }
     }
 }
