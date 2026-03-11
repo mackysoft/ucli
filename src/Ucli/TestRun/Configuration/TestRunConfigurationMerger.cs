@@ -7,21 +7,21 @@ namespace MackySoft.Ucli.TestRun.Configuration;
 /// <summary> Merges CLI values, profile values, and defaults into normalized test-run configuration. </summary>
 internal static class TestRunConfigurationMerger
 {
-    private const string DefaultProjectPath = ".";
-
     private const string DefaultMode = "auto";
 
     /// <summary> Merges one command input and profile configuration into a normalized configuration. </summary>
     /// <param name="cli"> The raw CLI input values. </param>
     /// <param name="profile"> The optional loaded profile. </param>
+    /// <param name="projectPath"> The resolved project path candidate selected before merge. </param>
     /// <returns> The merged normalized configuration. </returns>
     public static MergedTestRunConfiguration Merge (
         TestRunCommandInput cli,
-        TestRunProfile? profile)
+        TestRunProfile? profile,
+        string projectPath)
     {
         ArgumentNullException.ThrowIfNull(cli);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
 
-        var projectPath = cli.ProjectPath ?? profile?.ProjectPath ?? DefaultProjectPath;
         var mode = NormalizeMode(cli.Mode ?? DefaultMode);
         var mergedRawTestPlatform = cli.TestPlatform ?? profile?.TestPlatform ?? IpcTestRunPlatformCodec.EditMode;
         var hasParsedTestPlatform = IpcTestRunPlatformCodec.TryParse(mergedRawTestPlatform, out var parsedTestPlatform);

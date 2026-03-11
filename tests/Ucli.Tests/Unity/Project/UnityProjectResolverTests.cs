@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.EnvironmentVariables;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
@@ -44,6 +45,64 @@ public sealed class UnityProjectResolverTests
         FileSystemAssert.ForPath(context.RepositoryRoot)
             .IsRooted()
             .EqualsNormalized(unityProjectPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_WhenCommandOptionIsMissing_UsesEnvironmentVariableProjectPath ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "environment-variable-path");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "EnvProject");
+        var resolver = CreateResolver(new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [UcliEnvironmentVariableNames.ProjectPath] = unityProjectPath,
+        });
+
+        var result = resolver.Resolve(null);
+
+        Assert.True(result.IsSuccess);
+        var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
+        Assert.Equal(unityProjectPath, context.UnityProjectRoot);
+        Assert.Equal(UnityProjectPathSource.CommandOption, context.PathSource);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_WhenCommandOptionIsSpecified_IgnoresEnvironmentVariableProjectPath ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "command-option-precedence");
+        var commandProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "CommandProject");
+        var environmentProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "EnvironmentProject");
+        var resolver = CreateResolver(new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [UcliEnvironmentVariableNames.ProjectPath] = environmentProjectPath,
+        });
+
+        var result = resolver.Resolve(commandProjectPath);
+
+        Assert.True(result.IsSuccess);
+        var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
+        Assert.Equal(commandProjectPath, context.UnityProjectRoot);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Resolve_ReturnsInvalidArgument_WhenEnvironmentVariableProjectPathDoesNotExist ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "environment-variable-missing-path");
+        var missingPath = scope.GetPath("MissingUnityProject");
+        var resolver = CreateResolver(new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [UcliEnvironmentVariableNames.ProjectPath] = missingPath,
+        });
+
+        var result = resolver.Resolve(null);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Context);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("does not exist", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -136,5 +195,10 @@ public sealed class UnityProjectResolverTests
         Assert.Equal(repositoryRoot, primary.Context!.RepositoryRoot);
         Assert.Equal(repositoryRoot, secondary.Context!.RepositoryRoot);
         Assert.NotEqual(primary.Context!.ProjectFingerprint, secondary.Context!.ProjectFingerprint);
+    }
+
+    private static UnityProjectResolver CreateResolver (IReadOnlyDictionary<string, string?> environmentVariables)
+    {
+        return new UnityProjectResolver(new ProjectPathInputResolver(new StubEnvironmentVariableReader(environmentVariables)));
     }
 }

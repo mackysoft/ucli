@@ -10,8 +10,11 @@ namespace MackySoft.Ucli.TestRun.Configuration;
 internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolver
 {
     private const int MinTimeoutMilliseconds = 1;
+    private const string DefaultProjectPath = ".";
 
     private readonly ITestRunProfileLoader profileLoader;
+
+    private readonly IProjectPathInputResolver projectPathInputResolver;
 
     private readonly IUnityProjectResolver unityProjectResolver;
 
@@ -26,11 +29,13 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     /// <param name="unityEditorPathResolver"> The Unity editor path resolver dependency. </param>
     public TestRunConfigurationResolver (
         ITestRunProfileLoader profileLoader,
+        IProjectPathInputResolver projectPathInputResolver,
         IUnityProjectResolver unityProjectResolver,
         IUnityVersionResolver unityVersionResolver,
         IUnityEditorPathResolver unityEditorPathResolver)
     {
         this.profileLoader = profileLoader ?? throw new ArgumentNullException(nameof(profileLoader));
+        this.projectPathInputResolver = projectPathInputResolver ?? throw new ArgumentNullException(nameof(projectPathInputResolver));
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
@@ -63,7 +68,8 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         MergedTestRunConfiguration mergedConfiguration;
         try
         {
-            mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile);
+            var resolvedProjectPath = ResolveProjectPath(input, profile);
+            mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile, resolvedProjectPath);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -119,6 +125,22 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             TestSettingsPath: mergedConfiguration.TestSettingsPath,
             TimeoutMilliseconds: mergedConfiguration.TimeoutMilliseconds);
         return TestRunConfigurationResolutionResult.Success(resolvedConfiguration);
+    }
+
+    /// <summary> Resolves the effective project-path input using command, environment, profile, and default precedence. </summary>
+    /// <param name="input"> The raw command input values. </param>
+    /// <param name="profile"> The optional loaded profile values. </param>
+    /// <returns> The resolved project-path candidate. </returns>
+    private string ResolveProjectPath (
+        TestRunCommandInput input,
+        TestRunProfile? profile)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        return projectPathInputResolver.Resolve(
+                   input.ProjectPath,
+                   profile?.ProjectPath ?? DefaultProjectPath)
+               ?? DefaultProjectPath;
     }
 
     /// <summary> Validates merged configuration values before project and editor resolution. </summary>
