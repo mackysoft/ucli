@@ -64,65 +64,79 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : failure!);
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        public async Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(
+            return await Execute(
                 operation,
                 executionContext,
                 applied: false,
-                allowTemporaryState: true);
+                allowTemporaryState: true,
+                cancellationToken).ConfigureAwait(false);
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        public async Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(
+            return await Execute(
                 operation,
                 executionContext,
                 applied: true,
-                allowTemporaryState: false);
+                allowTemporaryState: false,
+                cancellationToken).ConfigureAwait(false);
         }
 
-        private Task<OperationPhaseStepResult> Execute (
+        private async Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             bool applied,
-            bool allowTemporaryState)
+            bool allowTemporaryState,
+            CancellationToken cancellationToken)
         {
-            if (!TryValidate(operation, executionContext, allowTemporaryState, out var schemaEntry, out var failure))
+            if (!TryValidate(operation, executionContext, allowTemporaryState, out var validationState, out var failure))
             {
-                return Task.FromResult(failure!);
+                return failure!;
             }
 
-            if (schemaEntry == null)
+            if (validationState.AssetType != null)
             {
-                return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: IpcErrorCodes.InternalError,
-                    Message: "Asset schema entry was not produced.",
-                    OpId: operation.Id)));
+                var extractionResult = await assetSchemaExtractor.Extract(
+                    new[] { validationState.AssetType },
+                    cancellationToken).ConfigureAwait(false);
+                if (extractionResult.Entries.Count == 0)
+                {
+                    return OperationPhaseStepResult.Failed(new OperationFailure(
+                        Code: IpcErrorCodes.InternalError,
+                        Message: $"Schema could not be extracted for type '{validationState.AssetType.FullName}'.",
+                        OpId: operation.Id));
+                }
+
+                return OperationPhaseStepResult.Success(
+                    applied: applied,
+                    changed: false,
+                    result: IpcPayloadCodec.SerializeToElement(extractionResult.Entries[0]));
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(
+            return OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(schemaEntry)));
+                result: IpcPayloadCodec.SerializeToElement(validationState.TargetSchemaEntry));
         }
 
         private bool TryValidate (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out MackySoft.Ucli.Contracts.Index.IndexSchemaEntryJsonContract? schemaEntry,
+            out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
-            schemaEntry = null;
+            validationState = default;
             failure = null;
             if (!AssetSchemaArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
             {
@@ -138,17 +152,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                var extractionResult = assetSchemaExtractor.Extract(new[] { assetType! }).GetAwaiter().GetResult();
-                if (extractionResult.Entries.Count == 0)
-                {
-                    failure = OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.InternalError,
-                        Message: $"Schema could not be extracted for type '{assetType!.FullName}'.",
-                        OpId: operation.Id));
-                    return false;
-                }
-
-                schemaEntry = extractionResult.Entries[0];
+                validationState = new ValidationState(assetType!, null);
                 return true;
             }
 
@@ -158,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            schemaEntry = targetSchemaBuilder.Build(unityObject!);
+            validationState = new ValidationState(null, targetSchemaBuilder.Build(unityObject!));
             return true;
         }
 
@@ -192,6 +196,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             unityObject = resolvedAsset;
             return true;
+        }
+
+        private readonly struct ValidationState
+        {
+            public ValidationState (
+                System.Type? assetType,
+                MackySoft.Ucli.Contracts.Index.IndexSchemaEntryJsonContract? targetSchemaEntry)
+            {
+                AssetType = assetType;
+                TargetSchemaEntry = targetSchemaEntry;
+            }
+
+            public System.Type? AssetType { get; }
+
+            public MackySoft.Ucli.Contracts.Index.IndexSchemaEntryJsonContract? TargetSchemaEntry { get; }
         }
     }
 }

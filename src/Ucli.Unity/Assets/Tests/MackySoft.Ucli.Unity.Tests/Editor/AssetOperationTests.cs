@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -19,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Create_Plan_WhenAliasIsSpecified_StoresTemporaryAssetAlias ()
+        public async Task Create_Plan_WhenAliasIsSpecified_StoresTemporaryAssetAlias ()
         {
             var createOperation = new AssetCreateOperation();
             var requestOperation = CreateOperation(
@@ -33,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 alias: "created");
             var context = new OperationExecutionContext();
 
-            var result = createOperation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+            var result = await createOperation.Plan(requestOperation, context, CancellationToken.None);
 
             AssertAssetSuccess(result, applied: false, changed: true, requestOperation.Args.GetProperty("path").GetString()!);
             Assert.That(context.TryGetTemporaryAliasState("created", out var aliasState), Is.True);
@@ -44,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Call_WhenArgumentsAreValid_CreatesAssetAndStoresAlias ()
+        public async Task Create_Call_WhenArgumentsAreValid_CreatesAssetAndStoresAlias ()
         {
             var operation = new AssetCreateOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -61,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     alias: "created");
                 var context = new OperationExecutionContext();
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertAssetSuccess(result, applied: true, changed: true, assetPath);
                 Assert.That(AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath), Is.Not.Null);
@@ -76,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument ()
+        public async Task Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument ()
         {
             var operation = new AssetCreateOperation();
             var requestOperation = CreateOperation(
@@ -88,14 +89,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = CreateTemporaryAssetPath(),
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Plan_WhenTargetUsesCreatedAlias_UpdatesTemporaryAssetState ()
+        public async Task Set_Plan_WhenTargetUsesCreatedAlias_UpdatesTemporaryAssetState ()
         {
             var createOperation = new AssetCreateOperation();
             var setOperation = new AssetSetOperation();
@@ -145,9 +146,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var createResult = createOperation.Plan(createRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-            var setResult = setOperation.Plan(setRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-            var schemaResult = schemaOperation.Plan(schemaRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
+            var schemaResult = await schemaOperation.Plan(schemaRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(createResult, applied: false, changed: true, assetPath);
             AssertAssetSuccess(setResult, applied: false, changed: true, assetPath);
@@ -169,7 +170,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Call_WhenTargetIsScriptableObjectAsset_UpdatesValueAndLeavesAssetDirty ()
+        public async Task Set_Call_WhenTargetIsScriptableObjectAsset_UpdatesValueAndLeavesAssetDirty ()
         {
             var operation = new AssetSetOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -201,7 +202,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertAssetSuccess(result, applied: true, changed: true, assetPath);
                 Assert.That(asset.IntegerValue, Is.EqualTo(64));
@@ -221,7 +222,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Call_WhenTargetIsMaterialAsset_UpdatesMaterialSerializedValue ()
+        public async Task Set_Call_WhenTargetIsMaterialAsset_UpdatesMaterialSerializedValue ()
         {
             var operation = new AssetSetOperation();
             var assetPath = CreateTemporaryMaterialPath();
@@ -248,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertAssetSuccess(result, applied: true, changed: true, assetPath);
                 Assert.That(material.renderQueue, Is.EqualTo(2450));
@@ -267,7 +268,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Validate_WhenTargetIsSubAsset_ReturnsInvalidArgument ()
+        public async Task Set_Validate_WhenTargetIsSubAsset_ReturnsInvalidArgument ()
         {
             var operation = new AssetSetOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -298,7 +299,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Validate(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Validate(requestOperation, context, CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-set");
             }
@@ -320,7 +321,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Schema_Plan_WhenTypeUsesMaterial_ReturnsInvalidArgument ()
+        public async Task Schema_Plan_WhenTypeUsesMaterial_ReturnsInvalidArgument ()
         {
             var operation = new AssetSchemaOperation();
             var requestOperation = CreateOperation(
@@ -331,14 +332,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     type = IndexTypeIdFormatter.Format(typeof(Material)),
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-schema");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Schema_Plan_WhenTargetIsMaterial_ReturnsSchemaMetadata ()
+        public async Task Schema_Plan_WhenTargetIsMaterial_ReturnsSchemaMetadata ()
         {
             var operation = new AssetSchemaOperation();
             var assetPath = CreateTemporaryMaterialPath();
@@ -357,7 +358,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertQuerySuccess(result, applied: false);
                 var schema = result.Result!.Value;
