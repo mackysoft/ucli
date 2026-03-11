@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.UnityProject;
 using MackySoft.Ucli.UnityProject.Resolution;
 
@@ -18,6 +18,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
 
     private readonly IIpcEndpointResolver endpointResolver;
 
+    private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
+
     /// <summary> Initializes a new instance of the <see cref="UnityBatchmodeProcessLauncher" /> class. </summary>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
     /// <param name="unityEditorPathResolver"> The Unity editor path resolver dependency. </param>
@@ -26,11 +28,13 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     public UnityBatchmodeProcessLauncher (
         IUnityVersionResolver unityVersionResolver,
         IUnityEditorPathResolver unityEditorPathResolver,
-        IIpcEndpointResolver endpointResolver)
+        IIpcEndpointResolver endpointResolver,
+        IUnityUcliPluginLocator unityUcliPluginLocator)
     {
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
+        this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
     }
 
     /// <summary> Launches one Unity batchmode daemon process for the specified project context. </summary>
@@ -90,16 +94,38 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                 "Unity log path must not be empty.")));
         }
 
+        return LaunchValidated(
+            unityProject,
+            bootstrapArguments,
+            unityLogPath,
+            cancellationToken);
+    }
+
+    private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchValidated (
+        ResolvedUnityProjectContext unityProject,
+        IpcBatchmodeBootstrapArguments bootstrapArguments,
+        string unityLogPath,
+        CancellationToken cancellationToken)
+    {
+        var pluginLocateResult = await unityUcliPluginLocator.Locate(
+                unityProject.UnityProjectRoot,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!pluginLocateResult.IsSuccess)
+        {
+            return UnityBatchmodeProcessLaunchResult.Failure(pluginLocateResult.Error!);
+        }
+
         var unityVersionResult = unityVersionResolver.Resolve(unityProject.UnityProjectRoot, preferredUnityVersion: null);
         if (!unityVersionResult.IsSuccess)
         {
-            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(unityVersionResult.Error!));
+            return UnityBatchmodeProcessLaunchResult.Failure(unityVersionResult.Error!);
         }
 
         var unityEditorPathResult = unityEditorPathResolver.Resolve(unityVersionResult.UnityVersion!, preferredUnityEditorPath: null);
         if (!unityEditorPathResult.IsSuccess)
         {
-            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(unityEditorPathResult.Error!));
+            return UnityBatchmodeProcessLaunchResult.Failure(unityEditorPathResult.Error!);
         }
 
         try
@@ -128,21 +154,21 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             var process = Process.Start(processStartInfo);
             if (process == null)
             {
-                return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
-                    "Unity batchmode process could not be started.")));
+                return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
+                    "Unity batchmode process could not be started."));
             }
 
-            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Success(new UnityBatchmodeProcessHandle(process)));
+            return UnityBatchmodeProcessLaunchResult.Success(new UnityBatchmodeProcessHandle(process));
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
-            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
-                $"Unity batchmode launch path is invalid. {exception.Message}")));
+            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
+                $"Unity batchmode launch path is invalid. {exception.Message}"));
         }
         catch (Exception exception)
         {
-            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
-                $"Failed to start Unity batchmode process. {exception.Message}")));
+            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
+                $"Failed to start Unity batchmode process. {exception.Message}"));
         }
     }
 

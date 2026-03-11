@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Supervisor;
+using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon.Command;
 
@@ -15,6 +16,8 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
 
     private readonly SupervisorClient supervisorClient;
 
+    private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
+
     private readonly IDaemonSessionOutputMapper daemonSessionOutputMapper;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartCommandService" /> class. </summary>
@@ -26,11 +29,13 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         SupervisorBootstrapper supervisorBootstrapper,
         SupervisorClient supervisorClient,
+        IUnityUcliPluginLocator unityUcliPluginLocator,
         IDaemonSessionOutputMapper daemonSessionOutputMapper)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
         this.supervisorBootstrapper = supervisorBootstrapper ?? throw new ArgumentNullException(nameof(supervisorBootstrapper));
         this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
+        this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
     }
 
@@ -59,6 +64,15 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
 
         var executionContext = contextResult.Context!;
         var deadline = ExecutionDeadline.Start(executionContext.Timeout);
+        var pluginLocateError = await VerifyUnityPluginWithinBudget(
+                executionContext.Context.UnityProject.UnityProjectRoot,
+                deadline,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (pluginLocateError != null)
+        {
+            return DaemonStartExecutionResult.Failure(pluginLocateError);
+        }
 
         if (!deadline.TryGetRemainingTimeout(out var bootstrapTimeout))
         {
@@ -106,5 +120,34 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: daemonSessionOutputMapper.ToOutput(startResult.Session!));
         return DaemonStartExecutionResult.Success(output);
+    }
+
+    private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (
+        string unityProjectRoot,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var pluginLocateTimeout))
+        {
+            return ExecutionError.Timeout("Timed out before uCLI Unity plugin verification could begin.");
+        }
+
+        try
+        {
+            using var pluginLocateCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            pluginLocateCancellationTokenSource.CancelAfter(pluginLocateTimeout);
+            var pluginLocateResult = await unityUcliPluginLocator.Locate(
+                    unityProjectRoot,
+                    pluginLocateCancellationTokenSource.Token)
+                .ConfigureAwait(false);
+            return pluginLocateResult.IsSuccess
+                ? null
+                : pluginLocateResult.Error!;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return ExecutionError.Timeout(
+                $"Timed out while verifying the uCLI Unity plugin. Timeout={pluginLocateTimeout.TotalMilliseconds:0}ms.");
+        }
     }
 }

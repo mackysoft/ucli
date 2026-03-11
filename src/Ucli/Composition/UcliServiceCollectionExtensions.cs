@@ -47,6 +47,11 @@ internal static class UcliServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IUnityProjectResolver, UnityProjectResolver>();
+        services.AddSingleton<UnityUcliPluginMarkerDiscovery>();
+        services.AddSingleton<UnityUcliPluginMarkerValidator>();
+        services.AddSingleton<UnityUcliPluginMarkerCacheStore>();
+        services.AddSingleton<UnityUcliPluginMarkerCacheCoordinator>();
+        services.AddSingleton<IUnityUcliPluginLocator, UnityUcliPluginLocator>();
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();

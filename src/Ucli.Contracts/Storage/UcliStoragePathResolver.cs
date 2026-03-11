@@ -96,6 +96,66 @@ public static class UcliStoragePathResolver
         return Path.Combine(ResolveUcliDirectoryPath(storageRoot), UcliStoragePathNames.ConfigFileName);
     }
 
+    /// <summary> Resolves the absolute path to the <c>.ucli/local</c> directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute <c>.ucli/local</c> directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveLocalDirectoryPath (string storageRoot)
+    {
+        return Path.Combine(ResolveUcliDirectoryPath(storageRoot), UcliStoragePathNames.LocalDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to the <c>.ucli/local/supervisor</c> directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute supervisor runtime directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveSupervisorDirectoryPath (string storageRoot)
+    {
+        return Path.Combine(
+            ResolveLocalDirectoryPath(storageRoot),
+            UcliStoragePathNames.SupervisorDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to supervisor <c>manifest.json</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <returns> The absolute supervisor manifest file path. </returns>
+    public static string ResolveSupervisorManifestPath (string storageRoot)
+    {
+        return Path.Combine(
+            ResolveSupervisorDirectoryPath(storageRoot),
+            UcliStoragePathNames.SupervisorManifestFileName);
+    }
+
+    /// <summary> Resolves the absolute path to supervisor <c>bootstrap.lock</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <returns> The absolute supervisor bootstrap lock file path. </returns>
+    public static string ResolveSupervisorBootstrapLockPath (string storageRoot)
+    {
+        return Path.Combine(
+            ResolveSupervisorDirectoryPath(storageRoot),
+            UcliStoragePathNames.SupervisorBootstrapLockFileName);
+    }
+
+    /// <summary> Resolves the absolute path to supervisor <c>supervisor.log</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <returns> The absolute supervisor log file path. </returns>
+    public static string ResolveSupervisorLogPath (string storageRoot)
+    {
+        return Path.Combine(
+            ResolveSupervisorDirectoryPath(storageRoot),
+            UcliStoragePathNames.SupervisorLogFileName);
+    }
+
+    /// <summary> Resolves the absolute path to the launch-agent plist used for supervisor bootstrap. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <returns> The absolute launch-agent plist path. </returns>
+    public static string ResolveSupervisorLaunchAgentPlistPath (string storageRoot)
+    {
+        return Path.Combine(
+            ResolveSupervisorDirectoryPath(storageRoot),
+            UcliStoragePathNames.SupervisorLaunchAgentPlistFileName);
+    }
+
     /// <summary> Resolves the absolute path to one fingerprint directory under <c>.ucli/local/fingerprints</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -283,6 +343,19 @@ public static class UcliStoragePathResolver
         return Path.Combine(
             ResolveFingerprintDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.DaemonDiagnosisFileName);
+    }
+
+    /// <summary> Resolves the absolute path to the uCLI Unity plugin marker cache file under one fingerprint directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <returns> The absolute plugin marker cache file path. </returns>
+    public static string ResolveUnityUcliPluginMarkerCachePath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.UnityUcliPluginMarkerCacheFileName);
     }
 
     /// <summary> Resolves the absolute path to Unity batchmode <c>unity.log</c>. </summary>

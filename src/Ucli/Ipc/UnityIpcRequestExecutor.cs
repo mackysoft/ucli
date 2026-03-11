@@ -3,7 +3,9 @@ using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Ipc;
@@ -17,14 +19,18 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
 
     private readonly IUnityIpcClient oneshotIpcClient;
 
+    private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
+
     /// <summary> Initializes a new instance of the <see cref="UnityIpcRequestExecutor" /> class. </summary>
     /// <param name="modeDecisionService"> The Unity execution-mode decision service dependency. </param>
     /// <param name="unityIpcClients"> The Unity IPC client implementations grouped by execution target. </param>
     public UnityIpcRequestExecutor (
         IUnityExecutionModeDecisionService modeDecisionService,
+        IUnityUcliPluginLocator unityUcliPluginLocator,
         IEnumerable<IUnityIpcClient> unityIpcClients)
     {
         this.modeDecisionService = modeDecisionService ?? throw new ArgumentNullException(nameof(modeDecisionService));
+        this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
         ArgumentNullException.ThrowIfNull(unityIpcClients);
         daemonIpcClient = ResolveRequiredClient<UnityDaemonIpcClient>(unityIpcClients);
         oneshotIpcClient = ResolveRequiredClient<UnityOneshotIpcClient>(unityIpcClients);
@@ -61,6 +67,33 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
             .ConfigureAwait(false);
         if (modeDecisionResult.HasContractError)
         {
+            if (string.Equals(
+                    modeDecisionResult.ContractError!.Code,
+                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                    StringComparison.Ordinal))
+            {
+                var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, command, config);
+                if (!timeoutResolutionResult.IsSuccess)
+                {
+                    return UnityIpcRequestExecutionResult.Failure(
+                        timeoutResolutionResult.Error!.Message,
+                        ExecutionErrorKindCodeMapper.ToCode(timeoutResolutionResult.Error.Kind));
+                }
+
+                var daemonModeDeadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value);
+                var daemonModePluginLocateResult = await VerifyUnityPluginWithinBudget(
+                        unityProject.UnityProjectRoot,
+                        daemonModeDeadline,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (daemonModePluginLocateResult != null)
+                {
+                    return UnityIpcRequestExecutionResult.Failure(
+                        daemonModePluginLocateResult.Message,
+                        ExecutionErrorKindCodeMapper.ToCode(daemonModePluginLocateResult.Kind));
+                }
+            }
+
             return UnityIpcRequestExecutionResult.Failure(
                 modeDecisionResult.ContractError!.Message,
                 modeDecisionResult.ContractError.Code);
@@ -74,6 +107,29 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         }
 
         var decision = modeDecisionResult.Decision!;
+        var deadline = ExecutionDeadline.Start(decision.Timeout);
+        if (decision.Target == UnityExecutionTarget.Oneshot)
+        {
+            var pluginLocateError = await VerifyUnityPluginWithinBudget(
+                    unityProject.UnityProjectRoot,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (pluginLocateError != null)
+            {
+                return UnityIpcRequestExecutionResult.Failure(
+                    pluginLocateError.Message,
+                    ExecutionErrorKindCodeMapper.ToCode(pluginLocateError.Kind));
+            }
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+        {
+            return UnityIpcRequestExecutionResult.Failure(
+                "Timed out before Unity IPC request dispatch could begin.",
+                ExecutionErrorKindCodeMapper.ToCode(ExecutionErrorKind.Timeout));
+        }
+
         var unityIpcClient = decision.Target switch
         {
             UnityExecutionTarget.Daemon => daemonIpcClient,
@@ -85,9 +141,38 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                 unityProject,
                 method,
                 payload,
-                decision.Timeout,
+                requestTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (
+        string unityProjectRoot,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var timeout))
+        {
+            return ExecutionError.Timeout("Timed out before uCLI Unity plugin verification could begin.");
+        }
+
+        try
+        {
+            using var pluginLocateCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            pluginLocateCancellationTokenSource.CancelAfter(timeout);
+            var pluginLocateResult = await unityUcliPluginLocator.Locate(
+                    unityProjectRoot,
+                    pluginLocateCancellationTokenSource.Token)
+                .ConfigureAwait(false);
+            return pluginLocateResult.IsSuccess
+                ? null
+                : pluginLocateResult.Error!;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return ExecutionError.Timeout(
+                $"Timed out while verifying the uCLI Unity plugin. Timeout={timeout.TotalMilliseconds:0}ms.");
+        }
     }
 
     private static IUnityIpcClient ResolveRequiredClient<TClient> (IEnumerable<IUnityIpcClient> unityIpcClients)
