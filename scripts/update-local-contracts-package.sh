@@ -12,7 +12,8 @@ Description:
   3. Pack src/Ucli.Contracts/Ucli.Contracts.csproj into src/Ucli.Unity/Packages/nuget-local-source.
   4. Remove extracted contracts package under src/Ucli.Unity/Assets/Packages.
   5. Restore src/Ucli.Unity/Assets/packages.config via src/Ucli.Unity/Assets/NuGet.config.
-  6. Optionally prune multi-target assets to avoid Unity duplicate-assembly issues.
+  6. Remove NuGet placeholder .meta files so Unity can regenerate valid importer settings.
+  7. Optionally prune multi-target assets to avoid Unity duplicate-assembly issues.
 EOF
 }
 
@@ -110,8 +111,16 @@ nuget restore "${unity_packages_config}" \
   -ConfigFile "${unity_nuget_config}" \
   -NonInteractive
 
+echo "[5/7] Remove NuGet placeholder .meta files from restored Unity packages"
+# NOTE:
+# `nuget restore` creates minimal `.meta` files for package assets. Fresh worktrees can then fail
+# to resolve `MackySoft.Ucli.Contracts.dll` until Unity regenerates proper PluginImporter metadata.
+# Removing these generated `.meta` files here lets the next Unity launch recreate them officially.
+find "${unity_packages_dir}" -type f -name '*.meta' -delete
+find "${unity_packages_dir}" -depth -type d -empty -delete
+
 if [[ "${prune_assets}" == "true" ]]; then
-  echo "[5/6] Prune multi-target assets to prevent duplicate assembly imports"
+  echo "[6/7] Prune multi-target assets to prevent duplicate assembly imports"
   find "${unity_packages_dir}" -type d -name analyzers -prune -exec rm -rf {} +
   find "${unity_packages_dir}" -type d -name runtimes -prune -exec rm -rf {} +
   find "${unity_packages_dir}" -type d \( -name build -o -name buildMultiTargeting -o -name buildTransitive \) -prune -exec rm -rf {} +
@@ -135,7 +144,7 @@ if [[ "${prune_assets}" == "true" ]]; then
     fi
   done < <(find "${unity_packages_dir}" -mindepth 1 -maxdepth 1 -type d -print0)
 else
-  echo "[5/6] Skip prune step (use --prune to enable)"
+  echo "[6/7] Skip prune step (use --prune to enable)"
 fi
 
-echo "[6/6] Completed local package refresh for ${package_id} ${package_version}"
+echo "[7/7] Completed local package refresh for ${package_id} ${package_version}"
