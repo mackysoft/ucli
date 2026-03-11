@@ -15,6 +15,12 @@ public static class DaemonDiagnosisReasonValues
     /// <summary> Gets the reason value used when daemon bootstrap failed with an unhandled exception. </summary>
     public const string UnhandledException = "unhandledException";
 
+    /// <summary> Gets the reason value used when daemon reaches readiness but fails the stability window. </summary>
+    public const string StartupUnstable = "startupUnstable";
+
+    /// <summary> Gets the reason value used when supervisor observes unexpected daemon process termination. </summary>
+    public const string UnexpectedExit = "unexpectedExit";
+
     /// <summary> Gets the reason value used when CLI infers external process termination without persisted diagnosis. </summary>
     public const string ExternalTerminationSuspected = "externalTerminationSuspected";
 }

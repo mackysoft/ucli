@@ -51,11 +51,12 @@ public sealed class DaemonSessionCleanupServiceTests
                 ProjectFingerprint: "different-fingerprint",
                 IssuedAtUtc: DateTimeOffset.UtcNow,
                 RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-                OwnerKind: DaemonSession.OwnerKindCli,
+                OwnerKind: DaemonSession.OwnerKindSupervisor,
                 CanShutdownProcess: true,
                 EndpointTransportKind: "namedPipe",
                 EndpointAddress: "ucli-test-endpoint",
-                ProcessId: 7171));
+                ProcessId: 7171,
+                OwnerProcessId: 9876));
         var processTerminationService = new StubDaemonProcessTerminationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
@@ -71,6 +72,43 @@ public sealed class DaemonSessionCleanupServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(0, processTerminationService.CallCount);
         Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task CleanupInvalidSessionArtifacts_WhenOwnerProcessIdIsMissing_ReturnsFailureWithoutCleanup ()
+    {
+        var context = CreateContext("fingerprint-cleanup-invalid-legacy");
+        var legacySession = CreateSession(
+            processId: 8181,
+            projectFingerprint: context.ProjectFingerprint,
+            ownerProcessId: null);
+        var readResult = DaemonSessionReadResult.Failure(
+            ExecutionError.InvalidArgument("invalid session"),
+            DaemonSessionReadFailureKind.InvalidSession,
+            legacySession);
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var service = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
+
+        var result = await service.CleanupInvalidSessionArtifacts(
+            context,
+            readResult,
+            TimeSpan.FromMilliseconds(500),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("cannot be safely replaced", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
     }
 
     [Fact]
@@ -138,7 +176,10 @@ public sealed class DaemonSessionCleanupServiceTests
 
     private static DaemonSession CreateSession (
         int? processId,
-        string projectFingerprint = "fingerprint")
+        string projectFingerprint = "fingerprint",
+        int? ownerProcessId = 9876,
+        string ownerKind = DaemonSession.OwnerKindSupervisor,
+        bool canShutdownProcess = true)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
@@ -146,11 +187,12 @@ public sealed class DaemonSessionCleanupServiceTests
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
-            CanShutdownProcess: true,
+            OwnerKind: ownerKind,
+            CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test-endpoint",
-            ProcessId: processId);
+            ProcessId: processId,
+            OwnerProcessId: ownerProcessId);
     }
 
     private sealed class StubDaemonProcessTerminationService : IDaemonProcessTerminationService

@@ -19,6 +19,7 @@ internal sealed class DaemonSessionOutputMapper : IDaemonSessionOutputMapper
             CanShutdownProcess: session.CanShutdownProcess,
             EndpointTransportKind: session.EndpointTransportKind,
             EndpointAddress: session.EndpointAddress,
-            ProcessId: session.ProcessId);
+            ProcessId: session.ProcessId,
+            OwnerProcessId: session.OwnerProcessId);
     }
 }

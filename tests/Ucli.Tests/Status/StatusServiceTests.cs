@@ -301,11 +301,13 @@ public sealed class StatusServiceTests
             ProjectFingerprint: "project-fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-status",
-            ProcessId: 1234);
+            ProcessId: 1234,
+
+            OwnerProcessId: 9876);
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver

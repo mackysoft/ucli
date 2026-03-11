@@ -17,11 +17,12 @@ public sealed class DaemonSessionJsonContractSerializerTests
               "projectFingerprint": "fingerprint-abc",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
               "runtimeKind": "batchmode",
-              "ownerKind": "cli",
+              "ownerKind": "supervisor",
               "canShutdownProcess": true,
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-endpoint",
-              "processId": 1234
+              "processId": 1234,
+              "ownerProcessId": 5678
             }
             """;
 
@@ -33,11 +34,12 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.Equal("fingerprint-abc", contract.ProjectFingerprint);
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
         Assert.Equal("batchmode", contract.RuntimeKind);
-        Assert.Equal("cli", contract.OwnerKind);
+        Assert.Equal("supervisor", contract.OwnerKind);
         Assert.True(contract.CanShutdownProcess);
         Assert.Equal("namedPipe", contract.EndpointTransportKind);
         Assert.Equal("ucli-endpoint", contract.EndpointAddress);
         Assert.Equal(1234, contract.ProcessId);
+        Assert.Equal(5678, contract.OwnerProcessId);
     }
 
     [Fact]
@@ -69,11 +71,12 @@ public sealed class DaemonSessionJsonContractSerializerTests
             ProjectFingerprint: "fingerprint-abc",
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
             RuntimeKind: "batchmode",
-            OwnerKind: "cli",
+            OwnerKind: "supervisor",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-endpoint",
-            ProcessId: 1234);
+            ProcessId: 1234,
+            OwnerProcessId: 5678);
 
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
         using var jsonDocument = JsonDocument.Parse(json);
@@ -93,6 +96,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             .Required("canShutdownProcess", JsonSchemaNode.Value(JsonSchemaType.Boolean))
             .Required("endpointTransportKind", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("endpointAddress", JsonSchemaNode.Value(JsonSchemaType.String))
-            .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32)),
+            .Required("processId", JsonSchemaNode.Value(JsonSchemaType.Int32))
+            .Required("ownerProcessId", JsonSchemaNode.Value(JsonSchemaType.Int32)),
         allowAdditionalProperties: false);
 }

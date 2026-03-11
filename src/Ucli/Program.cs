@@ -2,6 +2,7 @@ using ConsoleAppFramework;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Composition;
 using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Supervisor;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli;
@@ -11,6 +12,10 @@ internal static class Program
     private const string InternalErrorMessage = "An unexpected internal error occurred.";
 
     private const string CanceledMessage = "Command execution was canceled.";
+
+    private const string InternalSupervisorServeFlag = "--ucli-internal-supervisor-serve";
+
+    private const string InternalRepositoryRootOption = "--repositoryRoot";
 
     private static readonly string[] DaemonSubcommands =
     [
@@ -39,6 +44,11 @@ internal static class Program
     private static async Task<int> Main (string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
+
+        if (TryHandleInternalSupervisorServe(args, out var repositoryRoot))
+        {
+            return await RunSupervisorAsync(repositoryRoot).ConfigureAwait(false);
+        }
 
         ParseErrorBuffer.Clear();
         CommandExecutionState.Reset();
@@ -109,9 +119,49 @@ internal static class Program
         services.AddUcliCoreServices();
         services.AddUcliRefreshServices();
         services.AddUcliDaemonServices();
+        services.AddUcliSupervisorServices();
         services.AddUcliTestRunServices();
         services.AddUcliOpsServices();
         services.AddUcliStatusServices();
+    }
+
+    private static bool TryHandleInternalSupervisorServe (
+        string[] args,
+        out string repositoryRoot)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
+        repositoryRoot = string.Empty;
+        if (args.Length == 0
+            || !string.Equals(args[0], InternalSupervisorServeFlag, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (args.Length != 3
+            || !string.Equals(args[1], InternalRepositoryRootOption, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(args[2]))
+        {
+            return true;
+        }
+
+        repositoryRoot = args[2];
+        return true;
+    }
+
+    private static async Task<int> RunSupervisorAsync (string repositoryRoot)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryRoot))
+        {
+            return 1;
+        }
+
+        var services = new ServiceCollection();
+        ConfigureServices(services);
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var supervisorHost = serviceProvider.GetRequiredService<SupervisorHost>();
+        return await supervisorHost.Run(repositoryRoot, CancellationToken.None).ConfigureAwait(false);
     }
 
     /// <summary> Handles unknown command names before framework dispatch starts. </summary>

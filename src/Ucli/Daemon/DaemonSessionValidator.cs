@@ -50,6 +50,13 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
+        if (session.OwnerProcessId is not int ownerProcessId || ownerProcessId <= 0)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Daemon session ownerProcessId must be greater than zero. Actual: {session.OwnerProcessId?.ToString() ?? "null"}. {sessionPath}");
+            return false;
+        }
+
         if (!string.Equals(session.RuntimeKind, DaemonSession.RuntimeKindBatchmode, StringComparison.Ordinal))
         {
             error = ExecutionError.InvalidArgument(
@@ -57,17 +64,17 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
-        if (!string.Equals(session.OwnerKind, DaemonSession.OwnerKindCli, StringComparison.Ordinal))
+        if (!string.Equals(session.OwnerKind, DaemonSession.OwnerKindSupervisor, StringComparison.Ordinal))
         {
             error = ExecutionError.InvalidArgument(
-                $"Daemon session ownerKind must be '{DaemonSession.OwnerKindCli}'. Actual: {session.OwnerKind}. {sessionPath}");
+                $"Daemon session ownerKind must be '{DaemonSession.OwnerKindSupervisor}'. Actual: {session.OwnerKind}. {sessionPath}");
             return false;
         }
 
         if (!session.CanShutdownProcess)
         {
             error = ExecutionError.InvalidArgument(
-                $"Daemon session canShutdownProcess must be true for CLI-owned daemon sessions. {sessionPath}");
+                $"Daemon session canShutdownProcess must be true for supervisor-owned daemon sessions. {sessionPath}");
             return false;
         }
 

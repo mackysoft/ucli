@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Supervisor;
 
 namespace MackySoft.Ucli.Daemon.Command;
 
@@ -9,7 +11,9 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
 {
     private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
 
-    private readonly IDaemonStartOperation daemonStartOperation;
+    private readonly SupervisorBootstrapper supervisorBootstrapper;
+
+    private readonly SupervisorClient supervisorClient;
 
     private readonly IDaemonSessionOutputMapper daemonSessionOutputMapper;
 
@@ -20,11 +24,13 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartCommandService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
-        IDaemonStartOperation daemonStartOperation,
+        SupervisorBootstrapper supervisorBootstrapper,
+        SupervisorClient supervisorClient,
         IDaemonSessionOutputMapper daemonSessionOutputMapper)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
-        this.daemonStartOperation = daemonStartOperation ?? throw new ArgumentNullException(nameof(daemonStartOperation));
+        this.supervisorBootstrapper = supervisorBootstrapper ?? throw new ArgumentNullException(nameof(supervisorBootstrapper));
+        this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
     }
 
@@ -52,9 +58,34 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
         }
 
         var executionContext = contextResult.Context!;
-        var startResult = await daemonStartOperation.Start(
+        var deadline = ExecutionDeadline.Start(executionContext.Timeout);
+
+        if (!deadline.TryGetRemainingTimeout(out var bootstrapTimeout))
+        {
+            return DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
+                "Timed out before supervisor bootstrap could begin."));
+        }
+
+        var bootstrapResult = await supervisorBootstrapper.EnsureReady(
+                executionContext.Context.UnityProject.RepositoryRoot,
+                bootstrapTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!bootstrapResult.IsSuccess)
+        {
+            return DaemonStartExecutionResult.Failure(bootstrapResult.Error!);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
+        {
+            return DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
+                "Timed out before supervisor ensureRunning could begin."));
+        }
+
+        var startResult = await supervisorClient.EnsureRunning(
+                bootstrapResult.Manifest!,
                 executionContext.Context.UnityProject,
-                executionContext.Timeout,
+                ensureRunningTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!startResult.IsSuccess)

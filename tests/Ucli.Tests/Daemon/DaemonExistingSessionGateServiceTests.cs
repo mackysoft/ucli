@@ -195,11 +195,13 @@ public sealed class DaemonExistingSessionGateServiceTests
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test-endpoint",
-            ProcessId: processId);
+            ProcessId: processId,
+
+            OwnerProcessId: 9876);
     }
 
     private sealed class StubDaemonPingClient : IDaemonPingClient

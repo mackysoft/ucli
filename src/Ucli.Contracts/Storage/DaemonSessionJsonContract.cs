@@ -11,6 +11,7 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <param name="EndpointTransportKind"> The endpoint transport kind value. </param>
 /// <param name="EndpointAddress"> The endpoint address value. </param>
 /// <param name="ProcessId"> The process identifier value. </param>
+/// <param name="OwnerProcessId"> The owner process identifier value. </param>
 internal sealed record DaemonSessionJsonContract (
     int SchemaVersion,
     string? SessionToken,
@@ -21,4 +22,5 @@ internal sealed record DaemonSessionJsonContract (
     bool CanShutdownProcess,
     string? EndpointTransportKind,
     string? EndpointAddress,
-    int? ProcessId);
+    int? ProcessId,
+    int? OwnerProcessId);

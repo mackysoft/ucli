@@ -58,11 +58,13 @@ public sealed class DaemonSessionProcessIdValidationTests
             ProjectFingerprint: "fingerprint-invalid-process-id-write",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test",
-            ProcessId: processId);
+            ProcessId: processId,
+
+            OwnerProcessId: 9876);
 
         var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
 

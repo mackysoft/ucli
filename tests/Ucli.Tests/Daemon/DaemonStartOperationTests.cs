@@ -182,6 +182,53 @@ public sealed class DaemonStartOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Start_WhenLegacyInvalidSessionCannotBeSafelyStopped_ReturnsFailureWithoutLaunch ()
+    {
+        var context = CreateContext("fingerprint-start-invalid-legacy-live");
+        var legacySession = CreateSession(
+            processId: 1111,
+            projectFingerprint: context.ProjectFingerprint,
+            ownerProcessId: null);
+        var readResult = DaemonSessionReadResult.Failure(
+            ExecutionError.InvalidArgument("invalid session"),
+            DaemonSessionReadFailureKind.InvalidSession,
+            legacySession);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            ReadResult = readResult,
+        };
+        var processTerminationService = new StubDaemonProcessTerminationService
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var cleanupService = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
+        var launchService = new StubDaemonLaunchService
+        {
+            NextResult = DaemonStartResult.Started(CreateSession(processId: 3333, projectFingerprint: context.ProjectFingerprint)),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonSessionCleanupService: cleanupService,
+            daemonExistingSessionGateService: new StubDaemonExistingSessionGateService(),
+            daemonLaunchService: launchService);
+
+        var result = await operation.Start(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.Equal(DaemonStartStatus.Failed, result.Status);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("cannot be safely replaced", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, processTerminationService.CallCount);
+        Assert.Equal(0, artifactCleaner.CallCount);
+        Assert.Equal(0, launchService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadReturnsNonInvalidSessionError_ReturnsFailureWithoutCleanupOrLaunch ()
     {
         var expectedError = ExecutionError.InvalidArgument("path invalid");
@@ -388,7 +435,8 @@ public sealed class DaemonStartOperationTests
 
     private static DaemonSession CreateSession (
         int? processId,
-        string projectFingerprint = "fingerprint")
+        string projectFingerprint = "fingerprint",
+        int? ownerProcessId = 9876)
     {
         return new DaemonSession(
             SchemaVersion: DaemonSession.CurrentSchemaVersion,
@@ -396,11 +444,12 @@ public sealed class DaemonStartOperationTests
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test-endpoint",
-            ProcessId: processId);
+            ProcessId: processId,
+            OwnerProcessId: ownerProcessId);
     }
 
     private sealed class StubProjectLifecycleLockProvider : IProjectLifecycleLockProvider
@@ -565,6 +614,38 @@ public sealed class DaemonStartOperationTests
             LastStorageRoot = storageRoot;
             LastProjectFingerprint = projectFingerprint;
             return ValueTask.FromResult(DeleteResult);
+        }
+    }
+
+    private sealed class StubDaemonProcessTerminationService : IDaemonProcessTerminationService
+    {
+        public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<DaemonSessionStoreOperationResult> EnsureStopped (
+            int? processId,
+            DateTimeOffset? expectedIssuedAtUtc,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return ValueTask.FromResult(NextResult);
+        }
+    }
+
+    private sealed class StubDaemonArtifactCleaner : IDaemonArtifactCleaner
+    {
+        public DaemonSessionStoreOperationResult NextResult { get; set; } = DaemonSessionStoreOperationResult.Success();
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<DaemonSessionStoreOperationResult> Cleanup (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return ValueTask.FromResult(NextResult);
         }
     }
 }

@@ -136,11 +136,13 @@ public sealed class DaemonLaunchSessionServiceTests
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: DateTimeOffset.UtcNow,
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-test-endpoint",
-            ProcessId: processId);
+            ProcessId: processId,
+
+            OwnerProcessId: 9876);
     }
 
     private sealed class StubIpcEndpointResolver : IIpcEndpointResolver

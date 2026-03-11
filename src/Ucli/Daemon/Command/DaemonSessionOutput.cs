@@ -9,6 +9,7 @@ namespace MackySoft.Ucli.Daemon.Command;
 /// <param name="EndpointTransportKind"> The IPC endpoint transport kind literal. </param>
 /// <param name="EndpointAddress"> The IPC endpoint address literal. </param>
 /// <param name="ProcessId"> The daemon process identifier when available; otherwise <see langword="null" />. </param>
+/// <param name="OwnerProcessId"> The owner process identifier when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonSessionOutput (
     string ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
@@ -17,4 +18,5 @@ internal sealed record DaemonSessionOutput (
     bool CanShutdownProcess,
     string EndpointTransportKind,
     string EndpointAddress,
-    int? ProcessId);
+    int? ProcessId,
+    int? OwnerProcessId);

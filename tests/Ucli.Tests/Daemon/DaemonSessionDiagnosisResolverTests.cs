@@ -105,11 +105,13 @@ public sealed class DaemonSessionDiagnosisResolverTests
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "unixDomainSocket",
             EndpointAddress: "/tmp/ucli.sock",
-            ProcessId: processId);
+            ProcessId: processId,
+
+            OwnerProcessId: 9876);
     }
 
     private static DaemonDiagnosis CreateDiagnosis (

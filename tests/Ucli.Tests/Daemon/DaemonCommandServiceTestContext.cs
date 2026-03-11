@@ -1,22 +1,28 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
+using MackySoft.Ucli.Ipc;
+using MackySoft.Ucli.Supervisor;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
 internal static class DaemonCommandServiceTestContext
 {
-    public static DaemonCommandExecutionContext CreateExecutionContext (int timeoutMilliseconds)
+    public static DaemonCommandExecutionContext CreateExecutionContext (
+        int timeoutMilliseconds,
+        string repositoryRoot = "/tmp/repo-root")
     {
         return new DaemonCommandExecutionContext(
             Context: new ProjectContext(
                 UnityProject: new ResolvedUnityProjectContext(
                     UnityProjectRoot: "/tmp/unity-project",
-                    RepositoryRoot: "/tmp/repo-root",
+                    RepositoryRoot: repositoryRoot,
                     ProjectFingerprint: "fingerprint",
                     PathSource: UnityProjectPathSource.CommandOption),
                 Config: UcliConfig.CreateDefault(),
@@ -32,11 +38,12 @@ internal static class DaemonCommandServiceTestContext
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
             RuntimeKind: DaemonSession.RuntimeKindBatchmode,
-            OwnerKind: DaemonSession.OwnerKindCli,
+            OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-endpoint",
-            ProcessId: 1234);
+            ProcessId: 1234,
+            OwnerProcessId: 9876);
     }
 
     public static DaemonSessionOutput CreateSessionOutput ()
@@ -49,7 +56,8 @@ internal static class DaemonCommandServiceTestContext
             CanShutdownProcess: false,
             EndpointTransportKind: "mapped-transport",
             EndpointAddress: "mapped-endpoint",
-            ProcessId: 4321);
+            ProcessId: 4321,
+            OwnerProcessId: 8765);
     }
 
     public static DaemonDiagnosis CreateDiagnosis ()
@@ -62,6 +70,85 @@ internal static class DaemonCommandServiceTestContext
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    public static TestDirectoryScope CreateTempScope (string testCaseName)
+    {
+        return TestDirectories.CreateTempScope("daemon-command-service", testCaseName);
+    }
+
+    public static SupervisorInstanceManifest CreateSupervisorManifest (
+        string storageRoot,
+        string sessionToken = "supervisor-session-token")
+    {
+        var endpoint = new SupervisorEndpointResolver().Resolve(storageRoot);
+        return new SupervisorInstanceManifest(
+            ProcessId: 2468,
+            SessionToken: sessionToken,
+            EndpointTransportKind: IpcTransportKindCodec.ToValue(endpoint.TransportKind),
+            EndpointAddress: endpoint.Address,
+            IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 2, 3, 4, TimeSpan.Zero));
+    }
+
+    public static async Task WriteSupervisorManifest (
+        string storageRoot,
+        SupervisorInstanceManifest manifest,
+        CancellationToken cancellationToken = default)
+    {
+        var store = new SupervisorManifestStore();
+        await store.Write(storageRoot, manifest, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static SupervisorClient CreateSupervisorClient (IIpcTransportClient transportClient)
+    {
+        return new SupervisorClient(transportClient);
+    }
+
+    public static SupervisorBootstrapper CreateSupervisorBootstrapper (
+        IIpcTransportClient transportClient,
+        ISupervisorProcessLauncher? processLauncher = null)
+    {
+        var externalProcessRunner = new SupervisorExternalProcessRunner();
+        processLauncher ??= new SupervisorProcessLauncher(
+            new SupervisorLaunchCommandResolver(),
+            new LaunchdSupervisorProcessLauncher(externalProcessRunner),
+            new SystemdRunSupervisorProcessLauncher(externalProcessRunner),
+            new WindowsDetachedSupervisorProcessLauncher());
+        var supervisorClient = CreateSupervisorClient(transportClient);
+        return new SupervisorBootstrapper(
+            new SupervisorManifestStore(),
+            supervisorClient,
+            processLauncher,
+            new SupervisorBootstrapLockProvider(),
+            new SupervisorEndpointResolver());
+    }
+
+    public static IpcResponse CreateSuccessResponse<TPayload> (
+        IpcRequest request,
+        TPayload payload)
+    {
+        return new IpcResponse(
+            ProtocolVersion: request.ProtocolVersion,
+            RequestId: request.RequestId,
+            Status: IpcProtocol.StatusOk,
+            Payload: IpcPayloadCodec.SerializeToElement(payload),
+            Errors: Array.Empty<IpcError>());
+    }
+
+    public static IpcResponse CreateErrorResponse (
+        IpcRequest request,
+        string code,
+        string message)
+    {
+        return new IpcResponse(
+            ProtocolVersion: request.ProtocolVersion,
+            RequestId: request.RequestId,
+            Status: IpcProtocol.StatusError,
+            Payload: IpcPayloadCodec.SerializeToElement(new { }),
+            Errors:
+            [
+                new IpcError(code, message, null),
+            ]);
     }
 
     internal sealed class StubDaemonCommandExecutionContextResolver : IDaemonCommandExecutionContextResolver
@@ -212,6 +299,33 @@ internal static class DaemonCommandServiceTestContext
             LastDiagnosis = diagnosis;
             CallCount++;
             return Output;
+        }
+    }
+
+    internal sealed record StubIpcTransportCall (
+        IpcEndpoint Endpoint,
+        IpcRequest Request,
+        TimeSpan Timeout);
+
+    internal sealed class StubIpcTransportClient : IIpcTransportClient
+    {
+        public Func<IpcEndpoint, IpcRequest, TimeSpan, CancellationToken, ValueTask<IpcResponse>>? SendHandler { get; set; }
+
+        public List<StubIpcTransportCall> Calls { get; } = [];
+
+        public ValueTask<IpcResponse> SendAsync (
+            IpcEndpoint endpoint,
+            IpcRequest request,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new StubIpcTransportCall(endpoint, request, timeout));
+            if (SendHandler == null)
+            {
+                throw new InvalidOperationException("Stub IPC transport handler is not configured.");
+            }
+
+            return SendHandler(endpoint, request, timeout, cancellationToken);
         }
     }
 }
