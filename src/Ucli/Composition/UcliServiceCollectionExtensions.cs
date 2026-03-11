@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
 using MackySoft.Ucli.Daemon.Start;
+using MackySoft.Ucli.EnvironmentVariables;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Execution.OperationExecute;
 using MackySoft.Ucli.Git;
@@ -46,12 +47,15 @@ internal static class UcliServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IUnityProjectResolver, UnityProjectResolver>();
         services.AddSingleton<UnityUcliPluginMarkerDiscovery>();
         services.AddSingleton<UnityUcliPluginMarkerValidator>();
         services.AddSingleton<UnityUcliPluginMarkerCacheStore>();
         services.AddSingleton<UnityUcliPluginMarkerCacheCoordinator>();
         services.AddSingleton<IUnityUcliPluginLocator, UnityUcliPluginLocator>();
+        services.AddSingleton<IEnvironmentVariableReader, ProcessEnvironmentVariableReader>();
+        services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
+        services.AddSingleton<IUnityProjectResolver>(provider => new UnityProjectResolver(
+            provider.GetRequiredService<IProjectPathInputResolver>()));
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();

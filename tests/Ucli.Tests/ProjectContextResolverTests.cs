@@ -4,6 +4,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.EnvironmentVariables;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
@@ -102,10 +103,29 @@ public sealed class ProjectContextResolverTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
     }
 
-    private static ProjectContextResolver CreateResolver ()
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Resolve_WithNullProjectPath_UsesEnvironmentVariableProjectPath ()
+    {
+        using var scope = TestDirectories.CreateTempScope("init-status-context-resolver", "environment-variable-project-path");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var resolver = CreateResolver(new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [UcliEnvironmentVariableNames.ProjectPath] = unityProjectPath,
+        });
+
+        var result = await resolver.Resolve(null, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var context = Assert.IsType<ProjectContext>(result.Context);
+        Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot);
+    }
+
+    private static ProjectContextResolver CreateResolver (IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
         return new ProjectContextResolver(
-            new UnityProjectResolver(),
+            new UnityProjectResolver(new ProjectPathInputResolver(new StubEnvironmentVariableReader(
+                environmentVariables ?? new Dictionary<string, string?>(StringComparer.Ordinal)))),
             new UcliConfigStore());
     }
 }

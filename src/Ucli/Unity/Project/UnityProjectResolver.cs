@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.EnvironmentVariables;
 using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.UnityProject;
@@ -11,17 +12,33 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
     private const string ProjectSettingsDirectoryName = "ProjectSettings";
     private const string ProjectVersionFileName = "ProjectVersion.txt";
 
+    private readonly IProjectPathInputResolver projectPathInputResolver;
+
+    /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
+    public UnityProjectResolver ()
+        : this(new ProjectPathInputResolver(new ProcessEnvironmentVariableReader()))
+    {
+    }
+
+    /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
+    /// <param name="projectPathInputResolver"> The project-path input resolver dependency. </param>
+    public UnityProjectResolver (IProjectPathInputResolver projectPathInputResolver)
+    {
+        this.projectPathInputResolver = projectPathInputResolver ?? throw new ArgumentNullException(nameof(projectPathInputResolver));
+    }
+
     /// <summary> Resolves UnityProject context from command options and validates required project markers. </summary>
     /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
     /// <returns> The resolution result containing either a validated UnityProject context or a structured error. </returns>
     public UnityProjectResolutionResult Resolve (string? projectPath)
     {
-        var pathSource = string.IsNullOrWhiteSpace(projectPath)
+        var resolvedProjectPath = projectPathInputResolver.Resolve(projectPath);
+        var pathSource = string.IsNullOrWhiteSpace(resolvedProjectPath)
             ? UnityProjectPathSource.CurrentDirectory
             : UnityProjectPathSource.CommandOption;
         var pathCandidate = pathSource == UnityProjectPathSource.CurrentDirectory
             ? Environment.CurrentDirectory
-            : projectPath!;
+            : resolvedProjectPath!;
         var fullPathResult = TryNormalizePath(pathCandidate);
         if (!fullPathResult.IsSuccess)
         {

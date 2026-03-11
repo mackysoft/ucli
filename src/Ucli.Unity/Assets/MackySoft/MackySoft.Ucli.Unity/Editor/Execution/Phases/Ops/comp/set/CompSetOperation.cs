@@ -87,7 +87,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
-            if (!CompSetValueApplier.TryApply(sandbox!, bindingState.Sets, executionContext, allowTemporaryState: true, out var changed, out var applyErrorMessage))
+            if (!SerializedObjectValueApplier.TryApply(
+                sandbox!,
+                bindingState.Sets,
+                executionContext,
+                allowTemporaryState: true,
+                out var changed,
+                out var applyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, applyErrorMessage));
             }
@@ -135,13 +141,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
-            if (!CompSetValueApplier.TryApply(sandbox!, bindingState.Sets, executionContext, allowTemporaryState: false, out var changed, out var applyErrorMessage))
+            if (!SerializedObjectValueApplier.TryApply(
+                sandbox!,
+                bindingState.Sets,
+                executionContext,
+                allowTemporaryState: false,
+                out var changed,
+                out var applyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, applyErrorMessage));
             }
 
             if (changed
-                && !CompSetValueApplier.TryApply(bindingState.Binding.Component, bindingState.Sets, executionContext, allowTemporaryState: false, out _, out var commitErrorMessage))
+                && !SerializedObjectValueApplier.TryApply(
+                    bindingState.Binding.Component,
+                    bindingState.Sets,
+                    executionContext,
+                    allowTemporaryState: false,
+                    out _,
+                    out var commitErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
@@ -166,7 +184,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validatedTargetState = default;
             failure = null;
-            if (!CompSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -265,7 +283,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             bindingState = default;
             failure = null;
-            if (!CompSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -332,7 +350,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ValidatedTargetState (
                 Component component,
-                CompSetArguments parsedArguments)
+                SerializedObjectSetArguments parsedArguments)
             {
                 Component = component;
                 ParsedArguments = parsedArguments;
@@ -340,14 +358,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public Component? Component { get; }
 
-            public CompSetArguments ParsedArguments { get; }
+            public SerializedObjectSetArguments ParsedArguments { get; }
         }
 
         private readonly struct ResolvedBindingState
         {
             public ResolvedBindingState (
                 TargetBinding binding,
-                System.Collections.Generic.IReadOnlyList<CompSetAssignment> sets)
+                System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment> sets)
             {
                 Binding = binding;
                 Sets = sets;
@@ -355,7 +373,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public TargetBinding Binding { get; }
 
-            public System.Collections.Generic.IReadOnlyList<CompSetAssignment> Sets { get; }
+            public System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment> Sets { get; }
         }
     }
 }

@@ -92,6 +92,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabOpenProperties = prefabOpenSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(prefabOpenProperties.TryGetProperty("path", out _), Is.True);
             Assert.That(prefabOpenSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(1));
+
+            var assetCreateMetadata = FindMetadata(operations, "ucli.asset.create");
+            using var assetCreateSchemaDocument = JsonDocument.Parse(assetCreateMetadata.ArgsSchemaJson);
+            var assetCreateProperties = assetCreateSchemaDocument.RootElement.GetProperty("properties");
+            Assert.That(assetCreateProperties.TryGetProperty("type", out _), Is.True);
+            Assert.That(assetCreateProperties.TryGetProperty("path", out _), Is.True);
+
+            var assetSetMetadata = FindMetadata(operations, "ucli.asset.set");
+            using var assetSetSchemaDocument = JsonDocument.Parse(assetSetMetadata.ArgsSchemaJson);
+            var assetSetProperties = assetSetSchemaDocument.RootElement.GetProperty("properties");
+            Assert.That(assetSetProperties.TryGetProperty("target", out _), Is.True);
+            Assert.That(assetSetProperties.GetProperty("sets").GetProperty("minItems").GetInt32(), Is.EqualTo(1));
+
+            var assetSchemaMetadata = FindMetadata(operations, "ucli.asset.schema");
+            using var assetSchemaDocument = JsonDocument.Parse(assetSchemaMetadata.ArgsSchemaJson);
+            Assert.That(assetSchemaDocument.RootElement.GetProperty("oneOf").GetArrayLength(), Is.EqualTo(2));
         }
 
         [Test]

@@ -180,7 +180,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentOperationUtilities.TryResolveEditableGameObject(
+            if (!GoOperationUtilities.TryResolveEditableGameObject(
                 parsedArguments.TargetReference,
                 executionContext,
                 allowTemporaryState,

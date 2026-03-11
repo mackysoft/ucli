@@ -4,10 +4,10 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Represents one property assignment in <c>ucli.comp.set</c>. </summary>
-    internal readonly struct CompSetAssignment
+    /// <summary> Represents one serialized-property assignment payload. </summary>
+    internal readonly struct SerializedPropertyAssignment
     {
-        public CompSetAssignment (
+        public SerializedPropertyAssignment (
             string path,
             JsonElement value)
         {
