@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -20,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Create_Call_WhenSceneGameObjectIsValid_CreatesPrefabAndConnectsSourceObject ()
+        public async Task Create_Call_WhenSceneGameObjectIsValid_CreatesPrefabAndConnectsSourceObject ()
         {
             var operation = new PrefabCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -45,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     alias: "created");
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true);
                 AssertTouchSet(
@@ -69,7 +70,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Create_Validate_WhenTargetIsMissing_ReturnsInvalidArgument ()
+        public async Task Create_Validate_WhenTargetIsMissing_ReturnsInvalidArgument ()
         {
             var operation = new PrefabCreateOperation();
             var requestOperation = CreateOperation(
@@ -80,14 +81,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = "Assets/MissingTarget.prefab",
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-create");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Open_Plan_WhenAliasIsSpecified_StoresTemporaryPrefabRootAlias ()
+        public async Task Open_Plan_WhenAliasIsSpecified_StoresTemporaryPrefabRootAlias ()
         {
             var operation = new PrefabOpenOperation();
             var prefabPath = CreateTemporaryPrefabPath();
@@ -104,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     alias: "root");
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false);
                 AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
@@ -126,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Open_Plan_WhenFollowedByGoCreateAndCompEnsureAndSet_AllowsTemporaryAliasChain ()
+        public async Task Open_Plan_WhenFollowedByGoCreateAndCompEnsureAndSet_AllowsTemporaryAliasChain ()
         {
             var openOperation = new PrefabOpenOperation();
             var goCreateOperation = new GoCreateOperation();
@@ -189,10 +190,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var openResult = openOperation.Plan(openRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var createResult = goCreateOperation.Plan(createRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var ensureResult = compEnsureOperation.Plan(ensureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var setResult = compSetOperation.Plan(setRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+                var createResult = await goCreateOperation.Plan(createRequest, context, CancellationToken.None);
+                var ensureResult = await compEnsureOperation.Plan(ensureRequest, context, CancellationToken.None);
+                var setResult = await compSetOperation.Plan(setRequest, context, CancellationToken.None);
 
                 AssertSuccess(openResult, applied: false, changed: false);
                 AssertSuccess(createResult, applied: false, changed: true);
@@ -214,7 +215,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Open_Call_ThenCompEnsureSet_ThenSave_Call_PersistsComponentChanges ()
+        public async Task Open_Call_ThenCompEnsureSet_ThenSave_Call_PersistsComponentChanges ()
         {
             var openOperation = new PrefabOpenOperation();
             var ensureOperation = new CompEnsureOperation();
@@ -273,10 +274,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         path = prefabPath,
                     });
 
-                var openResult = openOperation.Call(openRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var ensureResult = ensureOperation.Call(ensureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var setResult = setOperation.Call(setRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var saveResult = saveOperation.Call(saveRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+                var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
+                var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
+                var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
 
                 AssertSuccess(openResult, applied: true, changed: false);
                 AssertSuccess(ensureResult, applied: true, changed: true);
@@ -305,7 +306,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Open_Call_ThenGoCreateAndCompEnsureSet_ThenSave_Call_PersistsChildChanges ()
+        public async Task Open_Call_ThenGoCreateAndCompEnsureSet_ThenSave_Call_PersistsChildChanges ()
         {
             var openOperation = new PrefabOpenOperation();
             var goCreateOperation = new GoCreateOperation();
@@ -377,11 +378,11 @@ namespace MackySoft.Ucli.Unity.Tests
                         path = prefabPath,
                     });
 
-                var openResult = openOperation.Call(openRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var createResult = goCreateOperation.Call(createRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var ensureResult = ensureOperation.Call(ensureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var setResult = setOperation.Call(setRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var saveResult = saveOperation.Call(saveRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+                var createResult = await goCreateOperation.Call(createRequest, context, CancellationToken.None);
+                var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
+                var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
+                var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
 
                 AssertSuccess(openResult, applied: true, changed: false);
                 AssertSuccess(createResult, applied: true, changed: true);

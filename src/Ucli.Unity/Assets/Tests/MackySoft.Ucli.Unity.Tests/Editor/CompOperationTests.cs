@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -18,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Ensure_Plan_WhenComponentMissing_ReturnsChangedTrueAndStoresTemporaryAlias ()
+        public async Task Ensure_Plan_WhenComponentMissing_ReturnsChangedTrueAndStoresTemporaryAlias ()
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -42,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     alias: "ensured");
                 var context = new OperationExecutionContext();
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: true, scenePath);
                 Assert.That(context.TryGetTemporaryAliasState("ensured", out var temporaryAliasState), Is.True);
@@ -58,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Ensure_Plan_WhenSameEnsureWasAlreadyPlanned_UsesPlannedEnsureState ()
+        public async Task Ensure_Plan_WhenSameEnsureWasAlreadyPlanned_UsesPlannedEnsureState ()
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -94,8 +95,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     alias: "ensured");
                 var context = new OperationExecutionContext();
 
-                var firstResult = operation.Plan(firstRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var secondResult = operation.Plan(secondRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var firstResult = await operation.Plan(firstRequest, context, CancellationToken.None);
+                var secondResult = await operation.Plan(secondRequest, context, CancellationToken.None);
 
                 AssertSuccess(firstResult, applied: false, changed: true, scenePath);
                 AssertSuccess(secondResult, applied: false, changed: false, scenePath);
@@ -112,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Ensure_Call_WhenMultipleComponentsExist_ReusesFirstExistingComponent ()
+        public async Task Ensure_Call_WhenMultipleComponentsExist_ReusesFirstExistingComponent ()
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -138,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     alias: "ensured");
                 var context = new OperationExecutionContext();
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: false, scenePath);
                 Assert.That(context.AliasStore.TryGet("ensured", out var resolvedReference), Is.True);
@@ -153,7 +154,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Ensure_Validate_WhenTypeIsNotComponent_ReturnsInvalidArgument ()
+        public async Task Ensure_Validate_WhenTypeIsNotComponent_ReturnsInvalidArgument ()
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -175,7 +176,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         type = IndexTypeIdFormatter.Format(typeof(GameObject)),
                     });
 
-                var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-ensure");
             }
@@ -188,7 +189,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Call_WhenAssignmentsAreValid_AppliesRepresentativeValues ()
+        public async Task Set_Call_WhenAssignmentsAreValid_AppliesRepresentativeValues ()
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -382,7 +383,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: true, changed: true, scenePath);
                 Assert.That(target.IntegerValue, Is.EqualTo(42));
@@ -504,7 +505,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Validate_WhenModeIsSpecified_ReturnsInvalidArgument ()
+        public async Task Set_Validate_WhenModeIsSpecified_ReturnsInvalidArgument ()
         {
             var operation = new CompSetOperation();
             var requestOperation = CreateOperation(
@@ -527,14 +528,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Call_WhenPathIsReadOnly_ReturnsInvalidArgumentAndPreservesValue ()
+        public async Task Set_Call_WhenPathIsReadOnly_ReturnsInvalidArgumentAndPreservesValue ()
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -565,7 +566,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Call(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-set");
                 Assert.That(target.IntegerValue, Is.EqualTo(1));
@@ -579,7 +580,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Plan_WhenValueIsUnchanged_ReturnsChangedFalse ()
+        public async Task Set_Plan_WhenValueIsUnchanged_ReturnsChangedFalse ()
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -610,7 +611,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var result = operation.Plan(requestOperation, context, CancellationToken.None).GetAwaiter().GetResult();
+                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
                 AssertSuccess(result, applied: false, changed: false, scenePath);
             }
@@ -623,7 +624,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Plan_WhenEnsureCreatesAlias_MutatesTemporaryComponent ()
+        public async Task Set_Plan_WhenEnsureCreatesAlias_MutatesTemporaryComponent ()
         {
             var ensureOperation = new CompEnsureOperation();
             var setOperation = new CompSetOperation();
@@ -666,8 +667,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var ensureResult = ensureOperation.Plan(ensureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var setResult = setOperation.Plan(setRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
+                var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
 
                 AssertSuccess(ensureResult, applied: false, changed: true, scenePath);
                 AssertSuccess(setResult, applied: false, changed: true, scenePath);
@@ -683,7 +684,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Plan_WhenEnsureStateWasMutated_KeepsEnsuredComponentStateSynchronized ()
+        public async Task Set_Plan_WhenEnsureStateWasMutated_KeepsEnsuredComponentStateSynchronized ()
         {
             var ensureOperation = new CompEnsureOperation();
             var setOperation = new CompSetOperation();
@@ -770,10 +771,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var firstEnsureResult = ensureOperation.Plan(firstEnsureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var firstSetResult = setOperation.Plan(setRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var secondEnsureResult = ensureOperation.Plan(secondEnsureRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var secondSetResult = setOperation.Plan(secondSetRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var firstEnsureResult = await ensureOperation.Plan(firstEnsureRequest, context, CancellationToken.None);
+                var firstSetResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
+                var secondEnsureResult = await ensureOperation.Plan(secondEnsureRequest, context, CancellationToken.None);
+                var secondSetResult = await setOperation.Plan(secondSetRequest, context, CancellationToken.None);
 
                 AssertSuccess(firstEnsureResult, applied: false, changed: true, scenePath);
                 AssertSuccess(firstSetResult, applied: false, changed: true, scenePath);
@@ -794,7 +795,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Set_Plan_WhenAliasStateIsReusedBeforeGlobalObjectId_KeepsAliasStateSynchronized ()
+        public async Task Set_Plan_WhenAliasStateIsReusedBeforeGlobalObjectId_KeepsAliasStateSynchronized ()
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -899,10 +900,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     });
 
-                var firstResult = operation.Plan(firstRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var secondResult = operation.Plan(secondRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var thirdResult = operation.Plan(thirdRequest, context, CancellationToken.None).GetAwaiter().GetResult();
-                var fourthResult = operation.Plan(fourthRequest, context, CancellationToken.None).GetAwaiter().GetResult();
+                var firstResult = await operation.Plan(firstRequest, context, CancellationToken.None);
+                var secondResult = await operation.Plan(secondRequest, context, CancellationToken.None);
+                var thirdResult = await operation.Plan(thirdRequest, context, CancellationToken.None);
+                var fourthResult = await operation.Plan(fourthRequest, context, CancellationToken.None);
 
                 AssertSuccess(firstResult, applied: false, changed: true, scenePath);
                 AssertSuccess(secondResult, applied: false, changed: true, scenePath);
@@ -924,7 +925,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Schema_Plan_WhenTypeIsValid_ReturnsSchemaResult ()
+        public async Task Schema_Plan_WhenTypeIsValid_ReturnsSchemaResult ()
         {
             var operation = new CompSchemaOperation();
             var typeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
@@ -936,7 +937,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     type = typeId,
                 });
 
-            var result = operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None).GetAwaiter().GetResult();
+            var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Result.HasValue, Is.True);
