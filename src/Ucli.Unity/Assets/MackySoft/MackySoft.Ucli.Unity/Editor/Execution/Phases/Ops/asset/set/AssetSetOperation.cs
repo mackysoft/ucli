@@ -1,18 +1,17 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
-using UnityEngine;
+using UnityEditor;
 
 #nullable enable
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Implements <c>ucli.comp.set</c> operation flow. </summary>
+    /// <summary> Implements <c>ucli.asset.set</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompSetOperation : IUcliOperation
+    internal sealed class AssetSetOperation : IUcliOperation
     {
         private const string ArgsSchemaJson =
             @"{
@@ -24,11 +23,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                   ""additionalProperties"": false,
                   ""properties"": {
                     ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 }
+                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""assetGuid"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""assetPath"": { ""type"": ""string"", ""minLength"": 1 }
                   },
                   ""oneOf"": [
                     { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] }
+                    { ""required"": [""globalObjectId""] },
+                    { ""required"": [""assetGuid""] },
+                    { ""required"": [""assetPath""] }
                   ]
                 },
                 ""sets"": {
@@ -49,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.comp.set",
+            operationName: "ucli.asset.set",
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -60,12 +63,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveValidateTarget(operation, executionContext, out _, out var failure))
-            {
-                return Task.FromResult(failure!);
-            }
-
-            return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
+            return Task.FromResult(TryResolveValidateTarget(operation, executionContext, out _, out var failure)
+                ? OperationPhaseStepResult.Success(applied: false, changed: false)
+                : failure!);
         }
 
         public Task<OperationPhaseStepResult> Plan (
@@ -74,12 +74,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolvePlanBinding(operation, executionContext, out var bindingState, out var failure))
+            if (!TryResolvePlanBinding(operation, executionContext, out var binding, out var sets, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(bindingState.Binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
+            if (!AssetOperationUtilities.TryCreateTemporaryAssetClone(
+                binding.UnityObject,
+                executionContext,
+                out var sandbox,
+                out var cloneErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
@@ -89,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!SerializedObjectValueApplier.TryApply(
                 sandbox!,
-                bindingState.Sets,
+                sets!,
                 executionContext,
                 allowTemporaryState: true,
                 out var changed,
@@ -100,16 +104,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (changed)
             {
-                executionContext.ReplaceTrackedTemporaryComponent(bindingState.Binding.Component, sandbox!, bindingState.Binding.Resource);
-
-                if (bindingState.Binding.SourceGlobalObjectId != null)
+                if (binding.SourceGlobalObjectId != null)
                 {
-                    executionContext.SetComponentShadow(bindingState.Binding.SourceGlobalObjectId, sandbox!, bindingState.Binding.Resource);
+                    executionContext.SetAssetShadow(binding.SourceGlobalObjectId, sandbox!, binding.AssetPath);
                 }
 
-                if (bindingState.Binding.Alias != null)
+                if (binding.PlannedOwnerOperationId != null)
                 {
-                    executionContext.SetTemporaryAlias(bindingState.Binding.Alias, sandbox!, bindingState.Binding.Resource, bindingState.Binding.SourceGlobalObjectId);
+                    executionContext.SetPlannedAsset(binding.AssetPath, binding.PlannedOwnerOperationId, sandbox!);
+                }
+
+                if (binding.Alias != null)
+                {
+                    executionContext.SetTemporaryAlias(
+                        binding.Alias,
+                        sandbox!,
+                        new OperationResource(OperationTouchKind.Asset, binding.AssetPath),
+                        binding.SourceGlobalObjectId);
                 }
             }
 
@@ -118,7 +129,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: changed,
                 touched: new[]
                 {
-                    OperationResourceUtilities.CreateTouch(bindingState.Binding.Resource),
+                    AssetOperationUtilities.CreateAssetTouch(binding.AssetPath),
                 }));
         }
 
@@ -128,12 +139,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveCallBinding(operation, executionContext, out var bindingState, out var failure))
+            if (!TryResolveCallBinding(operation, executionContext, out var binding, out var sets, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            if (!ComponentOperationUtilities.TryCreateTemporaryComponentClone(bindingState.Binding.Component, executionContext, out var sandbox, out var cloneErrorMessage))
+            if (!AssetOperationUtilities.TryCreateTemporaryAssetClone(
+                binding.UnityObject,
+                executionContext,
+                out var sandbox,
+                out var cloneErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
@@ -143,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!SerializedObjectValueApplier.TryApply(
                 sandbox!,
-                bindingState.Sets,
+                sets!,
                 executionContext,
                 allowTemporaryState: false,
                 out var changed,
@@ -153,18 +168,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             if (changed
-                && !SerializedObjectValueApplier.TryApply(
-                    bindingState.Binding.Component,
-                    bindingState.Sets,
-                    executionContext,
-                    allowTemporaryState: false,
-                    out _,
-                    out var commitErrorMessage))
+                && !AssetOperationUtilities.TryCopySerializedState(sandbox!, binding.UnityObject, out var copyErrorMessage))
             {
                 return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.InternalError,
-                    Message: $"Validated component mutation could not be committed. {commitErrorMessage}",
+                    Message: $"Validated asset mutation could not be committed. {copyErrorMessage}",
                     OpId: operation.Id)));
+            }
+
+            if (changed)
+            {
+                EditorUtility.SetDirty(binding.UnityObject);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -172,7 +186,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: changed,
                 touched: new[]
                 {
-                    OperationResourceUtilities.CreateTouch(bindingState.Binding.Resource),
+                    AssetOperationUtilities.CreateAssetTouch(binding.AssetPath),
                 }));
         }
 
@@ -190,28 +204,44 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentOperationUtilities.TryResolveComponent(
+            UnityEngine.Object? unityObject;
+            string assetPath;
+            if (!AssetOperationUtilities.TryResolveAssetTarget(
                 arguments.TargetReference,
                 executionContext,
                 allowTemporaryState: true,
-                out var componentResolution,
+                out unityObject,
+                out assetPath,
+                out var sourceGlobalObjectId,
                 out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            validatedTargetState = new ValidatedTargetState(componentResolution.Component!, arguments);
+            var plannedOwnerOperationId =
+                string.IsNullOrWhiteSpace(sourceGlobalObjectId)
+                && executionContext.TryGetPlannedAssetState(assetPath, out var plannedAssetState)
+                    ? plannedAssetState.OwnerOperationId
+                    : null;
+            validatedTargetState = new ValidatedTargetState(
+                arguments,
+                unityObject!,
+                assetPath,
+                sourceGlobalObjectId,
+                plannedOwnerOperationId);
             return true;
         }
 
         private static bool TryResolvePlanBinding (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            out ResolvedBindingState bindingState,
+            out TargetBinding binding,
+            out System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment>? sets,
             out OperationPhaseStepResult? failure)
         {
-            bindingState = default;
+            binding = default;
+            sets = null;
             failure = null;
             if (!TryResolveValidateTarget(operation, executionContext, out var validatedTargetState, out failure))
             {
@@ -222,66 +252,40 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var alias = targetReference.Kind == UnityObjectReferenceKind.Alias
                 ? targetReference.Alias
                 : null;
-            if (alias != null
-                && executionContext.TryGetTemporaryAliasState(alias, out var temporaryAliasState))
-            {
-                var temporaryComponent = temporaryAliasState.UnityObject as Component;
-                if (temporaryComponent == null)
-                {
-                    failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                        operation.Id,
-                        "Reference did not resolve to a Component.");
-                    return false;
-                }
 
-                bindingState = new ResolvedBindingState(
-                    new TargetBinding(
-                        temporaryComponent,
-                        temporaryAliasState.Resource,
-                        temporaryAliasState.SourceGlobalObjectId,
-                        alias),
-                    validatedTargetState.ParsedArguments.Sets);
-                return true;
-            }
-
-            if (!ComponentOperationUtilities.TryResolveComponent(
-                targetReference,
-                executionContext,
-                allowTemporaryState: false,
-                out var componentResolution,
-                out var errorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
-                return false;
-            }
-
-            var sourceGlobalObjectId = GetSourceReferenceKey(targetReference, componentResolution.Component!);
-            TargetBinding binding;
-            if (!string.IsNullOrWhiteSpace(sourceGlobalObjectId)
-                && executionContext.TryGetComponentShadowState(sourceGlobalObjectId, out var componentShadowState))
+            if (!string.IsNullOrWhiteSpace(validatedTargetState.SourceGlobalObjectId)
+                && executionContext.TryGetAssetShadow(validatedTargetState.SourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath))
             {
                 binding = new TargetBinding(
-                    componentShadowState.Component!,
-                    componentShadowState.Resource,
-                    sourceGlobalObjectId,
-                    alias);
+                    shadowAsset!,
+                    shadowAssetPath,
+                    validatedTargetState.SourceGlobalObjectId,
+                    alias,
+                    plannedOwnerOperationId: null);
             }
             else
             {
-                binding = new TargetBinding(componentResolution.Component!, componentResolution.Resource, sourceGlobalObjectId, alias);
+                binding = new TargetBinding(
+                    validatedTargetState.UnityObject,
+                    validatedTargetState.AssetPath,
+                    validatedTargetState.SourceGlobalObjectId,
+                    alias,
+                    validatedTargetState.PlannedOwnerOperationId);
             }
 
-            bindingState = new ResolvedBindingState(binding, validatedTargetState.ParsedArguments.Sets);
+            sets = validatedTargetState.ParsedArguments.Sets;
             return true;
         }
 
         private static bool TryResolveCallBinding (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            out ResolvedBindingState bindingState,
+            out TargetBinding binding,
+            out System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment>? sets,
             out OperationPhaseStepResult? failure)
         {
-            bindingState = default;
+            binding = default;
+            sets = null;
             failure = null;
             if (!SerializedObjectSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
             {
@@ -289,91 +293,76 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentOperationUtilities.TryResolveComponent(
+            if (!AssetOperationUtilities.TryResolveAssetTarget(
                 arguments.TargetReference,
                 executionContext,
                 allowTemporaryState: false,
-                out var componentResolution,
+                out var unityObject,
+                out var assetPath,
+                out _,
                 out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            bindingState = new ResolvedBindingState(
-                new TargetBinding(
-                    componentResolution.Component!,
-                    componentResolution.Resource,
-                    GetSourceReferenceKey(arguments.TargetReference, componentResolution.Component!),
-                    alias: null),
-                arguments.Sets);
+            binding = new TargetBinding(unityObject!, assetPath, sourceGlobalObjectId: null, alias: null, plannedOwnerOperationId: null);
+            sets = arguments.Sets;
             return true;
-        }
-
-        private static string GetSourceReferenceKey (
-            UnityObjectReference targetReference,
-            Component component)
-        {
-            if (targetReference.Kind == UnityObjectReferenceKind.Selector
-                && targetReference.Selector.Kind == ResolveSelectorKind.GlobalObjectId)
-            {
-                return targetReference.Selector.GlobalObjectId!;
-            }
-
-            return UnityObjectReferenceResolver.CreateTrackingKey(component);
-        }
-
-        private readonly struct TargetBinding
-        {
-            public TargetBinding (
-                Component component,
-                OperationResource resource,
-                string? sourceGlobalObjectId,
-                string? alias)
-            {
-                Component = component;
-                Resource = resource;
-                SourceGlobalObjectId = sourceGlobalObjectId;
-                Alias = alias;
-            }
-
-            public Component Component { get; }
-
-            public OperationResource Resource { get; }
-
-            public string? SourceGlobalObjectId { get; }
-
-            public string? Alias { get; }
         }
 
         private readonly struct ValidatedTargetState
         {
             public ValidatedTargetState (
-                Component component,
-                SerializedObjectSetArguments parsedArguments)
+                SerializedObjectSetArguments parsedArguments,
+                UnityEngine.Object unityObject,
+                string assetPath,
+                string? sourceGlobalObjectId,
+                string? plannedOwnerOperationId)
             {
-                Component = component;
                 ParsedArguments = parsedArguments;
+                UnityObject = unityObject;
+                AssetPath = assetPath;
+                SourceGlobalObjectId = sourceGlobalObjectId;
+                PlannedOwnerOperationId = plannedOwnerOperationId;
             }
-
-            public Component? Component { get; }
 
             public SerializedObjectSetArguments ParsedArguments { get; }
+
+            public UnityEngine.Object UnityObject { get; }
+
+            public string AssetPath { get; }
+
+            public string? SourceGlobalObjectId { get; }
+
+            public string? PlannedOwnerOperationId { get; }
         }
 
-        private readonly struct ResolvedBindingState
+        private readonly struct TargetBinding
         {
-            public ResolvedBindingState (
-                TargetBinding binding,
-                System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment> sets)
+            public TargetBinding (
+                UnityEngine.Object unityObject,
+                string assetPath,
+                string? sourceGlobalObjectId,
+                string? alias,
+                string? plannedOwnerOperationId)
             {
-                Binding = binding;
-                Sets = sets;
+                UnityObject = unityObject;
+                AssetPath = assetPath;
+                SourceGlobalObjectId = sourceGlobalObjectId;
+                Alias = alias;
+                PlannedOwnerOperationId = plannedOwnerOperationId;
             }
 
-            public TargetBinding Binding { get; }
+            public UnityEngine.Object UnityObject { get; }
 
-            public System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment> Sets { get; }
+            public string AssetPath { get; }
+
+            public string? SourceGlobalObjectId { get; }
+
+            public string? Alias { get; }
+
+            public string? PlannedOwnerOperationId { get; }
         }
     }
 }

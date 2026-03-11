@@ -4,9 +4,9 @@
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.asset.create` | mutation | advanced | mvp-core | ScriptableObjectなどのAssetを新規作成する。 | 予定 |
-| `ucli.asset.schema` | query | safe | mvp-support | Asset型または対象Assetの設定可能項目を取得する。 | 予定 |
-| `ucli.asset.set` | mutation | advanced | mvp-core | Assetのシリアライズ値を更新する。 | 予定 |
+| `ucli.asset.create` | mutation | advanced | mvp-core | concrete な `ScriptableObject` Asset を新規作成する。 | `{ type, path }` |
+| `ucli.asset.schema` | query | safe | mvp-support | `ScriptableObject` 型、または既存 main asset の設定可能項目を取得する。 | `{ type }` または `{ target }` |
+| `ucli.asset.set` | mutation | advanced | mvp-core | 既存 main asset のシリアライズ値を更新する。 | `{ target, sets[] }` |
 
 ## assets
 

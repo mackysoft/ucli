@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Unity.Execution;
 using UnityEditor;
 
 #nullable enable
@@ -12,8 +13,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides shared helpers for project-domain phase operations. </summary>
     internal static class ProjectOperationUtilities
     {
-        private const string AssetsRootPrefix = "Assets/";
-
         private const string ProjectSettingsRootPrefix = "ProjectSettings/";
 
         private const string MetaExtension = ".meta";
@@ -211,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!normalizedPath.StartsWith(AssetsRootPrefix, StringComparison.Ordinal))
+            if (!UnityAssetPathUtility.IsAssetsDescendantPath(normalizedPath))
             {
                 return false;
             }

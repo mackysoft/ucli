@@ -9,6 +9,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 #nullable enable
 
@@ -122,7 +123,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 var root = new GameObject("Root");
                 var first = root.AddComponent<CompOperationTestComponent>();
                 _ = root.AddComponent<CompOperationTestComponent>();
-                EditorSceneManager.SaveScene(scene, scenePath);
+                var previousIgnoreFailingMessages = LogAssert.ignoreFailingMessages;
+                LogAssert.ignoreFailingMessages = true;
+                try
+                {
+                    EditorSceneManager.SaveScene(scene, scenePath);
+                }
+                finally
+                {
+                    LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
+                }
+
                 var requestOperation = CreateOperation(
                     opId: "op-ensure",
                     opName: "ucli.comp.ensure",
@@ -438,7 +449,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         value = 42,
                     },
                 });
-                Assert.That(CompSetArgumentsCodec.TryParse(
+                Assert.That(SerializedObjectSetArgumentsCodec.TryParse(
                     JsonSerializer.SerializeToElement(new
                     {
                         target = new
@@ -451,7 +462,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     out var parsedArguments,
                     out var parseErrorMessage), Is.True, parseErrorMessage);
 
-                var result = CompSetValueApplier.TryApply(
+                var result = SerializedObjectValueApplier.TryApply(
                     target,
                     parsedArguments.Sets,
                     new OperationExecutionContext(),
