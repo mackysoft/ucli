@@ -143,12 +143,15 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
         services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();
+        services.AddSingleton<IDaemonCleanupOperation, DaemonCleanupOperation>();
         services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
+        services.AddSingleton<IDaemonInvalidSessionCleanupSafetyEvaluator, DaemonInvalidSessionCleanupSafetyEvaluator>();
         services.AddSingleton<IDaemonCommandExecutionContextResolver, DaemonCommandExecutionContextResolver>();
         services.AddSingleton<IDaemonSessionOutputMapper, DaemonSessionOutputMapper>();
         services.AddSingleton<IDaemonDiagnosisOutputMapper, DaemonDiagnosisOutputMapper>();
         services.AddSingleton<IDaemonStartCommandService, DaemonStartCommandService>();
         services.AddSingleton<IDaemonStopCommandService, DaemonStopCommandService>();
+        services.AddSingleton<IDaemonCleanupCommandService, DaemonCleanupCommandService>();
         services.AddSingleton<IDaemonStatusCommandService, DaemonStatusCommandService>();
         services.AddSingleton<IDaemonListQueryService, DaemonListQueryService>();
         services.AddSingleton<IDaemonListCommandService, DaemonListCommandService>();

@@ -394,6 +394,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("daemon", UcliCommandIds.Daemon.Name);
         Assert.Equal("daemon.start", UcliCommandIds.DaemonStart.Name);
         Assert.Equal("daemon.stop", UcliCommandIds.DaemonStop.Name);
+        Assert.Equal("daemon.cleanup", UcliCommandIds.DaemonCleanup.Name);
         Assert.Equal("daemon.status", UcliCommandIds.DaemonStatus.Name);
         Assert.Equal("daemon.list", UcliCommandIds.DaemonList.Name);
     }

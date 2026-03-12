@@ -8,6 +8,7 @@ public sealed class UcliCommandNamesTests
     [Trait("Size", "Small")]
     [InlineData(UcliCommandNames.StartSubcommand, UcliCommandNames.DaemonStart)]
     [InlineData(UcliCommandNames.StopSubcommand, UcliCommandNames.DaemonStop)]
+    [InlineData(UcliCommandNames.CleanupSubcommand, UcliCommandNames.DaemonCleanup)]
     [InlineData(UcliCommandNames.Status, UcliCommandNames.DaemonStatus)]
     [InlineData("foo", UcliCommandNames.Daemon)]
     [InlineData(null, UcliCommandNames.Daemon)]

@@ -27,6 +27,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for <c>daemon stop</c> result payloads. </summary>
     public const string DaemonStop = "daemon.stop";
 
+    /// <summary> Gets the command name for <c>daemon cleanup</c> result payloads. </summary>
+    public const string DaemonCleanup = "daemon.cleanup";
+
     /// <summary> Gets the command name for <c>daemon status</c> result payloads. </summary>
     public const string DaemonStatus = "daemon.status";
 
@@ -80,6 +83,9 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for daemon stop. </summary>
     public const string StopSubcommand = "stop";
+
+    /// <summary> Gets the nested command name for daemon cleanup. </summary>
+    public const string CleanupSubcommand = "cleanup";
 
     /// <summary> Gets the nested command name for logs unity target. </summary>
     public const string UnitySubcommand = "unity";
@@ -155,6 +161,12 @@ internal static class UcliCommandNames
                 && string.Equals(args[1], StopSubcommand, StringComparison.Ordinal))
             {
                 return DaemonStop;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], CleanupSubcommand, StringComparison.Ordinal))
+            {
+                return DaemonCleanup;
             }
 
             if (args.Length >= 2

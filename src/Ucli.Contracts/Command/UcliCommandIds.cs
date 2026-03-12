@@ -18,6 +18,9 @@ public static class UcliCommandIds
     /// <summary> Gets command identifier for <c>daemon.stop</c>. </summary>
     public static UcliCommand DaemonStop { get; } = new("daemon.stop");
 
+    /// <summary> Gets command identifier for <c>daemon.cleanup</c>. </summary>
+    public static UcliCommand DaemonCleanup { get; } = new("daemon.cleanup");
+
     /// <summary> Gets command identifier for <c>daemon.status</c>. </summary>
     public static UcliCommand DaemonStatus { get; } = new("daemon.status");
 

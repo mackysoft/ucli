@@ -1,6 +1,10 @@
 using System.Diagnostics;
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Cli;
+using MackySoft.Ucli.Contracts.Project;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Daemon;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -70,6 +74,65 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Cleanup_WithProjectPath_WhenNoDaemonSessionExists_ReturnsCompletedJsonContractAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-cleanup-success");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.CleanupSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonCleanup,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        CommandResultAssert.HasNoErrors(outputJson.RootElement);
+
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("cleanupStatus", "completed")
+                .IsNull("skipReason")
+                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonCleanupMilliseconds));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Cleanup_WithProjectPath_WhenUnsafeInvalidSessionExists_ReturnsSkippedJsonContractAsSingleJson ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-cleanup-skipped");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        WriteUnsafeInvalidSession(unityProjectPath);
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.CleanupSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonCleanup,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        CommandResultAssert.HasNoErrors(outputJson.RootElement);
+
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("cleanupStatus", "skipped")
+                .HasString("skipReason", "unsafeInvalidSession")
+                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonCleanupMilliseconds));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Start_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
         var result = await CliProcessRunner.RunCommand(
@@ -104,6 +167,28 @@ public sealed class DaemonCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.DaemonStop,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains(UnknownOptionMessage, result.StdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Cleanup_WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.CleanupSubcommand,
+            UcliContractConstants.CliOption.Unknown);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.DaemonCleanup,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
@@ -257,6 +342,7 @@ public sealed class DaemonCliOutputContractTests
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Contains("daemon start", result.StdOut, StringComparison.Ordinal);
+        Assert.Contains("daemon cleanup", result.StdOut, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -312,6 +398,19 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task DaemonCleanup_WithHelpOutput_IncludesShortProjectPathOption ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Daemon,
+            UcliCommandNames.CleanupSubcommand,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("-p, --projectPath", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task DaemonList_WithHelpOutput_IncludesShortProjectPathOption ()
     {
         var result = await CliProcessRunner.RunCommand(
@@ -356,5 +455,33 @@ public sealed class DaemonCliOutputContractTests
         Assert.True(
             process.ExitCode == 0,
             $"Git command failed. Args={string.Join(' ', arguments)} stdout={standardOutput} stderr={standardError}");
+    }
+
+    private static void WriteUnsafeInvalidSession (string unityProjectPath)
+    {
+        var normalizedProjectPath = Path.GetFullPath(unityProjectPath);
+        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(normalizedProjectPath);
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, normalizedProjectPath);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+
+        using var currentProcess = Process.GetCurrentProcess();
+        var issuedAtUtc = new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()).AddSeconds(1);
+        var json = JsonSerializer.Serialize(
+            new
+            {
+                schemaVersion = DaemonSession.CurrentSchemaVersion,
+                sessionToken = "session-token",
+                projectFingerprint,
+                issuedAtUtc,
+                runtimeKind = DaemonSession.RuntimeKindBatchmode,
+                ownerKind = DaemonSession.OwnerKindSupervisor,
+                canShutdownProcess = true,
+                endpointTransportKind = "namedPipe",
+                endpointAddress = "ucli-cleanup-test",
+                processId = Environment.ProcessId,
+                ownerProcessId = (int?)null,
+            }) + Environment.NewLine;
+        File.WriteAllText(sessionPath, json);
     }
 }
