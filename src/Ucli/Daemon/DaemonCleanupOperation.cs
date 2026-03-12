@@ -150,9 +150,9 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         catch (DaemonPingResponseException exception) when (string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal))
         {
             // NOTE:
-            // Token mismatch means the daemon endpoint responded and is therefore live. Safe cleanup
-            // must not delete the canonical endpoint in this state.
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running);
+            // Token mismatch means cleanup cannot safely prove residue while keeping the shared
+            // running/not-running semantics unchanged for other reachability callers.
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
