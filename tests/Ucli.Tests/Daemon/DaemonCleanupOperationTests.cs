@@ -11,7 +11,7 @@ public sealed class DaemonCleanupOperationTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WhenSessionDoesNotExist_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
+    public async Task Cleanup_WhenSessionDoesNotExistAndProbeShowsNotRunning_CompletesCleanup ()
     {
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
@@ -22,9 +22,30 @@ public sealed class DaemonCleanupOperationTests
             {
                 ReadResult = DaemonSessionReadResult.Success(null),
             },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
             artifactCleaner: artifactCleaner);
 
         var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-none"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Cleanup_WhenSessionDoesNotExistAndProbeFindsLiveDaemon_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
+    {
+        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(null),
+            },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcErrorCodes.SessionTokenInvalid))),
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-none-live"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
@@ -149,6 +170,32 @@ public sealed class DaemonCleanupOperationTests
             {
                 CanCleanupResult = true,
             });
+
+        var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
+        Assert.Equal(1, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Cleanup_WhenInvalidSessionHasNoParsedMetadataAndProbeShowsNotRunning_CompletesCleanup ()
+    {
+        var context = CreateContext("fingerprint-cleanup-invalid-null");
+        var artifactCleaner = new StubDaemonArtifactCleaner
+        {
+            NextResult = DaemonSessionStoreOperationResult.Success(),
+        };
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Failure(
+                    ExecutionError.InvalidArgument("invalid session"),
+                    DaemonSessionReadFailureKind.InvalidSession),
+            },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused))),
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.Cleanup(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
