@@ -29,7 +29,8 @@ internal sealed class SupervisorBootstrapLockProvider
         var lockDirectoryPath = Path.GetDirectoryName(lockFilePath);
         if (!string.IsNullOrWhiteSpace(lockDirectoryPath))
         {
-            FileUtilities.EnsureStorageDirectoryExists(lockDirectoryPath);
+            UcliLocalStorageBootstrapper.EnsureInitialized(lockDirectoryPath);
+            Directory.CreateDirectory(lockDirectoryPath);
         }
 
         var deadline = ExecutionDeadline.Start(timeout);

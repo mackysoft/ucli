@@ -32,7 +32,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     return false;
                 }
 
-                FileUtilities.EnsureStorageDirectoryExists(parentDirectory);
+                UcliLocalStorageBootstrapper.EnsureInitialized(parentDirectory);
+                Directory.CreateDirectory(parentDirectory);
 
                 if (File.Exists(keyFilePath))
                 {

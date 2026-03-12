@@ -112,6 +112,10 @@ internal sealed class SupervisorManifestStore
         var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(storageRoot);
         Validate(manifest, manifestPath);
         var json = JsonSerializer.Serialize(manifest, SerializerOptions) + Environment.NewLine;
+        var manifestDirectoryPath = Path.GetDirectoryName(manifestPath)
+            ?? throw new InvalidOperationException($"Supervisor manifest directory path could not be resolved: {manifestPath}");
+        UcliLocalStorageBootstrapper.EnsureInitialized(manifestDirectoryPath);
+        Directory.CreateDirectory(manifestDirectoryPath);
         await writeAllTextAtomically(manifestPath, json, cancellationToken).ConfigureAwait(false);
     }
 

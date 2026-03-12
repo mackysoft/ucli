@@ -105,6 +105,46 @@ public static class UcliStoragePathResolver
         return Path.Combine(ResolveUcliDirectoryPath(storageRoot), UcliStoragePathNames.LocalDirectoryName);
     }
 
+    /// <summary> Tries to resolve the shared <c>.ucli</c> and <c>.ucli/local</c> roots that own a directory path. </summary>
+    /// <param name="directoryPath"> The directory path that may be under <c>.ucli/local</c>. </param>
+    /// <param name="ucliDirectoryPath"> The resolved shared <c>.ucli</c> directory path when matched. </param>
+    /// <param name="localDirectoryPath"> The resolved shared <c>.ucli/local</c> directory path when matched. </param>
+    /// <returns> <see langword="true" /> when <paramref name="directoryPath" /> is under <c>.ucli/local</c>; otherwise <see langword="false" />. </returns>
+    internal static bool TryResolveLocalStorageRootDirectories (
+        string directoryPath,
+        out string? ucliDirectoryPath,
+        out string? localDirectoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            throw new ArgumentException("directoryPath must not be empty.", nameof(directoryPath));
+        }
+
+        var comparison = Path.DirectorySeparatorChar == '\\'
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        var currentDirectory = new DirectoryInfo(Path.GetFullPath(directoryPath));
+        while (currentDirectory != null)
+        {
+            var parentDirectory = currentDirectory.Parent;
+            if (string.Equals(currentDirectory.Name, UcliStoragePathNames.LocalDirectoryName, comparison)
+                && parentDirectory != null
+                && string.Equals(parentDirectory.Name, UcliStoragePathNames.UcliDirectoryName, comparison))
+            {
+                ucliDirectoryPath = parentDirectory.FullName;
+                localDirectoryPath = currentDirectory.FullName;
+                return true;
+            }
+
+            currentDirectory = parentDirectory;
+        }
+
+        ucliDirectoryPath = null;
+        localDirectoryPath = null;
+        return false;
+    }
+
     /// <summary> Resolves the absolute path to the <c>.ucli/local/supervisor</c> directory. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The absolute supervisor runtime directory path. </returns>

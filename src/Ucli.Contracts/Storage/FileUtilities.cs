@@ -3,8 +3,6 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <summary> Provides shared utility operations for filesystem files. </summary>
 public static class FileUtilities
 {
-    private const string LocalDirectoryIgnoreEntry = UcliStoragePathNames.LocalDirectoryName + "/";
-
     /// <summary> Reads one file as text, or returns <see langword="null" /> when file does not exist. </summary>
     /// <param name="path"> The target file path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -58,7 +56,7 @@ public static class FileUtilities
 
         var directoryPath = Path.GetDirectoryName(Path.GetFullPath(path))
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
-        EnsureStorageDirectoryExists(directoryPath);
+        Directory.CreateDirectory(directoryPath);
         var temporaryPath = path + $".tmp.{Guid.NewGuid():N}";
 
         try
@@ -70,26 +68,6 @@ public static class FileUtilities
         {
             DeleteIfExists(temporaryPath);
         }
-    }
-
-    /// <summary> Ensures one storage directory exists and bootstraps shared <c>.ucli/local</c> metadata when applicable. </summary>
-    /// <param name="directoryPath"> The target directory path. </param>
-    public static void EnsureStorageDirectoryExists (string directoryPath)
-    {
-        if (string.IsNullOrWhiteSpace(directoryPath))
-        {
-            throw new ArgumentException("directoryPath must not be empty.", nameof(directoryPath));
-        }
-
-        var normalizedDirectoryPath = Path.GetFullPath(directoryPath);
-        if (TryResolveUcliLocalRoot(normalizedDirectoryPath, out var ucliDirectoryPath, out var localDirectoryPath))
-        {
-            Directory.CreateDirectory(ucliDirectoryPath!);
-            EnsureLocalGitIgnoreExists(ucliDirectoryPath!);
-            Directory.CreateDirectory(localDirectoryPath!);
-        }
-
-        Directory.CreateDirectory(normalizedDirectoryPath);
     }
 
     /// <summary> Deletes one file and treats a missing file as a valid no-op state. </summary>
@@ -127,55 +105,5 @@ public static class FileUtilities
                 File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
             }
         }
-    }
-
-    private static void EnsureLocalGitIgnoreExists (string ucliDirectoryPath)
-    {
-        var gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
-        if (File.Exists(gitIgnorePath))
-        {
-            return;
-        }
-
-        try
-        {
-            using var stream = new FileStream(gitIgnorePath, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
-            using var writer = new StreamWriter(stream);
-            writer.Write(LocalDirectoryIgnoreEntry);
-            writer.Write(Environment.NewLine);
-        }
-        catch (IOException) when (File.Exists(gitIgnorePath))
-        {
-        }
-    }
-
-    private static bool TryResolveUcliLocalRoot (
-        string directoryPath,
-        out string? ucliDirectoryPath,
-        out string? localDirectoryPath)
-    {
-        var comparison = Path.DirectorySeparatorChar == '\\'
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-
-        var currentDirectory = new DirectoryInfo(directoryPath);
-        while (currentDirectory != null)
-        {
-            var parentDirectory = currentDirectory.Parent;
-            if (string.Equals(currentDirectory.Name, UcliStoragePathNames.LocalDirectoryName, comparison)
-                && parentDirectory != null
-                && string.Equals(parentDirectory.Name, UcliStoragePathNames.UcliDirectoryName, comparison))
-            {
-                ucliDirectoryPath = parentDirectory.FullName;
-                localDirectoryPath = currentDirectory.FullName;
-                return true;
-            }
-
-            currentDirectory = parentDirectory;
-        }
-
-        ucliDirectoryPath = null;
-        localDirectoryPath = null;
-        return false;
     }
 }

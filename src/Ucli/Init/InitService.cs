@@ -8,8 +8,6 @@ namespace MackySoft.Ucli.Init;
 /// <summary> Implements init flow that generates explicit <c>.ucli</c> config template files. </summary>
 internal sealed class InitService : IInitService
 {
-    private const string GitIgnoreContents = UcliStoragePathNames.LocalDirectoryName + "/";
-
     private readonly IUcliConfigStore configStore;
 
     /// <summary> Initializes a new instance of the <see cref="InitService" /> class. </summary>
@@ -80,7 +78,11 @@ internal sealed class InitService : IInitService
 
         try
         {
-            await File.WriteAllTextAsync(gitIgnorePath, GitIgnoreContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
+            await File.WriteAllTextAsync(
+                    gitIgnorePath,
+                    UcliLocalStorageBootstrapper.LocalDirectoryIgnoreEntry + Environment.NewLine,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {

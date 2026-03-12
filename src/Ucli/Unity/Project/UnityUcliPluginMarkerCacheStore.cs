@@ -144,6 +144,10 @@ internal sealed class UnityUcliPluginMarkerCacheStore
         {
             Validate(cache, cachePath);
             var json = JsonSerializer.Serialize(cache, SerializerOptions) + Environment.NewLine;
+            var cacheDirectoryPath = Path.GetDirectoryName(cachePath)
+                ?? throw new InvalidOperationException($"uCLI Unity plugin marker cache directory path could not be resolved: {cachePath}");
+            UcliLocalStorageBootstrapper.EnsureInitialized(cacheDirectoryPath);
+            Directory.CreateDirectory(cacheDirectoryPath);
             await writeAllTextAtomically(cachePath, json, cancellationToken).ConfigureAwait(false);
             return UnityUcliPluginMarkerCacheStoreOperationResult.Success();
         }

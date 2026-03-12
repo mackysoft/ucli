@@ -49,6 +49,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProcessId: Process.GetCurrentProcess().Id,
                 SessionIssuedAtUtc: bootstrapArguments.SessionIssuedAtUtc);
             var json = DaemonDiagnosisJsonContractSerializer.Serialize(diagnosisContract) + Environment.NewLine;
+            var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
+                ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
+            UcliLocalStorageBootstrapper.EnsureInitialized(diagnosisDirectoryPath);
+            Directory.CreateDirectory(diagnosisDirectoryPath);
             await FileUtilities.WriteAllTextAtomically(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
         }
     }

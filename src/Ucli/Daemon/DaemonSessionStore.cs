@@ -164,6 +164,10 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
 
         try
         {
+            var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
+                ?? throw new InvalidOperationException($"Daemon session directory path could not be resolved: {sessionPath}");
+            UcliLocalStorageBootstrapper.EnsureInitialized(sessionDirectoryPath);
+            Directory.CreateDirectory(sessionDirectoryPath);
             await FileUtilities.WriteAllTextAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
             return DaemonSessionStoreOperationResult.Success();
         }

@@ -81,7 +81,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
             if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
             {
-                FileUtilities.EnsureStorageDirectoryExists(unityLogDirectoryPath);
+                UcliLocalStorageBootstrapper.EnsureInitialized(unityLogDirectoryPath);
+                Directory.CreateDirectory(unityLogDirectoryPath);
             }
 
             if (!deadline.TryGetRemainingTimeout(out _))

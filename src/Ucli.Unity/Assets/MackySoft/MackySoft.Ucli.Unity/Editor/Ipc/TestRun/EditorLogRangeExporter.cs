@@ -52,7 +52,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new InvalidOperationException($"Destination directory path could not be resolved: {destinationPath}");
             }
 
-            FileUtilities.EnsureStorageDirectoryExists(destinationDirectoryPath);
+            UcliLocalStorageBootstrapper.EnsureInitialized(destinationDirectoryPath);
+            Directory.CreateDirectory(destinationDirectoryPath);
             using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, BufferSize, true);
             if (startOffset > sourceStream.Length || endOffset > sourceStream.Length)
             {

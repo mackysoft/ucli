@@ -57,7 +57,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             var socketDirectoryPath = Path.GetDirectoryName(address);
             if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
             {
-                FileUtilities.EnsureStorageDirectoryExists(socketDirectoryPath);
+                UcliLocalStorageBootstrapper.EnsureInitialized(socketDirectoryPath);
+                Directory.CreateDirectory(socketDirectoryPath);
             }
 
             if (File.Exists(address))

@@ -25,6 +25,14 @@ internal sealed class FileOpsCatalogStore : IOpsCatalogStore
 
         var opsCatalogPath = UcliStoragePathResolver.ResolveOpsCatalogPath(storageRoot, projectFingerprint);
         var inputsManifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, projectFingerprint);
+        var opsCatalogDirectoryPath = Path.GetDirectoryName(opsCatalogPath)
+            ?? throw new InvalidOperationException($"ops.catalog.json directory path could not be resolved: {opsCatalogPath}");
+        var inputsManifestDirectoryPath = Path.GetDirectoryName(inputsManifestPath)
+            ?? throw new InvalidOperationException($"inputs manifest directory path could not be resolved: {inputsManifestPath}");
+        UcliLocalStorageBootstrapper.EnsureInitialized(opsCatalogDirectoryPath);
+        Directory.CreateDirectory(opsCatalogDirectoryPath);
+        UcliLocalStorageBootstrapper.EnsureInitialized(inputsManifestDirectoryPath);
+        Directory.CreateDirectory(inputsManifestDirectoryPath);
 
         var opsCatalog = new IndexOpsCatalogJsonContract(
             SchemaVersion: SchemaVersion,

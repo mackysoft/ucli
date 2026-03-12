@@ -133,7 +133,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
             if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
             {
-                FileUtilities.EnsureStorageDirectoryExists(unityLogDirectoryPath);
+                UcliLocalStorageBootstrapper.EnsureInitialized(unityLogDirectoryPath);
+                Directory.CreateDirectory(unityLogDirectoryPath);
             }
 
             var processStartInfo = new ProcessStartInfo

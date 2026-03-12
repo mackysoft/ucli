@@ -47,7 +47,8 @@ internal sealed class LaunchdSupervisorProcessLauncher
             var plistDirectoryPath = Path.GetDirectoryName(plistPath);
             if (!string.IsNullOrWhiteSpace(plistDirectoryPath))
             {
-                FileUtilities.EnsureStorageDirectoryExists(plistDirectoryPath);
+                UcliLocalStorageBootstrapper.EnsureInitialized(plistDirectoryPath);
+                Directory.CreateDirectory(plistDirectoryPath);
             }
 
             var plistContents = BuildLaunchAgentPlist(label, launchCommand, normalizedStorageRoot, logPath);

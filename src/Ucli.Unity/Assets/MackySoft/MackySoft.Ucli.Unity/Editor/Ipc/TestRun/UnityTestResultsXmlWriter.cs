@@ -34,7 +34,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new InvalidOperationException($"resultsXmlPath directory could not be resolved: {resultsXmlPath}");
             }
 
-            FileUtilities.EnsureStorageDirectoryExists(resultsDirectoryPath);
+            UcliLocalStorageBootstrapper.EnsureInitialized(resultsDirectoryPath);
+            Directory.CreateDirectory(resultsDirectoryPath);
             TestRunnerApi.SaveResultToFile(testResult, resultsXmlPath);
             if (!File.Exists(resultsXmlPath))
             {
