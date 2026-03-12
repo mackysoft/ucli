@@ -20,6 +20,64 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CanCleanup_WhenFingerprintMismatchAndProcessIdIsMissing_ReturnsFalse ()
+    {
+        var context = CreateContext("fingerprint-invalid-mismatch-no-pid");
+        var session = CreateSession("different-fingerprint") with
+        {
+            ProcessId = null,
+        };
+        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new StubDaemonProcessIdentityAssessor());
+
+        var canCleanup = evaluator.CanCleanup(context, session);
+
+        Assert.False(canCleanup);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CanCleanup_WhenFingerprintMismatchAndIdentityAssessmentIsNotRunning_ReturnsTrue ()
+    {
+        var context = CreateContext("fingerprint-invalid-mismatch-not-running");
+        var session = CreateSession("different-fingerprint");
+        var assessor = new StubDaemonProcessIdentityAssessor
+        {
+            NextAssessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.NotRunning,
+                null,
+                null),
+        };
+        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
+
+        var canCleanup = evaluator.CanCleanup(context, session);
+
+        Assert.True(canCleanup);
+        Assert.Equal(session.ProcessId, assessor.LastProcessId);
+        Assert.Equal(session.IssuedAtUtc, assessor.LastIssuedAtUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CanCleanup_WhenFingerprintMismatchAndIdentityAssessmentIsMatchingLiveProcess_ReturnsFalse ()
+    {
+        var context = CreateContext("fingerprint-invalid-mismatch-live");
+        var session = CreateSession("different-fingerprint");
+        var assessor = new StubDaemonProcessIdentityAssessor
+        {
+            NextAssessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
+                DateTimeOffset.UtcNow,
+                null),
+        };
+        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
+
+        var canCleanup = evaluator.CanCleanup(context, session);
+
+        Assert.False(canCleanup);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CanCleanup_WhenProcessIdIsMissing_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-no-pid");
