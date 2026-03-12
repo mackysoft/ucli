@@ -56,7 +56,7 @@ public sealed class DaemonCleanupOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WhenSessionPingReturnsSessionTokenInvalid_ReturnsSkippedRunningWithoutCleanup ()
+    public async Task Cleanup_WhenSessionPingReturnsSessionTokenInvalid_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
     {
         var session = CreateSession(processId: 2006);
         var artifactCleaner = new StubDaemonArtifactCleaner();
@@ -72,7 +72,7 @@ public sealed class DaemonCleanupOperationTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
-        Assert.Equal(DaemonCleanupSkipReason.Running, result.SkipReason);
+        Assert.Equal(DaemonCleanupSkipReason.UncertainReachability, result.SkipReason);
         Assert.Equal(0, artifactCleaner.CallCount);
     }
 
