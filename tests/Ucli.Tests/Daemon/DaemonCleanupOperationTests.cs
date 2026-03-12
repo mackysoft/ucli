@@ -102,6 +102,28 @@ public sealed class DaemonCleanupOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Cleanup_WhenSessionPingReturnsSocketAccessDenied_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
+    {
+        var session = CreateSession(processId: 2007);
+        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(session),
+            },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.AccessDenied))),
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-access-denied"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
+        Assert.Equal(DaemonCleanupSkipReason.UncertainReachability, result.SkipReason);
+        Assert.Equal(0, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Cleanup_WhenInvalidSessionCanBeCleaned_CompletesCleanup ()
     {
         var context = CreateContext("fingerprint-cleanup-invalid-safe");
