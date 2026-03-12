@@ -24,6 +24,7 @@ internal sealed class SupervisorRuntimeLogger
         var logDirectoryPath = Path.GetDirectoryName(logPath);
         if (!string.IsNullOrWhiteSpace(logDirectoryPath))
         {
+            UcliLocalStorageBootstrapper.EnsureInitialized(logDirectoryPath);
             Directory.CreateDirectory(logDirectoryPath);
         }
 

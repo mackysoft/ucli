@@ -98,6 +98,7 @@ namespace MackySoft.Ucli.Unity.Index
                 throw new InvalidOperationException($"Directory path could not be resolved. {filePath}");
             }
 
+            UcliLocalStorageBootstrapper.EnsureInitialized(directoryPath);
             Directory.CreateDirectory(directoryPath);
         }
     }

@@ -140,6 +140,10 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
 
         try
         {
+            var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
+                ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
+            UcliLocalStorageBootstrapper.EnsureInitialized(diagnosisDirectoryPath);
+            Directory.CreateDirectory(diagnosisDirectoryPath);
             await FileUtilities.WriteAllTextAtomically(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
             return DaemonDiagnosisStoreOperationResult.Success();
         }

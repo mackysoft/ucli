@@ -5,12 +5,9 @@ using MackySoft.Ucli.Foundation;
 
 namespace MackySoft.Ucli.Init;
 
-/// <summary> Implements init flow that generates the <c>.ucli</c> template files. </summary>
+/// <summary> Implements init flow that generates explicit <c>.ucli</c> config template files. </summary>
 internal sealed class InitService : IInitService
 {
-    private const string GitIgnoreFileName = ".gitignore";
-    private const string GitIgnoreContents = "local/";
-
     private readonly IUcliConfigStore configStore;
 
     /// <summary> Initializes a new instance of the <see cref="InitService" /> class. </summary>
@@ -44,10 +41,8 @@ internal sealed class InitService : IInitService
 
         var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
         var ucliDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
-        var localDirectoryPath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.LocalDirectoryName);
-        var fingerprintsDirectoryPath = Path.Combine(localDirectoryPath, UcliStoragePathNames.FingerprintsDirectoryName);
         var configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
-        var gitIgnorePath = Path.Combine(ucliDirectoryPath, GitIgnoreFileName);
+        var gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
         var existingPaths = CollectExistingTemplatePaths(configPath, gitIgnorePath);
 
         if (!force && existingPaths.Count > 0)
@@ -60,8 +55,6 @@ internal sealed class InitService : IInitService
         try
         {
             Directory.CreateDirectory(ucliDirectoryPath);
-            Directory.CreateDirectory(localDirectoryPath);
-            Directory.CreateDirectory(fingerprintsDirectoryPath);
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
@@ -85,7 +78,11 @@ internal sealed class InitService : IInitService
 
         try
         {
-            await File.WriteAllTextAsync(gitIgnorePath, GitIgnoreContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
+            await File.WriteAllTextAsync(
+                    gitIgnorePath,
+                    UcliLocalStorageBootstrapper.LocalDirectoryIgnoreEntry + Environment.NewLine,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {

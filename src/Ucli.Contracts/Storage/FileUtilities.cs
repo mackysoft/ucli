@@ -54,13 +54,13 @@ public static class FileUtilities
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var directoryPath = Path.GetDirectoryName(path)
+        var directoryPath = Path.GetDirectoryName(Path.GetFullPath(path))
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
+        Directory.CreateDirectory(directoryPath);
         var temporaryPath = path + $".tmp.{Guid.NewGuid():N}";
 
         try
         {
-            Directory.CreateDirectory(directoryPath);
             await File.WriteAllTextAsync(temporaryPath, contents, cancellationToken).ConfigureAwait(false);
             ReplaceFile(temporaryPath, path);
         }

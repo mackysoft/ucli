@@ -73,6 +73,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
             try
             {
+                UcliLocalStorageBootstrapper.EnsureInitialized(artifactsDir);
                 Directory.CreateDirectory(artifactsDir);
             }
             catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)

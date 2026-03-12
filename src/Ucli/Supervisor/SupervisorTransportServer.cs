@@ -3,6 +3,7 @@ using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Supervisor;
 
@@ -154,6 +155,7 @@ internal sealed class SupervisorTransportServer
         var socketDirectoryPath = Path.GetDirectoryName(address);
         if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
         {
+            UcliLocalStorageBootstrapper.EnsureInitialized(socketDirectoryPath);
             Directory.CreateDirectory(socketDirectoryPath);
         }
 

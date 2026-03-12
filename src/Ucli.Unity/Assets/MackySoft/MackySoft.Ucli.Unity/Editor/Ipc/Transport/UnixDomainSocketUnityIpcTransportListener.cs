@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -56,6 +57,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var socketDirectoryPath = Path.GetDirectoryName(address);
             if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
             {
+                UcliLocalStorageBootstrapper.EnsureInitialized(socketDirectoryPath);
                 Directory.CreateDirectory(socketDirectoryPath);
             }
 

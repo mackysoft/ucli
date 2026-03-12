@@ -48,7 +48,7 @@ internal sealed class InitCommand
             var output = executionResult.Output!;
             return CommandResult.Success(
                 command: UcliCommandNames.Init,
-                message: "uCLI initialization completed.",
+                message: "uCLI config template generation completed.",
                 payload: new
                 {
                     configPath = output.ConfigPath,
