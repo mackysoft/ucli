@@ -1,8 +1,5 @@
-using System.Net.Sockets;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon;
@@ -16,40 +13,31 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
     private readonly IDaemonSessionStore daemonSessionStore;
 
-    private readonly IDaemonPingClient daemonPingClient;
-
-    private readonly IDaemonReachabilityClassifier reachabilityClassifier;
-
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
-    private readonly IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator;
+    private readonly IDaemonCleanupReachabilityProbe cleanupReachabilityProbe;
 
-    private readonly IIpcEndpointResolver endpointResolver;
+    private readonly IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonCleanupOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
-    /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
-    /// <param name="reachabilityClassifier"> The daemon reachability-classifier dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
+    /// <param name="cleanupReachabilityProbe"> The cleanup reachability-probe dependency. </param>
     /// <param name="invalidSessionCleanupSafetyEvaluator"> The invalid-session cleanup safety-evaluator dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonCleanupOperation (
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
-        IDaemonPingClient daemonPingClient,
-        IDaemonReachabilityClassifier reachabilityClassifier,
         IDaemonArtifactCleaner artifactCleaner,
         IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator,
-        IIpcEndpointResolver endpointResolver)
+        IDaemonCleanupReachabilityProbe cleanupReachabilityProbe)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
-        this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
-        this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
         this.invalidSessionCleanupSafetyEvaluator = invalidSessionCleanupSafetyEvaluator ?? throw new ArgumentNullException(nameof(invalidSessionCleanupSafetyEvaluator));
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
+        this.cleanupReachabilityProbe = cleanupReachabilityProbe ?? throw new ArgumentNullException(nameof(cleanupReachabilityProbe));
     }
 
     /// <summary> Cleans safe daemon artifacts for the specified Unity project context. </summary>
@@ -103,10 +91,20 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         if (!readResult.Exists)
         {
-            return await HandleMetadataUnavailableSession(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+            return await HandleReachabilityResult(
+                    unityProject,
+                    deadline,
+                    MetadataUnavailableProbeSessionToken,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        return await HandleExistingSession(unityProject, readResult.Session!, deadline, cancellationToken).ConfigureAwait(false);
+        return await HandleReachabilityResult(
+                unityProject,
+                deadline,
+                readResult.Session!.SessionToken,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonCleanupResult> HandleInvalidSessionRead (
@@ -122,10 +120,20 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         if (readResult.Session == null)
         {
-            return await HandleMetadataUnavailableSession(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+            return await HandleReachabilityResult(
+                    unityProject,
+                    deadline,
+                    MetadataUnavailableProbeSessionToken,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        var cleanupProbeResult = await HandleMetadataUnavailableSession(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        var cleanupProbeResult = await HandleReachabilityResult(
+                unityProject,
+                deadline,
+                MetadataUnavailableProbeSessionToken,
+                cancellationToken)
+            .ConfigureAwait(false);
         if (cleanupProbeResult.Status == DaemonCleanupStatus.Completed
             || cleanupProbeResult.Status == DaemonCleanupStatus.Failed)
         {
@@ -137,128 +145,27 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             : cleanupProbeResult;
     }
 
-    private async ValueTask<DaemonCleanupResult> HandleMetadataUnavailableSession (
+    private async ValueTask<DaemonCleanupResult> HandleReachabilityResult (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
+        string sessionToken,
         CancellationToken cancellationToken)
     {
-        if (CanProveNotRunningFromMissingUnixSocket(unityProject))
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
+        var probeResult = await cleanupReachabilityProbe.Probe(
+                unityProject,
+                deadline,
+                sessionToken,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
+        return probeResult.Status switch
         {
-            return DaemonCleanupResult.Failure(ExecutionError.Timeout(
-                "Timed out before daemon cleanup metadata-unavailable probe could begin."));
-        }
-
-        try
-        {
-            await daemonPingClient.Ping(
-                    unityProject,
-                    pingTimeout,
-                    MetadataUnavailableProbeSessionToken,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (IpcConnectTimeoutException)
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
-        catch (DaemonPingResponseException exception)
-            when (string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal)
-                || string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal))
-        {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
-        catch (SocketException exception) when (ShouldTreatSocketExceptionAsNotRunningForCleanup(exception))
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
-        catch (SocketException)
-        {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
-        catch (Exception)
-        {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
-    }
-
-    private async ValueTask<DaemonCleanupResult> HandleExistingSession (
-        ResolvedUnityProjectContext unityProject,
-        DaemonSession session,
-        ExecutionDeadline deadline,
-        CancellationToken cancellationToken)
-    {
-        if (CanProveNotRunningFromMissingUnixSocket(unityProject))
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
-
-        if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
-        {
-            return DaemonCleanupResult.Failure(ExecutionError.Timeout(
-                "Timed out before daemon cleanup reachability probe could begin."));
-        }
-
-        try
-        {
-            await daemonPingClient.Ping(
-                    unityProject,
-                    pingTimeout,
-                    session.SessionToken,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (IpcConnectTimeoutException)
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
-        catch (DaemonPingResponseException exception) when (
-            string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal)
-            || string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal))
-        {
-            // NOTE:
-            // Token validation failures mean something on the canonical endpoint responded, so
-            // cleanup must stay non-destructive while keeping shared reachability semantics unchanged.
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
-        catch (SocketException exception) when (ShouldTreatSocketExceptionAsNotRunningForCleanup(exception))
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
-        catch (SocketException)
-        {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
-        catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
-        }
+            DaemonCleanupReachabilityStatus.NotRunning => await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false),
+            DaemonCleanupReachabilityStatus.Running => DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running),
+            DaemonCleanupReachabilityStatus.Uncertain => DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability),
+            DaemonCleanupReachabilityStatus.Failed => DaemonCleanupResult.Failure(probeResult.Error!),
+            _ => throw new ArgumentOutOfRangeException(nameof(probeResult), probeResult.Status, "Unsupported cleanup reachability status."),
+        };
     }
 
     private async ValueTask<DaemonCleanupResult> CleanupArtifactsWithinBudget (
@@ -276,24 +183,5 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         return cleanupResult.IsSuccess
             ? DaemonCleanupResult.Completed()
             : DaemonCleanupResult.Failure(cleanupResult.Error!);
-    }
-
-    private static bool ShouldTreatSocketExceptionAsNotRunningForCleanup (SocketException exception)
-    {
-        ArgumentNullException.ThrowIfNull(exception);
-
-        return exception.SocketErrorCode == SocketError.ConnectionRefused
-            || exception.SocketErrorCode == SocketError.AddressNotAvailable;
-    }
-
-    private bool CanProveNotRunningFromMissingUnixSocket (ResolvedUnityProjectContext unityProject)
-    {
-        ArgumentNullException.ThrowIfNull(unityProject);
-
-        var endpoint = endpointResolver.Resolve(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-        return endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
-            && !File.Exists(endpoint.Address);
     }
 }
