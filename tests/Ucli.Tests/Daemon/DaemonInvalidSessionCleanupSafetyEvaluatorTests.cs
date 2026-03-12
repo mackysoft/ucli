@@ -9,18 +9,18 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenSessionSnapshotIsNull_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenSessionSnapshotIsNull_ReturnsFalse ()
     {
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new StubDaemonProcessIdentityAssessor());
 
-        var canCleanup = evaluator.CanCleanup(CreateContext("fingerprint-invalid-null"), null);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(CreateContext("fingerprint-invalid-null"), null);
 
-        Assert.False(canCleanup);
+        Assert.False(requiresUnsafeSkip);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenFingerprintMismatchAndProcessIdIsMissing_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenFingerprintMismatchAndProcessIdIsMissing_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-mismatch-no-pid");
         var session = CreateSession("different-fingerprint") with
@@ -29,14 +29,14 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new StubDaemonProcessIdentityAssessor());
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.False(canCleanup);
+        Assert.False(requiresUnsafeSkip);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenFingerprintMismatchAndIdentityAssessmentIsNotRunning_ReturnsTrue ()
+    public void RequiresUnsafeSkip_WhenFingerprintMismatchAndIdentityAssessmentIsNotRunning_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-mismatch-not-running");
         var session = CreateSession("different-fingerprint");
@@ -49,16 +49,15 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.True(canCleanup);
-        Assert.Equal(session.ProcessId, assessor.LastProcessId);
-        Assert.Equal(session.IssuedAtUtc, assessor.LastIssuedAtUtc);
+        Assert.False(requiresUnsafeSkip);
+        Assert.Null(assessor.LastProcessId);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenFingerprintMismatchAndIdentityAssessmentIsMatchingLiveProcess_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenFingerprintMismatchAndIdentityAssessmentIsMatchingLiveProcess_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-mismatch-live");
         var session = CreateSession("different-fingerprint");
@@ -71,14 +70,15 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.False(canCleanup);
+        Assert.False(requiresUnsafeSkip);
+        Assert.Null(assessor.LastProcessId);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenProcessIdIsMissing_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenProcessIdIsMissing_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-no-pid");
         var session = CreateSession(context.ProjectFingerprint) with
@@ -87,14 +87,14 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new StubDaemonProcessIdentityAssessor());
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.False(canCleanup);
+        Assert.False(requiresUnsafeSkip);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenIssuedAtUtcIsDefault_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenIssuedAtUtcIsDefault_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-no-issued-at");
         var session = CreateSession(context.ProjectFingerprint) with
@@ -103,14 +103,14 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new StubDaemonProcessIdentityAssessor());
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.False(canCleanup);
+        Assert.False(requiresUnsafeSkip);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenIdentityAssessmentIsNotRunning_ReturnsTrue ()
+    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsNotRunning_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-not-running");
         var session = CreateSession(context.ProjectFingerprint);
@@ -123,16 +123,16 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.True(canCleanup);
+        Assert.False(requiresUnsafeSkip);
         Assert.Equal(session.ProcessId, assessor.LastProcessId);
         Assert.Equal(session.IssuedAtUtc, assessor.LastIssuedAtUtc);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenIdentityAssessmentIsDifferentProcess_ReturnsTrue ()
+    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsDifferentProcess_ReturnsFalse ()
     {
         var context = CreateContext("fingerprint-invalid-different-process");
         var session = CreateSession(context.ProjectFingerprint);
@@ -145,14 +145,14 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.True(canCleanup);
+        Assert.False(requiresUnsafeSkip);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CanCleanup_WhenIdentityAssessmentIsMatchingLiveProcess_ReturnsFalse ()
+    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsMatchingLiveProcess_ReturnsTrue ()
     {
         var context = CreateContext("fingerprint-invalid-live");
         var session = CreateSession(context.ProjectFingerprint);
@@ -165,9 +165,29 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var canCleanup = evaluator.CanCleanup(context, session);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
 
-        Assert.False(canCleanup);
+        Assert.True(requiresUnsafeSkip);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void RequiresUnsafeSkip_WhenIdentityAssessmentIsUncertain_ReturnsTrue ()
+    {
+        var context = CreateContext("fingerprint-invalid-uncertain");
+        var session = CreateSession(context.ProjectFingerprint);
+        var assessor = new StubDaemonProcessIdentityAssessor
+        {
+            NextAssessment = new DaemonProcessIdentityAssessment(
+                DaemonProcessIdentityAssessmentStatus.Uncertain,
+                null,
+                ExecutionError.InternalError("probe failed")),
+        };
+        var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
+
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, session);
+
+        Assert.True(requiresUnsafeSkip);
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
