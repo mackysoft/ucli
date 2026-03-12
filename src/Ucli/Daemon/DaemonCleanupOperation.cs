@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -94,7 +95,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         if (!readResult.Exists)
         {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
         }
 
         return await HandleExistingSession(unityProject, readResult.Session!, deadline, cancellationToken).ConfigureAwait(false);
@@ -145,6 +146,13 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         catch (TimeoutException)
         {
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
+        }
+        catch (DaemonPingResponseException exception) when (string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal))
+        {
+            // NOTE:
+            // Token mismatch means the daemon endpoint responded and is therefore live. Safe cleanup
+            // must not delete the canonical endpoint in this state.
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running);
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {

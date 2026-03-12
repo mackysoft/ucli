@@ -28,7 +28,7 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
 
         if (session == null)
         {
-            return true;
+            return false;
         }
 
         if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
@@ -36,9 +36,12 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
             return true;
         }
 
+        // NOTE:
+        // Safe cleanup must not delete the canonical endpoint unless the previous daemon identity can
+        // be disproven. Broken metadata without process identity fields is therefore unsafe.
         if (session.ProcessId is not int processId || processId <= 0 || session.IssuedAtUtc == default)
         {
-            return true;
+            return false;
         }
 
         var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId, session.IssuedAtUtc);
