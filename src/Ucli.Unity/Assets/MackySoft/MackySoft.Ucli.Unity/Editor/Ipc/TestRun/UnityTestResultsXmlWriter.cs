@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MackySoft.Ucli.Contracts.Storage;
 using UnityEditor.TestTools.TestRunner.Api;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -33,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new InvalidOperationException($"resultsXmlPath directory could not be resolved: {resultsXmlPath}");
             }
 
-            Directory.CreateDirectory(resultsDirectoryPath);
+            FileUtilities.EnsureStorageDirectoryExists(resultsDirectoryPath);
             TestRunnerApi.SaveResultToFile(testResult, resultsXmlPath);
             if (!File.Exists(resultsXmlPath))
             {

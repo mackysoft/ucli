@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -51,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new InvalidOperationException($"Destination directory path could not be resolved: {destinationPath}");
             }
 
-            Directory.CreateDirectory(destinationDirectoryPath);
+            FileUtilities.EnsureStorageDirectoryExists(destinationDirectoryPath);
             using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, BufferSize, true);
             if (startOffset > sourceStream.Length || endOffset > sourceStream.Length)
             {

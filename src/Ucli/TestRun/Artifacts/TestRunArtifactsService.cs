@@ -73,7 +73,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
             try
             {
-                Directory.CreateDirectory(artifactsDir);
+                FileUtilities.EnsureStorageDirectoryExists(artifactsDir);
             }
             catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
             {

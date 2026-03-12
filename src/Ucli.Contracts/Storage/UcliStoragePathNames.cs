@@ -9,6 +9,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the root directory name used by uCLI shared storage. </summary>
     public const string UcliDirectoryName = ".ucli";
 
+    /// <summary> Gets the git-ignore file name under <c>.ucli</c>. </summary>
+    public const string GitIgnoreFileName = ".gitignore";
+
     /// <summary> Gets the local-state directory name under <c>.ucli</c>. </summary>
     public const string LocalDirectoryName = "local";
 

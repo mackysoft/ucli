@@ -30,6 +30,7 @@ public sealed class CliOutputContractTests
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "status-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var ucliDirectoryPath = Path.Combine(unityProjectPath, UcliDirectoryName);
         var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Status,
             UcliContractConstants.CliOption.ProjectPath,
@@ -52,6 +53,7 @@ public sealed class CliOutputContractTests
                 .IsNull("compileState")
                 .IsNull("runtime")
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds));
+        FileSystemAssert.ForDirectory(ucliDirectoryPath).DoesNotExist();
     }
 
     [Theory]
@@ -109,14 +111,14 @@ public sealed class CliOutputContractTests
             .GetString()!)
             .Exists();
 
-        FileSystemAssert.ForDirectory(localDirectoryPath).Exists();
+        FileSystemAssert.ForDirectory(localDirectoryPath).DoesNotExist();
         FileSystemAssert.ForFile(configPath).Exists();
         FileSystemAssert.ForFile(gitIgnorePath).Exists();
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Init_AlwaysCreatesUnderCurrentWorkingDirectory ()
+    public async Task Init_AlwaysCreatesConfigTemplateUnderCurrentWorkingDirectory ()
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-cwd");
         var (workingDirectoryPath, ucliDirectoryPath, localDirectoryPath, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
@@ -124,7 +126,7 @@ public sealed class CliOutputContractTests
         await RunInit(force: false, workingDirectoryPath);
 
         FileSystemAssert.ForDirectory(ucliDirectoryPath).Exists();
-        FileSystemAssert.ForDirectory(localDirectoryPath).Exists();
+        FileSystemAssert.ForDirectory(localDirectoryPath).DoesNotExist();
         FileSystemAssert.ForFile(configPath).Exists();
         FileSystemAssert.ForFile(gitIgnorePath).Exists();
     }

@@ -29,7 +29,7 @@ internal sealed class SupervisorBootstrapLockProvider
         var lockDirectoryPath = Path.GetDirectoryName(lockFilePath);
         if (!string.IsNullOrWhiteSpace(lockDirectoryPath))
         {
-            Directory.CreateDirectory(lockDirectoryPath);
+            FileUtilities.EnsureStorageDirectoryExists(lockDirectoryPath);
         }
 
         var deadline = ExecutionDeadline.Start(timeout);

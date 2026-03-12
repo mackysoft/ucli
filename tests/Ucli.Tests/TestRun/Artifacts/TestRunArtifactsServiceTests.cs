@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
 using MackySoft.Ucli.UnityProject;
@@ -18,6 +19,10 @@ public sealed class TestRunArtifactsServiceTests
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "prepare-run-dir");
         var configuration = CreateResolvedConfiguration(scope);
         var service = new TestRunArtifactsService();
+        var gitIgnorePath = Path.Combine(
+            scope.FullPath,
+            UcliStoragePathNames.UcliDirectoryName,
+            UcliStoragePathNames.GitIgnoreFileName);
 
         var result = await service.Prepare(configuration);
 
@@ -40,6 +45,8 @@ public sealed class TestRunArtifactsServiceTests
         Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "editor.log"), session.Paths.EditorLogPath);
         Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "results.json"), session.Paths.ResultsJsonPath);
         Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "summary.json"), session.Paths.SummaryJsonPath);
+        FileSystemAssert.ForFile(gitIgnorePath).Exists();
+        Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Tests;
 
 public sealed class DaemonSessionStoreTests
 {
@@ -14,11 +15,17 @@ public sealed class DaemonSessionStoreTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "roundtrip");
         var store = new DaemonSessionStore();
         var session = CreateSession(projectFingerprint: "fingerprint-roundtrip", sessionToken: "token-1");
+        var gitIgnorePath = Path.Combine(
+            scope.FullPath,
+            UcliStoragePathNames.UcliDirectoryName,
+            UcliStoragePathNames.GitIgnoreFileName);
 
         var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
         Assert.Null(writeResult.Error);
+        FileSystemAssert.ForFile(gitIgnorePath).Exists();
+        Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
 
         var readResult = await store.Read(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
 
@@ -41,6 +48,24 @@ public sealed class DaemonSessionStoreTests
         var readAfterDeleteResult = await store.Read(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
         Assert.True(readAfterDeleteResult.IsSuccess);
         Assert.False(readAfterDeleteResult.Exists);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenGitIgnoreAlreadyExists_DoesNotOverwriteExistingContents ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "existing-gitignore");
+        var store = new DaemonSessionStore();
+        var session = CreateSession(projectFingerprint: "fingerprint-existing-gitignore", sessionToken: "token-1");
+        var relativeGitIgnorePath = Path.Combine(
+            UcliStoragePathNames.UcliDirectoryName,
+            UcliStoragePathNames.GitIgnoreFileName);
+        var gitIgnorePath = scope.WriteFile(relativeGitIgnorePath, "legacy/" + Environment.NewLine);
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.True(writeResult.IsSuccess);
+        Assert.Equal("legacy/" + Environment.NewLine, File.ReadAllText(gitIgnorePath));
     }
 
     [Fact]
