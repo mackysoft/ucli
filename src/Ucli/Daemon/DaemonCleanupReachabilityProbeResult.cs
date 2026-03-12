@@ -5,29 +5,32 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Represents cleanup-specific daemon reachability probing result. </summary>
 /// <param name="Status"> The cleanup-specific reachability status. </param>
 /// <param name="Error"> The structured error when probing failed; otherwise <see langword="null" />. </param>
+/// <param name="UncertainReason"> The known ambiguity reason when status is <see cref="DaemonCleanupReachabilityStatus.Uncertain" />; otherwise <see langword="null" />. </param>
 internal sealed record DaemonCleanupReachabilityProbeResult (
     DaemonCleanupReachabilityStatus Status,
-    ExecutionError? Error)
+    ExecutionError? Error,
+    DaemonCleanupReachabilityUncertainReason? UncertainReason)
 {
     /// <summary> Creates a successful probe result that proves daemon is not running. </summary>
     /// <returns> The successful not-running result. </returns>
     public static DaemonCleanupReachabilityProbeResult NotRunning ()
     {
-        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.NotRunning, null);
+        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.NotRunning, null, null);
     }
 
     /// <summary> Creates a successful probe result that proves daemon is running. </summary>
     /// <returns> The successful running result. </returns>
     public static DaemonCleanupReachabilityProbeResult Running ()
     {
-        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.Running, null);
+        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.Running, null, null);
     }
 
     /// <summary> Creates a successful probe result that cannot safely prove daemon liveness. </summary>
+    /// <param name="reason"> The known ambiguity reason. </param>
     /// <returns> The successful uncertain result. </returns>
-    public static DaemonCleanupReachabilityProbeResult Uncertain ()
+    public static DaemonCleanupReachabilityProbeResult Uncertain (DaemonCleanupReachabilityUncertainReason reason)
     {
-        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.Uncertain, null);
+        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.Uncertain, null, reason);
     }
 
     /// <summary> Creates a failed probe result. </summary>
@@ -37,6 +40,6 @@ internal sealed record DaemonCleanupReachabilityProbeResult (
     public static DaemonCleanupReachabilityProbeResult Failure (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.Failed, error);
+        return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.Failed, error, null);
     }
 }

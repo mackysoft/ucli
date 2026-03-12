@@ -70,17 +70,17 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         }
         catch (IpcConnectTimeoutException)
         {
-            return DaemonCleanupReachabilityProbeResult.Uncertain();
+            return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.ConnectTimeout);
         }
         catch (TimeoutException)
         {
-            return DaemonCleanupReachabilityProbeResult.Uncertain();
+            return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.Timeout);
         }
         catch (DaemonPingResponseException exception) when (
             string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal)
             || string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal))
         {
-            return DaemonCleanupReachabilityProbeResult.Uncertain();
+            return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.SessionAuthenticationRejected);
         }
         catch (SocketException exception) when (ShouldTreatSocketExceptionAsNotRunningForCleanup(exception))
         {
@@ -88,7 +88,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         }
         catch (SocketException)
         {
-            return DaemonCleanupReachabilityProbeResult.Uncertain();
+            return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.TransportError);
         }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
