@@ -453,16 +453,21 @@ public sealed class DaemonCleanupOperationTests
         IDaemonReachabilityClassifier? reachabilityClassifier = null,
         IDaemonArtifactCleaner? artifactCleaner = null,
         IDaemonInvalidSessionCleanupSafetyEvaluator? invalidSessionCleanupSafetyEvaluator = null,
-        IIpcEndpointResolver? endpointResolver = null)
+        IIpcEndpointResolver? endpointResolver = null,
+        IDaemonCleanupReachabilityProbe? cleanupReachabilityProbe = null)
     {
+        var effectivePingClient = daemonPingClient ?? new StubDaemonPingClient(static () => ValueTask.CompletedTask);
+        var effectiveReachabilityClassifier = reachabilityClassifier ?? new DaemonReachabilityClassifier();
+        var effectiveEndpointResolver = endpointResolver ?? new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-default"));
         return new DaemonCleanupOperation(
             lifecycleLockProvider ?? new StubProjectLifecycleLockProvider(),
             daemonSessionStore ?? new StubDaemonSessionStore(),
-            daemonPingClient ?? new StubDaemonPingClient(static () => ValueTask.CompletedTask),
-            reachabilityClassifier ?? new DaemonReachabilityClassifier(),
             artifactCleaner ?? new StubDaemonArtifactCleaner(),
             invalidSessionCleanupSafetyEvaluator ?? new StubDaemonInvalidSessionCleanupSafetyEvaluator(),
-            endpointResolver ?? new StubEndpointResolver(new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-default")));
+            cleanupReachabilityProbe ?? new DaemonCleanupReachabilityProbe(
+                effectivePingClient,
+                effectiveReachabilityClassifier,
+                effectiveEndpointResolver));
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
