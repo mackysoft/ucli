@@ -10,7 +10,7 @@ public sealed class DaemonProcessTerminationServiceTests
     [Trait("Size", "Small")]
     public async Task EnsureStopped_WhenProcessIdIsNull_ReturnsSuccess ()
     {
-        var service = new DaemonProcessTerminationService();
+        var service = CreateService();
 
         var result = await service.EnsureStopped(
             processId: null,
@@ -26,7 +26,7 @@ public sealed class DaemonProcessTerminationServiceTests
     [Trait("Size", "Small")]
     public async Task EnsureStopped_WhenProcessIdentityCannotBeVerified_ReturnsFailureWithoutKilling ()
     {
-        var service = new DaemonProcessTerminationService();
+        var service = CreateService();
         var currentProcessId = Environment.ProcessId;
 
         var result = await service.EnsureStopped(
@@ -45,7 +45,7 @@ public sealed class DaemonProcessTerminationServiceTests
     [Trait("Size", "Small")]
     public async Task EnsureStopped_WhenProcessStartTimeDoesNotMatchSessionIssuedAt_ReturnsFailure ()
     {
-        var service = new DaemonProcessTerminationService();
+        var service = CreateService();
         var currentProcess = Process.GetCurrentProcess();
 
         var result = await service.EnsureStopped(
@@ -58,5 +58,10 @@ public sealed class DaemonProcessTerminationServiceTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("identity mismatch", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DaemonProcessTerminationService CreateService ()
+    {
+        return new DaemonProcessTerminationService(new DaemonProcessIdentityAssessor());
     }
 }

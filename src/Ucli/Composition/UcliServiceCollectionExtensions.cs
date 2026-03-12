@@ -133,6 +133,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonStartupReadinessProbe, DaemonStartupReadinessProbe>();
         services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
+        services.AddSingleton<IDaemonProcessIdentityAssessor, DaemonProcessIdentityAssessor>();
         services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();

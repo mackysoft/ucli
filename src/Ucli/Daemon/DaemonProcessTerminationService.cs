@@ -7,9 +7,15 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements process termination checks and force-kill fallback by process identifier. </summary>
 internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminationService
 {
-    private static readonly TimeSpan MaximumProcessStartLag = TimeSpan.FromMinutes(5);
+    private readonly IDaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
 
-    private static readonly TimeSpan AllowedProcessStartLead = TimeSpan.FromSeconds(2);
+    /// <summary> Initializes a new instance of the <see cref="DaemonProcessTerminationService" /> class. </summary>
+    /// <param name="daemonProcessIdentityAssessor"> The daemon process-identity assessor dependency. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonProcessIdentityAssessor" /> is <see langword="null" />. </exception>
+    public DaemonProcessTerminationService (IDaemonProcessIdentityAssessor daemonProcessIdentityAssessor)
+    {
+        this.daemonProcessIdentityAssessor = daemonProcessIdentityAssessor ?? throw new ArgumentNullException(nameof(daemonProcessIdentityAssessor));
+    }
 
     /// <summary> Ensures daemon process is stopped before timeout expires. </summary>
     /// <param name="processId"> The daemon process identifier when available. </param>
@@ -50,9 +56,22 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                     $"Daemon process identity could not be verified because expected issuedAtUtc is not available for process '{processId.Value}'."));
             }
 
-            if (!TryValidateProcessIdentity(process, processId.Value, expectedIssuedAtUtc.Value, out var identityError))
+            var identityAssessment = daemonProcessIdentityAssessor.AssessProcess(process, processId.Value, expectedIssuedAtUtc.Value);
+            switch (identityAssessment.Status)
             {
-                return DaemonSessionStoreOperationResult.Failure(identityError!);
+                case DaemonProcessIdentityAssessmentStatus.NotRunning:
+                    return DaemonSessionStoreOperationResult.Success();
+
+                case DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess:
+                    break;
+
+                case DaemonProcessIdentityAssessmentStatus.DifferentProcess:
+                case DaemonProcessIdentityAssessmentStatus.Uncertain:
+                    return DaemonSessionStoreOperationResult.Failure(identityAssessment.Error ?? ExecutionError.InternalError(
+                        $"Daemon process identity could not be verified for process '{processId.Value}'."));
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(identityAssessment), identityAssessment.Status, "Unsupported daemon process identity assessment status.");
             }
 
             var deadline = ExecutionDeadline.Start(timeout);
@@ -115,55 +134,6 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                 return true;
             }
         }
-    }
-
-    /// <summary> Validates whether the target process identity matches expected daemon session issuance timing. </summary>
-    /// <param name="process"> The process instance resolved by PID. </param>
-    /// <param name="processId"> The process identifier used for diagnostics. </param>
-    /// <param name="expectedIssuedAtUtc"> The expected daemon session issuance timestamp. </param>
-    /// <param name="error"> The error when identity validation fails; otherwise <see langword="null" />. </param>
-    /// <returns> <see langword="true" /> when identity validation succeeds; otherwise <see langword="false" />. </returns>
-    private static bool TryValidateProcessIdentity (
-        Process process,
-        int processId,
-        DateTimeOffset expectedIssuedAtUtc,
-        out ExecutionError? error)
-    {
-        if (HasExited(process))
-        {
-            error = null;
-            return true;
-        }
-
-        DateTimeOffset processStartTimeUtc;
-        try
-        {
-            processStartTimeUtc = process.StartTime.ToUniversalTime();
-        }
-        catch (InvalidOperationException) when (HasExited(process))
-        {
-            error = null;
-            return true;
-        }
-        catch (Exception exception)
-        {
-            error = ExecutionError.InternalError(
-                $"Failed to validate daemon process identity for process '{processId}'. {exception.Message}");
-            return false;
-        }
-
-        var earliestAllowedStartTime = expectedIssuedAtUtc - AllowedProcessStartLead;
-        var latestAllowedStartTime = expectedIssuedAtUtc + MaximumProcessStartLag;
-        if (processStartTimeUtc < earliestAllowedStartTime || processStartTimeUtc > latestAllowedStartTime)
-        {
-            error = ExecutionError.InternalError(
-                $"Daemon process identity mismatch for process '{processId}'. " +
-                $"ExpectedStartRange=[{earliestAllowedStartTime:O}, {latestAllowedStartTime:O}] ActualStart={processStartTimeUtc:O}.");
-            return false;
-        }
-
-        error = null;
-        return true;
     }
 
     /// <summary> Gets whether target process is already exited while tolerating post-exit access races. </summary>
