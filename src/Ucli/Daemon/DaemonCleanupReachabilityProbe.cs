@@ -14,21 +14,16 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
-    private readonly IIpcEndpointResolver endpointResolver;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonCleanupReachabilityProbe" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability-classifier dependency. </param>
-    /// <param name="endpointResolver"> The IPC endpoint-resolver dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonCleanupReachabilityProbe (
         IDaemonPingClient daemonPingClient,
-        IDaemonReachabilityClassifier reachabilityClassifier,
-        IIpcEndpointResolver endpointResolver)
+        IDaemonReachabilityClassifier reachabilityClassifier)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
-        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
     }
 
     /// <summary> Probes daemon reachability using cleanup-specific safety semantics. </summary>
@@ -53,11 +48,6 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
             throw new ArgumentException("Cleanup reachability probe session token must be non-empty.", nameof(sessionToken));
         }
 
-        if (CanProveNotRunningFromMissingUnixSocket(unityProject))
-        {
-            return DaemonCleanupReachabilityProbeResult.NotRunning();
-        }
-
         if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
         {
             return DaemonCleanupReachabilityProbeResult.Failure(ExecutionError.Timeout(
@@ -80,7 +70,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         }
         catch (IpcConnectTimeoutException)
         {
-            return DaemonCleanupReachabilityProbeResult.NotRunning();
+            return DaemonCleanupReachabilityProbeResult.Uncertain();
         }
         catch (TimeoutException)
         {
@@ -104,9 +94,10 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         {
             return DaemonCleanupReachabilityProbeResult.NotRunning();
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            return DaemonCleanupReachabilityProbeResult.Uncertain();
+            return DaemonCleanupReachabilityProbeResult.Failure(ExecutionError.InternalError(
+                $"Failed to probe daemon cleanup reachability. {exception.Message}"));
         }
     }
 
@@ -114,18 +105,6 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     {
         ArgumentNullException.ThrowIfNull(exception);
 
-        return exception.SocketErrorCode == SocketError.ConnectionRefused
-            || exception.SocketErrorCode == SocketError.AddressNotAvailable;
-    }
-
-    private bool CanProveNotRunningFromMissingUnixSocket (ResolvedUnityProjectContext unityProject)
-    {
-        ArgumentNullException.ThrowIfNull(unityProject);
-
-        var endpoint = endpointResolver.Resolve(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-        return endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
-            && !File.Exists(endpoint.Address);
+        return exception.SocketErrorCode == SocketError.ConnectionRefused;
     }
 }

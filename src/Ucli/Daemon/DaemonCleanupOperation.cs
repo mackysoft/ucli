@@ -128,21 +128,24 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 .ConfigureAwait(false);
         }
 
-        var cleanupProbeResult = await HandleReachabilityResult(
+        // NOTE:
+        // Parseable invalid sessions that still point to a plausible live daemon must block
+        // destructive cleanup even when endpoint probing later produces a false negative.
+        var requiresUnsafeSkip = invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(unityProject, readResult.Session);
+        var cleanupProbeResult = await cleanupReachabilityProbe.Probe(
                 unityProject,
                 deadline,
                 MetadataUnavailableProbeSessionToken,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (cleanupProbeResult.Status == DaemonCleanupStatus.Completed
-            || cleanupProbeResult.Status == DaemonCleanupStatus.Failed)
+        if (cleanupProbeResult.Status == DaemonCleanupReachabilityStatus.Failed)
         {
-            return cleanupProbeResult;
+            return DaemonCleanupResult.Failure(cleanupProbeResult.Error!);
         }
 
-        return invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(unityProject, readResult.Session)
+        return requiresUnsafeSkip
             ? DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession)
-            : cleanupProbeResult;
+            : await HandleProbeResult(unityProject, deadline, cleanupProbeResult, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonCleanupResult> HandleReachabilityResult (
@@ -158,6 +161,15 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 cancellationToken)
             .ConfigureAwait(false);
 
+        return await HandleProbeResult(unityProject, deadline, probeResult, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<DaemonCleanupResult> HandleProbeResult (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        DaemonCleanupReachabilityProbeResult probeResult,
+        CancellationToken cancellationToken)
+    {
         return probeResult.Status switch
         {
             DaemonCleanupReachabilityStatus.NotRunning => await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false),
