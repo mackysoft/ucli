@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements safe daemon artifact cleanup workflow for one project fingerprint. </summary>
 internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 {
+    private const string MetadataUnavailableProbeSessionToken = "ucli-daemon-cleanup-probe";
+
     private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
 
     private readonly IDaemonSessionStore daemonSessionStore;
@@ -96,7 +98,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
         if (!readResult.Exists)
         {
-            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
+            return await HandleMetadataUnavailableSession(unityProject, deadline, cancellationToken).ConfigureAwait(false);
         }
 
         return await HandleExistingSession(unityProject, readResult.Session!, deadline, cancellationToken).ConfigureAwait(false);
@@ -113,9 +115,63 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return DaemonCleanupResult.Failure(readResult.Error!);
         }
 
+        if (readResult.Session == null)
+        {
+            return await HandleMetadataUnavailableSession(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        }
+
         return invalidSessionCleanupSafetyEvaluator.CanCleanup(unityProject, readResult.Session)
             ? await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false)
             : DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession);
+    }
+
+    private async ValueTask<DaemonCleanupResult> HandleMetadataUnavailableSession (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
+        {
+            return DaemonCleanupResult.Failure(ExecutionError.Timeout(
+                "Timed out before daemon cleanup metadata-unavailable probe could begin."));
+        }
+
+        try
+        {
+            await daemonPingClient.Ping(
+                    unityProject,
+                    pingTimeout,
+                    MetadataUnavailableProbeSessionToken,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.Running);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TimeoutException)
+        {
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
+        }
+        catch (DaemonPingResponseException exception)
+            when (string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal)
+                || string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal))
+        {
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
+        }
+        catch (SocketException exception) when (ShouldTreatSocketExceptionAsNotRunningForCleanup(exception))
+        {
+            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException)
+        {
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
+        }
+        catch (Exception)
+        {
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
+        }
     }
 
     private async ValueTask<DaemonCleanupResult> HandleExistingSession (
