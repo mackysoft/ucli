@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -154,6 +155,14 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             // running/not-running semantics unchanged for other reachability callers.
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
         }
+        catch (SocketException exception) when (ShouldTreatSocketExceptionAsNotRunningForCleanup(exception))
+        {
+            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException)
+        {
+            return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
+        }
         catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
         {
             return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
@@ -179,5 +188,12 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         return cleanupResult.IsSuccess
             ? DaemonCleanupResult.Completed()
             : DaemonCleanupResult.Failure(cleanupResult.Error!);
+    }
+
+    private static bool ShouldTreatSocketExceptionAsNotRunningForCleanup (SocketException exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        return exception.SocketErrorCode == SocketError.ConnectionRefused;
     }
 }
