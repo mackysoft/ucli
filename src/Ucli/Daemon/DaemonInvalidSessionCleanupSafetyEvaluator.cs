@@ -31,14 +31,10 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
             return false;
         }
 
-        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
         // NOTE:
         // Safe cleanup must not delete the canonical endpoint unless the previous daemon identity can
-        // be disproven. Broken metadata without process identity fields is therefore unsafe.
+        // be disproven. Broken metadata, including fingerprint mismatch, is therefore unsafe unless
+        // process identity still proves the previous daemon is gone.
         if (session.ProcessId is not int processId || processId <= 0 || session.IssuedAtUtc == default)
         {
             return false;
