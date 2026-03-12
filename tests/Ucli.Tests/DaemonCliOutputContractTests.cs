@@ -74,7 +74,7 @@ public sealed class DaemonCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Cleanup_WithProjectPath_WhenNoDaemonSessionExists_ReturnsCompletedJsonContractAsSingleJson ()
+    public async Task Cleanup_WithProjectPath_WhenNoDaemonSessionExists_ReturnsSkippedJsonContractAsSingleJson ()
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-cleanup-success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -96,8 +96,8 @@ public sealed class DaemonCliOutputContractTests
 
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("cleanupStatus", "completed")
-                .IsNull("skipReason")
+                .HasString("cleanupStatus", "skipped")
+                .HasString("skipReason", "uncertainReachability")
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonCleanupMilliseconds));
     }
 

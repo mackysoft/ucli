@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -10,7 +11,7 @@ public sealed class DaemonCleanupOperationTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WhenSessionDoesNotExist_CompletesAndCleansArtifacts ()
+    public async Task Cleanup_WhenSessionDoesNotExist_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
     {
         var artifactCleaner = new StubDaemonArtifactCleaner
         {
@@ -26,9 +27,9 @@ public sealed class DaemonCleanupOperationTests
         var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-none"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
-        Assert.Equal(DaemonCleanupSkipReason.None, result.SkipReason);
-        Assert.Equal(1, artifactCleaner.CallCount);
+        Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
+        Assert.Equal(DaemonCleanupSkipReason.UncertainReachability, result.SkipReason);
+        Assert.Equal(0, artifactCleaner.CallCount);
     }
 
     [Fact]
@@ -46,6 +47,28 @@ public sealed class DaemonCleanupOperationTests
             artifactCleaner: artifactCleaner);
 
         var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-running"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
+        Assert.Equal(DaemonCleanupSkipReason.Running, result.SkipReason);
+        Assert.Equal(0, artifactCleaner.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Cleanup_WhenSessionPingReturnsSessionTokenInvalid_ReturnsSkippedRunningWithoutCleanup ()
+    {
+        var session = CreateSession(processId: 2006);
+        var artifactCleaner = new StubDaemonArtifactCleaner();
+        var operation = CreateOperation(
+            daemonSessionStore: new StubDaemonSessionStore
+            {
+                ReadResult = DaemonSessionReadResult.Success(session),
+            },
+            daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new DaemonPingResponseException("token invalid", IpcErrorCodes.SessionTokenInvalid))),
+            artifactCleaner: artifactCleaner);
+
+        var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-token-invalid"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
