@@ -2,7 +2,7 @@ using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon;
 
-/// <summary> Evaluates whether invalid daemon session artifacts can be cleaned safely without stopping live processes. </summary>
+/// <summary> Evaluates whether invalid daemon session artifacts must be skipped as unsafe without stopping live processes. </summary>
 internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvalidSessionCleanupSafetyEvaluator
 {
     private readonly IDaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
@@ -15,12 +15,12 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
         this.daemonProcessIdentityAssessor = daemonProcessIdentityAssessor ?? throw new ArgumentNullException(nameof(daemonProcessIdentityAssessor));
     }
 
-    /// <summary> Determines whether invalid daemon session artifacts can be cleaned safely. </summary>
+    /// <summary> Determines whether invalid daemon session artifacts must be skipped as unsafe. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The parsed invalid daemon session snapshot when available; otherwise <see langword="null" />. </param>
-    /// <returns> <see langword="true" /> when cleanup is safe; otherwise <see langword="false" />. </returns>
+    /// <returns> <see langword="true" /> when invalid session must be skipped as unsafe; otherwise <see langword="false" />. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public bool CanCleanup (
+    public bool RequiresUnsafeSkip (
         ResolvedUnityProjectContext unityProject,
         DaemonSession? session)
     {
@@ -31,10 +31,15 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
             return false;
         }
 
+        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         // NOTE:
-        // Safe cleanup must not delete the canonical endpoint unless the previous daemon identity can
-        // be disproven. Broken metadata, including fingerprint mismatch, is therefore unsafe unless
-        // process identity still proves the previous daemon is gone.
+        // Invalid session snapshots are not trusted enough to authorize destructive cleanup of the
+        // canonical endpoint. Snapshot process identity is therefore used only to force an unsafe
+        // skip when it still points to a plausible live daemon for the current project.
         if (session.ProcessId is not int processId || processId <= 0 || session.IssuedAtUtc == default)
         {
             return false;
@@ -43,10 +48,10 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
         var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId, session.IssuedAtUtc);
         return identityAssessment.Status switch
         {
-            DaemonProcessIdentityAssessmentStatus.NotRunning => true,
-            DaemonProcessIdentityAssessmentStatus.DifferentProcess => true,
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess => false,
-            DaemonProcessIdentityAssessmentStatus.Uncertain => false,
+            DaemonProcessIdentityAssessmentStatus.NotRunning => false,
+            DaemonProcessIdentityAssessmentStatus.DifferentProcess => false,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess => true,
+            DaemonProcessIdentityAssessmentStatus.Uncertain => true,
             _ => throw new ArgumentOutOfRangeException(nameof(identityAssessment), identityAssessment.Status, "Unsupported daemon process identity assessment status."),
         };
     }

@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Daemon;
@@ -23,6 +24,8 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
     private readonly IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator;
 
+    private readonly IIpcEndpointResolver endpointResolver;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonCleanupOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
@@ -37,7 +40,8 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
         IDaemonArtifactCleaner artifactCleaner,
-        IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator)
+        IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator,
+        IIpcEndpointResolver endpointResolver)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
@@ -45,6 +49,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
         this.invalidSessionCleanupSafetyEvaluator = invalidSessionCleanupSafetyEvaluator ?? throw new ArgumentNullException(nameof(invalidSessionCleanupSafetyEvaluator));
+        this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
     }
 
     /// <summary> Cleans safe daemon artifacts for the specified Unity project context. </summary>
@@ -120,9 +125,16 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return await HandleMetadataUnavailableSession(unityProject, deadline, cancellationToken).ConfigureAwait(false);
         }
 
-        return invalidSessionCleanupSafetyEvaluator.CanCleanup(unityProject, readResult.Session)
-            ? await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false)
-            : DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession);
+        var cleanupProbeResult = await HandleMetadataUnavailableSession(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        if (cleanupProbeResult.Status == DaemonCleanupStatus.Completed
+            || cleanupProbeResult.Status == DaemonCleanupStatus.Failed)
+        {
+            return cleanupProbeResult;
+        }
+
+        return invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(unityProject, readResult.Session)
+            ? DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession)
+            : cleanupProbeResult;
     }
 
     private async ValueTask<DaemonCleanupResult> HandleMetadataUnavailableSession (
@@ -130,6 +142,11 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
+        if (CanProveNotRunningFromMissingUnixSocket(unityProject))
+        {
+            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        }
+
         if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
         {
             return DaemonCleanupResult.Failure(ExecutionError.Timeout(
@@ -149,6 +166,10 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
+        }
+        catch (IpcConnectTimeoutException)
+        {
+            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
         }
         catch (TimeoutException)
         {
@@ -180,6 +201,11 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
+        if (CanProveNotRunningFromMissingUnixSocket(unityProject))
+        {
+            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        }
+
         if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
         {
             return DaemonCleanupResult.Failure(ExecutionError.Timeout(
@@ -200,15 +226,21 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         {
             throw;
         }
+        catch (IpcConnectTimeoutException)
+        {
+            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        }
         catch (TimeoutException)
         {
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
         }
-        catch (DaemonPingResponseException exception) when (string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal))
+        catch (DaemonPingResponseException exception) when (
+            string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal)
+            || string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal))
         {
             // NOTE:
-            // Token mismatch means cleanup cannot safely prove residue while keeping the shared
-            // running/not-running semantics unchanged for other reachability callers.
+            // Token validation failures mean something on the canonical endpoint responded, so
+            // cleanup must stay non-destructive while keeping shared reachability semantics unchanged.
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UncertainReachability);
         }
         catch (SocketException exception) when (ShouldTreatSocketExceptionAsNotRunningForCleanup(exception))
@@ -250,6 +282,18 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
     {
         ArgumentNullException.ThrowIfNull(exception);
 
-        return exception.SocketErrorCode == SocketError.ConnectionRefused;
+        return exception.SocketErrorCode == SocketError.ConnectionRefused
+            || exception.SocketErrorCode == SocketError.AddressNotAvailable;
+    }
+
+    private bool CanProveNotRunningFromMissingUnixSocket (ResolvedUnityProjectContext unityProject)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+
+        var endpoint = endpointResolver.Resolve(
+            unityProject.RepositoryRoot,
+            unityProject.ProjectFingerprint);
+        return endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
+            && !File.Exists(endpoint.Address);
     }
 }
