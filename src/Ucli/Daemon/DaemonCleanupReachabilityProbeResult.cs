@@ -11,21 +11,21 @@ internal sealed record DaemonCleanupReachabilityProbeResult (
     ExecutionError? Error,
     DaemonCleanupReachabilityUncertainReason? UncertainReason)
 {
-    /// <summary> Creates a successful probe result that proves daemon is not running. </summary>
+    /// <summary> Creates a successful probe result that proves the canonical endpoint is absent strongly enough for destructive cleanup. </summary>
     /// <returns> The successful not-running result. </returns>
     public static DaemonCleanupReachabilityProbeResult NotRunning ()
     {
         return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.NotRunning, null, null);
     }
 
-    /// <summary> Creates a successful probe result that proves daemon is running. </summary>
+    /// <summary> Creates a successful probe result that proves the daemon accepted the ping successfully. </summary>
     /// <returns> The successful running result. </returns>
     public static DaemonCleanupReachabilityProbeResult Running ()
     {
         return new DaemonCleanupReachabilityProbeResult(DaemonCleanupReachabilityStatus.Running, null, null);
     }
 
-    /// <summary> Creates a successful probe result that cannot safely prove daemon liveness. </summary>
+    /// <summary> Creates a successful probe result that cannot safely prove canonical endpoint absence. </summary>
     /// <param name="reason"> The known ambiguity reason. </param>
     /// <returns> The successful uncertain result. </returns>
     public static DaemonCleanupReachabilityProbeResult Uncertain (DaemonCleanupReachabilityUncertainReason reason)

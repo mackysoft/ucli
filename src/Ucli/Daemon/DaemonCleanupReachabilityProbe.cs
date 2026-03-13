@@ -31,7 +31,11 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     /// <param name="deadline"> The shared cleanup execution deadline. </param>
     /// <param name="sessionToken"> The probe session token to send. Must be non-empty. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The cleanup-specific reachability probe result. </returns>
+    /// <returns>
+    /// <para> One cleanup-specific reachability probe result. </para>
+    /// <para> <see cref="DaemonCleanupReachabilityStatus.NotRunning" /> is returned only for direct endpoint-level absence evidence that is strong enough for destructive cleanup. </para>
+    /// <para> Ambiguous transport outcomes return <see cref="DaemonCleanupReachabilityStatus.Uncertain" /> even when the recorded daemon process may already be gone. </para>
+    /// </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="sessionToken" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
     public async ValueTask<DaemonCleanupReachabilityProbeResult> Probe (
@@ -54,6 +58,9 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
                 "Timed out before daemon cleanup reachability probe could begin."));
         }
 
+        // NOTE:
+        // This probe must stay conservative because its NotRunning result authorizes destructive
+        // cleanup. Only direct endpoint-level absence evidence may map to NotRunning here.
         try
         {
             await daemonPingClient.Ping(
@@ -105,6 +112,9 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     {
         ArgumentNullException.ThrowIfNull(exception);
 
+        // NOTE:
+        // Unix-domain-socket path loss and other transport errors can coexist with a live listener.
+        // Cleanup therefore accepts only ConnectionRefused as direct endpoint absence evidence.
         return exception.SocketErrorCode == SocketError.ConnectionRefused;
     }
 }
