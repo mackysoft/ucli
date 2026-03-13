@@ -21,6 +21,7 @@ internal static class Program
     [
         UcliCommandNames.StartSubcommand,
         UcliCommandNames.StopSubcommand,
+        UcliCommandNames.CleanupSubcommand,
         UcliCommandNames.Status,
         UcliCommandNames.ListSubcommand,
     ];
@@ -71,6 +72,7 @@ internal static class Program
         app.Add<RefreshCommand>();
         app.Add<DaemonStartCommand>("daemon");
         app.Add<DaemonStopCommand>("daemon");
+        app.Add<DaemonCleanupCommand>("daemon");
         app.Add<DaemonStatusCommand>("daemon");
         app.Add<DaemonListCommand>("daemon");
         app.Add<LogsDaemonCommand>("logs");

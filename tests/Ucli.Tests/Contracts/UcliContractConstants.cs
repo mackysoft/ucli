@@ -63,6 +63,8 @@ internal static class UcliContractConstants
 
         public const int IpcTimeoutDefaultDaemonStopMilliseconds = 10000;
 
+        public const int IpcTimeoutDefaultDaemonCleanupMilliseconds = 3000;
+
         public const int IpcTimeoutDefaultDaemonStatusMilliseconds = 3000;
 
         public const int IpcTimeoutDefaultDaemonListMilliseconds = 3000;
@@ -92,6 +94,8 @@ internal static class UcliContractConstants
         public const string IpcTimeoutCommandDaemonStart = "daemon.start";
 
         public const string IpcTimeoutCommandDaemonStop = "daemon.stop";
+
+        public const string IpcTimeoutCommandDaemonCleanup = "daemon.cleanup";
 
         public const string IpcTimeoutCommandDaemonStatus = "daemon.status";
 

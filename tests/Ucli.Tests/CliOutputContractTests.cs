@@ -381,6 +381,7 @@ public sealed class CliOutputContractTests
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultOpsMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandOps).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStartMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStart).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStopMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStop).GetInt32());
+        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonCleanupMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonCleanup).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonStatus).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultDaemonListMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandDaemonList).GetInt32());
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultLogsDaemonMilliseconds, timeoutByCommand.GetProperty(UcliContractConstants.Config.IpcTimeoutCommandLogsDaemon).GetInt32());

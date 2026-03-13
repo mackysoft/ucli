@@ -133,8 +133,10 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonStartupReadinessProbe, DaemonStartupReadinessProbe>();
         services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
+        services.AddSingleton<IDaemonProcessIdentityAssessor, DaemonProcessIdentityAssessor>();
         services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
+        services.AddSingleton<IDaemonCleanupReachabilityProbe, DaemonCleanupReachabilityProbe>();
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
         services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();
         services.AddSingleton<IDaemonLaunchSessionService, DaemonLaunchSessionService>();
@@ -143,12 +145,15 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
         services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();
+        services.AddSingleton<IDaemonCleanupOperation, DaemonCleanupOperation>();
         services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
+        services.AddSingleton<IDaemonInvalidSessionCleanupSafetyEvaluator, DaemonInvalidSessionCleanupSafetyEvaluator>();
         services.AddSingleton<IDaemonCommandExecutionContextResolver, DaemonCommandExecutionContextResolver>();
         services.AddSingleton<IDaemonSessionOutputMapper, DaemonSessionOutputMapper>();
         services.AddSingleton<IDaemonDiagnosisOutputMapper, DaemonDiagnosisOutputMapper>();
         services.AddSingleton<IDaemonStartCommandService, DaemonStartCommandService>();
         services.AddSingleton<IDaemonStopCommandService, DaemonStopCommandService>();
+        services.AddSingleton<IDaemonCleanupCommandService, DaemonCleanupCommandService>();
         services.AddSingleton<IDaemonStatusCommandService, DaemonStatusCommandService>();
         services.AddSingleton<IDaemonListQueryService, DaemonListQueryService>();
         services.AddSingleton<IDaemonListCommandService, DaemonListCommandService>();

@@ -260,6 +260,31 @@ internal static class DaemonCommandServiceTestContext
         }
     }
 
+    internal sealed class StubDaemonCleanupOperation : IDaemonCleanupOperation
+    {
+        public DaemonCleanupResult CleanupResult { get; set; } = DaemonCleanupResult.Completed();
+
+        public int CleanupCallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public TimeSpan LastTimeout { get; private set; }
+
+        public CancellationToken LastCancellationToken { get; private set; }
+
+        public ValueTask<DaemonCleanupResult> Cleanup (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            CleanupCallCount++;
+            LastUnityProject = unityProject;
+            LastTimeout = timeout;
+            LastCancellationToken = cancellationToken;
+            return ValueTask.FromResult(CleanupResult);
+        }
+    }
+
     internal sealed class StubDaemonSessionOutputMapper : IDaemonSessionOutputMapper
     {
         public DaemonSessionOutput Output { get; set; } = CreateSessionOutput();
