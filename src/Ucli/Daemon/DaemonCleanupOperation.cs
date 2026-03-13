@@ -20,30 +20,25 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
 
     private readonly IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator;
 
-    private readonly IDaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonCleanupOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
     /// <param name="cleanupReachabilityProbe"> The cleanup reachability-probe dependency. </param>
     /// <param name="invalidSessionCleanupSafetyEvaluator"> The invalid-session cleanup safety-evaluator dependency. </param>
-    /// <param name="daemonProcessIdentityAssessor"> The daemon process-identity assessor dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonCleanupOperation (
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
         IDaemonArtifactCleaner artifactCleaner,
         IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator,
-        IDaemonCleanupReachabilityProbe cleanupReachabilityProbe,
-        IDaemonProcessIdentityAssessor daemonProcessIdentityAssessor)
+        IDaemonCleanupReachabilityProbe cleanupReachabilityProbe)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
         this.invalidSessionCleanupSafetyEvaluator = invalidSessionCleanupSafetyEvaluator ?? throw new ArgumentNullException(nameof(invalidSessionCleanupSafetyEvaluator));
         this.cleanupReachabilityProbe = cleanupReachabilityProbe ?? throw new ArgumentNullException(nameof(cleanupReachabilityProbe));
-        this.daemonProcessIdentityAssessor = daemonProcessIdentityAssessor ?? throw new ArgumentNullException(nameof(daemonProcessIdentityAssessor));
     }
 
     /// <summary> Cleans safe daemon artifacts for the specified Unity project context. </summary>
@@ -100,7 +95,6 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return await HandleReachabilityResult(
                     unityProject,
                     deadline,
-                    trustedSession: null,
                     MetadataUnavailableProbeSessionToken,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -109,7 +103,6 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         return await HandleReachabilityResult(
                 unityProject,
                 deadline,
-                readResult.Session,
                 readResult.Session!.SessionToken,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -131,7 +124,6 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return await HandleReachabilityResult(
                     unityProject,
                     deadline,
-                    trustedSession: null,
                     MetadataUnavailableProbeSessionToken,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -158,13 +150,12 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             return DaemonCleanupResult.Failure(cleanupProbeResult.Error!);
         }
 
-        return await HandleProbeResult(unityProject, deadline, cleanupProbeResult, trustedSession: null, cancellationToken).ConfigureAwait(false);
+        return await HandleProbeResult(unityProject, deadline, cleanupProbeResult, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonCleanupResult> HandleReachabilityResult (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
-        DaemonSession? trustedSession,
         string sessionToken,
         CancellationToken cancellationToken)
     {
@@ -175,21 +166,15 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
                 cancellationToken)
             .ConfigureAwait(false);
 
-        return await HandleProbeResult(unityProject, deadline, probeResult, trustedSession, cancellationToken).ConfigureAwait(false);
+        return await HandleProbeResult(unityProject, deadline, probeResult, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask<DaemonCleanupResult> HandleProbeResult (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
         DaemonCleanupReachabilityProbeResult probeResult,
-        DaemonSession? trustedSession,
         CancellationToken cancellationToken)
     {
-        if (CanPromoteUncertainNamedPipeConnectTimeoutToNotRunning(trustedSession, probeResult))
-        {
-            return await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-        }
-
         return probeResult.Status switch
         {
             DaemonCleanupReachabilityStatus.NotRunning => await CleanupArtifactsWithinBudget(unityProject, deadline, cancellationToken).ConfigureAwait(false),
@@ -198,34 +183,6 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             DaemonCleanupReachabilityStatus.Failed => DaemonCleanupResult.Failure(probeResult.Error!),
             _ => throw new ArgumentOutOfRangeException(nameof(probeResult), probeResult.Status, "Unsupported cleanup reachability status."),
         };
-    }
-
-    private bool CanPromoteUncertainNamedPipeConnectTimeoutToNotRunning (
-        DaemonSession? trustedSession,
-        DaemonCleanupReachabilityProbeResult probeResult)
-    {
-        if (trustedSession == null
-            || probeResult.Status != DaemonCleanupReachabilityStatus.Uncertain
-            || probeResult.UncertainReason != DaemonCleanupReachabilityUncertainReason.ConnectTimeout)
-        {
-            return false;
-        }
-
-        if (!IpcTransportKindCodec.TryParse(trustedSession.EndpointTransportKind, out var transportKind)
-            || transportKind != IpcTransportKind.NamedPipe
-            || trustedSession.ProcessId is not int processId
-            || processId <= 0
-            || trustedSession.IssuedAtUtc == default)
-        {
-            return false;
-        }
-
-        // NOTE:
-        // Named pipe connect timeout is ambiguous on its own. We only upgrade it to not-running
-        // when trusted persisted session metadata still proves that the recorded daemon process
-        // itself is already gone, which covers the common Windows stale-session recovery path.
-        var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId, trustedSession.IssuedAtUtc);
-        return identityAssessment.Status == DaemonProcessIdentityAssessmentStatus.NotRunning;
     }
 
     private async ValueTask<DaemonCleanupResult> CleanupArtifactsWithinBudget (
