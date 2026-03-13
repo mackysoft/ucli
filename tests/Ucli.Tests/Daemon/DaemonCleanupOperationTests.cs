@@ -208,14 +208,7 @@ public sealed class DaemonCleanupOperationTests
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new IpcConnectTimeoutException("connect timeout"))),
-            artifactCleaner: artifactCleaner,
-            daemonProcessIdentityAssessor: new StubDaemonProcessIdentityAssessor
-            {
-                NextAssessment = new DaemonProcessIdentityAssessment(
-                    DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-                    session.IssuedAtUtc,
-                    null),
-            });
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-connect-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
@@ -227,33 +220,24 @@ public sealed class DaemonCleanupOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WhenNamedPipeConnectTimeoutAndTrustedSessionProcessIsNotRunning_CompletesCleanup ()
+    public async Task Cleanup_WhenNamedPipeConnectTimeoutAndTrustedSessionProcessIsNotRunning_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
     {
         var session = CreateSession(processId: 2012);
-        var artifactCleaner = new StubDaemonArtifactCleaner
-        {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
-        };
+        var artifactCleaner = new StubDaemonArtifactCleaner();
         var operation = CreateOperation(
             daemonSessionStore: new StubDaemonSessionStore
             {
                 ReadResult = DaemonSessionReadResult.Success(session),
             },
             daemonPingClient: new StubDaemonPingClient(() => ValueTask.FromException(new IpcConnectTimeoutException("connect timeout"))),
-            artifactCleaner: artifactCleaner,
-            daemonProcessIdentityAssessor: new StubDaemonProcessIdentityAssessor
-            {
-                NextAssessment = new DaemonProcessIdentityAssessment(
-                    DaemonProcessIdentityAssessmentStatus.NotRunning,
-                    null,
-                    null),
-            });
+            artifactCleaner: artifactCleaner);
 
         var result = await operation.Cleanup(CreateContext("fingerprint-cleanup-connect-timeout-dead-process"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
-        Assert.Equal(1, artifactCleaner.CallCount);
+        Assert.Equal(DaemonCleanupStatus.Skipped, result.Status);
+        Assert.Equal(DaemonCleanupSkipReason.UncertainReachability, result.SkipReason);
+        Assert.Equal(0, artifactCleaner.CallCount);
     }
 
     [Fact]
@@ -472,7 +456,6 @@ public sealed class DaemonCleanupOperationTests
         IDaemonReachabilityClassifier? reachabilityClassifier = null,
         IDaemonArtifactCleaner? artifactCleaner = null,
         IDaemonInvalidSessionCleanupSafetyEvaluator? invalidSessionCleanupSafetyEvaluator = null,
-        IDaemonProcessIdentityAssessor? daemonProcessIdentityAssessor = null,
         IIpcEndpointResolver? endpointResolver = null,
         IDaemonCleanupReachabilityProbe? cleanupReachabilityProbe = null)
     {
@@ -486,8 +469,7 @@ public sealed class DaemonCleanupOperationTests
             invalidSessionCleanupSafetyEvaluator ?? new StubDaemonInvalidSessionCleanupSafetyEvaluator(),
             cleanupReachabilityProbe ?? new DaemonCleanupReachabilityProbe(
                 effectivePingClient,
-                effectiveReachabilityClassifier),
-            daemonProcessIdentityAssessor ?? new StubDaemonProcessIdentityAssessor());
+                effectiveReachabilityClassifier));
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
@@ -617,29 +599,6 @@ public sealed class DaemonCleanupOperationTests
             DaemonSession? session)
         {
             return RequiresUnsafeSkipResult;
-        }
-    }
-
-    private sealed class StubDaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
-    {
-        public DaemonProcessIdentityAssessment NextAssessment { get; set; } = new(
-            DaemonProcessIdentityAssessmentStatus.NotRunning,
-            null,
-            null);
-
-        public DaemonProcessIdentityAssessment AssessByProcessId (
-            int processId,
-            DateTimeOffset expectedIssuedAtUtc)
-        {
-            return NextAssessment;
-        }
-
-        public DaemonProcessIdentityAssessment AssessProcess (
-            System.Diagnostics.Process process,
-            int processId,
-            DateTimeOffset expectedIssuedAtUtc)
-        {
-            return NextAssessment;
         }
     }
 
