@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -108,6 +109,54 @@ namespace MackySoft.Ucli.Unity.Tests
 
             await server.Stop().AsUniTask();
             Assert.That(server.IsRunning, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnixDomainSocketListener_Run_WhenUsingFallbackEndpoint_AppliesOwnerOnlyBoundaryAndCleansUp () => UniTask.ToCoroutine(async () =>
+        {
+            if (Application.platform == RuntimePlatform.WindowsEditor)
+            {
+                return;
+            }
+
+            var socketDirectoryPath = Path.Combine(Path.GetTempPath(), UcliIpcEndpointNames.DaemonAddressPrefix + Guid.NewGuid().ToString("N"));
+            var address = Path.Combine(socketDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName);
+            var listener = new UnixDomainSocketUnityIpcTransportListener();
+            var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var runTask = listener.Run(
+                address,
+                new StubConnectionHandler(),
+                () => startedTaskSource.TrySetResult(true),
+                cancellationTokenSource.Token);
+
+            try
+            {
+                await WaitForTask(startedTaskSource.Task, TimeSpan.FromSeconds(5));
+
+                Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
+                Assert.That(File.Exists(address), Is.True);
+                Assert.That(ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("700"));
+                Assert.That(ReadUnixFileMode(address), Is.EqualTo("600"));
+            }
+            finally
+            {
+                cancellationTokenSource.Cancel();
+                listener.Release();
+
+                try
+                {
+                    await runTask;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            Assert.That(File.Exists(address), Is.False);
+            Assert.That(Directory.Exists(socketDirectoryPath), Is.False);
         });
 
         [UnityTest]
@@ -631,6 +680,35 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityIpcServer(requestProcessor, connectionHandler, transportListeners);
         }
 
+        private static async Task WaitForTask (
+            Task task,
+            TimeSpan timeout)
+        {
+            var completedTask = await Task.WhenAny(task, Task.Delay(timeout));
+            Assert.That(completedTask, Is.SameAs(task));
+            await task;
+        }
+
+        private static string ReadUnixFileMode (string path)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "/usr/bin/stat",
+                Arguments = string.Concat("-f %Mp%Lp \"", path.Replace("\"", "\\\""), "\""),
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+
+            using var process = Process.Start(startInfo);
+            Assert.That(process, Is.Not.Null);
+            var output = process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            Assert.That(process.ExitCode, Is.EqualTo(0), error);
+            return output.Trim();
+        }
+
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal
         {
             public int SignalCount { get; private set; }
@@ -644,6 +722,17 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.CompletedTask;
+            }
+        }
+
+        private sealed class StubConnectionHandler : IUnityIpcConnectionHandler
+        {
+            public Task<UnityIpcConnectionHandleResult> Handle (
+                Stream stream,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult(default(UnityIpcConnectionHandleResult));
             }
         }
 

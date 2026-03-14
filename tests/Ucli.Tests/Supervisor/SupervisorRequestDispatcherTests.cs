@@ -12,6 +12,52 @@ public sealed class SupervisorRequestDispatcherTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenSessionTokenIsMissing_ReturnsSessionTokenRequired ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+
+        var response = await SendRequest(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-missing-token",
+                SessionToken: string.Empty,
+                Method: SupervisorIpcContracts.PingMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(IpcErrorCodes.SessionTokenRequired, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenSessionTokenIsInvalid_ReturnsSessionTokenInvalid ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+
+        var response = await SendRequest(
+            dispatcher,
+            runtimeContext,
+            new IpcRequest(
+                ProtocolVersion: IpcProtocol.CurrentVersion,
+                RequestId: "request-invalid-token",
+                SessionToken: "invalid-token",
+                Method: SupervisorIpcContracts.PingMethod,
+                Payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion))));
+
+        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(IpcErrorCodes.SessionTokenInvalid, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task HandleConnection_WhenUnityProjectRootIsInvalid_ReturnsInvalidArgumentWithoutBreakingSubsequentRequests ()
     {
         var dispatcher = CreateDispatcher();
