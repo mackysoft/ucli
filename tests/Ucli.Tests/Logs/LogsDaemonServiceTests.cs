@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon.Command;
@@ -10,8 +11,6 @@ namespace MackySoft.Ucli.Tests.Logs;
 
 public sealed class LogsDaemonServiceTests
 {
-    private static readonly SemaphoreSlim ConsoleOutputLock = new(1, 1);
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenStreamEnabled_UsesNextCursorForIncrementalReads ()
@@ -159,32 +158,12 @@ public sealed class LogsDaemonServiceTests
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
-        var (exitCode, standardOutput) = await ExecuteAndCaptureStandardOutput(() => command.Daemon(
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Daemon(
             stream: true,
             cancellationToken: cancellationTokenSource.Token));
 
         Assert.Equal(0, exitCode);
         Assert.Equal(string.Empty, standardOutput);
-    }
-
-    private static async Task<(int ExitCode, string StandardOutput)> ExecuteAndCaptureStandardOutput (Func<Task<int>> action)
-    {
-        await ConsoleOutputLock.WaitAsync();
-        var originalOutput = Console.Out;
-
-        try
-        {
-            using var writer = new StringWriter();
-            Console.SetOut(writer);
-            var exitCode = await action();
-            await writer.FlushAsync();
-            return (exitCode, writer.ToString());
-        }
-        finally
-        {
-            Console.SetOut(originalOutput);
-            ConsoleOutputLock.Release();
-        }
     }
 
     private static IpcDaemonLogEvent CreateEvent (

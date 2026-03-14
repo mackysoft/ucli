@@ -405,6 +405,7 @@ public sealed class UnityUcliPluginLocatorTests
         var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectPath);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, unityProjectPath);
         var cacheStore = new UnityUcliPluginMarkerCacheStore();
+        ExecutionError? lastReadError = null;
         for (var attempt = 0; attempt < 50; attempt++)
         {
             var cacheReadResult = await cacheStore.ReadOrNull(
@@ -413,6 +414,13 @@ public sealed class UnityUcliPluginLocatorTests
                 CancellationToken.None);
             if (!cacheReadResult.IsSuccess)
             {
+                if (cacheReadResult.Error!.Kind == ExecutionErrorKind.InternalError)
+                {
+                    lastReadError = cacheReadResult.Error;
+                    await Task.Delay(100);
+                    continue;
+                }
+
                 throw new InvalidOperationException(cacheReadResult.Error!.Message);
             }
 
@@ -422,6 +430,11 @@ public sealed class UnityUcliPluginLocatorTests
             }
 
             await Task.Delay(100);
+        }
+
+        if (lastReadError != null)
+        {
+            throw new TimeoutException($"Timed out while waiting for plugin marker cache generation. Last error: {lastReadError.Message}");
         }
 
         throw new TimeoutException("Timed out while waiting for plugin marker cache generation.");

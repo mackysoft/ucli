@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunCommandTests
 {
-    private static readonly SemaphoreSlim ConsoleOutputLock = new(1, 1);
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Run_MapsOptionsToServiceInputAndCancellationToken ()
@@ -22,7 +20,7 @@ public sealed class TestRunCommandTests
         var command = new TestRunCommand(service);
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        await ExecuteAndCaptureStandardOutput(() => command.Run(
+        await StandardOutputCapture.Execute(() => command.Run(
             projectPath: "/repo/UnityProject",
             profilePath: "/repo/test.profile.json",
             executionMode: "oneshot",
@@ -62,26 +60,6 @@ public sealed class TestRunCommandTests
         Assert.Equal(["MyGame.Tests.EditMode", "MyGame.Tests.PlayMode"], assemblyNames);
         Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
         Assert.Equal(120, input.TimeoutMilliseconds);
-    }
-
-    private static async Task<(int ExitCode, string StandardOutput)> ExecuteAndCaptureStandardOutput (Func<Task<int>> action)
-    {
-        await ConsoleOutputLock.WaitAsync();
-        var originalOutput = Console.Out;
-
-        try
-        {
-            using var writer = new StringWriter();
-            Console.SetOut(writer);
-            var exitCode = await action();
-            await writer.FlushAsync();
-            return (exitCode, writer.ToString());
-        }
-        finally
-        {
-            Console.SetOut(originalOutput);
-            ConsoleOutputLock.Release();
-        }
     }
 
     private sealed class StubTestRunService : ITestRunService

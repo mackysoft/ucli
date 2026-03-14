@@ -425,9 +425,6 @@ public sealed class DaemonCliOutputContractTests
     private static void InitializeGitRepository (TestDirectoryScope scope)
     {
         RunGit(scope.FullPath, "init");
-        RunGit(scope.FullPath, "config", "user.email", "ucli-tests@example.com");
-        RunGit(scope.FullPath, "config", "user.name", "ucli-tests");
-        RunGit(scope.FullPath, "commit", "--allow-empty", "-m", "initial");
     }
 
     private static void RunGit (

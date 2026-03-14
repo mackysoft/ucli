@@ -1,0 +1,75 @@
+name: dotnet-verify
+
+on:
+  pull_request:
+    paths:
+      - src/Ucli/**
+      - src/Ucli.Contracts/**
+      - tests/**
+      - Ucli.slnx
+      - .editorconfig
+      - .github/workflows/**
+  push:
+    branches:
+      - master
+    paths:
+      - src/Ucli/**
+      - src/Ucli.Contracts/**
+      - tests/**
+      - Ucli.slnx
+      - .editorconfig
+      - .github/workflows/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ${{ matrix.runs_on }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs_on: ubuntu-latest
+            os_name: linux
+          - runs_on: windows-latest
+            os_name: windows
+          - runs_on: macos-latest
+            os_name: macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Restore
+        run: dotnet restore Ucli.slnx
+
+      - name: Build
+        run: dotnet build Ucli.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Ucli.slnx --configuration Release --no-build --logger "trx;LogFileName=${{ matrix.os_name }}.trx" --results-directory artifacts/test-results/${{ matrix.os_name }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results-${{ matrix.os_name }}
+          path: artifacts/test-results/${{ matrix.os_name }}
+          if-no-files-found: warn

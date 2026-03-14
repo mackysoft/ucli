@@ -10,6 +10,8 @@ public sealed class GitWorktreeListPorcelainParserTests
     public void Parse_WithAttachedAndDetachedWorktrees_ReturnsParsedEntries ()
     {
         var parser = new GitWorktreeListPorcelainParser();
+        var expectedFirstWorktreePath = Path.GetFullPath("/repo/wt-b");
+        var expectedSecondWorktreePath = Path.GetFullPath("/repo/wt-a");
 
         var result = parser.Parse(
             """
@@ -27,13 +29,13 @@ public sealed class GitWorktreeListPorcelainParserTests
             result.Worktrees!,
             item =>
             {
-                Assert.Equal("/repo/wt-b", item.WorktreePath);
+                Assert.Equal(expectedFirstWorktreePath, item.WorktreePath);
                 Assert.Equal("bbbbbbbb", item.Head);
                 Assert.Equal("refs/heads/feature/worktree-b", item.BranchRef);
             },
             item =>
             {
-                Assert.Equal("/repo/wt-a", item.WorktreePath);
+                Assert.Equal(expectedSecondWorktreePath, item.WorktreePath);
                 Assert.Equal("aaaaaaaa", item.Head);
                 Assert.Null(item.BranchRef);
             });

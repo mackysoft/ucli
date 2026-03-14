@@ -6,8 +6,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class DaemonCleanupCommandTests
 {
-    private static readonly SemaphoreSlim ConsoleOutputLock = new(1, 1);
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Cleanup_WritesSkipReasonPayload ()
@@ -20,7 +18,7 @@ public sealed class DaemonCleanupCommandTests
         var command = new DaemonCleanupCommand(service);
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await ExecuteAndCaptureStandardOutput(() => command.Cleanup(
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Cleanup(
             projectPath: "/repo/UnityProject",
             timeout: "3000",
             cancellationToken: CancellationToken.None));
@@ -38,26 +36,6 @@ public sealed class DaemonCleanupCommandTests
                 .HasString("cleanupStatus", "skipped")
                 .HasString("skipReason", "unsafeInvalidSession")
                 .HasInt32("timeoutMilliseconds", 3000));
-    }
-
-    private static async Task<(int ExitCode, string StandardOutput)> ExecuteAndCaptureStandardOutput (Func<Task<int>> action)
-    {
-        await ConsoleOutputLock.WaitAsync();
-        var originalOutput = Console.Out;
-
-        try
-        {
-            using var writer = new StringWriter();
-            Console.SetOut(writer);
-            var exitCode = await action();
-            await writer.FlushAsync();
-            return (exitCode, writer.ToString());
-        }
-        finally
-        {
-            Console.SetOut(originalOutput);
-            ConsoleOutputLock.Release();
-        }
     }
 
     private sealed class StubDaemonCleanupCommandService : IDaemonCleanupCommandService

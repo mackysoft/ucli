@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Logs;
@@ -7,8 +8,6 @@ namespace MackySoft.Ucli.Tests.Logs;
 
 public sealed class LogsUnityCommandTests
 {
-    private static readonly SemaphoreSlim ConsoleOutputLock = new(1, 1);
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Unity_WhenFormatIsJson_WritesNdjsonEvents ()
@@ -34,7 +33,7 @@ public sealed class LogsUnityCommandTests
             return LogsDaemonServiceResult.Success();
         }));
 
-        var (exitCode, standardOutput) = await ExecuteAndCaptureStandardOutput(() => command.Unity(format: "json"));
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "json"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         var lines = standardOutput.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
@@ -66,7 +65,7 @@ public sealed class LogsUnityCommandTests
             return LogsDaemonServiceResult.Success();
         }));
 
-        var (exitCode, standardOutput) = await ExecuteAndCaptureStandardOutput(() => command.Unity(format: "text"));
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "text"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(
@@ -82,7 +81,7 @@ public sealed class LogsUnityCommandTests
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
-        var (exitCode, standardOutput) = await ExecuteAndCaptureStandardOutput(() => command.Unity(
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(
             stream: true,
             cancellationToken: cancellationTokenSource.Token));
 
@@ -103,26 +102,6 @@ public sealed class LogsUnityCommandTests
             Message: message,
             StackTrace: stackTrace,
             Cursor: cursor);
-    }
-
-    private static async Task<(int ExitCode, string StandardOutput)> ExecuteAndCaptureStandardOutput (Func<Task<int>> action)
-    {
-        await ConsoleOutputLock.WaitAsync();
-        var originalOutput = Console.Out;
-
-        try
-        {
-            using var writer = new StringWriter();
-            Console.SetOut(writer);
-            var exitCode = await action();
-            await writer.FlushAsync();
-            return (exitCode, writer.ToString());
-        }
-        finally
-        {
-            Console.SetOut(originalOutput);
-            ConsoleOutputLock.Release();
-        }
     }
 
     private sealed class StubLogsUnityService : ILogsUnityService
