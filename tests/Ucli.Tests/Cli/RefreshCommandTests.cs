@@ -9,8 +9,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class RefreshCommandTests
 {
-    private static readonly SemaphoreSlim ConsoleOutputLock = new(1, 1);
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Refresh_UsesRefreshServiceAndWritesCommandResult ()
@@ -39,7 +37,7 @@ public sealed class RefreshCommandTests
         var command = new RefreshCommand(service);
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var (exitCode, standardOutput) = await ExecuteAndCaptureStandardOutput(() => command.Refresh(
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
@@ -70,26 +68,6 @@ public sealed class RefreshCommandTests
                     .HasBoolean("applied", true)
                     .HasBoolean("changed", true)
                     .HasArrayLength("touched", 1)));
-    }
-
-    private static async Task<(int ExitCode, string StandardOutput)> ExecuteAndCaptureStandardOutput (Func<Task<int>> action)
-    {
-        await ConsoleOutputLock.WaitAsync();
-        var originalOutput = Console.Out;
-
-        try
-        {
-            using var writer = new StringWriter();
-            Console.SetOut(writer);
-            var exitCode = await action();
-            await writer.FlushAsync();
-            return (exitCode, writer.ToString());
-        }
-        finally
-        {
-            Console.SetOut(originalOutput);
-            ConsoleOutputLock.Release();
-        }
     }
 
     private sealed class StubRefreshService : IRefreshService

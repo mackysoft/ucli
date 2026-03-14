@@ -8,8 +8,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class DaemonListCommandTests
 {
-    private static readonly SemaphoreSlim ConsoleOutputLock = new(1, 1);
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task List_WritesDiagnosisAndOmitsLegacyMessageProperty ()
@@ -47,7 +45,7 @@ public sealed class DaemonListCommandTests
         var command = new DaemonListCommand(service);
 
         CommandExecutionState.Reset();
-        var (exitCode, standardOutput) = await ExecuteAndCaptureStandardOutput(() => command.List(
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.List(
             projectPath: "/repo/wt-a/UnityProject",
             timeout: "3000",
             cancellationToken: CancellationToken.None));
@@ -77,26 +75,6 @@ public sealed class DaemonListCommandTests
             .GetProperty("payload")
             .GetProperty("items")[0];
         Assert.False(itemJson.TryGetProperty("message", out _));
-    }
-
-    private static async Task<(int ExitCode, string StandardOutput)> ExecuteAndCaptureStandardOutput (Func<Task<int>> action)
-    {
-        await ConsoleOutputLock.WaitAsync();
-        var originalOutput = Console.Out;
-
-        try
-        {
-            using var writer = new StringWriter();
-            Console.SetOut(writer);
-            var exitCode = await action();
-            await writer.FlushAsync();
-            return (exitCode, writer.ToString());
-        }
-        finally
-        {
-            Console.SetOut(originalOutput);
-            ConsoleOutputLock.Release();
-        }
     }
 
     private sealed class StubDaemonListCommandService : IDaemonListCommandService
