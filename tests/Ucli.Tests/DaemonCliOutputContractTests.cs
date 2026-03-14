@@ -223,7 +223,7 @@ public sealed class DaemonCliOutputContractTests
     [Trait("Size", "Medium")]
     public async Task List_WithProjectPath_WhenNoDaemonSessionExists_ReturnsSuccessJsonContractAsSingleJson ()
     {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-list-success", DirectoryCleanupMode.BestEffort);
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-list-success");
         InitializeGitRepository(scope);
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
@@ -425,9 +425,6 @@ public sealed class DaemonCliOutputContractTests
     private static void InitializeGitRepository (TestDirectoryScope scope)
     {
         RunGit(scope.FullPath, "init");
-        RunGit(scope.FullPath, "config", "user.email", "ucli-tests@example.com");
-        RunGit(scope.FullPath, "config", "user.name", "ucli-tests");
-        RunGit(scope.FullPath, "commit", "--allow-empty", "-m", "initial");
     }
 
     private static void RunGit (
