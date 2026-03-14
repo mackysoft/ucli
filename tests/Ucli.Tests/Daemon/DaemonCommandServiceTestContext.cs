@@ -41,7 +41,7 @@ internal static class DaemonCommandServiceTestContext
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-endpoint",
+            EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             OwnerProcessId: 9876);
     }

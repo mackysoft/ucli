@@ -469,7 +469,7 @@ public sealed class SupervisorProjectCoordinatorTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-endpoint",
+            EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: processId,
             OwnerProcessId: 9876);
     }

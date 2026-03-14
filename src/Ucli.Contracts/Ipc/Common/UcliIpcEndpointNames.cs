@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public static class UcliIpcEndpointNames
 {
     /// <summary> Gets the daemon endpoint prefix used for named pipes and unix fallback directories. </summary>
-    public const string DaemonAddressPrefix = "ucli-";
+    public const string DaemonAddressPrefix = "ucli-daemon-";
 
     /// <summary> Gets the supervisor endpoint prefix used for named pipes and unix fallback directories. </summary>
     public const string SupervisorAddressPrefix = "ucli-supervisor-";

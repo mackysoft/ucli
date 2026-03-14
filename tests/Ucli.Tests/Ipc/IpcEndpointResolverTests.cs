@@ -36,7 +36,7 @@ public sealed class IpcEndpointResolverTests
         if (OperatingSystem.IsWindows())
         {
             Assert.Equal(IpcTransportKind.NamedPipe, endpoint.TransportKind);
-            Assert.Equal("ucli-abc123", endpoint.Address);
+            Assert.Equal("ucli-daemon-abc123", endpoint.Address);
             return;
         }
 

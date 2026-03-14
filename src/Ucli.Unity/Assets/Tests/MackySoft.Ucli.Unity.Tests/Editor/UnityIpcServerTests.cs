@@ -103,7 +103,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Start_ThenStop_TransitionsRunningState () => UniTask.ToCoroutine(async () =>
         {
             var server = CreateServerForLifecycle();
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test");
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test");
             await server.Start(endpoint).AsUniTask();
             Assert.That(server.IsRunning, Is.True);
 
@@ -186,7 +186,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new ThrowingTransportListener(IpcTransportKind.NamedPipe, "listener failed"),
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-failure");
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-failure");
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
@@ -212,7 +212,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         "listener failed after delay",
                         TimeSpan.FromMilliseconds(50)),
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-delayed-failure");
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-delayed-failure");
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
@@ -236,7 +236,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     blockingListener,
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-start-cancel");
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-start-cancel");
             using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
@@ -267,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         "listener failed after startup",
                         TimeSpan.FromMilliseconds(50)),
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test-fault-after-startup");
+            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-fault-after-startup");
 
             await server.Start(endpoint).AsUniTask();
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>

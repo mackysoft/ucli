@@ -302,7 +302,7 @@ public sealed class DaemonSessionStoreTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test",
+            EndpointAddress: "ucli-daemon-test",
             ProcessId: 1234,
 
             OwnerProcessId: 9876);

@@ -170,7 +170,7 @@ public sealed class DaemonStopOperationTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test-endpoint",
+            EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
 
             OwnerProcessId: 9876);
