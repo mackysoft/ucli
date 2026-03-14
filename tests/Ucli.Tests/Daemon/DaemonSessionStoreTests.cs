@@ -127,6 +127,30 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Write_WhenSessionDirectoryCannotBeSecured_ReturnsInternalError ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "blocked-session-directory");
+        var blockedPath = Path.Combine(
+            scope.FullPath,
+            UcliStoragePathNames.UcliDirectoryName,
+            UcliStoragePathNames.LocalDirectoryName,
+            UcliStoragePathNames.FingerprintsDirectoryName);
+        Directory.CreateDirectory(Path.GetDirectoryName(blockedPath)!);
+        await File.WriteAllTextAsync(blockedPath, "blocked", CancellationToken.None);
+
+        var store = new DaemonSessionStore();
+        var session = CreateSession(projectFingerprint: "fingerprint-blocked", sessionToken: "token-1");
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("Failed to write daemon session file", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenSessionJsonIsMalformed_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "malformed-json");

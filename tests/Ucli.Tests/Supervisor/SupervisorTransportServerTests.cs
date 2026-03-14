@@ -114,6 +114,33 @@ public sealed class SupervisorTransportServerTests
     [Trait("Size", "Small")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
+    public async Task Run_OnUnix_WhenSocketDirectoryCannotBeSecured_ThrowsIOException ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "blocked-socket-directory");
+        var blockedDirectoryPath = scope.WriteFile("blocked", "directory path is blocked");
+        var endpoint = new IpcEndpoint(
+            IpcTransportKind.UnixDomainSocket,
+            Path.Combine(blockedDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName));
+        var server = new SupervisorTransportServer();
+
+        var exception = await Assert.ThrowsAsync<IOException>(() => server.Run(
+            endpoint,
+            static (_, _) => Task.CompletedTask,
+            static _ => Task.CompletedTask,
+            CancellationToken.None));
+
+        Assert.Contains(blockedDirectoryPath, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
     public async Task Run_OnUnix_AppliesOwnerOnlyPermissionsToSocketAndParentDirectory ()
     {
         if (OperatingSystem.IsWindows())
