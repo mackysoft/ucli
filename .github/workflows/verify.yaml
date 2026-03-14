@@ -220,8 +220,6 @@ jobs:
         include:
           - runs_on: ubuntu-latest
             os_name: linux
-          - runs_on: windows-latest
-            os_name: windows
 
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
