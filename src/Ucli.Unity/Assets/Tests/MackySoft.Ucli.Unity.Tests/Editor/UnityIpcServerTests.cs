@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -694,7 +695,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var startInfo = new ProcessStartInfo
             {
                 FileName = "/usr/bin/stat",
-                Arguments = string.Concat("-f %Mp%Lp \"", path.Replace("\"", "\\\""), "\""),
+                Arguments = CreateStatArguments(path),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -706,7 +707,29 @@ namespace MackySoft.Ucli.Unity.Tests
             var error = process.StandardError.ReadToEnd();
             process.WaitForExit();
             Assert.That(process.ExitCode, Is.EqualTo(0), error);
-            return output.Trim();
+            return NormalizeUnixFileMode(output);
+        }
+
+        private static string CreateStatArguments (string path)
+        {
+            var escapedPath = path.Replace("\"", "\\\"");
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return string.Concat("-f %Mp%Lp \"", escapedPath, "\"");
+            }
+
+            return string.Concat("-c %a \"", escapedPath, "\"");
+        }
+
+        private static string NormalizeUnixFileMode (string output)
+        {
+            var trimmedOutput = output.Trim();
+            if (trimmedOutput.Length == 3)
+            {
+                return string.Concat("0", trimmedOutput);
+            }
+
+            return trimmedOutput;
         }
 
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal
