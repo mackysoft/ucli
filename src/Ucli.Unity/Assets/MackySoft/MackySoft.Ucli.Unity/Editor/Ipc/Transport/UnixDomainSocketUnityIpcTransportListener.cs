@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class UnixDomainSocketUnityIpcTransportListener : IUnityIpcTransportListener
     {
         private readonly object syncRoot = new object();
-	
+
         private readonly IDaemonLogger daemonLogger;
 
         private Socket activeListenerSocket;
@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             listener.Bind(endPoint);
             accessBoundary.HardenBoundSocket();
             listener.Listen(8);
-	
+
             lock (syncRoot)
             {
                 activeListenerSocket = listener;
@@ -85,6 +85,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                     {
                         throw;
                     }
+                    catch (Exception exception) when (cancellationToken.IsCancellationRequested && exception is ObjectDisposedException or SocketException)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return;
+                    }
                     catch (Exception exception) when (!cancellationToken.IsCancellationRequested && (exception is IOException or InvalidDataException or SocketException))
                     {
                         daemonLogger.Warning(
@@ -106,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 accessBoundary.Cleanup();
             }
         }
-	
+
         /// <summary> Releases active transport handles to unblock accept loops. </summary>
         public void Release ()
         {
