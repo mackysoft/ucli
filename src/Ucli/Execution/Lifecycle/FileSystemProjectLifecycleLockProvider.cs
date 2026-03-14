@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Execution;
 
@@ -38,8 +39,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
         var lockDirectoryPath = Path.GetDirectoryName(lockFilePath);
         if (!string.IsNullOrWhiteSpace(lockDirectoryPath))
         {
-            UcliLocalStorageBootstrapper.EnsureInitialized(lockDirectoryPath);
-            Directory.CreateDirectory(lockDirectoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(lockDirectoryPath);
         }
 
         var deadline = ExecutionDeadline.Start(timeout);

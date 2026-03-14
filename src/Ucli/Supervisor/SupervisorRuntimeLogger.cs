@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Supervisor;
 
@@ -24,8 +25,7 @@ internal sealed class SupervisorRuntimeLogger
         var logDirectoryPath = Path.GetDirectoryName(logPath);
         if (!string.IsNullOrWhiteSpace(logDirectoryPath))
         {
-            UcliLocalStorageBootstrapper.EnsureInitialized(logDirectoryPath);
-            Directory.CreateDirectory(logDirectoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(logDirectoryPath);
         }
 
         await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);

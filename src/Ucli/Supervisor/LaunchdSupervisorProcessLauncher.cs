@@ -3,6 +3,7 @@ using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Supervisor;
 
@@ -47,8 +48,7 @@ internal sealed class LaunchdSupervisorProcessLauncher
             var plistDirectoryPath = Path.GetDirectoryName(plistPath);
             if (!string.IsNullOrWhiteSpace(plistDirectoryPath))
             {
-                UcliLocalStorageBootstrapper.EnsureInitialized(plistDirectoryPath);
-                Directory.CreateDirectory(plistDirectoryPath);
+                FileSystemAccessBoundary.EnsureSecureDirectory(plistDirectoryPath);
             }
 
             var plistContents = BuildLaunchAgentPlist(label, launchCommand, normalizedStorageRoot, logPath);

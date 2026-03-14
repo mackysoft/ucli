@@ -52,10 +52,13 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
             var endpoint = endpointResolver.Resolve(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
-            if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
-                && File.Exists(endpoint.Address))
+            if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
             {
                 FileUtilities.DeleteIfExists(endpoint.Address);
+
+                UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
+                    endpoint.Address,
+                    UcliIpcEndpointNames.DaemonAddressPrefix);
             }
 
             return DaemonSessionStoreOperationResult.Success();

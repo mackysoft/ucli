@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -12,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class UnixDomainSocketUnityIpcTransportListener : IUnityIpcTransportListener
     {
         private readonly object syncRoot = new object();
-
+	
         private readonly IDaemonLogger daemonLogger;
 
         private Socket activeListenerSocket;
@@ -54,23 +53,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(onStarted));
             }
 
-            var socketDirectoryPath = Path.GetDirectoryName(address);
-            if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
-            {
-                UcliLocalStorageBootstrapper.EnsureInitialized(socketDirectoryPath);
-                Directory.CreateDirectory(socketDirectoryPath);
-            }
-
-            if (File.Exists(address))
-            {
-                File.Delete(address);
-            }
+            var accessBoundary = new UnixSocketAccessBoundary(address);
+            accessBoundary.PrepareForBind();
 
             using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
             var endPoint = new UnixDomainSocketEndPoint(address);
             listener.Bind(endPoint);
+            accessBoundary.HardenBoundSocket();
             listener.Listen(8);
-
+	
             lock (syncRoot)
             {
                 activeListenerSocket = listener;
@@ -112,13 +103,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
                 }
 
-                if (File.Exists(address))
-                {
-                    File.Delete(address);
-                }
+                accessBoundary.Cleanup();
             }
         }
-
+	
         /// <summary> Releases active transport handles to unblock accept loops. </summary>
         public void Release ()
         {

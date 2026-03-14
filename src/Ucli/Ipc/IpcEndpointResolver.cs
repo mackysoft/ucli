@@ -9,16 +9,6 @@ namespace MackySoft.Ucli.Ipc;
 /// <summary> Resolves daemon IPC endpoints from project identity values. </summary>
 internal sealed class IpcEndpointResolver : IIpcEndpointResolver
 {
-    private const string SocketFileName = "ipc.sock";
-
-    private const string PipeNamePrefix = "ucli-";
-
-    private const string UnixSocketFallbackDirectoryPath = "/tmp";
-
-    private const string UnixSocketFallbackFilePrefix = "ucli-";
-
-    private const string UnixSocketFallbackFileExtension = ".sock";
-
     /// <summary> Resolves the transport endpoint for the given project identity. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -42,13 +32,13 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
 
         if (OperatingSystem.IsWindows())
         {
-            var pipeName = PipeNamePrefix + normalizedProjectFingerprint;
+            var pipeName = UcliIpcEndpointNames.DaemonAddressPrefix + normalizedProjectFingerprint;
             return new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName);
         }
 
         var preferredSocketPath = Path.Combine(
             UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, normalizedProjectFingerprint),
-            SocketFileName);
+            UcliIpcEndpointNames.UnixSocketFileName);
 
         if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
         {
@@ -69,10 +59,8 @@ internal sealed class IpcEndpointResolver : IIpcEndpointResolver
         string normalizedProjectFingerprint)
     {
         var hashSource = $"{normalizedStorageRoot}\n{normalizedProjectFingerprint}";
-        var hashHex = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(hashSource));
-        var shortHash = hashHex[..32];
-        return Path.Combine(
-            UnixSocketFallbackDirectoryPath,
-            UnixSocketFallbackFilePrefix + shortHash + UnixSocketFallbackFileExtension);
+        return UnixSocketPathUtilities.BuildFallbackSocketPath(
+            UcliIpcEndpointNames.DaemonAddressPrefix,
+            hashSource);
     }
 }

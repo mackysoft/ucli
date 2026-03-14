@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Storage;
 using MackySoft.Ucli.UnityProject;
 using MackySoft.Ucli.UnityProject.Resolution;
 
@@ -133,8 +134,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
             if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
             {
-                UcliLocalStorageBootstrapper.EnsureInitialized(unityLogDirectoryPath);
-                Directory.CreateDirectory(unityLogDirectoryPath);
+                FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
 
             var processStartInfo = new ProcessStartInfo

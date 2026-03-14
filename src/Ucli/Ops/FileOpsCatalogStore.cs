@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Ops;
 
@@ -29,10 +30,8 @@ internal sealed class FileOpsCatalogStore : IOpsCatalogStore
             ?? throw new InvalidOperationException($"ops.catalog.json directory path could not be resolved: {opsCatalogPath}");
         var inputsManifestDirectoryPath = Path.GetDirectoryName(inputsManifestPath)
             ?? throw new InvalidOperationException($"inputs manifest directory path could not be resolved: {inputsManifestPath}");
-        UcliLocalStorageBootstrapper.EnsureInitialized(opsCatalogDirectoryPath);
-        Directory.CreateDirectory(opsCatalogDirectoryPath);
-        UcliLocalStorageBootstrapper.EnsureInitialized(inputsManifestDirectoryPath);
-        Directory.CreateDirectory(inputsManifestDirectoryPath);
+        FileSystemAccessBoundary.EnsureSecureDirectory(opsCatalogDirectoryPath);
+        FileSystemAccessBoundary.EnsureSecureDirectory(inputsManifestDirectoryPath);
 
         var opsCatalog = new IndexOpsCatalogJsonContract(
             SchemaVersion: SchemaVersion,

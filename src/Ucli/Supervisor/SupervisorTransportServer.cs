@@ -3,7 +3,8 @@ using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Ipc;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Supervisor;
 
@@ -99,7 +100,7 @@ internal sealed class SupervisorTransportServer
                     PipeDirection.InOut,
                     NamedPipeServerStream.MaxAllowedServerInstances,
                     PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous);
+                    PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
 
                 lock (syncRoot)
                 {
@@ -155,8 +156,7 @@ internal sealed class SupervisorTransportServer
         var socketDirectoryPath = Path.GetDirectoryName(address);
         if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
         {
-            UcliLocalStorageBootstrapper.EnsureInitialized(socketDirectoryPath);
-            Directory.CreateDirectory(socketDirectoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(socketDirectoryPath);
         }
 
         if (File.Exists(address))
@@ -166,6 +166,7 @@ internal sealed class SupervisorTransportServer
 
         using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         listener.Bind(new UnixDomainSocketEndPoint(address));
+        FileSystemAccessBoundary.EnsureSecureUnixSocket(address);
         listener.Listen(8);
 
         lock (syncRoot)
@@ -218,6 +219,10 @@ internal sealed class SupervisorTransportServer
             {
                 File.Delete(address);
             }
+
+            UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
+                address,
+                UcliIpcEndpointNames.SupervisorAddressPrefix);
         }
     }
 

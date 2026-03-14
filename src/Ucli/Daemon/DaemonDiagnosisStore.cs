@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Daemon;
 
@@ -142,8 +143,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         {
             var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
                 ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");
-            UcliLocalStorageBootstrapper.EnsureInitialized(diagnosisDirectoryPath);
-            Directory.CreateDirectory(diagnosisDirectoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(diagnosisDirectoryPath);
             await FileUtilities.WriteAllTextAtomically(diagnosisPath, json, cancellationToken).ConfigureAwait(false);
             return DaemonDiagnosisStoreOperationResult.Success();
         }

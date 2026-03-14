@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -58,12 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                using var serverStream = new NamedPipeServerStream(
-                    address,
-                    PipeDirection.InOut,
-                    NamedPipeServerStream.MaxAllowedServerInstances,
-                    PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous);
+                using var serverStream = PipeServerStreamFactory.Create(address);
 
                 lock (syncRoot)
                 {
@@ -122,6 +120,52 @@ namespace MackySoft.Ucli.Unity.Ipc
                     activeServerStream.Dispose();
                     activeServerStream = null;
                 }
+            }
+        }
+
+        private static class PipeServerStreamFactory
+        {
+            public static NamedPipeServerStream Create (string address)
+            {
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    return new NamedPipeServerStream(
+                        address,
+                        PipeDirection.InOut,
+                        NamedPipeServerStream.MaxAllowedServerInstances,
+                        PipeTransmissionMode.Byte,
+                        PipeOptions.Asynchronous);
+                }
+
+                var pipeSecurity = CreateCurrentUserOnlySecurity();
+                return new NamedPipeServerStream(
+                    address,
+                    PipeDirection.InOut,
+                    NamedPipeServerStream.MaxAllowedServerInstances,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous,
+                    0,
+                    0,
+                    pipeSecurity);
+            }
+
+            private static PipeSecurity CreateCurrentUserOnlySecurity ()
+            {
+                var pipeSecurity = new PipeSecurity();
+                pipeSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                pipeSecurity.AddAccessRule(new PipeAccessRule(
+                    GetCurrentUserSid(),
+                    PipeAccessRights.FullControl,
+                    AccessControlType.Allow));
+                return pipeSecurity;
+            }
+
+            private static SecurityIdentifier GetCurrentUserSid ()
+            {
+                using var identity = WindowsIdentity.GetCurrent();
+                return identity.User
+                    ?? identity.Owner
+                    ?? throw new InvalidOperationException("Current Windows user SID could not be resolved for named pipe access boundary.");
             }
         }
     }
