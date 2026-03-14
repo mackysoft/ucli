@@ -138,8 +138,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
                 Assert.That(File.Exists(address), Is.True);
-                Assert.That(ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("700"));
-                Assert.That(ReadUnixFileMode(address), Is.EqualTo("600"));
+                Assert.That(ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("0700"));
+                Assert.That(ReadUnixFileMode(address), Is.EqualTo("0600"));
             }
             finally
             {
