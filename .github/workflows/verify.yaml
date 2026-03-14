@@ -166,8 +166,6 @@ jobs:
             os_name: linux
           - runs_on: windows-latest
             os_name: windows
-          - runs_on: macos-latest
-            os_name: macos
 
     defaults:
       run:
@@ -244,17 +242,11 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Setup Mono
-        if: ${{ runner.os != 'Windows' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           set -euo pipefail
-
-          if [[ "${RUNNER_OS}" == "Linux" ]]; then
-            sudo apt-get update
-            sudo apt-get install --yes mono-runtime
-            exit 0
-          fi
-
-          brew install mono
+          sudo apt-get update
+          sudo apt-get install --yes mono-complete
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
