@@ -38,7 +38,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenPingSucceeds_ReturnsRunning ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-test"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
@@ -62,7 +62,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenPingTimesOut_ReturnsTimeoutFailure ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-timeout"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-timeout"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new TimeoutException("timeout"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         var probeTimeout = TimeSpan.FromMilliseconds(150);
@@ -82,7 +82,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenConnectTimeoutOccurs_ReturnsTimeoutFailure ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-connect-timeout"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-connect-timeout"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new IpcConnectTimeoutException("connect timeout"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         var probeTimeout = TimeSpan.FromMilliseconds(150);
@@ -102,7 +102,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenConnectTimeoutOccursBeforeDeadlineAndSubsequentPingSucceeds_ReturnsRunning ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-connect-timeout-retry-success"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-connect-timeout-retry-success"));
         var pingAttemptCount = 0;
         var daemonPingClient = new StubDaemonPingClient((_, _) =>
         {
@@ -130,7 +130,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenTimeoutOccursBeforeDeadlineAndSubsequentPingSucceeds_ReturnsRunning ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-retry-success"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-retry-success"));
         var pingAttemptCount = 0;
         var daemonPingClient = new StubDaemonPingClient((_, _) =>
         {
@@ -159,7 +159,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenConnectivityExceptionOccurs_ReturnsNotRunning (Exception exception)
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-connectivity"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-connectivity"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw exception);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
@@ -189,7 +189,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenUnexpectedExceptionOccurs_ReturnsInternalError ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-failure"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-failure"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new InvalidOperationException("boom"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
@@ -208,7 +208,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenIoFailureOccurs_ReturnsInternalError (Exception exception)
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-io-failure"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-io-failure"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw exception);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
@@ -226,7 +226,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenPingResponseIsRejected_ReturnsInternalError ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-ping-response-error"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-ping-response-error"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new DaemonPingResponseException("status=error", IpcErrorCodes.InternalError));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
@@ -244,7 +244,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenUnauthorizedAccessOccurs_ReturnsInternalError ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-unauthorized"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-unauthorized"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => throw new UnauthorizedAccessException("unauthorized"));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
 
@@ -262,7 +262,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenCanceled_ThrowsOperationCanceledException ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-canceled"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-canceled"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         using var cancellationTokenSource = new CancellationTokenSource();
@@ -280,7 +280,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WhenCanceledDuringPing_ThrowsOperationCanceledException ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-canceled-during-ping"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-canceled-during-ping"));
         var daemonPingClient = new StubDaemonPingClient((_, cancellationToken) =>
             new ValueTask(Task.Delay(System.Threading.Timeout.Infinite, cancellationToken)));
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
@@ -301,7 +301,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WithNestedUnityProject_UsesRepositoryRootForEndpointResolution ()
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-nested-project"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-nested-project"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         var repositoryRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Repo"));
@@ -321,7 +321,7 @@ public sealed class IpcDaemonReachabilityProbeTests
     public async Task Probe_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException (int timeoutMilliseconds)
     {
         var endpointResolver = new StubEndpointResolver(
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-invalid-timeout"));
+            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-invalid-timeout"));
         var daemonPingClient = new StubDaemonPingClient((_, _) => ValueTask.CompletedTask);
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);

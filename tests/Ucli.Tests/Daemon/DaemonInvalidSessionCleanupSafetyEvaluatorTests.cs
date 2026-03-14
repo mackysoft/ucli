@@ -210,7 +210,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-endpoint",
+            EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 2468,
             OwnerProcessId: 1357);
     }

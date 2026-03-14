@@ -1,7 +1,9 @@
+using System.Runtime.Versioning;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Supervisor;
+using MackySoft.Ucli.Tests.Helpers;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -108,18 +110,148 @@ public sealed class SupervisorTransportServerTests
         }
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public async Task Run_OnUnix_WhenSocketDirectoryCannotBeSecured_ThrowsIOException ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("supervisor-transport-server", "blocked-socket-directory");
+        var blockedDirectoryPath = scope.WriteFile("blocked", "directory path is blocked");
+        var endpoint = new IpcEndpoint(
+            IpcTransportKind.UnixDomainSocket,
+            Path.Combine(blockedDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName));
+        var server = new SupervisorTransportServer();
+
+        var exception = await Assert.ThrowsAsync<IOException>(() => server.Run(
+            endpoint,
+            static (_, _) => Task.CompletedTask,
+            static _ => Task.CompletedTask,
+            CancellationToken.None));
+
+        Assert.Contains(blockedDirectoryPath, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public async Task Run_OnUnix_AppliesOwnerOnlyPermissionsToSocketAndParentDirectory ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var endpoint = new IpcEndpoint(
+            IpcTransportKind.UnixDomainSocket,
+            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
+        var server = new SupervisorTransportServer();
+        var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var serverTask = server.Run(
+            endpoint,
+            static (_, _) => Task.CompletedTask,
+            cancellationToken =>
+            {
+                startedTaskSource.TrySetResult();
+                return Task.CompletedTask;
+            },
+            cancellationTokenSource.Token);
+
+        try
+        {
+            await startedTaskSource.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(Path.GetDirectoryName(endpoint.Address)!);
+            PosixAccessBoundaryAssert.FileIsOwnerOnly(endpoint.Address);
+        }
+        finally
+        {
+            cancellationTokenSource.Cancel();
+            server.Release();
+            try
+            {
+                await serverTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public async Task Run_OnUnix_WhenUsingFallbackEndpoint_DeletesEmptyFallbackDirectoryOnShutdown ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var endpoint = new IpcEndpoint(
+            IpcTransportKind.UnixDomainSocket,
+            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
+        var socketDirectoryPath = Path.GetDirectoryName(endpoint.Address)!;
+        var server = new SupervisorTransportServer();
+        var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var serverTask = server.Run(
+            endpoint,
+            static (_, _) => Task.CompletedTask,
+            cancellationToken =>
+            {
+                startedTaskSource.TrySetResult();
+                return Task.CompletedTask;
+            },
+            cancellationTokenSource.Token);
+
+        try
+        {
+            await startedTaskSource.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(Directory.Exists(socketDirectoryPath));
+            Assert.True(File.Exists(endpoint.Address));
+        }
+        finally
+        {
+            cancellationTokenSource.Cancel();
+            server.Release();
+            try
+            {
+                await serverTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        Assert.False(File.Exists(endpoint.Address));
+        Assert.False(Directory.Exists(socketDirectoryPath));
+    }
+
     private static IpcEndpoint CreateEndpoint (string storageRoot)
     {
         if (OperatingSystem.IsWindows())
         {
             return new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
-                $"ucli-supervisor-transport-{Guid.NewGuid():N}");
+                $"{UcliIpcEndpointNames.SupervisorAddressPrefix}transport-{Guid.NewGuid():N}");
         }
 
         return new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            $"/tmp/ucli-supervisor-transport-{Guid.NewGuid():N}.sock");
+            UnixSocketPathUtilities.BuildFallbackSocketPath(
+                UcliIpcEndpointNames.SupervisorAddressPrefix + "transport-",
+                storageRoot));
     }
 
     private static IpcRequest CreateRequest (string method)

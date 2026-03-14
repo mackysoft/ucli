@@ -20,7 +20,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
               "ownerKind": "supervisor",
               "canShutdownProcess": true,
               "endpointTransportKind": "namedPipe",
-              "endpointAddress": "ucli-endpoint",
+              "endpointAddress": "ucli-daemon-endpoint",
               "processId": 1234,
               "ownerProcessId": 5678
             }
@@ -37,7 +37,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.Equal("supervisor", contract.OwnerKind);
         Assert.True(contract.CanShutdownProcess);
         Assert.Equal("namedPipe", contract.EndpointTransportKind);
-        Assert.Equal("ucli-endpoint", contract.EndpointAddress);
+        Assert.Equal("ucli-daemon-endpoint", contract.EndpointAddress);
         Assert.Equal(1234, contract.ProcessId);
         Assert.Equal(5678, contract.OwnerProcessId);
     }
@@ -74,7 +74,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
             OwnerKind: "supervisor",
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-endpoint",
+            EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             OwnerProcessId: 5678);
 

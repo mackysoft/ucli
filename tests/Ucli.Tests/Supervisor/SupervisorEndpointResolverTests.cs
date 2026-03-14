@@ -1,46 +1,38 @@
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Ipc;
+using MackySoft.Ucli.Supervisor;
 
-namespace MackySoft.Ucli.Tests.Ipc;
+namespace MackySoft.Ucli.Tests.Supervisor;
 
-public sealed class IpcEndpointResolverTests
+public sealed class SupervisorEndpointResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public void Resolve_WithEmptyStorageRoot_ThrowsArgumentException ()
     {
-        var resolver = new IpcEndpointResolver();
+        var resolver = new SupervisorEndpointResolver();
 
-        Assert.Throws<ArgumentException>(() => resolver.Resolve("", "fingerprint"));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Resolve_WithEmptyProjectFingerprint_ThrowsArgumentException ()
-    {
-        var resolver = new IpcEndpointResolver();
-
-        Assert.Throws<ArgumentException>(() => resolver.Resolve(".", " "));
+        Assert.Throws<ArgumentException>(() => resolver.Resolve(""));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Resolve_WithValidInputs_ReturnsPlatformSpecificEndpoint ()
     {
-        var resolver = new IpcEndpointResolver();
-        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
+        var resolver = new SupervisorEndpointResolver();
+        var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
 
-        var endpoint = resolver.Resolve(storageRoot, "abc123");
+        var endpoint = resolver.Resolve(storageRoot);
 
         if (OperatingSystem.IsWindows())
         {
             Assert.Equal(IpcTransportKind.NamedPipe, endpoint.TransportKind);
-            Assert.Equal("ucli-daemon-abc123", endpoint.Address);
+            Assert.StartsWith(UcliIpcEndpointNames.SupervisorAddressPrefix, endpoint.Address, StringComparison.Ordinal);
             return;
         }
 
-        var preferredPath = Path.Combine(storageRoot, ".ucli", "local", "fingerprints", "abc123", "ipc.sock");
+        var preferredPath = Path.Combine(storageRoot, ".ucli", "local", "supervisor", "ipc.sock");
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
         Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
@@ -51,7 +43,7 @@ public sealed class IpcEndpointResolverTests
             return;
         }
 
-        AssertFallbackPath(endpoint.Address, UcliIpcEndpointNames.DaemonAddressPrefix);
+        AssertFallbackPath(endpoint.Address, UcliIpcEndpointNames.SupervisorAddressPrefix);
     }
 
     [Fact]
@@ -63,19 +55,19 @@ public sealed class IpcEndpointResolverTests
             return;
         }
 
-        var resolver = new IpcEndpointResolver();
+        var resolver = new SupervisorEndpointResolver();
         var storageRoot = Path.GetFullPath(Path.Combine(
             Path.GetTempPath(),
             "ucli-tests",
             new string('a', 140)));
 
-        var endpoint1 = resolver.Resolve(storageRoot, "abc123");
-        var endpoint2 = resolver.Resolve(storageRoot, "abc123");
+        var endpoint1 = resolver.Resolve(storageRoot);
+        var endpoint2 = resolver.Resolve(storageRoot);
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint1.TransportKind);
         Assert.Equal(endpoint1.Address, endpoint2.Address);
         Assert.True(Encoding.UTF8.GetByteCount(endpoint1.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);
-        AssertFallbackPath(endpoint1.Address, UcliIpcEndpointNames.DaemonAddressPrefix);
+        AssertFallbackPath(endpoint1.Address, UcliIpcEndpointNames.SupervisorAddressPrefix);
     }
 
     private static void AssertFallbackPath (

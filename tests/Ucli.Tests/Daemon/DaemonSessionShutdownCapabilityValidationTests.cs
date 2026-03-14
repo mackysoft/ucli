@@ -27,7 +27,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
               "runtimeKind": "batchmode",
               "ownerKind": "supervisor",
               "endpointTransportKind": "namedPipe",
-              "endpointAddress": "ucli-test",
+              "endpointAddress": "ucli-daemon-test",
               "processId": 1234,
               "ownerProcessId": 9876
             }
@@ -59,7 +59,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: false,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test",
+            EndpointAddress: "ucli-daemon-test",
             ProcessId: 1234,
 
             OwnerProcessId: 9876);

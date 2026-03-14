@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.UnityProject;
 
@@ -146,8 +147,7 @@ internal sealed class UnityUcliPluginMarkerCacheStore
             var json = JsonSerializer.Serialize(cache, SerializerOptions) + Environment.NewLine;
             var cacheDirectoryPath = Path.GetDirectoryName(cachePath)
                 ?? throw new InvalidOperationException($"uCLI Unity plugin marker cache directory path could not be resolved: {cachePath}");
-            UcliLocalStorageBootstrapper.EnsureInitialized(cacheDirectoryPath);
-            Directory.CreateDirectory(cacheDirectoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(cacheDirectoryPath);
             await writeAllTextAtomically(cachePath, json, cancellationToken).ConfigureAwait(false);
             return UnityUcliPluginMarkerCacheStoreOperationResult.Success();
         }

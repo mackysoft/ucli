@@ -69,7 +69,7 @@ public sealed class DaemonSessionTokenProviderTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test",
+            EndpointAddress: "ucli-daemon-test",
             ProcessId: 123,
 
             OwnerProcessId: 9876);

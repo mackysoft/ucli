@@ -1,10 +1,12 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using System.Runtime.Versioning;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Tests;
+using MackySoft.Ucli.Tests.Helpers;
 
 public sealed class DaemonSessionStoreTests
 {
@@ -66,6 +68,85 @@ public sealed class DaemonSessionStoreTests
 
         Assert.True(writeResult.IsSuccess);
         Assert.Equal("legacy/" + Environment.NewLine, File.ReadAllText(gitIgnorePath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    [SupportedOSPlatform("macos")]
+    [SupportedOSPlatform("linux")]
+    public async Task Write_OnUnix_SavesSessionJsonUnderOwnerOnlyBoundary ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "owner-only");
+        var store = new DaemonSessionStore();
+        var session = CreateSession(projectFingerprint: "fingerprint-owner-only", sessionToken: "token-1");
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.True(writeResult.IsSuccess);
+
+        var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
+        var fingerprintDirectoryPath = UcliStoragePathResolver.ResolveFingerprintDirectory(scope.FullPath, session.ProjectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
+
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(localDirectoryPath);
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(fingerprintDirectoryPath);
+        PosixAccessBoundaryAssert.FileIsOwnerOnly(sessionPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    [SupportedOSPlatform("windows")]
+    public async Task Write_OnWindows_SavesSessionJsonUnderCurrentUserOnlyBoundary ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "current-user-only");
+        var store = new DaemonSessionStore();
+        var session = CreateSession(projectFingerprint: "fingerprint-current-user-only", sessionToken: "token-1");
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.True(writeResult.IsSuccess);
+
+        var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
+        var fingerprintDirectoryPath = UcliStoragePathResolver.ResolveFingerprintDirectory(scope.FullPath, session.ProjectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
+
+        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(localDirectoryPath);
+        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(fingerprintDirectoryPath);
+        WindowsAccessBoundaryAssert.FileIsCurrentUserOnly(sessionPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Write_WhenSessionDirectoryCannotBeSecured_ReturnsInternalError ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "blocked-session-directory");
+        var blockedPath = Path.Combine(
+            scope.FullPath,
+            UcliStoragePathNames.UcliDirectoryName,
+            UcliStoragePathNames.LocalDirectoryName,
+            UcliStoragePathNames.FingerprintsDirectoryName);
+        Directory.CreateDirectory(Path.GetDirectoryName(blockedPath)!);
+        await File.WriteAllTextAsync(blockedPath, "blocked", CancellationToken.None);
+
+        var store = new DaemonSessionStore();
+        var session = CreateSession(projectFingerprint: "fingerprint-blocked", sessionToken: "token-1");
+
+        var writeResult = await store.Write(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("Failed to write daemon session file", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -221,7 +302,7 @@ public sealed class DaemonSessionStoreTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test",
+            EndpointAddress: "ucli-daemon-test",
             ProcessId: 1234,
 
             OwnerProcessId: 9876);

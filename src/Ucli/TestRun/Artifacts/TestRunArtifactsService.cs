@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Storage;
 using MackySoft.Ucli.TestRun.Configuration;
 using MackySoft.Ucli.UnityProject;
 
@@ -73,8 +74,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
             try
             {
-                UcliLocalStorageBootstrapper.EnsureInitialized(artifactsDir);
-                Directory.CreateDirectory(artifactsDir);
+                FileSystemAccessBoundary.EnsureSecureDirectory(artifactsDir);
             }
             catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
             {

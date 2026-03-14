@@ -66,7 +66,7 @@ public sealed class DaemonShutdownClientTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test-endpoint",
+            EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: 1234,
 
             OwnerProcessId: 9876);

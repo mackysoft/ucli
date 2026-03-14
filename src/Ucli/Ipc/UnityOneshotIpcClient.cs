@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Storage;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Ipc;
@@ -81,8 +82,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             var unityLogDirectoryPath = Path.GetDirectoryName(unityLogPath);
             if (!string.IsNullOrWhiteSpace(unityLogDirectoryPath))
             {
-                UcliLocalStorageBootstrapper.EnsureInitialized(unityLogDirectoryPath);
-                Directory.CreateDirectory(unityLogDirectoryPath);
+                FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
 
             if (!deadline.TryGetRemainingTimeout(out _))

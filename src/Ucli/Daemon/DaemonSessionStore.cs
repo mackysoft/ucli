@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Daemon;
 
@@ -166,9 +167,9 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         {
             var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
                 ?? throw new InvalidOperationException($"Daemon session directory path could not be resolved: {sessionPath}");
-            UcliLocalStorageBootstrapper.EnsureInitialized(sessionDirectoryPath);
-            Directory.CreateDirectory(sessionDirectoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
             await FileUtilities.WriteAllTextAtomically(sessionPath, json, cancellationToken).ConfigureAwait(false);
+            FileSystemAccessBoundary.EnsureSecureFile(sessionPath);
             return DaemonSessionStoreOperationResult.Success();
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))

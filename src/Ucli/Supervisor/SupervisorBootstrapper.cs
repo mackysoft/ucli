@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Ipc;
 
 namespace MackySoft.Ucli.Supervisor;
 
@@ -271,10 +272,13 @@ internal sealed class SupervisorBootstrapper
             var endpoint = manifest != null && IpcTransportKindCodec.TryParse(manifest.EndpointTransportKind, out var transportKind)
                 ? new IpcEndpoint(transportKind, manifest.EndpointAddress)
                 : endpointResolver.Resolve(storageRoot);
-            if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
-                && File.Exists(endpoint.Address))
+            if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
             {
                 FileUtilities.DeleteIfExists(endpoint.Address);
+
+                UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
+                    endpoint.Address,
+                    UcliIpcEndpointNames.SupervisorAddressPrefix);
             }
         }
         catch (Exception)

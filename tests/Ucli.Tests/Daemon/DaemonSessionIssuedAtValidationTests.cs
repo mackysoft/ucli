@@ -26,7 +26,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
               "ownerKind": "cli",
               "canShutdownProcess": true,
               "endpointTransportKind": "namedPipe",
-              "endpointAddress": "ucli-test",
+              "endpointAddress": "ucli-daemon-test",
               "processId": 1234
             }
             """,
@@ -56,7 +56,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test",
+            EndpointAddress: "ucli-daemon-test",
             ProcessId: 1234,
 
             OwnerProcessId: 9876);

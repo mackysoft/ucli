@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Supervisor;
 
@@ -114,9 +115,9 @@ internal sealed class SupervisorManifestStore
         var json = JsonSerializer.Serialize(manifest, SerializerOptions) + Environment.NewLine;
         var manifestDirectoryPath = Path.GetDirectoryName(manifestPath)
             ?? throw new InvalidOperationException($"Supervisor manifest directory path could not be resolved: {manifestPath}");
-        UcliLocalStorageBootstrapper.EnsureInitialized(manifestDirectoryPath);
-        Directory.CreateDirectory(manifestDirectoryPath);
+        FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectoryPath);
         await writeAllTextAtomically(manifestPath, json, cancellationToken).ConfigureAwait(false);
+        FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
     }
 
     /// <summary> Deletes the persisted supervisor manifest when it exists. </summary>

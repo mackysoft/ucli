@@ -54,7 +54,7 @@ public sealed class DaemonSessionCleanupServiceTests
                 OwnerKind: DaemonSession.OwnerKindSupervisor,
                 CanShutdownProcess: true,
                 EndpointTransportKind: "namedPipe",
-                EndpointAddress: "ucli-test-endpoint",
+                EndpointAddress: "ucli-daemon-test-endpoint",
                 ProcessId: 7171,
                 OwnerProcessId: 9876));
         var processTerminationService = new StubDaemonProcessTerminationService
@@ -190,7 +190,7 @@ public sealed class DaemonSessionCleanupServiceTests
             OwnerKind: ownerKind,
             CanShutdownProcess: canShutdownProcess,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test-endpoint",
+            EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
             OwnerProcessId: ownerProcessId);
     }

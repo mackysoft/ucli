@@ -90,6 +90,37 @@ public sealed class SupervisorBootstrapperTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task EnsureReady_WhenManifestReadFailsWithUnauthorizedAccess_ReturnsInternalError ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "manifest-read-unauthorized");
+        var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonCommandServiceTestContext.StubIpcTransportClient
+        {
+            SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called when manifest read fails."),
+        };
+        var manifestStore = new SupervisorManifestStore(
+            readAllTextOrNull: static (_, _) => throw new UnauthorizedAccessException("manifest denied"),
+            writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
+            deleteIfExists: static _ => { });
+        var bootstrapper = new SupervisorBootstrapper(
+            manifestStore,
+            new SupervisorClient(transportClient),
+            new StubSupervisorProcessLauncher(),
+            new SupervisorBootstrapLockProvider(),
+            new SupervisorEndpointResolver());
+
+        var result = await bootstrapper.EnsureReady(
+            scope.FullPath,
+            TimeSpan.FromMilliseconds(150),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
+        Assert.Contains("Failed to read supervisor manifest", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task EnsureReady_WhenInitialLaunchDoesNotPublishManifest_RelaunchesAndSucceeds ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "relaunch-success");

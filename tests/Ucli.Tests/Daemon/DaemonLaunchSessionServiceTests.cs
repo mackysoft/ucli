@@ -139,7 +139,7 @@ public sealed class DaemonLaunchSessionServiceTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test-endpoint",
+            EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
 
             OwnerProcessId: 9876);
@@ -151,7 +151,7 @@ public sealed class DaemonLaunchSessionServiceTests
             string storageRoot,
             string projectFingerprint)
         {
-            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-endpoint");
+            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-daemon-endpoint");
         }
     }
 

@@ -447,7 +447,7 @@ public sealed class DaemonStartOperationTests
             OwnerKind: DaemonSession.OwnerKindSupervisor,
             CanShutdownProcess: true,
             EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-test-endpoint",
+            EndpointAddress: "ucli-daemon-test-endpoint",
             ProcessId: processId,
             OwnerProcessId: ownerProcessId);
     }
