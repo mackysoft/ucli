@@ -45,7 +45,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         public void Cleanup ()
         {
             FileUtilities.DeleteIfExists(socketPath);
-            DeleteEmptyFallbackDirectoryIfPresent(socketPath);
+            UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
+                socketPath,
+                UcliIpcEndpointNames.DaemonAddressPrefix);
         }
 
         private static void EnsureSecureDirectory (string directoryPath)
@@ -102,46 +104,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             localDirectoryRoot = string.Empty;
             return false;
-        }
-
-        private static void DeleteEmptyFallbackDirectoryIfPresent (string socketPath)
-        {
-            if (!string.Equals(Path.GetFileName(socketPath), UcliIpcEndpointNames.UnixSocketFileName, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            var normalizedSocketPath = Path.GetFullPath(socketPath);
-            var directoryPath = Path.GetDirectoryName(normalizedSocketPath);
-            if (string.IsNullOrWhiteSpace(directoryPath))
-            {
-                return;
-            }
-
-            var normalizedDirectoryPath = directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var tempRootPath = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var parentDirectoryPath = Path.GetDirectoryName(normalizedDirectoryPath);
-            if (!string.Equals(parentDirectoryPath, tempRootPath, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            var directoryName = Path.GetFileName(normalizedDirectoryPath);
-            if (!directoryName.StartsWith(UcliIpcEndpointNames.DaemonAddressPrefix, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            if (Directory.Exists(normalizedDirectoryPath) && IsEmptyDirectory(normalizedDirectoryPath))
-            {
-                Directory.Delete(normalizedDirectoryPath);
-            }
-        }
-
-        private static bool IsEmptyDirectory (string directoryPath)
-        {
-            using var enumerator = Directory.EnumerateFileSystemEntries(directoryPath).GetEnumerator();
-            return !enumerator.MoveNext();
         }
 
         private static void ApplyOwnerOnlyDirectoryMode (string path)

@@ -1,11 +1,11 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.Ipc;
+namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Provides deterministic unix-domain-socket fallback path utilities. </summary>
-internal static class UnixSocketPathUtilities
+public static class UnixSocketPathUtilities
 {
     /// <summary> Builds one deterministic fallback unix-domain-socket path under the current temp root. </summary>
     /// <param name="directoryPrefix"> The dedicated fallback directory prefix. </param>
@@ -15,8 +15,15 @@ internal static class UnixSocketPathUtilities
         string directoryPrefix,
         string identitySource)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPrefix);
-        ArgumentException.ThrowIfNullOrWhiteSpace(identitySource);
+        if (string.IsNullOrWhiteSpace(directoryPrefix))
+        {
+            throw new ArgumentException("Directory prefix must not be empty.", nameof(directoryPrefix));
+        }
+
+        if (string.IsNullOrWhiteSpace(identitySource))
+        {
+            throw new ArgumentException("Identity source must not be empty.", nameof(identitySource));
+        }
 
         var normalizedTempRoot = NormalizeDirectoryPath(Path.GetTempPath());
         var hashHex = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(identitySource));
@@ -40,8 +47,15 @@ internal static class UnixSocketPathUtilities
         string socketPath,
         string directoryPrefix)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(socketPath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPrefix);
+        if (string.IsNullOrWhiteSpace(socketPath))
+        {
+            throw new ArgumentException("Socket path must not be empty.", nameof(socketPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(directoryPrefix))
+        {
+            throw new ArgumentException("Directory prefix must not be empty.", nameof(directoryPrefix));
+        }
 
         if (!TryResolveFallbackDirectoryPath(socketPath, directoryPrefix, out var directoryPath))
         {
@@ -53,7 +67,8 @@ internal static class UnixSocketPathUtilities
             return;
         }
 
-        if (Directory.EnumerateFileSystemEntries(directoryPath).Any())
+        using var enumerator = Directory.EnumerateFileSystemEntries(directoryPath).GetEnumerator();
+        if (enumerator.MoveNext())
         {
             return;
         }
@@ -88,13 +103,10 @@ internal static class UnixSocketPathUtilities
             return false;
         }
 
-        var pathComparison = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
         if (!string.Equals(
                 NormalizeDirectoryPath(parentOfDirectoryPath),
                 normalizedTempRoot,
-                pathComparison))
+                GetPathComparison()))
         {
             return false;
         }
@@ -113,5 +125,12 @@ internal static class UnixSocketPathUtilities
     {
         var normalizedDirectoryPath = Path.GetFullPath(directoryPath);
         return normalizedDirectoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static StringComparison GetPathComparison ()
+    {
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
     }
 }
