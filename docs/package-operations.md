@@ -118,6 +118,7 @@ done
 ## CI / Release Workflow
 - `verify`: PR、`master` push、`workflow_dispatch`、`merge_group` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、contracts pack を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
 - Unity 検証は `src/Ucli.Unity` と `src/Ucli.Contracts`、`scripts/update-local-contracts-package.sh`、`verify` 自体の変更時に動く。外部 contributor の PR では `access-guard` job が失敗し、Unity job は実行しない。
+- Unity 検証は `buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、`ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。
 - `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグ push、または `workflow_dispatch` の `package_version` 指定で GitHub Packages へ公開する。
 - `contracts-package-publish` は公開後に `src/Ucli.Contracts/Ucli.Contracts.csproj` と `src/Ucli.Unity/Assets/packages.config` の `MackySoft.Ucli.Contracts` バージョンを同一値へ自動同期する。
 - タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`）。
