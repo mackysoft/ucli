@@ -197,13 +197,10 @@ jobs:
         include:
           - runs_on: ubuntu-latest
             os_name: linux
-            cache_installation: true
           - runs_on: windows-latest
             os_name: windows
-            cache_installation: false
           - runs_on: macos-latest
             os_name: macos
-            cache_installation: true
 
     defaults:
       run:
@@ -256,10 +253,13 @@ jobs:
         include:
           - runs_on: ubuntu-latest
             os_name: linux
+            cache_installation: true
           - runs_on: windows-latest
             os_name: windows
+            cache_installation: false
           - runs_on: macos-latest
             os_name: macos
+            cache_installation: true
 
     env:
       UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -407,6 +407,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unity-test-results-${{ matrix.os_name }}
+          include-hidden-files: true
           path: |
             artifacts/unity/${{ matrix.os_name }}
             .ucli
