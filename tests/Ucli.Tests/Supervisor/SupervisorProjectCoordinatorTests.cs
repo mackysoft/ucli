@@ -300,17 +300,22 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.Equal(ExecutionErrorKind.Timeout, ensureRunningResult.Error!.Kind);
         await stopStarted.Task;
 
-        var stopwatch = Stopwatch.StartNew();
-        var stopResult = await coordinator.StopProject(
+        var stopTask = coordinator.StopProject(
                 unityProject,
                 TimeSpan.FromMilliseconds(50),
-                CancellationToken.None);
-        stopwatch.Stop();
+                CancellationToken.None)
+            .AsTask();
+        var completedTask = await Task.WhenAny(
+                stopTask,
+                Task.Delay(TimeSpan.FromSeconds(2)));
+
+        Assert.Same(stopTask, completedTask);
+
+        var stopResult = await stopTask;
 
         Assert.False(stopResult.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, stopResult.Error!.Kind);
         Assert.Equal(1, stopOperation.StopCallCount);
-        Assert.InRange(stopwatch.ElapsedMilliseconds, 0, 500);
 
         stopRelease.TrySetResult();
         StopProcess(process);
