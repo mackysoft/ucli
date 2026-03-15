@@ -197,10 +197,13 @@ jobs:
         include:
           - runs_on: ubuntu-latest
             os_name: linux
+            cache_installation: true
           - runs_on: windows-latest
             os_name: windows
+            cache_installation: false
           - runs_on: macos-latest
             os_name: macos
+            cache_installation: true
 
     defaults:
       run:
@@ -294,7 +297,7 @@ jobs:
         uses: buildalon/unity-setup@v2
         with:
           version-file: src/Ucli.Unity/ProjectSettings/ProjectVersion.txt
-          cache-installation: true
+          cache-installation: ${{ matrix.cache_installation }}
 
       - name: Activate Unity license
         uses: buildalon/activate-unity-license@v2
