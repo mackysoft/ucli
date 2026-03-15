@@ -11,10 +11,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   changes:
     name: changes
@@ -192,7 +188,7 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - runs_on: ubuntu-latest
@@ -248,7 +244,7 @@ jobs:
     timeout-minutes: 90
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - runs_on: ubuntu-latest
