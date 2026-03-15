@@ -315,7 +315,11 @@ public sealed class SupervisorProjectCoordinatorTests
 
         Assert.False(stopResult.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, stopResult.Error!.Kind);
+        Assert.Equal(
+            "Timed out while waiting for prior supervisor lifecycle cleanup to finish.",
+            stopResult.Error.Message);
         Assert.Equal(1, stopOperation.StopCallCount);
+        Assert.True(coordinator.HasActiveProjectWork);
 
         stopRelease.TrySetResult();
         StopProcess(process);
