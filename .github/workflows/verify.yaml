@@ -119,7 +119,7 @@ jobs:
             [[ -z "${file}" ]] && continue
 
             case "${file}" in
-              src/Ucli/*|src/Ucli.Contracts/*|tests/*|Ucli.slnx|.editorconfig|.github/workflows/verify.yaml)
+              src/Ucli/*|src/Ucli.Contracts/*|tests/*|Ucli.slnx|.editorconfig|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
                 needs_dotnet=true
                 ;;
             esac
@@ -131,7 +131,7 @@ jobs:
             esac
 
             case "${file}" in
-              src/Ucli.Contracts/*|.github/workflows/verify.yaml)
+              src/Ucli.Contracts/*|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
                 needs_contracts_pack=true
                 ;;
             esac
@@ -412,6 +412,30 @@ jobs:
             artifacts/unity/${{ matrix.os_name }}
             .ucli
           if-no-files-found: warn
+
+      - name: Validate Unity command result on Linux or macOS
+        if: ${{ runner.os != 'Windows' && steps.unity_test_unix.outputs.exit_code == '0' }}
+        run: |
+          set -euo pipefail
+
+          json_path="${GITHUB_WORKSPACE}/artifacts/unity/${{ matrix.os_name }}/command-result.json"
+          jq -e '
+            .status == "ok"
+            and .exitCode == 0
+            and .payload.result == "pass"
+          ' "${json_path}" > /dev/null
+        shell: bash
+
+      - name: Validate Unity command result on Windows
+        if: ${{ runner.os == 'Windows' && steps.unity_test_windows.outputs.exit_code == '0' }}
+        run: |
+          $jsonPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/unity/${{ matrix.os_name }}/command-result.json'
+          $result = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
+
+          if ($result.status -ne 'ok' -or $result.exitCode -ne 0 -or $result.payload.result -ne 'pass') {
+            throw "Unity command result did not report pass."
+          }
+        shell: pwsh
 
       - name: Fail when Unity tests fail on Linux or macOS
         if: ${{ runner.os != 'Windows' && steps.unity_test_unix.outputs.exit_code != '0' }}
