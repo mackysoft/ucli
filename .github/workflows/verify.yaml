@@ -239,7 +239,8 @@ jobs:
     needs:
       - changes
       - access_guard
-    if: ${{ needs.changes.outputs.needs_unity == 'true' && needs.access_guard.result == 'success' }}
+      - dotnet
+    if: ${{ needs.changes.outputs.needs_unity == 'true' && needs.access_guard.result == 'success' && (needs.changes.outputs.needs_dotnet != 'true' || needs.dotnet.result == 'success') }}
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 90
 
