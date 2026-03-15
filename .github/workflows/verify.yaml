@@ -212,7 +212,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
@@ -228,7 +228,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dotnet-test-results-${{ matrix.os_name }}
           path: artifacts/test-results/${{ matrix.os_name }}
@@ -286,8 +286,35 @@ jobs:
           brew install mono
         shell: bash
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
+      - name: Setup NuGet on Linux or macOS
+        if: ${{ runner.os != 'Windows' }}
+        run: |
+          set -euo pipefail
+
+          nuget_dir="${RUNNER_TEMP}/nuget"
+          mkdir -p "${nuget_dir}"
+          curl --fail --location --silent --show-error \
+            "https://dist.nuget.org/win-x86-commandline/v7.3.0/nuget.exe" \
+            --output "${nuget_dir}/nuget.exe"
+          cat <<'EOF' > "${nuget_dir}/nuget"
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mono "$(dirname "$0")/nuget.exe" "$@"
+          EOF
+          chmod +x "${nuget_dir}/nuget"
+          echo "${nuget_dir}" >> "${GITHUB_PATH}"
+        shell: bash
+
+      - name: Setup NuGet on Windows
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          $nugetDir = Join-Path $env:RUNNER_TEMP 'nuget'
+          New-Item -ItemType Directory -Force -Path $nugetDir | Out-Null
+          Invoke-WebRequest `
+            -Uri 'https://dist.nuget.org/win-x86-commandline/v7.3.0/nuget.exe' `
+            -OutFile (Join-Path $nugetDir 'nuget.exe')
+          Add-Content -Path $env:GITHUB_PATH -Value $nugetDir
+        shell: pwsh
 
       - name: Setup Unity Editor
         id: unity_setup
@@ -304,7 +331,7 @@ jobs:
           password: ${{ secrets.UNITY_PASSWORD }}
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
@@ -318,7 +345,7 @@ jobs:
         shell: bash
 
       - name: Cache Unity Library
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: src/Ucli.Unity/Library
           key: ${{ runner.os }}-unity-library-${{ hashFiles('src/Ucli.Unity/ProjectSettings/ProjectVersion.txt', 'src/Ucli.Unity/Packages/manifest.json', 'src/Ucli.Unity/Packages/packages-lock.json', 'src/Ucli.Unity/Assets/packages.config') }}
@@ -401,7 +428,7 @@ jobs:
 
       - name: Upload Unity artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unity-test-results-${{ matrix.os_name }}
           include-hidden-files: true
@@ -467,7 +494,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
@@ -483,7 +510,7 @@ jobs:
 
       - name: Upload contracts package
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: contracts-package-artifacts
           path: artifacts/packages
