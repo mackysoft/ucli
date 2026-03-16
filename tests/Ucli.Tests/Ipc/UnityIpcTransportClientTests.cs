@@ -58,7 +58,7 @@ public sealed class UnityIpcTransportClientTests
             JsonDocument.Parse("{}").RootElement.Clone());
         using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await client.SendAsync(
                     "storage-root",

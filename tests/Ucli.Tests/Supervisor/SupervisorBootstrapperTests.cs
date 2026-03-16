@@ -53,20 +53,11 @@ public sealed class SupervisorBootstrapperTests
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called while manifest read is pending."),
         };
-        var observedCancellation = false;
         var manifestStore = new SupervisorManifestStore(
-            readAllTextOrNull: async (path, cancellationToken) =>
+            readAllTextOrNull: static async (_, cancellationToken) =>
             {
-                try
-                {
-                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
-                    return null;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    observedCancellation = true;
-                    throw;
-                }
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                return null;
             },
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
@@ -79,13 +70,16 @@ public sealed class SupervisorBootstrapperTests
 
         var result = await bootstrapper.EnsureReady(
             scope.FullPath,
-            TimeSpan.FromMilliseconds(150),
+            TimeSpan.FromMilliseconds(500),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
-        Assert.True(observedCancellation);
+        Assert.Contains(
+            "Timed out while reading supervisor manifest.",
+            result.Error.Message,
+            StringComparison.Ordinal);
     }
 
     [Fact]

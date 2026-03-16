@@ -1,0 +1,572 @@
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+
+    outputs:
+      needs_dotnet: ${{ steps.detect.outputs.needs_dotnet }}
+      needs_unity: ${{ steps.detect.outputs.needs_unity }}
+      needs_contracts_pack: ${{ steps.detect.outputs.needs_contracts_pack }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed scopes
+        id: detect
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" || "${EVENT_NAME}" == "merge_group" ]]; then
+            echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
+            echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
+            echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
+            echo "Full verification requested for ${EVENT_NAME}."
+            exit 0
+          fi
+
+          base_sha=""
+          head_sha=""
+          compare_head_sha=""
+          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            base_sha="${PR_BASE_SHA}"
+            head_sha="${PR_HEAD_SHA}"
+          elif [[ "${EVENT_NAME}" == "push" ]]; then
+            base_sha="${PUSH_BEFORE_SHA}"
+            head_sha="${CURRENT_SHA}"
+            if [[ -z "${base_sha}" || "${base_sha}" =~ ^0+$ ]]; then
+              echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
+              echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
+              echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
+              echo "Initial push detected. Full verification required."
+              exit 0
+            fi
+          else
+            echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
+            echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
+            echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
+            echo "Unsupported event '${EVENT_NAME}' fell back to full verification."
+            exit 0
+          fi
+
+          if ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
+            echo "Base commit '${base_sha}' is unavailable. Full verification required."
+            echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
+            echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
+            echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          compare_head_sha="${head_sha}"
+          if ! git cat-file -e "${compare_head_sha}^{commit}" 2>/dev/null; then
+            if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+              compare_head_sha="HEAD"
+            else
+              echo "Head commit '${head_sha}' is unavailable. Full verification required."
+              echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
+              echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
+              echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          fi
+
+          diff_base_sha="${base_sha}"
+          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            if ! diff_base_sha="$(git merge-base "${base_sha}" "${compare_head_sha}")"; then
+              echo "Merge base could not be resolved for '${base_sha}' and '${compare_head_sha}'. Full verification required."
+              echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
+              echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
+              echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          fi
+
+          needs_dotnet=false
+          needs_unity=false
+          needs_contracts_pack=false
+
+          changed_files="$(
+            git diff --name-only "${diff_base_sha}" "${compare_head_sha}"
+          )"
+
+          while IFS= read -r file; do
+            [[ -z "${file}" ]] && continue
+
+            case "${file}" in
+              src/Ucli/*|src/Ucli.Contracts/*|tests/*|Ucli.slnx|.editorconfig|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
+                needs_dotnet=true
+                ;;
+            esac
+
+            case "${file}" in
+              src/Ucli/*|src/Ucli.Unity/*|src/Ucli.Contracts/*|scripts/update-local-contracts-package.sh|.github/workflows/verify.yaml)
+                needs_unity=true
+                ;;
+            esac
+
+            case "${file}" in
+              src/Ucli.Contracts/*|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
+                needs_contracts_pack=true
+                ;;
+            esac
+          done <<< "${changed_files}"
+
+          echo "Changed files:"
+          if [[ -n "${changed_files}" ]]; then
+            printf '%s\n' "${changed_files}"
+          else
+            echo "(none)"
+          fi
+
+          echo "needs_dotnet=${needs_dotnet}" >> "${GITHUB_OUTPUT}"
+          echo "needs_unity=${needs_unity}" >> "${GITHUB_OUTPUT}"
+          echo "needs_contracts_pack=${needs_contracts_pack}" >> "${GITHUB_OUTPUT}"
+
+  access_guard:
+    name: access-guard
+    needs: changes
+    if: ${{ needs.changes.outputs.needs_unity == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate Unity workflow access
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${EVENT_NAME}" != "pull_request" ]]; then
+            echo "Unity verification is allowed for ${EVENT_NAME}."
+            exit 0
+          fi
+
+          if [[ "${HEAD_REPOSITORY}" != "${REPOSITORY}" ]]; then
+            echo "Unity verification is restricted to branches in ${REPOSITORY}. Actual head repository: ${HEAD_REPOSITORY}" >&2
+            exit 1
+          fi
+
+          case "${AUTHOR_ASSOCIATION}" in
+            OWNER|MEMBER|COLLABORATOR)
+              echo "Unity verification is allowed for author association ${AUTHOR_ASSOCIATION}."
+              ;;
+            *)
+              echo "Unity verification requires OWNER, MEMBER, or COLLABORATOR. Actual author association: ${AUTHOR_ASSOCIATION}" >&2
+              exit 1
+              ;;
+          esac
+
+  dotnet:
+    name: dotnet (${{ matrix.os_name }})
+    needs: changes
+    if: ${{ needs.changes.outputs.needs_dotnet == 'true' }}
+    runs-on: ${{ matrix.runs_on }}
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runs_on: ubuntu-latest
+            os_name: linux
+          - runs_on: windows-latest
+            os_name: windows
+          - runs_on: macos-latest
+            os_name: macos
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Restore
+        run: dotnet restore Ucli.slnx
+
+      - name: Build
+        run: dotnet build Ucli.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Ucli.slnx --configuration Release --no-build --logger "trx;LogFileName=${{ matrix.os_name }}.trx" --results-directory artifacts/test-results/${{ matrix.os_name }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotnet-test-results-${{ matrix.os_name }}
+          path: artifacts/test-results/${{ matrix.os_name }}
+          if-no-files-found: warn
+
+  unity:
+    name: unity (${{ matrix.os_name }})
+    needs:
+      - changes
+      - access_guard
+      - dotnet
+    if: ${{ needs.changes.outputs.needs_unity == 'true' && needs.access_guard.result == 'success' && (needs.changes.outputs.needs_dotnet != 'true' || needs.dotnet.result == 'success') }}
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runs_on: ubuntu-latest
+            os_name: linux
+            cache_installation: true
+          - runs_on: windows-latest
+            os_name: windows
+            cache_installation: false
+          - runs_on: macos-latest
+            os_name: macos
+            cache_installation: true
+
+    env:
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Mono on Linux
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes mono-complete
+        shell: bash
+
+      - name: Setup Mono on macOS
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          set -euo pipefail
+          brew install mono
+        shell: bash
+
+      - name: Setup NuGet on Linux or macOS
+        if: ${{ runner.os != 'Windows' }}
+        run: |
+          set -euo pipefail
+
+          nuget_dir="${RUNNER_TEMP}/nuget"
+          mkdir -p "${nuget_dir}"
+          curl --fail --location --silent --show-error \
+            "https://dist.nuget.org/win-x86-commandline/v7.3.0/nuget.exe" \
+            --output "${nuget_dir}/nuget.exe"
+          cat <<'EOF' > "${nuget_dir}/nuget"
+          #!/usr/bin/env bash
+          set -euo pipefail
+          mono "$(dirname "$0")/nuget.exe" "$@"
+          EOF
+          chmod +x "${nuget_dir}/nuget"
+          echo "${nuget_dir}" >> "${GITHUB_PATH}"
+        shell: bash
+
+      - name: Setup NuGet on Windows
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          $nugetDir = Join-Path $env:RUNNER_TEMP 'nuget'
+          New-Item -ItemType Directory -Force -Path $nugetDir | Out-Null
+          Invoke-WebRequest `
+            -Uri 'https://dist.nuget.org/win-x86-commandline/v7.3.0/nuget.exe' `
+            -OutFile (Join-Path $nugetDir 'nuget.exe')
+          Add-Content -Path $env:GITHUB_PATH -Value $nugetDir
+        shell: pwsh
+
+      - name: Setup Unity Editor
+        id: unity_setup
+        uses: buildalon/unity-setup@v2
+        with:
+          version-file: src/Ucli.Unity/ProjectSettings/ProjectVersion.txt
+          cache-installation: ${{ matrix.cache_installation }}
+
+      - name: Activate Unity license
+        uses: buildalon/activate-unity-license@v2
+        with:
+          license: personal
+          username: ${{ secrets.UNITY_EMAIL }}
+          password: ${{ secrets.UNITY_PASSWORD }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Restore uCLI
+        run: dotnet restore src/Ucli/Ucli.csproj
+        shell: bash
+
+      - name: Build uCLI
+        run: dotnet build src/Ucli/Ucli.csproj --configuration Release --no-restore
+        shell: bash
+
+      - name: Cache Unity Library
+        uses: actions/cache@v5
+        with:
+          path: src/Ucli.Unity/Library
+          key: ${{ runner.os }}-unity-library-${{ hashFiles('src/Ucli.Unity/ProjectSettings/ProjectVersion.txt', 'src/Ucli.Unity/Packages/manifest.json', 'src/Ucli.Unity/Packages/packages-lock.json', 'src/Ucli.Unity/Assets/packages.config') }}
+          restore-keys: |
+            ${{ runner.os }}-unity-library-
+
+      - name: Restore Unity dependencies
+        run: ./scripts/update-local-contracts-package.sh --prune
+        shell: bash
+
+      - name: Run Unity EditMode tests on Linux or macOS
+        id: unity_test_unix
+        if: ${{ runner.os != 'Windows' }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+
+          result_dir="${GITHUB_WORKSPACE}/artifacts/unity/${{ matrix.os_name }}"
+          json_path="${result_dir}/command-result.json"
+          stderr_path="${result_dir}/command-stderr.log"
+          mkdir -p "${result_dir}"
+
+          set +e
+          dotnet "${GITHUB_WORKSPACE}/src/Ucli/bin/Release/net8.0/MackySoft.Ucli.dll" test run \
+            --projectPath "${GITHUB_WORKSPACE}/src/Ucli.Unity" \
+            --mode oneshot \
+            --unityEditorPath "${{ steps.unity_setup.outputs.unity-editor-path }}" \
+            --testPlatform editmode \
+            --assemblyName "MackySoft.Ucli.Unity.Tests.Editor" \
+            --assemblyName "MackySoft.Ucli.Unity.Sandbox.Tests.Editor" \
+            --timeout 1800000 \
+            > "${json_path}" 2> "${stderr_path}"
+          exit_code=$?
+          set -e
+
+          if [[ -s "${stderr_path}" ]]; then
+            cat "${stderr_path}"
+          fi
+
+          if [[ -s "${json_path}" ]]; then
+            cat "${json_path}"
+          fi
+
+          echo "exit_code=${exit_code}" >> "${GITHUB_OUTPUT}"
+        shell: bash
+
+      - name: Run Unity EditMode tests on Windows
+        id: unity_test_windows
+        if: ${{ runner.os == 'Windows' }}
+        continue-on-error: true
+        run: |
+          $resultDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/unity/${{ matrix.os_name }}'
+          $jsonPath = Join-Path $resultDir 'command-result.json'
+          $stderrPath = Join-Path $resultDir 'command-stderr.log'
+          $ucliDllPath = Join-Path $env:GITHUB_WORKSPACE 'src/Ucli/bin/Release/net8.0/MackySoft.Ucli.dll'
+          New-Item -ItemType Directory -Force -Path $resultDir | Out-Null
+
+          & dotnet $ucliDllPath test run `
+            --projectPath (Join-Path $env:GITHUB_WORKSPACE 'src/Ucli.Unity') `
+            --mode oneshot `
+            --unityEditorPath '${{ steps.unity_setup.outputs.unity-editor-path }}' `
+            --testPlatform editmode `
+            --assemblyName 'MackySoft.Ucli.Unity.Tests.Editor' `
+            --assemblyName 'MackySoft.Ucli.Unity.Sandbox.Tests.Editor' `
+            --timeout 1800000 `
+            1> $jsonPath 2> $stderrPath
+
+          $exitCode = $LASTEXITCODE
+
+          if ((Test-Path -Path $stderrPath) -and ((Get-Item -Path $stderrPath).Length -gt 0)) {
+            Get-Content -Path $stderrPath
+          }
+
+          if ((Test-Path -Path $jsonPath) -and ((Get-Item -Path $jsonPath).Length -gt 0)) {
+            Get-Content -Path $jsonPath
+          }
+
+          "exit_code=$exitCode" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Upload Unity artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unity-test-results-${{ matrix.os_name }}
+          include-hidden-files: true
+          path: |
+            artifacts/unity/${{ matrix.os_name }}
+            .ucli
+          if-no-files-found: warn
+
+      - name: Validate Unity command result on Linux or macOS
+        if: ${{ runner.os != 'Windows' && steps.unity_test_unix.outputs.exit_code == '0' }}
+        run: |
+          set -euo pipefail
+
+          json_path="${GITHUB_WORKSPACE}/artifacts/unity/${{ matrix.os_name }}/command-result.json"
+          jq -e '
+            .status == "ok"
+            and .exitCode == 0
+            and .payload.result == "pass"
+          ' "${json_path}" > /dev/null
+        shell: bash
+
+      - name: Validate Unity command result on Windows
+        if: ${{ runner.os == 'Windows' && steps.unity_test_windows.outputs.exit_code == '0' }}
+        run: |
+          $jsonPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/unity/${{ matrix.os_name }}/command-result.json'
+          $result = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
+
+          if ($result.status -ne 'ok' -or $result.exitCode -ne 0 -or $result.payload.result -ne 'pass') {
+            throw "Unity command result did not report pass."
+          }
+        shell: pwsh
+
+      - name: Fail when Unity tests fail on Linux or macOS
+        if: ${{ runner.os != 'Windows' && steps.unity_test_unix.outputs.exit_code != '0' }}
+        run: |
+          echo "Unity EditMode tests failed with exit code ${{ steps.unity_test_unix.outputs.exit_code }}." >&2
+          exit 1
+        shell: bash
+
+      - name: Fail when Unity tests fail on Windows
+        if: ${{ runner.os == 'Windows' && steps.unity_test_windows.outputs.exit_code != '0' }}
+        run: |
+          Write-Error "Unity EditMode tests failed with exit code ${{ steps.unity_test_windows.outputs.exit_code }}."
+        shell: pwsh
+
+  contracts_pack:
+    name: contracts-pack
+    needs: changes
+    if: ${{ needs.changes.outputs.needs_contracts_pack == 'true' }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Restore contracts
+        run: dotnet restore src/Ucli.Contracts/Ucli.Contracts.csproj
+
+      - name: Build contracts
+        run: dotnet build src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-restore
+
+      - name: Pack contracts
+        run: dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-build --output artifacts/packages
+
+      - name: Upload contracts package
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: contracts-package-artifacts
+          path: artifacts/packages
+          if-no-files-found: warn
+
+  required:
+    name: required
+    if: ${{ always() }}
+    needs:
+      - changes
+      - access_guard
+      - dotnet
+      - unity
+      - contracts_pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Evaluate required jobs
+        shell: bash
+        env:
+          NEEDS_DOTNET: ${{ needs.changes.outputs.needs_dotnet }}
+          NEEDS_UNITY: ${{ needs.changes.outputs.needs_unity }}
+          NEEDS_CONTRACTS_PACK: ${{ needs.changes.outputs.needs_contracts_pack }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          ACCESS_GUARD_RESULT: ${{ needs.access_guard.result }}
+          DOTNET_RESULT: ${{ needs.dotnet.result }}
+          UNITY_RESULT: ${{ needs.unity.result }}
+          CONTRACTS_PACK_RESULT: ${{ needs.contracts_pack.result }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${CHANGES_RESULT}" != "success" ]]; then
+            echo "changes job did not succeed. Actual result: ${CHANGES_RESULT}" >&2
+            exit 1
+          fi
+
+          if [[ "${NEEDS_DOTNET}" == "true" && "${DOTNET_RESULT}" != "success" ]]; then
+            echo "dotnet job is required but finished with ${DOTNET_RESULT}." >&2
+            exit 1
+          fi
+
+          if [[ "${NEEDS_UNITY}" == "true" ]]; then
+            if [[ "${ACCESS_GUARD_RESULT}" != "success" ]]; then
+              echo "access-guard is required for Unity verification but finished with ${ACCESS_GUARD_RESULT}." >&2
+              exit 1
+            fi
+
+            if [[ "${UNITY_RESULT}" != "success" ]]; then
+              echo "unity job is required but finished with ${UNITY_RESULT}." >&2
+              exit 1
+            fi
+          fi
+
+          if [[ "${NEEDS_CONTRACTS_PACK}" == "true" && "${CONTRACTS_PACK_RESULT}" != "success" ]]; then
+            echo "contracts-pack job is required but finished with ${CONTRACTS_PACK_RESULT}." >&2
+            exit 1
+          fi
+
+          echo "All required verification jobs completed successfully."
