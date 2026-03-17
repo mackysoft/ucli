@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
@@ -61,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                using var serverStream = PipeServerStreamFactory.Create(address);
+                using var serverStream = PipeServerStreamFactory.Create(address, daemonLogger);
 
                 lock (syncRoot)
                 {
@@ -125,7 +126,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static class PipeServerStreamFactory
         {
-            public static NamedPipeServerStream Create (string address)
+            public static NamedPipeServerStream Create (
+                string address,
+                IDaemonLogger daemonLogger)
             {
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
@@ -137,7 +140,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                         PipeOptions.Asynchronous);
                 }
 
-                var pipeSecurity = CreateCurrentUserOnlySecurity();
+                if (!TryCreateCurrentUserOnlySecurity(out var pipeSecurity, out var failureReason))
+                {
+                    daemonLogger.Warning(
+                        DaemonLogCategories.Transport,
+                        "Named pipe listener could not resolve the current Windows user SID. Falling back to default pipe security.",
+                        failureReason);
+                    return new NamedPipeServerStream(
+                        address,
+                        PipeDirection.InOut,
+                        NamedPipeServerStream.MaxAllowedServerInstances,
+                        PipeTransmissionMode.Byte,
+                        PipeOptions.Asynchronous);
+                }
+
                 return new NamedPipeServerStream(
                     address,
                     PipeDirection.InOut,
@@ -149,23 +165,144 @@ namespace MackySoft.Ucli.Unity.Ipc
                     pipeSecurity);
             }
 
-            private static PipeSecurity CreateCurrentUserOnlySecurity ()
+            private static bool TryCreateCurrentUserOnlySecurity (
+                out PipeSecurity pipeSecurity,
+                out string failureReason)
             {
-                var pipeSecurity = new PipeSecurity();
+                pipeSecurity = null;
+                if (!TryResolveCurrentUserSid(out var currentUserSid, out failureReason))
+                {
+                    return false;
+                }
+
+                pipeSecurity = new PipeSecurity();
                 pipeSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
                 pipeSecurity.AddAccessRule(new PipeAccessRule(
-                    GetCurrentUserSid(),
+                    currentUserSid,
                     PipeAccessRights.FullControl,
                     AccessControlType.Allow));
-                return pipeSecurity;
+                failureReason = string.Empty;
+                return true;
             }
 
-            private static SecurityIdentifier GetCurrentUserSid ()
+            private static bool TryResolveCurrentUserSid (
+                out SecurityIdentifier securityIdentifier,
+                out string failureReason)
             {
-                using var identity = WindowsIdentity.GetCurrent();
-                return identity.User
-                    ?? identity.Owner
-                    ?? throw new InvalidOperationException("Current Windows user SID could not be resolved for named pipe access boundary.");
+                securityIdentifier = null;
+                var errors = new List<string>(3);
+
+                try
+                {
+                    using var identity = WindowsIdentity.GetCurrent();
+                    if (TryGetIdentitySecurityIdentifier(identity, static currentIdentity => currentIdentity.User, "WindowsIdentity.User", out securityIdentifier, out var error))
+                    {
+                        failureReason = string.Empty;
+                        return true;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        errors.Add(error);
+                    }
+
+                    if (TryGetIdentitySecurityIdentifier(identity, static currentIdentity => currentIdentity.Owner, "WindowsIdentity.Owner", out securityIdentifier, out error))
+                    {
+                        failureReason = string.Empty;
+                        return true;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        errors.Add(error);
+                    }
+                }
+                catch (Exception exception) when (exception is InvalidOperationException or NotImplementedException or PlatformNotSupportedException)
+                {
+                    errors.Add($"WindowsIdentity.GetCurrent failed: {exception.GetType().Name}: {exception.Message}");
+                }
+
+                if (TryTranslateCurrentUserAccount(out securityIdentifier, out var accountError))
+                {
+                    failureReason = string.Empty;
+                    return true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(accountError))
+                {
+                    errors.Add(accountError);
+                }
+
+                failureReason = errors.Count == 0
+                    ? "Current Windows user SID could not be resolved."
+                    : string.Join(" | ", errors);
+                return false;
+            }
+
+            private static bool TryGetIdentitySecurityIdentifier (
+                WindowsIdentity identity,
+                Func<WindowsIdentity, IdentityReference> identityReferenceSelector,
+                string sourceName,
+                out SecurityIdentifier securityIdentifier,
+                out string failureReason)
+            {
+                securityIdentifier = null;
+                try
+                {
+                    var identityReference = identityReferenceSelector(identity);
+                    if (identityReference == null)
+                    {
+                        failureReason = $"{sourceName} returned null.";
+                        return false;
+                    }
+
+                    if (identityReference is SecurityIdentifier typedSecurityIdentifier)
+                    {
+                        securityIdentifier = typedSecurityIdentifier;
+                        failureReason = string.Empty;
+                        return true;
+                    }
+
+                    securityIdentifier = (SecurityIdentifier)identityReference.Translate(typeof(SecurityIdentifier));
+                    failureReason = string.Empty;
+                    return true;
+                }
+                catch (Exception exception) when (exception is IdentityNotMappedException or InvalidOperationException or InvalidCastException or NotImplementedException or PlatformNotSupportedException)
+                {
+                    failureReason = $"{sourceName} failed: {exception.GetType().Name}: {exception.Message}";
+                    return false;
+                }
+            }
+
+            private static bool TryTranslateCurrentUserAccount (
+                out SecurityIdentifier securityIdentifier,
+                out string failureReason)
+            {
+                securityIdentifier = null;
+
+                var userName = Environment.UserName;
+                if (string.IsNullOrWhiteSpace(userName))
+                {
+                    failureReason = "Environment.UserName returned an empty user name.";
+                    return false;
+                }
+
+                var domainName = Environment.UserDomainName;
+                var accountName = string.IsNullOrWhiteSpace(domainName)
+                    ? userName
+                    : string.Concat(domainName, "\\", userName);
+
+                try
+                {
+                    securityIdentifier = (SecurityIdentifier)new NTAccount(accountName).Translate(typeof(SecurityIdentifier));
+                    failureReason = string.Empty;
+                    return true;
+                }
+                catch (Exception exception) when (exception is IdentityNotMappedException or InvalidCastException or InvalidOperationException or NotImplementedException or PlatformNotSupportedException)
+                {
+                    failureReason = $"NTAccount translation failed for '{accountName}': {exception.GetType().Name}: {exception.Message}";
+                    return false;
+                }
             }
         }
     }

@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Tests
             startupCoordinator.Complete();
             cancellationTokenSource.Cancel();
 
-            await waitTask;
+            await WaitForTask(waitTask, TimeSpan.FromSeconds(5));
         });
 
         [UnityTest]
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await UniTask.Yield();
             startupCoordinator.Complete();
 
-            await waitTask;
+            await WaitForTask(waitTask, TimeSpan.FromSeconds(5));
         });
 
         [UnityTest]

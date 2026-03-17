@@ -68,20 +68,27 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
-            var completedTask = await Task.WhenAny(startupTask, cancellationTask);
+            var cancellationSignalTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cancellationRegistration = cancellationToken.Register(static state =>
+            {
+                var taskSource = (TaskCompletionSource<bool>)state;
+                taskSource.TrySetResult(true);
+            }, cancellationSignalTaskSource);
+
+            if (startupTask.IsCompleted)
+            {
+                await startupTask;
+                return;
+            }
+
+            Task completedTask = await Task.WhenAny(startupTask, cancellationSignalTaskSource.Task);
             if (!ReferenceEquals(completedTask, startupTask) && !startupTask.IsCompleted)
             {
                 // NOTE:
-                // Caller cancellation can race with startup completion. Give one short scheduler-driven grace window
-                // so completion queued on another context can win deterministically.
-                var raceDeadlineTicks = DateTime.UtcNow.Ticks + StartupCompletionRaceGracePeriod.Ticks;
-                while (!startupTask.IsCompleted && DateTime.UtcNow.Ticks < raceDeadlineTicks)
-                {
-                    await Task.Yield();
-                }
-
-                if (!startupTask.IsCompleted)
+                // Caller cancellation can race with startup completion. Wait one bounded wall-clock grace period so
+                // completion queued on another context can still win without relying on repeated Task.Yield scheduling.
+                completedTask = await Task.WhenAny(startupTask, Task.Delay(StartupCompletionRaceGracePeriod));
+                if (!ReferenceEquals(completedTask, startupTask) && !startupTask.IsCompleted)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                 }
