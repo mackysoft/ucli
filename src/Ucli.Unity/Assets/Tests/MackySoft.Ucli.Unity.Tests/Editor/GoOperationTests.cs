@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -10,15 +12,16 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class GoOperationTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Call_WhenScenePathIsValid_CreatesRootGameObjectAndStoresAlias ()
+        public IEnumerator Create_Call_WhenScenePathIsValid_CreatesRootGameObjectAndStoresAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -52,11 +55,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Call_WhenParentUsesAlias_CreatesChildUnderParent ()
+        public IEnumerator Create_Call_WhenParentUsesAlias_CreatesChildUnderParent () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -93,11 +96,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Call_WhenParentUsesSelector_CreatesChildUnderParent ()
+        public IEnumerator Create_Call_WhenParentUsesSelector_CreatesChildUnderParent () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -130,11 +133,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Plan_WhenAliasIsSpecified_StoresTemporaryAlias ()
+        public IEnumerator Create_Plan_WhenAliasIsSpecified_StoresTemporaryAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -167,11 +170,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Validate_WhenSceneAndParentAreBothSpecified_ReturnsInvalidArgument ()
+        public IEnumerator Create_Validate_WhenSceneAndParentAreBothSpecified_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             var requestOperation = CreateOperation(
@@ -190,11 +193,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Validate_WhenSceneAndParentAreBothMissing_ReturnsInvalidArgument ()
+        public IEnumerator Create_Validate_WhenSceneAndParentAreBothMissing_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             var requestOperation = CreateOperation(
@@ -208,11 +211,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Validate_WhenParentResolvesAsset_ReturnsInvalidArgument ()
+        public IEnumerator Create_Validate_WhenParentResolvesAsset_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -246,11 +249,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Describe_Plan_WhenTargetUsesAlias_ReturnsSuccess ()
+        public IEnumerator Describe_Plan_WhenTargetUsesAlias_ReturnsSuccess () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoDescribeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -283,11 +286,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Describe_Plan_WhenTargetUsesSelector_ReturnsSuccess ()
+        public IEnumerator Describe_Plan_WhenTargetUsesSelector_ReturnsSuccess () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoDescribeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -322,11 +325,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Describe_Validate_WhenDepthIsNegative_ReturnsInvalidArgument ()
+        public IEnumerator Describe_Validate_WhenDepthIsNegative_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoDescribeOperation();
             var requestOperation = CreateOperation(
@@ -344,11 +347,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-describe");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Describe_Validate_WhenTargetResolvesAsset_ReturnsInvalidArgument ()
+        public IEnumerator Describe_Validate_WhenTargetResolvesAsset_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoDescribeOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -381,7 +384,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-        }
+                });
 
         [Test]
         [Category("Size.Small")]

@@ -54,6 +54,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var accessBoundary = new UnixSocketAccessBoundary(address);
+            UnixSocketPathUtilities.ValidateSocketPathLength(address, nameof(address));
             accessBoundary.PrepareForBind();
 
             using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);

@@ -1,9 +1,11 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Unity.Execution;
@@ -13,15 +15,16 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ProjectPhaseOperationTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Refresh_Validate_WhenArgsContainUnknownProperty_ReturnsInvalidArgument ()
+        public IEnumerator Refresh_Validate_WhenArgsContainUnknownProperty_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectRefreshPhaseOperation();
             var requestOperation = CreateOperation(
@@ -35,11 +38,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-refresh");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Refresh_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources ()
+        public IEnumerator Refresh_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectRefreshPhaseOperation();
             var requestOperation = CreateOperation(
@@ -51,11 +54,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Refresh_Call_WhenExternalAssetIsCreated_ImportsAssetAndReturnsTouchedAsset ()
+        public IEnumerator Refresh_Call_WhenExternalAssetIsCreated_ImportsAssetAndReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectRefreshPhaseOperation();
             var assetPath = CreateTemporaryTextAssetPath();
@@ -84,11 +87,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 DeleteAssetAndFiles(assetPath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Save_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources ()
+        public IEnumerator Save_Plan_WhenArgsAreEmpty_ReturnsNoTouchedResources () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectSavePhaseOperation();
             var requestOperation = CreateOperation(
@@ -100,11 +103,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Save_Call_WhenScriptableObjectAssetIsDirty_SavesAssetAndReturnsTouchedAsset ()
+        public IEnumerator Save_Call_WhenScriptableObjectAssetIsDirty_SavesAssetAndReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectSavePhaseOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -136,11 +139,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScriptableObject.DestroyImmediate(asset, allowDestroyingAssets: true);
                 DeleteAssetAndFiles(assetPath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Save_Call_WhenOnlySceneIsDirty_DoesNotSaveScene ()
+        public IEnumerator Save_Call_WhenOnlySceneIsDirty_DoesNotSaveScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectSavePhaseOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -168,7 +171,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
         private static string CreateTemporaryTextAssetPath ()
         {

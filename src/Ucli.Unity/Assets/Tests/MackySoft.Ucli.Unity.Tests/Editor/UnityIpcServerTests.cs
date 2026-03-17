@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -158,6 +159,31 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(File.Exists(address), Is.False);
             Assert.That(Directory.Exists(socketDirectoryPath), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator UnixDomainSocketListener_Run_WhenAddressExceedsSupportedByteLength_ThrowsArgumentException () => UniTask.ToCoroutine(async () =>
+        {
+            if (Application.platform == RuntimePlatform.WindowsEditor)
+            {
+                return;
+            }
+
+            var address = CreateSocketPathWithByteLength(IpcTransportConstraints.UnixDomainSocketPathMaxBytes + 1);
+            var listener = new UnixDomainSocketUnityIpcTransportListener();
+            var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
+            {
+                await listener.Run(
+                        address,
+                        new StubConnectionHandler(),
+                        () => { },
+                        CancellationToken.None)
+                    .AsUniTask();
+            });
+
+            Assert.That(exception.ParamName, Is.EqualTo("address"));
+            Assert.That(exception.Message, Does.Contain("Unix domain socket path exceeds"));
         });
 
         [UnityTest]
@@ -730,6 +756,18 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             return trimmedOutput;
+        }
+
+        private static string CreateSocketPathWithByteLength (int totalBytes)
+        {
+            var tempRoot = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var basePath = Path.Combine(tempRoot, "ucli-test-", UcliIpcEndpointNames.UnixSocketFileName);
+            var additionalBytes = totalBytes - Encoding.UTF8.GetByteCount(basePath);
+            Assert.That(additionalBytes, Is.GreaterThanOrEqualTo(0));
+            return Path.Combine(
+                tempRoot,
+                "ucli-test-" + new string('a', additionalBytes),
+                UcliIpcEndpointNames.UnixSocketFileName);
         }
 
         private sealed class StubDaemonShutdownSignal : IDaemonShutdownSignal

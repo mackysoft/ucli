@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -9,15 +11,16 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class SceneOperationTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Open_Call_WhenScenePathIsValid_OpensTargetScene ()
+        public IEnumerator Open_Call_WhenScenePathIsValid_OpensTargetScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneOpenOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -45,11 +48,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Save_Call_WhenSceneIsDirty_ReturnsChangedTrueAndSavesScene ()
+        public IEnumerator Save_Call_WhenSceneIsDirty_ReturnsChangedTrueAndSavesScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneSaveOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -79,11 +82,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Tree_Validate_WhenDepthIsNegative_ReturnsInvalidArgument ()
+        public IEnumerator Tree_Validate_WhenDepthIsNegative_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneTreeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -110,11 +113,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Tree_Plan_WhenDepthIsNull_AcceptsUnlimitedDepth ()
+        public IEnumerator Tree_Plan_WhenDepthIsNull_AcceptsUnlimitedDepth () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneTreeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -147,11 +150,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Tree_Plan_WhenDepthIsOmitted_AcceptsUnlimitedDepth ()
+        public IEnumerator Tree_Plan_WhenDepthIsOmitted_AcceptsUnlimitedDepth () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneTreeOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -179,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
         private static string CreateTemporaryScenePath ()
         {

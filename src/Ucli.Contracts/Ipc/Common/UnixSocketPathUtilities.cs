@@ -7,6 +7,29 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Provides deterministic unix-domain-socket fallback path utilities. </summary>
 public static class UnixSocketPathUtilities
 {
+    /// <summary> Validates one unix-domain-socket path against the shared byte-length limit. </summary>
+    /// <param name="socketPath"> The unix-domain-socket path to validate. </param>
+    /// <param name="paramName"> The parameter name used when validation fails. </param>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="socketPath" /> is empty or exceeds the shared byte-length limit. </exception>
+    public static void ValidateSocketPathLength (
+        string socketPath,
+        string paramName = "socketPath")
+    {
+        if (string.IsNullOrWhiteSpace(socketPath))
+        {
+            throw new ArgumentException("Socket path must not be empty.", paramName);
+        }
+
+        var socketPathByteCount = Encoding.UTF8.GetByteCount(socketPath);
+        if (socketPathByteCount > IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
+        {
+            throw new ArgumentException(
+                "Unix domain socket path exceeds the shared runtime-safe byte-length limit. " +
+                $"PathBytes={socketPathByteCount}, MaxBytes={IpcTransportConstraints.UnixDomainSocketPathMaxBytes}, Path={socketPath}",
+                paramName);
+        }
+    }
+
     /// <summary> Builds one deterministic fallback unix-domain-socket path under the current temp root. </summary>
     /// <param name="directoryPrefix"> The dedicated fallback directory prefix. </param>
     /// <param name="identitySource"> The stable identity source used for hashing. </param>
@@ -26,6 +49,9 @@ public static class UnixSocketPathUtilities
         }
 
         var normalizedTempRoot = NormalizeDirectoryPath(Path.GetTempPath());
+        // NOTE:
+        // Unity's embedded Mono rejects some boundary-length socket paths that are otherwise documented as valid.
+        // Keep one shared conservative limit so both the CLI runtime and Unity runtime can bind the same endpoint.
         var hashHex = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(identitySource));
         var basePath = Path.Combine(normalizedTempRoot, directoryPrefix, UcliIpcEndpointNames.UnixSocketFileName);
         var availableHashLength = IpcTransportConstraints.UnixDomainSocketPathMaxBytes - Encoding.UTF8.GetByteCount(basePath);
@@ -37,7 +63,9 @@ public static class UnixSocketPathUtilities
 
         var hashLength = Math.Min(hashHex.Length, availableHashLength);
         var directoryName = directoryPrefix + hashHex[..hashLength];
-        return Path.Combine(normalizedTempRoot, directoryName, UcliIpcEndpointNames.UnixSocketFileName);
+        var socketPath = Path.Combine(normalizedTempRoot, directoryName, UcliIpcEndpointNames.UnixSocketFileName);
+        ValidateSocketPathLength(socketPath);
+        return socketPath;
     }
 
     /// <summary> Deletes one empty fallback directory when the socket path uses the dedicated temp-root pattern. </summary>

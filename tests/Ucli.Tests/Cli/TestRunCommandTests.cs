@@ -29,16 +29,8 @@ public sealed class TestRunCommandTests
             testPlatform: "playmode",
             buildTarget: "Android",
             testFilter: "Name~Smoke",
-            testCategory:
-            [
-                "smoke",
-                "fast,nightly",
-            ],
-            assemblyName:
-            [
-                "MyGame.Tests.EditMode",
-                "MyGame.Tests.PlayMode",
-            ],
+            testCategory: "smoke, fast,nightly",
+            assemblyName: "MyGame.Tests.EditMode,MyGame.Tests.PlayMode",
             testSettingsPath: "/repo/UnityProject/ProjectSettings/TestSettings.json",
             timeout: 120,
             cancellationToken: cancellationTokenSource.Token));
@@ -56,10 +48,32 @@ public sealed class TestRunCommandTests
         Assert.Equal("Name~Smoke", input.TestFilter);
         var testCategories = Assert.IsType<string[]>(input.TestCategory);
         var assemblyNames = Assert.IsType<string[]>(input.AssemblyName);
-        Assert.Equal(["smoke", "fast,nightly"], testCategories);
+        Assert.Equal(["smoke", "fast", "nightly"], testCategories);
         Assert.Equal(["MyGame.Tests.EditMode", "MyGame.Tests.PlayMode"], assemblyNames);
         Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
         Assert.Equal(120, input.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SplitCommaSeparatedValues_WithCommaSeparatedValue_ReturnsTrimmedEntries ()
+    {
+        var values = TestRunCommand.SplitCommaSeparatedValues(
+            "MyGame.Tests.EditMode, MyGame.Tests.PlayMode");
+
+        Assert.NotNull(values);
+        Assert.Equal(
+            ["MyGame.Tests.EditMode", "MyGame.Tests.PlayMode"],
+            values);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SplitCommaSeparatedValues_WithNull_ReturnsNull ()
+    {
+        var values = TestRunCommand.SplitCommaSeparatedValues(null);
+
+        Assert.Null(values);
     }
 
     private sealed class StubTestRunService : ITestRunService

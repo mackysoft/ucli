@@ -1,19 +1,22 @@
 using System;
+using System.Collections;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestIdempotencyCoordinatorTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse ()
+        public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var executeCount = 0;
@@ -42,11 +45,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(firstResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(GetMarker(secondResponse), Is.EqualTo("first"));
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenSameRequestIdAndDifferentFingerprintAfterCompletion_ReturnsConflict ()
+        public IEnumerator Execute_WhenSameRequestIdAndDifferentFingerprintAfterCompletion_ReturnsConflict () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var executeCount = 0;
@@ -85,11 +88,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
             Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse ()
+        public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var requestId = "req-1";
@@ -132,11 +135,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(waiterExecutionCount, Is.EqualTo(0));
             Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
             Assert.That(GetMarker(waiterResponse), Is.EqualTo("owner"));
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenWaiterCancellationRequestedDuringInFlight_ThrowsWithoutCancelingOwner ()
+        public IEnumerator Execute_WhenWaiterCancellationRequestedDuringInFlight_ThrowsWithoutCancelingOwner () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var requestId = "req-1";
@@ -184,11 +187,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(ownerExecutionCount, Is.EqualTo(1));
             Assert.That(waiterExecutionCount, Is.EqualTo(0));
             Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting ()
+        public IEnumerator Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = new ExecuteRequestIdempotencyCoordinator();
             var requestId = "req-1";
@@ -225,11 +228,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             ownerRelease.TrySetResult(true);
             _ = await ownerTask;
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenEntryExpires_ReexecutesRequest ()
+        public IEnumerator Execute_WhenEntryExpires_ReexecutesRequest () => UniTask.ToCoroutine(async () =>
         {
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
             var coordinator = new ExecuteRequestIdempotencyCoordinator(
@@ -263,11 +266,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executeCount, Is.EqualTo(2));
             Assert.That(GetMarker(firstResponse), Is.EqualTo("first"));
             Assert.That(GetMarker(secondResponse), Is.EqualTo("second"));
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Execute_WhenCacheExceedsMaxEntries_EvictsOldestEntry ()
+        public IEnumerator Execute_WhenCacheExceedsMaxEntries_EvictsOldestEntry () => UniTask.ToCoroutine(async () =>
         {
             var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
             var coordinator = new ExecuteRequestIdempotencyCoordinator(
@@ -305,7 +308,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     createConflictResponse: () => CreateConflictResponse(requestId));
             }
-        }
+                });
 
         [Test]
         [Category("Size.Small")]
