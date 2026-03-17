@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
@@ -142,16 +143,12 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 if (!TryCreateCurrentUserOnlySecurity(out var pipeSecurity, out var failureReason))
                 {
-                    daemonLogger.Warning(
+                    daemonLogger.Error(
                         DaemonLogCategories.Transport,
-                        "Named pipe listener could not resolve the current Windows user SID. Falling back to default pipe security.",
+                        "Named pipe listener could not resolve the current Windows user SID. Refusing to start without an explicit current-user ACL.",
                         failureReason);
-                    return new NamedPipeServerStream(
-                        address,
-                        PipeDirection.InOut,
-                        NamedPipeServerStream.MaxAllowedServerInstances,
-                        PipeTransmissionMode.Byte,
-                        PipeOptions.Asynchronous);
+                    throw new InvalidOperationException(
+                        $"Named pipe listener could not resolve the current Windows user SID. Refusing to start without an explicit current-user ACL. {failureReason}");
                 }
 
                 return new NamedPipeServerStream(
@@ -233,6 +230,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                     errors.Add(accountError);
                 }
 
+                if (TryResolveCurrentUserSidFromAccessToken(out securityIdentifier, out var accessTokenError))
+                {
+                    failureReason = string.Empty;
+                    return true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(accessTokenError))
+                {
+                    errors.Add(accessTokenError);
+                }
+
                 failureReason = errors.Count == 0
                     ? "Current Windows user SID could not be resolved."
                     : string.Join(" | ", errors);
@@ -303,6 +311,122 @@ namespace MackySoft.Ucli.Unity.Ipc
                     failureReason = $"NTAccount translation failed for '{accountName}': {exception.GetType().Name}: {exception.Message}";
                     return false;
                 }
+            }
+
+            private static bool TryResolveCurrentUserSidFromAccessToken (
+                out SecurityIdentifier securityIdentifier,
+                out string failureReason)
+            {
+                securityIdentifier = null;
+
+                IntPtr accessTokenHandle = IntPtr.Zero;
+                IntPtr tokenUserBuffer = IntPtr.Zero;
+
+                try
+                {
+                    if (!OpenProcessToken(GetCurrentProcess(), TokenQueryAccess, out accessTokenHandle))
+                    {
+                        failureReason = CreateWin32FailureReason("OpenProcessToken");
+                        return false;
+                    }
+
+                    _ = GetTokenInformation(
+                        accessTokenHandle,
+                        TokenInformationClass.TokenUser,
+                        IntPtr.Zero,
+                        0,
+                        out var requiredBufferLength);
+
+                    var probeErrorCode = Marshal.GetLastWin32Error();
+                    if ((requiredBufferLength <= 0) && (probeErrorCode != ErrorInsufficientBuffer))
+                    {
+                        failureReason = CreateWin32FailureReason("GetTokenInformation probe", probeErrorCode);
+                        return false;
+                    }
+
+                    tokenUserBuffer = Marshal.AllocHGlobal(requiredBufferLength);
+                    if (!GetTokenInformation(
+                            accessTokenHandle,
+                            TokenInformationClass.TokenUser,
+                            tokenUserBuffer,
+                            requiredBufferLength,
+                            out _))
+                    {
+                        failureReason = CreateWin32FailureReason("GetTokenInformation");
+                        return false;
+                    }
+
+                    var tokenUser = Marshal.PtrToStructure<TokenUser>(tokenUserBuffer);
+                    if (tokenUser.UserSid == IntPtr.Zero)
+                    {
+                        failureReason = "GetTokenInformation(TokenUser) returned a null SID pointer.";
+                        return false;
+                    }
+
+                    securityIdentifier = new SecurityIdentifier(tokenUser.UserSid);
+                    failureReason = string.Empty;
+                    return true;
+                }
+                catch (Exception exception) when (exception is InvalidOperationException or InvalidCastException or PlatformNotSupportedException)
+                {
+                    failureReason = $"Access token SID resolution failed: {exception.GetType().Name}: {exception.Message}";
+                    return false;
+                }
+                finally
+                {
+                    if (tokenUserBuffer != IntPtr.Zero)
+                    {
+                        Marshal.FreeHGlobal(tokenUserBuffer);
+                    }
+
+                    if (accessTokenHandle != IntPtr.Zero)
+                    {
+                        CloseHandle(accessTokenHandle);
+                    }
+                }
+            }
+
+            private static string CreateWin32FailureReason (
+                string operationName,
+                int? errorCode = null)
+            {
+                var effectiveErrorCode = errorCode ?? Marshal.GetLastWin32Error();
+                return $"{operationName} failed with Win32 error {effectiveErrorCode}: {new Win32Exception(effectiveErrorCode).Message}";
+            }
+
+            [DllImport("advapi32.dll", SetLastError = true)]
+            private static extern bool GetTokenInformation (
+                IntPtr tokenHandle,
+                TokenInformationClass tokenInformationClass,
+                IntPtr tokenInformation,
+                int tokenInformationLength,
+                out int returnLength);
+
+            [DllImport("advapi32.dll", SetLastError = true)]
+            private static extern bool OpenProcessToken (
+                IntPtr processHandle,
+                uint desiredAccess,
+                out IntPtr tokenHandle);
+
+            [DllImport("kernel32.dll")]
+            private static extern IntPtr GetCurrentProcess ();
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool CloseHandle (IntPtr handle);
+
+            private const uint TokenQueryAccess = 0x0008;
+            private const int ErrorInsufficientBuffer = 122;
+
+            private enum TokenInformationClass
+            {
+                TokenUser = 1,
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            private readonly struct TokenUser
+            {
+                public readonly IntPtr UserSid;
+                public readonly uint Attributes;
             }
         }
     }
