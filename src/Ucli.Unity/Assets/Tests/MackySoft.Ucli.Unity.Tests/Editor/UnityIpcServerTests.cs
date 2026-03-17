@@ -266,7 +266,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-start-cancel");
             using var cancellationTokenSource = new CancellationTokenSource();
 
-            var startTask = server.Start(endpoint, cancellationTokenSource.Token).AsTask();
+            var startTask = server.Start(endpoint, cancellationTokenSource.Token);
             await blockingListener.RunEntered;
             cancellationTokenSource.Cancel();
 
@@ -723,11 +723,38 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(process, Is.Not.Null);
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();
-            await process.WaitForExitAsync();
+            await WaitForExit(process);
             var output = await outputTask;
             var error = await errorTask;
             Assert.That(process.ExitCode, Is.EqualTo(0), error);
             return NormalizeUnixFileMode(output);
+        }
+
+        private static Task WaitForExit (Process process)
+        {
+            if (process.HasExited)
+            {
+                return Task.CompletedTask;
+            }
+
+            var taskCompletionSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void OnExited (object sender, EventArgs args)
+            {
+                process.Exited -= OnExited;
+                taskCompletionSource.TrySetResult(null);
+            }
+
+            process.EnableRaisingEvents = true;
+            process.Exited += OnExited;
+
+            if (process.HasExited)
+            {
+                process.Exited -= OnExited;
+                return Task.CompletedTask;
+            }
+
+            return taskCompletionSource.Task;
         }
 
         private static string CreateStatArguments (string path)
