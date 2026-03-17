@@ -62,9 +62,12 @@ dotnet pack "src/Ucli.Contracts/Ucli.Contracts.csproj" \
   -o "src/Ucli.Unity/Packages/nuget-local-source" \
   --no-restore
 ```
-2. Unity 側の `MackySoft.Ucli.Contracts` 展開先を消して再復元する。
+2. Unity 側の NuGet 復元成果物を消して再復元する。
 ```bash
-rm -rf src/Ucli.Unity/Assets/Packages/MackySoft.Ucli.Contracts.*
+rm -rf src/Ucli.Unity/Assets/Packages
+mkdir -p src/Ucli.Unity/Assets/Packages
+rm -rf src/Ucli.Unity/.nuget-cache
+rm -rf src/Ucli.Unity/.nuget-packages
 nuget restore "src/Ucli.Unity/Assets/packages.config" \
   -PackagesDirectory "src/Ucli.Unity/Assets/Packages" \
   -ConfigFile "src/Ucli.Unity/Assets/NuGet.config" \

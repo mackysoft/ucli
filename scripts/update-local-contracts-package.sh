@@ -102,10 +102,17 @@ dotnet pack "${contracts_csproj}" \
   --no-restore \
   -p:PackageVersion="${package_version}"
 
-echo "[3/6] Remove extracted ${package_id} package from Unity Assets/Packages"
-rm -rf "${unity_packages_dir}/${package_id}."*
+echo "[3/7] Reset Unity NuGet restore outputs"
+# NOTE:
+# `Assets/Packages` and NuGetForUnity caches are generated restore outputs. Recreating the directory
+# avoids stale package versions lingering when `nuget restore` updates packages additively or when
+# prior restores used a different casing for the extracted directory name.
+rm -rf "${unity_packages_dir}"
+mkdir -p "${unity_packages_dir}"
+rm -rf "${repository_root}/src/Ucli.Unity/.nuget-cache"
+rm -rf "${repository_root}/src/Ucli.Unity/.nuget-packages"
 
-echo "[4/6] Restore Unity packages.config from local/source feeds"
+echo "[4/7] Restore Unity packages.config from local/source feeds"
 nuget restore "${unity_packages_config}" \
   -PackagesDirectory "${unity_packages_dir}" \
   -ConfigFile "${unity_nuget_config}" \
