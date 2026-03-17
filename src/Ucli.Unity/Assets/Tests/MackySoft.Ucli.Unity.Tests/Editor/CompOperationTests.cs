@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -18,9 +20,9 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class CompOperationTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Ensure_Plan_WhenComponentMissing_ReturnsChangedTrueAndStoresTemporaryAlias ()
+        public IEnumerator Ensure_Plan_WhenComponentMissing_ReturnsChangedTrueAndStoresTemporaryAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -56,11 +58,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Ensure_Plan_WhenSameEnsureWasAlreadyPlanned_UsesPlannedEnsureState ()
+        public IEnumerator Ensure_Plan_WhenSameEnsureWasAlreadyPlanned_UsesPlannedEnsureState () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -110,11 +112,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Ensure_Call_WhenMultipleComponentsExist_ReusesFirstExistingComponent ()
+        public IEnumerator Ensure_Call_WhenMultipleComponentsExist_ReusesFirstExistingComponent () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -161,11 +163,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Ensure_Validate_WhenTypeIsNotComponent_ReturnsInvalidArgument ()
+        public IEnumerator Ensure_Validate_WhenTypeIsNotComponent_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompEnsureOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -196,11 +198,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Call_WhenAssignmentsAreValid_AppliesRepresentativeValues ()
+        public IEnumerator Set_Call_WhenAssignmentsAreValid_AppliesRepresentativeValues () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -429,7 +431,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
         [Test]
         [Category("Size.Small")]
@@ -514,9 +516,9 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Validate_WhenModeIsSpecified_ReturnsInvalidArgument ()
+        public IEnumerator Set_Validate_WhenModeIsSpecified_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompSetOperation();
             var requestOperation = CreateOperation(
@@ -542,11 +544,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Call_WhenPathIsReadOnly_ReturnsInvalidArgumentAndPreservesValue ()
+        public IEnumerator Set_Call_WhenPathIsReadOnly_ReturnsInvalidArgumentAndPreservesValue () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -587,11 +589,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Plan_WhenValueIsUnchanged_ReturnsChangedFalse ()
+        public IEnumerator Set_Plan_WhenValueIsUnchanged_ReturnsChangedFalse () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -631,11 +633,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Plan_WhenEnsureCreatesAlias_MutatesTemporaryComponent ()
+        public IEnumerator Set_Plan_WhenEnsureCreatesAlias_MutatesTemporaryComponent () => UniTask.ToCoroutine(async () =>
         {
             var ensureOperation = new CompEnsureOperation();
             var setOperation = new CompSetOperation();
@@ -691,11 +693,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Plan_WhenEnsureStateWasMutated_KeepsEnsuredComponentStateSynchronized ()
+        public IEnumerator Set_Plan_WhenEnsureStateWasMutated_KeepsEnsuredComponentStateSynchronized () => UniTask.ToCoroutine(async () =>
         {
             var ensureOperation = new CompEnsureOperation();
             var setOperation = new CompSetOperation();
@@ -802,11 +804,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Plan_WhenAliasStateIsReusedBeforeGlobalObjectId_KeepsAliasStateSynchronized ()
+        public IEnumerator Set_Plan_WhenAliasStateIsReusedBeforeGlobalObjectId_KeepsAliasStateSynchronized () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompSetOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -932,11 +934,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Schema_Plan_WhenTypeIsValid_ReturnsSchemaResult ()
+        public IEnumerator Schema_Plan_WhenTypeIsValid_ReturnsSchemaResult () => UniTask.ToCoroutine(async () =>
         {
             var operation = new CompSchemaOperation();
             var typeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
@@ -958,7 +960,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(typeId));
             Assert.That(schema.GetProperty("displayName").GetString(), Is.EqualTo(nameof(CompOperationTestComponent)));
             Assert.That(schema.GetProperty("properties").ToString(), Does.Contain("\"path\":\"integerValue\""));
-        }
+                });
 
         private static string CreateTemporaryScenePath ()
         {

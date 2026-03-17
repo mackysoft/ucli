@@ -26,8 +26,8 @@ internal sealed class TestRunCommand
     /// <param name="testPlatform"> --testPlatform, Unity test platform (<c>editmode|playmode</c>). </param>
     /// <param name="buildTarget"> -t|--buildTarget, Unity build target used by PlayMode tests. </param>
     /// <param name="testFilter"> -f|--testFilter, test name filter pattern. </param>
-    /// <param name="testCategory"> --testCategory, test categories (repeat or comma-separated). </param>
-    /// <param name="assemblyName"> -a|--assemblyName, assembly names (repeat or comma-separated). </param>
+    /// <param name="testCategory"> --testCategory, comma-separated test categories. </param>
+    /// <param name="assemblyName"> -a|--assemblyName, comma-separated assembly names. </param>
     /// <param name="testSettingsPath"> -s|--testSettingsPath, path to <c>TestSettings.json</c>. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
@@ -42,8 +42,8 @@ internal sealed class TestRunCommand
         string? testPlatform = null,
         string? buildTarget = null,
         string? testFilter = null,
-        string[]? testCategory = null,
-        string[]? assemblyName = null,
+        string? testCategory = null,
+        string? assemblyName = null,
         string? testSettingsPath = null,
         int? timeout = null,
         CancellationToken cancellationToken = default)
@@ -62,13 +62,24 @@ internal sealed class TestRunCommand
                 TestPlatform: testPlatform,
                 BuildTarget: buildTarget,
                 TestFilter: testFilter,
-                TestCategory: testCategory,
-                AssemblyName: assemblyName,
+                TestCategory: SplitCommaSeparatedValues(testCategory),
+                AssemblyName: SplitCommaSeparatedValues(assemblyName),
                 TestSettingsPath: testSettingsPath,
                 TimeoutMilliseconds: timeout),
             cancellationToken).ConfigureAwait(false);
         var commandResult = TestRunCommandResultFactory.Create(serviceResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
+    }
+
+    internal static string[]? SplitCommaSeparatedValues (string? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        return value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 }

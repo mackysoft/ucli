@@ -25,6 +25,36 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            var executionSettings = CreateExecutionSettings(requestContext);
+            var callbacks = new TestRunCallbacks();
+            var testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
+            var cancellationRegistration = default(CancellationTokenRegistration);
+            try
+            {
+                testRunnerApi.RegisterCallbacks(callbacks);
+                var testRunId = testRunnerApi.Execute(executionSettings);
+                cancellationRegistration = RegisterCancellation(testRunId, cancellationToken);
+                return await callbacks.WaitForCompletion(cancellationToken);
+            }
+            finally
+            {
+                cancellationRegistration.Dispose();
+                testRunnerApi.UnregisterCallbacks(callbacks);
+                UnityEngine.Object.DestroyImmediate(testRunnerApi);
+            }
+        }
+
+        /// <summary> Creates Unity Test Framework execution settings for one daemon test-run request. </summary>
+        /// <param name="requestContext"> The normalized request context. </param>
+        /// <returns> The execution settings passed to <see cref="TestRunnerApi.Execute(ExecutionSettings)" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestContext" /> is <see langword="null" />. </exception>
+        internal static ExecutionSettings CreateExecutionSettings (UnityTestRunRequestContext requestContext)
+        {
+            if (requestContext == null)
+            {
+                throw new ArgumentNullException(nameof(requestContext));
+            }
+
             var filter = new Filter
             {
                 testMode = requestContext.TestMode,
@@ -51,28 +81,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 #pragma warning restore CS0618
 
-            var executionSettings = new ExecutionSettings
+            return new ExecutionSettings
             {
                 filters = new[] { filter },
-                runSynchronously = requestContext.TestMode == TestMode.EditMode,
+                // NOTE:
+                // Daemon requests must stay on the normal asynchronous EditMode execution path.
+                // Unity Test Framework admits Task-returning tests into synchronous runs, but that
+                // runner cannot drive the yielded Task wrapper and causes false failures or hangs.
+                runSynchronously = false,
             };
-
-            var callbacks = new TestRunCallbacks();
-            var testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
-            var cancellationRegistration = default(CancellationTokenRegistration);
-            try
-            {
-                testRunnerApi.RegisterCallbacks(callbacks);
-                var testRunId = testRunnerApi.Execute(executionSettings);
-                cancellationRegistration = RegisterCancellation(testRunId, cancellationToken);
-                return await callbacks.WaitForCompletion(cancellationToken);
-            }
-            finally
-            {
-                cancellationRegistration.Dispose();
-                testRunnerApi.UnregisterCallbacks(callbacks);
-                UnityEngine.Object.DestroyImmediate(testRunnerApi);
-            }
         }
 
         /// <summary> Registers Unity Test Framework run-cancel callback for one active run identifier. </summary>

@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -18,9 +20,9 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class AssetOperationTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Plan_WhenAliasIsSpecified_StoresTemporaryAssetAlias ()
+        public IEnumerator Create_Plan_WhenAliasIsSpecified_StoresTemporaryAssetAlias () => UniTask.ToCoroutine(async () =>
         {
             var createOperation = new AssetCreateOperation();
             var requestOperation = CreateOperation(
@@ -41,11 +43,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(aliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Asset));
             Assert.That(aliasState.Resource.Path, Is.EqualTo(requestOperation.Args.GetProperty("path").GetString()));
             Assert.That(aliasState.UnityObject, Is.TypeOf<AssetOperationTestAsset>());
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Call_WhenArgumentsAreValid_CreatesAssetAndStoresAlias ()
+        public IEnumerator Create_Call_WhenArgumentsAreValid_CreatesAssetAndStoresAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -73,11 +75,11 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 DeleteAsset(assetPath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument ()
+        public IEnumerator Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
             var requestOperation = CreateOperation(
@@ -92,11 +94,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Validate_WhenSamePathIsAlreadyPlanned_ReturnsInvalidArgument ()
+        public IEnumerator Create_Validate_WhenSamePathIsAlreadyPlanned_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -123,11 +125,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertAssetSuccess(firstResult, applied: false, changed: true, assetPath);
             AssertInvalidArgument(secondResult, "op-create-2");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Plan_WhenTargetUsesCreatedAlias_UpdatesTemporaryAssetState ()
+        public IEnumerator Set_Plan_WhenTargetUsesCreatedAlias_UpdatesTemporaryAssetState () => UniTask.ToCoroutine(async () =>
         {
             var createOperation = new AssetCreateOperation();
             var setOperation = new AssetSetOperation();
@@ -197,11 +199,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset))));
             Assert.That(schema.GetProperty("properties").ToString(), Does.Contain("\"path\":\"integerValue\""));
             Assert.That(schema.GetProperty("properties").ToString(), Does.Contain("\"path\":\"text\""));
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Plan_WhenTargetUsesPlannedAssetPath_UpdatesTemporaryAssetState ()
+        public IEnumerator Set_Plan_WhenTargetUsesPlannedAssetPath_UpdatesTemporaryAssetState () => UniTask.ToCoroutine(async () =>
         {
             var createOperation = new AssetCreateOperation();
             var setOperation = new AssetSetOperation();
@@ -266,11 +268,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var schema = schemaResult.Result!.Value;
             Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset))));
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Call_WhenTargetIsScriptableObjectAsset_UpdatesValueAndLeavesAssetDirty ()
+        public IEnumerator Set_Call_WhenTargetIsScriptableObjectAsset_UpdatesValueAndLeavesAssetDirty () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -311,18 +313,14 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                if (asset != null)
-                {
-                    ScriptableObject.DestroyImmediate(asset, allowDestroyingAssets: true);
-                }
-
                 DeleteAsset(assetPath);
+                DestroyIfTransient(asset);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Call_WhenLaterAssignmentFails_DoesNotPartiallyMutatePersistentAsset ()
+        public IEnumerator Set_Call_WhenLaterAssignmentFails_DoesNotPartiallyMutatePersistentAsset () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -370,18 +368,14 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                if (asset != null)
-                {
-                    ScriptableObject.DestroyImmediate(asset, allowDestroyingAssets: true);
-                }
-
                 DeleteAsset(assetPath);
+                DestroyIfTransient(asset);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Call_WhenTargetIsMaterialAsset_UpdatesMaterialSerializedValue ()
+        public IEnumerator Set_Call_WhenTargetIsMaterialAsset_UpdatesMaterialSerializedValue () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
             var assetPath = CreateTemporaryMaterialPath();
@@ -416,18 +410,14 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                if (material != null)
-                {
-                    UnityEngine.Object.DestroyImmediate(material, allowDestroyingAssets: true);
-                }
-
                 DeleteAsset(assetPath);
+                DestroyIfTransient(material);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Set_Validate_WhenTargetIsSubAsset_ReturnsInvalidArgument ()
+        public IEnumerator Set_Validate_WhenTargetIsSubAsset_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
             var assetPath = CreateTemporaryAssetPath();
@@ -464,23 +454,15 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                if (subAsset != null)
-                {
-                    ScriptableObject.DestroyImmediate(subAsset, allowDestroyingAssets: true);
-                }
-
-                if (mainAsset != null)
-                {
-                    ScriptableObject.DestroyImmediate(mainAsset, allowDestroyingAssets: true);
-                }
-
                 DeleteAsset(assetPath);
+                DestroyIfTransient(subAsset);
+                DestroyIfTransient(mainAsset);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Schema_Plan_WhenTypeUsesMaterial_ReturnsInvalidArgument ()
+        public IEnumerator Schema_Plan_WhenTypeUsesMaterial_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSchemaOperation();
             var requestOperation = CreateOperation(
@@ -494,11 +476,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-schema");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Schema_Plan_WhenTargetIsMaterial_ReturnsSchemaMetadata ()
+        public IEnumerator Schema_Plan_WhenTargetIsMaterial_ReturnsSchemaMetadata () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSchemaOperation();
             var assetPath = CreateTemporaryMaterialPath();
@@ -526,14 +508,10 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                if (material != null)
-                {
-                    UnityEngine.Object.DestroyImmediate(material, allowDestroyingAssets: true);
-                }
-
                 DeleteAsset(assetPath);
+                DestroyIfTransient(material);
             }
-        }
+                });
 
         private static Shader ResolveMaterialShader ()
         {
@@ -618,10 +596,7 @@ namespace MackySoft.Ucli.Unity.Tests
             LogAssert.ignoreFailingMessages = true;
             try
             {
-                if (AssetDatabase.LoadMainAssetAtPath(assetPath) != null)
-                {
-                    _ = AssetDatabase.DeleteAsset(assetPath);
-                }
+                _ = AssetDatabase.DeleteAsset(assetPath);
 
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             }
@@ -629,6 +604,21 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
             }
+        }
+
+        private static void DestroyIfTransient (UnityEngine.Object unityObject)
+        {
+            if (unityObject == null)
+            {
+                return;
+            }
+
+            if (AssetDatabase.Contains(unityObject))
+            {
+                return;
+            }
+
+            UnityEngine.Object.DestroyImmediate(unityObject);
         }
     }
 }
