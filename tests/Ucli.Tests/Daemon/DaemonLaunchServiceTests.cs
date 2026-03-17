@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Start;
@@ -254,6 +255,7 @@ public sealed class DaemonLaunchServiceTests
     {
         var context = CreateContext("fingerprint-launch-timeout-compensation");
         var initialSession = CreateSession(processId: null, projectFingerprint: context.ProjectFingerprint);
+        var timeProvider = new ManualTimeProvider();
         var launchError = ExecutionError.InternalError("launch failed after timeout");
         var launchSessionService = new StubDaemonLaunchSessionService
         {
@@ -263,6 +265,7 @@ public sealed class DaemonLaunchServiceTests
         {
             LaunchDelay = TimeSpan.FromMilliseconds(50),
             NextResult = UnityDaemonLaunchResult.Failure(launchError),
+            TimeProvider = timeProvider,
         };
         var readinessProbe = new StubDaemonStartupReadinessProbe();
         var compensationService = new StubDaemonLaunchCompensationService
@@ -275,7 +278,8 @@ public sealed class DaemonLaunchServiceTests
             launcher,
             readinessProbe,
             compensationService,
-            diagnosisStore);
+            diagnosisStore,
+            timeProvider);
 
         var result = await service.Launch(context, TimeSpan.FromMilliseconds(1), CancellationToken.None);
 
@@ -510,14 +514,16 @@ public sealed class DaemonLaunchServiceTests
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
         IDaemonLaunchCompensationService launchCompensationService,
-        IDaemonDiagnosisStore? daemonDiagnosisStore = null)
+        IDaemonDiagnosisStore? daemonDiagnosisStore = null,
+        TimeProvider? timeProvider = null)
     {
         return new DaemonLaunchService(
             daemonLaunchSessionService: launchSessionService,
             unityDaemonProcessLauncher: unityDaemonProcessLauncher,
             startupReadinessProbe: startupReadinessProbe,
             daemonLaunchCompensationService: launchCompensationService,
-            daemonDiagnosisStore: daemonDiagnosisStore ?? new StubDaemonDiagnosisStore());
+            daemonDiagnosisStore: daemonDiagnosisStore ?? new StubDaemonDiagnosisStore(),
+            timeProvider: timeProvider);
     }
 
     private static ResolvedUnityProjectContext CreateContext (string fingerprint)
@@ -591,6 +597,8 @@ public sealed class DaemonLaunchServiceTests
 
         public TimeSpan LaunchDelay { get; set; }
 
+        public ManualTimeProvider? TimeProvider { get; set; }
+
         public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(1000);
 
         public int CallCount { get; private set; }
@@ -606,7 +614,14 @@ public sealed class DaemonLaunchServiceTests
             OnLaunch?.Invoke();
             if (LaunchDelay > TimeSpan.Zero)
             {
-                await Task.Delay(LaunchDelay, cancellationToken);
+                if (TimeProvider != null)
+                {
+                    TimeProvider.Advance(LaunchDelay);
+                }
+                else
+                {
+                    throw new InvalidOperationException("ManualTimeProvider is required when LaunchDelay is configured.");
+                }
             }
 
             return NextResult;

@@ -281,13 +281,18 @@ public sealed class IpcDaemonReachabilityProbeTests
     {
         var endpointResolver = new StubEndpointResolver(
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-canceled-during-ping"));
+        var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var daemonPingClient = new StubDaemonPingClient((_, cancellationToken) =>
-            new ValueTask(Task.Delay(System.Threading.Timeout.Infinite, cancellationToken)));
+        {
+            pingStarted.TrySetResult();
+            return new ValueTask(Task.Delay(System.Threading.Timeout.Infinite, cancellationToken));
+        });
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var probeTask = probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
-        cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(50));
+        await pingStarted.Task;
+        cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {

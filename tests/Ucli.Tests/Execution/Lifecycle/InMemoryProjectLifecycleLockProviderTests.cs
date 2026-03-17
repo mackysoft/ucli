@@ -10,20 +10,19 @@ public sealed class InMemoryProjectLifecycleLockProviderTests
     public async Task Acquire_WhenEquivalentStorageRootsAreUsed_UsesSameLockScope ()
     {
         using var scope = TestDirectories.CreateTempScope("project-lifecycle-lock", "in-memory-equivalent-storage-roots");
-        var provider = new InMemoryProjectLifecycleLockProvider();
+        var timeProvider = new ManualTimeProvider();
+        var provider = new InMemoryProjectLifecycleLockProvider(timeProvider);
         var firstHandle = await provider.Acquire(
             scope.FullPath,
             "fingerprint-lock",
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
-        using var acquireCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         var secondAcquireTask = provider.Acquire(
             Path.Combine(scope.FullPath, "."),
             "fingerprint-lock",
             TimeSpan.FromSeconds(2),
-            acquireCts.Token).AsTask();
+            CancellationToken.None).AsTask();
 
-        await Task.Delay(150, CancellationToken.None);
         Assert.False(secondAcquireTask.IsCompleted);
 
         await firstHandle.DisposeAsync();

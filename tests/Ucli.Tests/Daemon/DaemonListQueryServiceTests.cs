@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
@@ -179,6 +180,7 @@ public sealed class DaemonListQueryServiceTests
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var worktreeA = CreateUnityProject("/repo/wt-a", "UnityProject", "fp-a");
         var worktreeB = CreateUnityProject("/repo/wt-b", "UnityProject", "fp-b");
+        var timeProvider = new ManualTimeProvider();
         var gitWorktreeQueryService = new StubGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
             CurrentWorktreeRoot: currentProject.RepositoryRoot,
             ProjectRelativePath: "UnityProject",
@@ -204,11 +206,12 @@ public sealed class DaemonListQueryServiceTests
             {
                 if (unityProject.ProjectFingerprint == "fp-b")
                 {
-                    await Task.Delay(50, cancellationToken);
+                    timeProvider.Advance(TimeSpan.FromMilliseconds(50));
                     throw new TimeoutException("probe timed out");
                 }
             }),
-            new StubDaemonReachabilityClassifier(static _ => false));
+            new StubDaemonReachabilityClassifier(static _ => false),
+            timeProvider);
 
         var result = await service.GetList(currentProject, TimeSpan.FromMilliseconds(10), CancellationToken.None);
 
@@ -321,7 +324,8 @@ public sealed class DaemonListQueryServiceTests
         DaemonSessionReadResult sessionReadResult,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingClient daemonPingClient,
-        IDaemonReachabilityClassifier reachabilityClassifier)
+        IDaemonReachabilityClassifier reachabilityClassifier,
+        TimeProvider? timeProvider = null)
     {
         return CreateService(
             new StubGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
@@ -335,7 +339,8 @@ public sealed class DaemonListQueryServiceTests
             new StubDaemonSessionStore((_, _) => sessionReadResult),
             daemonDiagnosisStore,
             daemonPingClient,
-            reachabilityClassifier);
+            reachabilityClassifier,
+            timeProvider);
     }
 
     private static DaemonListQueryService CreateService (
@@ -344,7 +349,8 @@ public sealed class DaemonListQueryServiceTests
         IDaemonSessionStore daemonSessionStore,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingClient daemonPingClient,
-        IDaemonReachabilityClassifier daemonReachabilityClassifier)
+        IDaemonReachabilityClassifier daemonReachabilityClassifier,
+        TimeProvider? timeProvider = null)
     {
         return new DaemonListQueryService(
             gitWorktreeQueryService,
@@ -354,7 +360,8 @@ public sealed class DaemonListQueryServiceTests
             daemonPingClient,
             daemonReachabilityClassifier,
             new DaemonSessionDiagnosisResolver(daemonDiagnosisStore),
-            new DaemonDiagnosisOutputMapper());
+            new DaemonDiagnosisOutputMapper(),
+            timeProvider);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject (

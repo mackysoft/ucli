@@ -33,6 +33,8 @@ internal sealed class SupervisorProjectCoordinator
 
     private readonly SupervisorRuntimeLogger runtimeLogger;
 
+    private readonly TimeProvider timeProvider;
+
     private readonly ConcurrentDictionary<string, SupervisorProjectSlot> projectSlots = new(StringComparer.Ordinal);
 
     private int managedProjectCount;
@@ -44,6 +46,8 @@ internal sealed class SupervisorProjectCoordinator
     /// <param name="daemonStopOperation"> The daemon stop-operation dependency. </param>
     /// <param name="stabilityVerifier"> The stability-verifier dependency. </param>
     /// <param name="exitHandler"> The managed-process exit-handler dependency. </param>
+    /// <param name="runtimeLogger"> The runtime logger dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     public SupervisorProjectCoordinator (
         IDaemonStartOperation daemonStartOperation,
         IDaemonStopOperation daemonStopOperation,
@@ -51,7 +55,8 @@ internal sealed class SupervisorProjectCoordinator
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
         SupervisorStabilityVerifier stabilityVerifier,
         SupervisorExitHandler exitHandler,
-        SupervisorRuntimeLogger runtimeLogger)
+        SupervisorRuntimeLogger runtimeLogger,
+        TimeProvider? timeProvider = null)
     {
         this.daemonStartOperation = daemonStartOperation ?? throw new ArgumentNullException(nameof(daemonStartOperation));
         this.daemonStopOperation = daemonStopOperation ?? throw new ArgumentNullException(nameof(daemonStopOperation));
@@ -60,6 +65,7 @@ internal sealed class SupervisorProjectCoordinator
         this.stabilityVerifier = stabilityVerifier ?? throw new ArgumentNullException(nameof(stabilityVerifier));
         this.exitHandler = exitHandler ?? throw new ArgumentNullException(nameof(exitHandler));
         this.runtimeLogger = runtimeLogger ?? throw new ArgumentNullException(nameof(runtimeLogger));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Gets a value indicating whether one or more managed Unity daemon processes are currently tracked. </summary>
@@ -83,7 +89,7 @@ internal sealed class SupervisorProjectCoordinator
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var slot = GetOrCreateSlot(unityProject.ProjectFingerprint);
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!await TryEnterProjectGate(slot, deadline, cancellationToken).ConfigureAwait(false))
         {
             return DaemonStartResult.Failure(ExecutionError.Timeout(ProjectGateTimeoutMessage));
@@ -180,7 +186,7 @@ internal sealed class SupervisorProjectCoordinator
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var slot = GetOrCreateSlot(unityProject.ProjectFingerprint);
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!await TryEnterProjectGate(slot, deadline, cancellationToken).ConfigureAwait(false))
         {
             return DaemonStopResult.Failure(ExecutionError.Timeout(ProjectGateTimeoutMessage));
@@ -238,23 +244,36 @@ internal sealed class SupervisorProjectCoordinator
     /// <summary> Awaits all currently tracked monitor tasks. </summary>
     public async Task AwaitManagedProcesses ()
     {
-        var monitorTasks = projectSlots.Values
-            .SelectMany(static x => EnumerateTrackedTasks(x))
-            .Cast<Task>()
-            .ToArray();
-        if (monitorTasks.Length == 0)
+        while (true)
         {
-            return;
-        }
+            var trackedTasks = GetTrackedTasks();
+            if (trackedTasks.Length == 0)
+            {
+                if (!HasActiveProjectWork)
+                {
+                    return;
+                }
 
-        try
-        {
-            await Task.WhenAll(monitorTasks).ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            // NOTE:
-            // shutdown should continue even when a detached monitor task already observed an exit race.
+                await Task.Yield();
+                continue;
+            }
+
+            try
+            {
+                await Task.WhenAll(trackedTasks).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // NOTE:
+                // shutdown should continue even when a detached monitor task already observed an exit race.
+            }
+
+            if (!HasActiveProjectWork && GetTrackedTasks().Length == 0)
+            {
+                return;
+            }
+
+            await Task.Yield();
         }
     }
 
@@ -478,6 +497,15 @@ internal sealed class SupervisorProjectCoordinator
     {
         yield return slot.ManagedProcess?.MonitorTask;
         yield return slot.PendingOperation;
+    }
+
+    private Task[] GetTrackedTasks ()
+    {
+        return projectSlots.Values
+            .SelectMany(static x => EnumerateTrackedTasks(x))
+            .Where(static x => x != null)
+            .Cast<Task>()
+            .ToArray();
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

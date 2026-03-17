@@ -106,7 +106,8 @@ internal static class DaemonCommandServiceTestContext
 
     public static SupervisorBootstrapper CreateSupervisorBootstrapper (
         IIpcTransportClient transportClient,
-        ISupervisorProcessLauncher? processLauncher = null)
+        ISupervisorProcessLauncher? processLauncher = null,
+        TimeProvider? timeProvider = null)
     {
         var externalProcessRunner = new SupervisorExternalProcessRunner();
         processLauncher ??= new SupervisorProcessLauncher(
@@ -120,7 +121,8 @@ internal static class DaemonCommandServiceTestContext
             supervisorClient,
             processLauncher,
             new SupervisorBootstrapLockProvider(),
-            new SupervisorEndpointResolver());
+            new SupervisorEndpointResolver(),
+            timeProvider);
     }
 
     public static IpcResponse CreateSuccessResponse<TPayload> (

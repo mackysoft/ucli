@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
@@ -13,17 +14,21 @@ public sealed class SupervisorStabilityVerifierTests
     [Trait("Size", "Small")]
     public async Task EnsureStable_WhenRemainingTimeoutIsExhausted_ReturnsTimeout ()
     {
+        var timeProvider = new ManualTimeProvider();
         var pingClient = new StubDaemonPingClient
         {
-            PingHandler = async (_, _, cancellationToken) =>
+            PingHandler = (_, _, cancellationToken) =>
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(40), cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                return ValueTask.CompletedTask;
             },
         };
         var diagnosisStore = new StubDaemonDiagnosisStore();
         var verifier = new SupervisorStabilityVerifier(
             pingClient,
-            new SupervisorDiagnosisWriter(diagnosisStore));
+            new SupervisorDiagnosisWriter(diagnosisStore),
+            timeProvider);
         var unityProject = CreateUnityProject();
         var session = CreateSession();
 

@@ -61,7 +61,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await startedTaskSource.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await startedTaskSource.Task;
 
             var client = new IpcTransportClient();
             var slowRequestTask = client.SendAsync(
@@ -70,16 +70,13 @@ public sealed class SupervisorTransportServerTests
                     TimeSpan.FromSeconds(5))
                 .AsTask();
 
-            await slowRequestEnteredTaskSource.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await slowRequestEnteredTaskSource.Task;
 
             var fastRequestTask = client.SendAsync(
                     endpoint,
                     CreateRequest("fast"),
                     TimeSpan.FromSeconds(5))
                 .AsTask();
-            var completedTask = await Task.WhenAny(fastRequestTask, Task.Delay(TimeSpan.FromSeconds(1)));
-            Assert.Same(fastRequestTask, completedTask);
-
             var fastResponse = await fastRequestTask;
             Assert.True(IpcPayloadCodec.TryDeserialize(
                 fastResponse.Payload,
@@ -167,7 +164,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await startedTaskSource.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await startedTaskSource.Task;
 
             PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(Path.GetDirectoryName(endpoint.Address)!);
             PosixAccessBoundaryAssert.FileIsOwnerOnly(endpoint.Address);
@@ -217,7 +214,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await startedTaskSource.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await startedTaskSource.Task;
             Assert.True(Directory.Exists(socketDirectoryPath));
             Assert.True(File.Exists(endpoint.Address));
         }

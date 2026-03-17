@@ -20,23 +20,30 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
 
     private readonly IDaemonSessionOutputMapper daemonSessionOutputMapper;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStartCommandService" /> class. </summary>
     /// <param name="daemonCommandExecutionContextResolver"> The daemon-command execution-context resolver dependency. </param>
-    /// <param name="daemonStartOperation"> The daemon start-operation dependency. </param>
+    /// <param name="supervisorBootstrapper"> The supervisor bootstrapper dependency. </param>
+    /// <param name="supervisorClient"> The supervisor client dependency. </param>
+    /// <param name="unityUcliPluginLocator"> The Unity uCLI plugin locator dependency. </param>
     /// <param name="daemonSessionOutputMapper"> The daemon session-output mapper dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartCommandService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         SupervisorBootstrapper supervisorBootstrapper,
         SupervisorClient supervisorClient,
         IUnityUcliPluginLocator unityUcliPluginLocator,
-        IDaemonSessionOutputMapper daemonSessionOutputMapper)
+        IDaemonSessionOutputMapper daemonSessionOutputMapper,
+        TimeProvider? timeProvider = null)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
         this.supervisorBootstrapper = supervisorBootstrapper ?? throw new ArgumentNullException(nameof(supervisorBootstrapper));
         this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
         this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Executes one daemon-start workflow. </summary>
@@ -63,7 +70,7 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
         }
 
         var executionContext = contextResult.Context!;
-        var deadline = ExecutionDeadline.Start(executionContext.Timeout);
+        var deadline = ExecutionDeadline.Start(executionContext.Timeout, timeProvider);
         var pluginLocateError = await VerifyUnityPluginWithinBudget(
                 executionContext.Context.UnityProject.UnityProjectRoot,
                 deadline,
@@ -134,11 +141,13 @@ internal sealed class DaemonStartCommandService : IDaemonStartCommandService
 
         try
         {
-            using var pluginLocateCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            pluginLocateCancellationTokenSource.CancelAfter(pluginLocateTimeout);
+            using var pluginLocateCancellationScope = TimeProviderCancellationScope.CreateLinked(
+                cancellationToken,
+                pluginLocateTimeout,
+                timeProvider);
             var pluginLocateResult = await unityUcliPluginLocator.Locate(
                     unityProjectRoot,
-                    pluginLocateCancellationTokenSource.Token)
+                    pluginLocateCancellationScope.Token)
                 .ConfigureAwait(false);
             return pluginLocateResult.IsSuccess
                 ? null

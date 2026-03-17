@@ -9,6 +9,15 @@ internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLo
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> LocksByFingerprint = new(StringComparer.Ordinal);
 
+    private readonly TimeProvider timeProvider;
+
+    /// <summary> Initializes a new instance of the <see cref="InMemoryProjectLifecycleLockProvider" /> class. </summary>
+    /// <param name="timeProvider"> The time provider used for timeout interpretation. </param>
+    public InMemoryProjectLifecycleLockProvider (TimeProvider? timeProvider = null)
+    {
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+    }
+
     /// <summary> Acquires the lifecycle lock for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
@@ -41,8 +50,20 @@ internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLo
         var semaphore = LocksByFingerprint.GetOrAdd(
             lockKey,
             static _ => new SemaphoreSlim(1, 1));
-        var acquired = await semaphore.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
-        if (!acquired)
+        using var timeoutScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            timeout,
+            timeProvider);
+
+        try
+        {
+            await semaphore.WaitAsync(timeoutScope.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException) when (timeoutScope.HasTimedOut)
         {
             throw new TimeoutException(
                 $"Timed out while waiting to acquire project lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");

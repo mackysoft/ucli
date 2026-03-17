@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Tests
             startupCoordinator.Complete();
             cancellationTokenSource.Cancel();
 
-            await WaitForTask(waitTask, TimeSpan.FromSeconds(5));
+            await waitTask;
         });
 
         [UnityTest]
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await UniTask.Yield();
             startupCoordinator.Complete();
 
-            await WaitForTask(waitTask, TimeSpan.FromSeconds(5));
+            await waitTask;
         });
 
         [UnityTest]
@@ -136,12 +136,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                await WaitForTask(startedTaskSource.Task, TimeSpan.FromSeconds(5));
+                await startedTaskSource.Task;
 
                 Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
                 Assert.That(File.Exists(address), Is.True);
-                Assert.That(ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("0700"));
-                Assert.That(ReadUnixFileMode(address), Is.EqualTo("0600"));
+                Assert.That(await ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("0700"));
+                Assert.That(await ReadUnixFileMode(address), Is.EqualTo("0600"));
             }
             finally
             {
@@ -264,17 +264,18 @@ namespace MackySoft.Ucli.Unity.Tests
                     blockingListener,
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-start-cancel");
-            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var startTask = server.Start(endpoint, cancellationTokenSource.Token).AsTask();
+            await blockingListener.RunEntered;
+            cancellationTokenSource.Cancel();
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await server.Start(endpoint, cancellationTokenSource.Token).AsUniTask();
+                await startTask.AsUniTask();
             });
 
-            var completedTask = await Task.WhenAny(
-                blockingListener.CancellationObserved,
-                Task.Delay(TimeSpan.FromSeconds(1)));
-            Assert.That(completedTask, Is.SameAs(blockingListener.CancellationObserved));
+            await blockingListener.CancellationObserved;
             Assert.That(server.IsRunning, Is.False);
         });
 
@@ -707,16 +708,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityIpcServer(requestProcessor, connectionHandler, transportListeners);
         }
 
-        private static async Task WaitForTask (
-            Task task,
-            TimeSpan timeout)
-        {
-            var completedTask = await Task.WhenAny(task, Task.Delay(timeout));
-            Assert.That(completedTask, Is.SameAs(task));
-            await task;
-        }
-
-        private static string ReadUnixFileMode (string path)
+        private static async Task<string> ReadUnixFileMode (string path)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -729,9 +721,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             using var process = Process.Start(startInfo);
             Assert.That(process, Is.Not.Null);
-            var output = process.StandardOutput.ReadToEnd();
-            var error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            var output = await outputTask;
+            var error = await errorTask;
             Assert.That(process.ExitCode, Is.EqualTo(0), error);
             return NormalizeUnixFileMode(output);
         }
@@ -957,7 +951,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await Task.Delay(delay, cancellationToken);
+                await Task.Yield();
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new InvalidOperationException(message);
             }
@@ -993,7 +987,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 onStarted();
-                await Task.Delay(delay, cancellationToken);
+                await Task.Yield();
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new InvalidOperationException(message);
             }
@@ -1005,6 +999,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class BlockingTransportListener : IUnityIpcTransportListener
         {
+            private readonly TaskCompletionSource<bool> runEntered =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             private readonly TaskCompletionSource<bool> cancellationObserved =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -1015,24 +1012,25 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTransportKind TransportKind { get; }
 
+            public Task RunEntered => runEntered.Task;
+
             public Task CancellationObserved => cancellationObserved.Task;
 
-            public async Task Run (
+            public Task Run (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 CancellationToken cancellationToken)
             {
-                while (true)
+                runEntered.TrySetResult(true);
+                var waitSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                using var cancellationRegistration = cancellationToken.Register(() =>
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        cancellationObserved.TrySetResult(true);
-                        throw new OperationCanceledException(cancellationToken);
-                    }
+                    cancellationObserved.TrySetResult(true);
+                    waitSource.TrySetCanceled(cancellationToken);
+                });
 
-                    await Task.Delay(TimeSpan.FromMilliseconds(5), CancellationToken.None);
-                }
+                return waitSource.Task;
             }
 
             public void Release ()

@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -147,6 +148,7 @@ public sealed class DaemonStartCommandServiceTests
         using var scope = DaemonCommandServiceTestContext.CreateTempScope("start-remaining-timeout");
         var manifest = DaemonCommandServiceTestContext.CreateSupervisorManifest(scope.FullPath);
         await DaemonCommandServiceTestContext.WriteSupervisorManifest(scope.FullPath, manifest);
+        var timeProvider = new ManualTimeProvider();
 
         var context = DaemonCommandServiceTestContext.CreateExecutionContext(
             timeoutMilliseconds: 700,
@@ -156,6 +158,7 @@ public sealed class DaemonStartCommandServiceTests
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
         var transportClient = CreateTransportClient(
             manifest,
+            timeProvider: timeProvider,
             pingDelay: TimeSpan.FromMilliseconds(200),
             ensureRunningResponseFactory: request => DaemonCommandServiceTestContext.CreateSuccessResponse(
                 request,
@@ -163,7 +166,7 @@ public sealed class DaemonStartCommandServiceTests
                     StartStatus: DaemonStartStateCodec.Started,
                     DaemonStatus: DaemonStatusStateCodec.Running,
                     Session: DaemonCommandServiceTestContext.CreateSession())));
-        var service = CreateService(resolver, transportClient, mapper);
+        var service = CreateService(resolver, transportClient, mapper, timeProvider: timeProvider);
 
         var result = await service.Start(
             projectPath: "/tmp/sandbox-unity",
@@ -280,6 +283,7 @@ public sealed class DaemonStartCommandServiceTests
     public async Task Start_WhenUnityPluginVerificationExceedsTimeout_ReturnsTimeoutBeforeSupervisorBootstrap ()
     {
         var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 120);
+        var timeProvider = new ManualTimeProvider();
         var resolver = new DaemonCommandServiceTestContext.StubDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var mapper = new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper();
@@ -289,6 +293,7 @@ public sealed class DaemonStartCommandServiceTests
         };
         var pluginLocator = new StubUnityUcliPluginLocator
         {
+            Started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             Handler = async cancellationToken =>
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
@@ -297,9 +302,13 @@ public sealed class DaemonStartCommandServiceTests
                     UnityUcliPluginLocator.ExpectedProtocolVersion);
             },
         };
-        var service = CreateService(resolver, transportClient, mapper, pluginLocator);
+        var service = CreateService(resolver, transportClient, mapper, pluginLocator, timeProvider);
 
-        var result = await service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var resultTask = service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None).AsTask();
+        await pluginLocator.Started!.Task;
+        timeProvider.Advance(context.Timeout);
+
+        var result = await resultTask;
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -313,17 +322,19 @@ public sealed class DaemonStartCommandServiceTests
         IDaemonCommandExecutionContextResolver resolver,
         DaemonCommandServiceTestContext.StubIpcTransportClient transportClient,
         IDaemonSessionOutputMapper mapper,
-        IUnityUcliPluginLocator? pluginLocator = null)
+        IUnityUcliPluginLocator? pluginLocator = null,
+        TimeProvider? timeProvider = null)
     {
-        var bootstrapper = DaemonCommandServiceTestContext.CreateSupervisorBootstrapper(transportClient);
+        var bootstrapper = DaemonCommandServiceTestContext.CreateSupervisorBootstrapper(transportClient, timeProvider: timeProvider);
         var supervisorClient = DaemonCommandServiceTestContext.CreateSupervisorClient(transportClient);
         pluginLocator ??= new StubUnityUcliPluginLocator();
-        return new DaemonStartCommandService(resolver, bootstrapper, supervisorClient, pluginLocator, mapper);
+        return new DaemonStartCommandService(resolver, bootstrapper, supervisorClient, pluginLocator, mapper, timeProvider);
     }
 
     private static DaemonCommandServiceTestContext.StubIpcTransportClient CreateTransportClient (
         SupervisorInstanceManifest manifest,
         Func<IpcRequest, IpcResponse> ensureRunningResponseFactory,
+        TimeProvider? timeProvider = null,
         TimeSpan? pingDelay = null)
     {
         return new DaemonCommandServiceTestContext.StubIpcTransportClient
@@ -335,7 +346,15 @@ public sealed class DaemonStartCommandServiceTests
                 {
                     if (pingDelay.HasValue)
                     {
-                        await Task.Delay(pingDelay.Value, cancellationToken).ConfigureAwait(false);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (timeProvider is ManualTimeProvider manualTimeProvider)
+                        {
+                            manualTimeProvider.Advance(pingDelay.Value);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("ManualTimeProvider is required when pingDelay is configured.");
+                        }
                     }
 
                     return DaemonCommandServiceTestContext.CreateSuccessResponse(
@@ -360,6 +379,8 @@ public sealed class DaemonStartCommandServiceTests
         public Func<CancellationToken, ValueTask<UnityUcliPluginLocateResult>>? Handler { get; set; }
 
         public bool ObservedCancellation { get; private set; }
+
+        public TaskCompletionSource? Started { get; set; }
 
         public UnityUcliPluginLocateResult Result { get; set; }
             = UnityUcliPluginLocateResult.Found(
@@ -387,6 +408,7 @@ public sealed class DaemonStartCommandServiceTests
         {
             try
             {
+                Started?.TrySetResult();
                 return await Handler!(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.Sockets;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
@@ -44,9 +45,8 @@ public sealed class SupervisorProjectCoordinatorTests
 
         StopProcess(process);
         await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasManagedProjects,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasManagedProjects);
     }
 
     [Fact]
@@ -84,9 +84,8 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.True(coordinator.HasManagedProjects);
 
         releasePing.TrySetResult();
-        await WaitUntil(
-                () => !coordinator.HasManagedProjects,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasManagedProjects);
     }
 
     [Fact]
@@ -148,9 +147,8 @@ public sealed class SupervisorProjectCoordinatorTests
         stopRelease.TrySetResult();
         StopProcess(process);
         await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -159,6 +157,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         using var process = StartLongRunningProcess();
         var unityProject = CreateUnityProject();
+        var timeProvider = new ManualTimeProvider();
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new StubDaemonStartOperation
@@ -167,9 +166,11 @@ public sealed class SupervisorProjectCoordinatorTests
         };
         var pingClient = new StubDaemonPingClient
         {
-            PingHandler = async (_, _, cancellationToken) =>
+            PingHandler = (_, _, cancellationToken) =>
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(40), cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                return ValueTask.CompletedTask;
             },
         };
         var stopOperation = new StubDaemonStopOperation
@@ -187,7 +188,8 @@ public sealed class SupervisorProjectCoordinatorTests
             stopOperation,
             pingClient,
             diagnosisStore,
-            new StubDaemonSessionStore());
+            new StubDaemonSessionStore(),
+            timeProvider: timeProvider);
 
         var result = await coordinator.EnsureRunning(
                 unityProject,
@@ -202,9 +204,8 @@ public sealed class SupervisorProjectCoordinatorTests
         stopRelease.TrySetResult();
         StopProcess(process);
         await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -252,9 +253,8 @@ public sealed class SupervisorProjectCoordinatorTests
         stopRelease.TrySetResult();
         StopProcess(process);
         await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -263,6 +263,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         using var process = StartLongRunningProcess();
         var unityProject = CreateUnityProject();
+        var timeProvider = new ManualTimeProvider();
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new StubDaemonStartOperation
@@ -271,9 +272,11 @@ public sealed class SupervisorProjectCoordinatorTests
         };
         var pingClient = new StubDaemonPingClient
         {
-            PingHandler = async (_, _, cancellationToken) =>
+            PingHandler = (_, _, cancellationToken) =>
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(40), cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                return ValueTask.CompletedTask;
             },
         };
         var stopOperation = new StubDaemonStopOperation
@@ -290,7 +293,8 @@ public sealed class SupervisorProjectCoordinatorTests
             stopOperation,
             pingClient,
             new StubDaemonDiagnosisStore(),
-            new StubDaemonSessionStore());
+            new StubDaemonSessionStore(),
+            timeProvider: timeProvider);
 
         var ensureRunningResult = await coordinator.EnsureRunning(
                 unityProject,
@@ -305,12 +309,6 @@ public sealed class SupervisorProjectCoordinatorTests
                 TimeSpan.FromMilliseconds(50),
                 CancellationToken.None)
             .AsTask();
-        var completedTask = await Task.WhenAny(
-                stopTask,
-                Task.Delay(TimeSpan.FromSeconds(2)));
-
-        Assert.Same(stopTask, completedTask);
-
         var stopResult = await stopTask;
 
         Assert.False(stopResult.IsSuccess);
@@ -324,9 +322,8 @@ public sealed class SupervisorProjectCoordinatorTests
         stopRelease.TrySetResult();
         StopProcess(process);
         await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -372,9 +369,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         StopProcess(process);
         await process.WaitForExitAsync();
-        await WaitUntil(
-                () => diagnosisStore.LastDiagnosis != null,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
 
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnexpectedExit, diagnosisStore.LastDiagnosis!.Reason);
@@ -425,9 +420,8 @@ public sealed class SupervisorProjectCoordinatorTests
 
         cleanupRelease.TrySetResult();
         await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasManagedProjects,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasManagedProjects);
     }
 
     private static SupervisorProjectCoordinator CreateCoordinator (
@@ -436,12 +430,14 @@ public sealed class SupervisorProjectCoordinatorTests
         IDaemonPingClient pingClient,
         IDaemonDiagnosisStore diagnosisStore,
         IDaemonSessionStore sessionStore,
-        IDaemonArtifactCleaner? artifactCleaner = null)
+        IDaemonArtifactCleaner? artifactCleaner = null,
+        TimeProvider? timeProvider = null)
     {
         var runtimeLogger = new SupervisorRuntimeLogger();
         var stabilityVerifier = new SupervisorStabilityVerifier(
             pingClient,
-            new SupervisorDiagnosisWriter(diagnosisStore));
+            new SupervisorDiagnosisWriter(diagnosisStore),
+            timeProvider);
         var exitHandler = new SupervisorExitHandler(
             sessionStore,
             artifactCleaner ?? new StubDaemonArtifactCleaner(),
@@ -454,7 +450,8 @@ public sealed class SupervisorProjectCoordinatorTests
             new DaemonReachabilityClassifier(),
             stabilityVerifier,
             exitHandler,
-            runtimeLogger);
+            runtimeLogger,
+            timeProvider);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject ()
@@ -481,24 +478,6 @@ public sealed class SupervisorProjectCoordinatorTests
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: processId,
             OwnerProcessId: 9876);
-    }
-
-    private static async Task WaitUntil (
-        Func<bool> predicate,
-        TimeSpan timeout)
-    {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (predicate())
-            {
-                return;
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(20)).ConfigureAwait(false);
-        }
-
-        throw new TimeoutException("Condition was not satisfied within the allotted timeout.");
     }
 
     private static Process StartLongRunningProcess ()

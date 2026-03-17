@@ -18,17 +18,23 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
     private readonly ITestRunMetaStore metaStore;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class with default meta-store dependency. </summary>
     public TestRunArtifactsService ()
-        : this(new TestRunMetaStore())
+        : this(new TestRunMetaStore(), timeProvider: null)
     {
     }
 
     /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class. </summary>
     /// <param name="metaStore"> The metadata store dependency. </param>
-    public TestRunArtifactsService (ITestRunMetaStore metaStore)
+    /// <param name="timeProvider"> The time provider used for metadata timestamps. </param>
+    public TestRunArtifactsService (
+        ITestRunMetaStore metaStore,
+        TimeProvider? timeProvider = null)
     {
         this.metaStore = metaStore ?? throw new ArgumentNullException(nameof(metaStore));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Prepares one run-scoped artifact directory and writes initial <c>meta.json</c>. </summary>
@@ -50,7 +56,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         for (var attempt = 0; attempt < MaxRunIdGenerationAttempts; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var startedAtUtc = DateTimeOffset.UtcNow;
+            var startedAtUtc = timeProvider.GetUtcNow();
             var runId = CreateRunId(startedAtUtc);
 
             string artifactsDir;
@@ -133,7 +139,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
             await metaStore.Write(
                 configuration,
                 session,
-                finishedAtUtc: DateTimeOffset.UtcNow,
+                finishedAtUtc: timeProvider.GetUtcNow(),
                 cancellationToken).ConfigureAwait(false);
             return ArtifactsCompletionResult.Success();
         }

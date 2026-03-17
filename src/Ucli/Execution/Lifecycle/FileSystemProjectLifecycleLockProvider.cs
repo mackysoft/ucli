@@ -9,6 +9,15 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
 {
     private const int RetryDelayMilliseconds = 50;
 
+    private readonly TimeProvider timeProvider;
+
+    /// <summary> Initializes a new instance of the <see cref="FileSystemProjectLifecycleLockProvider" /> class. </summary>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
+    public FileSystemProjectLifecycleLockProvider (TimeProvider? timeProvider = null)
+    {
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+    }
+
     /// <summary> Acquires the lifecycle lock for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
@@ -42,7 +51,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
             FileSystemAccessBoundary.EnsureSecureDirectory(lockDirectoryPath);
         }
 
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -72,7 +81,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
                     delay = TimeSpan.FromMilliseconds(1);
                 }
 
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                await TimeProviderDelay.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
             }
         }
     }

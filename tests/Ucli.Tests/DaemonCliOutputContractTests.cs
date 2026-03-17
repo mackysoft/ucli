@@ -224,7 +224,7 @@ public sealed class DaemonCliOutputContractTests
     public async Task List_WithProjectPath_WhenNoDaemonSessionExists_ReturnsSuccessJsonContractAsSingleJson ()
     {
         using var scope = TestDirectories.CreateTempScope("cli-output-contract", "daemon-list-success");
-        InitializeGitRepository(scope);
+        await InitializeGitRepository(scope);
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
         var result = await CliProcessRunner.RunCommand(
@@ -422,12 +422,12 @@ public sealed class DaemonCliOutputContractTests
         Assert.Contains("-p, --projectPath", result.StdOut, StringComparison.Ordinal);
     }
 
-    private static void InitializeGitRepository (TestDirectoryScope scope)
+    private static Task InitializeGitRepository (TestDirectoryScope scope)
     {
-        RunGit(scope.FullPath, "init");
+        return RunGit(scope.FullPath, "init");
     }
 
-    private static void RunGit (
+    private static async Task RunGit (
         string workingDirectory,
         params string[] arguments)
     {
@@ -445,9 +445,11 @@ public sealed class DaemonCliOutputContractTests
         }
 
         Assert.True(process.Start(), "Failed to start git process.");
-        var standardOutput = process.StandardOutput.ReadToEnd();
-        var standardError = process.StandardError.ReadToEnd();
-        process.WaitForExit();
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+        var standardErrorTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var standardOutput = await standardOutputTask;
+        var standardError = await standardErrorTask;
 
         Assert.True(
             process.ExitCode == 0,

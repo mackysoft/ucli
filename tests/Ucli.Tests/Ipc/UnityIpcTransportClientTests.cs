@@ -56,17 +56,20 @@ public sealed class UnityIpcTransportClientTests
             "token",
             IpcMethodNames.Ping,
             JsonDocument.Parse("{}").RootElement.Clone());
-        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var sendTask = client.SendAsync(
+                "storage-root",
+                "fingerprint",
+                request,
+                TimeSpan.FromSeconds(5),
+                cancellationTokenSource.Token)
+            .AsTask();
+        cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await client.SendAsync(
-                    "storage-root",
-                    "fingerprint",
-                    request,
-                    TimeSpan.FromSeconds(5),
-                    cancellationTokenSource.Token)
-                .AsTask();
+            await sendTask;
         });
     }
 
