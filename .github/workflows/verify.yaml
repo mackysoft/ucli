@@ -387,7 +387,6 @@ jobs:
             --unityEditorPath "${{ steps.unity_setup.outputs.unity-editor-path }}" \
             --testPlatform editmode \
             --assemblyName "MackySoft.Ucli.Unity.Tests.Editor" \
-            --assemblyName "MackySoft.Ucli.Unity.Sandbox.Tests.Editor" \
             --timeout 1800000 \
             > "${json_path}" 2> "${stderr_path}"
           exit_code=$?
@@ -421,7 +420,6 @@ jobs:
             --unityEditorPath '${{ steps.unity_setup.outputs.unity-editor-path }}' `
             --testPlatform editmode `
             --assemblyName 'MackySoft.Ucli.Unity.Tests.Editor' `
-            --assemblyName 'MackySoft.Ucli.Unity.Sandbox.Tests.Editor' `
             --timeout 1800000 `
             1> $jsonPath 2> $stderrPath
 
