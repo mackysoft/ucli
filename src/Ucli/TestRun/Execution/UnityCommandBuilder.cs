@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.TestRun.Execution;
 /// <summary> Implements Unity command argument building for test execution. </summary>
 internal sealed class UnityCommandBuilder : IUnityCommandBuilder
 {
+    private const char MultiValueOptionSeparator = ';';
+
     /// <summary> Builds one Unity command argument list from resolved run configuration and artifact paths. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="artifactPaths"> The run artifact paths. </param>
@@ -43,7 +45,7 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
         if (configuration.AssemblyNames.Length > 0)
         {
             arguments.Add("-assemblyNames");
-            arguments.Add(string.Join(',', configuration.AssemblyNames));
+            arguments.Add(string.Join(MultiValueOptionSeparator, configuration.AssemblyNames));
         }
 
         if (!string.IsNullOrWhiteSpace(configuration.TestFilter))
@@ -55,7 +57,7 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
         if (configuration.TestCategories.Length > 0)
         {
             arguments.Add("-testCategory");
-            arguments.Add(string.Join(',', configuration.TestCategories));
+            arguments.Add(string.Join(MultiValueOptionSeparator, configuration.TestCategories));
         }
 
         if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath))

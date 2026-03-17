@@ -9,8 +9,8 @@ namespace MackySoft.Ucli.TestRun;
 /// <param name="TestPlatform"> Optional test platform option value (<c>editmode|playmode</c>). </param>
 /// <param name="BuildTarget"> Optional Unity build target for PlayMode tests. </param>
 /// <param name="TestFilter"> Optional Unity test filter pattern. </param>
-/// <param name="TestCategory"> Optional test categories from repeated or comma-separated CLI options. </param>
-/// <param name="AssemblyName"> Optional assembly names from repeated or comma-separated CLI options. </param>
+/// <param name="TestCategory"> Optional test categories parsed from the CLI option. </param>
+/// <param name="AssemblyName"> Optional assembly names parsed from the CLI option. </param>
 /// <param name="TestSettingsPath"> Optional path to <c>TestSettings.json</c>. </param>
 /// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
 internal sealed record TestRunCommandInput (

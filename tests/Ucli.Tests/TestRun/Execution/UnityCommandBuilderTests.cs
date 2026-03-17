@@ -60,8 +60,8 @@ public sealed class UnityCommandBuilderTests
         Assert.Equal("PlayMode", GetOptionValue(arguments, "-testPlatform"));
         Assert.Equal("StandaloneWindows64", GetOptionValue(arguments, "-buildTarget"));
         Assert.Equal("Category=Smoke", GetOptionValue(arguments, "-testFilter"));
-        Assert.Equal("smoke,quick", GetOptionValue(arguments, "-testCategory"));
-        Assert.Equal("Game.Tests,Game.MoreTests", GetOptionValue(arguments, "-assemblyNames"));
+        Assert.Equal("smoke;quick", GetOptionValue(arguments, "-testCategory"));
+        Assert.Equal("Game.Tests;Game.MoreTests", GetOptionValue(arguments, "-assemblyNames"));
         Assert.Equal(configuration.TestSettingsPath, GetOptionValue(arguments, "-testSettingsFile"));
     }
 

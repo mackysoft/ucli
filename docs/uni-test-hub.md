@@ -101,8 +101,8 @@ uni-test-hub run --projectPath ./UnityProject --profilePath ./profile.json
 | `--mode <string?>` | `-m` | `editmode` or `playmode` |
 | `--buildTarget <string?>` | `-t` | Build target used when `mode=playmode` |
 | `--testFilter <string?>` | `-f` | Test name filter pattern |
-| `--testCategory <string[]?>` | - | Test categories (repeat or comma-separated) |
-| `--assemblyName <string[]?>` | `-a` | Assembly names (repeat or comma-separated) |
+| `--testCategory <string?>` | - | Comma-separated test categories |
+| `--assemblyName <string?>` | `-a` | Comma-separated assembly names |
 | `--testSettingsPath <string?>` | `-s` | Path to `TestSettings.json` |
 | `--outputDir <string?>` | `-o` | Artifact output root directory |
 | `--timeoutSeconds <int?>` | - | Timeout in seconds (`1..86400`) |

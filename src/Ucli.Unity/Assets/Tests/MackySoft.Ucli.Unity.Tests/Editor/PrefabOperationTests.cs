@@ -1,9 +1,11 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -12,6 +14,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 #nullable enable
 
@@ -19,9 +22,9 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PrefabOperationTests
     {
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Call_WhenSceneGameObjectIsValid_CreatesPrefabAndConnectsSourceObject ()
+        public IEnumerator Create_Call_WhenSceneGameObjectIsValid_CreatesPrefabAndConnectsSourceObject () => UniTask.ToCoroutine(async () =>
         {
             var operation = new PrefabCreateOperation();
             var scenePath = CreateTemporaryScenePath();
@@ -66,11 +69,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssetDatabase.DeleteAsset(scenePath);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Create_Validate_WhenTargetIsMissing_ReturnsInvalidArgument ()
+        public IEnumerator Create_Validate_WhenTargetIsMissing_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new PrefabCreateOperation();
             var requestOperation = CreateOperation(
@@ -84,11 +87,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-create");
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Open_Plan_WhenAliasIsSpecified_StoresTemporaryPrefabRootAlias ()
+        public IEnumerator Open_Plan_WhenAliasIsSpecified_StoresTemporaryPrefabRootAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new PrefabOpenOperation();
             var prefabPath = CreateTemporaryPrefabPath();
@@ -123,11 +126,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Open_Plan_WhenFollowedByGoCreateAndCompEnsureAndSet_AllowsTemporaryAliasChain ()
+        public IEnumerator Open_Plan_WhenFollowedByGoCreateAndCompEnsureAndSet_AllowsTemporaryAliasChain () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new PrefabOpenOperation();
             var goCreateOperation = new GoCreateOperation();
@@ -211,11 +214,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Open_Call_ThenCompEnsureSet_ThenSave_Call_PersistsComponentChanges ()
+        public IEnumerator Open_Call_ThenCompEnsureSet_ThenSave_Call_PersistsComponentChanges () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new PrefabOpenOperation();
             var ensureOperation = new CompEnsureOperation();
@@ -302,11 +305,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-        }
+                });
 
-        [Test]
+        [UnityTest]
         [Category("Size.Small")]
-        public async Task Open_Call_ThenGoCreateAndCompEnsureSet_ThenSave_Call_PersistsChildChanges ()
+        public IEnumerator Open_Call_ThenGoCreateAndCompEnsureSet_ThenSave_Call_PersistsChildChanges () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new PrefabOpenOperation();
             var goCreateOperation = new GoCreateOperation();
@@ -409,7 +412,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-        }
+                });
 
         private static void CreatePrefabAsset (
             string prefabPath,
