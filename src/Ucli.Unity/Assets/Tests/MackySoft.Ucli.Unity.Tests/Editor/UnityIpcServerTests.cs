@@ -1043,7 +1043,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task CancellationObserved => cancellationObserved.Task;
 
-            public Task Run (
+            public async Task Run (
                 string address,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
@@ -1057,7 +1057,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     waitSource.TrySetCanceled(cancellationToken);
                 });
 
-                return waitSource.Task;
+                await waitSource.Task;
             }
 
             public void Release ()
