@@ -7,8 +7,6 @@ namespace MackySoft.Ucli.Execution;
 /// <summary> Implements process-local in-memory lifecycle locks scoped by storage root and project fingerprint. </summary>
 internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLockProvider
 {
-    private const int RetryDelayMilliseconds = 50;
-
     private static readonly ConcurrentDictionary<string, LockState> LocksByFingerprint = new(StringComparer.Ordinal);
 
     private readonly TimeProvider timeProvider;
@@ -82,18 +80,9 @@ internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLo
                     return new LockHandle(lockState);
                 }
 
-                var retryDelay = TimeSpan.FromMilliseconds(RetryDelayMilliseconds);
-                var delay = remainingTimeout < retryDelay
-                    ? remainingTimeout
-                    : retryDelay;
-                if (delay <= TimeSpan.Zero)
-                {
-                    continue;
-                }
-
                 var completedTask = await Task.WhenAny(
                         waitRegistration.Task,
-                        TimeProviderDelay.Delay(delay, timeProvider, cancellationToken))
+                        TimeProviderDelay.Delay(remainingTimeout, timeProvider, cancellationToken))
                     .ConfigureAwait(false);
                 if (completedTask == waitRegistration.Task)
                 {
