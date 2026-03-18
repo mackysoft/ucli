@@ -46,8 +46,8 @@ jobs:
 
           dotnet_matrix_pr='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"},{"runs_on":"windows-latest","os_name":"windows"},{"runs_on":"macos-latest","os_name":"macos"}]}'
           dotnet_matrix_push='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"}]}'
-          unity_matrix_pr='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux","cache_installation":true},{"runs_on":"windows-latest","os_name":"windows","cache_installation":false},{"runs_on":"macos-latest","os_name":"macos","cache_installation":true}]}'
-          unity_matrix_push='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux","cache_installation":true}]}'
+          unity_matrix_pr='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","cache_installation":true},{"runs_on":"windows-latest","os_name":"windows","cache_installation":false},{"runs_on":"macos-latest","os_name":"macos","cache_installation":true}]}'
+          unity_matrix_push='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","cache_installation":true}]}'
 
           dotnet_matrix_json="${dotnet_matrix_pr}"
           unity_matrix_json="${unity_matrix_pr}"
@@ -342,6 +342,12 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           set -euo pipefail
+          if command -v mono >/dev/null 2>&1; then
+            mono --version | head -n 1
+            exit 0
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
           sudo apt-get install --yes mono-complete
         shell: bash
