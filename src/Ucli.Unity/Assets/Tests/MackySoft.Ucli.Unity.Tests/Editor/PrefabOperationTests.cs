@@ -287,6 +287,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssertSuccess(setResult, applied: true, changed: true);
                 AssertSuccess(saveResult, applied: true, changed: true);
                 AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+                var openedPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+                Assert.That(openedPrefabStage, Is.Not.Null);
+                Assert.That(openedPrefabStage!.prefabContentsRoot.scene.isDirty, Is.False);
 
                 ClosePrefabStageIfOpen();
                 loadedPrefabContentsRoot = PrefabUtility.LoadPrefabContents(prefabPath);
@@ -432,12 +435,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static void ClosePrefabStageIfOpen ()
         {
-            if (PrefabStageUtility.GetCurrentPrefabStage() == null)
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage == null)
             {
                 return;
             }
 
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            prefabStage.ClearDirtiness();
+            StageUtility.GoToMainStage();
         }
 
         private static string CreateTemporaryScenePath ()

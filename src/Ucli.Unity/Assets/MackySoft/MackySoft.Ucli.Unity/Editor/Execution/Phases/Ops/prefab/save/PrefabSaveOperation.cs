@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 #nullable enable
@@ -93,6 +94,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     $"Prefab could not be saved: {resolutionState.PrefabPath}."));
             }
 
+            if (resolutionState.PrefabStage != null)
+            {
+                resolutionState.PrefabStage.ClearDirtiness();
+            }
+
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,
                 changed: changedBeforeSave,
@@ -126,7 +132,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (allowTemporaryState
                 && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot))
             {
-                resolutionState = new ResolutionState(prefabPath, prefabContentsRoot!);
+                resolutionState = new ResolutionState(prefabPath, prefabContentsRoot!, null);
                 return true;
             }
 
@@ -145,7 +151,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            resolutionState = new ResolutionState(prefabPath, prefabContentsRoot);
+            resolutionState = new ResolutionState(prefabPath, prefabContentsRoot, prefabStage);
             return true;
         }
 
@@ -153,15 +159,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ResolutionState (
                 string prefabPath,
-                GameObject prefabContentsRoot)
+                GameObject prefabContentsRoot,
+                PrefabStage? prefabStage)
             {
                 PrefabPath = prefabPath;
                 PrefabContentsRoot = prefabContentsRoot;
+                PrefabStage = prefabStage;
             }
 
             public string PrefabPath { get; }
 
             public GameObject? PrefabContentsRoot { get; }
+
+            public PrefabStage? PrefabStage { get; }
         }
     }
 }
