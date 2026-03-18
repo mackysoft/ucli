@@ -16,19 +16,17 @@ permissions:
   packages: write
 
 jobs:
-  publish:
+  prepare-release:
     runs-on: ubuntu-latest
+    outputs:
+      package_version: ${{ steps.version.outputs.package_version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 8.0.x
 
       - name: Resolve package version
         id: version
@@ -48,13 +46,49 @@ jobs:
             exit 1
           fi
 
-          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
+          tag_name="contracts/${package_version}"
 
+          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
+          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create and push release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null; then
+            echo "Tag ${TAG_NAME} already exists." >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag "${TAG_NAME}" "${RELEASE_SHA}"
+          git push origin "refs/tags/${TAG_NAME}"
+
+  publish:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
       - name: Pack contracts
         run: >-
           dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj
           --configuration Release
-          -p:PackageVersion=${{ steps.version.outputs.package_version }}
+          -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
           --output artifacts/packages
 
       - name: Publish to GitHub Packages
@@ -67,7 +101,7 @@ jobs:
       - name: Sync contracts package versions in repository
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
