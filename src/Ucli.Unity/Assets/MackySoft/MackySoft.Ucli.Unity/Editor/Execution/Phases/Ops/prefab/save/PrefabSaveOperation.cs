@@ -96,6 +96,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (resolutionState.PrefabStage != null)
             {
+                // NOTE: SaveAsPrefabAsset persists the prefab contents, but the opened Prefab Stage can remain dirty
+                // when the user's Prefab Auto Save preference is disabled. Clear it explicitly so batchmode cleanup
+                // does not depend on per-user editor settings or try to show a save dialog.
                 resolutionState.PrefabStage.ClearDirtiness();
             }
 

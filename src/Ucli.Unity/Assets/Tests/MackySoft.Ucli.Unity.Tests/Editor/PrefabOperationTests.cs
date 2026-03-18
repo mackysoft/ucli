@@ -441,6 +441,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 return;
             }
 
+            // NOTE: Close the stage without relying on the user's Prefab Auto Save preference. In batchmode,
+            // leaving the stage dirty here can trigger the modified-prefab dialog path and fail unrelated tests.
             prefabStage.ClearDirtiness();
             StageUtility.GoToMainStage();
         }
