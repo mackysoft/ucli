@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Dispatches execute requests to operation-phase execution pipelines. </summary>
     internal sealed class ExecuteRequestDispatcher : IExecuteRequestDispatcher
     {
-        private static readonly JsonSerializerOptions SerializerOptions = new ()
+        private static readonly JsonSerializerOptions SerializerOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false,

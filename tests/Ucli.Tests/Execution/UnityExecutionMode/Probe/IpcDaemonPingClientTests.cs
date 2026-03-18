@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
@@ -11,6 +12,8 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 public sealed class IpcDaemonPingClientTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(3);
+
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -48,7 +51,10 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: cancellationTokenSource.Token).AsTask(),
+                "Canceled daemon ping",
+                AsyncWaitTimeout);
         });
         Assert.Equal(0, unityIpcClient.CallCount);
         Assert.Equal(0, sessionTokenProvider.CallCount);
@@ -112,7 +118,10 @@ public sealed class IpcDaemonPingClientTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                pingClient.PingAndRead(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Invalid ping payload result",
+                AsyncWaitTimeout);
         });
 
         Assert.Contains("payload", exception.Message, StringComparison.Ordinal);
@@ -158,7 +167,10 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Error status ping result",
+                AsyncWaitTimeout);
         });
     }
 
@@ -181,7 +193,10 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Ping response errors result",
+                AsyncWaitTimeout);
         });
     }
 
@@ -195,7 +210,10 @@ public sealed class IpcDaemonPingClientTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Missing session token ping result",
+                AsyncWaitTimeout);
         });
 
         Assert.Equal(IpcErrorCodes.SessionTokenRequired, exception.ErrorCode);
@@ -216,7 +234,10 @@ public sealed class IpcDaemonPingClientTests
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                pingClient.Ping(CreateContext(), DefaultTimeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Session token resolution failure ping result",
+                AsyncWaitTimeout);
         });
 
         Assert.Null(exception.ErrorCode);
@@ -238,7 +259,10 @@ public sealed class IpcDaemonPingClientTests
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await pingClient.Ping(CreateContext(), timeout, cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                pingClient.Ping(CreateContext(), timeout, cancellationToken: CancellationToken.None).AsTask(),
+                "Invalid timeout ping result",
+                AsyncWaitTimeout);
         });
         Assert.Equal(0, unityIpcClient.CallCount);
         Assert.Equal(0, sessionTokenProvider.CallCount);

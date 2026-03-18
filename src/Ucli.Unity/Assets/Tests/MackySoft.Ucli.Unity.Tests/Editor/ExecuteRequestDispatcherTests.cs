@@ -50,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var response = await DispatchAsync(dispatcher, request, context, "Plan token payload mapping");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Payload.TryGetProperty("planToken", out var planToken), Is.True);
@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Plan, operationName: "ucli.go.describe");
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var response = await DispatchAsync(dispatcher, request, context, "Operation result payload mapping");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
@@ -120,8 +120,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
-            var firstResponse = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
-            var secondResponse = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var firstResponse = await DispatchAsync(dispatcher, request, context, "Idempotent first response");
+            var secondResponse = await DispatchAsync(dispatcher, request, context, "Idempotent second response");
 
             Assert.That(firstResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
@@ -151,8 +151,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationId: "op-2",
                 operationName: "ucli.scene.open");
 
-            _ = await dispatcher.Dispatch(firstRequest, context, CancellationToken.None).AsUniTask();
-            var secondResponse = await dispatcher.Dispatch(secondRequest, context, CancellationToken.None).AsUniTask();
+            _ = await DispatchAsync(dispatcher, firstRequest, context, "Initial conflicting request completion");
+            var secondResponse = await DispatchAsync(dispatcher, secondRequest, context, "Conflicting payload response");
 
             Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(secondResponse.Errors.Count, Is.EqualTo(1));
@@ -184,8 +184,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationName: "ucli.resolve",
                 planToken: "token-2");
 
-            _ = await dispatcher.Dispatch(firstRequest, context, CancellationToken.None).AsUniTask();
-            var secondResponse = await dispatcher.Dispatch(secondRequest, context, CancellationToken.None).AsUniTask();
+            _ = await DispatchAsync(dispatcher, firstRequest, context, "Initial plan token request completion");
+            var secondResponse = await DispatchAsync(dispatcher, secondRequest, context, "Conflicting plan token response");
 
             Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(secondResponse.Errors.Count, Is.EqualTo(1));
@@ -229,7 +229,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Plan);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var response = await DispatchAsync(dispatcher, request, context, "Normalization failure response");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -253,7 +253,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = new IpcExecuteRequest(UcliCommandIds.Plan, default);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var response = await DispatchAsync(dispatcher, request, context, "Invalid arguments response");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -303,7 +303,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Call);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var response = await DispatchAsync(dispatcher, request, context, "Phase execution failure response");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -364,7 +364,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(commandName, operationName: operationName);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var response = await DispatchAsync(dispatcher, request, context, "Phase executor delegation response");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors.Count, Is.EqualTo(0));
@@ -401,7 +401,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(commandName);
 
-            var response = await dispatcher.Dispatch(request, context, CancellationToken.None).AsUniTask();
+            var response = await DispatchAsync(dispatcher, request, context, "Command not implemented response");
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -427,6 +427,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var first = enumerator.Current;
             Assert.That(enumerator.MoveNext(), Is.False);
             return first;
+        }
+
+        private static UniTask<IpcResponse> DispatchAsync (
+            ExecuteRequestDispatcher dispatcher,
+            IpcExecuteRequest request,
+            ExecuteDispatchContext context,
+            string description,
+            CancellationToken cancellationToken = default)
+        {
+            return TestAwaiter.WaitAsync(
+                dispatcher.Dispatch(request, context, cancellationToken).AsUniTask(),
+                description,
+                AsyncWaitTimeout);
         }
 
         private static IpcExecuteRequest CreateExecuteRequest (

@@ -127,11 +127,17 @@ public sealed class SupervisorTransportServerTests
             Path.Combine(blockedDirectoryPath, UcliIpcEndpointNames.UnixSocketFileName));
         var server = new SupervisorTransportServer();
 
-        var exception = await Assert.ThrowsAsync<IOException>(() => server.Run(
-            endpoint,
-            static (_, _) => Task.CompletedTask,
-            static _ => Task.CompletedTask,
-            CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<IOException>(async () =>
+        {
+            await TestAwaiter.WaitAsync(
+                server.Run(
+                    endpoint,
+                    static (_, _) => Task.CompletedTask,
+                    static _ => Task.CompletedTask,
+                    CancellationToken.None),
+                "Blocked socket directory server start",
+                SignalWaitTimeout);
+        });
 
         Assert.Contains(blockedDirectoryPath, exception.Message, StringComparison.Ordinal);
     }

@@ -72,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", "ucli.resolve");
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Plan, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Plan phase execution");
 
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
@@ -90,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", "ucli.resolve");
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call phase execution");
 
             CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Call }, operation.CalledPhases);
             Assert.That(trace.IsSuccess, Is.True);
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.resolve"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Duplicate operation call execution");
 
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.OperationTraces.Count, Is.EqualTo(2));
@@ -123,7 +123,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executor = CreateExecutor(operation);
             var request = CreateRequest("op-1", "ucli.resolve");
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Shared context call execution");
 
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(operation.ValidateContext, Is.Not.Null);
@@ -147,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 coordinator);
             var request = CreateRequest("op-1", "ucli.resolve");
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Plan, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Plan token issue execution");
 
             Assert.That(trace.IsSuccess, Is.True);
             Assert.That(trace.PlanToken, Is.EqualTo("issued-token"));
@@ -182,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Plan token validation failure execution");
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
@@ -213,7 +213,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Validate failure execution");
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
@@ -243,7 +243,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Plan failure execution");
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
@@ -270,7 +270,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ("op-1", "ucli.resolve"),
                 ("op-2", "ucli.scene.open"));
 
-            var trace = await executor.Execute(PhaseExecutionCommand.Call, request).AsUniTask();
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call failure execution");
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Call));
@@ -516,6 +516,19 @@ namespace MackySoft.Ucli.Unity.Tests
         private static OperationPhaseExecutor CreateExecutor (IUcliOperation operation)
         {
             return new OperationPhaseExecutor(CreateRegistry(("ucli.resolve", operation)));
+        }
+
+        private static UniTask<PhaseExecutionTrace> ExecuteAsync (
+            OperationPhaseExecutor executor,
+            PhaseExecutionCommand command,
+            NormalizedExecuteRequest request,
+            string description,
+            CancellationToken cancellationToken = default)
+        {
+            return TestAwaiter.WaitAsync(
+                executor.Execute(command, request, cancellationToken).AsUniTask(),
+                description,
+                AsyncWaitTimeout);
         }
 
         private static InMemoryPhaseOperationRegistry CreateRegistry (

@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -12,6 +13,8 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 public sealed class UnityExecutionModeDecisionServiceTests
 {
     private const string CommandName = "status";
+
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -180,7 +183,10 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                service.Decide(new UcliCommand(CommandName), "auto", null, config, CreateContext(), cancellationTokenSource.Token).AsTask(),
+                "Canceled unity execution mode decision",
+                AsyncWaitTimeout);
         });
         Assert.False(probe.WasCalled);
     }
@@ -289,7 +295,10 @@ public sealed class UnityExecutionModeDecisionServiceTests
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
         {
-            await service.Decide(new UcliCommand(" "), "auto", null, config, CreateContext(), CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                service.Decide(new UcliCommand(" "), "auto", null, config, CreateContext(), CancellationToken.None).AsTask(),
+                "Invalid command unity execution mode decision",
+                AsyncWaitTimeout);
         });
         Assert.False(probe.WasCalled);
     }

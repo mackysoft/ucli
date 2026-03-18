@@ -34,7 +34,10 @@ public sealed class UnityIpcTransportClientTests
 
         var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
         {
-            await client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask();
+            await TestAwaiter.WaitAsync(
+                client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask(),
+                "Missing named pipe send result",
+                SendWaitTimeout);
         });
         Assert.Contains("timed out", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -97,7 +100,10 @@ public sealed class UnityIpcTransportClientTests
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await client.SendAsync("storage-root", "fingerprint", request, timeout).AsTask();
+            await TestAwaiter.WaitAsync(
+                client.SendAsync("storage-root", "fingerprint", request, timeout).AsTask(),
+                "Invalid timeout send result",
+                SendWaitTimeout);
         });
     }
 

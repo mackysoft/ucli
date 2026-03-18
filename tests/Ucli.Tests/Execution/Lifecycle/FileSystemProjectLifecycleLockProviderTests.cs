@@ -55,7 +55,10 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
             .AsTask();
         Assert.False(waitingTask.IsCompleted);
         waitingCts.Cancel();
-        var exception = await Record.ExceptionAsync(async () => await waitingTask);
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            await TestAwaiter.WaitAsync(waitingTask, "Canceled file system lifecycle lock acquire", AcquireWaitTimeout);
+        });
 
         await firstHandle.DisposeAsync();
 
@@ -82,7 +85,10 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
                 CancellationToken.None)
             .AsTask();
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
-        var exception = await Record.ExceptionAsync(async () => await waitingTask);
+        var exception = await Record.ExceptionAsync(async () =>
+        {
+            await TestAwaiter.WaitAsync(waitingTask, "Timed out file system lifecycle lock acquire", AcquireWaitTimeout);
+        });
 
         await firstHandle.DisposeAsync();
 

@@ -9,6 +9,8 @@ using MackySoft.Ucli.UnityProject;
 
 public sealed class DaemonLaunchServiceTests
 {
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Launch_WhenLaunchAndReadinessSucceed_ReturnsStarted ()
@@ -454,7 +456,10 @@ public sealed class DaemonLaunchServiceTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await service.Launch(context, TimeSpan.FromMilliseconds(500), cancellationSource.Token);
+            await TestAwaiter.WaitAsync(
+                service.Launch(context, TimeSpan.FromMilliseconds(500), cancellationSource.Token).AsTask(),
+                "Canceled daemon launch result",
+                AsyncWaitTimeout);
         });
 
         Assert.True(cancellationSource.IsCancellationRequested);

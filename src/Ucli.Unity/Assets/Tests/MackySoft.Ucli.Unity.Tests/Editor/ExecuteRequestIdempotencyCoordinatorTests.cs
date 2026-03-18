@@ -127,16 +127,23 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            Assert.That(waiterTask.IsCompleted, Is.False);
-            ownerRelease.TrySetResult(true);
+            try
+            {
+                Assert.That(waiterTask.IsCompleted, Is.False);
+                ownerRelease.TrySetResult(true);
 
-            var ownerResponse = await TestAwaiter.WaitAsync(ownerTask, "Owner request result", SignalWaitTimeout);
-            var waiterResponse = await TestAwaiter.WaitAsync(waiterTask, "Waiter replayed result", SignalWaitTimeout);
+                var ownerResponse = await TestAwaiter.WaitAsync(ownerTask, "Owner request result", SignalWaitTimeout);
+                var waiterResponse = await TestAwaiter.WaitAsync(waiterTask, "Waiter replayed result", SignalWaitTimeout);
 
-            Assert.That(ownerExecutionCount, Is.EqualTo(1));
-            Assert.That(waiterExecutionCount, Is.EqualTo(0));
-            Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
-            Assert.That(GetMarker(waiterResponse), Is.EqualTo("owner"));
+                Assert.That(ownerExecutionCount, Is.EqualTo(1));
+                Assert.That(waiterExecutionCount, Is.EqualTo(0));
+                Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
+                Assert.That(GetMarker(waiterResponse), Is.EqualTo("owner"));
+            }
+            finally
+            {
+                ownerRelease.TrySetResult(true);
+            }
         });
 
         [UnityTest]
@@ -180,16 +187,22 @@ namespace MackySoft.Ucli.Unity.Tests
 
             waiterCancellationTokenSource.Cancel();
 
-            Assert.CatchAsync<OperationCanceledException>(async () =>
-                await TestAwaiter.WaitAsync(waiterTask, "Waiter cancellation result", SignalWaitTimeout));
-            Assert.That(ownerTask.IsCompleted, Is.False);
+            try
+            {
+                Assert.CatchAsync<OperationCanceledException>(async () =>
+                    await TestAwaiter.WaitAsync(waiterTask, "Waiter cancellation result", SignalWaitTimeout));
+                Assert.That(ownerTask.IsCompleted, Is.False);
+                ownerRelease.TrySetResult(true);
 
-            ownerRelease.TrySetResult(true);
-
-            var ownerResponse = await TestAwaiter.WaitAsync(ownerTask, "Owner request result after waiter cancellation", SignalWaitTimeout);
-            Assert.That(ownerExecutionCount, Is.EqualTo(1));
-            Assert.That(waiterExecutionCount, Is.EqualTo(0));
-            Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
+                var ownerResponse = await TestAwaiter.WaitAsync(ownerTask, "Owner request result after waiter cancellation", SignalWaitTimeout);
+                Assert.That(ownerExecutionCount, Is.EqualTo(1));
+                Assert.That(waiterExecutionCount, Is.EqualTo(0));
+                Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
+            }
+            finally
+            {
+                ownerRelease.TrySetResult(true);
+            }
         });
 
         [UnityTest]
@@ -224,12 +237,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            Assert.That(conflictExecutionCount, Is.EqualTo(0));
-            Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
-            Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+            try
+            {
+                Assert.That(conflictExecutionCount, Is.EqualTo(0));
+                Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
+                Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
+            }
+            finally
+            {
+                ownerRelease.TrySetResult(true);
+            }
 
-            ownerRelease.TrySetResult(true);
             _ = await TestAwaiter.WaitAsync(ownerTask, "Owner request completion after conflict response", SignalWaitTimeout);
         });
 

@@ -25,7 +25,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                await exporter.ExportRange(sourcePath, destinationPath, 2, 7, CancellationToken.None).AsUniTask();
+                await TestAwaiter.WaitAsync(
+                    exporter.ExportRange(sourcePath, destinationPath, 2, 7, CancellationToken.None).AsUniTask(),
+                    "Editor log range export",
+                    AsyncWaitTimeout);
 
                 Assert.That(File.Exists(destinationPath), Is.True);
                 Assert.That(File.ReadAllText(destinationPath), Is.EqualTo("23456"));

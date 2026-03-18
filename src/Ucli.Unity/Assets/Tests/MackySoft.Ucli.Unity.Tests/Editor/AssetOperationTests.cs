@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(aliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Asset));
             Assert.That(aliasState.Resource.Path, Is.EqualTo(requestOperation.Args.GetProperty("path").GetString()));
             Assert.That(aliasState.UnityObject, Is.TypeOf<AssetOperationTestAsset>());
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -75,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 DeleteAsset(assetPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -94,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -125,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertAssetSuccess(firstResult, applied: false, changed: true, assetPath);
             AssertInvalidArgument(secondResult, "op-create-2");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -199,7 +199,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset))));
             Assert.That(schema.GetProperty("properties").ToString(), Does.Contain("\"path\":\"integerValue\""));
             Assert.That(schema.GetProperty("properties").ToString(), Does.Contain("\"path\":\"text\""));
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -268,7 +268,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var schema = schemaResult.Result!.Value;
             Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset))));
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -316,7 +316,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DeleteAsset(assetPath);
                 DestroyIfTransient(asset);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -371,7 +371,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DeleteAsset(assetPath);
                 DestroyIfTransient(asset);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -413,7 +413,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DeleteAsset(assetPath);
                 DestroyIfTransient(material);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -458,7 +458,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DestroyIfTransient(subAsset);
                 DestroyIfTransient(mainAsset);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -476,7 +476,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-schema");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -511,7 +511,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DeleteAsset(assetPath);
                 DestroyIfTransient(material);
             }
-                });
+        });
 
         private static Shader ResolveMaterialShader ()
         {

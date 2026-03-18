@@ -1,9 +1,12 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Supervisor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorExternalProcessRunnerTests
 {
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task RunIgnoringExitCode_WhenProcessExitsNonZero_DoesNotThrow ()
@@ -38,10 +41,13 @@ public sealed class SupervisorExternalProcessRunnerTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await runner.RunIgnoringExitCode(
-                "dotnet",
-                ["--info"],
-                cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                runner.RunIgnoringExitCode(
+                    "dotnet",
+                    ["--info"],
+                    cancellationTokenSource.Token).AsTask(),
+                "Canceled supervisor external process run",
+                AsyncWaitTimeout);
         });
     }
 }

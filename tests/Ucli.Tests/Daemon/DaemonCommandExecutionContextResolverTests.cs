@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts;
@@ -9,6 +10,8 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonCommandExecutionContextResolverTests
 {
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Resolve_WhenDaemonSubcommandTimeoutOverrideExists_UsesOverride ()
@@ -97,11 +100,14 @@ public sealed class DaemonCommandExecutionContextResolverTests
 
         await Assert.ThrowsAsync<ArgumentException>(async () =>
         {
-            await resolver.Resolve(
-                timeoutCommand: default,
-                projectPath: null,
-                timeout: null,
-                cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                resolver.Resolve(
+                    timeoutCommand: default,
+                    projectPath: null,
+                    timeout: null,
+                    cancellationToken: CancellationToken.None).AsTask(),
+                "Invalid daemon timeout command resolution",
+                AsyncWaitTimeout);
         });
     }
 

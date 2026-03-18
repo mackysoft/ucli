@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssetDatabase.DeleteAsset(scenePath);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-create");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -126,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -214,7 +214,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -305,7 +305,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -412,7 +412,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         private static void CreatePrefabAsset (
             string prefabPath,

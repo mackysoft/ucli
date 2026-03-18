@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests;
 
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Operations;
@@ -9,6 +10,8 @@ using MackySoft.Ucli.UnityProject;
 public sealed class OperationCatalogTests
 {
     private const string ArgsSchemaJson = """{"type":"object"}""";
+
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -184,7 +187,13 @@ public sealed class OperationCatalogTests
         ]);
         var catalog = new OperationCatalog(provider);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () => await catalog.GetAll(CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await TestAwaiter.WaitAsync(
+                catalog.GetAll(CancellationToken.None).AsTask(),
+                "Duplicate operation catalog load",
+                AsyncWaitTimeout);
+        });
         Assert.Contains("duplicated", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 

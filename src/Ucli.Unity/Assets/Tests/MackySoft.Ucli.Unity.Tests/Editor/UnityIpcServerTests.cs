@@ -107,10 +107,16 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var server = CreateServerForLifecycle();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test");
-            await server.Start(endpoint).AsUniTask();
+            await TestAwaiter.WaitAsync(
+                server.Start(endpoint).AsUniTask(),
+                "Server lifecycle start",
+                SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.True);
 
-            await server.Stop().AsUniTask();
+            await TestAwaiter.WaitAsync(
+                server.Stop().AsUniTask(),
+                "Server lifecycle stop",
+                SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.False);
         });
 
@@ -302,7 +308,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-fault-after-startup");
 
-            await server.Start(endpoint).AsUniTask();
+            await TestAwaiter.WaitAsync(
+                server.Start(endpoint).AsUniTask(),
+                "Server start before termination fault test",
+                SignalWaitTimeout);
             listener.ReleaseFault();
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {

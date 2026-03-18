@@ -272,7 +272,10 @@ public sealed class IpcDaemonReachabilityProbeTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask(),
+                "Canceled daemon reachability probe",
+                SignalWaitTimeout);
         });
         Assert.Equal(0, daemonPingClient.CallCount);
     }
@@ -335,7 +338,10 @@ public sealed class IpcDaemonReachabilityProbeTests
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await probe.Probe(CreateContext(Path.GetFullPath(".")), timeout, CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                probe.Probe(CreateContext(Path.GetFullPath(".")), timeout, CancellationToken.None).AsTask(),
+                "Invalid timeout daemon reachability probe",
+                SignalWaitTimeout);
         });
         Assert.Equal(0, daemonPingClient.CallCount);
     }
