@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorTransportServerTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Run_WhenOneConnectionBlocks_StillAcceptsAnotherConnection ()
@@ -61,7 +63,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await startedTaskSource.Task;
+            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
 
             var client = new IpcTransportClient();
             var slowRequestTask = client.SendAsync(
@@ -70,7 +72,7 @@ public sealed class SupervisorTransportServerTests
                     TimeSpan.FromSeconds(5))
                 .AsTask();
 
-            await slowRequestEnteredTaskSource.Task;
+            await slowRequestEnteredTaskSource.Task.WaitAsync(SignalWaitTimeout);
 
             var fastRequestTask = client.SendAsync(
                     endpoint,

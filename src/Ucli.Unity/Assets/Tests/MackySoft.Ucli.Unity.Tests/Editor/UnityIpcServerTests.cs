@@ -21,6 +21,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcServerTests
     {
+        private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
         private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -39,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Tests
             startupCoordinator.Complete();
             cancellationTokenSource.Cancel();
 
-            await waitTask;
+            await WaitForTask(waitTask, SignalWaitTimeout);
         });
 
         [UnityTest]
@@ -54,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await UniTask.Yield();
             startupCoordinator.Complete();
 
-            await waitTask;
+            await WaitForTask(waitTask, SignalWaitTimeout);
         });
 
         [UnityTest]
@@ -136,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                await startedTaskSource.Task;
+                await WaitForTask(startedTaskSource.Task, SignalWaitTimeout);
 
                 Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
                 Assert.That(File.Exists(address), Is.True);
@@ -267,7 +269,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var startTask = server.Start(endpoint, cancellationTokenSource.Token);
-            await blockingListener.RunEntered;
+            await WaitForTask(blockingListener.RunEntered, SignalWaitTimeout);
             cancellationTokenSource.Cancel();
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
@@ -275,7 +277,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 await startTask.AsUniTask();
             });
 
-            await blockingListener.CancellationObserved;
+            await WaitForTask(blockingListener.CancellationObserved, SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.False);
         });
 
@@ -706,6 +708,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 requestProcessor,
                 shutdownSignal);
             return new UnityIpcServer(requestProcessor, connectionHandler, transportListeners);
+        }
+
+        private static async Task WaitForTask (
+            Task task,
+            TimeSpan timeout)
+        {
+            // NOTE: This timeout is a test-only fuse so regression cases fail fast instead of stalling the whole Unity job.
+            var completedTask = await Task.WhenAny(task, Task.Delay(timeout));
+            Assert.That(completedTask, Is.SameAs(task));
+            await task;
         }
 
         private static async Task<string> ReadUnixFileMode (string path)
