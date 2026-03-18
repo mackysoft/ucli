@@ -190,6 +190,52 @@ public sealed class DaemonListQueryServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task List_WhenCallerCancellationRacesSessionReadTimeout_RethrowsCancellation ()
+    {
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var timeProvider = new ManualTimeProvider();
+        var sessionReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var service = CreateService(
+            new StubGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
+                CurrentWorktreeRoot: currentProject.RepositoryRoot,
+                ProjectRelativePath: "UnityProject",
+                Worktrees:
+                [
+                    new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
+                ]))),
+            new StubUnityProjectResolver(currentProject),
+            new StubDaemonSessionStore(async (_, _, cancellationToken) =>
+            {
+                sessionReadStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                throw new System.Diagnostics.UnreachableException();
+            }),
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask),
+            new StubDaemonReachabilityClassifier(static _ => false),
+            timeProvider);
+
+        var resultTask = service.GetList(
+                currentProject,
+                TimeSpan.FromMilliseconds(150),
+                cancellationTokenSource.Token)
+            .AsTask();
+        await TestAwaiter.WaitAsync(sessionReadStarted.Task, "Daemon list session read start", SignalWaitTimeout);
+
+        cancellationTokenSource.Cancel();
+        timeProvider.Advance(TimeSpan.FromMilliseconds(150));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await TestAwaiter.WaitAsync(
+                    resultTask,
+                    "Daemon list session read caller cancellation result",
+                    SignalWaitTimeout)
+                .ConfigureAwait(false));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task List_WhenProbeOnlyStopsAfterInjectedTimeout_ReturnsPartialSuccess ()
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
@@ -220,6 +266,45 @@ public sealed class DaemonListQueryServiceTests
         Assert.Equal(DaemonListCompletionReasonCodec.Timeout, output.CompletionReason);
         Assert.Equal(1, output.RemainingWorktreeCount);
         Assert.Empty(output.Items);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenCallerCancellationRacesProbeTimeout_RethrowsCancellation ()
+    {
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var session = CreateSession("fp-current", "endpoint-timeout", 2100);
+        var timeProvider = new ManualTimeProvider();
+        var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var service = CreateSingleWorktreeService(
+            currentProject,
+            DaemonSessionReadResult.Success(session),
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonPingClient(async (_, _, _, cancellationToken) =>
+            {
+                probeStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            }),
+            new StubDaemonReachabilityClassifier(static _ => false),
+            timeProvider);
+
+        var resultTask = service.GetList(
+                currentProject,
+                TimeSpan.FromMilliseconds(150),
+                cancellationTokenSource.Token)
+            .AsTask();
+        await TestAwaiter.WaitAsync(probeStarted.Task, "Daemon list probe start", SignalWaitTimeout);
+
+        cancellationTokenSource.Cancel();
+        timeProvider.Advance(TimeSpan.FromMilliseconds(150));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await TestAwaiter.WaitAsync(
+                    resultTask,
+                    "Daemon list probe caller cancellation result",
+                    SignalWaitTimeout)
+                .ConfigureAwait(false));
     }
 
     [Fact]

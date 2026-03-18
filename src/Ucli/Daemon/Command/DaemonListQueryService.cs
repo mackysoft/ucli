@@ -178,12 +178,12 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                     sessionReadCancellationScope.Token)
                 .ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
-            && !sessionReadCancellationScope.HasTimedOut)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
-        catch (OperationCanceledException) when (sessionReadCancellationScope.HasTimedOut)
+        catch (OperationCanceledException) when (sessionReadCancellationScope.HasTimedOut
+            && !cancellationToken.IsCancellationRequested)
         {
             return WorktreeObservationResult.Failure(ExecutionError.Timeout(
                 "Timed out while reading daemon session."));
@@ -253,12 +253,12 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 session,
                 diagnosis: null));
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
-            && !probeCancellationScope.HasTimedOut)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
-        catch (OperationCanceledException) when (probeCancellationScope.HasTimedOut)
+        catch (OperationCanceledException) when (probeCancellationScope.HasTimedOut
+            && !cancellationToken.IsCancellationRequested)
         {
             return WorktreeObservationResult.Failure(ExecutionError.Timeout(
                 "Timed out while probing daemon session."));
