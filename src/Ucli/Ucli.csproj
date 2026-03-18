@@ -28,7 +28,7 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
 
-    <None Update="THIRD-PARTY-NOTICES.txt">
+    <None Update="THIRD-PARTY-NOTICES">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
