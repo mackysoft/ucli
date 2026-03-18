@@ -12,6 +12,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class EditorLogRangeExporterTests
     {
+        private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator ExportRange_WritesOnlySpecifiedByteRange () => UniTask.ToCoroutine(async () =>
@@ -49,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 await AsyncExceptionCapture.CaptureAsync<ArgumentOutOfRangeException>(async () =>
                 {
                     await exporter.ExportRange(sourcePath, destinationPath, 5, 1, CancellationToken.None).AsUniTask();
-                });
+                }, "Invalid editor log offset", AsyncWaitTimeout);
             }
             finally
             {
@@ -69,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<FileNotFoundException>(async () =>
             {
                 await exporter.ExportRange(sourcePath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
-            });
+            }, "Missing editor log source", AsyncWaitTimeout);
             TryDeleteFile(destinationPath);
         });
 
@@ -87,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
                 {
                     await exporter.ExportRange(sourceDirectoryPath, destinationPath, 0, 0, CancellationToken.None).AsUniTask();
-                });
+                }, "Directory source editor log export", AsyncWaitTimeout);
             }
             finally
             {
@@ -111,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 await AsyncExceptionCapture.CaptureAsync<UnauthorizedAccessException>(async () =>
                 {
                     await exporter.ExportRange(sourcePath, destinationDirectoryPath, 0, 1, CancellationToken.None).AsUniTask();
-                });
+                }, "Directory destination editor log export", AsyncWaitTimeout);
             }
             finally
             {

@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcMethodHandlersTests
     {
+        private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
@@ -91,13 +93,13 @@ namespace MackySoft.Ucli.Unity.Tests
                     })));
 
             var responseTask = handler.Handle(request, CancellationToken.None).AsUniTask();
-            await UniTask.Yield();
+            await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Execute handler readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(dispatcher.CallCount, Is.EqualTo(0));
 
             readinessGate.Release();
-            var response = await responseTask;
+            var response = await TestAwaiter.WaitAsync(responseTask, "Execute handler response", SignalWaitTimeout);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(dispatcher.CallCount, Is.EqualTo(1));
@@ -151,13 +153,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 CreateValidTestRunPayload());
 
             var responseTask = handler.Handle(request, CancellationToken.None).AsUniTask();
-            await UniTask.Yield();
+            await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Test run handler readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(service.CallCount, Is.EqualTo(0));
 
             readinessGate.Release();
-            var response = await responseTask;
+            var response = await TestAwaiter.WaitAsync(responseTask, "Test run handler response", SignalWaitTimeout);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(service.CallCount, Is.EqualTo(1));
@@ -720,6 +722,9 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly TaskCompletionSource<bool>? completionSource;
 
+            private readonly TaskCompletionSource<bool> waitObserved =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             public StubUnityEditorReadinessGate ()
                 : this(null)
             {
@@ -731,6 +736,8 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public int CallCount { get; private set; }
+
+            public Task WaitObserved => waitObserved.Task;
 
             public static StubUnityEditorReadinessGate CreatePending ()
             {
@@ -746,6 +753,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
+                waitObserved.TrySetResult(true);
                 return completionSource?.Task ?? Task.CompletedTask;
             }
         }

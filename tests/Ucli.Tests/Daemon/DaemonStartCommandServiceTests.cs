@@ -13,6 +13,8 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonStartCommandServiceTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Start_WhenSupervisorReturnsStarted_ReturnsRunningOutputWithMappedSession ()
@@ -305,10 +307,10 @@ public sealed class DaemonStartCommandServiceTests
         var service = CreateService(resolver, transportClient, mapper, pluginLocator, timeProvider);
 
         var resultTask = service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None).AsTask();
-        await pluginLocator.Started!.Task;
+        await TestAwaiter.WaitAsync(pluginLocator.Started!.Task, "Unity plugin verification start", SignalWaitTimeout);
         timeProvider.Advance(context.Timeout);
 
-        var result = await resultTask;
+        var result = await TestAwaiter.WaitAsync(resultTask, "Unity plugin verification timeout result", SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

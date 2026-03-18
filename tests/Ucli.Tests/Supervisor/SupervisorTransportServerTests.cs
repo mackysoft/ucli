@@ -63,7 +63,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await startedTaskSource.Task.WaitAsync(SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
 
             var client = new IpcTransportClient();
             var slowRequestTask = client.SendAsync(
@@ -72,14 +72,14 @@ public sealed class SupervisorTransportServerTests
                     TimeSpan.FromSeconds(5))
                 .AsTask();
 
-            await slowRequestEnteredTaskSource.Task.WaitAsync(SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(slowRequestEnteredTaskSource.Task, "Slow supervisor request entry", SignalWaitTimeout);
 
             var fastRequestTask = client.SendAsync(
                     endpoint,
                     CreateRequest("fast"),
                     TimeSpan.FromSeconds(5))
                 .AsTask();
-            var fastResponse = await fastRequestTask;
+            var fastResponse = await TestAwaiter.WaitAsync(fastRequestTask, "Fast supervisor request result", SignalWaitTimeout);
             Assert.True(IpcPayloadCodec.TryDeserialize(
                 fastResponse.Payload,
                 out TransportServerResponse fastPayload,
@@ -88,7 +88,7 @@ public sealed class SupervisorTransportServerTests
 
             releaseSlowRequestTaskSource.TrySetResult();
 
-            var slowResponse = await slowRequestTask;
+            var slowResponse = await TestAwaiter.WaitAsync(slowRequestTask, "Slow supervisor request result", SignalWaitTimeout);
             Assert.True(IpcPayloadCodec.TryDeserialize(
                 slowResponse.Payload,
                 out TransportServerResponse slowPayload,
@@ -101,7 +101,7 @@ public sealed class SupervisorTransportServerTests
             server.Release();
             try
             {
-                await serverTask;
+                await TestAwaiter.WaitAsync(serverTask, "Supervisor transport shutdown", SignalWaitTimeout);
             }
             catch (OperationCanceledException)
             {
@@ -166,7 +166,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await startedTaskSource.Task;
+            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unix supervisor socket start", SignalWaitTimeout);
 
             PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(Path.GetDirectoryName(endpoint.Address)!);
             PosixAccessBoundaryAssert.FileIsOwnerOnly(endpoint.Address);
@@ -177,7 +177,7 @@ public sealed class SupervisorTransportServerTests
             server.Release();
             try
             {
-                await serverTask;
+                await TestAwaiter.WaitAsync(serverTask, "Unix supervisor socket shutdown", SignalWaitTimeout);
             }
             catch (OperationCanceledException)
             {
@@ -216,7 +216,7 @@ public sealed class SupervisorTransportServerTests
 
         try
         {
-            await startedTaskSource.Task;
+            await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unix supervisor fallback socket start", SignalWaitTimeout);
             Assert.True(Directory.Exists(socketDirectoryPath));
             Assert.True(File.Exists(endpoint.Address));
         }
@@ -226,7 +226,7 @@ public sealed class SupervisorTransportServerTests
             server.Release();
             try
             {
-                await serverTask;
+                await TestAwaiter.WaitAsync(serverTask, "Unix supervisor fallback socket shutdown", SignalWaitTimeout);
             }
             catch (OperationCanceledException)
             {

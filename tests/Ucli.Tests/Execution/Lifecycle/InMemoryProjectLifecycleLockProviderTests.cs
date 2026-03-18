@@ -5,6 +5,8 @@ using MackySoft.Ucli.Execution;
 
 public sealed class InMemoryProjectLifecycleLockProviderTests
 {
+    private static readonly TimeSpan AcquireWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Acquire_WhenEquivalentStorageRootsAreUsed_UsesSameLockScope ()
@@ -26,7 +28,7 @@ public sealed class InMemoryProjectLifecycleLockProviderTests
         Assert.False(secondAcquireTask.IsCompleted);
 
         await firstHandle.DisposeAsync();
-        var secondHandle = await secondAcquireTask;
+        var secondHandle = await TestAwaiter.WaitAsync(secondAcquireTask, "In-memory lifecycle lock reacquire", AcquireWaitTimeout);
         await secondHandle.DisposeAsync();
     }
 }

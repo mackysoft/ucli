@@ -12,6 +12,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcMethodDispatcherTests
     {
+        private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
         [Test]
         [Category("Size.Small")]
         public void Constructor_WhenHandlersAreEmpty_ThrowsArgumentException ()
@@ -137,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await dispatcher.Dispatch(request, cancellationTokenSource.Token).AsUniTask();
-            });
+            }, "Canceled IPC method dispatch", AsyncWaitTimeout);
             Assert.That(handler.CallCount, Is.EqualTo(0));
         });
 

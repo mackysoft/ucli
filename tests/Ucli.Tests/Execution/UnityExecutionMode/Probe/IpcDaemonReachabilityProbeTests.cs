@@ -14,6 +14,8 @@ public sealed class IpcDaemonReachabilityProbeTests
 
     private static readonly TimeSpan ProbeAttemptTimeoutCap = TimeSpan.FromSeconds(1);
 
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Probe_WhenUnixSocketFileDoesNotExist_ReturnsNotRunningWithoutSendingPing ()
@@ -291,12 +293,12 @@ public sealed class IpcDaemonReachabilityProbeTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var probeTask = probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
-        await pingStarted.Task;
+        await TestAwaiter.WaitAsync(pingStarted.Task, "Daemon reachability ping start", SignalWaitTimeout);
         cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await probeTask;
+            await TestAwaiter.WaitAsync(probeTask, "Daemon reachability probe cancellation", SignalWaitTimeout);
         });
         Assert.Equal(1, daemonPingClient.CallCount);
     }

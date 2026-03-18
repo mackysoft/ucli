@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Ipc;
 
@@ -7,6 +8,8 @@ namespace MackySoft.Ucli.Tests.Ipc;
 public sealed class UnityIpcTransportClientTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
+
+    private static readonly TimeSpan SendWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -69,7 +72,7 @@ public sealed class UnityIpcTransportClientTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await sendTask;
+            await TestAwaiter.WaitAsync(sendTask, "Canceled Unity IPC send", SendWaitTimeout);
         });
     }
 

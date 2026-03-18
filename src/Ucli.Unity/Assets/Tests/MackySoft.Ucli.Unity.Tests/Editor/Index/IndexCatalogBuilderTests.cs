@@ -21,6 +21,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class IndexCatalogBuilderTests
     {
+        private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
         [SetUp]
         public void SetUp ()
         {
@@ -140,14 +142,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 await componentExtractor.Extract(
                     new[] { typeof(BoxCollider) },
                     cts.Token);
-            });
+            }, "Canceled component extractor", AsyncWaitTimeout);
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await assetExtractor.Extract(
                     new[] { typeof(GUISkin) },
                     cts.Token);
-            });
+            }, "Canceled asset extractor", AsyncWaitTimeout);
         });
 
         [UnityTest]
@@ -171,8 +173,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     CancellationToken.None);
             }
 
-            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(RunComponentExtract);
-            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(RunAssetExtract);
+            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(
+                RunComponentExtract,
+                "Component extractor failure propagation",
+                AsyncWaitTimeout);
+            await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(
+                RunAssetExtract,
+                "Asset extractor failure propagation",
+                AsyncWaitTimeout);
         });
 
         [UnityTest]

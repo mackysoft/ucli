@@ -5,6 +5,8 @@ using MackySoft.Ucli.Execution;
 
 public sealed class FileSystemProjectLifecycleLockProviderTests
 {
+    private static readonly TimeSpan AcquireWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Acquire_WhenLockAlreadyHeld_WaitsUntilReleased ()
@@ -27,7 +29,7 @@ public sealed class FileSystemProjectLifecycleLockProviderTests
 
         await firstHandle.DisposeAsync();
         timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-        var secondHandle = await secondAcquireTask;
+        var secondHandle = await TestAwaiter.WaitAsync(secondAcquireTask, "File system lifecycle lock reacquire", AcquireWaitTimeout);
         await secondHandle.DisposeAsync();
     }
 

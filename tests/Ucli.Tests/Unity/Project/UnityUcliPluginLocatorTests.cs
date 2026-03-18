@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class UnityUcliPluginLocatorTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Locate_WhenMarkerExistsUnderAssets_ReturnsFound ()
@@ -23,7 +25,7 @@ public sealed class UnityUcliPluginLocatorTests
         var result = await locator.Locate(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await cacheWriteTask;
+        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
@@ -46,7 +48,7 @@ public sealed class UnityUcliPluginLocatorTests
         var result = await locator.Locate(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await cacheWriteTask;
+        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
@@ -69,7 +71,7 @@ public sealed class UnityUcliPluginLocatorTests
         var result = await locator.Locate(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await cacheWriteTask;
+        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
@@ -92,7 +94,7 @@ public sealed class UnityUcliPluginLocatorTests
         var result = await locator.Locate(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await cacheWriteTask;
+        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
         Assert.NotNull(result.MarkerPath);
         Assert.EndsWith(
@@ -115,7 +117,7 @@ public sealed class UnityUcliPluginLocatorTests
         var result = await locator.Locate(unityProjectPath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        await cacheWriteTask;
+        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
         var cache = await ReadCache(scope, unityProjectPath);
         Assert.Equal(
             "Assets/MackySoft/MackySoft.Ucli.Unity/ucli-plugin.json",
@@ -137,7 +139,7 @@ public sealed class UnityUcliPluginLocatorTests
 
         var firstResult = await locator.Locate(unityProjectPath, CancellationToken.None);
         Assert.True(firstResult.IsSuccess);
-        await cacheWriteTask;
+        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
 
         await scope.WriteFileAsync(
             Path.Combine("UnityProject", "Packages", "com.example.invalid", UnityUcliPluginLocator.MarkerFileName),
@@ -162,7 +164,7 @@ public sealed class UnityUcliPluginLocatorTests
 
         var firstResult = await locator.Locate(unityProjectPath, CancellationToken.None);
         Assert.True(firstResult.IsSuccess);
-        await cacheWriteTask;
+        await TestAwaiter.WaitAsync(cacheWriteTask, "Plugin marker cache write", SignalWaitTimeout);
 
         await WriteMarker(scope, Path.Combine("UnityProject", "Assets", "ThirdParty", "UcliCopy"));
 
@@ -190,7 +192,7 @@ public sealed class UnityUcliPluginLocatorTests
 
         var firstResult = await locator.Locate(unityProjectPath, CancellationToken.None);
         Assert.True(firstResult.IsSuccess);
-        await firstCacheWriteTask;
+        await TestAwaiter.WaitAsync(firstCacheWriteTask, "Plugin marker initial cache write", SignalWaitTimeout);
 
         File.Delete(Path.Combine(
             unityProjectPath,
@@ -204,7 +206,7 @@ public sealed class UnityUcliPluginLocatorTests
         var secondResult = await locator.Locate(unityProjectPath, CancellationToken.None);
 
         Assert.True(secondResult.IsSuccess);
-        await secondCacheWriteTask;
+        await TestAwaiter.WaitAsync(secondCacheWriteTask, "Plugin marker rebuilt cache write", SignalWaitTimeout);
         var cache = await ReadCache(scope, unityProjectPath);
         Assert.Equal(
             "Packages/com.mackysoft.ucli.unity/ucli-plugin.json",
@@ -339,20 +341,14 @@ public sealed class UnityUcliPluginLocatorTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var locateTask = locator.Locate(unityProjectPath, cancellationTokenSource.Token).AsTask();
-        await writeStarted.Task;
+        await TestAwaiter.WaitAsync(writeStarted.Task, "Plugin marker cache write start", SignalWaitTimeout);
         cancellationTokenSource.Cancel();
+        releaseWrite.TrySetResult(true);
 
-        try
-        {
-            var result = await locateTask;
+        var result = await TestAwaiter.WaitAsync(locateTask, "Plugin marker locate after cancellation", SignalWaitTimeout);
 
-            Assert.True(result.IsSuccess);
-            Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
-        }
-        finally
-        {
-            releaseWrite.TrySetResult(true);
-        }
+        Assert.True(result.IsSuccess);
+        Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
     }
 
     [Fact]

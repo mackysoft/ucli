@@ -69,8 +69,6 @@ jobs:
             base_sha="${PR_BASE_SHA}"
             head_sha="${PR_HEAD_SHA}"
           elif [[ "${EVENT_NAME}" == "push" ]]; then
-            dotnet_matrix_json="${dotnet_matrix_push}"
-            unity_matrix_json="${unity_matrix_push}"
             base_sha="${PUSH_BEFORE_SHA}"
             head_sha="${CURRENT_SHA}"
             if [[ -z "${base_sha}" || "${base_sha}" =~ ^0+$ ]]; then
@@ -128,6 +126,11 @@ jobs:
               echo "unity_matrix_json=${unity_matrix_json}" >> "${GITHUB_OUTPUT}"
               exit 0
             fi
+          fi
+
+          if [[ "${EVENT_NAME}" == "push" ]]; then
+            dotnet_matrix_json="${dotnet_matrix_push}"
+            unity_matrix_json="${unity_matrix_push}"
           fi
 
           needs_dotnet=false

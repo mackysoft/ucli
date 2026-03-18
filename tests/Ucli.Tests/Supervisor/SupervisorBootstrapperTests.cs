@@ -9,6 +9,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorBootstrapperTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureReady_WhenLaunchExceedsRemainingTimeout_ReturnsTimeout ()
@@ -42,10 +44,10 @@ public sealed class SupervisorBootstrapperTests
                 TimeSpan.FromMilliseconds(150),
                 CancellationToken.None)
             .AsTask();
-        await launchStarted.Task;
+        await TestAwaiter.WaitAsync(launchStarted.Task, "Supervisor launch start", SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(150));
 
-        var result = await resultTask;
+        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor launch timeout result", SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -87,10 +89,10 @@ public sealed class SupervisorBootstrapperTests
                 TimeSpan.FromMilliseconds(500),
                 CancellationToken.None)
             .AsTask();
-        await manifestReadStarted.Task;
+        await TestAwaiter.WaitAsync(manifestReadStarted.Task, "Supervisor manifest read start", SignalWaitTimeout);
         timeProvider.Advance(TimeSpan.FromMilliseconds(500));
 
-        var result = await resultTask;
+        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor manifest read timeout result", SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);

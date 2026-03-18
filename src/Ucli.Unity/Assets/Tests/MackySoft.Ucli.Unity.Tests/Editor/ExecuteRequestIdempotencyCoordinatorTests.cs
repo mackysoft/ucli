@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestIdempotencyCoordinatorTests
     {
+        private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse () => UniTask.ToCoroutine(async () =>
@@ -45,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(firstResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(GetMarker(secondResponse), Is.EqualTo("first"));
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -88,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
             Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -113,7 +115,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            await ownerStarted.Task;
+            await TestAwaiter.WaitAsync(ownerStarted.Task, "Owner request start", SignalWaitTimeout);
 
             var waiterTask = coordinator.Execute(
                 requestId: requestId,
@@ -128,14 +130,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(waiterTask.IsCompleted, Is.False);
             ownerRelease.TrySetResult(true);
 
-            var ownerResponse = await ownerTask;
-            var waiterResponse = await waiterTask;
+            var ownerResponse = await TestAwaiter.WaitAsync(ownerTask, "Owner request result", SignalWaitTimeout);
+            var waiterResponse = await TestAwaiter.WaitAsync(waiterTask, "Waiter replayed result", SignalWaitTimeout);
 
             Assert.That(ownerExecutionCount, Is.EqualTo(1));
             Assert.That(waiterExecutionCount, Is.EqualTo(0));
             Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
             Assert.That(GetMarker(waiterResponse), Is.EqualTo("owner"));
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -160,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            await ownerStarted.Task.ConfigureAwait(false);
+            await TestAwaiter.WaitAsync(ownerStarted.Task, "Owner request start", SignalWaitTimeout);
 
             using var waiterCancellationTokenSource = new CancellationTokenSource();
             var waiterTask = coordinator.Execute(
@@ -178,16 +180,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
             waiterCancellationTokenSource.Cancel();
 
-            Assert.CatchAsync<OperationCanceledException>(async () => await waiterTask.ConfigureAwait(false));
+            Assert.CatchAsync<OperationCanceledException>(async () =>
+                await TestAwaiter.WaitAsync(waiterTask, "Waiter cancellation result", SignalWaitTimeout));
             Assert.That(ownerTask.IsCompleted, Is.False);
 
             ownerRelease.TrySetResult(true);
 
-            var ownerResponse = await ownerTask.ConfigureAwait(false);
+            var ownerResponse = await TestAwaiter.WaitAsync(ownerTask, "Owner request result after waiter cancellation", SignalWaitTimeout);
             Assert.That(ownerExecutionCount, Is.EqualTo(1));
             Assert.That(waiterExecutionCount, Is.EqualTo(0));
             Assert.That(GetMarker(ownerResponse), Is.EqualTo("owner"));
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -209,7 +212,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     return CreateSuccessResponse(requestId, "owner");
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
-            await ownerStarted.Task;
+            await TestAwaiter.WaitAsync(ownerStarted.Task, "Owner request start", SignalWaitTimeout);
 
             var conflictResponse = await coordinator.Execute(
                 requestId: requestId,
@@ -227,8 +230,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(IpcErrorCodes.RequestIdConflict));
 
             ownerRelease.TrySetResult(true);
-            _ = await ownerTask;
-                });
+            _ = await TestAwaiter.WaitAsync(ownerTask, "Owner request completion after conflict response", SignalWaitTimeout);
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -266,7 +269,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executeCount, Is.EqualTo(2));
             Assert.That(GetMarker(firstResponse), Is.EqualTo("first"));
             Assert.That(GetMarker(secondResponse), Is.EqualTo("second"));
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -308,7 +311,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                     createConflictResponse: () => CreateConflictResponse(requestId));
             }
-                });
+        });
 
         [Test]
         [Category("Size.Small")]

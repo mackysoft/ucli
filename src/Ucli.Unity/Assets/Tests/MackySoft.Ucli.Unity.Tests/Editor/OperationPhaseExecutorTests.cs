@@ -23,6 +23,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class OperationPhaseExecutorTests
     {
+        private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
         [Test]
         [Category("Size.Small")]
         public void InMemoryRegistry_WhenOperationNameIsDuplicated_ThrowsArgumentException ()
@@ -508,7 +510,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await executor.Execute(PhaseExecutionCommand.Call, request, cancellationTokenSource.Token).AsUniTask();
-            });
+            }, "Canceled operation phase execution", AsyncWaitTimeout);
         });
 
         private static OperationPhaseExecutor CreateExecutor (IUcliOperation operation)

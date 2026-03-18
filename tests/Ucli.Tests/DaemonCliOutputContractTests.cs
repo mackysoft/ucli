@@ -12,6 +12,8 @@ public sealed class DaemonCliOutputContractTests
 {
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
+    private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Status_WithProjectPath_ReturnsNotRunningJsonContractAsSingleJson ()
@@ -447,9 +449,9 @@ public sealed class DaemonCliOutputContractTests
         Assert.True(process.Start(), "Failed to start git process.");
         var standardOutputTask = process.StandardOutput.ReadToEndAsync();
         var standardErrorTask = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        var standardOutput = await standardOutputTask;
-        var standardError = await standardErrorTask;
+        await TestProcessAwaiter.WaitForExitAsync(process, "Git process", ProcessExitTimeout);
+        var standardOutput = await TestAwaiter.WaitAsync(standardOutputTask, "Git stdout read", ProcessExitTimeout);
+        var standardError = await TestAwaiter.WaitAsync(standardErrorTask, "Git stderr read", ProcessExitTimeout);
 
         Assert.True(
             process.ExitCode == 0,

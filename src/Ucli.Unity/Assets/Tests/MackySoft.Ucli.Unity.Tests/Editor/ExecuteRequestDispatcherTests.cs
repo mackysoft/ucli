@@ -19,6 +19,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestDispatcherTests
     {
+        private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsPlan_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
@@ -331,7 +333,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await dispatcher.Dispatch(request, context, cancellationTokenSource.Token).AsUniTask();
-            });
+            }, "Canceled execute request dispatch", AsyncWaitTimeout);
         });
 
         private static async UniTask AssertDelegatesToPhaseExecutor (
