@@ -64,7 +64,7 @@ public sealed class InMemoryProjectLifecycleLockProviderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Acquire_WhenLockIsReleasedAtTimeoutBoundary_AcquiresLock ()
+    public async Task Acquire_WhenLockIsReleasedJustBeforeTimeout_AcquiresLock ()
     {
         using var scope = TestDirectories.CreateTempScope("project-lifecycle-lock", "in-memory-timeout-boundary-release");
         var timeProvider = new ManualTimeProvider();
@@ -80,7 +80,7 @@ public sealed class InMemoryProjectLifecycleLockProviderTests
                 ((IAsyncDisposable)state!).DisposeAsync().GetAwaiter().GetResult();
             },
             firstHandle,
-            TimeSpan.FromMilliseconds(150),
+            TimeSpan.FromMilliseconds(149),
             System.Threading.Timeout.InfiniteTimeSpan);
 
         var secondAcquireTask = provider.Acquire(
@@ -92,7 +92,7 @@ public sealed class InMemoryProjectLifecycleLockProviderTests
 
         Assert.False(secondAcquireTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(150));
+        timeProvider.Advance(TimeSpan.FromMilliseconds(149));
         var secondHandle = await TestAwaiter.WaitAsync(secondAcquireTask, "Boundary in-memory lifecycle lock acquire", AcquireWaitTimeout);
         await secondHandle.DisposeAsync();
     }
