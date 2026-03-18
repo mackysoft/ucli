@@ -22,33 +22,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> A task that completes when shutdown is requested. </returns>
         public async Task Wait (CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!cancellationToken.CanBeCanceled)
-            {
-                await signalSource.Task;
-                return;
-            }
-
-            var cancellationSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var cancellationRegistration = cancellationToken.Register(static state =>
-            {
-                var completionSource = (TaskCompletionSource<bool>)state!;
-                completionSource.TrySetResult(true);
-            }, cancellationSource);
-
             var signalTask = signalSource.Task;
-            var completedTask = await Task.WhenAny(signalTask, cancellationSource.Task);
-            if (!ReferenceEquals(completedTask, signalTask) && !signalTask.IsCompleted)
-            {
-                var raceCompletionTask = await Task.WhenAny(signalTask, Task.Delay(ShutdownSignalRaceGracePeriod));
-                if (!ReferenceEquals(raceCompletionTask, signalTask) && !signalTask.IsCompleted)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-            }
-
-            await signalTask;
+            await CancellationGracePeriodAwaiter.Wait(signalTask, cancellationToken, ShutdownSignalRaceGracePeriod);
         }
     }
 }

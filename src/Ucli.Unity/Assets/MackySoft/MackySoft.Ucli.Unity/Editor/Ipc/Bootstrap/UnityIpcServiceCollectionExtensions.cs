@@ -37,6 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton(static _ => UcliOperationCatalogSnapshotBuilder.Build());
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
+            services.AddSingleton<IUnityEditorReadinessGate, UnityEditorReadinessGate>();
             services.AddSingleton<IUnityMainThreadRequestExecutor>(new UnitySynchronizationContextRequestExecutor());
             services.AddSingleton<IExecuteRequestDispatcher>(serviceProvider => CreateExecuteRequestDispatcher(
                 serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>()));

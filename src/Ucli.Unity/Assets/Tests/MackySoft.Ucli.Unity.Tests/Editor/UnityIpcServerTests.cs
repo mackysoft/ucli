@@ -684,8 +684,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 new IUnityIpcMethodHandler[]
                 {
                     new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider()),
-                    new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
-                    new TestRunUnityIpcMethodHandler(testRunService),
+                    new ExecuteUnityIpcMethodHandler(executeRequestDispatcher, new StubUnityEditorReadinessGate()),
+                    new TestRunUnityIpcMethodHandler(testRunService, new StubUnityEditorReadinessGate()),
                     new DaemonLogsReadUnityIpcMethodHandler(
                         daemonLogStream,
                         new DaemonLogsReadRequestValidator(),
@@ -922,6 +922,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 LastRequest = request;
                 return Task.FromResult(response);
+            }
+        }
+
+        private sealed class StubUnityEditorReadinessGate : IUnityEditorReadinessGate
+        {
+            public Task WaitUntilReady (CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
             }
         }
 

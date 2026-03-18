@@ -11,11 +11,17 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IExecuteRequestDispatcher executeRequestDispatcher;
 
+        private readonly IUnityEditorReadinessGate readinessGate;
+
         /// <summary> Initializes a new instance of the <see cref="ExecuteUnityIpcMethodHandler" /> class. </summary>
         /// <param name="executeRequestDispatcher"> The execute-request dispatcher dependency. </param>
-        public ExecuteUnityIpcMethodHandler (IExecuteRequestDispatcher executeRequestDispatcher)
+        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
+        public ExecuteUnityIpcMethodHandler (
+            IExecuteRequestDispatcher executeRequestDispatcher,
+            IUnityEditorReadinessGate readinessGate)
         {
             this.executeRequestDispatcher = executeRequestDispatcher ?? throw new ArgumentNullException(nameof(executeRequestDispatcher));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
         }
 
         /// <inheritdoc />
@@ -39,6 +45,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return errorResponse!;
             }
+
+            await readinessGate.WaitUntilReady(cancellationToken);
 
             var context = new ExecuteDispatchContext(
                 RequestId: request.RequestId,

@@ -182,8 +182,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled before listener loop terminates. </exception>
         public async Task WaitForTermination (CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             Task? capturedListenerTask;
             lock (syncRoot)
             {
@@ -195,24 +193,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            if (!cancellationToken.CanBeCanceled)
-            {
-                await capturedListenerTask;
-                return;
-            }
-
-            var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
-            var completedTask = await Task.WhenAny(capturedListenerTask, cancellationTask);
-            if (!ReferenceEquals(completedTask, capturedListenerTask) && !capturedListenerTask.IsCompleted)
-            {
-                var raceCompletionTask = await Task.WhenAny(capturedListenerTask, Task.Delay(WaitForTerminationRaceGracePeriod));
-                if (!ReferenceEquals(raceCompletionTask, capturedListenerTask) && !capturedListenerTask.IsCompleted)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-            }
-
-            await capturedListenerTask;
+            await CancellationGracePeriodAwaiter.Wait(capturedListenerTask, cancellationToken, WaitForTerminationRaceGracePeriod);
         }
 
         /// <summary> Handles one IPC request through the configured request-handler pipeline. </summary>
