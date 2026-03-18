@@ -196,6 +196,34 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenEditorIsWaitingForReadiness_DelaysPhaseExecutionUntilReady () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan);
+
+            var responseTask = dispatcher.Dispatch(request, context).AsUniTask();
+            await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Execute dispatcher readiness wait", AsyncWaitTimeout);
+
+            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+
+            readinessGate.Release();
+            var response = await TestAwaiter.WaitAsync(responseTask, "Execute dispatcher readiness-delayed response", AsyncWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsResolve_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
             await AssertReturnsCommandNotImplementedError(UcliCommandIds.Resolve);
@@ -236,6 +264,56 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
             Assert.That(response.Errors[0].OpId, Is.EqualTo("op-1"));
             AssertEmptyOpResultsPayload(response.Payload);
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCommandIsNotImplemented_DoesNotWaitForReadiness () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
+                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "normalizer should not run", null)));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Resolve);
+
+            var response = await DispatchAsync(dispatcher, request, context, "Command not implemented without readiness wait");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.CommandNotImplemented));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(0));
+            Assert.That(normalizer.CallCount, Is.EqualTo(0));
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenNormalizationFails_DoesNotWaitForReadiness () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizer = new SpyExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Failure(
+                new ExecuteRequestNormalizationError(IpcErrorCodes.InvalidArgument, "invalid request", "op-1")));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: "req-1",
+                operationTraces: System.Array.Empty<OperationPhaseTrace>()));
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan);
+
+            var response = await DispatchAsync(dispatcher, request, context, "Normalization failure without readiness wait");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(0));
+            Assert.That(normalizer.CallCount, Is.EqualTo(1));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
         });
 
@@ -550,5 +628,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(executionTrace);
             }
         }
+
     }
 }

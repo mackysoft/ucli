@@ -50,8 +50,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator ExecuteHandler_WhenPayloadIsValid_CallsDispatcher () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new StubExecuteRequestDispatcher();
-            var readinessGate = new StubUnityEditorReadinessGate();
-            var handler = new ExecuteUnityIpcMethodHandler(dispatcher, readinessGate);
+            var handler = new ExecuteUnityIpcMethodHandler(dispatcher);
             var request = CreateExecuteRequest(
                 "req-execute-valid",
                 new IpcExecuteRequest(
@@ -67,7 +66,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(dispatcher.CallCount, Is.EqualTo(1));
-            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(dispatcher.LastContext, Is.Not.Null);
             Assert.That(dispatcher.LastContext.RequestId, Is.EqualTo("req-execute-valid"));
             Assert.That(dispatcher.LastRequest, Is.Not.Null);
@@ -76,42 +74,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator ExecuteHandler_WhenEditorIsWaitingForReadiness_DelaysDispatchUntilReady () => UniTask.ToCoroutine(async () =>
-        {
-            var dispatcher = new StubExecuteRequestDispatcher();
-            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
-            var handler = new ExecuteUnityIpcMethodHandler(dispatcher, readinessGate);
-            var request = CreateExecuteRequest(
-                "req-execute-ready-wait",
-                new IpcExecuteRequest(
-                    UcliCommandIds.Validate,
-                    IpcPayloadCodec.SerializeToElement(new
-                    {
-                        protocolVersion = IpcProtocol.CurrentVersion,
-                        requestId = "req-execute-ready-wait",
-                        ops = Array.Empty<object>(),
-                    })));
-
-            var responseTask = handler.Handle(request, CancellationToken.None).AsUniTask();
-            await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Execute handler readiness wait", SignalWaitTimeout);
-
-            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
-            Assert.That(dispatcher.CallCount, Is.EqualTo(0));
-
-            readinessGate.Release();
-            var response = await TestAwaiter.WaitAsync(responseTask, "Execute handler response", SignalWaitTimeout);
-
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
-            Assert.That(dispatcher.CallCount, Is.EqualTo(1));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
         public IEnumerator ExecuteHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new ExecuteUnityIpcMethodHandler(
-                new StubExecuteRequestDispatcher(),
-                new StubUnityEditorReadinessGate());
+            var handler = new ExecuteUnityIpcMethodHandler(new StubExecuteRequestDispatcher());
             var request = CreateExecuteRequest("req-execute-invalid", 123);
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -126,8 +91,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceSucceeds_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(2)));
-            var readinessGate = new StubUnityEditorReadinessGate();
-            var handler = new TestRunUnityIpcMethodHandler(service, readinessGate);
+            var handler = new TestRunUnityIpcMethodHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-success",
                 CreateValidTestRunPayload());
@@ -136,33 +100,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(service.CallCount, Is.EqualTo(1));
-            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcTestRunResponse payload, out _), Is.True);
             Assert.That(payload.ExitCode, Is.EqualTo(2));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator TestRunHandler_WhenEditorIsWaitingForReadiness_DelaysExecutionUntilReady () => UniTask.ToCoroutine(async () =>
-        {
-            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
-            var service = new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(0)));
-            var handler = new TestRunUnityIpcMethodHandler(service, readinessGate);
-            var request = CreateTestRunRequest(
-                "req-test-run-ready-wait",
-                CreateValidTestRunPayload());
-
-            var responseTask = handler.Handle(request, CancellationToken.None).AsUniTask();
-            await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Test run handler readiness wait", SignalWaitTimeout);
-
-            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
-            Assert.That(service.CallCount, Is.EqualTo(0));
-
-            readinessGate.Release();
-            var response = await TestAwaiter.WaitAsync(responseTask, "Test run handler response", SignalWaitTimeout);
-
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
-            Assert.That(service.CallCount, Is.EqualTo(1));
         });
 
         [UnityTest]
@@ -170,7 +109,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceThrowsArgumentException_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new ArgumentException("invalid"));
-            var handler = new TestRunUnityIpcMethodHandler(service, new StubUnityEditorReadinessGate());
+            var handler = new TestRunUnityIpcMethodHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-invalid-argument",
                 CreateValidTestRunPayload());
@@ -187,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenServiceThrowsUnexpectedException_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
         {
             var service = new StubUnityTestRunService(_ => throw new InvalidOperationException("test-run-failed"));
-            var handler = new TestRunUnityIpcMethodHandler(service, new StubUnityEditorReadinessGate());
+            var handler = new TestRunUnityIpcMethodHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-internal-error",
                 CreateValidTestRunPayload());
@@ -205,8 +144,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var handler = new TestRunUnityIpcMethodHandler(
-                new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(0))),
-                new StubUnityEditorReadinessGate());
+                new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(0))));
             var request = CreateTestRunRequest("req-test-run-invalid-payload", 123);
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -718,44 +656,5 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class StubUnityEditorReadinessGate : IUnityEditorReadinessGate
-        {
-            private readonly TaskCompletionSource<bool>? completionSource;
-
-            private readonly TaskCompletionSource<bool> waitObserved =
-                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            public StubUnityEditorReadinessGate ()
-                : this(null)
-            {
-            }
-
-            private StubUnityEditorReadinessGate (TaskCompletionSource<bool>? completionSource = null)
-            {
-                this.completionSource = completionSource;
-            }
-
-            public int CallCount { get; private set; }
-
-            public Task WaitObserved => waitObserved.Task;
-
-            public static StubUnityEditorReadinessGate CreatePending ()
-            {
-                return new StubUnityEditorReadinessGate(new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
-            }
-
-            public void Release ()
-            {
-                completionSource?.TrySetResult(true);
-            }
-
-            public Task WaitUntilReady (CancellationToken cancellationToken = default)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                CallCount++;
-                waitObserved.TrySetResult(true);
-                return completionSource?.Task ?? Task.CompletedTask;
-            }
-        }
     }
 }

@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.Execution;
 /// <summary> Implements process-local in-memory lifecycle locks scoped by storage root and project fingerprint. </summary>
 internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLockProvider
 {
+    private const int RetryDelayMilliseconds = 50;
+
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> LocksByFingerprint = new(StringComparer.Ordinal);
 
     private readonly TimeProvider timeProvider;
@@ -50,26 +52,56 @@ internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLo
         var semaphore = LocksByFingerprint.GetOrAdd(
             lockKey,
             static _ => new SemaphoreSlim(1, 1));
-        using var timeoutScope = TimeProviderCancellationScope.CreateLinked(
-            cancellationToken,
-            timeout,
-            timeProvider);
+        using var waitCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var waitTask = semaphore.WaitAsync(waitCancellationTokenSource.Token);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (waitTask.IsCompletedSuccessfully)
+            {
+                await waitTask.ConfigureAwait(false);
+                return new LockHandle(semaphore);
+            }
 
-        try
-        {
-            await semaphore.WaitAsync(timeoutScope.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException) when (timeoutScope.HasTimedOut)
-        {
-            throw new TimeoutException(
-                $"Timed out while waiting to acquire project lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");
-        }
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                waitCancellationTokenSource.Cancel();
+                try
+                {
+                    await waitTask.ConfigureAwait(false);
+                    return new LockHandle(semaphore);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw new TimeoutException(
+                        $"Timed out while waiting to acquire project lifecycle lock. Timeout={timeout.TotalMilliseconds:0}ms.");
+                }
+            }
 
-        return new LockHandle(semaphore);
+            var retryDelay = TimeSpan.FromMilliseconds(RetryDelayMilliseconds);
+            var delay = remainingTimeout < retryDelay
+                ? remainingTimeout
+                : retryDelay;
+            if (delay <= TimeSpan.Zero)
+            {
+                continue;
+            }
+
+            var completedTask = await Task.WhenAny(
+                    waitTask,
+                    TimeProviderDelay.Delay(delay, timeProvider, cancellationToken))
+                .ConfigureAwait(false);
+            if (completedTask == waitTask)
+            {
+                await waitTask.ConfigureAwait(false);
+                return new LockHandle(semaphore);
+            }
+        }
     }
 
     /// <summary> Releases one semaphore lock when disposed. </summary>

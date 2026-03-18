@@ -10,17 +10,11 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IUnityTestRunService testRunService;
 
-        private readonly IUnityEditorReadinessGate readinessGate;
-
         /// <summary> Initializes a new instance of the <see cref="TestRunUnityIpcMethodHandler" /> class. </summary>
         /// <param name="testRunService"> The test-run service dependency. </param>
-        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
-        public TestRunUnityIpcMethodHandler (
-            IUnityTestRunService testRunService,
-            IUnityEditorReadinessGate readinessGate)
+        public TestRunUnityIpcMethodHandler (IUnityTestRunService testRunService)
         {
             this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
-            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
         }
 
         /// <inheritdoc />
@@ -44,8 +38,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 return errorResponse!;
             }
-
-            await readinessGate.WaitUntilReady(cancellationToken);
 
             try
             {

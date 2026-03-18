@@ -7,6 +7,9 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Coordinates readiness waiting for Unity editor compilation and asset-refresh work. </summary>
     internal sealed class UnityEditorReadinessGate : IUnityEditorReadinessGate
     {
+        /// <summary> Gets a value indicating whether the editor is ready to start IPC host bootstrap. </summary>
+        internal static bool IsReadyForBootstrapStartup => !EditorApplication.isCompiling;
+
         /// <summary> Gets a value indicating whether the editor is ready for editor-mutating requests. </summary>
         internal static bool IsReady => !EditorApplication.isCompiling && !EditorApplication.isUpdating;
 
