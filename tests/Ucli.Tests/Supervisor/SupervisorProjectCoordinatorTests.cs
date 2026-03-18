@@ -463,6 +463,47 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.False(coordinator.HasManagedProjects);
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task AwaitManagedProcesses_WhenExitCleanupFaults_DetachesFaultedMonitorTask ()
+    {
+        using var process = StartLongRunningProcess();
+        var unityProject = CreateUnityProject();
+        var session = CreateSession(process.Id);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            Session = session,
+            ReadException = new InvalidOperationException("session read failed"),
+        };
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.AlreadyRunning(session),
+        };
+        var coordinator = CreateCoordinator(
+            startOperation,
+            new StubDaemonStopOperation(),
+            new StubDaemonPingClient(),
+            new StubDaemonDiagnosisStore(),
+            sessionStore);
+
+        var ensureRunningResult = await coordinator.EnsureRunning(
+                unityProject,
+                TimeSpan.FromMilliseconds(500),
+                CancellationToken.None);
+        Assert.True(ensureRunningResult.IsSuccess);
+        Assert.True(coordinator.HasManagedProjects);
+
+        StopProcess(process);
+        await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+        await TestAwaiter.WaitAsync(
+            coordinator.AwaitManagedProcesses(),
+            "Supervisor await managed processes after exit cleanup fault",
+            SignalWaitTimeout);
+
+        Assert.False(coordinator.HasManagedProjects);
+        Assert.False(coordinator.HasActiveProjectWork);
+    }
+
     private static SupervisorProjectCoordinator CreateCoordinator (
         IDaemonStartOperation startOperation,
         IDaemonStopOperation stopOperation,
@@ -651,11 +692,18 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         public DaemonSession? Session { get; set; }
 
+        public Exception? ReadException { get; set; }
+
         public ValueTask<DaemonSessionReadResult> Read (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
         {
+            if (ReadException != null)
+            {
+                return ValueTask.FromException<DaemonSessionReadResult>(ReadException);
+            }
+
             return ValueTask.FromResult(DaemonSessionReadResult.Success(Session));
         }
 

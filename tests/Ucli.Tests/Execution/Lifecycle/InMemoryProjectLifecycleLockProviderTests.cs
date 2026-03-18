@@ -34,6 +34,36 @@ public sealed class InMemoryProjectLifecycleLockProviderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Acquire_WhenWaiterIsGranted_CancelsPendingDelayTimer ()
+    {
+        using var scope = TestDirectories.CreateTempScope("project-lifecycle-lock", "in-memory-granted-waiter-cancels-delay");
+        var timeProvider = new ManualTimeProvider();
+        var provider = new InMemoryProjectLifecycleLockProvider(timeProvider);
+        var firstHandle = await provider.Acquire(
+            scope.FullPath,
+            "fingerprint-lock",
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        var secondAcquireTask = provider.Acquire(
+                scope.FullPath,
+                "fingerprint-lock",
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None)
+            .AsTask();
+
+        Assert.Equal(1, timeProvider.ActiveTimerCount);
+
+        await firstHandle.DisposeAsync();
+        var secondHandle = await TestAwaiter.WaitAsync(secondAcquireTask, "In-memory lifecycle lock granted waiter", AcquireWaitTimeout);
+
+        Assert.Equal(0, timeProvider.ActiveTimerCount);
+
+        await secondHandle.DisposeAsync();
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Acquire_WhenTimeoutWhileWaiting_ThrowsTimeoutException ()
     {
         using var scope = TestDirectories.CreateTempScope("project-lifecycle-lock", "in-memory-timeout-while-waiting");

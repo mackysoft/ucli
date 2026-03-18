@@ -268,6 +268,8 @@ internal sealed class SupervisorProjectCoordinator
                 // shutdown should continue even when a detached monitor task already observed an exit race.
             }
 
+            DetachCompletedManagedProcesses();
+
             if (!HasActiveProjectWork && GetTrackedTasks().Length == 0)
             {
                 return;
@@ -497,6 +499,37 @@ internal sealed class SupervisorProjectCoordinator
     {
         yield return slot.ManagedProcess?.MonitorTask;
         yield return slot.PendingOperation;
+    }
+
+    private void DetachCompletedManagedProcesses ()
+    {
+        foreach (var slot in projectSlots.Values)
+        {
+            if (!slot.Gate.Wait(0))
+            {
+                continue;
+            }
+
+            try
+            {
+                var managedProcess = slot.ManagedProcess;
+                if (managedProcess == null
+                    || !managedProcess.MonitorTask.IsCompleted)
+                {
+                    continue;
+                }
+
+                // NOTE:
+                // shutdown should stop tracking already-completed monitor tasks, even when
+                // exit cleanup faulted, so AwaitManagedProcesses does not replay the same
+                // fault forever while waiting for managed-project bookkeeping to drain.
+                ClearManagedProcess(slot);
+            }
+            finally
+            {
+                slot.Gate.Release();
+            }
+        }
     }
 
     private Task[] GetTrackedTasks ()

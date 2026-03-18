@@ -12,6 +12,8 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonListQueryServiceTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task List_WithMixedWorktrees_ReturnsSortedRunningItemsAndSkipsMissingSessions ()
@@ -143,6 +145,81 @@ public sealed class DaemonListQueryServiceTests
         Assert.Null(item.EndpointTransportKind);
         Assert.Null(item.EndpointAddress);
         Assert.Null(item.Diagnosis);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenSessionReadOnlyStopsAfterInjectedTimeout_ReturnsPartialSuccess ()
+    {
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var timeProvider = new ManualTimeProvider();
+        var sessionReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = CreateService(
+            new StubGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
+                CurrentWorktreeRoot: currentProject.RepositoryRoot,
+                ProjectRelativePath: "UnityProject",
+                Worktrees:
+                [
+                    new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
+                ]))),
+            new StubUnityProjectResolver(currentProject),
+            new StubDaemonSessionStore(async (_, _, cancellationToken) =>
+            {
+                sessionReadStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                throw new System.Diagnostics.UnreachableException();
+            }),
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonPingClient(static (_, _, _, _) => ValueTask.CompletedTask),
+            new StubDaemonReachabilityClassifier(static _ => false),
+            timeProvider);
+
+        var resultTask = service.GetList(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
+        await TestAwaiter.WaitAsync(sessionReadStarted.Task, "Daemon list session read start", SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(150));
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "Daemon list session read timeout result", SignalWaitTimeout);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        Assert.False(output.IsComplete);
+        Assert.Equal(DaemonListCompletionReasonCodec.Timeout, output.CompletionReason);
+        Assert.Equal(1, output.RemainingWorktreeCount);
+        Assert.Empty(output.Items);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenProbeOnlyStopsAfterInjectedTimeout_ReturnsPartialSuccess ()
+    {
+        var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
+        var session = CreateSession("fp-current", "endpoint-timeout", 2100);
+        var timeProvider = new ManualTimeProvider();
+        var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var service = CreateSingleWorktreeService(
+            currentProject,
+            DaemonSessionReadResult.Success(session),
+            new StubDaemonDiagnosisStore(),
+            new StubDaemonPingClient(async (_, _, _, cancellationToken) =>
+            {
+                probeStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+            }),
+            new StubDaemonReachabilityClassifier(static _ => false),
+            timeProvider);
+
+        var resultTask = service.GetList(currentProject, TimeSpan.FromMilliseconds(150), CancellationToken.None).AsTask();
+        await TestAwaiter.WaitAsync(probeStarted.Task, "Daemon list probe start", SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(150));
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "Daemon list probe timeout result", SignalWaitTimeout);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
+        Assert.False(output.IsComplete);
+        Assert.Equal(DaemonListCompletionReasonCodec.Timeout, output.CompletionReason);
+        Assert.Equal(1, output.RemainingWorktreeCount);
+        Assert.Empty(output.Items);
     }
 
     [Fact]
@@ -460,9 +537,15 @@ public sealed class DaemonListQueryServiceTests
 
     private sealed class StubDaemonSessionStore : IDaemonSessionStore
     {
-        private readonly Func<string, string, DaemonSessionReadResult> read;
+        private readonly Func<string, string, CancellationToken, ValueTask<DaemonSessionReadResult>> read;
 
         public StubDaemonSessionStore (Func<string, string, DaemonSessionReadResult> read)
+        {
+            this.read = (storageRoot, projectFingerprint, _) =>
+                ValueTask.FromResult(read(storageRoot, projectFingerprint));
+        }
+
+        public StubDaemonSessionStore (Func<string, string, CancellationToken, ValueTask<DaemonSessionReadResult>> read)
         {
             this.read = read;
         }
@@ -472,7 +555,7 @@ public sealed class DaemonListQueryServiceTests
             string projectFingerprint,
             CancellationToken cancellationToken = default)
         {
-            return ValueTask.FromResult(read(storageRoot, projectFingerprint));
+            return read(storageRoot, projectFingerprint, cancellationToken);
         }
 
         public ValueTask<DaemonSessionStoreOperationResult> Write (

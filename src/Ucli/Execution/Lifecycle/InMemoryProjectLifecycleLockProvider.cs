@@ -80,12 +80,18 @@ internal sealed class InMemoryProjectLifecycleLockProvider : IProjectLifecycleLo
                     return new LockHandle(lockState);
                 }
 
+                using var delayCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var delayTask = TimeProviderDelay.Delay(
+                    remainingTimeout,
+                    timeProvider,
+                    delayCancellationTokenSource.Token);
                 var completedTask = await Task.WhenAny(
                         waitRegistration.Task,
-                        TimeProviderDelay.Delay(remainingTimeout, timeProvider, cancellationToken))
+                        delayTask)
                     .ConfigureAwait(false);
                 if (completedTask == waitRegistration.Task)
                 {
+                    delayCancellationTokenSource.Cancel();
                     await waitRegistration.Task.ConfigureAwait(false);
                     return new LockHandle(lockState);
                 }

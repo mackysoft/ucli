@@ -164,8 +164,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Failure(sessionReadTimeoutError!);
         }
 
-        using var sessionReadCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        sessionReadCancellationTokenSource.CancelAfter(sessionReadTimeout);
+        using var sessionReadCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            sessionReadTimeout,
+            timeProvider);
 
         DaemonSessionReadResult sessionReadResult;
         try
@@ -173,14 +175,15 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             sessionReadResult = await daemonSessionStore.Read(
                     candidateProject.RepositoryRoot,
                     candidateProject.ProjectFingerprint,
-                    sessionReadCancellationTokenSource.Token)
+                    sessionReadCancellationScope.Token)
                 .ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
+            && !sessionReadCancellationScope.HasTimedOut)
         {
             throw;
         }
-        catch (OperationCanceledException) when (sessionReadCancellationTokenSource.IsCancellationRequested)
+        catch (OperationCanceledException) when (sessionReadCancellationScope.HasTimedOut)
         {
             return WorktreeObservationResult.Failure(ExecutionError.Timeout(
                 "Timed out while reading daemon session."));
@@ -228,8 +231,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Failure(probeTimeoutError!);
         }
 
-        using var probeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        probeCancellationTokenSource.CancelAfter(probeTimeout);
+        using var probeCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            probeTimeout,
+            timeProvider);
 
         try
         {
@@ -237,7 +242,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                     candidateProject,
                     probeTimeout,
                     session.SessionToken,
-                    probeCancellationTokenSource.Token)
+                    probeCancellationScope.Token)
                 .ConfigureAwait(false);
 
             return WorktreeObservationResult.Success(CreateItem(
@@ -248,11 +253,12 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                 session,
                 diagnosis: null));
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested
+            && !probeCancellationScope.HasTimedOut)
         {
             throw;
         }
-        catch (OperationCanceledException) when (probeCancellationTokenSource.IsCancellationRequested)
+        catch (OperationCanceledException) when (probeCancellationScope.HasTimedOut)
         {
             return WorktreeObservationResult.Failure(ExecutionError.Timeout(
                 "Timed out while probing daemon session."));

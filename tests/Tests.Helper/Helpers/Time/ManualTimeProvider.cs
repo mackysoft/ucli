@@ -29,6 +29,17 @@ internal sealed class ManualTimeProvider : TimeProvider
         return currentTimestamp;
     }
 
+    internal int ActiveTimerCount
+    {
+        get
+        {
+            lock (syncObject)
+            {
+                return timers.Count(static timer => !timer.IsDisposed);
+            }
+        }
+    }
+
     public override ITimer CreateTimer (
         TimerCallback callback,
         object? state,
