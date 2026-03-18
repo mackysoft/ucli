@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Dispatches execute requests to operation-phase execution pipelines. </summary>
     internal sealed class ExecuteRequestDispatcher : IExecuteRequestDispatcher
     {
-        private static readonly JsonSerializerOptions SerializerOptions = new ()
+        private static readonly JsonSerializerOptions SerializerOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false,
@@ -23,6 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IExecuteRequestNormalizer requestNormalizer;
         private readonly IOperationPhaseExecutor operationPhaseExecutor;
         private readonly IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator;
+        private readonly IUnityEditorReadinessGate readinessGate;
 
         /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
         /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
@@ -34,7 +35,25 @@ namespace MackySoft.Ucli.Unity.Ipc
             : this(
                 requestNormalizer,
                 operationPhaseExecutor,
-                new ExecuteRequestIdempotencyCoordinator())
+                new ExecuteRequestIdempotencyCoordinator(),
+                new PassThroughUnityEditorReadinessGate())
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
+        /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
+        /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
+        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
+        public ExecuteRequestDispatcher (
+            IExecuteRequestNormalizer requestNormalizer,
+            IOperationPhaseExecutor operationPhaseExecutor,
+            IUnityEditorReadinessGate readinessGate)
+            : this(
+                requestNormalizer,
+                operationPhaseExecutor,
+                new ExecuteRequestIdempotencyCoordinator(),
+                readinessGate)
         {
         }
 
@@ -46,11 +65,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         public ExecuteRequestDispatcher (
             IExecuteRequestNormalizer requestNormalizer,
             IOperationPhaseExecutor operationPhaseExecutor,
-            IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator)
+            IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator,
+            IUnityEditorReadinessGate readinessGate)
         {
             this.requestNormalizer = requestNormalizer ?? throw new ArgumentNullException(nameof(requestNormalizer));
             this.operationPhaseExecutor = operationPhaseExecutor ?? throw new ArgumentNullException(nameof(operationPhaseExecutor));
             this.requestIdempotencyCoordinator = requestIdempotencyCoordinator ?? throw new ArgumentNullException(nameof(requestIdempotencyCoordinator));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
         }
 
         /// <summary> Dispatches one execute request and returns the response envelope. </summary>
@@ -135,6 +156,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     SerializerOptions);
             }
 
+            await readinessGate.WaitUntilReady(cancellationToken).ConfigureAwait(false);
+
             try
             {
                 var trace = await operationPhaseExecutor.Execute(executionCommand, normalizationResult.Request!, cancellationToken);
@@ -152,6 +175,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Unexpected error occurred while dispatching execute request. {exception.Message}",
                     null,
                     SerializerOptions);
+            }
+        }
+
+        private sealed class PassThroughUnityEditorReadinessGate : IUnityEditorReadinessGate
+        {
+            public Task WaitUntilReady (CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
             }
         }
 

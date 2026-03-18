@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.Sockets;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
@@ -12,6 +13,10 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorProjectCoordinatorTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
+    private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureRunning_WhenDaemonIsAlreadyRunning_SkipsStabilityVerification ()
@@ -43,10 +48,9 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.Equal(0, stopOperation.StopCallCount);
 
         StopProcess(process);
-        await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasManagedProjects,
-                TimeSpan.FromSeconds(2));
+        await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasManagedProjects);
     }
 
     [Fact]
@@ -84,9 +88,8 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.True(coordinator.HasManagedProjects);
 
         releasePing.TrySetResult();
-        await WaitUntil(
-                () => !coordinator.HasManagedProjects,
-                TimeSpan.FromSeconds(2));
+        await coordinator.AwaitManagedProcesses();
+        Assert.False(coordinator.HasManagedProjects);
     }
 
     [Fact]
@@ -133,24 +136,34 @@ public sealed class SupervisorProjectCoordinatorTests
                 TimeSpan.FromMilliseconds(500),
                 cancellationTokenSource.Token)
             .AsTask();
-        await pingStarted.Task;
-        cancellationTokenSource.Cancel();
+        try
+        {
+            await TestAwaiter.WaitAsync(pingStarted.Task, "Daemon stability ping start", SignalWaitTimeout);
+            cancellationTokenSource.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            async () => await ensureRunningTask);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                await TestAwaiter.WaitAsync(
+                    ensureRunningTask,
+                    "Canceled supervisor ensure-running result",
+                    SignalWaitTimeout);
+            });
 
-        await stopStarted.Task;
-        Assert.Equal(1, stopOperation.StopCallCount);
-        Assert.Equal(DaemonTimeouts.StopCompensationTimeout, stopOperation.LastTimeout);
-        Assert.True(coordinator.HasManagedProjects);
-        Assert.True(coordinator.HasActiveProjectWork);
+            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon compensation stop start", SignalWaitTimeout);
+            Assert.Equal(1, stopOperation.StopCallCount);
+            Assert.Equal(DaemonTimeouts.StopCompensationTimeout, stopOperation.LastTimeout);
+            Assert.True(coordinator.HasManagedProjects);
+            Assert.True(coordinator.HasActiveProjectWork);
+        }
+        finally
+        {
+            stopRelease.TrySetResult();
+            StopProcess(process);
+            await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+            await coordinator.AwaitManagedProcesses();
+        }
 
-        stopRelease.TrySetResult();
-        StopProcess(process);
-        await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -159,6 +172,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         using var process = StartLongRunningProcess();
         var unityProject = CreateUnityProject();
+        var timeProvider = new ManualTimeProvider();
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new StubDaemonStartOperation
@@ -167,9 +181,11 @@ public sealed class SupervisorProjectCoordinatorTests
         };
         var pingClient = new StubDaemonPingClient
         {
-            PingHandler = async (_, _, cancellationToken) =>
+            PingHandler = (_, _, cancellationToken) =>
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(40), cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                return ValueTask.CompletedTask;
             },
         };
         var stopOperation = new StubDaemonStopOperation
@@ -187,24 +203,30 @@ public sealed class SupervisorProjectCoordinatorTests
             stopOperation,
             pingClient,
             diagnosisStore,
-            new StubDaemonSessionStore());
+            new StubDaemonSessionStore(),
+            timeProvider: timeProvider);
 
-        var result = await coordinator.EnsureRunning(
-                unityProject,
-                TimeSpan.FromMilliseconds(70),
-                CancellationToken.None);
+        try
+        {
+            var result = await coordinator.EnsureRunning(
+                    unityProject,
+                    TimeSpan.FromMilliseconds(70),
+                    CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-        Assert.True(coordinator.HasActiveProjectWork);
-        await stopStarted.Task;
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+            Assert.True(coordinator.HasActiveProjectWork);
+            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon timeout compensation stop start", SignalWaitTimeout);
+        }
+        finally
+        {
+            stopRelease.TrySetResult();
+            StopProcess(process);
+            await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+            await coordinator.AwaitManagedProcesses();
+        }
 
-        stopRelease.TrySetResult();
-        StopProcess(process);
-        await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -239,22 +261,27 @@ public sealed class SupervisorProjectCoordinatorTests
             new StubDaemonDiagnosisStore(),
             new StubDaemonSessionStore());
 
-        var result = await coordinator.EnsureRunning(
-                unityProject,
-                TimeSpan.FromMilliseconds(500),
-                CancellationToken.None);
+        try
+        {
+            var result = await coordinator.EnsureRunning(
+                    unityProject,
+                    TimeSpan.FromMilliseconds(500),
+                    CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
-        Assert.True(coordinator.HasActiveProjectWork);
-        await stopStarted.Task;
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
+            Assert.True(coordinator.HasActiveProjectWork);
+            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon failure compensation stop start", SignalWaitTimeout);
+        }
+        finally
+        {
+            stopRelease.TrySetResult();
+            StopProcess(process);
+            await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+            await coordinator.AwaitManagedProcesses();
+        }
 
-        stopRelease.TrySetResult();
-        StopProcess(process);
-        await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -263,6 +290,7 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         using var process = StartLongRunningProcess();
         var unityProject = CreateUnityProject();
+        var timeProvider = new ManualTimeProvider();
         var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new StubDaemonStartOperation
@@ -271,9 +299,11 @@ public sealed class SupervisorProjectCoordinatorTests
         };
         var pingClient = new StubDaemonPingClient
         {
-            PingHandler = async (_, _, cancellationToken) =>
+            PingHandler = (_, _, cancellationToken) =>
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(40), cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                return ValueTask.CompletedTask;
             },
         };
         var stopOperation = new StubDaemonStopOperation
@@ -290,43 +320,43 @@ public sealed class SupervisorProjectCoordinatorTests
             stopOperation,
             pingClient,
             new StubDaemonDiagnosisStore(),
-            new StubDaemonSessionStore());
+            new StubDaemonSessionStore(),
+            timeProvider: timeProvider);
 
-        var ensureRunningResult = await coordinator.EnsureRunning(
-                unityProject,
-                TimeSpan.FromMilliseconds(70),
-                CancellationToken.None);
-        Assert.False(ensureRunningResult.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, ensureRunningResult.Error!.Kind);
-        await stopStarted.Task;
+        try
+        {
+            var ensureRunningResult = await coordinator.EnsureRunning(
+                    unityProject,
+                    TimeSpan.FromMilliseconds(70),
+                    CancellationToken.None);
+            Assert.False(ensureRunningResult.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, ensureRunningResult.Error!.Kind);
+            await TestAwaiter.WaitAsync(stopStarted.Task, "Daemon stop failure compensation start", SignalWaitTimeout);
 
-        var stopTask = coordinator.StopProject(
-                unityProject,
-                TimeSpan.FromMilliseconds(50),
-                CancellationToken.None)
-            .AsTask();
-        var completedTask = await Task.WhenAny(
-                stopTask,
-                Task.Delay(TimeSpan.FromSeconds(2)));
+            var stopTask = coordinator.StopProject(
+                    unityProject,
+                    TimeSpan.FromMilliseconds(50),
+                    CancellationToken.None)
+                .AsTask();
+            var stopResult = await TestAwaiter.WaitAsync(stopTask, "Supervisor stop project result", SignalWaitTimeout);
 
-        Assert.Same(stopTask, completedTask);
+            Assert.False(stopResult.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, stopResult.Error!.Kind);
+            Assert.Equal(
+                "Timed out while waiting for prior supervisor lifecycle cleanup to finish.",
+                stopResult.Error.Message);
+            Assert.Equal(1, stopOperation.StopCallCount);
+            Assert.True(coordinator.HasActiveProjectWork);
+        }
+        finally
+        {
+            stopRelease.TrySetResult();
+            StopProcess(process);
+            await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+            await coordinator.AwaitManagedProcesses();
+        }
 
-        var stopResult = await stopTask;
-
-        Assert.False(stopResult.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, stopResult.Error!.Kind);
-        Assert.Equal(
-            "Timed out while waiting for prior supervisor lifecycle cleanup to finish.",
-            stopResult.Error.Message);
-        Assert.Equal(1, stopOperation.StopCallCount);
-        Assert.True(coordinator.HasActiveProjectWork);
-
-        stopRelease.TrySetResult();
-        StopProcess(process);
-        await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasActiveProjectWork,
-                TimeSpan.FromSeconds(2));
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     [Fact]
@@ -371,10 +401,8 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.False(stopResult.IsSuccess);
 
         StopProcess(process);
-        await process.WaitForExitAsync();
-        await WaitUntil(
-                () => diagnosisStore.LastDiagnosis != null,
-                TimeSpan.FromSeconds(2));
+        await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+        await coordinator.AwaitManagedProcesses();
 
         Assert.NotNull(diagnosisStore.LastDiagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnexpectedExit, diagnosisStore.LastDiagnosis!.Reason);
@@ -413,21 +441,67 @@ public sealed class SupervisorProjectCoordinatorTests
                 },
             });
 
+        try
+        {
+            var ensureRunningResult = await coordinator.EnsureRunning(
+                    unityProject,
+                    TimeSpan.FromMilliseconds(500),
+                    CancellationToken.None);
+            Assert.True(ensureRunningResult.IsSuccess);
+
+            StopProcess(process);
+            await TestAwaiter.WaitAsync(cleanupStarted.Task, "Managed project cleanup start", SignalWaitTimeout);
+            Assert.True(coordinator.HasManagedProjects);
+        }
+        finally
+        {
+            cleanupRelease.TrySetResult();
+            await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+            await coordinator.AwaitManagedProcesses();
+        }
+
+        Assert.False(coordinator.HasManagedProjects);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task AwaitManagedProcesses_WhenExitCleanupFaults_DetachesFaultedMonitorTask ()
+    {
+        using var process = StartLongRunningProcess();
+        var unityProject = CreateUnityProject();
+        var session = CreateSession(process.Id);
+        var sessionStore = new StubDaemonSessionStore
+        {
+            Session = session,
+            ReadException = new InvalidOperationException("session read failed"),
+        };
+        var startOperation = new StubDaemonStartOperation
+        {
+            StartResult = DaemonStartResult.AlreadyRunning(session),
+        };
+        var coordinator = CreateCoordinator(
+            startOperation,
+            new StubDaemonStopOperation(),
+            new StubDaemonPingClient(),
+            new StubDaemonDiagnosisStore(),
+            sessionStore);
+
         var ensureRunningResult = await coordinator.EnsureRunning(
                 unityProject,
                 TimeSpan.FromMilliseconds(500),
                 CancellationToken.None);
         Assert.True(ensureRunningResult.IsSuccess);
-
-        StopProcess(process);
-        await cleanupStarted.Task;
         Assert.True(coordinator.HasManagedProjects);
 
-        cleanupRelease.TrySetResult();
-        await process.WaitForExitAsync();
-        await WaitUntil(
-                () => !coordinator.HasManagedProjects,
-                TimeSpan.FromSeconds(2));
+        StopProcess(process);
+        await TestProcessAwaiter.WaitForExitAsync(process, "Managed daemon helper process", ProcessExitTimeout);
+        await TestAwaiter.WaitAsync(
+            coordinator.AwaitManagedProcesses(),
+            "Supervisor await managed processes after exit cleanup fault",
+            SignalWaitTimeout);
+
+        Assert.False(coordinator.HasManagedProjects);
+        Assert.False(coordinator.HasActiveProjectWork);
     }
 
     private static SupervisorProjectCoordinator CreateCoordinator (
@@ -436,12 +510,14 @@ public sealed class SupervisorProjectCoordinatorTests
         IDaemonPingClient pingClient,
         IDaemonDiagnosisStore diagnosisStore,
         IDaemonSessionStore sessionStore,
-        IDaemonArtifactCleaner? artifactCleaner = null)
+        IDaemonArtifactCleaner? artifactCleaner = null,
+        TimeProvider? timeProvider = null)
     {
         var runtimeLogger = new SupervisorRuntimeLogger();
         var stabilityVerifier = new SupervisorStabilityVerifier(
             pingClient,
-            new SupervisorDiagnosisWriter(diagnosisStore));
+            new SupervisorDiagnosisWriter(diagnosisStore),
+            timeProvider);
         var exitHandler = new SupervisorExitHandler(
             sessionStore,
             artifactCleaner ?? new StubDaemonArtifactCleaner(),
@@ -454,7 +530,8 @@ public sealed class SupervisorProjectCoordinatorTests
             new DaemonReachabilityClassifier(),
             stabilityVerifier,
             exitHandler,
-            runtimeLogger);
+            runtimeLogger,
+            timeProvider);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject ()
@@ -481,24 +558,6 @@ public sealed class SupervisorProjectCoordinatorTests
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: processId,
             OwnerProcessId: 9876);
-    }
-
-    private static async Task WaitUntil (
-        Func<bool> predicate,
-        TimeSpan timeout)
-    {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (predicate())
-            {
-                return;
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(20)).ConfigureAwait(false);
-        }
-
-        throw new TimeoutException("Condition was not satisfied within the allotted timeout.");
     }
 
     private static Process StartLongRunningProcess ()
@@ -633,11 +692,18 @@ public sealed class SupervisorProjectCoordinatorTests
     {
         public DaemonSession? Session { get; set; }
 
+        public Exception? ReadException { get; set; }
+
         public ValueTask<DaemonSessionReadResult> Read (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
         {
+            if (ReadException != null)
+            {
+                return ValueTask.FromException<DaemonSessionReadResult>(ReadException);
+            }
+
             return ValueTask.FromResult(DaemonSessionReadResult.Success(Session));
         }
 

@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Supervisor;
@@ -22,12 +23,15 @@ internal sealed class SupervisorManifestStore
 
     private readonly Action<string> deleteIfExists;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="SupervisorManifestStore" /> class. </summary>
     public SupervisorManifestStore ()
         : this(
             static (path, cancellationToken) => FileUtilities.ReadAllTextOrNull(path, cancellationToken),
             static (path, contents, cancellationToken) => FileUtilities.WriteAllTextAtomically(path, contents, cancellationToken),
-            static path => FileUtilities.DeleteIfExists(path))
+            static path => FileUtilities.DeleteIfExists(path),
+            timeProvider: null)
     {
     }
 
@@ -35,14 +39,17 @@ internal sealed class SupervisorManifestStore
     /// <param name="readAllTextOrNull"> Delegate that reads manifest JSON. </param>
     /// <param name="writeAllTextAtomically"> Delegate that writes manifest JSON atomically. </param>
     /// <param name="deleteIfExists"> Delegate that deletes a manifest file when present. </param>
+    /// <param name="timeProvider"> The time provider used for timeout interpretation. </param>
     internal SupervisorManifestStore (
         Func<string, CancellationToken, ValueTask<string?>> readAllTextOrNull,
         Func<string, string, CancellationToken, ValueTask> writeAllTextAtomically,
-        Action<string> deleteIfExists)
+        Action<string> deleteIfExists,
+        TimeProvider? timeProvider = null)
     {
         this.readAllTextOrNull = readAllTextOrNull ?? throw new ArgumentNullException(nameof(readAllTextOrNull));
         this.writeAllTextAtomically = writeAllTextAtomically ?? throw new ArgumentNullException(nameof(writeAllTextAtomically));
         this.deleteIfExists = deleteIfExists ?? throw new ArgumentNullException(nameof(deleteIfExists));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Reads one supervisor manifest when present. </summary>
@@ -82,15 +89,17 @@ internal sealed class SupervisorManifestStore
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCancellationTokenSource.CancelAfter(timeout);
+        using var timeoutCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            timeout,
+            timeProvider);
 
         try
         {
-            return await ReadOrNull(storageRoot, timeoutCancellationTokenSource.Token).ConfigureAwait(false);
+            return await ReadOrNull(storageRoot, timeoutCancellationScope.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
-                                                 && timeoutCancellationTokenSource.IsCancellationRequested)
+                                                 && timeoutCancellationScope.HasTimedOut)
         {
             throw new TimeoutException(
                 $"Timed out while reading supervisor manifest. Timeout={timeout.TotalMilliseconds:0}ms.");

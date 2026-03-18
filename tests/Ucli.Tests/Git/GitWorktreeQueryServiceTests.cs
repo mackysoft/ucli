@@ -109,19 +109,22 @@ public sealed class GitWorktreeQueryServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "first-call-consumes-budget");
         var currentProjectPath = CreateGitAnchoredProject(scope, "wt-current", "UnityProject");
+        var timeProvider = new ManualTimeProvider();
         var commandClient = new StubGitCommandClient
         {
-            CurrentWorktreeRootHandler = async (_, _, cancellationToken) =>
+            CurrentWorktreeRootHandler = (_, _, cancellationToken) =>
             {
-                await Task.Delay(30, cancellationToken);
-                return GitCommandTextResult.Success(Path.GetDirectoryName(currentProjectPath)! + Environment.NewLine);
+                cancellationToken.ThrowIfCancellationRequested();
+                timeProvider.Advance(TimeSpan.FromMilliseconds(30));
+                return ValueTask.FromResult(GitCommandTextResult.Success(Path.GetDirectoryName(currentProjectPath)! + Environment.NewLine));
             },
             CurrentProjectRelativePathResult = GitCommandTextResult.Success("UnityProject/" + Environment.NewLine),
             WorktreeListPorcelainResult = GitCommandTextResult.Success("porcelain-output"),
         };
         var service = new GitWorktreeQueryService(
             commandClient,
-            new StubGitWorktreeListPorcelainParser());
+            new StubGitWorktreeListPorcelainParser(),
+            timeProvider);
 
         var result = await service.GetWorktreeInfo(
             currentProjectPath,

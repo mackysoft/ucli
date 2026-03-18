@@ -18,24 +18,30 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
 
     private readonly IDaemonDiagnosisStore daemonDiagnosisStore;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonLaunchService" /> class. </summary>
     /// <param name="daemonLaunchSessionService"> The daemon launch-session service dependency. </param>
     /// <param name="unityDaemonProcessLauncher"> The Unity daemon process-launcher dependency. </param>
     /// <param name="startupReadinessProbe"> The daemon startup-readiness probe dependency. </param>
     /// <param name="daemonLaunchCompensationService"> The daemon launch-compensation service dependency. </param>
+    /// <param name="daemonDiagnosisStore"> The daemon diagnosis store dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting and timestamps. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonLaunchService (
         IDaemonLaunchSessionService daemonLaunchSessionService,
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
         IDaemonLaunchCompensationService daemonLaunchCompensationService,
-        IDaemonDiagnosisStore daemonDiagnosisStore)
+        IDaemonDiagnosisStore daemonDiagnosisStore,
+        TimeProvider? timeProvider = null)
     {
         this.daemonLaunchSessionService = daemonLaunchSessionService ?? throw new ArgumentNullException(nameof(daemonLaunchSessionService));
         this.unityDaemonProcessLauncher = unityDaemonProcessLauncher ?? throw new ArgumentNullException(nameof(unityDaemonProcessLauncher));
         this.startupReadinessProbe = startupReadinessProbe ?? throw new ArgumentNullException(nameof(startupReadinessProbe));
         this.daemonLaunchCompensationService = daemonLaunchCompensationService ?? throw new ArgumentNullException(nameof(daemonLaunchCompensationService));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
@@ -53,7 +59,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
         var initializeSessionResult = await daemonLaunchSessionService.Initialize(unityProject, cancellationToken).ConfigureAwait(false);
         if (!initializeSessionResult.IsSuccess)
@@ -169,7 +175,7 @@ internal sealed class DaemonLaunchService : IDaemonLaunchService
                     Message: primaryError.Message,
                     ReportedBy: DaemonDiagnosisReportedByValues.Cli,
                     IsInferred: false,
-                    UpdatedAtUtc: DateTimeOffset.UtcNow,
+                    UpdatedAtUtc: timeProvider.GetUtcNow(),
                     ProcessId: processId,
                     SessionIssuedAtUtc: expectedIssuedAtUtc),
                 CancellationToken.None)

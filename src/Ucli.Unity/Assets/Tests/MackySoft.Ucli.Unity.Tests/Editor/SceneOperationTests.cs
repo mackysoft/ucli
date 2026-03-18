@@ -11,8 +11,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -113,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -150,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -182,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         private static string CreateTemporaryScenePath ()
         {

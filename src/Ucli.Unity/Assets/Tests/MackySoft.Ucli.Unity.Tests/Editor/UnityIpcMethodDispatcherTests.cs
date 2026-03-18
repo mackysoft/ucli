@@ -12,6 +12,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcMethodDispatcherTests
     {
+        private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
         [Test]
         [Category("Size.Small")]
         public void Constructor_WhenHandlersAreEmpty_ThrowsArgumentException ()
@@ -76,7 +78,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var request = CreateRequest("req-unsupported", method: "unknown.method", payload: 0);
 
-            var response = await dispatcher.Dispatch(request, CancellationToken.None);
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.Dispatch(request, CancellationToken.None).AsUniTask(),
+                "Unsupported IPC method dispatch",
+                AsyncWaitTimeout);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -95,7 +100,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var request = CreateRequest("req-throw", IpcMethodNames.Ping, new IpcPingRequest("tests"));
 
-            var response = await dispatcher.Dispatch(request, CancellationToken.None);
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.Dispatch(request, CancellationToken.None).AsUniTask(),
+                "Throwing IPC method dispatch",
+                AsyncWaitTimeout);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
@@ -115,7 +123,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcher = new UnityIpcMethodDispatcher(new IUnityIpcMethodHandler[] { handler });
             var request = CreateRequest("req-ok", IpcMethodNames.Ping, new IpcPingRequest("tests"));
 
-            var response = await dispatcher.Dispatch(request, CancellationToken.None);
+            var response = await TestAwaiter.WaitAsync(
+                dispatcher.Dispatch(request, CancellationToken.None).AsUniTask(),
+                "Successful IPC method dispatch",
+                AsyncWaitTimeout);
 
             Assert.That(handler.CallCount, Is.EqualTo(1));
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
@@ -137,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await dispatcher.Dispatch(request, cancellationTokenSource.Token).AsUniTask();
-            });
+            }, "Canceled IPC method dispatch", AsyncWaitTimeout);
             Assert.That(handler.CallCount, Is.EqualTo(0));
         });
 

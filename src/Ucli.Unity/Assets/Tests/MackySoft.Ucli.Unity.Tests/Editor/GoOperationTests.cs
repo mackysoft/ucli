@@ -12,8 +12,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -170,7 +170,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -193,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -211,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -249,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -286,7 +286,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -325,7 +325,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -347,7 +347,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-describe");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -384,7 +384,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-                });
+        });
 
         [Test]
         [Category("Size.Small")]

@@ -13,16 +13,20 @@ internal sealed class SupervisorStabilityVerifier
 
     private readonly SupervisorDiagnosisWriter diagnosisWriter;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="SupervisorStabilityVerifier" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
-    /// <param name="daemonStopOperation"> The daemon stop-operation dependency. </param>
     /// <param name="diagnosisWriter"> The supervisor diagnosis-writer dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     public SupervisorStabilityVerifier (
         IDaemonPingClient daemonPingClient,
-        SupervisorDiagnosisWriter diagnosisWriter)
+        SupervisorDiagnosisWriter diagnosisWriter,
+        TimeProvider? timeProvider = null)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.diagnosisWriter = diagnosisWriter ?? throw new ArgumentNullException(nameof(diagnosisWriter));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Ensures that one started daemon stays reachable for the fixed supervisor stability window. </summary>
@@ -45,7 +49,7 @@ internal sealed class SupervisorStabilityVerifier
         var stabilityBudget = timeout < SupervisorConstants.StabilityWindow
             ? timeout
             : SupervisorConstants.StabilityWindow;
-        var stabilityDeadline = ExecutionDeadline.Start(stabilityBudget);
+        var stabilityDeadline = ExecutionDeadline.Start(stabilityBudget, timeProvider);
         var successCount = 0;
         var retryDelay = TimeSpan.FromMilliseconds(
             Math.Max(1, (int)Math.Ceiling(
@@ -66,13 +70,15 @@ internal sealed class SupervisorStabilityVerifier
 
             try
             {
-                using var pingCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                pingCancellationTokenSource.CancelAfter(attemptTimeout);
+                using var pingCancellationScope = TimeProviderCancellationScope.CreateLinked(
+                    cancellationToken,
+                    attemptTimeout,
+                    timeProvider);
                 await daemonPingClient.Ping(
                         unityProject,
                         attemptTimeout,
                         session.SessionToken,
-                        pingCancellationTokenSource.Token)
+                        pingCancellationScope.Token)
                     .ConfigureAwait(false);
                 successCount++;
             }
@@ -109,7 +115,7 @@ internal sealed class SupervisorStabilityVerifier
                     return await FailStabilityTimeoutCheck(unityProject, session).ConfigureAwait(false);
                 }
 
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                await TimeProviderDelay.Delay(delay, timeProvider, cancellationToken).ConfigureAwait(false);
             }
         }
 

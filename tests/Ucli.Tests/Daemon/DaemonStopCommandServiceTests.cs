@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
@@ -245,6 +246,7 @@ public sealed class DaemonStopCommandServiceTests
         using var scope = DaemonCommandServiceTestContext.CreateTempScope("stop-remaining-timeout");
         var manifest = DaemonCommandServiceTestContext.CreateSupervisorManifest(scope.FullPath);
         await DaemonCommandServiceTestContext.WriteSupervisorManifest(scope.FullPath, manifest);
+        var timeProvider = new ManualTimeProvider();
 
         var context = DaemonCommandServiceTestContext.CreateExecutionContext(
             timeoutMilliseconds: 700,
@@ -257,30 +259,35 @@ public sealed class DaemonStopCommandServiceTests
         };
         var transportClient = new DaemonCommandServiceTestContext.StubIpcTransportClient
         {
-            SendHandler = async (endpoint, request, _, cancellationToken) =>
+            SendHandler = (endpoint, request, _, cancellationToken) =>
             {
                 Assert.Equal(manifest.EndpointAddress, endpoint.Address);
                 if (request.Method == SupervisorIpcContracts.PingMethod)
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken).ConfigureAwait(false);
-                    return DaemonCommandServiceTestContext.CreateSuccessResponse(
+                    cancellationToken.ThrowIfCancellationRequested();
+                    timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                    return ValueTask.FromResult(DaemonCommandServiceTestContext.CreateSuccessResponse(
                         request,
-                        new SupervisorIpcContracts.PingResponse(manifest.ProcessId, manifest.IssuedAtUtc));
+                        new SupervisorIpcContracts.PingResponse(manifest.ProcessId, manifest.IssuedAtUtc)));
                 }
 
                 if (request.Method == SupervisorIpcContracts.StopProjectMethod)
                 {
-                    return DaemonCommandServiceTestContext.CreateSuccessResponse(
+                    return ValueTask.FromResult(DaemonCommandServiceTestContext.CreateSuccessResponse(
                         request,
                         new SupervisorIpcContracts.StopProjectResponse(
                             StopStatus: DaemonStopStateCodec.Stopped,
-                            DaemonStatus: DaemonStatusStateCodec.NotRunning));
+                            DaemonStatus: DaemonStatusStateCodec.NotRunning)));
                 }
 
                 throw new InvalidOperationException($"Unexpected supervisor IPC method: {request.Method}");
             },
         };
-        var service = CreateService(resolver, transportClient, daemonStopOperation);
+        var service = CreateService(
+            resolver,
+            transportClient,
+            daemonStopOperation,
+            timeProvider: timeProvider);
 
         var result = await service.Stop(
             projectPath: "/tmp/sandbox-unity",
@@ -293,6 +300,7 @@ public sealed class DaemonStopCommandServiceTests
         var stopCall = Assert.Single(
             transportClient.Calls,
             static x => x.Request.Method == SupervisorIpcContracts.StopProjectMethod);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), stopCall.Timeout);
         Assert.True(stopCall.Timeout < context.Timeout);
     }
 
@@ -390,12 +398,14 @@ public sealed class DaemonStopCommandServiceTests
         IDaemonCommandExecutionContextResolver resolver,
         DaemonCommandServiceTestContext.StubIpcTransportClient transportClient,
         IDaemonStopOperation daemonStopOperation,
-        SupervisorManifestStore? manifestStore = null)
+        SupervisorManifestStore? manifestStore = null,
+        TimeProvider? timeProvider = null)
     {
         return new DaemonStopCommandService(
             resolver,
             manifestStore ?? new SupervisorManifestStore(),
             DaemonCommandServiceTestContext.CreateSupervisorClient(transportClient),
-            daemonStopOperation);
+            daemonStopOperation,
+            timeProvider);
     }
 }

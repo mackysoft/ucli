@@ -1,6 +1,6 @@
-using MackySoft.Ucli.Contracts.Index;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Index;
 
 #nullable enable
 

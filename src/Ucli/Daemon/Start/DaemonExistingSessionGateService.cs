@@ -14,19 +14,24 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
 
     private readonly IDaemonSessionCleanupService daemonSessionCleanupService;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonExistingSessionGateService" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping-client dependency. </param>
     /// <param name="reachabilityClassifier"> The daemon reachability-classifier dependency. </param>
     /// <param name="daemonSessionCleanupService"> The daemon session-cleanup service dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonExistingSessionGateService (
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
-        IDaemonSessionCleanupService daemonSessionCleanupService)
+        IDaemonSessionCleanupService daemonSessionCleanupService,
+        TimeProvider? timeProvider = null)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
         this.daemonSessionCleanupService = daemonSessionCleanupService ?? throw new ArgumentNullException(nameof(daemonSessionCleanupService));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -53,7 +58,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
         if (!deadline.TryGetRemainingTimeout(out var pingTimeout))
         {

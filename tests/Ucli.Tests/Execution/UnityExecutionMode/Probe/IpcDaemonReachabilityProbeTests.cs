@@ -14,6 +14,8 @@ public sealed class IpcDaemonReachabilityProbeTests
 
     private static readonly TimeSpan ProbeAttemptTimeoutCap = TimeSpan.FromSeconds(1);
 
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Probe_WhenUnixSocketFileDoesNotExist_ReturnsNotRunningWithoutSendingPing ()
@@ -270,7 +272,10 @@ public sealed class IpcDaemonReachabilityProbeTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask(),
+                "Canceled daemon reachability probe",
+                SignalWaitTimeout);
         });
         Assert.Equal(0, daemonPingClient.CallCount);
     }
@@ -281,17 +286,22 @@ public sealed class IpcDaemonReachabilityProbeTests
     {
         var endpointResolver = new StubEndpointResolver(
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-canceled-during-ping"));
+        var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var daemonPingClient = new StubDaemonPingClient((_, cancellationToken) =>
-            new ValueTask(Task.Delay(System.Threading.Timeout.Infinite, cancellationToken)));
+        {
+            pingStarted.TrySetResult();
+            return new ValueTask(Task.Delay(System.Threading.Timeout.Infinite, cancellationToken));
+        });
         var probe = new IpcDaemonReachabilityProbe(endpointResolver, daemonPingClient);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var probeTask = probe.Probe(CreateContext(Path.GetFullPath(".")), DefaultProbeTimeout, cancellationTokenSource.Token).AsTask();
-        cancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(50));
+        await TestAwaiter.WaitAsync(pingStarted.Task, "Daemon reachability ping start", SignalWaitTimeout);
+        cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await probeTask;
+            await TestAwaiter.WaitAsync(probeTask, "Daemon reachability probe cancellation", SignalWaitTimeout);
         });
         Assert.Equal(1, daemonPingClient.CallCount);
     }
@@ -328,7 +338,10 @@ public sealed class IpcDaemonReachabilityProbeTests
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await probe.Probe(CreateContext(Path.GetFullPath(".")), timeout, CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                probe.Probe(CreateContext(Path.GetFullPath(".")), timeout, CancellationToken.None).AsTask(),
+                "Invalid timeout daemon reachability probe",
+                SignalWaitTimeout);
         });
         Assert.Equal(0, daemonPingClient.CallCount);
     }

@@ -9,15 +9,19 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorBootstrapperTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task EnsureReady_WhenLaunchExceedsRemainingTimeout_ReturnsTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-timeout");
+        var timeProvider = new ManualTimeProvider();
         var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonCommandServiceTestContext.StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor ping should not be called before launch succeeds."),
         };
+        var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var launcher = new StubSupervisorProcessLauncher
         {
             LaunchHandler = static async cancellationToken =>
@@ -25,18 +29,25 @@ public sealed class SupervisorBootstrapperTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 return null;
             },
+            LaunchStarted = launchStarted,
         };
         var bootstrapper = new SupervisorBootstrapper(
             new SupervisorManifestStore(),
             new SupervisorClient(transportClient),
             launcher,
             new SupervisorBootstrapLockProvider(),
-            new SupervisorEndpointResolver());
+            new SupervisorEndpointResolver(),
+            timeProvider);
 
-        var result = await bootstrapper.EnsureReady(
-            scope.FullPath,
-            TimeSpan.FromMilliseconds(150),
-            CancellationToken.None);
+        var resultTask = bootstrapper.EnsureReady(
+                scope.FullPath,
+                TimeSpan.FromMilliseconds(150),
+                CancellationToken.None)
+            .AsTask();
+        await TestAwaiter.WaitAsync(launchStarted.Task, "Supervisor launch start", SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(150));
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor launch timeout result", SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -49,29 +60,39 @@ public sealed class SupervisorBootstrapperTests
     public async Task EnsureReady_WhenManifestReadExceedsRemainingTimeout_ReturnsTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "manifest-read-timeout");
+        var timeProvider = new ManualTimeProvider();
         var transportClient = new MackySoft.Ucli.Tests.Daemon.DaemonCommandServiceTestContext.StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called while manifest read is pending."),
         };
+        var manifestReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var manifestStore = new SupervisorManifestStore(
-            readAllTextOrNull: static async (_, cancellationToken) =>
+            readAllTextOrNull: async (_, cancellationToken) =>
             {
+                manifestReadStarted.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
                 return null;
             },
             writeAllTextAtomically: static (_, _, _) => ValueTask.CompletedTask,
-            deleteIfExists: static _ => { });
+            deleteIfExists: static _ => { },
+            timeProvider: timeProvider);
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient),
             new StubSupervisorProcessLauncher(),
             new SupervisorBootstrapLockProvider(),
-            new SupervisorEndpointResolver());
+            new SupervisorEndpointResolver(),
+            timeProvider);
 
-        var result = await bootstrapper.EnsureReady(
-            scope.FullPath,
-            TimeSpan.FromMilliseconds(500),
-            CancellationToken.None);
+        var resultTask = bootstrapper.EnsureReady(
+                scope.FullPath,
+                TimeSpan.FromMilliseconds(500),
+                CancellationToken.None)
+            .AsTask();
+        await TestAwaiter.WaitAsync(manifestReadStarted.Task, "Supervisor manifest read start", SignalWaitTimeout);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(500));
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor manifest read timeout result", SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
@@ -209,6 +230,8 @@ public sealed class SupervisorBootstrapperTests
 
         public bool ObservedCancellation { get; private set; }
 
+        public TaskCompletionSource? LaunchStarted { get; set; }
+
         public async ValueTask<ExecutionError?> Launch (
             string storageRoot,
             CancellationToken cancellationToken = default)
@@ -220,6 +243,7 @@ public sealed class SupervisorBootstrapperTests
                     throw new InvalidOperationException("Launch handler is not configured.");
                 }
 
+                LaunchStarted?.TrySetResult();
                 return await LaunchHandler(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

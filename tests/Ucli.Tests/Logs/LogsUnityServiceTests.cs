@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon.Command;
@@ -10,6 +11,8 @@ namespace MackySoft.Ucli.Tests.Logs;
 
 public sealed class LogsUnityServiceTests
 {
+    private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenStreamEnabled_UsesNextCursorForIncrementalReads ()
@@ -171,25 +174,29 @@ public sealed class LogsUnityServiceTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            await service.Execute(
-                new LogsUnityServiceRequest(
-                    ProjectPath: "/tmp/unity-project",
-                    Tail: null,
-                    After: null,
-                    Since: null,
-                    Until: null,
-                    Level: null,
-                    Query: null,
-                    QueryTarget: null,
-                    Source: null,
-                    StackTrace: null,
-                    StackTraceMaxFrames: null,
-                    StackTraceMaxChars: null,
-                    Stream: false,
-                    PollIntervalMilliseconds: null,
-                    IdleTimeoutMilliseconds: null),
-                static (_, _, _) => ValueTask.CompletedTask,
-                cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(
+                service.Execute(
+                        new LogsUnityServiceRequest(
+                            ProjectPath: "/tmp/unity-project",
+                            Tail: null,
+                            After: null,
+                            Since: null,
+                            Until: null,
+                            Level: null,
+                            Query: null,
+                            QueryTarget: null,
+                            Source: null,
+                            StackTrace: null,
+                            StackTraceMaxFrames: null,
+                            StackTraceMaxChars: null,
+                            Stream: false,
+                            PollIntervalMilliseconds: null,
+                            IdleTimeoutMilliseconds: null),
+                        static (_, _, _) => ValueTask.CompletedTask,
+                        cancellationTokenSource.Token)
+                    .AsTask(),
+                "Canceled unity logs execution",
+                AsyncWaitTimeout);
         });
     }
 

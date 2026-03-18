@@ -55,14 +55,15 @@ public sealed class TestRunArtifactsServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "complete-meta");
         var configuration = CreateResolvedConfiguration(scope);
-        var service = new TestRunArtifactsService();
+        var timeProvider = new ManualTimeProvider();
+        var service = new TestRunArtifactsService(new TestRunMetaStore(), timeProvider);
 
         var prepareResult = await service.Prepare(configuration);
         Assert.True(prepareResult.IsSuccess);
         var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
 
         var before = ReadMetaJson(session.Paths.MetaJsonPath);
-        await Task.Delay(20);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(20));
 
         var completeResult = await service.Complete(configuration, session);
 

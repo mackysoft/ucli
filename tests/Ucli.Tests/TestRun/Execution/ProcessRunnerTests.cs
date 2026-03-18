@@ -1,9 +1,12 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class ProcessRunnerTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task RunAsync_WithInvalidExecutable_ReturnsStartFailed ()
@@ -54,6 +57,26 @@ public sealed class ProcessRunnerTests
         Assert.Null(result.StandardOutput);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WhenCallerCancellationRacesTimeout_PrefersCanceledResult ()
+    {
+        var runner = new ProcessRunner();
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                CreateLongRunningRequest(TimeSpan.Zero),
+                cancellationTokenSource.Token),
+            "Process runner caller cancellation race result",
+            SignalWaitTimeout);
+
+        Assert.Equal(ProcessRunStatus.Canceled, result.Status);
+        Assert.Null(result.ExitCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+    }
+
     private static ProcessRunRequest CreateLongOutputRequest (bool captureStandardOutput)
     {
         if (OperatingSystem.IsWindows())
@@ -79,5 +102,30 @@ public sealed class ProcessRunnerTests
             ],
             Timeout: TimeSpan.FromSeconds(5),
             CaptureStandardOutput: captureStandardOutput);
+    }
+
+    private static ProcessRunRequest CreateLongRunningRequest (TimeSpan timeout)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return new ProcessRunRequest(
+                FileName: "powershell",
+                Arguments:
+                [
+                    "-NoProfile",
+                    "-Command",
+                    "Start-Sleep -Seconds 30",
+                ],
+                Timeout: timeout);
+        }
+
+        return new ProcessRunRequest(
+            FileName: "/bin/sh",
+            Arguments:
+            [
+                "-c",
+                "sleep 30",
+            ],
+            Timeout: timeout);
     }
 }

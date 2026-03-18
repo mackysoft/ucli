@@ -4,15 +4,20 @@ using NUnit.Framework;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
+    /// <summary>
+    /// Captures an expected asynchronous exception with an explicit timeout fuse.
+    /// </summary>
     internal static class AsyncExceptionCapture
     {
-
-        public static async UniTask<TException> CaptureAsync<TException> (Func<UniTask> action)
+        public static async UniTask<TException> CaptureAsync<TException> (
+            Func<UniTask> action,
+            string description,
+            TimeSpan timeout)
             where TException : Exception
         {
             try
             {
-                await action();
+                await TestAwaiter.WaitAsync(action(), description, timeout);
             }
             catch (TException exception)
             {

@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Execution;
 
 namespace MackySoft.Ucli.Tests.Execution.Timeout;
@@ -8,7 +9,8 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void Start_WithPositiveTimeout_TryGetRemainingTimeoutReturnsTrue ()
     {
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1));
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
 
         var result = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
@@ -18,10 +20,11 @@ public sealed class ExecutionDeadlineTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenTimeoutElapsed_TryGetRemainingTimeoutReturnsFalse ()
+    public void Start_WhenTimeoutElapsed_TryGetRemainingTimeoutReturnsFalse ()
     {
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10));
-        await Task.Delay(50, CancellationToken.None);
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
         var result = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
@@ -33,27 +36,30 @@ public sealed class ExecutionDeadlineTests
     [Trait("Size", "Small")]
     public void IsExpired_BeforeTimeout_ReturnsFalse ()
     {
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1));
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
 
         Assert.False(deadline.IsExpired);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task IsExpired_AfterTimeout_ReturnsTrue ()
+    public void IsExpired_AfterTimeout_ReturnsTrue ()
     {
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10));
-        await Task.Delay(50, CancellationToken.None);
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
         Assert.True(deadline.IsExpired);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetRemainingWaitMilliseconds_WhenTimeoutElapsed_ReturnsZero ()
+    public void GetRemainingWaitMilliseconds_WhenTimeoutElapsed_ReturnsZero ()
     {
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10));
-        await Task.Delay(50, CancellationToken.None);
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
 
         var remainingMilliseconds = deadline.GetRemainingWaitMilliseconds();
 

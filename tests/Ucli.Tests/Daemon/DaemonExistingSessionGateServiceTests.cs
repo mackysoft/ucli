@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using MackySoft.Tests;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Start;
 using MackySoft.Ucli.Execution;
@@ -79,18 +80,20 @@ public sealed class DaemonExistingSessionGateServiceTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenStaleSessionCleanupRuns_UsesRemainingTimeoutBudget ()
     {
+        var timeProvider = new ManualTimeProvider();
         var cleanupService = new StubDaemonSessionCleanupService
         {
             CleanupStaleSessionArtifactsResult = DaemonSessionStoreOperationResult.Success(),
         };
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(async static _ =>
+            daemonPingClient: new StubDaemonPingClient(timeout =>
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(120)).ConfigureAwait(false);
-                throw new InvalidOperationException("stale");
+                timeProvider.Advance(TimeSpan.FromMilliseconds(120));
+                return ValueTask.FromException(new InvalidOperationException("stale"));
             }),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
-            daemonSessionCleanupService: cleanupService);
+            daemonSessionCleanupService: cleanupService,
+            timeProvider: timeProvider);
 
         var result = await service.TryHandleExistingSession(
             CreateContext("fingerprint-existing-stale-remaining-timeout"),
@@ -107,15 +110,17 @@ public sealed class DaemonExistingSessionGateServiceTests
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenStaleSessionCleanupCannotStartWithinDeadline_ReturnsTimeoutWithoutCleanup ()
     {
+        var timeProvider = new ManualTimeProvider();
         var cleanupService = new StubDaemonSessionCleanupService();
         var service = new DaemonExistingSessionGateService(
-            daemonPingClient: new StubDaemonPingClient(async static _ =>
+            daemonPingClient: new StubDaemonPingClient(timeout =>
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(80)).ConfigureAwait(false);
-                throw new InvalidOperationException("stale");
+                timeProvider.Advance(TimeSpan.FromMilliseconds(80));
+                return ValueTask.FromException(new InvalidOperationException("stale"));
             }),
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
-            daemonSessionCleanupService: cleanupService);
+            daemonSessionCleanupService: cleanupService,
+            timeProvider: timeProvider);
 
         var result = await service.TryHandleExistingSession(
             CreateContext("fingerprint-existing-stale-timeout-before-cleanup"),

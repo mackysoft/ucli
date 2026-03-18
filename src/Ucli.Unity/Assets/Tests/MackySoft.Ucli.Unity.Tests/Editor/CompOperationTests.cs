@@ -58,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -112,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -163,7 +163,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -198,7 +198,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -431,7 +431,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [Test]
         [Category("Size.Small")]
@@ -544,7 +544,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -589,7 +589,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -633,7 +633,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -693,7 +693,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -804,7 +804,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -934,7 +934,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -960,7 +960,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(typeId));
             Assert.That(schema.GetProperty("displayName").GetString(), Is.EqualTo(nameof(CompOperationTestComponent)));
             Assert.That(schema.GetProperty("properties").ToString(), Does.Contain("\"path\":\"integerValue\""));
-                });
+        });
 
         private static string CreateTemporaryScenePath ()
         {

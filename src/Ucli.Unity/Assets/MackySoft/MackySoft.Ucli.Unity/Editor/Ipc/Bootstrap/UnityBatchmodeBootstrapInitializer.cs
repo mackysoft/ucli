@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            if (EditorApplication.isCompiling)
+            if (!UnityEditorReadinessGate.IsReadyForBootstrapStartup)
             {
                 return;
             }

@@ -20,20 +20,27 @@ internal sealed class DaemonStopCommandService : IDaemonStopCommandService
 
     private readonly IDaemonStopOperation daemonStopOperation;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStopCommandService" /> class. </summary>
     /// <param name="daemonCommandExecutionContextResolver"> The daemon-command execution-context resolver dependency. </param>
+    /// <param name="supervisorManifestStore"> The supervisor manifest store dependency. </param>
+    /// <param name="supervisorClient"> The supervisor client dependency. </param>
     /// <param name="daemonStopOperation"> The daemon stop-operation dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStopCommandService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         SupervisorManifestStore supervisorManifestStore,
         SupervisorClient supervisorClient,
-        IDaemonStopOperation daemonStopOperation)
+        IDaemonStopOperation daemonStopOperation,
+        TimeProvider? timeProvider = null)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
         this.supervisorManifestStore = supervisorManifestStore ?? throw new ArgumentNullException(nameof(supervisorManifestStore));
         this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
         this.daemonStopOperation = daemonStopOperation ?? throw new ArgumentNullException(nameof(daemonStopOperation));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Executes one daemon-stop workflow. </summary>
@@ -60,7 +67,7 @@ internal sealed class DaemonStopCommandService : IDaemonStopCommandService
         }
 
         var executionContext = contextResult.Context!;
-        var deadline = ExecutionDeadline.Start(executionContext.Timeout);
+        var deadline = ExecutionDeadline.Start(executionContext.Timeout, timeProvider);
         var stopResult = await TryStopViaSupervisor(executionContext, deadline, cancellationToken).ConfigureAwait(false);
         if (stopResult == null)
         {

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Ipc;
 
@@ -7,6 +8,8 @@ namespace MackySoft.Ucli.Tests.Ipc;
 public sealed class UnityIpcTransportClientTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
+
+    private static readonly TimeSpan SendWaitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -31,7 +34,10 @@ public sealed class UnityIpcTransportClientTests
 
         var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
         {
-            await client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask();
+            await TestAwaiter.WaitAsync(
+                client.SendAsync("storage-root", "fingerprint", request, DefaultTimeout).AsTask(),
+                "Missing named pipe send result",
+                SendWaitTimeout);
         });
         Assert.Contains("timed out", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -56,17 +62,20 @@ public sealed class UnityIpcTransportClientTests
             "token",
             IpcMethodNames.Ping,
             JsonDocument.Parse("{}").RootElement.Clone());
-        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var sendTask = client.SendAsync(
+                "storage-root",
+                "fingerprint",
+                request,
+                TimeSpan.FromSeconds(5),
+                cancellationTokenSource.Token)
+            .AsTask();
+        cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await client.SendAsync(
-                    "storage-root",
-                    "fingerprint",
-                    request,
-                    TimeSpan.FromSeconds(5),
-                    cancellationTokenSource.Token)
-                .AsTask();
+            await TestAwaiter.WaitAsync(sendTask, "Canceled Unity IPC send", SendWaitTimeout);
         });
     }
 
@@ -91,7 +100,10 @@ public sealed class UnityIpcTransportClientTests
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            await client.SendAsync("storage-root", "fingerprint", request, timeout).AsTask();
+            await TestAwaiter.WaitAsync(
+                client.SendAsync("storage-root", "fingerprint", request, timeout).AsTask(),
+                "Invalid timeout send result",
+                SendWaitTimeout);
         });
     }
 

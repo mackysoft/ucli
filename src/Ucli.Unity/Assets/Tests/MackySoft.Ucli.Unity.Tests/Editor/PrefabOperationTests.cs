@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssetDatabase.DeleteAsset(scenePath);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-create");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -126,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -214,7 +214,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -287,6 +287,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssertSuccess(setResult, applied: true, changed: true);
                 AssertSuccess(saveResult, applied: true, changed: true);
                 AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+                var openedPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+                Assert.That(openedPrefabStage, Is.Not.Null);
+                Assert.That(openedPrefabStage!.prefabContentsRoot.scene.isDirty, Is.False);
 
                 ClosePrefabStageIfOpen();
                 loadedPrefabContentsRoot = PrefabUtility.LoadPrefabContents(prefabPath);
@@ -305,7 +308,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -412,7 +415,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(prefabPath);
             }
-                });
+        });
 
         private static void CreatePrefabAsset (
             string prefabPath,
@@ -432,12 +435,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static void ClosePrefabStageIfOpen ()
         {
-            if (PrefabStageUtility.GetCurrentPrefabStage() == null)
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage == null)
             {
                 return;
             }
 
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            // NOTE: Close the stage without relying on the user's Prefab Auto Save preference. In batchmode,
+            // leaving the stage dirty here can trigger the modified-prefab dialog path and fail unrelated tests.
+            prefabStage.ClearDirtiness();
+            StageUtility.GoToMainStage();
         }
 
         private static string CreateTemporaryScenePath ()

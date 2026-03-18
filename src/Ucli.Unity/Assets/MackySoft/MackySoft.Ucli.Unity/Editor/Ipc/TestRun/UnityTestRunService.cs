@@ -17,6 +17,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IEditorLogRangeExporter editorLogRangeExporter;
 
+        private readonly IUnityEditorReadinessGate readinessGate;
+
         /// <summary> Initializes a new instance of the <see cref="UnityTestRunService" /> class. </summary>
         /// <param name="requestContextFactory"> The request-context factory dependency. </param>
         /// <param name="unityTestRunner"> The Unity test runner dependency. </param>
@@ -27,12 +29,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityTestRunRequestContextFactory requestContextFactory,
             IUnityTestRunner unityTestRunner,
             IUnityTestResultsXmlWriter testResultsXmlWriter,
-            IEditorLogRangeExporter editorLogRangeExporter)
+            IEditorLogRangeExporter editorLogRangeExporter,
+            IUnityEditorReadinessGate readinessGate)
         {
             this.requestContextFactory = requestContextFactory ?? throw new ArgumentNullException(nameof(requestContextFactory));
             this.unityTestRunner = unityTestRunner ?? throw new ArgumentNullException(nameof(unityTestRunner));
             this.testResultsXmlWriter = testResultsXmlWriter ?? throw new ArgumentNullException(nameof(testResultsXmlWriter));
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
         }
 
         /// <summary> Executes one daemon <c>test.run</c> request and returns IPC response payload. </summary>
@@ -52,6 +56,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestContext = requestContextFactory.Create(request);
+            await readinessGate.WaitUntilReady(cancellationToken).ConfigureAwait(false);
 
             var startOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
             var testResult = await unityTestRunner.Run(requestContext, cancellationToken);

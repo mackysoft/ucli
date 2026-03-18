@@ -13,15 +13,20 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
 
     private readonly IGitWorktreeListPorcelainParser gitWorktreeListPorcelainParser;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="GitWorktreeQueryService" /> class. </summary>
     /// <param name="gitCommandClient"> The Git command-client dependency. </param>
     /// <param name="gitWorktreeListPorcelainParser"> The porcelain parser dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     public GitWorktreeQueryService (
         IGitCommandClient gitCommandClient,
-        IGitWorktreeListPorcelainParser gitWorktreeListPorcelainParser)
+        IGitWorktreeListPorcelainParser gitWorktreeListPorcelainParser,
+        TimeProvider? timeProvider = null)
     {
         this.gitCommandClient = gitCommandClient ?? throw new ArgumentNullException(nameof(gitCommandClient));
         this.gitWorktreeListPorcelainParser = gitWorktreeListPorcelainParser ?? throw new ArgumentNullException(nameof(gitWorktreeListPorcelainParser));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Gets the current worktree root, current project-relative path, and sibling worktrees. </summary>
@@ -52,7 +57,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
                 $"Git worktree path is invalid. {exception.Message}"));
         }
 
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var currentWorktreeRootResult = await gitCommandClient.GetCurrentWorktreeRoot(path, timeout, cancellationToken).ConfigureAwait(false);
         if (!currentWorktreeRootResult.IsSuccess)
         {

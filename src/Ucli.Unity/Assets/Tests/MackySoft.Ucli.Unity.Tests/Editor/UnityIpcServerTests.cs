@@ -28,6 +28,8 @@ namespace MackySoft.Ucli.Unity.Tests
             WriteIndented = false,
         };
 
+        private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator StartupCoordinator_Wait_WhenStartupCompletesBeforeCancellation_DoesNotThrow () => UniTask.ToCoroutine(async () =>
@@ -39,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Tests
             startupCoordinator.Complete();
             cancellationTokenSource.Cancel();
 
-            await waitTask;
+            await TestAwaiter.WaitAsync(waitTask, "Startup completion before cancellation", SignalWaitTimeout);
         });
 
         [UnityTest]
@@ -48,13 +50,12 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var startupCoordinator = new UnityIpcServerStartupCoordinator();
             using var cancellationTokenSource = new CancellationTokenSource();
+            using var completionRegistration = cancellationTokenSource.Token.Register(startupCoordinator.Complete);
             var waitTask = startupCoordinator.Wait(cancellationTokenSource.Token);
 
             cancellationTokenSource.Cancel();
-            await UniTask.Yield();
-            startupCoordinator.Complete();
 
-            await waitTask;
+            await TestAwaiter.WaitAsync(waitTask, "Startup completion after cancellation", SignalWaitTimeout);
         });
 
         [UnityTest]
@@ -70,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await waitTask.AsUniTask();
-            });
+            }, "Startup cancellation result", SignalWaitTimeout);
         });
 
         [UnityTest]
@@ -81,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentNullException>(async () =>
             {
                 await server.Start(null).AsUniTask();
-            });
+            }, "Null endpoint start", SignalWaitTimeout);
 
             Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
         });
@@ -95,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
                 await server.Start(endpoint).AsUniTask();
-            });
+            }, "Whitespace endpoint start", SignalWaitTimeout);
 
             Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
         });
@@ -106,10 +107,16 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var server = CreateServerForLifecycle();
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test");
-            await server.Start(endpoint).AsUniTask();
+            await TestAwaiter.WaitAsync(
+                server.Start(endpoint).AsUniTask(),
+                "Server lifecycle start",
+                SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.True);
 
-            await server.Stop().AsUniTask();
+            await TestAwaiter.WaitAsync(
+                server.Stop().AsUniTask(),
+                "Server lifecycle stop",
+                SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.False);
         });
 
@@ -136,12 +143,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                await WaitForTask(startedTaskSource.Task, TimeSpan.FromSeconds(5));
+                await TestAwaiter.WaitAsync(startedTaskSource.Task, "Unix domain socket listener start", SignalWaitTimeout);
 
                 Assert.That(Directory.Exists(socketDirectoryPath), Is.True);
                 Assert.That(File.Exists(address), Is.True);
-                Assert.That(ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("0700"));
-                Assert.That(ReadUnixFileMode(address), Is.EqualTo("0600"));
+                Assert.That(await ReadUnixFileMode(socketDirectoryPath), Is.EqualTo("0700"));
+                Assert.That(await ReadUnixFileMode(address), Is.EqualTo("0600"));
             }
             finally
             {
@@ -150,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 try
                 {
-                    await runTask;
+                    await TestAwaiter.WaitAsync(runTask, "Unix domain socket listener shutdown", SignalWaitTimeout);
                 }
                 catch (OperationCanceledException)
                 {
@@ -180,7 +187,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         () => { },
                         CancellationToken.None)
                     .AsUniTask();
-            });
+            }, "Overlong unix socket address", SignalWaitTimeout);
 
             Assert.That(exception.ParamName, Is.EqualTo("address"));
             Assert.That(exception.Message, Does.Contain("Unix domain socket path exceeds"));
@@ -197,7 +204,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await server.Stop(cancellationTokenSource.Token).AsUniTask();
-            });
+            }, "Canceled server stop", SignalWaitTimeout);
         });
 
         [UnityTest]
@@ -218,7 +225,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
                 await server.Start(endpoint).AsUniTask();
-            });
+            }, "Immediate listener failure on start", SignalWaitTimeout);
 
             Assert.That(server.IsRunning, Is.False);
         });
@@ -227,6 +234,9 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Start_WhenListenerThrowsAfterDelayBeforeStartupSignal_ThrowsAndResetsRunningState () => UniTask.ToCoroutine(async () =>
         {
+            var listener = new DelayedThrowingTransportListener(
+                IpcTransportKind.NamedPipe,
+                "listener failed after delay");
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
@@ -234,17 +244,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
-                    new DelayedThrowingTransportListener(
-                        IpcTransportKind.NamedPipe,
-                        "listener failed after delay",
-                        TimeSpan.FromMilliseconds(50)),
+                    listener,
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-delayed-failure");
+            var startTask = server.Start(endpoint).AsUniTask();
+
+            await TestAwaiter.WaitAsync(listener.RunEntered, "Delayed fault listener entry", SignalWaitTimeout);
+            listener.ReleaseFault();
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
-                await server.Start(endpoint).AsUniTask();
-            });
+                await TestAwaiter.WaitAsync(startTask, "Delayed listener failure result", SignalWaitTimeout);
+            }, "Delayed listener failure result", SignalWaitTimeout);
 
             Assert.That(server.IsRunning, Is.False);
         });
@@ -264,17 +275,18 @@ namespace MackySoft.Ucli.Unity.Tests
                     blockingListener,
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-start-cancel");
-            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var startTask = server.Start(endpoint, cancellationTokenSource.Token);
+            await TestAwaiter.WaitAsync(blockingListener.RunEntered, "Blocking transport listener entry", SignalWaitTimeout);
+            cancellationTokenSource.Cancel();
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
-                await server.Start(endpoint, cancellationTokenSource.Token).AsUniTask();
-            });
+                await TestAwaiter.WaitAsync(startTask.AsUniTask(), "Canceled listener startup result", SignalWaitTimeout);
+            }, "Canceled listener startup result", SignalWaitTimeout);
 
-            var completedTask = await Task.WhenAny(
-                blockingListener.CancellationObserved,
-                Task.Delay(TimeSpan.FromSeconds(1)));
-            Assert.That(completedTask, Is.SameAs(blockingListener.CancellationObserved));
+            await TestAwaiter.WaitAsync(blockingListener.CancellationObserved, "Blocking transport listener cancellation", SignalWaitTimeout);
             Assert.That(server.IsRunning, Is.False);
         });
 
@@ -282,6 +294,9 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator WaitForTermination_WhenListenerFaultsAfterStartupSignal_Throws () => UniTask.ToCoroutine(async () =>
         {
+            var listener = new StartedThenThrowingTransportListener(
+                IpcTransportKind.NamedPipe,
+                "listener failed after startup");
             var server = CreateServer(
                 new PermitAllSessionTokenValidator(),
                 new StubExecuteRequestDispatcher(),
@@ -289,18 +304,22 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubDaemonShutdownSignal(),
                 new IUnityIpcTransportListener[]
                 {
-                    new StartedThenThrowingTransportListener(
-                        IpcTransportKind.NamedPipe,
-                        "listener failed after startup",
-                        TimeSpan.FromMilliseconds(50)),
+                    listener,
                 });
             var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-fault-after-startup");
 
-            await server.Start(endpoint).AsUniTask();
+            await TestAwaiter.WaitAsync(
+                server.Start(endpoint).AsUniTask(),
+                "Server start before termination fault test",
+                SignalWaitTimeout);
+            listener.ReleaseFault();
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
-                await server.WaitForTermination(CancellationToken.None).AsUniTask();
-            });
+                await TestAwaiter.WaitAsync(
+                    server.WaitForTermination(CancellationToken.None).AsUniTask(),
+                    "Listener fault termination result",
+                    SignalWaitTimeout);
+            }, "Listener fault termination result", SignalWaitTimeout);
 
             Assert.That(server.IsRunning, Is.False);
         });
@@ -707,16 +726,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityIpcServer(requestProcessor, connectionHandler, transportListeners);
         }
 
-        private static async Task WaitForTask (
-            Task task,
-            TimeSpan timeout)
-        {
-            var completedTask = await Task.WhenAny(task, Task.Delay(timeout));
-            Assert.That(completedTask, Is.SameAs(task));
-            await task;
-        }
-
-        private static string ReadUnixFileMode (string path)
+        private static async Task<string> ReadUnixFileMode (string path)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -729,11 +739,40 @@ namespace MackySoft.Ucli.Unity.Tests
 
             using var process = Process.Start(startInfo);
             Assert.That(process, Is.Not.Null);
-            var output = process.StandardOutput.ReadToEnd();
-            var error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+            await TestAwaiter.WaitAsync(WaitForExit(process), "stat process exit", SignalWaitTimeout);
+            var output = await TestAwaiter.WaitAsync(outputTask, "stat stdout read", SignalWaitTimeout);
+            var error = await TestAwaiter.WaitAsync(errorTask, "stat stderr read", SignalWaitTimeout);
             Assert.That(process.ExitCode, Is.EqualTo(0), error);
             return NormalizeUnixFileMode(output);
+        }
+
+        private static Task WaitForExit (Process process)
+        {
+            if (process.HasExited)
+            {
+                return Task.CompletedTask;
+            }
+
+            var taskCompletionSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void OnExited (object sender, EventArgs args)
+            {
+                process.Exited -= OnExited;
+                taskCompletionSource.TrySetResult(null);
+            }
+
+            process.EnableRaisingEvents = true;
+            process.Exited += OnExited;
+
+            if (process.HasExited)
+            {
+                process.Exited -= OnExited;
+                return Task.CompletedTask;
+            }
+
+            return taskCompletionSource.Task;
         }
 
         private static string CreateStatArguments (string path)
@@ -936,19 +975,28 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly string message;
 
-            private readonly TimeSpan delay;
+            private readonly TaskCompletionSource<bool> runEntered =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> faultRelease =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public DelayedThrowingTransportListener (
                 IpcTransportKind transportKind,
-                string message,
-                TimeSpan delay)
+                string message)
             {
                 TransportKind = transportKind;
                 this.message = message;
-                this.delay = delay;
             }
 
             public IpcTransportKind TransportKind { get; }
+
+            public Task RunEntered => runEntered.Task;
+
+            public void ReleaseFault ()
+            {
+                faultRelease.TrySetResult(true);
+            }
 
             public async Task Run (
                 string address,
@@ -957,7 +1005,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await Task.Delay(delay, cancellationToken);
+                runEntered.TrySetResult(true);
+                await faultRelease.Task;
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new InvalidOperationException(message);
             }
@@ -971,19 +1020,23 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly string message;
 
-            private readonly TimeSpan delay;
+            private readonly TaskCompletionSource<bool> faultRelease =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public StartedThenThrowingTransportListener (
                 IpcTransportKind transportKind,
-                string message,
-                TimeSpan delay)
+                string message)
             {
                 TransportKind = transportKind;
                 this.message = message;
-                this.delay = delay;
             }
 
             public IpcTransportKind TransportKind { get; }
+
+            public void ReleaseFault ()
+            {
+                faultRelease.TrySetResult(true);
+            }
 
             public async Task Run (
                 string address,
@@ -993,7 +1046,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 onStarted();
-                await Task.Delay(delay, cancellationToken);
+                await faultRelease.Task;
                 cancellationToken.ThrowIfCancellationRequested();
                 throw new InvalidOperationException(message);
             }
@@ -1005,6 +1058,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class BlockingTransportListener : IUnityIpcTransportListener
         {
+            private readonly TaskCompletionSource<bool> runEntered =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             private readonly TaskCompletionSource<bool> cancellationObserved =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -1015,6 +1071,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTransportKind TransportKind { get; }
 
+            public Task RunEntered => runEntered.Task;
+
             public Task CancellationObserved => cancellationObserved.Task;
 
             public async Task Run (
@@ -1023,16 +1081,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 Action onStarted,
                 CancellationToken cancellationToken)
             {
-                while (true)
+                runEntered.TrySetResult(true);
+                var waitSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                using var cancellationRegistration = cancellationToken.Register(() =>
                 {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        cancellationObserved.TrySetResult(true);
-                        throw new OperationCanceledException(cancellationToken);
-                    }
+                    cancellationObserved.TrySetResult(true);
+                    waitSource.TrySetCanceled(cancellationToken);
+                });
 
-                    await Task.Delay(TimeSpan.FromMilliseconds(5), CancellationToken.None);
-                }
+                await waitSource.Task;
             }
 
             public void Release ()

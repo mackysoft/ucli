@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcMethodHandlersTests
     {
+        private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
@@ -653,5 +655,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 return execute(request);
             }
         }
+
     }
 }

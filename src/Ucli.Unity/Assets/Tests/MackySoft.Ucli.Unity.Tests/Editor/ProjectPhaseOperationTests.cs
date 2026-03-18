@@ -15,8 +15,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -38,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-refresh");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 DeleteAssetAndFiles(assetPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -103,7 +103,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -139,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScriptableObject.DestroyImmediate(asset, allowDestroyingAssets: true);
                 DeleteAssetAndFiles(assetPath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -171,7 +171,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         private static string CreateTemporaryTextAssetPath ()
         {

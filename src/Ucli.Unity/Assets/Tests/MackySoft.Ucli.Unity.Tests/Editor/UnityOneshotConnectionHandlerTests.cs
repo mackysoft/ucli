@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Ping));
-            Assert.That(await WaitForSignal(completionSignal, TimeSpan.FromMilliseconds(50)), Is.False);
+            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.False);
         });
 
         [UnityTest]
@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
-            Assert.That(await WaitForSignal(completionSignal, TimeSpan.FromMilliseconds(50)), Is.True);
+            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.True);
         });
 
         [UnityTest]
@@ -68,17 +68,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
-            Assert.That(await WaitForSignal(completionSignal, TimeSpan.FromMilliseconds(50)), Is.False);
+            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.False);
         });
-
-        private static async Task<bool> WaitForSignal (
-            OneshotRequestCompletionSignal completionSignal,
-            System.TimeSpan timeout)
-        {
-            var completionTask = completionSignal.Wait(CancellationToken.None);
-            var completedTask = await Task.WhenAny(completionTask, Task.Delay(timeout));
-            return ReferenceEquals(completedTask, completionTask);
-        }
 
         private static UnityOneshotConnectionHandler CreateHandler (
             IpcRequest expectedRequest,

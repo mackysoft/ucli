@@ -59,35 +59,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         public async Task Wait (
             CancellationToken cancellationToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
             var startupTask = startupCompletionSource.Task;
-            if (!cancellationToken.CanBeCanceled)
-            {
-                await startupTask;
-                return;
-            }
-
-            var cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
-            var completedTask = await Task.WhenAny(startupTask, cancellationTask);
-            if (!ReferenceEquals(completedTask, startupTask) && !startupTask.IsCompleted)
-            {
-                // NOTE:
-                // Caller cancellation can race with startup completion. Give one short scheduler-driven grace window
-                // so completion queued on another context can win deterministically.
-                var raceDeadlineTicks = DateTime.UtcNow.Ticks + StartupCompletionRaceGracePeriod.Ticks;
-                while (!startupTask.IsCompleted && DateTime.UtcNow.Ticks < raceDeadlineTicks)
-                {
-                    await Task.Yield();
-                }
-
-                if (!startupTask.IsCompleted)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
-            }
-
-            await startupTask;
+            await CancellationGracePeriodAwaiter.Wait(startupTask, cancellationToken, StartupCompletionRaceGracePeriod);
         }
     }
 }

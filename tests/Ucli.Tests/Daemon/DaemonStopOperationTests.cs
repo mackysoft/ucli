@@ -1,5 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
+using MackySoft.Tests;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -112,6 +113,7 @@ public sealed class DaemonStopOperationTests
     [Trait("Size", "Small")]
     public async Task Stop_WhenProcessTerminationBudgetIsExhausted_StillAttemptsFinalizationWithFallbackTimeout ()
     {
+        var timeProvider = new ManualTimeProvider();
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Success(CreateSession(processId: 789)),
@@ -120,6 +122,7 @@ public sealed class DaemonStopOperationTests
         {
             Delay = TimeSpan.FromMilliseconds(80),
             NextResult = DaemonShutdownAttemptResult.Success(),
+            TimeProvider = timeProvider,
         };
         var processTerminationService = new StubDaemonProcessTerminationService
         {
@@ -134,7 +137,8 @@ public sealed class DaemonStopOperationTests
             daemonSessionStore: sessionStore,
             shutdownClient: shutdownClient,
             processTerminationService: processTerminationService,
-            artifactCleaner: artifactCleaner);
+            artifactCleaner: artifactCleaner,
+            timeProvider: timeProvider);
 
         var result = await operation.Stop(
             CreateContext("fingerprint-stop-timeout-finalization"),
@@ -238,6 +242,8 @@ public sealed class DaemonStopOperationTests
 
         public TimeSpan Delay { get; set; }
 
+        public ManualTimeProvider? TimeProvider { get; set; }
+
         public int CallCount { get; private set; }
 
         public async ValueTask<DaemonShutdownAttemptResult> SendShutdown (
@@ -249,7 +255,14 @@ public sealed class DaemonStopOperationTests
             CallCount++;
             if (Delay > TimeSpan.Zero)
             {
-                await Task.Delay(Delay, cancellationToken).ConfigureAwait(false);
+                if (TimeProvider != null)
+                {
+                    TimeProvider.Advance(Delay);
+                }
+                else
+                {
+                    throw new InvalidOperationException("ManualTimeProvider is required when shutdown Delay is configured.");
+                }
             }
 
             return NextResult;

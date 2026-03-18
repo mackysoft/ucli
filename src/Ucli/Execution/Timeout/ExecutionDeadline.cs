@@ -1,52 +1,52 @@
-using System.Diagnostics;
-
 namespace MackySoft.Ucli.Execution;
 
 /// <summary> Represents one execution deadline and exposes remaining-time queries. </summary>
 internal readonly struct ExecutionDeadline
 {
-    private readonly long deadlineTimestamp;
+    private readonly TimeProvider timeProvider;
 
-    private ExecutionDeadline (long deadlineTimestamp)
+    private readonly long startTimestamp;
+
+    private readonly TimeSpan timeout;
+
+    private ExecutionDeadline (
+        TimeProvider timeProvider,
+        long startTimestamp,
+        TimeSpan timeout)
     {
-        this.deadlineTimestamp = deadlineTimestamp;
+        this.timeProvider = timeProvider;
+        this.startTimestamp = startTimestamp;
+        this.timeout = timeout;
     }
 
     /// <summary> Creates one deadline from the specified timeout budget. </summary>
     /// <param name="timeout"> The timeout budget. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="timeProvider"> The time provider used for monotonic elapsed-time measurements. </param>
     /// <returns> The created execution deadline value. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    public static ExecutionDeadline Start (TimeSpan timeout)
+    public static ExecutionDeadline Start (
+        TimeSpan timeout,
+        TimeProvider? timeProvider = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        timeProvider ??= TimeProvider.System;
 
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var timeoutTicksDouble = timeout.TotalSeconds * Stopwatch.Frequency;
-        var timeoutTimestampTicks = timeoutTicksDouble >= long.MaxValue
-            ? long.MaxValue
-            : Math.Max(1L, (long)Math.Ceiling(timeoutTicksDouble));
-        var deadlineTimestamp = startTimestamp >= long.MaxValue - timeoutTimestampTicks
-            ? long.MaxValue
-            : startTimestamp + timeoutTimestampTicks;
-        return new ExecutionDeadline(deadlineTimestamp);
+        return new ExecutionDeadline(
+            timeProvider,
+            timeProvider.GetTimestamp(),
+            timeout);
     }
 
     /// <summary> Gets whether the execution deadline has already elapsed. </summary>
-    public bool IsExpired => GetRemainingTimestampTicks() == 0;
+    public bool IsExpired => !TryGetRemainingTimeout(out _);
 
     /// <summary> Tries to get remaining timeout budget from monotonic elapsed time. </summary>
     /// <param name="remainingTimeout"> The remaining timeout when available; otherwise <see cref="TimeSpan.Zero" />. </param>
     /// <returns> <see langword="true" /> when remaining timeout is positive; otherwise <see langword="false" />. </returns>
     public bool TryGetRemainingTimeout (out TimeSpan remainingTimeout)
     {
-        var remainingTimestampTicks = GetRemainingTimestampTicks();
-        if (remainingTimestampTicks == 0)
-        {
-            remainingTimeout = TimeSpan.Zero;
-            return false;
-        }
-
-        remainingTimeout = TimeSpan.FromSeconds(remainingTimestampTicks / (double)Stopwatch.Frequency);
+        var elapsed = timeProvider.GetElapsedTime(startTimestamp);
+        remainingTimeout = timeout - elapsed;
         if (remainingTimeout <= TimeSpan.Zero)
         {
             remainingTimeout = TimeSpan.Zero;
@@ -69,15 +69,5 @@ internal readonly struct ExecutionDeadline
         return remainingMilliseconds >= int.MaxValue
             ? int.MaxValue
             : (int)remainingMilliseconds;
-    }
-
-    /// <summary> Gets remaining timestamp ticks based on monotonic timer. </summary>
-    /// <returns> Remaining timer ticks; returns <c>0</c> when expired. </returns>
-    private long GetRemainingTimestampTicks ()
-    {
-        var remainingTimestampTicks = deadlineTimestamp - Stopwatch.GetTimestamp();
-        return remainingTimestampTicks <= 0
-            ? 0
-            : remainingTimestampTicks;
     }
 }

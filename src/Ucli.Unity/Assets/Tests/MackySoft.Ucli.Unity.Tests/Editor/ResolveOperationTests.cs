@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
             AssertInvalidArgument(result, "op-1");
-                });
+        });
 
         [Test]
         [Category("Size.Small")]
@@ -112,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -152,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -191,7 +191,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -236,7 +236,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     EditorSceneManager.CloseScene(fallbackScene, removeScene: true);
                 }
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -268,7 +268,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -298,7 +298,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -332,7 +332,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 AssetDatabase.DeleteAsset(scenePath);
             }
-                });
+        });
 
         [UnityTest]
         [Category("Size.Small")]
@@ -369,7 +369,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 UnityEngine.Object.DestroyImmediate(asset);
             }
-                });
+        });
 
         private static string CreateTemporaryScenePath ()
         {

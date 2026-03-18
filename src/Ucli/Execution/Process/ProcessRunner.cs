@@ -65,20 +65,21 @@ internal sealed class ProcessRunner : IProcessRunner
         {
             await process.WaitForExitAsync(linkedCancellationTokenSource.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested)
-        {
-            await TryKillProcessAsync(process).ConfigureAwait(false);
-            await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
-            return ProcessRunResult.TimedOut(
-                $"Process timed out after {request.Timeout.TotalMilliseconds:0} milliseconds.{BuildOutputSnippet(standardError, standardOutput)}",
-                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
-        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await TryKillProcessAsync(process).ConfigureAwait(false);
             await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
             return ProcessRunResult.Canceled(
                 $"Process execution was canceled.{BuildOutputSnippet(standardError, standardOutput)}",
+                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
+        }
+        catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested
+                                                 && !cancellationToken.IsCancellationRequested)
+        {
+            await TryKillProcessAsync(process).ConfigureAwait(false);
+            await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+            return ProcessRunResult.TimedOut(
+                $"Process timed out after {request.Timeout.TotalMilliseconds:0} milliseconds.{BuildOutputSnippet(standardError, standardOutput)}",
                 standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
         }
 

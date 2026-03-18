@@ -24,6 +24,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
     private readonly IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonListQueryService" /> class. </summary>
     /// <param name="gitWorktreeQueryService"> The Git worktree query-service dependency. </param>
     /// <param name="unityProjectResolver"> The Unity-project resolver dependency. </param>
@@ -33,6 +35,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="daemonReachabilityClassifier"> The daemon reachability-classifier dependency. </param>
     /// <param name="daemonSessionDiagnosisResolver"> The daemon session-diagnosis resolver dependency. </param>
     /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonListQueryService (
         IGitWorktreeQueryService gitWorktreeQueryService,
@@ -42,7 +45,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         IDaemonPingClient daemonPingClient,
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
         IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver,
-        IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper)
+        IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
+        TimeProvider? timeProvider = null)
     {
         this.gitWorktreeQueryService = gitWorktreeQueryService ?? throw new ArgumentNullException(nameof(gitWorktreeQueryService));
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
@@ -52,6 +56,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         this.daemonReachabilityClassifier = daemonReachabilityClassifier ?? throw new ArgumentNullException(nameof(daemonReachabilityClassifier));
         this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
         this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Resolves daemon registrations across Git worktrees for one Unity project context. </summary>
@@ -68,7 +73,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!TryGetRemainingTimeout(
                 deadline,
                 "Timed out before Git worktree enumeration could begin.",
@@ -159,8 +164,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Failure(sessionReadTimeoutError!);
         }
 
-        using var sessionReadCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        sessionReadCancellationTokenSource.CancelAfter(sessionReadTimeout);
+        using var sessionReadCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            sessionReadTimeout,
+            timeProvider);
 
         DaemonSessionReadResult sessionReadResult;
         try
@@ -168,14 +175,15 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             sessionReadResult = await daemonSessionStore.Read(
                     candidateProject.RepositoryRoot,
                     candidateProject.ProjectFingerprint,
-                    sessionReadCancellationTokenSource.Token)
+                    sessionReadCancellationScope.Token)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
-        catch (OperationCanceledException) when (sessionReadCancellationTokenSource.IsCancellationRequested)
+        catch (OperationCanceledException) when (sessionReadCancellationScope.HasTimedOut
+            && !cancellationToken.IsCancellationRequested)
         {
             return WorktreeObservationResult.Failure(ExecutionError.Timeout(
                 "Timed out while reading daemon session."));
@@ -223,8 +231,10 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Failure(probeTimeoutError!);
         }
 
-        using var probeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        probeCancellationTokenSource.CancelAfter(probeTimeout);
+        using var probeCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            probeTimeout,
+            timeProvider);
 
         try
         {
@@ -232,7 +242,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
                     candidateProject,
                     probeTimeout,
                     session.SessionToken,
-                    probeCancellationTokenSource.Token)
+                    probeCancellationScope.Token)
                 .ConfigureAwait(false);
 
             return WorktreeObservationResult.Success(CreateItem(
@@ -247,7 +257,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         {
             throw;
         }
-        catch (OperationCanceledException) when (probeCancellationTokenSource.IsCancellationRequested)
+        catch (OperationCanceledException) when (probeCancellationScope.HasTimedOut
+            && !cancellationToken.IsCancellationRequested)
         {
             return WorktreeObservationResult.Failure(ExecutionError.Timeout(
                 "Timed out while probing daemon session."));

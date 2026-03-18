@@ -6,7 +6,10 @@ on:
     branches:
       - master
   workflow_dispatch:
-  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 permissions:
   contents: read
@@ -20,6 +23,8 @@ jobs:
       needs_dotnet: ${{ steps.detect.outputs.needs_dotnet }}
       needs_unity: ${{ steps.detect.outputs.needs_unity }}
       needs_contracts_pack: ${{ steps.detect.outputs.needs_contracts_pack }}
+      dotnet_matrix_json: ${{ steps.detect.outputs.dotnet_matrix_json }}
+      unity_matrix_json: ${{ steps.detect.outputs.unity_matrix_json }}
 
     steps:
       - name: Checkout
@@ -39,12 +44,118 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" || "${EVENT_NAME}" == "merge_group" ]]; then
-            echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
-            echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
-            echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
-            echo "Full verification requested for ${EVENT_NAME}."
+          dotnet_matrix_pr='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"},{"runs_on":"windows-latest","os_name":"windows"},{"runs_on":"macos-latest","os_name":"macos"}]}'
+          dotnet_matrix_push='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"}]}'
+          unity_matrix_pr='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","cache_installation":true},{"runs_on":"windows-latest","os_name":"windows","cache_installation":false},{"runs_on":"macos-latest","os_name":"macos","cache_installation":true}]}'
+          unity_matrix_push='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","cache_installation":true}]}'
+
+          dotnet_matrix_json="${dotnet_matrix_pr}"
+          unity_matrix_json="${unity_matrix_pr}"
+          needs_dotnet=false
+          needs_unity=false
+          needs_contracts_pack=false
+
+          emit_outputs() {
+            echo "needs_dotnet=${needs_dotnet}" >> "${GITHUB_OUTPUT}"
+            echo "needs_unity=${needs_unity}" >> "${GITHUB_OUTPUT}"
+            echo "needs_contracts_pack=${needs_contracts_pack}" >> "${GITHUB_OUTPUT}"
+            echo "dotnet_matrix_json=${dotnet_matrix_json}" >> "${GITHUB_OUTPUT}"
+            echo "unity_matrix_json=${unity_matrix_json}" >> "${GITHUB_OUTPUT}"
+          }
+
+          emit_full_verification() {
+            needs_dotnet=true
+            needs_unity=true
+            needs_contracts_pack=true
+            dotnet_matrix_json="${dotnet_matrix_pr}"
+            unity_matrix_json="${unity_matrix_pr}"
+            emit_outputs
+            echo "$1"
             exit 0
+          }
+
+          has_managed_input_extension() {
+            case "$1" in
+              *.cs|*.csproj|*.props|*.targets)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          is_dotnet_input() {
+            local file="$1"
+
+            case "${file}" in
+              .editorconfig|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
+                return 0
+                ;;
+            esac
+
+            if ! has_managed_input_extension "${file}"; then
+              return 1
+            fi
+
+            case "${file}" in
+              src/Ucli/*|src/Ucli.Contracts/*|tests/*)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          is_unity_input() {
+            local file="$1"
+
+            case "${file}" in
+              .github/workflows/verify.yaml|scripts/update-local-contracts-package.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
+                return 0
+                ;;
+            esac
+
+            if ! has_managed_input_extension "${file}"; then
+              return 1
+            fi
+
+            case "${file}" in
+              src/Ucli/*|src/Ucli.Contracts/*)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          is_contracts_pack_input() {
+            local file="$1"
+
+            case "${file}" in
+              .github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
+                return 0
+                ;;
+            esac
+
+            if ! has_managed_input_extension "${file}"; then
+              return 1
+            fi
+
+            case "${file}" in
+              src/Ucli.Contracts/*)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            emit_full_verification "Full verification requested for ${EVENT_NAME}."
           fi
 
           base_sha=""
@@ -57,26 +168,14 @@ jobs:
             base_sha="${PUSH_BEFORE_SHA}"
             head_sha="${CURRENT_SHA}"
             if [[ -z "${base_sha}" || "${base_sha}" =~ ^0+$ ]]; then
-              echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
-              echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
-              echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
-              echo "Initial push detected. Full verification required."
-              exit 0
+              emit_full_verification "Initial push detected. Verification required for all job types."
             fi
           else
-            echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
-            echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
-            echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
-            echo "Unsupported event '${EVENT_NAME}' fell back to full verification."
-            exit 0
+            emit_full_verification "Unsupported event '${EVENT_NAME}' fell back to full verification."
           fi
 
           if ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
-            echo "Base commit '${base_sha}' is unavailable. Full verification required."
-            echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
-            echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
-            echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
-            exit 0
+            emit_full_verification "Base commit '${base_sha}' is unavailable. Full verification required."
           fi
 
           compare_head_sha="${head_sha}"
@@ -84,28 +183,21 @@ jobs:
             if [[ "${EVENT_NAME}" == "pull_request" ]]; then
               compare_head_sha="HEAD"
             else
-              echo "Head commit '${head_sha}' is unavailable. Full verification required."
-              echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
-              echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
-              echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
-              exit 0
+              emit_full_verification "Head commit '${head_sha}' is unavailable. Full verification required."
             fi
           fi
 
           diff_base_sha="${base_sha}"
           if [[ "${EVENT_NAME}" == "pull_request" ]]; then
             if ! diff_base_sha="$(git merge-base "${base_sha}" "${compare_head_sha}")"; then
-              echo "Merge base could not be resolved for '${base_sha}' and '${compare_head_sha}'. Full verification required."
-              echo "needs_dotnet=true" >> "${GITHUB_OUTPUT}"
-              echo "needs_unity=true" >> "${GITHUB_OUTPUT}"
-              echo "needs_contracts_pack=true" >> "${GITHUB_OUTPUT}"
-              exit 0
+              emit_full_verification "Merge base could not be resolved for '${base_sha}' and '${compare_head_sha}'. Full verification required."
             fi
           fi
 
-          needs_dotnet=false
-          needs_unity=false
-          needs_contracts_pack=false
+          if [[ "${EVENT_NAME}" == "push" ]]; then
+            dotnet_matrix_json="${dotnet_matrix_push}"
+            unity_matrix_json="${unity_matrix_push}"
+          fi
 
           changed_files="$(
             git diff --name-only "${diff_base_sha}" "${compare_head_sha}"
@@ -114,23 +206,17 @@ jobs:
           while IFS= read -r file; do
             [[ -z "${file}" ]] && continue
 
-            case "${file}" in
-              src/Ucli/*|src/Ucli.Contracts/*|tests/*|Ucli.slnx|.editorconfig|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
-                needs_dotnet=true
-                ;;
-            esac
+            if is_dotnet_input "${file}"; then
+              needs_dotnet=true
+            fi
 
-            case "${file}" in
-              src/Ucli/*|src/Ucli.Unity/*|src/Ucli.Contracts/*|scripts/update-local-contracts-package.sh|.github/workflows/verify.yaml)
-                needs_unity=true
-                ;;
-            esac
+            if is_unity_input "${file}"; then
+              needs_unity=true
+            fi
 
-            case "${file}" in
-              src/Ucli.Contracts/*|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
-                needs_contracts_pack=true
-                ;;
-            esac
+            if is_contracts_pack_input "${file}"; then
+              needs_contracts_pack=true
+            fi
           done <<< "${changed_files}"
 
           echo "Changed files:"
@@ -140,9 +226,7 @@ jobs:
             echo "(none)"
           fi
 
-          echo "needs_dotnet=${needs_dotnet}" >> "${GITHUB_OUTPUT}"
-          echo "needs_unity=${needs_unity}" >> "${GITHUB_OUTPUT}"
-          echo "needs_contracts_pack=${needs_contracts_pack}" >> "${GITHUB_OUTPUT}"
+          emit_outputs
 
   access_guard:
     name: access-guard
@@ -189,14 +273,7 @@ jobs:
 
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - runs_on: ubuntu-latest
-            os_name: linux
-          - runs_on: windows-latest
-            os_name: windows
-          - runs_on: macos-latest
-            os_name: macos
+      matrix: ${{ fromJSON(needs.changes.outputs.dotnet_matrix_json) }}
 
     defaults:
       run:
@@ -246,17 +323,7 @@ jobs:
 
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - runs_on: ubuntu-latest
-            os_name: linux
-            cache_installation: true
-          - runs_on: windows-latest
-            os_name: windows
-            cache_installation: false
-          - runs_on: macos-latest
-            os_name: macos
-            cache_installation: true
+      matrix: ${{ fromJSON(needs.changes.outputs.unity_matrix_json) }}
 
     env:
       UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -275,6 +342,12 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           set -euo pipefail
+          if command -v mono >/dev/null 2>&1; then
+            mono --version | head -n 1
+            exit 0
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update
           sudo apt-get install --yes mono-complete
         shell: bash

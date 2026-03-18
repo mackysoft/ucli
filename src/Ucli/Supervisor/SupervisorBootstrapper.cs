@@ -28,24 +28,29 @@ internal sealed class SupervisorBootstrapper
 
     private readonly SupervisorEndpointResolver endpointResolver;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="SupervisorBootstrapper" /> class. </summary>
     /// <param name="manifestStore"> The supervisor manifest-store dependency. </param>
     /// <param name="supervisorClient"> The supervisor client dependency. </param>
     /// <param name="processLauncher"> The supervisor process-launcher dependency. </param>
     /// <param name="bootstrapLockProvider"> The bootstrap-lock provider dependency. </param>
     /// <param name="endpointResolver"> The supervisor endpoint resolver dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     public SupervisorBootstrapper (
         SupervisorManifestStore manifestStore,
         SupervisorClient supervisorClient,
         ISupervisorProcessLauncher processLauncher,
         SupervisorBootstrapLockProvider bootstrapLockProvider,
-        SupervisorEndpointResolver endpointResolver)
+        SupervisorEndpointResolver endpointResolver,
+        TimeProvider? timeProvider = null)
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
         this.processLauncher = processLauncher ?? throw new ArgumentNullException(nameof(processLauncher));
         this.bootstrapLockProvider = bootstrapLockProvider ?? throw new ArgumentNullException(nameof(bootstrapLockProvider));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Ensures the supervisor for the specified storage root is running and reachable. </summary>
@@ -67,7 +72,7 @@ internal sealed class SupervisorBootstrapper
 
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         var normalizedStorageRoot = Path.GetFullPath(storageRoot);
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
         {
@@ -145,17 +150,19 @@ internal sealed class SupervisorBootstrapper
                     }
 
                     ExecutionError? launchError;
-                    using var launchCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    launchCancellationTokenSource.CancelAfter(launchTimeout);
+                    using var launchCancellationScope = TimeProviderCancellationScope.CreateLinked(
+                        cancellationToken,
+                        launchTimeout,
+                        timeProvider);
                     try
                     {
                         launchError = await processLauncher.Launch(
                                 normalizedStorageRoot,
-                                launchCancellationTokenSource.Token)
+                                launchCancellationScope.Token)
                             .ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
-                                                              && launchCancellationTokenSource.IsCancellationRequested)
+                                                              && launchCancellationScope.HasTimedOut)
                     {
                         return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
                             $"Timed out while launching supervisor. Timeout={launchTimeout.TotalMilliseconds:0}ms."));
@@ -180,7 +187,7 @@ internal sealed class SupervisorBootstrapper
                     $"Timed out while waiting for supervisor bootstrap. Timeout={timeout.TotalMilliseconds:0}ms."));
             }
 
-            await Task.Delay(SupervisorConstants.BootstrapPollDelay, cancellationToken).ConfigureAwait(false);
+            await TimeProviderDelay.Delay(SupervisorConstants.BootstrapPollDelay, timeProvider, cancellationToken).ConfigureAwait(false);
         }
     }
 

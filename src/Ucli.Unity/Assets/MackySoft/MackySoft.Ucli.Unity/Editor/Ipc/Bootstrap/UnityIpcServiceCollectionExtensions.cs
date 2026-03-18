@@ -37,9 +37,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton(static _ => UcliOperationCatalogSnapshotBuilder.Build());
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
+            services.AddSingleton<IUnityEditorReadinessGate, UnityEditorReadinessGate>();
             services.AddSingleton<IUnityMainThreadRequestExecutor>(new UnitySynchronizationContextRequestExecutor());
             services.AddSingleton<IExecuteRequestDispatcher>(serviceProvider => CreateExecuteRequestDispatcher(
-                serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>()));
+                serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>(),
+                serviceProvider.GetRequiredService<IUnityEditorReadinessGate>()));
             services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();
             services.AddSingleton<IUnityTestRunRequestContextFactory, UnityTestRunRequestContextFactory>();
             services.AddSingleton<IUnityTestRunner, UnityTestRunner>();
@@ -146,12 +148,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             return services;
         }
 
-        private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher (UcliOperationCatalogSnapshot snapshot)
+        private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher (
+            UcliOperationCatalogSnapshot snapshot,
+            IUnityEditorReadinessGate readinessGate)
         {
             var normalizer = new ExecuteRequestNormalizer();
             var operationRegistry = new InMemoryPhaseOperationRegistry(snapshot.Registrations);
             var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            return new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
         }
     }
 }

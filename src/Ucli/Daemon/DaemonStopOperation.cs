@@ -17,25 +17,30 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStopOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
     /// <param name="shutdownClient"> The shutdown client dependency. </param>
     /// <param name="processTerminationService"> The process termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact cleaner dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStopOperation (
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IDaemonSessionStore daemonSessionStore,
         IDaemonShutdownClient shutdownClient,
         IDaemonProcessTerminationService processTerminationService,
-        IDaemonArtifactCleaner artifactCleaner)
+        IDaemonArtifactCleaner artifactCleaner,
+        TimeProvider? timeProvider = null)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.shutdownClient = shutdownClient ?? throw new ArgumentNullException(nameof(shutdownClient));
         this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Stops daemon lifecycle for the specified Unity project context. </summary>
@@ -54,7 +59,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var deadline = ExecutionDeadline.Start(timeout);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
         {
             return DaemonStopResult.Failure(CreateTimeoutError("Timed out before daemon stop workflow began."));
