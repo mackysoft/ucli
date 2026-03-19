@@ -1,0 +1,293 @@
+> [!IMPORTANT]
+> この文書は、uCLI の JSON 契約、`payload`、status、readIndex catalog のプロパティ定義をまとめたリファレンスである。
+> 全体契約は [uCLI.md](uCLI.md)、コマンドの option table と実行例は [uCLI-command-reference.md](uCLI-command-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
+
+## 共通レスポンス契約
+
+### 共通エンベロープ
+`init` / `ops` / `status` / `daemon` / `test` / `refresh` は次の共通エンベロープを返す。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `protocolVersion` | integer | yes | プロトコルメジャーバージョン |
+| `command` | string | yes | コマンド識別子。例: `test.run` |
+| `status` | `ok \| error` | yes | 実行成否 |
+| `exitCode` | integer | yes | プロセス終了コード |
+| `message` | string | yes | 人間向け説明 |
+| `payload` | object | yes | コマンド固有結果 |
+| `errors` | array | yes | エラー配列。正常時は空配列 |
+
+### request系レスポンス
+`validate` / `plan` / `call` / `resolve` / `query` は次の構造を返す。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `protocolVersion` | integer | yes | リクエストと同じ値 |
+| `requestId` | string | yes | リクエストと同じ UUID |
+| `status` | `ok \| error` | yes | 実行成否 |
+| `opResults` | array | yes | 各実行単位の結果 |
+| `errors` | array | yes | エラー配列。正常時は空配列 |
+
+### `opResults[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `opId` | string | yes | 対応する実行単位の `id` |
+| `op` | string | yes | オペレーション名 |
+| `phase` | `validate \| plan \| call \| skipped` | yes | 実行フェーズ |
+| `applied` | boolean | yes | 適用されたか |
+| `changed` | boolean | yes | 変更が発生したか |
+| `touched` | array | yes | 影響した永続化単位の配列 |
+| `result` | object | no | query 系 op の結果本体 |
+
+#### `opResults[].touched[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | `scene \| prefab \| asset \| projectSettings` | yes | 永続化単位の種別 |
+| `path` | string | yes | プロジェクトルート相対パス |
+| `guid` | string | no | 取得可能な場合に付与する GUID |
+
+### エラーオブジェクト
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `code` | string | yes | 機械判定用エラーコード |
+| `message` | string | yes | 説明 |
+| `opId` | `string \| null` | yes | 該当実行単位の `id`。該当なしは `null` |
+
+## status / lifecycle プロパティ
+
+### `ucli status` / `ucli daemon status`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `daemonStatus` | `running \| notRunning \| stale` | yes | daemon 到達性と session 状態 |
+| `unityVersion` | `string \| null` | yes | `ProjectSettings/ProjectVersion.txt` 由来の Unity バージョン |
+| `serverVersion` | `string \| null` | yes | `daemonStatus = running` のときのみ値を持つ |
+| `runtime` | `batchmode \| gui \| null` | yes | `daemonStatus = running` のときのみ値を持つ |
+| `lifecycleState` | `starting \| ready \| compiling \| domainReloading \| blockedByModal \| safeMode \| shuttingDown \| null` | yes | `daemonStatus = running` のときのみ値を持つ |
+| `blockingReason` | `null \| startup \| compile \| domainReload \| modalDialog \| safeMode \| shutdown` | yes | 実行を止めている理由 |
+| `compileState` | `ready \| compiling \| null` | yes | compiler activity 専用の状態 |
+| `domainReloadGeneration` | `string \| null` | yes | domain reload 完了ごとに変化する opaque な識別子 |
+| `canAcceptExecutionRequests` | boolean | yes | `daemonStatus = running` かつ `lifecycleState = ready` のときのみ `true` |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+
+## コマンド別 `payload`
+
+### `ucli daemon`
+`ucli daemon` はサブコマンドにかかわらず `payload.timeoutMilliseconds` を常に含む。
+
+#### `daemon start`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `startStatus` | `started \| alreadyRunning` | yes | 起動結果 |
+| `daemonStatus` | `running` | yes | daemon 状態 |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+| `session` | object | yes | セッション情報 |
+
+#### `daemon stop`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `stopStatus` | `stopped \| notRunning` | yes | 停止結果 |
+| `daemonStatus` | `notRunning` | yes | daemon 状態 |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+| `session` | `null` | yes | 停止後は常に `null` |
+
+#### `daemon cleanup`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `cleanupStatus` | `completed \| skipped` | yes | cleanup 結果 |
+| `skipReason` | `null \| running \| unsafeInvalidSession \| uncertainReachability` | yes | cleanup を見送った理由 |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+
+#### `daemon status`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `daemonStatus` | `running \| notRunning \| stale` | yes | daemon 状態 |
+| `serverVersion` | `string \| null` | yes | `running` のときのみ値を持つ |
+| `runtime` | `batchmode \| gui \| null` | yes | `running` のときのみ値を持つ |
+| `lifecycleState` | `starting \| ready \| compiling \| domainReloading \| blockedByModal \| safeMode \| shuttingDown \| null` | yes | `running` のときのみ値を持つ |
+| `blockingReason` | `null \| startup \| compile \| domainReload \| modalDialog \| safeMode \| shutdown` | yes | `running` のときのみ意味を持つ |
+| `compileState` | `ready \| compiling \| null` | yes | compiler activity 状態 |
+| `domainReloadGeneration` | `string \| null` | yes | `running` のときのみ値を持つ |
+| `canAcceptExecutionRequests` | boolean | yes | `running` かつ `ready` のときのみ `true` |
+| `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
+| `session` | `object \| null` | yes | `running` / `stale` は object、`notRunning` は `null` |
+| `diagnosis` | `object \| null` | yes | 保存済みまたは推定された diagnosis |
+
+#### `daemon list`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `timeoutMilliseconds` | integer | yes | コマンド全体に適用する実効タイムアウト |
+| `projectRelativePath` | string | yes | Git worktree root から見た対象 Unity project の相対パス |
+| `isComplete` | boolean | yes | 対象 worktree 群を最後まで観測できたか |
+| `completionReason` | `null \| timeout` | yes | 不完全終了の理由 |
+| `remainingWorktreeCount` | integer | yes | 未観測の worktree 件数 |
+| `items` | array | yes | 永続化済み daemon 登録の一覧 |
+
+#### `daemon session`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `projectFingerprint` | string | yes | project fingerprint |
+| `issuedAtUtc` | string | yes | 発行時刻 |
+| `runtimeKind` | string | yes | runtime 種別 |
+| `ownerKind` | string | yes | session 所有者種別 |
+| `canShutdownProcess` | boolean | yes | 停止操作の可否 |
+| `endpointTransportKind` | string | yes | IPC transport 種別 |
+| `endpointAddress` | string | yes | IPC endpoint |
+| `processId` | `integer \| null` | yes | daemon process ID |
+
+#### `daemon diagnosis`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `reason` | string | yes | 診断理由 |
+| `message` | string | yes | 人間向け説明 |
+| `reportedBy` | `unity \| cli` | yes | 診断報告元 |
+| `isInferred` | boolean | yes | CLI が後から推定して合成した診断か |
+| `updatedAtUtc` | string | yes | 更新時刻 |
+| `processId` | `integer \| null` | yes | 関連 process ID |
+
+#### `daemon list items[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `worktreePath` | string | yes | Git worktree root path |
+| `branchRef` | `string \| null` | yes | attached 時の branch ref |
+| `head` | string | yes | worktree の HEAD commit hash |
+| `projectPath` | string | yes | Unity project root path |
+| `projectFingerprint` | string | yes | worktree ローカル storage root で解決した fingerprint |
+| `state` | `running \| stale \| error` | yes | item の状態 |
+| `reason` | `null \| staleSession \| invalidSession \| probeTimeout \| probeFailed` | yes | item 状態の理由 |
+| `issuedAtUtc` | `string \| null` | yes | valid session を読めた場合のみ値を持つ |
+| `processId` | `integer \| null` | yes | valid session を読めた場合のみ値を持つ |
+| `endpointTransportKind` | `string \| null` | yes | valid session を読めた場合のみ値を持つ |
+| `endpointAddress` | `string \| null` | yes | valid session を読めた場合のみ値を持つ |
+| `diagnosis` | `object \| null` | yes | `running` は `null` |
+
+### `ucli init`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `configPath` | string | yes | 生成した `.ucli/config.json` の絶対パス |
+| `gitignorePath` | string | yes | 生成した `.ucli/.gitignore` の絶対パス |
+
+### `ucli refresh`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `requestId` | string | yes | 内部 `execute` リクエストの `requestId` |
+| `opResults` | array | yes | `ucli.project.refresh` の `call` 結果 |
+
+### readIndex
+
+#### `payload.readIndex`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `used` | boolean | yes | readIndex を利用したか |
+| `hit` | boolean | yes | 既存 index を利用できたか |
+| `source` | string | yes | 参照元 |
+| `freshness` | `fresh \| probable \| stale` | yes | 索引の鮮度 |
+| `generatedAtUtc` | `string \| null` | yes | index 生成時刻 |
+| `fallbackReason` | `string \| null` | yes | フォールバック理由 |
+
+#### `types.catalog.json`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schemaVersion` | integer | yes | catalog schema version |
+| `generatedAtUtc` | string | yes | 生成時刻 |
+| `sourceInputsHash` | string | yes | 入力ハッシュ |
+| `entries` | array | yes | type エントリ一覧 |
+
+#### `types.catalog.json entries[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `typeId` | string | yes | 型識別子 |
+| `displayName` | string | yes | 表示名 |
+| `namespace` | `string \| null` | yes | 名前空間 |
+| `assemblyName` | string | yes | アセンブリ名 |
+| `baseTypeId` | `string \| null` | yes | 基底型識別子 |
+| `flags.isAbstract` | boolean | yes | abstract 型か |
+| `flags.isGenericDefinition` | boolean | yes | generic definition か |
+| `flags.isUnityObject` | boolean | yes | UnityEngine.Object 派生か |
+| `flags.isComponent` | boolean | yes | Component か |
+| `flags.isScriptableObject` | boolean | yes | ScriptableObject か |
+| `flags.isSerializeReferenceCandidate` | boolean | yes | SerializeReference 候補か |
+
+#### `schemas.catalog.json`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schemaVersion` | integer | yes | catalog schema version |
+| `generatedAtUtc` | string | yes | 生成時刻 |
+| `sourceInputsHash` | string | yes | 入力ハッシュ |
+| `entries` | array | yes | schema エントリ一覧 |
+
+#### `schemas.catalog.json entries[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schemaKey` | string | yes | `comp:<typeId>` または `asset:<typeId>` |
+| `kind` | `comp \| asset` | yes | schema 種別 |
+| `typeId` | string | yes | 型識別子 |
+| `displayName` | string | yes | 表示名 |
+| `properties` | array | yes | プロパティ一覧 |
+
+#### `schemas.catalog.json entries[].properties[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | string | yes | SerializedProperty path |
+| `propertyType` | string | yes | `SerializedPropertyType` と意味対応する enum literal |
+| `declaredTypeId` | `string \| null` | yes | 宣言型識別子 |
+| `isArray` | boolean | yes | 配列か |
+| `elementTypeId` | `string \| null` | yes | `isArray=true` のときのみ非 `null` |
+| `isReadOnly` | boolean | yes | 読み取り専用か |
+
+#### `inputs/manifest.json`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schemaVersion` | integer | yes | manifest schema version |
+| `generatedAtUtc` | string | yes | 生成時刻 |
+| `scriptAssembliesHash` | string | yes | ScriptAssemblies ハッシュ |
+| `packagesManifestHash` | string | yes | `Packages/manifest.json` ハッシュ |
+| `packagesLockHash` | string | yes | `Packages/packages-lock.json` ハッシュ |
+| `assemblyDefinitionHash` | string | yes | `.asmdef/.asmref` ハッシュ |
+| `combinedHash` | string | yes | 結合ハッシュ |
+
+### `ucli test run`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `result` | `pass \| fail \| null` | yes | テスト結果。`status=error` のときは `null` |
+| `errorKind` | `invalidInput \| infraError \| toolError \| null` | yes | 失敗種別 |
+| `runId` | string | yes | 実行 ID |
+| `artifactsDir` | string | yes | 成果物ディレクトリ |
+| `summaryJsonPath` | string | yes | サマリー JSON のパス |
+
+### テストプロファイル JSON
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `schemaVersion` | integer | yes | profile schema version |
+| `projectPath` | string | yes | 対象 Unity project path |
+| `unityVersion` | `string \| null` | yes | Unity バージョン |
+| `unityEditorPath` | `string \| null` | yes | Unity Editor 実行ファイルまたはディレクトリ |
+| `testPlatform` | `editmode \| playmode` | yes | テスト実行種別 |
+| `buildTarget` | `string \| null` | yes | PlayMode 用 build target |
+| `testFilter` | `string \| null` | yes | テスト名フィルタ |
+| `testCategories` | array | yes | テストカテゴリ一覧 |
+| `assemblyNames` | array | yes | テストアセンブリ一覧 |
+| `testSettingsPath` | `string \| null` | yes | `TestSettings.json` のパス |
+| `timeoutSeconds` | integer | yes | タイムアウト秒数 |

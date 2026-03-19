@@ -1,5 +1,9 @@
 # Ops Catalog
 
+> [!NOTE]
+> この文書は補助カタログである。
+> 入力 DSL の正本は [json-request-spec.md](json-request-spec.md)、全体契約とコマンド仕様は [uCLI.md](uCLI.md) を参照する。
+
 ## asset
 
 | op | kind | policy | status | 概要 | argsSchema |
