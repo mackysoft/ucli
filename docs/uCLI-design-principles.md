@@ -1,0 +1,144 @@
+## 目的
+
+uCLI は、Unity を外部から操作するための単なる便利 CLI ではない。  
+uCLI の目的は、**Unity に対する変更・観測・保存・検証を、保証可能な手続きとして扱える実行基盤を提供すること**である。
+
+uCLI は次を同時に満たすことを目指す。
+- Unity を外部から扱えること
+- Unity の意味論を壊さずに扱えること
+- AI / エージェントが使っても、人間が保証責務を引き取れること
+- GUI 前提に閉じないこと
+- worktree / CI / headless 実行に耐えること
+## 基本的な立ち位置
+uCLI は、次のどれでもない。
+- 単なる YAML 編集ツール
+- Unity Editor を遠隔操作するだけのブリッジ
+- 任意コード実行を中心にした汎用 RPC
+- 便利さ最優先の自動化レイヤ
+    
+uCLI は、**Unity 変更の実行プロトコル**である。  
+主眼は「何ができるか」より、**何を前提に、何を変え、どこまで確認し、どう保存したかを明示できること**にある。
+## 最上位原則
+
+### Context-first
+すべての操作は、まず **どの責任境界に属するか** を持たなければならない。  
+uCLI における基本境界は次である。
+- Scene
+- Prefab
+- Asset
+- Project
+
+uCLI は object 操作系 DSL ではなく、**context-bound execution model** を採る。
+### Primitive-first
+高級構文や sugar を導入しても、primitive operation を捨てない。  
+Scene を開く、保存する、resolve する、describe する、refresh する、といった低レベル操作は first-class のまま維持する。
+### Assurance-first
+uCLI は「便利に触れること」より、**保証できること**を優先する。  
+変更可能性ではなく、変更の説明可能性・再現可能性・監査可能性を重視する。
+### Lowerable
+すべての高級構文は、機械的に primitive operation に lower できなければならない。  
+lower 不能な sugar は採用しない。
+## 操作モデル原則
+### Query と Mutation を分離する
+検索・観測と変更を混ぜない。  
+query の結果はそのまま mutation に流さず、必ず **selection / stable target** に正規化してから編集する。
+### Modify と Persist を分離する
+変更と保存を分ける。  
+uCLI では **modify != persist** を原則とし、保存境界は常に明示する。
+### One step, one context
+1つの編集単位は、1つの context に閉じる。  
+複数 Scene や複数 Prefab をまたぐ処理は、1つの巨大操作にしない。request / step の列として構成する。
+### Multi-target は制限付きで許可する
+一括編集は許可するが、一般化しすぎない。  
+許容するのは、**単一 context 内・同一型・同一 patch の一括適用**に限る。
+## 参照と識別の原則
+
+### Human-friendly reference は入力専用
+自然言語的・検索的な指定は入力として許可する。  
+ただし変更前には、必ず **durable identity** に正規化する。
+### Stable ref を中核に置く
+uCLI の内部・結果・再実行では、曖昧参照に依存しない。  
+会話的参照や一時 ID を長寿命の識別子に使わない。
+### Local binding only
+`as` のような束縛機構は残してよいが、**局所束縛**に限定する。  
+step をまたぐ受け渡しは durable value のみとする。
+## 保存・責任境界の原則
+
+### 保存境界は Context に従う
+保存は target 単位ではなく、context 単位で定義する。  
+Scene は Scene、Prefab は Prefab、Project は Project として保存責任を持つ。
+### Project は上位境界として扱う
+Project は単なるファイルの集合ではなく、**整合・更新・保存の上位責任境界**である。  
+Project 配下で扱うのは、project-scoped settings object、singleton、project-wide mutable state とする。
+### Asset と ProjectAsset を混同しない
+通常 asset は asset context に属する。  
+project-scoped settings は project context に属する。  
+両者を同じ編集モデルに潰さない。
+## 実行と接続の原則
+
+### 接続は状態機械として扱う
+接続は単なる `接続中 / 非接続` ではなく、状態として扱う。  
+少なくとも、稼働中・再読込中・非互換・利用不能などを区別する。
+### Domain reload / compile / reimport は第一級イベント
+再読込や再コンパイルは異常ではなく、Unity の通常ライフサイクルである。  
+uCLI はこれを例外でなく、仕様化された状態遷移として扱う。
+### GUI と headless を同列に扱う
+uCLI は GUI 依存にしてはならない。  
+ただし headless だから偉いのではなく、**どの runtime で動いても同じ契約を守る**ことを優先する。
+### 暗黙起動を増やさない
+便利さのための自動起動・自動接続・自動修復は慎重に扱う。  
+暗黙挙動は負債化しやすいため、uCLI では明示操作を優先する。
+## 互換性と拡張性の原則
+### Version より Capability を重視する
+単純な version string 一致だけで可否を決めない。  
+利用可能な機能、transport、runtime、schema を明示的に扱う。
+### Schema を唯一の正本にする
+README、help、skill、tool description を別々に人手で保守しない。  
+**機械可読な schema / metadata を唯一の正本**にする。
+### Unsafe path は隔離する
+任意コード実行や危険操作は認めてもよいが、safe 系の主経路とは分ける。  
+危険操作に safe と同じ保証を与えない。
+### Sugar は正本ではない
+
+短縮構文は許容してよい。  
+ただし正本は primitive とその lower 規則であり、sugar に設計の中心を置かない。
+
+## 証拠と結果の原則
+
+### Evidence-first
+uCLI は成功/失敗だけを返すべきではない。  
+何を前提に、何を触り、何が変わり、何が保存され、何が観測されたかを返すべきである。
+### 機械可読を優先する
+
+ログ断片や人間向けメッセージではなく、構造化された結果を優先する。  
+人間向け説明は必要だが、正本は機械可読データとする。
+
+### touched を第一級に扱う
+
+影響した永続化単位は必ず把握可能であるべきである。  
+uCLI は「何を触ったか」を曖昧にしない。
+## 設計負債に対する方針
+
+### 負債は契約の曖昧さとして捉える
+
+uCLI の負債は「コードが汚いこと」より、
+
+- 接続境界
+- 保存境界
+- 参照境界
+- 互換性境界
+- 証拠境界  
+が曖昧になることから発生する。
+### 暗黙を増やさない
+設計負債の大半は暗黙挙動の増殖から来る。  
+uCLI は「便利そうだから暗黙でやる」を抑制する。
+### 例外を個別実装で吸収しない
+再読込、接続断、バージョン差、保存差などは例外処理でなく、仕様で扱う。  
+仕様に上がらない例外は、将来必ず負債化する。
+## 非目標
+uCLI は次を直接の目標としない。
+- Unity を何でも自然言語で操作できること
+- もっとも短い記述で何でもできること
+- 任意コード実行を万能な逃げ道にすること
+- Editor 内 UX のみを最適化すること
+uCLI は、**万能さより契約性**を優先する。

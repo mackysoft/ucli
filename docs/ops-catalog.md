@@ -63,9 +63,3 @@
 | `ucli.scene.open` | query | safe | mvp-core | 指定Sceneを開いて編集対象にする。 | 予定 |
 | `ucli.scene.save` | mutation | advanced | mvp-core | 指定Sceneの変更を保存する。 | 予定 |
 | `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。 | 予定 |
-
-## scenes
-
-| op | kind | policy | status | 概要 | argsSchema |
-| --- | --- | --- | --- | --- | --- |
-| `ucli.scenes.findComponents` | query | safe | mvp-support | 複数Sceneを横断して対象コンポーネントを検索する。 | 予定 |
