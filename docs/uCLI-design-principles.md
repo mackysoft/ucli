@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> この文書は、uCLI の設計原則の正本である。
+> 製品概要とコマンド契約は [uCLI.md](uCLI.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
+
 ## 目的
 
 uCLI は、Unity を外部から操作するための単なる便利 CLI ではない。  

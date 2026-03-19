@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> この文書は、uCLI の JSON リクエスト入力契約の正本である。
+> 実行時契約とコマンド仕様は [uCLI.md](uCLI.md)、設計原則は [uCLI-design-principles.md](uCLI-design-principles.md) を参照する。
+
 ## 目的
 
 uCLI の JSON リクエストは、次の2要件を同時に満たす。

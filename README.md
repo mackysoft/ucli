@@ -51,5 +51,6 @@ ucli test run \
 - `ucli test run`（予定）
 - `ucli test profile init`（予定）
 
-詳細仕様は `docs/uCLI.md` を参照してください。  
-`uni-test-hub` 旧READMEは `docs/uni-test-hub.md` にアーカイブしています。
+詳細仕様の入口は `docs/uCLI.md` です。  
+JSON リクエスト仕様は `docs/json-request-spec.md`、設計原則は `docs/uCLI-design-principles.md` を参照してください。
+コマンド別の option table は `docs/uCLI-command-reference.md`、JSON プロパティ定義は `docs/uCLI-property-reference.md` を参照してください。
