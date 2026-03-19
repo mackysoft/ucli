@@ -17,8 +17,10 @@ permissions:
 
 jobs:
   prepare-release:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    outputs:
+      package_version: ${{ steps.version.outputs.package_version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
 
     steps:
       - name: Checkout
@@ -32,17 +34,28 @@ jobs:
         env:
           DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
         run: |
-          package_version="${DISPATCH_VERSION}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            package_version="${DISPATCH_VERSION}"
+          else
+            tag_name="${GITHUB_REF_NAME}"
+            package_version="${tag_name#contracts/}"
+          fi
 
           if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Package version must use <major>.<minor>.<patch> format. Actual: ${package_version}" >&2
             exit 1
           fi
 
+          tag_name="contracts/${package_version}"
+
+          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
+          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+
       - name: Create and push release tag
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          TAG_NAME: contracts/${{ github.event.inputs.package_version }}
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
           RELEASE_SHA: ${{ github.sha }}
         run: |
           if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null; then
@@ -57,7 +70,7 @@ jobs:
           git push origin "refs/tags/${TAG_NAME}"
 
   publish:
-    if: github.event_name == 'push'
+    needs: prepare-release
     runs-on: ubuntu-latest
 
     steps:
@@ -65,31 +78,18 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 8.0.x
 
-      - name: Resolve package version
-        id: version
-        shell: bash
-        run: |
-          tag_name="${GITHUB_REF_NAME}"
-          package_version="${tag_name#contracts/}"
-
-          if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Package version must use <major>.<minor>.<patch> format. Actual: ${package_version}" >&2
-            exit 1
-          fi
-
-          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
-
       - name: Pack contracts
         run: >-
           dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj
           --configuration Release
-          -p:PackageVersion=${{ steps.version.outputs.package_version }}
+          -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
           --output artifacts/packages
 
       - name: Publish to GitHub Packages
@@ -102,7 +102,7 @@ jobs:
       - name: Sync contracts package versions in repository
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
