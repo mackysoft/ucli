@@ -46,6 +46,9 @@ lower 不能な sugar は採用しない。
 ### Query と Mutation を分離する
 検索・観測と変更を混ぜない。  
 query の結果はそのまま mutation に流さず、必ず **selection / stable target** に正規化してから編集する。
+### Mutation は live Unity 実体を正とする
+local index や cache は観測補助であり、mutation の正本ではない。
+`call` 実行時は必ず live Unity 実体で再解決・再検証する。
 ### Modify と Persist を分離する
 変更と保存を分ける。  
 uCLI では **modify != persist** を原則とし、保存境界は常に明示する。
@@ -86,9 +89,18 @@ project-scoped settings は project context に属する。
 ### Domain reload / compile / reimport は第一級イベント
 再読込や再コンパイルは異常ではなく、Unity の通常ライフサイクルである。  
 uCLI はこれを例外でなく、仕様化された状態遷移として扱う。
+### Single-writer per projectFingerprint
+同一 `projectFingerprint` に対する mutation は、常に 1 つの writer lane に直列化する。
+daemon / oneshot / `refresh` / `test.run` / mutation `call` を理由に、同一 project への並列 writer を許さない。
 ### GUI と headless を同列に扱う
 uCLI は GUI 依存にしてはならない。  
 ただし headless だから偉いのではなく、**どの runtime で動いても同じ契約を守る**ことを優先する。
+### Idle は inert である
+idle 時の runtime は zero-ish work を原則とする。
+index refresh、package check、health sweep のような背景作業は、明示コマンドか厳密な TTL でしか走らせない。
+### Reload-safe に資源を扱う
+domain reload や異常終了は通常事象として扱う。
+file、log、session、artifact は reload generation をまたいで reopen できる前提で設計する。
 ### 暗黙起動を増やさない
 便利さのための自動起動・自動接続・自動修復は慎重に扱う。  
 暗黙挙動は負債化しやすいため、uCLI では明示操作を優先する。
@@ -96,12 +108,18 @@ uCLI は GUI 依存にしてはならない。
 ### Version より Capability を重視する
 単純な version string 一致だけで可否を決めない。  
 利用可能な機能、transport、runtime、schema を明示的に扱う。
+### Transport は意味を変えない
+transport は搬送路であり、意味論を変える理由ではない。
+差異がある場合は、黙って欠落させず capability として明示する。
 ### Schema を唯一の正本にする
 README、help、skill、tool description を別々に人手で保守しない。  
 **機械可読な schema / metadata を唯一の正本**にする。
 ### Unsafe path は隔離する
 任意コード実行や危険操作は認めてもよいが、safe 系の主経路とは分ける。  
 危険操作に safe と同じ保証を与えない。
+### Safe core は typed operation で閉じる
+safe 系主経路は `typed reference + typed op + explicit context` を基準にする。
+generic setter や任意コード実行を safe core の前提にしない。
 ### Sugar は正本ではない
 
 短縮構文は許容してよい。  
@@ -112,10 +130,16 @@ README、help、skill、tool description を別々に人手で保守しない。
 ### Evidence-first
 uCLI は成功/失敗だけを返すべきではない。  
 何を前提に、何を触り、何が変わり、何が保存され、何が観測されたかを返すべきである。
+### Failure は not-applied と indeterminate を区別する
+失敗時は「未適用」と「状態不明」を混同しない。
+timeout / disconnect / reload 中断では、適用可否と証拠を機械可読に返すことを優先する。
 ### 機械可読を優先する
 
 ログ断片や人間向けメッセージではなく、構造化された結果を優先する。  
 人間向け説明は必要だが、正本は機械可読データとする。
+### AI向け列挙は bounded-by-default
+AI が消費する一覧・ツリー・ログは、既定で shallow / deterministic order / incremental retrieval とする。
+全件列挙は opt-in とし、bounded でない出力を主経路にしない。
 
 ### touched を第一級に扱う
 
