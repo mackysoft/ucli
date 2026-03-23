@@ -1,11 +1,13 @@
 > [!IMPORTANT]
-> この文書は、uCLI の JSON 契約、`payload`、status、readIndex catalog のプロパティ定義をまとめたリファレンスである。
+> この文書は、uCLI の公開 CLI 出力契約、内部 IPC 契約、`payload`、status、readIndex catalog のプロパティ定義をまとめたリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、コマンドの option table と実行例は [uCLI-command-reference.md](uCLI-command-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
 
-## 共通レスポンス契約
+## 公開 CLI 出力契約
 
-### 共通エンベロープ
-`init` / `ops` / `status` / `daemon` / `test` / `refresh` は次の共通エンベロープを返す。
+公開 CLI 出力の種別と意味は [uCLI.md](uCLI.md) を正本とする。ここでは `request-response` 型で使う JSON shape だけを定義する。
+
+### request-response 型の共通エンベロープ
+`request-response` 型の CLI JSON 出力は、次の共通エンベロープを返す。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -15,20 +17,42 @@
 | `exitCode` | integer | yes | プロセス終了コード |
 | `message` | string | yes | 人間向け説明 |
 | `payload` | object | yes | コマンド固有結果 |
-| `errors` | array | yes | エラー配列。正常時は空配列 |
+| `errors` | array | yes | CLI エラー配列。正常時は空配列 |
 
-### request系レスポンス
-`validate` / `plan` / `call` / `resolve` / `query` は次の構造を返す。
+`requestId` は CLI 共通エンベロープには含めない。必要な場合だけ各コマンドの `payload` に含める。
+
+### CLI エラーオブジェクト
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
-| `protocolVersion` | integer | yes | リクエストと同じ値 |
-| `requestId` | string | yes | リクエストと同じ UUID |
-| `status` | `ok \| error` | yes | 実行成否 |
-| `opResults` | array | yes | 各実行単位の結果 |
-| `errors` | array | yes | エラー配列。正常時は空配列 |
+| `code` | string | yes | 機械判定用エラーコード |
+| `message` | string | yes | 説明 |
+| `opId` | `string \| null` | yes | 該当実行単位の `id`。該当なしは `null` |
 
-### `opResults[]`
+## 内部 IPC 契約
+
+### `IpcResponse`
+CLI と Unity runtime の間では、共通 CLI エンベロープではなく次の IPC エンベロープを使用する。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `protocolVersion` | integer | yes | IPC プロトコルメジャーバージョン |
+| `requestId` | string | yes | IPC リクエスト相関 ID |
+| `status` | `ok \| error` | yes | IPC 実行成否 |
+| `payload` | object | yes | IPC method-specific payload |
+| `errors` | array | yes | IPC エラー配列。正常時は空配列 |
+
+ここでの `status` は IPC 層の成否である。
+
+### `IpcExecuteResponse`
+`execute` 系 IPC の `payload` は次の構造を返す。
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `opResults` | array | yes | 各実行単位の結果 |
+| `planToken` | string | no | `plan` 実行時に発行されたトークン。未発行時は field 自体を省略する |
+
+### `IpcExecuteResponse.opResults[]`
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -40,7 +64,7 @@
 | `touched` | array | yes | 影響した永続化単位の配列 |
 | `result` | object | no | query 系 op の結果本体 |
 
-#### `opResults[].touched[]`
+#### `IpcExecuteResponse.opResults[].touched[]`
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -48,7 +72,8 @@
 | `path` | string | yes | プロジェクトルート相対パス |
 | `guid` | string | no | 取得可能な場合に付与する GUID |
 
-### エラーオブジェクト
+### `IpcError`
+現在の `IpcError` は CLI の `errors[]` と同じ field shape を持つが、契約の層は別である。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -56,9 +81,10 @@
 | `message` | string | yes | 説明 |
 | `opId` | `string \| null` | yes | 該当実行単位の `id`。該当なしは `null` |
 
-## status / lifecycle プロパティ
+## lifecycle 関連プロパティ
 
-### `ucli status` / `ucli daemon status`
+### lifecycle status フィールド
+`ucli status` と `ucli daemon status` は、必要に応じて次の lifecycle 関連 field を `payload` に含める。各コマンドが返す field の subset は、コマンド別 `payload` 契約を正とする。
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -66,9 +92,10 @@
 | `unityVersion` | `string \| null` | yes | `ProjectSettings/ProjectVersion.txt` 由来の Unity バージョン |
 | `serverVersion` | `string \| null` | yes | `daemonStatus = running` のときのみ値を持つ |
 | `runtime` | `batchmode \| gui \| null` | yes | `daemonStatus = running` のときのみ値を持つ |
-| `lifecycleState` | `starting \| ready \| compiling \| domainReloading \| blockedByModal \| safeMode \| shuttingDown \| null` | yes | `daemonStatus = running` のときのみ値を持つ |
-| `blockingReason` | `null \| startup \| compile \| domainReload \| modalDialog \| safeMode \| shutdown` | yes | 実行を止めている理由 |
+| `lifecycleState` | `starting \| ready \| busy \| compiling \| domainReloading \| playmode \| blockedByModal \| safeMode \| shuttingDown \| null` | yes | `daemonStatus = running` のときのみ値を持つ |
+| `blockingReason` | `null \| startup \| busy \| compile \| domainReload \| playMode \| modalDialog \| safeMode \| shutdown` | yes | 実行を止めている理由 |
 | `compileState` | `ready \| compiling \| null` | yes | compiler activity 専用の状態 |
+| `compileGeneration` | `string \| null` | yes | compile 開始または完了ごとに変化する opaque な識別子 |
 | `domainReloadGeneration` | `string \| null` | yes | domain reload 完了ごとに変化する opaque な識別子 |
 | `canAcceptExecutionRequests` | boolean | yes | `daemonStatus = running` かつ `lifecycleState = ready` のときのみ `true` |
 | `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
@@ -111,9 +138,10 @@
 | `daemonStatus` | `running \| notRunning \| stale` | yes | daemon 状態 |
 | `serverVersion` | `string \| null` | yes | `running` のときのみ値を持つ |
 | `runtime` | `batchmode \| gui \| null` | yes | `running` のときのみ値を持つ |
-| `lifecycleState` | `starting \| ready \| compiling \| domainReloading \| blockedByModal \| safeMode \| shuttingDown \| null` | yes | `running` のときのみ値を持つ |
-| `blockingReason` | `null \| startup \| compile \| domainReload \| modalDialog \| safeMode \| shutdown` | yes | `running` のときのみ意味を持つ |
+| `lifecycleState` | `starting \| ready \| busy \| compiling \| domainReloading \| playmode \| blockedByModal \| safeMode \| shuttingDown \| null` | yes | `running` のときのみ値を持つ |
+| `blockingReason` | `null \| startup \| busy \| compile \| domainReload \| playMode \| modalDialog \| safeMode \| shutdown` | yes | `running` のときのみ意味を持つ |
 | `compileState` | `ready \| compiling \| null` | yes | compiler activity 状態 |
+| `compileGeneration` | `string \| null` | yes | compile 開始または完了ごとに変化する opaque な識別子 |
 | `domainReloadGeneration` | `string \| null` | yes | `running` のときのみ値を持つ |
 | `canAcceptExecutionRequests` | boolean | yes | `running` かつ `ready` のときのみ `true` |
 | `timeoutMilliseconds` | integer | yes | 実効タイムアウト |
@@ -290,4 +318,4 @@
 | `testCategories` | array | yes | テストカテゴリ一覧 |
 | `assemblyNames` | array | yes | テストアセンブリ一覧 |
 | `testSettingsPath` | `string \| null` | yes | `TestSettings.json` のパス |
-| `timeoutSeconds` | integer | yes | タイムアウト秒数 |
+| `timeout` | integer | yes | タイムアウトミリ秒数 |
