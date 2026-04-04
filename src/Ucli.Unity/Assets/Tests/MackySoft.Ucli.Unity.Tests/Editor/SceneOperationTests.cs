@@ -126,14 +126,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Open_Plan_WhenSceneIsAlreadyLoaded_TracksPreviewScene () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Open_Plan_WhenLoadedSceneIsDirty_TracksPreviewSceneSnapshot () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneOpenOperation();
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            _ = new GameObject("Root");
+            var root = new GameObject("Root");
             EditorSceneManager.SaveScene(scene, scenePath);
+            root.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
             var requestOperation = CreateOperation(
                 opId: "op-open",
                 opName: UcliPrimitiveOperationNames.SceneOpen,
@@ -151,6 +153,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(previewScene.isLoaded, Is.True);
             Assert.That(EditorSceneManager.IsPreviewScene(previewScene), Is.True);
             Assert.That(previewScene, Is.Not.EqualTo(scene));
+            Assert.That(
+                previewScene.GetRootGameObjects(),
+                Has.Some.Matches<GameObject>(gameObject => gameObject.name == "Renamed"));
         });
 
         [UnityTest]

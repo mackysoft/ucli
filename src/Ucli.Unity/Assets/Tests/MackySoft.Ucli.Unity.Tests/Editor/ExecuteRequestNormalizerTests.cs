@@ -458,6 +458,75 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Normalize_WhenSelectFromSceneTargetsDirtyLoadedScene_RuntimeCompileAndPlanSucceed ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            root.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "ensureDirtySceneTarget",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        pathPrefix = "Renamed",
+                                    },
+                                },
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "ensureComponent",
+                                    type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var executionContext = scope.CreateExecutionContext();
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(UcliPrimitiveOperationNames.CompEnsure);
+            Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            Assert.That(
+                temporaryScene.GetRootGameObjects(),
+                Has.Some.Matches<GameObject>(gameObject => gameObject.name == "Renamed"));
+
+            var ensureResult = new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(ensureResult.IsSuccess, Is.True, ensureResult.Failure?.Message);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenSceneEditMutationTargetsClosedScene_RuntimeCompileReturnsInvalidArgumentError ()
         {
             using var scope = new EditorTestScope();
@@ -745,14 +814,66 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenPrefabEditTargetsOpenedPrefabStage_RuntimeCompileAndPlanSucceed ()
+        public void Normalize_WhenClosedPrefabCreateAssetUsesContextCommit_RuntimeCompileReturnsInvalidArgumentError ()
         {
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
             var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedPrefabCreateAssetWithCommit",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = prefabRootName,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/FromClosedPrefab.asset",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
 
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedPrefabCreateAssetWithCommit");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenPrefabEditTargetsDirtyOpenedPrefabStage_RuntimeCompileAndPlanSucceed ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot", "Child");
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
             var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            prefabStage!.prefabContentsRoot.transform.GetChild(0).name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
@@ -771,7 +892,7 @@ namespace MackySoft.Ucli.Unity.Tests
                             },
                             select = new
                             {
-                                gameObject = prefabRootName,
+                                gameObject = $"{prefabRootName}/Renamed",
                                 cardinality = "one",
                             },
                             actions = new object[]
@@ -797,6 +918,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot), Is.True);
             Assert.That(temporaryPrefabRoot, Is.Not.Null);
             Assert.That(temporaryPrefabRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
+            Assert.That(temporaryPrefabRoot!.transform.GetChild(0).name, Is.EqualTo("Renamed"));
 
             var ensureResult = new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
 
@@ -872,6 +994,131 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasOperationNames(UcliPrimitiveOperationNames.CompEnsure);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenPrefabOpenPrecedesClosedPrefabCreateAssetWithContextCommit_RuntimeCompileSucceeds ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "openPrefabForCommit",
+                            op = UcliPrimitiveOperationNames.PrefabOpen,
+                            args = new
+                            {
+                                path = prefabPath,
+                            },
+                        },
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedPrefabCreateAssetAfterOpen",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = prefabRootName,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/FromOpenedPrefab.asset",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var compiler = new ExecuteRequestCompiler();
+            var executionContext = scope.CreateExecutionContext();
+            Assert.That(
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                Is.True,
+                openError?.Message);
+            var openPlanResult = new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(
+                    UcliPrimitiveOperationNames.AssetCreate,
+                    UcliPrimitiveOperationNames.PrefabSave);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenDirectSceneSelectionDoesNotResolveAndCardinalityIsOne_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "missingDirectSelection",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Missing",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/DirectMissing.asset",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("missingDirectSelection");
         }
 
         [Test]

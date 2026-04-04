@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 #nullable enable
@@ -114,21 +115,113 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Gets one tracked preview scene or clones one currently loaded scene snapshot into a new preview scene when needed. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <param name="sourceScene"> The loaded live scene whose current snapshot should be mirrored. </param>
+        /// <param name="scene"> The tracked or newly cloned preview scene when successful. </param>
+        /// <param name="errorMessage"> The error message when preview scene creation fails. </param>
+        /// <returns> <see langword="true" /> when the preview scene is available; otherwise <see langword="false" />. </returns>
+        public bool TryGetOrCreatePreviewSceneFromLoadedScene (
+            string scenePath,
+            Scene sourceScene,
+            out Scene scene,
+            out string errorMessage)
+        {
+            if (TryGetPreviewScene(scenePath, out scene))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (!sourceScene.IsValid() || !sourceScene.isLoaded)
+            {
+                scene = default;
+                errorMessage = $"Loaded scene could not be mirrored into request-local preview state: {scenePath}.";
+                return false;
+            }
+
+            if (!TryCreateEmptyPreviewScene(out scene, out errorMessage))
+            {
+                return false;
+            }
+
+            try
+            {
+                // NOTE:
+                // When the editor scene is dirty, plan execution must observe the same hierarchy snapshot
+                // that selection already resolved against. Mirror the current live hierarchy into one
+                // request-local preview scene instead of reopening persisted asset contents.
+                var roots = sourceScene.GetRootGameObjects();
+                for (var i = 0; i < roots.Length; i++)
+                {
+                    var clonedRoot = UnityEngine.Object.Instantiate(roots[i]);
+                    clonedRoot.name = roots[i].name;
+                    SceneManager.MoveGameObjectToScene(clonedRoot, scene);
+                }
+
+                if (sourceScene.isDirty)
+                {
+                    EditorSceneManager.MarkSceneDirty(scene);
+                }
+            }
+            catch (Exception exception)
+            {
+                TryClosePreviewScene(scene);
+                scene = default;
+                errorMessage = $"Scene preview could not mirror the loaded scene state: {scenePath}. {exception.Message}";
+                return false;
+            }
+
+            previewScenesByPath[scenePath] = scene;
+            errorMessage = string.Empty;
+            return true;
+        }
+
         /// <summary> Closes all tracked preview scenes and clears request-local state. </summary>
         public void Clear ()
         {
             foreach (var pair in previewScenesByPath)
             {
                 var previewScene = pair.Value;
-                if (!previewScene.IsValid() || !previewScene.isLoaded || !EditorSceneManager.IsPreviewScene(previewScene))
-                {
-                    continue;
-                }
-
-                EditorSceneManager.ClosePreviewScene(previewScene);
+                TryClosePreviewScene(previewScene);
             }
 
             previewScenesByPath.Clear();
+        }
+
+        private static bool TryCreateEmptyPreviewScene (
+            out Scene scene,
+            out string errorMessage)
+        {
+            try
+            {
+                scene = EditorSceneManager.NewPreviewScene();
+            }
+            catch (Exception exception)
+            {
+                scene = default;
+                errorMessage = $"Scene preview could not be created. {exception.Message}";
+                return false;
+            }
+
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                errorMessage = "Scene preview could not be created.";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        private static void TryClosePreviewScene (Scene previewScene)
+        {
+            if (!previewScene.IsValid() || !previewScene.isLoaded || !EditorSceneManager.IsPreviewScene(previewScene))
+            {
+                return;
+            }
+
+            EditorSceneManager.ClosePreviewScene(previewScene);
         }
     }
 }

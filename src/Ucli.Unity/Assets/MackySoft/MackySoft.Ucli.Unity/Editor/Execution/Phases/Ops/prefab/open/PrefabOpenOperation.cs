@@ -56,11 +56,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             GameObject? prefabContentsRoot;
-            if (!PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
-                validationState.PrefabPath,
-                executionContext,
-                out prefabContentsRoot,
-                out var errorMessage))
+            if (!executionContext.TryGetOrCreateTemporaryPrefabContentsRoot(
+                    validationState.PrefabPath,
+                    out prefabContentsRoot,
+                    out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
             }

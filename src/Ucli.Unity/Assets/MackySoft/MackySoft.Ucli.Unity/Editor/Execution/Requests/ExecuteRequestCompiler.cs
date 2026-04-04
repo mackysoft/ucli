@@ -230,6 +230,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     return false;
                 }
 
+                if (!TryValidateCommitContextAvailability(editStep, executionContext, out error))
+                {
+                    return false;
+                }
+
                 if (!TryEnsureImplicitExecutionContext(editStep, executionContext, out error))
                 {
                     return false;
@@ -319,6 +324,49 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             return false;
         }
 
+        private static bool TryValidateCommitContextAvailability (
+            IpcEditStepContract step,
+            OperationExecutionContext executionContext,
+            out ExecuteRequestNormalizationError error)
+        {
+            error = default!;
+            var operationName = IpcEditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
+            if (operationName == null)
+            {
+                return true;
+            }
+
+            switch (operationName)
+            {
+                case UcliPrimitiveOperationNames.SceneSave:
+                    if (SceneOperationUtilities.TryGetLoadedScene(step.Context.Path!, out _, out _)
+                        || executionContext.HasPlannedLiveSceneOpen(step.Context.Path!))
+                    {
+                        return true;
+                    }
+
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        $"Edit step '{step.Id}' saves scene context '{step.Context.Path}', but the scene is not loaded. Add 'ucli.scene.open' before this step.",
+                        step.Id);
+                    return false;
+
+                case UcliPrimitiveOperationNames.PrefabSave:
+                    if (PrefabOperationUtilities.TryGetOpenedPrefabStage(step.Context.Path!, out _, out _)
+                        || executionContext.HasPlannedLivePrefabOpen(step.Context.Path!))
+                    {
+                        return true;
+                    }
+
+                    error = ExecuteRequestNormalizationError.InvalidArgument(
+                        $"Edit step '{step.Id}' saves prefab context '{step.Context.Path}', but the prefab is not opened. Add 'ucli.prefab.open' before this step.",
+                        step.Id);
+                    return false;
+
+                default:
+                    return true;
+            }
+        }
+
         private static bool TryEnsureImplicitExecutionContext (
             IpcEditStepContract step,
             OperationExecutionContext executionContext,
@@ -364,13 +412,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             selectedTargets = new List<SelectionTarget>();
             if (step.Selection.Kind == IpcEditStepContract.SelectionKind.Direct)
             {
-                if (!TryBuildDirectSelectionTarget(step, out var target, out var errorMessage))
+                if (!TryResolveDirectSelectionTargets(step, executionContext, selectedTargets, out error))
                 {
-                    error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
                     return false;
                 }
-
-                selectedTargets.Add(target);
             }
             else
             {
@@ -402,6 +447,68 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             return true;
+        }
+
+        private static bool TryResolveDirectSelectionTargets (
+            IpcEditStepContract step,
+            OperationExecutionContext executionContext,
+            List<SelectionTarget> selectedTargets,
+            out ExecuteRequestNormalizationError error)
+        {
+            if (!TryBuildDirectSelectionTarget(step, out var target, out var errorMessage))
+            {
+                error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                return false;
+            }
+
+            if (!TryResolveDirectSelectionTargetPresence(target, executionContext, out var hasMatch, out errorMessage))
+            {
+                error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                return false;
+            }
+
+            if (hasMatch)
+            {
+                selectedTargets.Add(target);
+            }
+
+            error = default!;
+            return true;
+        }
+
+        private static bool TryResolveDirectSelectionTargetPresence (
+            SelectionTarget target,
+            OperationExecutionContext executionContext,
+            out bool hasMatch,
+            out string errorMessage)
+        {
+            hasMatch = false;
+            if (!UnityObjectReferenceCodec.TryParse(target.Reference, "select", out var reference, out errorMessage))
+            {
+                return false;
+            }
+
+            if (UnityObjectReferenceResolver.TryResolve(reference, executionContext, allowTemporaryState: true, out _, out errorMessage))
+            {
+                hasMatch = true;
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (IsDirectSelectionNoMatch(errorMessage))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsDirectSelectionNoMatch (string errorMessage)
+        {
+            return errorMessage.StartsWith("Hierarchy path was not found", StringComparison.Ordinal)
+                   || errorMessage.Contains("' was not found at '", StringComparison.Ordinal)
+                   || errorMessage.StartsWith("Asset path could not be resolved to a main asset:", StringComparison.Ordinal);
         }
 
         private static bool TryApplyCardinality (

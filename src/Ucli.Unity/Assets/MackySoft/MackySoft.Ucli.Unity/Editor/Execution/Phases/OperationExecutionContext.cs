@@ -384,9 +384,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            return PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
+            return TryGetOrCreateTemporaryPrefabContentsRoot(
                 prefabPath,
-                this,
                 out _,
                 out errorMessage);
         }
@@ -502,17 +501,77 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporarySceneRegistry.TryGetPreviewScene(scenePath, out scene);
         }
 
-        /// <summary> Gets one request-local preview scene or opens it from persisted asset contents when needed. </summary>
+        /// <summary> Gets one request-local preview scene or creates one from the current loaded scene snapshot when needed. </summary>
         /// <param name="scenePath"> The scene asset path. </param>
         /// <param name="scene"> The preview scene when successful. </param>
-        /// <param name="errorMessage"> The validation error message when preview scene creation fails. </param>
+        /// <param name="errorMessage"> The validation error message when preview scene acquisition fails. </param>
         /// <returns> <see langword="true" /> when a preview scene is available for <paramref name="scenePath" />; otherwise <see langword="false" />. </returns>
         internal bool TryGetOrOpenTemporaryScene (
             string scenePath,
             out Scene scene,
             out string errorMessage)
         {
+            if (temporarySceneRegistry.TryGetPreviewScene(scenePath, out scene))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _)
+                && loadedScene.isDirty)
+            {
+                return temporarySceneRegistry.TryGetOrCreatePreviewSceneFromLoadedScene(
+                    scenePath,
+                    loadedScene,
+                    out scene,
+                    out errorMessage);
+            }
+
             return temporarySceneRegistry.TryGetOrOpenPreviewScene(scenePath, out scene, out errorMessage);
+        }
+
+        /// <summary> Gets one request-local temporary prefab root or mirrors the current opened prefab-stage snapshot when needed. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <param name="prefabContentsRoot"> The temporary prefab root when successful. </param>
+        /// <param name="errorMessage"> The validation error message when acquisition fails. </param>
+        /// <returns> <see langword="true" /> when request-local prefab state is available; otherwise <see langword="false" />. </returns>
+        internal bool TryGetOrCreateTemporaryPrefabContentsRoot (
+            string prefabPath,
+            out GameObject? prefabContentsRoot,
+            out string errorMessage)
+        {
+            if (temporaryObjectScope.TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot)
+                && prefabContentsRoot != null)
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            {
+                var openedPrefabRoot = prefabStage!.prefabContentsRoot;
+                if (openedPrefabRoot == null)
+                {
+                    prefabContentsRoot = null;
+                    errorMessage = $"Opened prefab root is not available: {prefabPath}.";
+                    return false;
+                }
+
+                if (openedPrefabRoot.scene.isDirty)
+                {
+                    return temporaryObjectScope.TryCloneTemporaryPrefabContentsRootFromOpenedStage(
+                        prefabPath,
+                        openedPrefabRoot,
+                        out prefabContentsRoot,
+                        out errorMessage);
+                }
+            }
+
+            return PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
+                prefabPath,
+                this,
+                out prefabContentsRoot,
+                out errorMessage);
         }
 
         /// <summary> Tries to resolve one tracked preview scene back to its logical scene asset path. </summary>

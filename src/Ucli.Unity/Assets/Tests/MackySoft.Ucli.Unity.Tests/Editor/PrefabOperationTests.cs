@@ -194,13 +194,15 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Open_Plan_WhenPrefabStageIsAlreadyOpened_TracksTemporaryPrefabContentsRoot () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Open_Plan_WhenOpenedPrefabStageIsDirty_TracksTemporaryPrefabContentsSnapshot () => UniTask.ToCoroutine(async () =>
         {
             var operation = new PrefabOpenOperation();
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
-            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot", "Child");
             var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            prefabStage!.prefabContentsRoot.transform.GetChild(0).name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
             var context = scope.CreateExecutionContext();
             var requestOperation = CreateOperation(
                 opId: "op-prefab-open",
@@ -218,6 +220,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot), Is.True);
             Assert.That(prefabContentsRoot, Is.Not.Null);
             Assert.That(prefabContentsRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
+            Assert.That(prefabContentsRoot!.transform.GetChild(0).name, Is.EqualTo("Renamed"));
             Assert.That(context.TryGetTemporaryAliasState("root", out var temporaryAliasState), Is.True);
             Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
             Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
