@@ -266,6 +266,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return true;
                 }
 
+                if (TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, openedStageTarget!, out resolvedReference, out _))
+                {
+                    errorMessage = string.Empty;
+                    return true;
+                }
+
                 errorMessage = "Resolved target does not expose a stable GlobalObjectId in the current editor state.";
                 return false;
             }

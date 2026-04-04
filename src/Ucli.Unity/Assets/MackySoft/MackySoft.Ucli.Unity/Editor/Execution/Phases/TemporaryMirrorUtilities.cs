@@ -122,34 +122,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             mirrorMapping.AddStableSourcePair(sourceRoot, stableRoot);
-
-            var sourceComponents = sourceRoot.GetComponents<Component>();
-            var stableComponents = stableRoot.GetComponents<Component>();
-            var componentCount = Mathf.Min(sourceComponents.Length, stableComponents.Length);
-            for (var i = 0; i < componentCount; i++)
-            {
-                var sourceComponent = sourceComponents[i];
-                var stableComponent = stableComponents[i];
-                if (sourceComponent == null || stableComponent == null)
-                {
-                    continue;
-                }
-
-                if (sourceComponent.GetType() != stableComponent.GetType())
-                {
-                    break;
-                }
-
-                mirrorMapping.AddStableSourcePair(sourceComponent, stableComponent);
-            }
-
-            var childCount = Mathf.Min(sourceRoot.transform.childCount, stableRoot.transform.childCount);
-            for (var childIndex = 0; childIndex < childCount; childIndex++)
-            {
-                var sourceChild = sourceRoot.transform.GetChild(childIndex).gameObject;
-                var stableChild = stableRoot.transform.GetChild(childIndex).gameObject;
-                RegisterStableSourceHierarchyBestEffort(sourceChild, stableChild, mirrorMapping);
-            }
+            RegisterStableSourceComponentsBestEffort(sourceRoot, stableRoot, mirrorMapping);
+            RegisterStableSourceChildrenBestEffort(sourceRoot.transform, stableRoot.transform, mirrorMapping);
         }
 
         private static bool TryRebindMirroredComponentReferences (
@@ -217,6 +191,258 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             errorMessage = string.Empty;
+            return true;
+        }
+
+        private static void RegisterStableSourceComponentsBestEffort (
+            GameObject sourceRoot,
+            GameObject stableRoot,
+            TemporaryMirrorMapping mirrorMapping)
+        {
+            var sourceComponents = sourceRoot.GetComponents<Component>();
+            var stableComponents = stableRoot.GetComponents<Component>();
+            if (HaveMatchingComponentTypeSequence(sourceComponents, stableComponents))
+            {
+                for (var i = 0; i < sourceComponents.Length; i++)
+                {
+                    var sourceComponent = sourceComponents[i];
+                    var stableComponent = stableComponents[i];
+                    if (sourceComponent == null || stableComponent == null)
+                    {
+                        continue;
+                    }
+
+                    mirrorMapping.AddStableSourcePair(sourceComponent, stableComponent);
+                }
+
+                return;
+            }
+
+            for (var sourceIndex = 0; sourceIndex < sourceComponents.Length; sourceIndex++)
+            {
+                var sourceComponent = sourceComponents[sourceIndex];
+                if (sourceComponent == null)
+                {
+                    continue;
+                }
+
+                var sourceType = sourceComponent.GetType();
+                var sourceMatchCount = 0;
+                for (var i = 0; i < sourceComponents.Length; i++)
+                {
+                    if (sourceComponents[i] != null && sourceComponents[i]!.GetType() == sourceType)
+                    {
+                        sourceMatchCount++;
+                    }
+                }
+
+                if (sourceMatchCount != 1)
+                {
+                    continue;
+                }
+
+                var stableMatchIndex = -1;
+                var stableMatchCount = 0;
+                for (var stableIndex = 0; stableIndex < stableComponents.Length; stableIndex++)
+                {
+                    var stableComponent = stableComponents[stableIndex];
+                    if (stableComponent != null && stableComponent.GetType() == sourceType)
+                    {
+                        stableMatchIndex = stableIndex;
+                        stableMatchCount++;
+                    }
+                }
+
+                if (stableMatchCount != 1)
+                {
+                    continue;
+                }
+
+                var stableMatchedComponent = stableComponents[stableMatchIndex];
+                if (stableMatchedComponent != null)
+                {
+                    mirrorMapping.AddStableSourcePair(sourceComponent, stableMatchedComponent);
+                }
+            }
+        }
+
+        private static void RegisterStableSourceChildrenBestEffort (
+            Transform sourceTransform,
+            Transform stableTransform,
+            TemporaryMirrorMapping mirrorMapping)
+        {
+            var sourceChildren = GetDirectChildGameObjects(sourceTransform);
+            var stableChildren = GetDirectChildGameObjects(stableTransform);
+            var matchedSource = new bool[sourceChildren.Length];
+            var matchedStable = new bool[stableChildren.Length];
+
+            for (var sourceIndex = 0; sourceIndex < sourceChildren.Length; sourceIndex++)
+            {
+                var sourceChild = sourceChildren[sourceIndex];
+                var sourceNameMatchCount = CountChildrenWithName(sourceChildren, sourceChild.name);
+                if (sourceNameMatchCount != 1)
+                {
+                    continue;
+                }
+
+                var stableMatchIndex = FindUniqueChildIndexByName(stableChildren, sourceChild.name, out var stableNameMatchCount);
+                if (stableNameMatchCount != 1)
+                {
+                    continue;
+                }
+
+                matchedSource[sourceIndex] = true;
+                matchedStable[stableMatchIndex] = true;
+                RegisterStableSourceHierarchyBestEffort(sourceChild, stableChildren[stableMatchIndex], mirrorMapping);
+            }
+
+            var remainingSourceCount = 0;
+            for (var i = 0; i < matchedSource.Length; i++)
+            {
+                if (!matchedSource[i])
+                {
+                    remainingSourceCount++;
+                }
+            }
+
+            var remainingStableCount = 0;
+            for (var i = 0; i < matchedStable.Length; i++)
+            {
+                if (!matchedStable[i])
+                {
+                    remainingStableCount++;
+                }
+            }
+
+            if (remainingSourceCount != remainingStableCount)
+            {
+                return;
+            }
+
+            var stableCursor = 0;
+            for (var sourceIndex = 0; sourceIndex < sourceChildren.Length; sourceIndex++)
+            {
+                if (matchedSource[sourceIndex])
+                {
+                    continue;
+                }
+
+                while (stableCursor < stableChildren.Length && matchedStable[stableCursor])
+                {
+                    stableCursor++;
+                }
+
+                if (stableCursor >= stableChildren.Length)
+                {
+                    return;
+                }
+
+                var sourceChild = sourceChildren[sourceIndex];
+                var stableChild = stableChildren[stableCursor];
+                if (!HaveCompatibleHierarchyShape(sourceChild, stableChild))
+                {
+                    return;
+                }
+
+                RegisterStableSourceHierarchyBestEffort(sourceChild, stableChild, mirrorMapping);
+                matchedSource[sourceIndex] = true;
+                matchedStable[stableCursor] = true;
+                stableCursor++;
+            }
+        }
+
+        private static GameObject[] GetDirectChildGameObjects (Transform transform)
+        {
+            var childCount = transform.childCount;
+            var children = new GameObject[childCount];
+            for (var childIndex = 0; childIndex < childCount; childIndex++)
+            {
+                children[childIndex] = transform.GetChild(childIndex).gameObject;
+            }
+
+            return children;
+        }
+
+        private static int CountChildrenWithName (
+            GameObject[] children,
+            string childName)
+        {
+            var count = 0;
+            for (var childIndex = 0; childIndex < children.Length; childIndex++)
+            {
+                if (string.Equals(children[childIndex].name, childName, StringComparison.Ordinal))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int FindUniqueChildIndexByName (
+            GameObject[] children,
+            string childName,
+            out int matchCount)
+        {
+            var matchedIndex = -1;
+            matchCount = 0;
+            for (var childIndex = 0; childIndex < children.Length; childIndex++)
+            {
+                if (!string.Equals(children[childIndex].name, childName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                matchedIndex = childIndex;
+                matchCount++;
+            }
+
+            return matchedIndex;
+        }
+
+        private static bool HaveCompatibleHierarchyShape (
+            GameObject sourceObject,
+            GameObject stableObject)
+        {
+            if (sourceObject.transform.childCount != stableObject.transform.childCount)
+            {
+                return false;
+            }
+
+            return HaveMatchingComponentTypeSequence(
+                sourceObject.GetComponents<Component>(),
+                stableObject.GetComponents<Component>());
+        }
+
+        private static bool HaveMatchingComponentTypeSequence (
+            Component[] sourceComponents,
+            Component[] stableComponents)
+        {
+            if (sourceComponents.Length != stableComponents.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < sourceComponents.Length; i++)
+            {
+                var sourceComponent = sourceComponents[i];
+                var stableComponent = stableComponents[i];
+                if (sourceComponent == null || stableComponent == null)
+                {
+                    if (sourceComponent != stableComponent)
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
+                if (sourceComponent.GetType() != stableComponent.GetType())
+                {
+                    return false;
+                }
+            }
+
             return true;
         }
 

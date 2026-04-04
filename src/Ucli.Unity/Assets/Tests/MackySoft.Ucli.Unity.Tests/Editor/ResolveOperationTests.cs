@@ -462,6 +462,54 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Plan_WhenDirtyOpenedPrefabStageInsertsSiblingBeforeExistingChild_ResolvesCorrectPersistedStableReference () => UniTask.ToCoroutine(async () =>
+        {
+            var resolveOperation = new ResolveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ResolveOperationTests), "PrefabRoot", "ChildA", "ChildB");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            Assert.That(prefabStage, Is.Not.Null);
+            var stageRoot = prefabStage!.prefabContentsRoot;
+            Assert.That(stageRoot, Is.Not.Null);
+            Assert.That(stageRoot!.transform.Find("ChildA"), Is.Not.Null);
+
+            var insertedChild = new GameObject("Inserted");
+            insertedChild.transform.SetParent(stageRoot.transform, worldPositionStays: false);
+            insertedChild.transform.SetSiblingIndex(0);
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+
+            var prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAssetRoot, Is.Not.Null);
+            var expectedTarget = prefabAssetRoot!.transform.Find("ChildA");
+            Assert.That(expectedTarget, Is.Not.Null);
+            var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(expectedTarget!.gameObject).ToString();
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
+            Assert.That(temporaryRoot, Is.Not.Null);
+            var previewChildA = temporaryRoot!.transform.Find("ChildA");
+            Assert.That(previewChildA, Is.Not.Null);
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChildA!.gameObject, out _), Is.False);
+            var hierarchyPath = $"{temporaryRoot.name}/ChildA";
+
+            var resolveRequest = CreateOperation(
+                opId: "op-resolve",
+                alias: "resolved",
+                args: new
+                {
+                    prefab = prefabPath,
+                    hierarchyPath,
+                });
+
+            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+
+            Assert.That(resolveResult.IsSuccess, Is.True, resolveResult.Failure?.Message);
+            Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
+            Assert.That(resolvedReference, Is.Not.Null);
+            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+        });
+
         public IEnumerator Call_WhenOpenedPrefabStageTargetHasNoStableGlobalObjectId_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new PrefabOpenOperation();
