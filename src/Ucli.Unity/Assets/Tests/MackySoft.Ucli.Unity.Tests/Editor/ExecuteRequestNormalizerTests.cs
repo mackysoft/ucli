@@ -1,62 +1,877 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Validation;
+using MackySoft.Ucli.Unity.Index;
+using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestNormalizerTests
     {
-        private const string k_RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
+        private const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenRequestIsValid_ReturnsNormalizedRequestAndCanonicalPayload ()
+        public void Normalize_WhenOpRequestIsValid_ReturnsNormalizedRequestAndCanonicalPayload ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
+                    requestId = RequestId,
+                    steps = new[]
                     {
                         new
                         {
+                            kind = "op",
                             id = "resolve",
-                            op = "ucli.resolve",
+                            op = UcliPrimitiveOperationNames.Resolve,
                             args = new
                             {
                                 scene = "Assets/Scenes/Main.unity",
-                                hierarchyPath = "Root/Enemies/Spawner"
+                                hierarchyPath = "Root/Enemies/Spawner",
                             },
-                            expect = new
-                            {
-                                nonNull = true,
-                                min = 1,
-                                max = 1
-                            }
-                        }
-                    }
+                        },
+                    },
                 });
-            var normalizer = new ExecuteRequestNormalizer();
 
-            var result = normalizer.Normalize(request);
+            var result = new ExecuteRequestNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Error, Is.Null);
+
             var normalizedRequest = result.Request!;
             Assert.That(normalizedRequest.ProtocolVersion, Is.EqualTo(IpcProtocol.CurrentVersion));
-            Assert.That(normalizedRequest.RequestId, Is.EqualTo("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"));
-            Assert.That(normalizedRequest.Ops.Count, Is.EqualTo(1));
+            Assert.That(normalizedRequest.RequestId, Is.EqualTo(RequestId));
+            Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
+            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Op));
+            Assert.That(normalizedRequest.SourceSteps[0].OperationName, Is.EqualTo(UcliPrimitiveOperationNames.Resolve));
 
             var canonicalPayload = Encoding.UTF8.GetString(normalizedRequest.CanonicalDigestPayloadUtf8.ToArray());
             Assert.That(canonicalPayload, Does.Not.Contain("requestId"));
             Assert.That(canonicalPayload, Does.Contain("\"protocolVersion\":1"));
-            Assert.That(canonicalPayload, Does.Contain("\"ops\""));
+            Assert.That(canonicalPayload, Does.Contain("\"steps\""));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenEditRequestIsValid_CompilesToPrimitiveOnlyOperations ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var enemies = new GameObject("Enemies");
+            enemies.transform.SetParent(root.transform, worldPositionStays: false);
+            var spawner = new GameObject("Spawner");
+            spawner.transform.SetParent(enemies.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "editSpawner",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Enemies/Spawner",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "ensureComponent",
+                                    type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                    @as = "collider",
+                                },
+                                new
+                                {
+                                    kind = "set",
+                                    target = "$collider",
+                                    values = new
+                                    {
+                                        isTrigger = true,
+                                    },
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Error, Is.Null);
+
+            var normalizedRequest = result.Request!;
+            Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
+            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Edit));
+            var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(
+                    IpcRequestStepKind.Edit,
+                    "edit",
+                    UcliPrimitiveOperationNames.CompEnsure,
+                    UcliPrimitiveOperationNames.CompSet,
+                    UcliPrimitiveOperationNames.SceneSave);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenEditContainsDuplicateCreateAssetActions_AssignsDistinctInternalExecutionKeys ()
+        {
+            var assetPath = "Assets/Generated/Spawner.asset";
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "createAssets",
+                            on = new
+                            {
+                                project = true,
+                            },
+                            select = new
+                            {
+                                projectAsset = new
+                                {
+                                    path = "ProjectSettings/TagManager.asset",
+                                },
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = assetPath,
+                                },
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = assetPath,
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Error, Is.Null);
+            var normalizedRequest = result.Request!;
+            var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(
+                    UcliPrimitiveOperationNames.AssetCreate,
+                    UcliPrimitiveOperationNames.AssetCreate)
+                .AllHavePublicId("createAssets")
+                .HaveDistinctInternalExecutionKeys();
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenProjectContextUsesDirectProjectAssetSelection_CompilesProjectAssetSelector ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "setProjectSettings",
+                            on = new
+                            {
+                                project = true,
+                            },
+                            select = new
+                            {
+                                projectAsset = new
+                                {
+                                    path = "ProjectSettings/TagManager.asset",
+                                },
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "set",
+                                    values = new
+                                    {
+                                        m_DefaultBehaviorMode = 0,
+                                    },
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Error, Is.Null);
+            var normalizedRequest = result.Request!;
+            var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(
+                    UcliPrimitiveOperationNames.AssetSet,
+                    UcliPrimitiveOperationNames.ProjectSave)
+                .HasProjectAssetTarget(0, "ProjectSettings/TagManager.asset");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenMultiTargetEditContainsCreateAssetAction_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var spawnerA = new GameObject("SpawnerA");
+            spawnerA.transform.SetParent(root.transform, worldPositionStays: false);
+            spawnerA.AddComponent<BoxCollider>();
+            var spawnerB = new GameObject("SpawnerB");
+            spawnerB.transform.SetParent(root.transform, worldPositionStays: false);
+            spawnerB.AddComponent<BoxCollider>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "createAssetForMany",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        pathPrefix = "Root",
+                                        componentType = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                    },
+                                },
+                                cardinality = "all",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/Multi.asset",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+                var result = new ExecuteRequestNormalizer().Normalize(request);
+
+                Assert.That(result.IsSuccess, Is.True);
+                var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+                _ = new ExecuteRequestCompileFailureAssert(error)
+                    .HasInvalidArgument("createAssetForMany");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenMultiTargetEditContainsCreatePrefabAction_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var childA = new GameObject("ChildA");
+            childA.transform.SetParent(root.transform, worldPositionStays: false);
+            var childB = new GameObject("ChildB");
+            childB.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "createPrefabForMany",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        pathPrefix = "Root",
+                                    },
+                                },
+                                cardinality = "all",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createObject",
+                                    name = "GeneratedChild",
+                                    @as = "child",
+                                },
+                                new
+                                {
+                                    kind = "createPrefab",
+                                    target = "$child",
+                                    path = "Assets/Generated/Multi.prefab",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+                var result = new ExecuteRequestNormalizer().Normalize(request);
+
+                Assert.That(result.IsSuccess, Is.True);
+                var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+                _ = new ExecuteRequestCompileFailureAssert(error)
+                    .HasInvalidArgument("createPrefabForMany");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenSelectFromSceneAndLoadedSceneIsDirty_UsesLoadedSceneContents ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            root.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "deletePersistedRoot",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        pathPrefix = "Root",
+                                    },
+                                },
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Error, Is.Null);
+            var normalizedRequest = result.Request!;
+            var error = CompileSingleStepFailure(normalizedRequest, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("deletePersistedRoot");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenSceneEditMutationTargetsClosedScene_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedSceneDelete",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedSceneDelete");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenSceneEditCommitContextTargetsClosedScene_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedSceneCommit",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedSceneCommit");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenSceneOpenPrecedesClosedSceneEditCommitContext_RuntimeCompileSucceeds ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "openScene",
+                            op = UcliPrimitiveOperationNames.SceneOpen,
+                            args = new
+                            {
+                                path = scenePath,
+                            },
+                        },
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedSceneCommitAfterOpen",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var compiler = new ExecuteRequestCompiler();
+            var executionContext = scope.CreateExecutionContext();
+            Assert.That(
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                Is.True,
+                openError?.Message);
+            var openOperation = new SceneOpenOperation();
+            var openPlanResult = openOperation.Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(openPlanResult.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(
+                    IpcRequestStepKind.Edit,
+                    "edit",
+                    UcliPrimitiveOperationNames.GoDelete,
+                    UcliPrimitiveOperationNames.SceneSave);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenSceneEditTargetsLoadedScene_RuntimeCompileAndPlanSucceed ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "loadedSceneDelete",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Child",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var executionContext = scope.CreateExecutionContext();
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(UcliPrimitiveOperationNames.GoDelete);
+            Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            Assert.That(EditorSceneManager.IsPreviewScene(temporaryScene), Is.True);
+
+            var deleteResult = new GoDeleteOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(deleteResult.IsSuccess, Is.True, deleteResult.Failure?.Message);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenPrefabEditMutationTargetsClosedPrefab_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedPrefabEnsure",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = prefabRootName,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "ensureComponent",
+                                    type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedPrefabEnsure");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenPrefabEditTargetsOpenedPrefabStage_RuntimeCompileAndPlanSucceed ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "openedPrefabEnsure",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = prefabRootName,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "ensureComponent",
+                                    type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var executionContext = scope.CreateExecutionContext();
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(UcliPrimitiveOperationNames.CompEnsure);
+            Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot), Is.True);
+            Assert.That(temporaryPrefabRoot, Is.Not.Null);
+            Assert.That(temporaryPrefabRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
+
+            var ensureResult = new CompEnsureOperation().Plan(compiledOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(ensureResult.IsSuccess, Is.True, ensureResult.Failure?.Message);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenPrefabOpenPrecedesClosedPrefabEdit_RuntimeCompileSucceeds ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "openPrefab",
+                            op = UcliPrimitiveOperationNames.PrefabOpen,
+                            args = new
+                            {
+                                path = prefabPath,
+                            },
+                        },
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedPrefabEnsureAfterOpen",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = prefabRootName,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "ensureComponent",
+                                    type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var compiler = new ExecuteRequestCompiler();
+            var executionContext = scope.CreateExecutionContext();
+            Assert.That(
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                Is.True,
+                openError?.Message);
+            var openOperation = new PrefabOpenOperation();
+            var openPlanResult = openOperation.Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(openPlanResult.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(UcliPrimitiveOperationNames.CompEnsure);
         }
 
         [Test]
@@ -68,8 +883,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = Array.Empty<object>(),
+                    requestId = RequestId,
+                    steps = Array.Empty<object>(),
                 });
             request = request with
             {
@@ -91,8 +906,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = Array.Empty<object>()
+                    requestId = RequestId,
+                    steps = Array.Empty<object>(),
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
@@ -106,12 +921,14 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestA = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan,
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"setSpawner\",\"op\":\"ucli.comp.set\",\"args\":{\"target\":{\"var\":\"spawner\"},\"sets\":[{\"path\":\"spawnInterval\",\"value\":3.0}]}}]}");
+                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"steps\":[{\"kind\":\"op\",\"id\":\"setSpawner\",\"op\":\"__COMP_SET_OP__\",\"args\":{\"target\":{\"scene\":\"Assets/Scenes/Main.unity\",\"hierarchyPath\":\"Root/Spawner\",\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"},\"sets\":[{\"path\":\"isTrigger\",\"value\":true}]}}]}"
+                    .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
             var requestB = CreateExecuteRequestFromJson(
                 UcliCommandIds.Plan,
-                "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"op\":\"ucli.comp.set\",\"args\":{\"target\":{\"var\":\"spawner\"},\"sets\":[{\"value\":3.0,\"path\":\"spawnInterval\"}]},\"id\":\"setSpawner\"}],\"protocolVersion\":1}");
-            var normalizer = new ExecuteRequestNormalizer();
+                "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\"}},\"op\":\"__COMP_SET_OP__\",\"id\":\"setSpawner\",\"kind\":\"op\"}],\"protocolVersion\":1}"
+                    .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
 
+            var normalizer = new ExecuteRequestNormalizer();
             var resultA = normalizer.Normalize(requestA);
             var resultB = normalizer.Normalize(requestB);
 
@@ -129,14 +946,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = 999,
-                    requestId = k_RequestId,
-                    ops = Array.Empty<object>()
+                    requestId = RequestId,
+                    steps = Array.Empty<object>(),
                 });
-            var normalizer = new ExecuteRequestNormalizer();
 
-            var result = normalizer.Normalize(request);
+            var result = new ExecuteRequestNormalizer().Normalize(request);
 
             Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.ProtocolVersionMismatch));
             Assert.That(result.Error.OpId, Is.Null);
         }
@@ -151,7 +968,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
                     requestId = "invalid",
-                    ops = Array.Empty<object>()
+                    steps = Array.Empty<object>(),
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
@@ -168,9 +985,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = Array.Empty<object>(),
-                    unknown = true
+                    requestId = RequestId,
+                    steps = Array.Empty<object>(),
+                    unknown = true,
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
@@ -180,56 +997,31 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenOperationContainsUnknownProperty_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Query,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "q1",
-                            op = "ucli.query",
-                            args = new { },
-                            unknown = 1
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result);
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenOperationIdIsDuplicated_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenStepIdIsDuplicated_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
+                    requestId = RequestId,
+                    steps = new[]
                     {
                         new
                         {
+                            kind = "op",
                             id = "same",
-                            op = "ucli.project.refresh",
-                            args = new { }
+                            op = UcliPrimitiveOperationNames.ProjectRefresh,
+                            args = new { },
                         },
                         new
                         {
+                            kind = "op",
                             id = "same",
-                            op = "ucli.project.refresh",
-                            args = new { }
-                        }
-                    }
+                            op = UcliPrimitiveOperationNames.ProjectRefresh,
+                            args = new { },
+                        },
+                    },
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
@@ -239,22 +1031,23 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenArgsPropertyIsMissing_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenOpArgsPropertyIsMissing_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
+                    requestId = RequestId,
+                    steps = new[]
                     {
                         new
                         {
+                            kind = "op",
                             id = "missingArgs",
-                            op = "ucli.scene.open"
-                        }
-                    }
+                            op = UcliPrimitiveOperationNames.SceneOpen,
+                        },
+                    },
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
@@ -264,23 +1057,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenArgsPropertyIsNotObject_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenOpArgsPropertyIsNotObject_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
+                    requestId = RequestId,
+                    steps = new[]
                     {
                         new
                         {
+                            kind = "op",
                             id = "argsType",
-                            op = "ucli.scene.open",
-                            args = Array.Empty<object>()
-                        }
-                    }
+                            op = UcliPrimitiveOperationNames.SceneOpen,
+                            args = Array.Empty<object>(),
+                        },
+                    },
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
@@ -290,304 +1084,128 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenExpectObjectIsEmpty_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenEditCommitIsMissing_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
+                    requestId = RequestId,
+                    steps = new object[]
                     {
                         new
                         {
-                            id = "expectEmpty",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new { }
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectEmpty");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectIsNotObject_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectType",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = true
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectType");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectContainsUnknownProperty_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectUnknown",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
+                            kind = "edit",
+                            id = "missingCommit",
+                            on = new
                             {
-                                nonNull = true,
-                                unknown = 1
-                            }
-                        }
-                    }
+                                scene = "Assets/Scenes/Main.unity",
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = Array.Empty<object>(),
+                        },
+                    },
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
 
-            AssertInvalidArgument(result, "expectUnknown");
+            AssertInvalidArgument(result, "missingCommit");
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenExpectNonNullIsNotBoolean_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenSelectFromIsUsedOutsideSceneContext_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
                 UcliCommandIds.Plan,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
+                    requestId = RequestId,
+                    steps = new object[]
                     {
                         new
                         {
-                            id = "expectNonNullType",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
+                            kind = "edit",
+                            id = "prefabFrom",
+                            on = new
                             {
-                                nonNull = 1
-                            }
-                        }
-                    }
+                                prefab = "Assets/Prefabs/Enemy.prefab",
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        pathPrefix = "Root",
+                                    },
+                                },
+                                cardinality = "all",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
                 });
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
 
-            AssertInvalidArgument(result, "expectNonNullType");
+            AssertInvalidArgument(result, "prefabFrom");
         }
 
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectContainsCountAndMinMax_ReturnsInvalidArgumentError ()
+        private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (
+            NormalizedExecuteRequest request,
+            int stepIndex)
         {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectCount",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
-                            {
-                                count = 1,
-                                min = 1
-                            }
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectCount");
+            using var executionContext = new OperationExecutionContext();
+            return CompileSingleStep(request, stepIndex, executionContext);
         }
 
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectCountIsNegative_ReturnsInvalidArgumentError ()
+        private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (
+            NormalizedExecuteRequest request,
+            int stepIndex,
+            OperationExecutionContext executionContext)
         {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectCountNegative",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
-                            {
-                                count = -1
-                            }
-                        }
-                    }
-                });
+            var compiler = new ExecuteRequestCompiler();
+            var sourceStep = request.SourceSteps[stepIndex];
+            Assert.That(
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, out var compiledStep, out var compiledOperations, out var error),
+                Is.True,
+                error?.Message);
 
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectCountNegative");
+            return (compiledStep, compiledOperations);
         }
 
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectCountIsNotInteger_ReturnsInvalidArgumentError ()
+        private static ExecuteRequestNormalizationError CompileSingleStepFailure (
+            NormalizedExecuteRequest request,
+            int stepIndex,
+            OperationExecutionContext executionContext)
         {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectCountType",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
-                            {
-                                count = "1"
-                            }
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectCountType");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectMinGreaterThanMax_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectRange",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
-                            {
-                                min = 5,
-                                max = 2
-                            }
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectRange");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectMaxIsNegative_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectMaxNegative",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
-                            {
-                                max = -1
-                            }
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectMaxNegative");
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenExpectContainsNegativeConstraint_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = k_RequestId,
-                    ops = new[]
-                    {
-                        new
-                        {
-                            id = "expectNegative",
-                            op = "ucli.resolve",
-                            args = new { },
-                            expect = new
-                            {
-                                min = -1
-                            }
-                        }
-                    }
-                });
-
-            var result = new ExecuteRequestNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result, "expectNegative");
+            var compiler = new ExecuteRequestCompiler();
+            var sourceStep = request.SourceSteps[stepIndex];
+            Assert.That(
+                compiler.TryCompileExecutionStep(sourceStep, executionContext, out _, out _, out var error),
+                Is.False);
+            Assert.That(error, Is.Not.Null);
+            return error;
         }
 
         private static void AssertInvalidArgument (
             ExecuteRequestNormalizationResult result,
-            string expectedOpId = null)
+            string? expectedOpId = null)
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Request, Is.Null);
@@ -599,7 +1217,6 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcExecuteRequest CreateExecuteRequest (string command, object arguments)
         {
             var argumentsJson = JsonSerializer.Serialize(arguments);
-
             return CreateExecuteRequestFromJson(command, argumentsJson);
         }
 
@@ -610,5 +1227,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 Command: command,
                 Arguments: document.RootElement.Clone());
         }
+
     }
 }

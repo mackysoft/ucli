@@ -25,23 +25,25 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Create_Plan_WhenAliasIsSpecified_StoresTemporaryAssetAlias () => UniTask.ToCoroutine(async () =>
         {
             var createOperation = new AssetCreateOperation();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
             var requestOperation = CreateOperation(
                 opId: "op-create",
-                opName: "ucli.asset.create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
-                    path = CreateTemporaryAssetPath(),
+                    path = assetPath,
                 },
                 alias: "created");
-            var context = new OperationExecutionContext();
+            var context = scope.CreateExecutionContext();
 
             var result = await createOperation.Plan(requestOperation, context, CancellationToken.None);
 
-            AssertAssetSuccess(result, applied: false, changed: true, requestOperation.Args.GetProperty("path").GetString()!);
+            AssertAssetSuccess(result, applied: false, changed: true, assetPath);
             Assert.That(context.TryGetTemporaryAliasState("created", out var aliasState), Is.True);
             Assert.That(aliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Asset));
-            Assert.That(aliasState.Resource.Path, Is.EqualTo(requestOperation.Args.GetProperty("path").GetString()));
+            Assert.That(aliasState.Resource.Path, Is.EqualTo(assetPath));
             Assert.That(aliasState.UnityObject, Is.TypeOf<AssetOperationTestAsset>());
         });
 
@@ -50,31 +52,25 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Create_Call_WhenArgumentsAreValid_CreatesAssetAndStoresAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            try
-            {
-                var requestOperation = CreateOperation(
-                    opId: "op-create",
-                    opName: "ucli.asset.create",
-                    args: new
-                    {
-                        type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
-                        path = assetPath,
-                    },
-                    alias: "created");
-                var context = new OperationExecutionContext();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var requestOperation = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = assetPath,
+                },
+                alias: "created");
+            var context = scope.CreateExecutionContext();
 
-                var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
-                AssertAssetSuccess(result, applied: true, changed: true, assetPath);
-                Assert.That(AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath), Is.Not.Null);
-                Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
-                Assert.That(resolvedReference, Is.Not.Null);
-            }
-            finally
-            {
-                DeleteAsset(assetPath);
-            }
+            AssertAssetSuccess(result, applied: true, changed: true, assetPath);
+            Assert.That(AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath), Is.Not.Null);
+            Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
+            Assert.That(resolvedReference, Is.Not.Null);
         });
 
         [UnityTest]
@@ -82,13 +78,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
+            using var scope = new EditorTestScope();
             var requestOperation = CreateOperation(
                 opId: "op-create",
-                opName: "ucli.asset.create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(Material)),
-                    path = CreateTemporaryAssetPath(),
+                    path = scope.CreateAssetPath(nameof(AssetOperationTests)),
                 });
 
             var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
@@ -101,11 +98,12 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Create_Validate_WhenSamePathIsAlreadyPlanned_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            var context = new OperationExecutionContext();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var context = scope.CreateExecutionContext();
             var firstRequest = CreateOperation(
                 opId: "op-create-1",
-                opName: "ucli.asset.create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
@@ -113,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var secondRequest = CreateOperation(
                 opId: "op-create-2",
-                opName: "ucli.asset.create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
@@ -129,16 +127,51 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Create_Validate_WhenSamePathIsAlreadyPlannedByDifferentExecutionKey_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetCreateOperation();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var context = scope.CreateExecutionContext();
+            var firstRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = assetPath,
+                },
+                executionKey: "op-create#p0");
+            var secondRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = assetPath,
+                },
+                executionKey: "op-create#p1");
+
+            var firstResult = await operation.Plan(firstRequest, context, CancellationToken.None);
+            var secondResult = await operation.Validate(secondRequest, context, CancellationToken.None);
+
+            AssertAssetSuccess(firstResult, applied: false, changed: true, assetPath);
+            AssertInvalidArgument(secondResult, "op-create");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Set_Plan_WhenTargetUsesCreatedAlias_UpdatesTemporaryAssetState () => UniTask.ToCoroutine(async () =>
         {
             var createOperation = new AssetCreateOperation();
             var setOperation = new AssetSetOperation();
             var schemaOperation = new AssetSchemaOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            var context = new OperationExecutionContext();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var context = scope.CreateExecutionContext();
             var createRequest = CreateOperation(
                 opId: "op-create",
-                opName: "ucli.asset.create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
@@ -147,7 +180,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 alias: "created");
             var setRequest = CreateOperation(
                 opId: "op-set",
-                opName: "ucli.asset.set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
                 args: new
                 {
                     target = new
@@ -170,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var schemaRequest = CreateOperation(
                 opId: "op-schema",
-                opName: "ucli.asset.schema",
+                opName: UcliPrimitiveOperationNames.AssetSchema,
                 args: new
                 {
                     target = new
@@ -208,11 +241,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var createOperation = new AssetCreateOperation();
             var setOperation = new AssetSetOperation();
             var schemaOperation = new AssetSchemaOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            var context = new OperationExecutionContext();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var context = scope.CreateExecutionContext();
             var createRequest = CreateOperation(
                 opId: "op-create",
-                opName: "ucli.asset.create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
@@ -220,7 +254,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var setRequest = CreateOperation(
                 opId: "op-set",
-                opName: "ucli.asset.set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
                 args: new
                 {
                     target = new
@@ -243,7 +277,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var schemaRequest = CreateOperation(
                 opId: "op-schema",
-                opName: "ucli.asset.schema",
+                opName: UcliPrimitiveOperationNames.AssetSchema,
                 args: new
                 {
                     target = new
@@ -260,7 +294,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertAssetSuccess(setResult, applied: false, changed: true, assetPath);
             AssertQuerySuccess(schemaResult, applied: false);
             Assert.That(context.TryGetPlannedAssetState(assetPath, out var plannedAssetState), Is.True);
-            Assert.That(plannedAssetState.OwnerOperationId, Is.EqualTo("op-create"));
+            Assert.That(plannedAssetState.OwnerExecutionKey, Is.EqualTo("op-create"));
             Assert.That(plannedAssetState.UnityObject, Is.TypeOf<AssetOperationTestAsset>());
             var temporaryAsset = (AssetOperationTestAsset)plannedAssetState.UnityObject!;
             Assert.That(temporaryAsset.IntegerValue, Is.EqualTo(99));
@@ -275,47 +309,38 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Set_Call_WhenTargetIsScriptableObjectAsset_UpdatesValueAndLeavesAssetDirty () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            var asset = ScriptableObject.CreateInstance<AssetOperationTestAsset>();
-            try
-            {
-                AssetDatabase.CreateAsset(asset, assetPath);
-                var requestOperation = CreateOperation(
-                    opId: "op-set",
-                    opName: "ucli.asset.set",
-                    args: new
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(AssetOperationTests), out var assetPath);
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
                     {
-                        target = new
+                        assetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
                         {
-                            assetPath,
+                            path = "integerValue",
+                            value = 64,
                         },
-                        sets = new object[]
+                        new
                         {
-                            new
-                            {
-                                path = "integerValue",
-                                value = 64,
-                            },
-                            new
-                            {
-                                path = "text",
-                                value = "updated",
-                            },
+                            path = "text",
+                            value = "updated",
                         },
-                    });
+                    },
+                });
 
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertAssetSuccess(result, applied: true, changed: true, assetPath);
-                Assert.That(asset.IntegerValue, Is.EqualTo(64));
-                Assert.That(asset.Text, Is.EqualTo("updated"));
-                Assert.That(EditorUtility.IsDirty(asset), Is.True);
-            }
-            finally
-            {
-                DeleteAsset(assetPath);
-                DestroyIfTransient(asset);
-            }
+            AssertAssetSuccess(result, applied: true, changed: true, assetPath);
+            Assert.That(asset.IntegerValue, Is.EqualTo(64));
+            Assert.That(asset.Text, Is.EqualTo("updated"));
+            Assert.That(EditorUtility.IsDirty(asset), Is.True);
         });
 
         [UnityTest]
@@ -323,54 +348,47 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Set_Call_WhenLaterAssignmentFails_DoesNotPartiallyMutatePersistentAsset () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            var asset = ScriptableObject.CreateInstance<AssetOperationManagedReferenceTestAsset>();
-            try
-            {
-                asset.SetNode(new AssetOperationManagedReferenceTestAsset.IntegerNode(7));
-                AssetDatabase.CreateAsset(asset, assetPath);
-                var requestOperation = CreateOperation(
-                    opId: "op-set",
-                    opName: "ucli.asset.set",
-                    args: new
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var asset = scope.TrackUnityObject(ScriptableObject.CreateInstance<AssetOperationManagedReferenceTestAsset>());
+            asset.SetNode(new AssetOperationManagedReferenceTestAsset.IntegerNode(7));
+            AssetDatabase.CreateAsset(asset, assetPath);
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
                     {
-                        target = new
+                        assetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
                         {
-                            assetPath,
-                        },
-                        sets = new object[]
-                        {
-                            new
+                            path = "node",
+                            value = new
                             {
-                                path = "node",
+                                type = IndexTypeIdFormatter.Format(typeof(AssetOperationManagedReferenceTestAsset.TextNode)),
                                 value = new
                                 {
-                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationManagedReferenceTestAsset.TextNode)),
-                                    value = new
-                                    {
-                                        text = "after",
-                                    },
+                                    text = "after",
                                 },
                             },
-                            new
-                            {
-                                path = "missing",
-                                value = 1,
-                            },
                         },
-                    });
+                        new
+                        {
+                            path = "missing",
+                            value = 1,
+                        },
+                    },
+                });
 
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertInvalidArgument(result, "op-set");
-                Assert.That(asset.Node, Is.TypeOf<AssetOperationManagedReferenceTestAsset.IntegerNode>());
-                Assert.That(((AssetOperationManagedReferenceTestAsset.IntegerNode)asset.Node!).Number, Is.EqualTo(7));
-            }
-            finally
-            {
-                DeleteAsset(assetPath);
-                DestroyIfTransient(asset);
-            }
+            AssertInvalidArgument(result, "op-set");
+            Assert.That(asset.Node, Is.TypeOf<AssetOperationManagedReferenceTestAsset.IntegerNode>());
+            Assert.That(((AssetOperationManagedReferenceTestAsset.IntegerNode)asset.Node!).Number, Is.EqualTo(7));
         });
 
         [UnityTest]
@@ -378,41 +396,34 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Set_Call_WhenTargetIsMaterialAsset_UpdatesMaterialSerializedValue () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
-            var assetPath = CreateTemporaryMaterialPath();
-            var material = new Material(ResolveMaterialShader());
-            try
-            {
-                AssetDatabase.CreateAsset(material, assetPath);
-                var requestOperation = CreateOperation(
-                    opId: "op-set",
-                    opName: "ucli.asset.set",
-                    args: new
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests), ".mat");
+            var material = scope.TrackUnityObject(new Material(ResolveMaterialShader()));
+            AssetDatabase.CreateAsset(material, assetPath);
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
                     {
-                        target = new
+                        assetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
                         {
-                            assetPath,
+                            path = "m_CustomRenderQueue",
+                            value = 2450,
                         },
-                        sets = new object[]
-                        {
-                            new
-                            {
-                                path = "m_CustomRenderQueue",
-                                value = 2450,
-                            },
-                        },
-                    });
+                    },
+                });
 
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertAssetSuccess(result, applied: true, changed: true, assetPath);
-                Assert.That(material.renderQueue, Is.EqualTo(2450));
-                Assert.That(EditorUtility.IsDirty(material), Is.True);
-            }
-            finally
-            {
-                DeleteAsset(assetPath);
-                DestroyIfTransient(material);
-            }
+            AssertAssetSuccess(result, applied: true, changed: true, assetPath);
+            Assert.That(material.renderQueue, Is.EqualTo(2450));
+            Assert.That(EditorUtility.IsDirty(material), Is.True);
         });
 
         [UnityTest]
@@ -420,44 +431,69 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Set_Validate_WhenTargetIsSubAsset_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            var mainAsset = ScriptableObject.CreateInstance<AssetOperationTestAsset>();
-            var subAsset = ScriptableObject.CreateInstance<AssetOperationTestAsset>();
-            try
-            {
-                AssetDatabase.CreateAsset(mainAsset, assetPath);
-                AssetDatabase.AddObjectToAsset(subAsset, assetPath);
-                var context = new OperationExecutionContext();
-                context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(subAsset));
-                var requestOperation = CreateOperation(
-                    opId: "op-set",
-                    opName: "ucli.asset.set",
-                    args: new
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var mainAsset = scope.TrackUnityObject(ScriptableObject.CreateInstance<AssetOperationTestAsset>());
+            var subAsset = scope.TrackUnityObject(ScriptableObject.CreateInstance<AssetOperationTestAsset>());
+            AssetDatabase.CreateAsset(mainAsset, assetPath);
+            AssetDatabase.AddObjectToAsset(subAsset, assetPath);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateResolvedReference(subAsset));
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
                     {
-                        target = new
+                        @var = "target",
+                    },
+                    sets = new object[]
+                    {
+                        new
                         {
-                            @var = "target",
+                            path = "integerValue",
+                            value = 10,
                         },
-                        sets = new object[]
+                    },
+                });
+
+            var result = await operation.Validate(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-set");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Set_Validate_WhenTargetIsProjectSettingsAsset_ReturnsSuccess () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetSetOperation();
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
+                    {
+                        projectAssetPath = "ProjectSettings/TagManager.asset",
+                    },
+                    sets = new object[]
+                    {
+                        new
                         {
-                            new
-                            {
-                                path = "integerValue",
-                                value = 10,
-                            },
+                            path = "m_DefaultBehaviorMode",
+                            value = 0,
                         },
-                    });
+                    },
+                });
 
-                var result = await operation.Validate(requestOperation, context, CancellationToken.None);
+            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
 
-                AssertInvalidArgument(result, "op-set");
-            }
-            finally
-            {
-                DeleteAsset(assetPath);
-                DestroyIfTransient(subAsset);
-                DestroyIfTransient(mainAsset);
-            }
+            Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
+            Assert.That(result.Applied, Is.False);
+            Assert.That(result.Changed, Is.False);
+            Assert.That(result.Touched, Is.Empty);
+            Assert.That(result.Failure, Is.Null);
         });
 
         [UnityTest]
@@ -467,7 +503,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new AssetSchemaOperation();
             var requestOperation = CreateOperation(
                 opId: "op-schema",
-                opName: "ucli.asset.schema",
+                opName: UcliPrimitiveOperationNames.AssetSchema,
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(Material)),
@@ -483,34 +519,27 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Schema_Plan_WhenTargetIsMaterial_ReturnsSchemaMetadata () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSchemaOperation();
-            var assetPath = CreateTemporaryMaterialPath();
-            var material = new Material(ResolveMaterialShader());
-            try
-            {
-                AssetDatabase.CreateAsset(material, assetPath);
-                var requestOperation = CreateOperation(
-                    opId: "op-schema",
-                    opName: "ucli.asset.schema",
-                    args: new
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests), ".mat");
+            var material = scope.TrackUnityObject(new Material(ResolveMaterialShader()));
+            AssetDatabase.CreateAsset(material, assetPath);
+            var requestOperation = CreateOperation(
+                opId: "op-schema",
+                opName: UcliPrimitiveOperationNames.AssetSchema,
+                args: new
+                {
+                    target = new
                     {
-                        target = new
-                        {
-                            assetPath,
-                        },
-                    });
+                        assetPath,
+                    },
+                });
 
-                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertQuerySuccess(result, applied: false);
-                var schema = result.Result!.Value;
-                Assert.That(schema.GetProperty("kind").GetString(), Is.EqualTo("asset"));
-                Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(Material))));
-            }
-            finally
-            {
-                DeleteAsset(assetPath);
-                DestroyIfTransient(material);
-            }
+            AssertQuerySuccess(result, applied: false);
+            var schema = result.Result!.Value;
+            Assert.That(schema.GetProperty("kind").GetString(), Is.EqualTo("asset"));
+            Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(Material))));
         });
 
         private static Shader ResolveMaterialShader ()
@@ -529,28 +558,20 @@ namespace MackySoft.Ucli.Unity.Tests
             return shader;
         }
 
-        private static string CreateTemporaryAssetPath ()
-        {
-            return $"Assets/AssetOperationTests_{Guid.NewGuid():N}.asset";
-        }
-
-        private static string CreateTemporaryMaterialPath ()
-        {
-            return $"Assets/AssetOperationTests_{Guid.NewGuid():N}.mat";
-        }
-
         private static NormalizedOperation CreateOperation (
             string opId,
             string opName,
             object args,
-            string? alias = null)
+            string? alias = null,
+            string? executionKey = null)
         {
             return new NormalizedOperation(
                 Id: opId,
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
                 As: alias,
-                Expect: null);
+                Expect: null,
+                InternalExecutionKey: executionKey);
         }
 
         private static void AssertInvalidArgument (
@@ -590,35 +611,5 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Failure, Is.Null);
         }
 
-        private static void DeleteAsset (string assetPath)
-        {
-            var previousIgnoreFailingMessages = LogAssert.ignoreFailingMessages;
-            LogAssert.ignoreFailingMessages = true;
-            try
-            {
-                _ = AssetDatabase.DeleteAsset(assetPath);
-
-                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            }
-            finally
-            {
-                LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
-            }
-        }
-
-        private static void DestroyIfTransient (UnityEngine.Object unityObject)
-        {
-            if (unityObject == null)
-            {
-                return;
-            }
-
-            if (AssetDatabase.Contains(unityObject))
-            {
-                return;
-            }
-
-            UnityEngine.Object.DestroyImmediate(unityObject);
-        }
     }
 }

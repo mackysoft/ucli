@@ -2,15 +2,19 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Validation;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -41,8 +45,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.Throws<ArgumentException>(() =>
             {
                 _ = CreateRegistry(
-                    ("ucli.resolve", first),
-                    ("ucli.resolve", second));
+                    (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, first),
+                    (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, second));
             });
         }
 
@@ -70,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(applied: false, changed: true),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
             var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", "ucli.resolve");
+            var request = CreateRequest("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Plan phase execution");
 
@@ -88,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
             var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", "ucli.resolve");
+            var request = CreateRequest("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call phase execution");
 
@@ -104,8 +108,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new StatefulPhaseOperation();
             var executor = CreateExecutor(operation);
             var request = CreateRequest(
-                ("op-1", "ucli.resolve"),
-                ("op-2", "ucli.resolve"));
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve));
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Duplicate operation call execution");
 
@@ -117,11 +121,40 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallContainsDuplicateOperationNamesAndReplayIsNotRequired_DoesNotReplayPlanBeforeCall () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
+            var executor = CreateExecutor(operation);
+            var request = CreateRequest(
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve));
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Duplicate operation call execution without replay");
+
+            Assert.That(trace.IsSuccess, Is.True);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    OperationPhase.Validate,
+                    OperationPhase.Plan,
+                    OperationPhase.Validate,
+                    OperationPhase.Plan,
+                    OperationPhase.Call,
+                    OperationPhase.Call,
+                },
+                operation.CalledPhases);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsCall_UsesSharedExecutionContextAcrossAllPhases () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ContextCapturingPhaseOperation();
             var executor = CreateExecutor(operation);
-            var request = CreateRequest("op-1", "ucli.resolve");
+            var request = CreateRequest("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Shared context call execution");
 
@@ -141,11 +174,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 callResult: OperationPhaseStepResult.Success());
             var coordinator = new StubPlanTokenCoordinator(
                 issueResultFactory: _ => PlanTokenIssueResult.Success("issued-token"),
+                requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                 validationResultFactory: _ => PlanTokenValidationResult.Success());
             var executor = new OperationPhaseExecutor(
-                CreateRegistry(("ucli.resolve", operation)),
+                CreateRegistry((MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, operation)),
                 coordinator);
-            var request = CreateRequest("op-1", "ucli.resolve");
+            var request = CreateRequest("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Plan, request, "Plan token issue execution");
 
@@ -169,18 +203,19 @@ namespace MackySoft.Ucli.Unity.Tests
                 callResult: OperationPhaseStepResult.Success());
             var coordinator = new StubPlanTokenCoordinator(
                 issueResultFactory: _ => PlanTokenIssueResult.Success("unused"),
+                requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
                 validationResultFactory: _ => PlanTokenValidationResult.Failed(new OperationFailure(
                     Code: IpcErrorCodes.PlanTokenInvalid,
                     Message: "invalid token",
                     OpId: null)));
             var executor = new OperationPhaseExecutor(
                 CreateRegistry(
-                    ("ucli.resolve", firstOperation),
-                    ("ucli.scene.open", secondOperation)),
+                    (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, firstOperation),
+                    (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, secondOperation)),
                 coordinator);
             var request = CreateRequest(
-                ("op-1", "ucli.resolve"),
-                ("op-2", "ucli.scene.open"));
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen));
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Plan token validation failure execution");
 
@@ -196,6 +231,54 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallCompileFailsAfterPlanTokenPrevalidation_ReturnsStateChangedSincePlan () => UniTask.ToCoroutine(async () =>
+        {
+            var request = CreateRequest(
+                operations: new[] { ("edit-1", "unused") },
+                planToken: "token",
+                canonicalPayloadJson: "{}");
+            var planPassResult = new PlanPassResult(
+                CompiledSteps: new[]
+                {
+                    new NormalizedRequestStep("edit-1", IpcRequestStepKind.Edit, "edit", 1),
+                },
+                CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
+                OperationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        OpId: "edit-1",
+                        Op: "edit",
+                        Phase: OperationPhase.Validate,
+                        Applied: false,
+                        Changed: false,
+                        Touched: Array.Empty<OperationTouch>(),
+                        Failure: new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
+                },
+                Errors: new[]
+                {
+                    new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
+                },
+                PreparedOperations: Array.Empty<PreparedOperation>());
+            var executor = new OperationPhaseExecutor(
+                new StubPlanPassExecutor(planPassResult),
+                new OperationCallPassExecutor(),
+                new StubPlanTokenCoordinator(
+                    issueResultFactory: _ => throw new InvalidOperationException("Issue should not be called."),
+                    requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
+                    validationResultFactory: _ => throw new InvalidOperationException("ValidateCall should not be called after compile failure.")));
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call compile failure should map to state drift");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+            Assert.That(trace.Errors[0].OpId, Is.EqualTo("edit-1"));
+            Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
@@ -207,20 +290,21 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var executor = new OperationPhaseExecutor(CreateRegistry(
-                ("ucli.resolve", failingOperation),
-                ("ucli.scene.open", skippedOperation)));
+                (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, failingOperation),
+                (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
             var request = CreateRequest(
-                ("op-1", "ucli.resolve"),
-                ("op-2", "ucli.scene.open"));
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen));
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Validate failure execution");
 
             Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Steps.Count, Is.EqualTo(2));
+            Assert.That(trace.Steps[0].PrimitiveCount, Is.EqualTo(1));
+            Assert.That(trace.Steps[1].PrimitiveCount, Is.EqualTo(0));
+            Assert.That(trace.OperationTraces.Count, Is.EqualTo(1));
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
-            Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Skipped));
-            Assert.That(trace.OperationTraces[1].Applied, Is.False);
-            Assert.That(trace.OperationTraces[1].Changed, Is.False);
             Assert.That(skippedOperation.CalledPhases.Count, Is.EqualTo(0));
         });
 
@@ -237,17 +321,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var executor = new OperationPhaseExecutor(CreateRegistry(
-                ("ucli.resolve", failingOperation),
-                ("ucli.scene.open", skippedOperation)));
+                (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, failingOperation),
+                (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
             var request = CreateRequest(
-                ("op-1", "ucli.resolve"),
-                ("op-2", "ucli.scene.open"));
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen));
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Plan failure execution");
 
             Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Steps.Count, Is.EqualTo(2));
+            Assert.That(trace.Steps[0].PrimitiveCount, Is.EqualTo(1));
+            Assert.That(trace.Steps[1].PrimitiveCount, Is.EqualTo(0));
+            Assert.That(trace.OperationTraces.Count, Is.EqualTo(1));
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
-            Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Skipped));
             Assert.That(skippedOperation.CalledPhases.Count, Is.EqualTo(0));
         });
 
@@ -264,11 +351,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var executor = new OperationPhaseExecutor(CreateRegistry(
-                ("ucli.resolve", failingOperation),
-                ("ucli.scene.open", skippedOperation)));
+                (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, failingOperation),
+                (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, skippedOperation)));
             var request = CreateRequest(
-                ("op-1", "ucli.resolve"),
-                ("op-2", "ucli.scene.open"));
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen));
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call failure execution");
 
@@ -288,12 +375,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var environment = scope.CreateEnvironment();
             var coordinator = new PlanTokenCoordinator(environment);
             var request = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
                 canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
-            var result = coordinator.ValidateCall(request, traces);
+            var result = coordinator.ValidateCall(request, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
@@ -310,16 +397,41 @@ namespace MackySoft.Ucli.Unity.Tests
             var environment = scope.CreateEnvironment();
             var coordinator = new PlanTokenCoordinator(environment);
             var request = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
                 canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
-            var issueResult = coordinator.Issue(request, traces);
+            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(issueResult.IsSuccess, Is.True);
             Assert.That(issueResult.PlanToken, Is.Not.Null.And.Not.Empty);
             Assert.That(File.Exists(scope.PlanTokenKeyPath), Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Issue_WhenTokenIsIssued_UsesCurrentCompactTokenFormatVersion ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
+
+            Assert.That(issueResult.IsSuccess, Is.True);
+            Assert.That(issueResult.PlanToken, Is.Not.Null.And.Not.Empty);
+            Assert.That(PlanTokenCompactCodec.TryDecodeToken(issueResult.PlanToken!, out var decodedToken), Is.True);
+            Assert.That(decodedToken, Is.Not.Null);
+            Assert.That(decodedToken!.Header.KeyId, Is.EqualTo(PlanTokenCompactCodec.TokenKeyId));
+            Assert.That(decodedToken.Payload.KeyId, Is.EqualTo(PlanTokenCompactCodec.TokenKeyId));
+            Assert.That(decodedToken.Payload.Version, Is.EqualTo(PlanTokenCompactCodec.TokenVersion));
+            Assert.That(PlanTokenCompactCodec.IsSupported(decodedToken), Is.True);
         }
 
         [Test]
@@ -330,12 +442,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var environment = scope.CreateEnvironment();
             var coordinator = new PlanTokenCoordinator(environment);
             var request = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
                 canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
-            var issueResult = coordinator.Issue(request, traces);
+            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
             Assert.That(issueResult.IsSuccess, Is.True);
 
             environment.UtcNow = environment.UtcNow.AddMinutes(16).AddSeconds(31);
@@ -344,10 +456,49 @@ namespace MackySoft.Ucli.Unity.Tests
                 PlanToken = issueResult.PlanToken,
             };
 
-            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+            var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
             Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenExpired));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ValidateCall_WhenLegacyTokenOmitsCompiledExecutionDigest_ReturnsPlanTokenInvalid ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var currentIssueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
+            Assert.That(currentIssueResult.IsSuccess, Is.True);
+
+            var signingKey = ReadSigningKey(scope.PlanTokenKeyPath);
+            var legacyToken = CreateLegacyPlanTokenWithoutCompiledExecutionDigest(
+                signingKey,
+                version: PlanTokenCompactCodec.TokenVersion,
+                keyId: PlanTokenCompactCodec.TokenKeyId,
+                projectFingerprint: scope.ProjectFingerprint,
+                requestDigest: Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span),
+                stateFingerprint: PlanTokenStateFingerprintCalculator.Compute(environment.Capture(), traces),
+                issuedAtUtc: environment.UtcNow,
+                expiresAtUtc: environment.UtcNow.AddMinutes(15),
+                nonce: "legacy-nonce");
+            var validationRequest = request with
+            {
+                PlanToken = legacyToken,
+            };
+
+            var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
+
+            Assert.That(validationResult.IsSuccess, Is.False);
+            Assert.That(validationResult.Failure, Is.Not.Null);
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenInvalid));
         }
 
         [Test]
@@ -358,22 +509,50 @@ namespace MackySoft.Ucli.Unity.Tests
             var environment = scope.CreateEnvironment();
             var coordinator = new PlanTokenCoordinator(environment);
             var originalRequest = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
                 canonicalPayloadJson: "{\"ops\":[{\"id\":\"op-1\"}],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
-            var issueResult = coordinator.Issue(originalRequest, traces);
+            var issueResult = coordinator.Issue(originalRequest, traces, CreateCompiledDigestPayloadUtf8());
             Assert.That(issueResult.IsSuccess, Is.True);
 
             var modifiedRequest = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: issueResult.PlanToken,
                 canonicalPayloadJson: "{\"ops\":[{\"id\":\"op-2\"}],\"protocolVersion\":1}");
-            var validationResult = coordinator.ValidateCall(modifiedRequest, traces);
+            var validationResult = coordinator.ValidateCall(modifiedRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
             Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenRequestMismatch));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ValidateCall_WhenCompiledExecutionDigestDiffers_ReturnsStateChangedSincePlan ()
+        {
+            using var scope = new PlanTokenTestScope();
+            var environment = scope.CreateEnvironment();
+            var coordinator = new PlanTokenCoordinator(environment);
+            var request = CreateRequest(
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
+                planToken: null,
+                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
+            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
+
+            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
+            Assert.That(issueResult.IsSuccess, Is.True);
+
+            var validationRequest = request with
+            {
+                PlanToken = issueResult.PlanToken,
+            };
+            var changedDigestPayload = Encoding.UTF8.GetBytes("{\"ops\":[{\"id\":\"different\"}],\"steps\":[]}");
+            var validationResult = coordinator.ValidateCall(validationRequest, traces, changedDigestPayload);
+
+            Assert.That(validationResult.IsSuccess, Is.False);
+            Assert.That(validationResult.Failure, Is.Not.Null);
+            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
         }
 
         [Test]
@@ -393,12 +572,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var environment = scope.CreateEnvironment();
             var coordinator = new PlanTokenCoordinator(environment);
             var request = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
                 canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, touchedPath);
 
-            var issueResult = coordinator.Issue(request, traces);
+            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
             Assert.That(issueResult.IsSuccess, Is.True);
 
             File.WriteAllText(touchedAbsolutePath, "after");
@@ -408,7 +587,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 PlanToken = issueResult.PlanToken,
             };
-            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+            var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
             Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
@@ -442,12 +621,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var environment = scope.CreateEnvironment();
             var coordinator = new PlanTokenCoordinator(environment);
             var request = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
                 canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, touchedPath);
 
-            var issueResult = coordinator.Issue(request, traces);
+            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
             Assert.That(issueResult.IsSuccess, Is.True);
 
             File.WriteAllText(siblingAbsolutePath, "sibling-after");
@@ -457,7 +636,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 PlanToken = issueResult.PlanToken,
             };
-            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+            var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.True);
             Assert.That(validationResult.Failure, Is.Null);
@@ -471,12 +650,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var environment = scope.CreateEnvironment();
             var coordinator = new PlanTokenCoordinator(environment);
             var request = CreateRequest(
-                operations: new[] { ("op-1", "ucli.resolve") },
+                operations: new[] { ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve) },
                 planToken: null,
                 canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
             var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, "Assets/Scenes/Main.unity");
 
-            var issueResult = coordinator.Issue(request, traces);
+            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
             Assert.That(issueResult.IsSuccess, Is.True);
 
             File.WriteAllText(scope.PlanTokenKeyPath, "broken-key");
@@ -485,7 +664,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 PlanToken = issueResult.PlanToken,
             };
-            var validationResult = coordinator.ValidateCall(validationRequest, traces);
+            var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
             Assert.That(validationResult.IsSuccess, Is.False);
             Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenInvalid));
@@ -505,7 +684,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executor = CreateExecutor(operation);
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
-            var request = CreateRequest("op-1", "ucli.resolve");
+            var request = CreateRequest("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
 
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
@@ -513,9 +692,43 @@ namespace MackySoft.Ucli.Unity.Tests
             }, "Canceled operation phase execution", AsyncWaitTimeout);
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenPreCallPlanReplayFails_ReturnsReplayFailureAndSkipsRemainingOperations () => UniTask.ToCoroutine(async () =>
+        {
+            var replayOperation = new ReplayFailingPhaseOperation();
+            var secondOperation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: false));
+            var executor = new OperationPhaseExecutor(CreateRegistry(
+                ("ucli.tests.replay-failing", replayOperation),
+                (MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, secondOperation)));
+            var request = CreateRequest(
+                ("op-1", "ucli.tests.replay-failing"),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve));
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Replay failure before call execution");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.OperationTraces.Count, Is.EqualTo(2));
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.OperationTraces[1].Phase, Is.EqualTo(OperationPhase.Skipped));
+            CollectionAssert.AreEqual(
+                new[] { OperationPhase.Validate, OperationPhase.Plan, OperationPhase.Plan },
+                replayOperation.CalledPhases);
+            CollectionAssert.AreEqual(
+                new[] { OperationPhase.Validate, OperationPhase.Plan },
+                secondOperation.CalledPhases);
+        });
+
         private static OperationPhaseExecutor CreateExecutor (IUcliOperation operation)
         {
-            return new OperationPhaseExecutor(CreateRegistry(("ucli.resolve", operation)));
+            return new OperationPhaseExecutor(CreateRegistry((MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, operation)));
         }
 
         private static UniTask<PhaseExecutionTrace> ExecuteAsync (
@@ -540,8 +753,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 registrations[i] = new UcliOperationRegistration(
                     new UcliOperationMetadata(
                         operationName: operations[i].Name,
-                        kind: UcliOperationKind.Query,
-                        policy: OperationPolicy.Safe),
+                        kind: operations[i].Operation.Metadata.Kind,
+                        policy: operations[i].Operation.Metadata.Policy,
+                        argsSchemaJson: operations[i].Operation.Metadata.ArgsSchemaJson,
+                        requiresPreCallPlanReplay: operations[i].Operation.Metadata.RequiresPreCallPlanReplay),
                     operations[i].Operation);
             }
 
@@ -563,22 +778,27 @@ namespace MackySoft.Ucli.Unity.Tests
             string? planToken,
             string canonicalPayloadJson)
         {
-            var normalizedOperations = new List<NormalizedOperation>(operations.Length);
+            var sourceSteps = new List<IpcRequestContractStep>(operations.Length);
             for (var i = 0; i < operations.Length; i++)
             {
                 var operation = operations[i];
-                normalizedOperations.Add(new NormalizedOperation(
+                sourceSteps.Add(new IpcRequestContractStep(
+                    Kind: IpcRequestStepKind.Op,
                     Id: operation.OpId,
-                    Op: operation.Op,
-                    Args: JsonSerializer.SerializeToElement(new { }),
-                    As: null,
-                    Expect: null));
+                    OperationName: operation.Op,
+                    Element: JsonSerializer.SerializeToElement(new
+                    {
+                        kind = "op",
+                        id = operation.OpId,
+                        op = operation.Op,
+                        args = new { },
+                    })));
             }
 
             return new NormalizedExecuteRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Ops: normalizedOperations,
+                SourceSteps: sourceSteps,
                 PlanToken: planToken,
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes(canonicalPayloadJson));
         }
@@ -613,7 +833,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 new OperationPhaseTrace(
                     OpId: "op-1",
-                    Op: "ucli.resolve",
+                    Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve,
                     Phase: OperationPhase.Plan,
                     Applied: false,
                     Changed: false,
@@ -625,27 +845,79 @@ namespace MackySoft.Ucli.Unity.Tests
             };
         }
 
+        private static ReadOnlyMemory<byte> CreateCompiledDigestPayloadUtf8 ()
+        {
+            return Encoding.UTF8.GetBytes("{\"ops\":[],\"steps\":[]}");
+        }
+
+        private static byte[] ReadSigningKey (string planTokenKeyPath)
+        {
+            var encodedKey = File.ReadAllText(planTokenKeyPath).Trim();
+            return Convert.FromBase64String(encodedKey);
+        }
+
+        private static string CreateLegacyPlanTokenWithoutCompiledExecutionDigest (
+            byte[] signingKey,
+            int version,
+            string keyId,
+            string projectFingerprint,
+            string requestDigest,
+            string stateFingerprint,
+            DateTimeOffset issuedAtUtc,
+            DateTimeOffset expiresAtUtc,
+            string nonce)
+        {
+            var headerBytes = Encoding.UTF8.GetBytes("{\"alg\":\"HS256\",\"kid\":\"v1\",\"typ\":\"ucli-plan-token\"}");
+            var payloadBytes = JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                v = version,
+                kid = keyId,
+                projectFingerprint,
+                requestDigest,
+                stateFingerprint,
+                issuedAtUtc = issuedAtUtc.ToUniversalTime().ToString("O"),
+                expiresAtUtc = expiresAtUtc.ToUniversalTime().ToString("O"),
+                nonce,
+            });
+            var headerSegment = Base64UrlCodec.Encode(headerBytes);
+            var payloadSegment = Base64UrlCodec.Encode(payloadBytes);
+            var signingInput = headerSegment + "." + payloadSegment;
+            var signingInputBytes = Encoding.UTF8.GetBytes(signingInput);
+
+            using var hmac = new HMACSHA256(signingKey);
+            var signatureBytes = hmac.ComputeHash(signingInputBytes);
+            var signatureSegment = Base64UrlCodec.Encode(signatureBytes);
+            return signingInput + "." + signatureSegment;
+        }
+
         private sealed class StubPlanTokenCoordinator : IPlanTokenCoordinator
         {
             private readonly Func<NormalizedExecuteRequest, PlanTokenIssueResult> issueResultFactory;
+
+            private readonly Func<NormalizedExecuteRequest, PlanTokenValidationResult> requestValidationResultFactory;
 
             private readonly Func<NormalizedExecuteRequest, PlanTokenValidationResult> validationResultFactory;
 
             public StubPlanTokenCoordinator (
                 Func<NormalizedExecuteRequest, PlanTokenIssueResult> issueResultFactory,
+                Func<NormalizedExecuteRequest, PlanTokenValidationResult> requestValidationResultFactory,
                 Func<NormalizedExecuteRequest, PlanTokenValidationResult> validationResultFactory)
             {
                 this.issueResultFactory = issueResultFactory ?? throw new ArgumentNullException(nameof(issueResultFactory));
+                this.requestValidationResultFactory = requestValidationResultFactory ?? throw new ArgumentNullException(nameof(requestValidationResultFactory));
                 this.validationResultFactory = validationResultFactory ?? throw new ArgumentNullException(nameof(validationResultFactory));
             }
 
             public int IssueCallCount { get; private set; }
+
+            public int ValidateCallRequestCount { get; private set; }
 
             public int ValidateCallCount { get; private set; }
 
             public PlanTokenIssueResult Issue (
                 NormalizedExecuteRequest request,
                 IReadOnlyList<OperationPhaseTrace> operationTraces,
+                ReadOnlyMemory<byte> compiledDigestPayloadUtf8,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -653,14 +925,43 @@ namespace MackySoft.Ucli.Unity.Tests
                 return issueResultFactory(request);
             }
 
+            public PlanTokenValidationResult ValidateCallRequest (
+                NormalizedExecuteRequest request,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateCallRequestCount++;
+                return requestValidationResultFactory(request);
+            }
+
             public PlanTokenValidationResult ValidateCall (
                 NormalizedExecuteRequest request,
                 IReadOnlyList<OperationPhaseTrace> operationTraces,
+                ReadOnlyMemory<byte> compiledDigestPayloadUtf8,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateCallCount++;
                 return validationResultFactory(request);
+            }
+        }
+
+        private sealed class StubPlanPassExecutor : IOperationPlanPassExecutor
+        {
+            private readonly PlanPassResult result;
+
+            public StubPlanPassExecutor (PlanPassResult result)
+            {
+                this.result = result;
+            }
+
+            public Task<PlanPassResult> Execute (
+                NormalizedExecuteRequest request,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult(result);
             }
         }
 
@@ -796,7 +1097,9 @@ namespace MackySoft.Ucli.Unity.Tests
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.stateful",
                 kind: UcliOperationKind.Query,
-                policy: OperationPolicy.Safe);
+                policy: OperationPolicy.Safe,
+                argsSchemaJson: "{\"type\":\"object\"}",
+                requiresPreCallPlanReplay: true);
 
             public Task<OperationPhaseStepResult> Validate (
                 NormalizedOperation operation,
@@ -832,6 +1135,59 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
 
                 return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        private sealed class ReplayFailingPhaseOperation : IUcliOperation
+        {
+            private int planCallCount;
+
+            public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+                operationName: "ucli.tests.replay-failing",
+                kind: UcliOperationKind.Mutation,
+                policy: OperationPolicy.Advanced,
+                argsSchemaJson: "{\"type\":\"object\"}",
+                requiresPreCallPlanReplay: true);
+
+            public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();
+
+            public Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CalledPhases.Add(OperationPhase.Validate);
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            public Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CalledPhases.Add(OperationPhase.Plan);
+                planCallCount++;
+                if (planCallCount >= 2)
+                {
+                    return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
+                        Code: IpcErrorCodes.InvalidArgument,
+                        Message: "Replay plan failed.",
+                        OpId: operation.Id)));
+                }
+
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: true));
+            }
+
+            public Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CalledPhases.Add(OperationPhase.Call);
+                return Task.FromResult(OperationPhaseStepResult.Success(applied: true, changed: true));
             }
         }
 

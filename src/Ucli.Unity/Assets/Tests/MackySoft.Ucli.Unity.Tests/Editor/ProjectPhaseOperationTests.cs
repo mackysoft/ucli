@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -29,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new ProjectRefreshPhaseOperation();
             var requestOperation = CreateOperation(
                 opId: "op-refresh",
-                opName: "ucli.project.refresh",
+                opName: UcliPrimitiveOperationNames.ProjectRefresh,
                 args: new
                 {
                     unexpected = true,
@@ -47,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new ProjectRefreshPhaseOperation();
             var requestOperation = CreateOperation(
                 opId: "op-refresh",
-                opName: "ucli.project.refresh",
+                opName: UcliPrimitiveOperationNames.ProjectRefresh,
                 args: new { });
 
             var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
@@ -61,33 +62,84 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Refresh_Call_WhenExternalAssetIsCreated_ImportsAssetAndReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectRefreshPhaseOperation();
-            var assetPath = CreateTemporaryTextAssetPath();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(ProjectPhaseOperationTests), ".txt");
             var absoluteAssetPath = ToAbsolutePath(assetPath);
             var assetDirectoryPath = Path.GetDirectoryName(absoluteAssetPath);
-            try
+            if (!string.IsNullOrWhiteSpace(assetDirectoryPath))
             {
-                if (!string.IsNullOrWhiteSpace(assetDirectoryPath))
-                {
-                    Directory.CreateDirectory(assetDirectoryPath);
-                }
-
-                File.WriteAllText(absoluteAssetPath, "refresh-test");
-                var requestOperation = CreateOperation(
-                    opId: "op-refresh",
-                    opName: "ucli.project.refresh",
-                    args: new { });
-
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
-
-                AssertSuccess(result, applied: true, changed: true);
-                Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath), Is.Not.Null);
-                Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
+                Directory.CreateDirectory(assetDirectoryPath);
             }
-            finally
-            {
-                DeleteAssetAndFiles(assetPath);
-            }
+
+            File.WriteAllText(absoluteAssetPath, "refresh-test");
+            var requestOperation = CreateOperation(
+                opId: "op-refresh",
+                opName: UcliPrimitiveOperationNames.ProjectRefresh,
+                args: new { });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: true);
+            Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath), Is.Not.Null);
+            Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void SyncDirtyStateChanges_WhenSceneTransitionsToDirty_MarksRequestAttributedChangeAndTouchesScene ()
+        {
+            var scenePath = "Assets/ProjectPhaseOperationTests_Scene.unity";
+            var executionContext = new OperationExecutionContext();
+            var touched = new List<OperationTouch>();
+
+            ProjectOperationUtilities.SyncDirtyStateChanges(
+                new Dictionary<string, bool>(StringComparer.Ordinal)
+                {
+                    [scenePath] = false,
+                },
+                new Dictionary<string, bool>(StringComparer.Ordinal)
+                {
+                    [scenePath] = true,
+                },
+                OperationTouchKind.Scene,
+                touched,
+                executionContext);
+
+            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            Assert.That(executionContext.HasRequestAttributedChange(resource), Is.True);
+            Assert.That(touched, Has.Count.EqualTo(1));
+            Assert.That(touched[0].Kind, Is.EqualTo(OperationTouchKind.Scene));
+            Assert.That(touched[0].Path, Is.EqualTo(scenePath));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void SyncDirtyStateChanges_WhenPrefabTransitionsToClean_ClearsRequestAttributedChangeAndTouchesPrefab ()
+        {
+            var prefabPath = "Assets/ProjectPhaseOperationTests_Prefab.prefab";
+            var executionContext = new OperationExecutionContext();
+            var resource = new OperationResource(OperationTouchKind.Prefab, prefabPath);
+            executionContext.MarkRequestAttributedChange(resource);
+            var touched = new List<OperationTouch>();
+
+            ProjectOperationUtilities.SyncDirtyStateChanges(
+                new Dictionary<string, bool>(StringComparer.Ordinal)
+                {
+                    [prefabPath] = true,
+                },
+                new Dictionary<string, bool>(StringComparer.Ordinal)
+                {
+                    [prefabPath] = false,
+                },
+                OperationTouchKind.Prefab,
+                touched,
+                executionContext);
+
+            Assert.That(executionContext.HasRequestAttributedChange(resource), Is.False);
+            Assert.That(touched, Has.Count.EqualTo(1));
+            Assert.That(touched[0].Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(touched[0].Path, Is.EqualTo(prefabPath));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -96,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new ProjectSavePhaseOperation();
             var requestOperation = CreateOperation(
                 opId: "op-save",
-                opName: "ucli.project.save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
             var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
@@ -110,35 +162,26 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Save_Call_WhenScriptableObjectAssetIsDirty_SavesAssetAndReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectSavePhaseOperation();
-            var assetPath = CreateTemporaryAssetPath();
-            var asset = ScriptableObject.CreateInstance<IndexCatalogTestAsset>();
-            try
-            {
-                AssetDatabase.CreateAsset(asset, assetPath);
-                AssetDatabase.SaveAssets();
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<IndexCatalogTestAsset>(nameof(ProjectPhaseOperationTests), out var assetPath);
+            AssetDatabase.SaveAssets();
 
-                var serializedObject = new SerializedObject(asset);
-                serializedObject.FindProperty("speed").floatValue = 42.0f;
-                serializedObject.ApplyModifiedPropertiesWithoutUndo();
-                EditorUtility.SetDirty(asset);
-                Assert.That(EditorUtility.IsDirty(asset), Is.True);
+            var serializedObject = new SerializedObject(asset);
+            serializedObject.FindProperty("speed").floatValue = 42.0f;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(asset);
+            Assert.That(EditorUtility.IsDirty(asset), Is.True);
 
-                var requestOperation = CreateOperation(
-                    opId: "op-save",
-                    opName: "ucli.project.save",
-                    args: new { });
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
 
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertSuccess(result, applied: true, changed: true);
-                Assert.That(EditorUtility.IsDirty(asset), Is.False);
-                Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(asset, allowDestroyingAssets: true);
-                DeleteAssetAndFiles(assetPath);
-            }
+            AssertSuccess(result, applied: true, changed: true);
+            Assert.That(EditorUtility.IsDirty(asset), Is.False);
+            Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
         });
 
         [UnityTest]
@@ -146,71 +189,31 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Save_Call_WhenOnlySceneIsDirty_DoesNotSaveScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectSavePhaseOperation();
-            var scenePath = CreateTemporaryScenePath();
-            try
-            {
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                _ = new GameObject("Root");
-                EditorSceneManager.SaveScene(scene, scenePath);
-                _ = new GameObject("DirtySceneObject");
-                EditorSceneManager.MarkSceneDirty(scene);
-                Assert.That(scene.isDirty, Is.True);
-                var requestOperation = CreateOperation(
-                    opId: "op-save",
-                    opName: "ucli.project.save",
-                    args: new { });
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ProjectPhaseOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            _ = new GameObject("DirtySceneObject");
+            EditorSceneManager.MarkSceneDirty(scene);
+            Assert.That(scene.isDirty, Is.True);
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
 
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertSuccess(result, applied: true, changed: false);
-                Assert.That(scene.isDirty, Is.True);
-                Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene), Is.False);
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(scenePath);
-            }
+            AssertSuccess(result, applied: true, changed: false);
+            Assert.That(scene.isDirty, Is.True);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene), Is.False);
         });
-
-        private static string CreateTemporaryTextAssetPath ()
-        {
-            return $"Assets/ProjectPhaseOperationTests_{Guid.NewGuid():N}.txt";
-        }
-
-        private static string CreateTemporaryAssetPath ()
-        {
-            return $"Assets/ProjectPhaseOperationTests_{Guid.NewGuid():N}.asset";
-        }
-
-        private static string CreateTemporaryScenePath ()
-        {
-            return $"Assets/ProjectPhaseOperationTests_{Guid.NewGuid():N}.unity";
-        }
 
         private static string ToAbsolutePath (string assetPath)
         {
             return Path.Combine(
                 UnityProjectPathResolver.ResolveProjectRootPath(),
                 PathStringNormalizer.ToPlatformSeparated(assetPath));
-        }
-
-        private static void DeleteAssetAndFiles (string assetPath)
-        {
-            _ = AssetDatabase.DeleteAsset(assetPath);
-            var absolutePath = ToAbsolutePath(assetPath);
-            var metaPath = absolutePath + ".meta";
-            if (File.Exists(absolutePath))
-            {
-                File.Delete(absolutePath);
-            }
-
-            if (File.Exists(metaPath))
-            {
-                File.Delete(metaPath);
-            }
-
-            AssetDatabase.Refresh();
         }
 
         private static NormalizedOperation CreateOperation (
