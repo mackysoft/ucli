@@ -68,6 +68,37 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        public bool TryResolveTrackedComponentResource (
+            Component component,
+            out OperationResource resource)
+        {
+            if (component == null)
+            {
+                throw new ArgumentNullException(nameof(component));
+            }
+
+            foreach (var pair in componentShadowsByGlobalObjectId)
+            {
+                if (pair.Value.Component == component)
+                {
+                    resource = pair.Value.Resource;
+                    return true;
+                }
+            }
+
+            foreach (var pair in ensuredComponentsByKey)
+            {
+                if (pair.Value.Component == component)
+                {
+                    resource = pair.Value.Resource;
+                    return true;
+                }
+            }
+
+            resource = default;
+            return false;
+        }
+
         public void SetComponentShadow (
             string globalObjectId,
             Component component,

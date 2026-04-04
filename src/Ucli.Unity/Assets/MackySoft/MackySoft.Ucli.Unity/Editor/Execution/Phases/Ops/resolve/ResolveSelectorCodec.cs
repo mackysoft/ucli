@@ -11,8 +11,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             (ResolveSelectorPropertyNames.GlobalObjectId, SelectorPropertyKind.GlobalObjectId),
             (ResolveSelectorPropertyNames.AssetGuid, SelectorPropertyKind.AssetGuid),
             (ResolveSelectorPropertyNames.AssetPath, SelectorPropertyKind.AssetPath),
+            (ResolveSelectorPropertyNames.ProjectAssetPath, SelectorPropertyKind.ProjectAssetPath),
             (ResolveSelectorPropertyNames.Scene, SelectorPropertyKind.Scene),
+            (ResolveSelectorPropertyNames.Prefab, SelectorPropertyKind.Prefab),
             (ResolveSelectorPropertyNames.HierarchyPath, SelectorPropertyKind.HierarchyPath),
+            (ResolveSelectorPropertyNames.ComponentType, SelectorPropertyKind.ComponentType),
         };
 
         private enum SelectorPropertyKind
@@ -20,8 +23,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             GlobalObjectId,
             AssetGuid,
             AssetPath,
+            ProjectAssetPath,
             Scene,
+            Prefab,
             HierarchyPath,
+            ComponentType,
         }
 
         private struct SelectorParseState
@@ -29,13 +35,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public bool HasGlobalObjectId;
             public bool HasAssetGuid;
             public bool HasAssetPath;
+            public bool HasProjectAssetPath;
             public bool HasScenePath;
+            public bool HasPrefabPath;
             public bool HasHierarchyPath;
+            public bool HasComponentType;
             public string? GlobalObjectId;
             public string? AssetGuid;
             public string? AssetPath;
+            public string? ProjectAssetPath;
             public string? ScenePath;
+            public string? PrefabPath;
             public string? HierarchyPath;
+            public string? ComponentType;
         }
 
         /// <summary> Parses one selector from operation arguments. </summary>
@@ -76,9 +88,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            if (state.HasScenePath != state.HasHierarchyPath)
+            if ((state.HasScenePath || state.HasPrefabPath) != state.HasHierarchyPath)
             {
-                errorMessage = $"Operation 'args' requires both '{ResolveSelectorPropertyNames.Scene}' and '{ResolveSelectorPropertyNames.HierarchyPath}' when one is specified.";
+                errorMessage =
+                    $"Operation 'args' requires hierarchy selectors to specify either '{ResolveSelectorPropertyNames.Scene}' or '{ResolveSelectorPropertyNames.Prefab}' together with '{ResolveSelectorPropertyNames.HierarchyPath}'.";
+                return false;
+            }
+
+            if (state.HasScenePath && state.HasPrefabPath)
+            {
+                errorMessage =
+                    $"Operation 'args' must not specify both '{ResolveSelectorPropertyNames.Scene}' and '{ResolveSelectorPropertyNames.Prefab}'.";
+                return false;
+            }
+
+            if (state.HasComponentType && !(state.HasScenePath || state.HasPrefabPath))
+            {
+                errorMessage =
+                    $"Operation 'args' property '{ResolveSelectorPropertyNames.ComponentType}' requires '{ResolveSelectorPropertyNames.Scene}' or '{ResolveSelectorPropertyNames.Prefab}' with '{ResolveSelectorPropertyNames.HierarchyPath}'.";
                 return false;
             }
 
@@ -86,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (selectorCount != 1)
             {
                 errorMessage =
-                    $"Operation 'args' must specify exactly one selector: '{ResolveSelectorPropertyNames.GlobalObjectId}', '{ResolveSelectorPropertyNames.AssetGuid}', '{ResolveSelectorPropertyNames.AssetPath}', or '{ResolveSelectorPropertyNames.Scene}' + '{ResolveSelectorPropertyNames.HierarchyPath}'.";
+                    $"Operation 'args' must specify exactly one selector: '{ResolveSelectorPropertyNames.GlobalObjectId}', '{ResolveSelectorPropertyNames.AssetGuid}', '{ResolveSelectorPropertyNames.AssetPath}', '{ResolveSelectorPropertyNames.ProjectAssetPath}', '{ResolveSelectorPropertyNames.Scene}' + '{ResolveSelectorPropertyNames.HierarchyPath}', or '{ResolveSelectorPropertyNames.Prefab}' + '{ResolveSelectorPropertyNames.HierarchyPath}'.";
                 return false;
             }
 
@@ -108,7 +135,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            selector = ResolveSelector.FromSceneHierarchy(state.ScenePath!, state.HierarchyPath!);
+            if (state.HasProjectAssetPath)
+            {
+                selector = ResolveSelector.FromProjectAssetPath(state.ProjectAssetPath!);
+                return true;
+            }
+
+            if (state.HasScenePath)
+            {
+                selector = ResolveSelector.FromSceneHierarchy(state.ScenePath!, state.HierarchyPath!, state.ComponentType);
+                return true;
+            }
+
+            selector = ResolveSelector.FromPrefabHierarchy(state.PrefabPath!, state.HierarchyPath!, state.ComponentType);
             return true;
         }
 
@@ -189,6 +228,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     state.AssetPath = assetPath;
                     return true;
+                case SelectorPropertyKind.ProjectAssetPath:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.ProjectAssetPath,
+                        ref state.HasProjectAssetPath,
+                        out var projectAssetPath,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.ProjectAssetPath = projectAssetPath;
+                    return true;
                 case SelectorPropertyKind.Scene:
                     if (!TryReadUniqueRequiredString(
                         property,
@@ -202,6 +254,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     state.ScenePath = scenePath;
                     return true;
+                case SelectorPropertyKind.Prefab:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.Prefab,
+                        ref state.HasPrefabPath,
+                        out var prefabPath,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.PrefabPath = prefabPath;
+                    return true;
                 case SelectorPropertyKind.HierarchyPath:
                     if (!TryReadUniqueRequiredString(
                         property,
@@ -214,6 +279,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
 
                     state.HierarchyPath = hierarchyPath;
+                    return true;
+                case SelectorPropertyKind.ComponentType:
+                    if (!TryReadUniqueRequiredString(
+                        property,
+                        ResolveSelectorPropertyNames.ComponentType,
+                        ref state.HasComponentType,
+                        out var componentType,
+                        out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    state.ComponentType = componentType;
                     return true;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported selector property kind.");
@@ -271,7 +349,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 selectorCount++;
             }
 
-            if (state.HasScenePath)
+            if (state.HasProjectAssetPath)
+            {
+                selectorCount++;
+            }
+
+            if (state.HasScenePath || state.HasPrefabPath || state.HasHierarchyPath || state.HasComponentType)
             {
                 selectorCount++;
             }

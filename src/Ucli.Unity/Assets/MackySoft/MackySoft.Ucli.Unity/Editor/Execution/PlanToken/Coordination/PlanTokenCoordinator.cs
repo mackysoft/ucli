@@ -33,14 +33,17 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         {
         }
 
-        /// <summary> Issues one plan token from normalized request and plan traces. </summary>
-        /// <param name="request"> The normalized request model. </param>
-        /// <param name="operationTraces"> The plan-phase operation traces. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
-        /// <returns> The token issue result. </returns>
+        /// <summary>
+        /// Issues one plan token from a normalized request and its plan-phase primitive traces.
+        /// </summary>
+        /// <param name="request"> The normalized request model. Must not be <see langword="null" />. </param>
+        /// <param name="operationTraces"> The plan-phase primitive traces used to derive the state fingerprint. Must not be <see langword="null" />. </param>
+        /// <returns> The token issue result that includes request, compiled-execution, and state fingerprints when issuance succeeds. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> or <paramref name="operationTraces" /> is <see langword="null" />. </exception>
         public PlanTokenIssueResult Issue (
             NormalizedExecuteRequest request,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
+            ReadOnlyMemory<byte> compiledDigestPayloadUtf8,
             CancellationToken cancellationToken = default)
         {
             if (request == null)
@@ -59,6 +62,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             {
                 var snapshot = environment.Capture();
                 var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span);
+                var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.Span);
                 var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);
 
                 if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
@@ -76,6 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     KeyId: PlanTokenCompactCodec.TokenKeyId,
                     ProjectFingerprint: snapshot.ProjectFingerprint,
                     RequestDigest: requestDigest,
+                    CompiledExecutionDigest: compiledExecutionDigest,
                     StateFingerprint: stateFingerprint,
                     IssuedAtUtc: issuedAtUtc,
                     ExpiresAtUtc: expiresAtUtc,
@@ -97,14 +102,52 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             }
         }
 
-        /// <summary> Validates one incoming call plan token against request and current state. </summary>
-        /// <param name="request"> The normalized request model. </param>
-        /// <param name="operationTraces"> The pre-call plan traces. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
-        /// <returns> The validation result. </returns>
+        /// <summary>
+        /// Validates one incoming call plan token against the current request, compiler output, and project state.
+        /// </summary>
+        /// <param name="request"> The normalized request model. Must not be <see langword="null" />. </param>
+        /// <param name="operationTraces"> The pre-call primitive traces used to recompute the state fingerprint. Must not be <see langword="null" />. </param>
+        /// <returns> The validation result. Missing tokens are accepted only when plan tokens are optional for the current project configuration. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> or <paramref name="operationTraces" /> is <see langword="null" />. </exception>
+        public PlanTokenValidationResult ValidateCallRequest (
+            NormalizedExecuteRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                return TryValidateCallRequestCore(
+                    request,
+                    out _,
+                    out _,
+                    out var failure,
+                    cancellationToken)
+                    ? PlanTokenValidationResult.Success()
+                    : PlanTokenValidationResult.Failed(failure!);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                return PlanTokenValidationResult.Failed(new OperationFailure(
+                    Code: IpcErrorCodes.InternalError,
+                    Message: $"Failed to validate plan token. {exception.Message}",
+                    OpId: null));
+            }
+        }
+
         public PlanTokenValidationResult ValidateCall (
             NormalizedExecuteRequest request,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
+            ReadOnlyMemory<byte> compiledDigestPayloadUtf8,
             CancellationToken cancellationToken = default)
         {
             if (request == null)
@@ -121,70 +164,28 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
             try
             {
-                var snapshot = environment.Capture();
-                var config = PlanTokenConfigResolver.Resolve(snapshot.RepositoryRoot);
-                if (string.IsNullOrWhiteSpace(request.PlanToken))
+                if (!TryValidateCallRequestCore(
+                        request,
+                        out var snapshot,
+                        out var decodedToken,
+                        out var failure,
+                        cancellationToken))
                 {
-                    if (config.Mode == PlanTokenMode.Required)
-                    {
-                        return PlanTokenValidationResult.Failed(new OperationFailure(
-                            Code: IpcErrorCodes.PlanTokenRequired,
-                            Message: "Plan token is required for call execution.",
-                            OpId: null));
-                    }
+                    return PlanTokenValidationResult.Failed(failure!);
+                }
 
+                if (decodedToken == null)
+                {
                     return PlanTokenValidationResult.Success();
                 }
 
-                if (!PlanTokenCompactCodec.TryDecodeToken(request.PlanToken, out var decodedToken))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token format is invalid."));
-                }
-
-                if (!PlanTokenCompactCodec.IsSupported(decodedToken))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token header values are not supported."));
-                }
-
-                if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
-                {
-                    return PlanTokenValidationResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.InternalError,
-                        Message: keyErrorMessage ?? "Failed to load plan-token signing key.",
-                        OpId: null));
-                }
-
-                if (!PlanTokenCompactCodec.VerifySignature(decodedToken, signingKey))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token signature is invalid."));
-                }
-
                 var payload = decodedToken.Payload;
-                if (!string.Equals(payload.ProjectFingerprint, snapshot.ProjectFingerprint, StringComparison.Ordinal))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token project fingerprint does not match current project."));
-                }
-
-                var nowUtc = environment.UtcNow;
-                if (nowUtc > payload.ExpiresAtUtc.Add(ClockSkew))
+                var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.Span);
+                if (!string.Equals(compiledExecutionDigest, payload.CompiledExecutionDigest, StringComparison.Ordinal))
                 {
                     return PlanTokenValidationResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.PlanTokenExpired,
-                        Message: "Plan token has expired.",
-                        OpId: null));
-                }
-
-                if (nowUtc < payload.IssuedAtUtc.Subtract(ClockSkew))
-                {
-                    return PlanTokenValidationResult.Failed(CreateInvalidTokenFailure("Plan token issued-at timestamp is in the future."));
-                }
-
-                var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span);
-                if (!string.Equals(requestDigest, payload.RequestDigest, StringComparison.Ordinal))
-                {
-                    return PlanTokenValidationResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.PlanTokenRequestMismatch,
-                        Message: "Plan token request digest does not match current request.",
+                        Code: IpcErrorCodes.StateChangedSincePlan,
+                        Message: "Compiled execution changed since plan token issuance.",
                         OpId: null));
                 }
 
@@ -210,6 +211,96 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     Message: $"Failed to validate plan token. {exception.Message}",
                     OpId: null));
             }
+        }
+
+        private bool TryValidateCallRequestCore (
+            NormalizedExecuteRequest request,
+            out PlanTokenEnvironmentSnapshot snapshot,
+            out PlanTokenDecodedToken? decodedToken,
+            out OperationFailure? failure,
+            CancellationToken cancellationToken)
+        {
+            snapshot = environment.Capture();
+            decodedToken = null;
+            failure = null;
+
+            var config = PlanTokenConfigResolver.Resolve(snapshot.RepositoryRoot);
+            if (string.IsNullOrWhiteSpace(request.PlanToken))
+            {
+                if (config.Mode == PlanTokenMode.Required)
+                {
+                    failure = new OperationFailure(
+                        Code: IpcErrorCodes.PlanTokenRequired,
+                        Message: "Plan token is required for call execution.",
+                        OpId: null);
+                    return false;
+                }
+
+                return true;
+            }
+
+            if (!PlanTokenCompactCodec.TryDecodeToken(request.PlanToken, out var parsedToken))
+            {
+                failure = CreateInvalidTokenFailure("Plan token format is invalid.");
+                return false;
+            }
+
+            if (!PlanTokenCompactCodec.IsSupported(parsedToken))
+            {
+                failure = CreateInvalidTokenFailure("Plan token header values are not supported.");
+                return false;
+            }
+
+            if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
+            {
+                failure = new OperationFailure(
+                    Code: IpcErrorCodes.InternalError,
+                    Message: keyErrorMessage ?? "Failed to load plan-token signing key.",
+                    OpId: null);
+                return false;
+            }
+
+            if (!PlanTokenCompactCodec.VerifySignature(parsedToken, signingKey))
+            {
+                failure = CreateInvalidTokenFailure("Plan token signature is invalid.");
+                return false;
+            }
+
+            var payload = parsedToken.Payload;
+            if (!string.Equals(payload.ProjectFingerprint, snapshot.ProjectFingerprint, StringComparison.Ordinal))
+            {
+                failure = CreateInvalidTokenFailure("Plan token project fingerprint does not match current project.");
+                return false;
+            }
+
+            var nowUtc = environment.UtcNow;
+            if (nowUtc > payload.ExpiresAtUtc.Add(ClockSkew))
+            {
+                failure = new OperationFailure(
+                    Code: IpcErrorCodes.PlanTokenExpired,
+                    Message: "Plan token has expired.",
+                    OpId: null);
+                return false;
+            }
+
+            if (nowUtc < payload.IssuedAtUtc.Subtract(ClockSkew))
+            {
+                failure = CreateInvalidTokenFailure("Plan token issued-at timestamp is in the future.");
+                return false;
+            }
+
+            var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span);
+            if (!string.Equals(requestDigest, payload.RequestDigest, StringComparison.Ordinal))
+            {
+                failure = new OperationFailure(
+                    Code: IpcErrorCodes.PlanTokenRequestMismatch,
+                    Message: "Plan token request digest does not match current request.",
+                    OpId: null);
+                return false;
+            }
+
+            decodedToken = parsedToken;
+            return true;
         }
 
         /// <summary> Creates one invalid-token failure entry. </summary>

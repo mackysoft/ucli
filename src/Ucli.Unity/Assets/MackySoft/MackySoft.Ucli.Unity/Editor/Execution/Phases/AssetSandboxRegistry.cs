@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             temporaryAliasRegistry.SynchronizeBySourceGlobalObjectId(
                 globalObjectId,
                 unityObject,
-                new OperationResource(OperationTouchKind.Asset, assetPath));
+                OperationResource.PersistentAsset(assetPath));
         }
 
         public bool TryGetAssetShadow (

@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         public void SetPlannedAsset (
             string assetPath,
-            string ownerOperationId,
+            string ownerExecutionKey,
             UnityEngine.Object unityObject,
             TemporaryAliasRegistry temporaryAliasRegistry)
         {
@@ -28,9 +28,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(unityObject));
             }
 
-            if (string.IsNullOrWhiteSpace(ownerOperationId))
+            if (string.IsNullOrWhiteSpace(ownerExecutionKey))
             {
-                throw new ArgumentException("Owner operation id must not be null, empty, or whitespace.", nameof(ownerOperationId));
+                throw new ArgumentException("Owner execution key must not be null, empty, or whitespace.", nameof(ownerExecutionKey));
             }
 
             if (temporaryAliasRegistry == null)
@@ -46,10 +46,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 temporaryAliasRegistry.ReplaceTrackedObject(
                     previousValue.UnityObject,
                     unityObject,
-                    new OperationResource(OperationTouchKind.Asset, normalizedAssetPath));
+                    OperationResource.PersistentAsset(normalizedAssetPath));
             }
 
-            valuesByAssetPath[normalizedAssetPath] = new PlannedAssetValue(ownerOperationId, unityObject);
+            valuesByAssetPath[normalizedAssetPath] = new PlannedAssetValue(ownerExecutionKey, unityObject);
         }
 
         public bool TryGetState (
@@ -74,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            state = new PlannedAssetState(value.OwnerOperationId, normalizedAssetPath, value.UnityObject);
+            state = new PlannedAssetState(value.OwnerExecutionKey, normalizedAssetPath, value.UnityObject);
             return true;
         }
 
@@ -86,14 +86,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly struct PlannedAssetValue
         {
             public PlannedAssetValue (
-                string ownerOperationId,
+                string ownerExecutionKey,
                 UnityEngine.Object unityObject)
             {
-                OwnerOperationId = ownerOperationId;
+                OwnerExecutionKey = ownerExecutionKey;
                 UnityObject = unityObject;
             }
 
-            public string OwnerOperationId { get; }
+            public string OwnerExecutionKey { get; }
 
             public UnityEngine.Object UnityObject { get; }
         }
@@ -101,16 +101,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal readonly struct PlannedAssetState
         {
             public PlannedAssetState (
-                string ownerOperationId,
+                string ownerExecutionKey,
                 string assetPath,
                 UnityEngine.Object unityObject)
             {
-                OwnerOperationId = ownerOperationId;
+                OwnerExecutionKey = ownerExecutionKey;
                 AssetPath = assetPath;
                 UnityObject = unityObject;
             }
 
-            public string OwnerOperationId { get; }
+            public string OwnerExecutionKey { get; }
 
             public string AssetPath { get; }
 

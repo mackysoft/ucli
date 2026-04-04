@@ -93,27 +93,5 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Touched: Array.Empty<OperationTouch>(),
                 Failure: null);
         }
-
-        /// <summary> Counts operation-name usage in one request. </summary>
-        /// <param name="operations"> The normalized operations. </param>
-        /// <returns> The usage count per operation name. </returns>
-        public static Dictionary<string, int> CountOperationUse (IReadOnlyList<NormalizedOperation> operations)
-        {
-            var useCounts = new Dictionary<string, int>(operations.Count, StringComparer.Ordinal);
-            for (var i = 0; i < operations.Count; i++)
-            {
-                var operationName = operations[i].Op;
-                if (useCounts.TryGetValue(operationName, out var count))
-                {
-                    useCounts[operationName] = count + 1;
-                }
-                else
-                {
-                    useCounts.Add(operationName, 1);
-                }
-            }
-
-            return useCounts;
-        }
     }
 }

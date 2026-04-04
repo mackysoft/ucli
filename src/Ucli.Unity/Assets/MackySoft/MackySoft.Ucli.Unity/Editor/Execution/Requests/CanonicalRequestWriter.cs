@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc.Validation;
 
 namespace MackySoft.Ucli.Unity.Execution.Requests
 {
@@ -15,16 +16,16 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
         /// <summary> Writes canonical UTF-8 payload bytes for request digest material. </summary>
         /// <param name="protocolVersion"> The request protocol version. </param>
-        /// <param name="operations"> The normalized operation sequence. </param>
-        /// <returns> Canonical UTF-8 payload bytes containing only <c>protocolVersion</c> and <c>ops</c>. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operations" /> is <see langword="null" />. </exception>
+        /// <param name="steps"> The validated public step sequence. </param>
+        /// <returns> Canonical UTF-8 payload bytes containing only <c>protocolVersion</c> and <c>steps</c>. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="steps" /> is <see langword="null" />. </exception>
         public static ReadOnlyMemory<byte> WriteDigestPayload (
             int protocolVersion,
-            IReadOnlyList<NormalizedOperation> operations)
+            IReadOnlyList<IpcRequestContractStep> steps)
         {
-            if (operations == null)
+            if (steps == null)
             {
-                throw new ArgumentNullException(nameof(operations));
+                throw new ArgumentNullException(nameof(steps));
             }
 
             using var stream = new MemoryStream();
@@ -34,11 +35,11 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             });
 
             writer.WriteStartObject();
-            writer.WritePropertyName("ops");
+            writer.WritePropertyName("steps");
             writer.WriteStartArray();
-            for (var i = 0; i < operations.Count; i++)
+            for (var i = 0; i < steps.Count; i++)
             {
-                WriteOperation(writer, operations[i]);
+                WriteStep(writer, steps[i]);
             }
 
             writer.WriteEndArray();
@@ -48,74 +49,20 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             return stream.ToArray();
         }
 
-        /// <summary> Writes one canonical operation object. </summary>
+        /// <summary> Writes one canonical public step object. </summary>
         /// <param name="writer"> The target writer. </param>
-        /// <param name="operation"> The operation model. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operation" /> is <see langword="null" />. </exception>
-        private static void WriteOperation (
+        /// <param name="step"> The public step model. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="step" /> is <see langword="null" />. </exception>
+        private static void WriteStep (
             Utf8JsonWriter writer,
-            NormalizedOperation operation)
+            IpcRequestContractStep step)
         {
-            if (operation == null)
+            if (step == null)
             {
-                throw new ArgumentNullException(nameof(operation));
+                throw new ArgumentNullException(nameof(step));
             }
 
-            writer.WriteStartObject();
-            writer.WritePropertyName("args");
-            WriteCanonicalJsonValueCore(writer, operation.Args);
-
-            if (operation.As is not null)
-            {
-                writer.WriteString("as", operation.As);
-            }
-
-            if (operation.Expect is not null)
-            {
-                writer.WritePropertyName("expect");
-                WriteExpectation(writer, operation.Expect);
-            }
-
-            writer.WriteString("id", operation.Id);
-            writer.WriteString("op", operation.Op);
-            writer.WriteEndObject();
-        }
-
-        /// <summary> Writes one canonical expectation object. </summary>
-        /// <param name="writer"> The target writer. </param>
-        /// <param name="expectation"> The expectation model. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="expectation" /> is <see langword="null" />. </exception>
-        private static void WriteExpectation (
-            Utf8JsonWriter writer,
-            NormalizedExpectation expectation)
-        {
-            if (expectation == null)
-            {
-                throw new ArgumentNullException(nameof(expectation));
-            }
-
-            writer.WriteStartObject();
-            if (expectation.Count.HasValue)
-            {
-                writer.WriteNumber("count", expectation.Count.Value);
-            }
-
-            if (expectation.Max.HasValue)
-            {
-                writer.WriteNumber("max", expectation.Max.Value);
-            }
-
-            if (expectation.Min.HasValue)
-            {
-                writer.WriteNumber("min", expectation.Min.Value);
-            }
-
-            if (expectation.NonNull.HasValue)
-            {
-                writer.WriteBoolean("nonNull", expectation.NonNull.Value);
-            }
-
-            writer.WriteEndObject();
+            WriteCanonicalJsonValueCore(writer, step.Element);
         }
 
         /// <summary> Writes one canonical JSON value recursively. </summary>

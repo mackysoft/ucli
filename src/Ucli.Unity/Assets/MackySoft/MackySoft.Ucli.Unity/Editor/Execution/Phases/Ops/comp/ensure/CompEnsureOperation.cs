@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 
@@ -25,12 +26,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     ""var"": { ""type"": ""string"", ""minLength"": 1 },
                     ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
                     ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
                     ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
                   },
                   ""oneOf"": [
                     { ""required"": [""var""] },
                     { ""required"": [""globalObjectId""] },
-                    { ""required"": [""scene"", ""hierarchyPath""] }
+                    { ""required"": [""scene"", ""hierarchyPath""] },
+                    { ""required"": [""prefab"", ""hierarchyPath""] }
                   ]
                 },
                 ""type"": { ""type"": ""string"", ""minLength"": 1 }
@@ -39,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.comp.ensure",
+            operationName: UcliPrimitiveOperationNames.CompEnsure,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -154,6 +157,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     StoreAliasIfNeeded(operation.As, executionContext, component!, validationState.Resource);
                 }
+            }
+
+            if (changed)
+            {
+                executionContext.MarkRequestAttributedChange(validationState.Resource);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(

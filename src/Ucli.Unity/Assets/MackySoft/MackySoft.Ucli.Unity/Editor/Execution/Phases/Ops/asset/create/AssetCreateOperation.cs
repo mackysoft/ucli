@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.asset.create",
+            operationName: UcliPrimitiveOperationNames.AssetCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -80,13 +80,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
-            executionContext.SetPlannedAsset(assetPath!, operation.Id, temporaryAsset!);
+            executionContext.SetPlannedAsset(assetPath!, operation.EffectiveExecutionKey, temporaryAsset!);
             if (operation.As != null)
             {
                 executionContext.SetTemporaryAlias(
                     operation.As,
                     temporaryAsset!,
-                    new OperationResource(OperationTouchKind.Asset, assetPath!));
+                    OperationResource.PersistentAsset(assetPath!));
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -188,7 +188,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (string.Equals(plannedAssetState.OwnerOperationId, operation.Id, System.StringComparison.Ordinal))
+            if (string.Equals(plannedAssetState.OwnerExecutionKey, operation.EffectiveExecutionKey, System.StringComparison.Ordinal))
             {
                 return true;
             }

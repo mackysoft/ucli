@@ -14,6 +14,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         private const string AssetExtension = ".asset";
 
+        private const string ProjectSettingsRootPrefix = "ProjectSettings/";
+
         /// <summary> Validates one create-path contract and returns the normalized asset path. </summary>
         /// <param name="assetPath"> The raw asset path. </param>
         /// <param name="normalizedAssetPath"> The normalized asset path when valid. </param>
@@ -105,7 +107,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 assetPath = temporaryAliasState.Resource.Path;
                 sourceGlobalObjectId = temporaryAliasState.SourceGlobalObjectId;
-                if (temporaryAliasState.Resource.Kind != OperationTouchKind.Asset)
+                if (temporaryAliasState.Resource.Kind != OperationTouchKind.Asset
+                    && temporaryAliasState.Resource.Kind != OperationTouchKind.ProjectSettings)
                 {
                     errorMessage = "Reference did not resolve to an asset.";
                     assetPath = string.Empty;
@@ -156,7 +159,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            sourceGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(unityObject!).GlobalObjectId;
+            sourceGlobalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(unityObject!, out var resolvedReference)
+                ? resolvedReference!.GlobalObjectId
+                : null;
             return true;
         }
 
@@ -286,11 +291,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The touched asset entry. </returns>
         public static OperationTouch CreateAssetTouch (string assetPath)
         {
-            var guid = AssetDatabase.AssetPathToGUID(assetPath);
-            return new OperationTouch(
-                Kind: OperationTouchKind.Asset,
-                Path: assetPath,
-                Guid: string.IsNullOrWhiteSpace(guid) ? null : guid);
+            return OperationResourceUtilities.CreateTouch(OperationResource.PersistentAsset(assetPath));
         }
 
         private static bool TryValidateTemporaryAssetTarget (
@@ -327,6 +328,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             assetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            if (IsProjectSettingsAssetPath(assetPath))
+            {
+                return TryValidatePersistentMainAssetIdentity(unityObject, assetPath, out errorMessage);
+            }
+
             if (!UnityAssetPathUtility.IsAssetsDescendantPath(assetPath))
             {
                 errorMessage = $"Asset path must be under '{UnityAssetPathUtility.AssetsRootPrefix}'. Actual: {assetPath}.";
@@ -339,6 +345,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            return TryValidatePersistentMainAssetIdentity(unityObject, assetPath, out errorMessage);
+        }
+
+        private static bool TryValidatePersistentMainAssetIdentity (
+            UnityEngine.Object unityObject,
+            string assetPath,
+            out string errorMessage)
+        {
             var mainAsset = AssetDatabase.LoadMainAssetAtPath(assetPath);
             if (mainAsset == null || mainAsset != unityObject)
             {
@@ -348,6 +362,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             errorMessage = string.Empty;
             return true;
+        }
+
+        private static bool IsProjectSettingsAssetPath (string assetPath)
+        {
+            return assetPath.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal);
         }
     }
 }

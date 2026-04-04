@@ -1,5 +1,4 @@
 using System;
-using UnityEditor;
 using UnityEngine;
 
 #nullable enable
@@ -49,9 +48,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var children = currentDepth >= maxDepth
                 ? Array.Empty<GameObjectDescription>()
                 : BuildChildren(transform, currentDepth, maxDepth);
+            var globalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(gameObject, out var resolvedReference)
+                ? resolvedReference!.GlobalObjectId
+                : string.Empty;
             return new GameObjectDescription(
                 Name: gameObject.name,
-                GlobalObjectId: GlobalObjectId.GetGlobalObjectIdSlow(gameObject).ToString(),
+                GlobalObjectId: globalObjectId,
                 Components: componentDescriptions,
                 Children: children);
         }

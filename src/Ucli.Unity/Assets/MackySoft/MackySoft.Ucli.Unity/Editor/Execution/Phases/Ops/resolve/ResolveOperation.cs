@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
@@ -19,19 +20,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
                 ""assetGuid"": { ""type"": ""string"", ""minLength"": 1 },
                 ""assetPath"": { ""type"": ""string"", ""minLength"": 1 },
+                ""projectAssetPath"": { ""type"": ""string"", ""minLength"": 1 },
                 ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
+                ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
+                ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 },
+                ""componentType"": { ""type"": ""string"", ""minLength"": 1 }
               },
               ""oneOf"": [
                 { ""required"": [""globalObjectId""] },
                 { ""required"": [""assetGuid""] },
                 { ""required"": [""assetPath""] },
-                { ""required"": [""scene"", ""hierarchyPath""] }
+                { ""required"": [""projectAssetPath""] },
+                { ""required"": [""scene"", ""hierarchyPath""] },
+                { ""required"": [""prefab"", ""hierarchyPath""] }
+              ],
+              ""allOf"": [
+                {
+                  ""if"": { ""required"": [""componentType""] },
+                  ""then"": {
+                    ""oneOf"": [
+                      { ""required"": [""scene"", ""hierarchyPath""] }
+                    ]
+                  }
+                }
               ]
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.resolve",
+            operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
@@ -57,6 +73,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
                     $"'{ResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string."));
+            }
+
+            if (!TryValidateSupportedSelector(selector, operation.Id, out var unsupportedSelectorResult))
+            {
+                return Task.FromResult(unsupportedSelectorResult!);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
@@ -103,7 +124,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage));
             }
 
-            if (!ResolveReferenceResolver.TryResolve(selector, out var resolvedReference, out var resolveErrorMessage))
+            if (!TryValidateSupportedSelector(selector, operation.Id, out var unsupportedSelectorResult))
+            {
+                return Task.FromResult(unsupportedSelectorResult!);
+            }
+
+            if (!ResolveReferenceResolver.TryResolveStableReference(selector, executionContext, allowTemporaryState: !applied, out var resolvedReference, out var resolveErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, resolveErrorMessage));
             }
@@ -127,6 +153,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.AliasStore.Set(alias, resolvedReference);
+        }
+
+        private static bool TryValidateSupportedSelector (
+            ResolveSelector selector,
+            string operationId,
+            out OperationPhaseStepResult? failure)
+        {
+            failure = null;
+            if (selector.Kind != ResolveSelectorKind.PrefabComponent)
+            {
+                return true;
+            }
+
+            failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                operationId,
+                "Operation 'ucli.resolve' does not support prefab component selectors.");
+            return false;
         }
 
     }

@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -24,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.prefab.open",
+            operationName: UcliPrimitiveOperationNames.PrefabOpen,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
@@ -54,10 +55,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            GameObject? prefabContentsRoot;
             if (!PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
                 validationState.PrefabPath,
                 executionContext,
-                out var prefabContentsRoot,
+                out prefabContentsRoot,
                 out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
@@ -68,8 +70,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.SetTemporaryAlias(
                     operation.As,
                     prefabContentsRoot!,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
+                    OperationResource.Prefab(validationState.PrefabPath));
             }
+
+            executionContext.TrackPlannedLivePrefabOpen(validationState.PrefabPath);
 
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
@@ -109,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.SetTemporaryAlias(
                     operation.As,
                     prefabContentsRoot,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
+                    OperationResource.Prefab(validationState.PrefabPath));
                 if (UnityObjectReferenceResolver.TryCreateResolvedReference(prefabContentsRoot, out var resolvedReference))
                 {
                     executionContext.AliasStore.Set(operation.As, resolvedReference!);

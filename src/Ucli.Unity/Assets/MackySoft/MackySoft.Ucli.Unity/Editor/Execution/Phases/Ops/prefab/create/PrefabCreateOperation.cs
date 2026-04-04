@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
 using UnityEngine;
@@ -39,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.prefab.create",
+            operationName: UcliPrimitiveOperationNames.PrefabCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -84,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: true,
                 touched: OperationResourceUtilities.CreateTouches(
                     validationState.SourceResource,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
+                    OperationResource.Prefab(validationState.PrefabPath))));
         }
 
         public Task<OperationPhaseStepResult> Call (
@@ -117,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: true,
                 touched: OperationResourceUtilities.CreateTouches(
                     validationState.SourceResource,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
+                    OperationResource.Prefab(validationState.PrefabPath))));
         }
 
         private static bool TryValidateArguments (

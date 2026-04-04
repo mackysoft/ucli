@@ -26,13 +26,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     ""var"": { ""type"": ""string"", ""minLength"": 1 },
                     ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
                     ""assetGuid"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""assetPath"": { ""type"": ""string"", ""minLength"": 1 }
+                    ""assetPath"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""projectAssetPath"": { ""type"": ""string"", ""minLength"": 1 }
                   },
                   ""oneOf"": [
                     { ""required"": [""var""] },
                     { ""required"": [""globalObjectId""] },
                     { ""required"": [""assetGuid""] },
-                    { ""required"": [""assetPath""] }
+                    { ""required"": [""assetPath""] },
+                    { ""required"": [""projectAssetPath""] }
                   ]
                 }
               },
@@ -48,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly AssetTargetSchemaBuilder targetSchemaBuilder = new AssetTargetSchemaBuilder();
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.asset.schema",
+            operationName: UcliPrimitiveOperationNames.AssetSchema,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);

@@ -21,6 +21,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
+            return TryResolve(reference, executionContext, allowTemporaryState: false, out unityObject, out errorMessage);
+        }
+
+        /// <summary> Tries to resolve one Unity-object reference to a live Unity object. </summary>
+        /// <param name="reference"> The parsed reference. </param>
+        /// <param name="executionContext"> The request execution context. Must not be <see langword="null" />. </param>
+        /// <param name="allowTemporaryState"> <see langword="true" /> to allow request-local prefab planning state to satisfy selector resolution before persisted state is consulted. </param>
+        /// <param name="unityObject"> The resolved Unity object when successful. </param>
+        /// <param name="errorMessage"> The resolution error message when resolution fails. </param>
+        /// <returns> <see langword="true" /> when resolution succeeds; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionContext" /> is <see langword="null" />. </exception>
+        public static bool TryResolve (
+            UnityObjectReference reference,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
+            out UnityEngine.Object? unityObject,
+            out string errorMessage)
+        {
             if (executionContext == null)
             {
                 throw new ArgumentNullException(nameof(executionContext));
@@ -32,13 +50,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return TryResolveAlias(reference.Alias!, executionContext, out unityObject, out errorMessage);
 
                 case UnityObjectReferenceKind.Selector:
-                    if (!ResolveReferenceResolver.TryResolve(reference.Selector, out var resolvedReference, out errorMessage))
-                    {
-                        unityObject = null;
-                        return false;
-                    }
-
-                    return TryResolveResolvedReference(resolvedReference!, out unityObject, out errorMessage);
+                    return ResolveReferenceResolver.TryResolveUnityObject(
+                        reference.Selector,
+                        executionContext,
+                        allowTemporaryState,
+                        out unityObject,
+                        out errorMessage);
 
                 default:
                     unityObject = null;
@@ -59,8 +76,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out GameObject? gameObject,
             out string errorMessage)
         {
+            return TryResolveGameObject(reference, executionContext, allowTemporaryState: false, out gameObject, out errorMessage);
+        }
+
+        /// <summary> Tries to resolve one Unity-object reference to a live <see cref="GameObject" />. </summary>
+        /// <param name="reference"> The parsed reference. </param>
+        /// <param name="executionContext"> The request execution context. Must not be <see langword="null" />. </param>
+        /// <param name="allowTemporaryState"> <see langword="true" /> to allow request-local prefab planning state to satisfy selector resolution before persisted state is consulted. </param>
+        /// <param name="gameObject"> The resolved GameObject when successful. </param>
+        /// <param name="errorMessage"> The resolution error message when resolution fails. </param>
+        /// <returns> <see langword="true" /> when resolution succeeds and the resolved object is a <see cref="GameObject" />; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionContext" /> is <see langword="null" />. </exception>
+        public static bool TryResolveGameObject (
+            UnityObjectReference reference,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
+            out GameObject? gameObject,
+            out string errorMessage)
+        {
             gameObject = null;
-            if (!TryResolve(reference, executionContext, out var unityObject, out errorMessage))
+            if (!TryResolve(reference, executionContext, allowTemporaryState, out var unityObject, out errorMessage))
             {
                 return false;
             }

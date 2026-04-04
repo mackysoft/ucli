@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
@@ -24,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.scene.save",
+            operationName: UcliPrimitiveOperationNames.SceneSave,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -39,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, out _, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -57,17 +58,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
+            var resource = OperationResource.Scene(validationState.ScenePath);
+            var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
-                changed: validationState.Scene.isDirty,
+                changed: hasRequestAttributedChange || validationState.Scene.isDirty,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
+                    OperationResourceUtilities.CreateTouch(resource),
                 }));
         }
 
@@ -81,25 +84,50 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: false, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var changedBeforeSave = validationState.Scene.isDirty;
-            if (!EditorSceneManager.SaveScene(validationState.Scene))
+            if (EditorSceneManager.IsPreviewScene(validationState.Scene))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    $"Scene is not loaded: {validationState.ScenePath}. Use 'ucli.scene.open' first."));
+            }
+
+            var resource = OperationResource.Scene(validationState.ScenePath);
+            var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
+            if (!hasRequestAttributedChange
+                && !validationState.Scene.isDirty)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success(
+                    applied: false,
+                    changed: false,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(resource),
+                    }));
+            }
+
+            if (!EditorSceneManager.SaveScene(validationState.Scene, validationState.ScenePath))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
                     $"Scene could not be saved: {validationState.ScenePath}."));
             }
 
+            if (hasRequestAttributedChange)
+            {
+                executionContext.UnmarkRequestAttributedChange(resource);
+            }
+
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,
-                changed: changedBeforeSave,
+                changed: true,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
+                    OperationResourceUtilities.CreateTouch(resource),
                 }));
         }
 
@@ -110,6 +138,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
@@ -127,7 +157,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out var scene, out sceneErrorMessage))
+            Scene scene;
+            if (allowTemporaryState
+                && executionContext.TryGetTemporaryScene(scenePath, out scene))
+            {
+                validationState = new ValidationState(scenePath, scene);
+                return true;
+            }
+
+            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;

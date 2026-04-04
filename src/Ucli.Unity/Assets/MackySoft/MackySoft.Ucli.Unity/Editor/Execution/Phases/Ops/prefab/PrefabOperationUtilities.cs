@@ -75,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The touched prefab entry. </returns>
         public static OperationTouch CreatePrefabTouch (string prefabPath)
         {
-            return OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, prefabPath));
+            return OperationResourceUtilities.CreateTouch(OperationResource.Prefab(prefabPath));
         }
 
         /// <summary> Gets one currently opened prefab stage by asset path. </summary>

@@ -56,6 +56,35 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        public bool TryResolveTemporaryPrefabPath (
+            GameObject gameObject,
+            out string prefabPath)
+        {
+            if (gameObject == null)
+            {
+                throw new ArgumentNullException(nameof(gameObject));
+            }
+
+            foreach (var pair in temporaryPrefabContentsRootsByPath)
+            {
+                var prefabContentsRoot = pair.Value;
+                if (prefabContentsRoot == null)
+                {
+                    continue;
+                }
+
+                if (gameObject == prefabContentsRoot
+                    || gameObject.transform.IsChildOf(prefabContentsRoot.transform))
+                {
+                    prefabPath = pair.Key;
+                    return true;
+                }
+            }
+
+            prefabPath = string.Empty;
+            return false;
+        }
+
         public void TrackTemporaryObject (UnityEngine.Object unityObject)
         {
             if (unityObject == null)
@@ -64,6 +93,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             temporaryObjects.Add(unityObject);
+        }
+
+        public bool ContainsTemporaryObject (UnityEngine.Object unityObject)
+        {
+            if (unityObject == null)
+            {
+                throw new ArgumentNullException(nameof(unityObject));
+            }
+
+            for (var i = 0; i < temporaryObjects.Count; i++)
+            {
+                if (ReferenceEquals(temporaryObjects[i], unityObject))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void Cleanup ()

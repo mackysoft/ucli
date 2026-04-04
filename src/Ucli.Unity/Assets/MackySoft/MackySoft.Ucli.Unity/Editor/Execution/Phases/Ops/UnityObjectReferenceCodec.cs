@@ -93,8 +93,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return string.Equals(propertyName, ResolveSelectorPropertyNames.GlobalObjectId, StringComparison.Ordinal)
                 || string.Equals(propertyName, ResolveSelectorPropertyNames.AssetGuid, StringComparison.Ordinal)
                 || string.Equals(propertyName, ResolveSelectorPropertyNames.AssetPath, StringComparison.Ordinal)
+                || string.Equals(propertyName, ResolveSelectorPropertyNames.ProjectAssetPath, StringComparison.Ordinal)
                 || string.Equals(propertyName, ResolveSelectorPropertyNames.Scene, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.HierarchyPath, StringComparison.Ordinal);
+                || string.Equals(propertyName, ResolveSelectorPropertyNames.Prefab, StringComparison.Ordinal)
+                || string.Equals(propertyName, ResolveSelectorPropertyNames.HierarchyPath, StringComparison.Ordinal)
+                || string.Equals(propertyName, ResolveSelectorPropertyNames.ComponentType, StringComparison.Ordinal);
         }
 
         /// <summary> Reads one unique alias property. </summary>

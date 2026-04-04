@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -31,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.scene.tree",
+            operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
@@ -46,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, out _, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -90,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             bool applied)
         {
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: !applied, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -113,6 +112,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
@@ -131,7 +132,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out var scene, out sceneErrorMessage))
+            if (!GoOperationUtilities.TryResolveScene(scenePath, executionContext, allowTemporaryState, out var scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
@@ -175,9 +176,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var children = currentDepth >= maxDepth
                 ? System.Array.Empty<SceneTreeNodeDescription>()
                 : BuildChildren(gameObject.transform, currentDepth + 1, maxDepth);
+            var globalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(gameObject, out var resolvedReference)
+                ? resolvedReference!.GlobalObjectId
+                : string.Empty;
             return new SceneTreeNodeDescription(
                 Name: gameObject.name,
-                GlobalObjectId: GlobalObjectId.GetGlobalObjectIdSlow(gameObject).ToString(),
+                GlobalObjectId: globalObjectId,
                 Children: children);
         }
 

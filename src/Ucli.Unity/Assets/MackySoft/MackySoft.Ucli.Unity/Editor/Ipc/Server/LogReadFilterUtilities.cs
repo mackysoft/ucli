@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Provides common filtering helpers shared by daemon-log and Unity-log query engines. </summary>

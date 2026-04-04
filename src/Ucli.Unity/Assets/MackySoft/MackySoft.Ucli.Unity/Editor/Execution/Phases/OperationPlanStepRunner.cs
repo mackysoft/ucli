@@ -25,13 +25,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Executes validate and plan steps for one operation. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
-        /// <param name="requiresPreCallPlanReplay"> Whether plan replay is required immediately before call phase. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The one-operation step outcome. </returns>
         public async Task<OperationPlanStepOutcome> Execute (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            bool requiresPreCallPlanReplay,
             CancellationToken cancellationToken = default)
         {
             if (!operationRegistry.TryResolve(operation.Op, out var phaseOperation))
@@ -123,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Operation: operation,
                     PhaseOperation: phaseOperation,
                     PlanTouched: successfulTouched,
-                    RequiresPreCallPlanReplay: requiresPreCallPlanReplay));
+                    RequiresPreCallPlanReplay: phaseOperation.Metadata.RequiresPreCallPlanReplay));
         }
     }
 }

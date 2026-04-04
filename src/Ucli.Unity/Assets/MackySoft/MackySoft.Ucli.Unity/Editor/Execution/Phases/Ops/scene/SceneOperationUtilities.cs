@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
@@ -36,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             scene = SceneManager.GetSceneByPath(scenePath);
-            if (!scene.IsValid() || !scene.isLoaded)
+            if (!scene.IsValid() || !scene.isLoaded || EditorSceneManager.IsPreviewScene(scene))
             {
                 errorMessage = $"Scene is not loaded: {scenePath}. Use 'ucli.scene.open' first.";
                 return false;
@@ -51,11 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The touched scene entry. </returns>
         public static OperationTouch CreateSceneTouch (string scenePath)
         {
-            var sceneGuid = AssetDatabase.AssetPathToGUID(scenePath);
-            return new OperationTouch(
-                Kind: OperationTouchKind.Scene,
-                Path: scenePath,
-                Guid: string.IsNullOrWhiteSpace(sceneGuid) ? null : sceneGuid);
+            return OperationResourceUtilities.CreateTouch(OperationResource.Scene(scenePath));
         }
     }
 }

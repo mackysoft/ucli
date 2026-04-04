@@ -1,17 +1,20 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Unity.Execution.Requests;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one request-level execution trace produced by phase execution. </summary>
     /// <param name="ProtocolVersion"> The protocol version associated with the request. </param>
     /// <param name="RequestId"> The request identifier associated with the request. </param>
+    /// <param name="Steps"> The normalized public step list used for response aggregation. </param>
     /// <param name="OperationTraces"> The per-operation trace entries. </param>
     /// <param name="PlanToken"> The optional plan token issued for successful <c>plan</c> execution. </param>
     /// <param name="Errors"> The request-level error list. </param>
     internal sealed record PhaseExecutionTrace (
         int ProtocolVersion,
         string RequestId,
+        IReadOnlyList<NormalizedRequestStep> Steps,
         IReadOnlyList<OperationPhaseTrace> OperationTraces,
         string? PlanToken,
         IReadOnlyList<OperationFailure> Errors)
@@ -29,12 +32,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static PhaseExecutionTrace Success (
             int protocolVersion,
             string requestId,
+            IReadOnlyList<NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             string? planToken = null)
         {
             if (requestId == null)
             {
                 throw new ArgumentNullException(nameof(requestId));
+            }
+
+            if (steps == null)
+            {
+                throw new ArgumentNullException(nameof(steps));
             }
 
             if (operationTraces == null)
@@ -45,6 +54,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return new PhaseExecutionTrace(
                 ProtocolVersion: protocolVersion,
                 RequestId: requestId,
+                Steps: steps,
                 OperationTraces: operationTraces,
                 PlanToken: planToken,
                 Errors: Array.Empty<OperationFailure>());
@@ -62,6 +72,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static PhaseExecutionTrace Failure (
             int protocolVersion,
             string requestId,
+            IReadOnlyList<NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             IReadOnlyList<OperationFailure> errors,
             string? planToken = null)
@@ -69,6 +80,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (requestId == null)
             {
                 throw new ArgumentNullException(nameof(requestId));
+            }
+
+            if (steps == null)
+            {
+                throw new ArgumentNullException(nameof(steps));
             }
 
             if (operationTraces == null)
@@ -89,6 +105,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return new PhaseExecutionTrace(
                 ProtocolVersion: protocolVersion,
                 RequestId: requestId,
+                Steps: steps,
                 OperationTraces: operationTraces,
                 PlanToken: planToken,
                 Errors: errors);
@@ -105,10 +122,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static PhaseExecutionTrace Failure (
             int protocolVersion,
             string requestId,
+            IReadOnlyList<NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             IReadOnlyList<OperationFailure> errors)
         {
-            return Failure(protocolVersion, requestId, operationTraces, errors, null);
+            return Failure(protocolVersion, requestId, steps, operationTraces, errors, null);
         }
     }
 }
