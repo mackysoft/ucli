@@ -38,7 +38,7 @@ public sealed class RegexPatternUtilitiesTests
     [Trait("Size", "Small")]
     public void TryIsMatch_ReturnsExpectedMatchResult_ForValidPattern ()
     {
-        var success = RegexPatternUtilities.TryIsMatch("ucli.scene.open", "^ucli\\.", out var isMatch);
+        var success = RegexPatternUtilities.TryIsMatch(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "^ucli\\.", out var isMatch);
 
         Assert.True(success);
         Assert.True(isMatch);
@@ -48,7 +48,7 @@ public sealed class RegexPatternUtilitiesTests
     [Trait("Size", "Small")]
     public void TryIsMatch_ReturnsFalse_WhenPatternIsInvalid ()
     {
-        var success = RegexPatternUtilities.TryIsMatch("ucli.scene.open", "[", out var isMatch);
+        var success = RegexPatternUtilities.TryIsMatch(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "[", out var isMatch);
 
         Assert.False(success);
         Assert.False(isMatch);
@@ -70,7 +70,7 @@ public sealed class RegexPatternUtilitiesTests
     {
         Assert.Throws<ArgumentNullException>(() =>
         {
-            _ = RegexPatternUtilities.TryIsMatch("ucli.scene.open", null!, out _);
+            _ = RegexPatternUtilities.TryIsMatch(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, null!, out _);
         });
     }
 }

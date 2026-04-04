@@ -84,12 +84,12 @@ public sealed class OpsCliOutputContractTests
                 Entries:
                 [
                     new IndexOpEntryJsonContract(
-                        Name: "ucli.go.describe",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Kind: "query",
                         Policy: "safe",
                         ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
                     new IndexOpEntryJsonContract(
-                        Name: "ucli.scene.save",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
                         Kind: "mutation",
                         Policy: "advanced",
                         ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
@@ -115,7 +115,7 @@ public sealed class OpsCliOutputContractTests
             .HasProperty("payload", payload => payload
                 .HasArrayLength("operations", 2)
                 .HasProperty("operations", 0, operation => operation
-                    .HasString("name", "ucli.go.describe")
+                    .HasString("name", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe)
                     .HasString("kind", "query")
                     .HasString("policy", "safe"))
                 .HasProperty("readIndex", readIndex => readIndex
@@ -141,7 +141,7 @@ public sealed class OpsCliOutputContractTests
                 Entries:
                 [
                     new IndexOpEntryJsonContract(
-                        Name: "ucli.go.describe",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Kind: "query",
                         Policy: "safe",
                         ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
@@ -150,7 +150,7 @@ public sealed class OpsCliOutputContractTests
         var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Ops,
             UcliCommandNames.DescribeSubcommand,
-            "ucli.go.describe",
+            MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath,
             UcliContractConstants.CliOption.ReadIndexMode,
@@ -166,7 +166,7 @@ public sealed class OpsCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasProperty("operation", operation => operation
-                    .HasString("name", "ucli.go.describe")
+                    .HasString("name", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe)
                     .HasString("kind", "query")
                     .HasString("policy", "safe")
                     .HasProperty("argsSchema", argsSchema => argsSchema
@@ -194,7 +194,7 @@ public sealed class OpsCliOutputContractTests
                 Entries:
                 [
                     new IndexOpEntryJsonContract(
-                        Name: "ucli.go.describe",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Kind: "query",
                         Policy: "safe",
                         ArgsSchemaJson: """{"type":"object"}"""),
@@ -236,7 +236,7 @@ public sealed class OpsCliOutputContractTests
                 Entries:
                 [
                     new IndexOpEntryJsonContract(
-                        Name: "ucli.go.describe",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Kind: "query",
                         Policy: "safe",
                         ArgsSchemaJson: """{"type":"object"}"""),

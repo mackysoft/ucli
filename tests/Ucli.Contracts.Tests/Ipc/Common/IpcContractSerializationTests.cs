@@ -102,7 +102,12 @@ public sealed class IpcContractSerializationTests
     {
         var requestWithToken = new IpcExecuteRequest(
             Command: UcliCommandIds.Call,
-            Arguments: JsonSerializer.SerializeToElement(new { protocolVersion = 1, requestId = "req-1", ops = Array.Empty<object>() }))
+            Arguments: JsonSerializer.SerializeToElement(new
+            {
+                protocolVersion = 1,
+                requestId = "req-1",
+                steps = Array.Empty<object>(),
+            }))
         {
             PlanToken = "token-value",
         };
@@ -113,7 +118,12 @@ public sealed class IpcContractSerializationTests
 
         var requestWithoutToken = new IpcExecuteRequest(
             Command: UcliCommandIds.Plan,
-            Arguments: JsonSerializer.SerializeToElement(new { protocolVersion = 1, requestId = "req-1", ops = Array.Empty<object>() }));
+            Arguments: JsonSerializer.SerializeToElement(new
+            {
+                protocolVersion = 1,
+                requestId = "req-1",
+                steps = Array.Empty<object>(),
+            }));
         var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
     }
@@ -141,7 +151,7 @@ public sealed class IpcContractSerializationTests
             Operations:
             [
                 new IndexOpEntryJsonContract(
-                    Name: "ucli.go.describe",
+                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
                     ArgsSchemaJson: """{"type":"object"}"""),
@@ -155,7 +165,7 @@ public sealed class IpcContractSerializationTests
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasArrayLength("operations", 1)
             .HasProperty("operations", 0, operation => operation
-                .HasString("name", "ucli.go.describe")
+                .HasString("name", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe)
                 .HasString("kind", "query")
                 .HasString("policy", "safe")
                 .HasString("argsSchemaJson", """{"type":"object"}"""));
@@ -323,7 +333,7 @@ public sealed class IpcContractSerializationTests
         {
             new IpcExecuteOperationResult(
                 OpId: "op-1",
-                Op: "ucli.resolve",
+                Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve,
                 Phase: IpcExecuteOperationPhaseNames.Call,
                 Applied: true,
                 Changed: true,
@@ -345,7 +355,7 @@ public sealed class IpcContractSerializationTests
             .HasString("planToken", "issued-token")
             .HasProperty("opResults", 0, opResult => opResult
                 .HasString("opId", "op-1")
-                .HasString("op", "ucli.resolve")
+                .HasString("op", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve)
                 .HasString("phase", IpcExecuteOperationPhaseNames.Call)
                 .HasBoolean("applied", true)
                 .HasBoolean("changed", true)

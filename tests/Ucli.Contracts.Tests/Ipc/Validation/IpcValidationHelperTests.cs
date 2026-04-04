@@ -161,7 +161,7 @@ public sealed class IpcValidationHelperTests
         var operationElement = JsonSerializer.SerializeToElement(new
         {
             id = "op-1",
-            op = "ucli.scene.open",
+            op = MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
             args = new { },
         });
 
@@ -284,7 +284,7 @@ public sealed class IpcValidationHelperTests
         var operationElement = JsonSerializer.SerializeToElement(new
         {
             id = "op-1",
-            op = "ucli.scene.open",
+            op = MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
         });
 
         var result = OperationContractReader.TryReadOperationArgs(operationElement, out _, out var errorKind);

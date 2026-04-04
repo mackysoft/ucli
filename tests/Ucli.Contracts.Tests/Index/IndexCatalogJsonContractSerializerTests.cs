@@ -121,7 +121,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
             Entries:
             [
                 new IndexOpEntryJsonContract(
-                    Name: "ucli.go.describe",
+                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
                     ArgsSchemaJson: """{"type":"object"}"""),
@@ -135,7 +135,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
         Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
         Assert.NotNull(deserialized.Entries);
         Assert.Single(deserialized.Entries);
-        Assert.Equal("ucli.go.describe", deserialized.Entries[0].Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, deserialized.Entries[0].Name);
     }
 
     [Fact]

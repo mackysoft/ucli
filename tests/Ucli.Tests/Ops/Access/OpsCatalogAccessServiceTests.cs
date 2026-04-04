@@ -28,7 +28,7 @@ public sealed class OpsCatalogAccessServiceTests
                     Entries:
                     [
                         new IndexOpEntryJsonContract(
-                            Name: "ucli.go.describe",
+                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Kind: "query",
                             Policy: "safe",
                             ArgsSchemaJson: """{"type":"object"}"""),
@@ -58,7 +58,7 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
         Assert.Single(result.Output.Operations);
-        Assert.Equal("ucli.go.describe", result.Output.Operations[0].Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, result.Output.Operations[0].Name);
         Assert.Equal(OpsCatalogSource.Index, result.Output.AccessInfo.Source);
         Assert.True(result.Output.AccessInfo.Used);
         Assert.True(result.Output.AccessInfo.Hit);
@@ -82,7 +82,7 @@ public sealed class OpsCatalogAccessServiceTests
                     Entries:
                     [
                         new IndexOpEntryJsonContract(
-                            Name: "ucli.go.describe",
+                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Kind: "query",
                             Policy: "safe",
                             ArgsSchemaJson: """{"type":"object"}"""),
@@ -101,7 +101,7 @@ public sealed class OpsCatalogAccessServiceTests
                     Operations:
                     [
                         new IndexOpEntryJsonContract(
-                            Name: "ucli.scene.save",
+                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
                             Kind: "mutation",
                             Policy: "advanced",
                             ArgsSchemaJson: """{"type":"object"}"""),
@@ -130,7 +130,7 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
         Assert.Single(result.Output.Operations);
-        Assert.Equal("ucli.scene.save", result.Output.Operations[0].Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, result.Output.Operations[0].Name);
         Assert.Equal(OpsCatalogSource.Source, result.Output.AccessInfo.Source);
         Assert.False(result.Output.AccessInfo.Used);
         Assert.True(result.Output.AccessInfo.Hit);
@@ -158,7 +158,7 @@ public sealed class OpsCatalogAccessServiceTests
                     Operations:
                     [
                         new IndexOpEntryJsonContract(
-                            Name: "ucli.go.describe",
+                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Kind: "query",
                             Policy: "safe",
                             ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
@@ -189,7 +189,7 @@ public sealed class OpsCatalogAccessServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
-        Assert.Equal("ucli.go.describe", result.Output.Operations[0].Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, result.Output.Operations[0].Name);
         Assert.Equal(OpsCatalogSource.Source, result.Output.AccessInfo.Source);
         Assert.Contains("readIndex disabled by mode.", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
         Assert.Contains("Failed to persist refreshed ops readIndex. disk full", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);

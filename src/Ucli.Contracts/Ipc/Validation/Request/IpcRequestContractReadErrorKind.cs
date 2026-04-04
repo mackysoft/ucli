@@ -24,33 +24,48 @@ internal enum IpcRequestContractReadErrorKind
     /// <summary> Property <c>requestId</c> is not UUID format <c>D</c>. </summary>
     RequestIdFormatMismatch,
 
-    /// <summary> Required property <c>ops</c> is missing. </summary>
-    OperationsMissing,
+    /// <summary> Required property <c>steps</c> is missing. </summary>
+    StepsMissing,
 
-    /// <summary> Property <c>ops</c> exists but is not an array. </summary>
-    OperationsTypeMismatch,
+    /// <summary> Property <c>steps</c> exists but is not an array. </summary>
+    StepsTypeMismatch,
 
-    /// <summary> One operation element must be an object for the current profile. </summary>
-    OperationMustBeObject,
+    /// <summary> One step element must be an object for the current profile. </summary>
+    StepMustBeObject,
 
-    /// <summary> One operation object contains an unknown property. </summary>
-    UnknownOperationProperty,
+    /// <summary> Property <c>kind</c> violates string-contract constraints. </summary>
+    StepKindContractViolation,
+
+    /// <summary> Property <c>kind</c> is not one supported step discriminator. </summary>
+    StepKindUnsupported,
+
+    /// <summary> One step object contains an unknown property. </summary>
+    UnknownStepProperty,
 
     /// <summary> Property <c>id</c> violates string-contract constraints. </summary>
-    OperationIdContractViolation,
+    StepIdContractViolation,
 
     /// <summary> Property <c>op</c> violates string-contract constraints. </summary>
-    OperationNameContractViolation,
+    StepOpContractViolation,
 
-    /// <summary> Property <c>args</c> violates required object-contract constraints. </summary>
-    OperationArgsContractViolation,
+    /// <summary> Property <c>args</c> violates object-contract constraints. </summary>
+    StepArgsContractViolation,
 
-    /// <summary> Property <c>as</c> violates optional string-contract constraints. </summary>
-    OperationAliasContractViolation,
+    /// <summary> Property <c>on</c> violates object-contract constraints. </summary>
+    StepOnContractViolation,
 
-    /// <summary> Property <c>expect</c> violates expectation constraints. </summary>
-    OperationExpectationContractViolation,
+    /// <summary> Property <c>select</c> violates object-contract constraints. </summary>
+    StepSelectContractViolation,
 
-    /// <summary> Operation identifier is duplicated in the same request. </summary>
-    DuplicatedOperationId,
+    /// <summary> Property <c>actions</c> violates array-contract constraints. </summary>
+    StepActionsContractViolation,
+
+    /// <summary> One action element under <c>actions</c> must be an object. </summary>
+    StepActionMustBeObject,
+
+    /// <summary> Property <c>commit</c> violates string-contract constraints. </summary>
+    StepCommitContractViolation,
+
+    /// <summary> Step identifier is duplicated in the same request. </summary>
+    DuplicatedStepId,
 }

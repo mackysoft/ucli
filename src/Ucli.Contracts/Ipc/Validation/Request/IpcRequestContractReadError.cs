@@ -2,273 +2,310 @@ namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 
 /// <summary> Represents one request-contract read error. </summary>
 /// <param name="Kind"> The machine-readable error kind. </param>
-/// <param name="OperationIndex"> The operation index when the error is operation-scoped; otherwise <c>-1</c>. </param>
+/// <param name="StepIndex"> The step index when the error is step-scoped; otherwise <c>-1</c>. </param>
 /// <param name="UnknownPropertyName"> The unknown property name when the error is unknown-property related. </param>
-/// <param name="OperationId"> The operation identifier context when available. </param>
-/// <param name="DuplicatedOperationId"> The duplicated operation identifier for duplicate-id errors. </param>
+/// <param name="StepId"> The step identifier context when available. </param>
+/// <param name="DuplicatedStepId"> The duplicated step identifier for duplicate-id errors. </param>
 /// <param name="JsonStringReadError"> The nested JSON string read error for string-contract violations. </param>
-/// <param name="OperationObjectReadErrorKind"> The nested object-property read error for <c>args</c> contract violations. </param>
-/// <param name="ExpectationReadError"> The nested expectation read error for <c>expect</c> contract violations. </param>
+/// <param name="StepPropertyReadErrorKind"> The nested object/array property read error kind for step contract violations. </param>
 internal readonly record struct IpcRequestContractReadError (
     IpcRequestContractReadErrorKind Kind,
-    int OperationIndex,
+    int StepIndex,
     string? UnknownPropertyName,
-    string? OperationId,
-    string? DuplicatedOperationId,
+    string? StepId,
+    string? DuplicatedStepId,
     JsonStringReadError JsonStringReadError,
-    OperationObjectReadErrorKind OperationObjectReadErrorKind,
-    ExpectationConstraintReadError ExpectationReadError)
+    StepPropertyReadErrorKind StepPropertyReadErrorKind)
 {
     /// <summary> Gets an empty error value that indicates success. </summary>
     public static IpcRequestContractReadError None => new(
         Kind: IpcRequestContractReadErrorKind.None,
-        OperationIndex: -1,
+        StepIndex: -1,
         UnknownPropertyName: null,
-        OperationId: null,
-        DuplicatedOperationId: null,
+        StepId: null,
+        DuplicatedStepId: null,
         JsonStringReadError: JsonStringReadError.None,
-        OperationObjectReadErrorKind: default,
-        ExpectationReadError: ExpectationConstraintReadError.None);
+        StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
 
-    /// <summary> Creates one error that indicates request root object mismatch. </summary>
     public static IpcRequestContractReadError RequestMustBeObject ()
     {
         return new IpcRequestContractReadError(
             Kind: IpcRequestContractReadErrorKind.RequestMustBeObject,
-            OperationIndex: -1,
+            StepIndex: -1,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates one unknown request property. </summary>
     public static IpcRequestContractReadError UnknownRequestProperty (string unknownPropertyName)
     {
         return new IpcRequestContractReadError(
             Kind: IpcRequestContractReadErrorKind.UnknownRequestProperty,
-            OperationIndex: -1,
+            StepIndex: -1,
             UnknownPropertyName: unknownPropertyName,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates missing <c>protocolVersion</c>. </summary>
     public static IpcRequestContractReadError ProtocolVersionMissing ()
     {
         return new IpcRequestContractReadError(
             Kind: IpcRequestContractReadErrorKind.ProtocolVersionMissing,
-            OperationIndex: -1,
+            StepIndex: -1,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates invalid <c>protocolVersion</c> type. </summary>
     public static IpcRequestContractReadError ProtocolVersionTypeMismatch ()
     {
         return new IpcRequestContractReadError(
             Kind: IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch,
-            OperationIndex: -1,
+            StepIndex: -1,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates request-id string contract violation. </summary>
     public static IpcRequestContractReadError RequestIdContractViolation (JsonStringReadError jsonStringReadError)
     {
         return new IpcRequestContractReadError(
             Kind: IpcRequestContractReadErrorKind.RequestIdContractViolation,
-            OperationIndex: -1,
+            StepIndex: -1,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: jsonStringReadError,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates request-id format mismatch. </summary>
     public static IpcRequestContractReadError RequestIdFormatMismatch ()
     {
         return new IpcRequestContractReadError(
             Kind: IpcRequestContractReadErrorKind.RequestIdFormatMismatch,
-            OperationIndex: -1,
+            StepIndex: -1,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates missing <c>ops</c>. </summary>
-    public static IpcRequestContractReadError OperationsMissing ()
+    public static IpcRequestContractReadError StepsMissing ()
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationsMissing,
-            OperationIndex: -1,
+            Kind: IpcRequestContractReadErrorKind.StepsMissing,
+            StepIndex: -1,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates invalid <c>ops</c> type. </summary>
-    public static IpcRequestContractReadError OperationsTypeMismatch ()
+    public static IpcRequestContractReadError StepsTypeMismatch ()
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationsTypeMismatch,
-            OperationIndex: -1,
+            Kind: IpcRequestContractReadErrorKind.StepsTypeMismatch,
+            StepIndex: -1,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates non-object operation element. </summary>
-    public static IpcRequestContractReadError OperationMustBeObject (int operationIndex)
+    public static IpcRequestContractReadError StepMustBeObject (int stepIndex)
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationMustBeObject,
-            OperationIndex: operationIndex,
+            Kind: IpcRequestContractReadErrorKind.StepMustBeObject,
+            StepIndex: stepIndex,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates unknown operation property. </summary>
-    public static IpcRequestContractReadError UnknownOperationProperty (
-        int operationIndex,
+    public static IpcRequestContractReadError StepKindContractViolation (
+        int stepIndex,
+        JsonStringReadError jsonStringReadError)
+    {
+        return new IpcRequestContractReadError(
+            Kind: IpcRequestContractReadErrorKind.StepKindContractViolation,
+            StepIndex: stepIndex,
+            UnknownPropertyName: null,
+            StepId: null,
+            DuplicatedStepId: null,
+            JsonStringReadError: jsonStringReadError,
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+    }
+
+    public static IpcRequestContractReadError StepKindUnsupported (
+        int stepIndex,
+        string stepKind)
+    {
+        return new IpcRequestContractReadError(
+            Kind: IpcRequestContractReadErrorKind.StepKindUnsupported,
+            StepIndex: stepIndex,
+            UnknownPropertyName: stepKind,
+            StepId: null,
+            DuplicatedStepId: null,
+            JsonStringReadError: JsonStringReadError.None,
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+    }
+
+    public static IpcRequestContractReadError UnknownStepProperty (
+        int stepIndex,
         string unknownPropertyName)
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.UnknownOperationProperty,
-            OperationIndex: operationIndex,
+            Kind: IpcRequestContractReadErrorKind.UnknownStepProperty,
+            StepIndex: stepIndex,
             UnknownPropertyName: unknownPropertyName,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates operation-id string contract violation. </summary>
-    public static IpcRequestContractReadError OperationIdContractViolation (
-        int operationIndex,
+    public static IpcRequestContractReadError StepIdContractViolation (
+        int stepIndex,
         JsonStringReadError jsonStringReadError)
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationIdContractViolation,
-            OperationIndex: operationIndex,
+            Kind: IpcRequestContractReadErrorKind.StepIdContractViolation,
+            StepIndex: stepIndex,
             UnknownPropertyName: null,
-            OperationId: null,
-            DuplicatedOperationId: null,
+            StepId: null,
+            DuplicatedStepId: null,
             JsonStringReadError: jsonStringReadError,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates operation-name string contract violation. </summary>
-    public static IpcRequestContractReadError OperationNameContractViolation (
-        int operationIndex,
-        string? operationId,
+    public static IpcRequestContractReadError StepOpContractViolation (
+        int stepIndex,
+        string? stepId,
         JsonStringReadError jsonStringReadError)
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationNameContractViolation,
-            OperationIndex: operationIndex,
+            Kind: IpcRequestContractReadErrorKind.StepOpContractViolation,
+            StepIndex: stepIndex,
             UnknownPropertyName: null,
-            OperationId: operationId,
-            DuplicatedOperationId: null,
+            StepId: stepId,
+            DuplicatedStepId: null,
             JsonStringReadError: jsonStringReadError,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates operation-args object contract violation. </summary>
-    public static IpcRequestContractReadError OperationArgsContractViolation (
-        int operationIndex,
-        string? operationId,
-        OperationObjectReadErrorKind operationObjectReadErrorKind)
+    public static IpcRequestContractReadError StepArgsContractViolation (
+        int stepIndex,
+        string? stepId,
+        StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationArgsContractViolation,
-            OperationIndex: operationIndex,
+            Kind: IpcRequestContractReadErrorKind.StepArgsContractViolation,
+            StepIndex: stepIndex,
             UnknownPropertyName: null,
-            OperationId: operationId,
-            DuplicatedOperationId: null,
+            StepId: stepId,
+            DuplicatedStepId: null,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: operationObjectReadErrorKind,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
-    /// <summary> Creates one error that indicates operation-alias string contract violation. </summary>
-    public static IpcRequestContractReadError OperationAliasContractViolation (
-        int operationIndex,
-        string? operationId,
+    public static IpcRequestContractReadError StepOnContractViolation (
+        int stepIndex,
+        string? stepId,
+        StepPropertyReadErrorKind propertyReadErrorKind)
+    {
+        return new IpcRequestContractReadError(
+            Kind: IpcRequestContractReadErrorKind.StepOnContractViolation,
+            StepIndex: stepIndex,
+            UnknownPropertyName: null,
+            StepId: stepId,
+            DuplicatedStepId: null,
+            JsonStringReadError: JsonStringReadError.None,
+            StepPropertyReadErrorKind: propertyReadErrorKind);
+    }
+
+    public static IpcRequestContractReadError StepSelectContractViolation (
+        int stepIndex,
+        string? stepId,
+        StepPropertyReadErrorKind propertyReadErrorKind)
+    {
+        return new IpcRequestContractReadError(
+            Kind: IpcRequestContractReadErrorKind.StepSelectContractViolation,
+            StepIndex: stepIndex,
+            UnknownPropertyName: null,
+            StepId: stepId,
+            DuplicatedStepId: null,
+            JsonStringReadError: JsonStringReadError.None,
+            StepPropertyReadErrorKind: propertyReadErrorKind);
+    }
+
+    public static IpcRequestContractReadError StepActionsContractViolation (
+        int stepIndex,
+        string? stepId,
+        StepPropertyReadErrorKind propertyReadErrorKind)
+    {
+        return new IpcRequestContractReadError(
+            Kind: IpcRequestContractReadErrorKind.StepActionsContractViolation,
+            StepIndex: stepIndex,
+            UnknownPropertyName: null,
+            StepId: stepId,
+            DuplicatedStepId: null,
+            JsonStringReadError: JsonStringReadError.None,
+            StepPropertyReadErrorKind: propertyReadErrorKind);
+    }
+
+    public static IpcRequestContractReadError StepActionMustBeObject (
+        int stepIndex,
+        string? stepId)
+    {
+        return new IpcRequestContractReadError(
+            Kind: IpcRequestContractReadErrorKind.StepActionMustBeObject,
+            StepIndex: stepIndex,
+            UnknownPropertyName: null,
+            StepId: stepId,
+            DuplicatedStepId: null,
+            JsonStringReadError: JsonStringReadError.None,
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+    }
+
+    public static IpcRequestContractReadError StepCommitContractViolation (
+        int stepIndex,
+        string? stepId,
         JsonStringReadError jsonStringReadError)
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationAliasContractViolation,
-            OperationIndex: operationIndex,
+            Kind: IpcRequestContractReadErrorKind.StepCommitContractViolation,
+            StepIndex: stepIndex,
             UnknownPropertyName: null,
-            OperationId: operationId,
-            DuplicatedOperationId: null,
+            StepId: stepId,
+            DuplicatedStepId: null,
             JsonStringReadError: jsonStringReadError,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 
-    /// <summary> Creates one error that indicates operation expectation contract violation. </summary>
-    public static IpcRequestContractReadError OperationExpectationContractViolation (
-        int operationIndex,
-        string? operationId,
-        ExpectationConstraintReadError expectationReadError)
+    public static IpcRequestContractReadError DuplicatedStepIdError (
+        int stepIndex,
+        string duplicatedStepId)
     {
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.OperationExpectationContractViolation,
-            OperationIndex: operationIndex,
+            Kind: IpcRequestContractReadErrorKind.DuplicatedStepId,
+            StepIndex: stepIndex,
             UnknownPropertyName: null,
-            OperationId: operationId,
-            DuplicatedOperationId: null,
+            StepId: duplicatedStepId,
+            DuplicatedStepId: duplicatedStepId,
             JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: expectationReadError);
-    }
-
-    /// <summary> Creates one error that indicates duplicated operation-id. </summary>
-    public static IpcRequestContractReadError DuplicatedOperationIdError (
-        int operationIndex,
-        string duplicatedOperationId)
-    {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.DuplicatedOperationId,
-            OperationIndex: operationIndex,
-            UnknownPropertyName: null,
-            OperationId: duplicatedOperationId,
-            DuplicatedOperationId: duplicatedOperationId,
-            JsonStringReadError: JsonStringReadError.None,
-            OperationObjectReadErrorKind: default,
-            ExpectationReadError: ExpectationConstraintReadError.None);
+            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
     }
 }

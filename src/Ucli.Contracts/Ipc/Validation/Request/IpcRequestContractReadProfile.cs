@@ -7,9 +7,9 @@ internal readonly record struct IpcRequestContractReadProfile (
     bool RequireNonEmptyRequestId,
     bool RejectRequestIdOuterWhitespace,
     bool RequireCanonicalRequestIdFormat,
-    bool RequireOperations,
-    bool RejectDuplicatedOperationId,
-    RequestSchemaPolicy OperationSchemaPolicy)
+    bool RequireSteps,
+    bool RequireStepObject,
+    bool RejectDuplicatedStepId)
 {
     /// <summary> Gets profile values used by strict execute-request normalization. </summary>
     public static IpcRequestContractReadProfile StrictExecute => new(
@@ -18,9 +18,9 @@ internal readonly record struct IpcRequestContractReadProfile (
         RequireNonEmptyRequestId: true,
         RejectRequestIdOuterWhitespace: true,
         RequireCanonicalRequestIdFormat: true,
-        RequireOperations: true,
-        RejectDuplicatedOperationId: true,
-        OperationSchemaPolicy: RequestSchemaPolicy.StrictExecute);
+        RequireSteps: true,
+        RequireStepObject: true,
+        RejectDuplicatedStepId: true);
 
     /// <summary> Gets profile values used by permissive preflight parsing. </summary>
     public static IpcRequestContractReadProfile PermissivePreflight => new(
@@ -29,7 +29,7 @@ internal readonly record struct IpcRequestContractReadProfile (
         RequireNonEmptyRequestId: false,
         RejectRequestIdOuterWhitespace: false,
         RequireCanonicalRequestIdFormat: false,
-        RequireOperations: false,
-        RejectDuplicatedOperationId: false,
-        OperationSchemaPolicy: RequestSchemaPolicy.PermissivePreflight);
+        RequireSteps: false,
+        RequireStepObject: false,
+        RejectDuplicatedStepId: false);
 }

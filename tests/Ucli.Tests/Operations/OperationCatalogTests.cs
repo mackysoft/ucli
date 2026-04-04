@@ -19,10 +19,10 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.scene.open", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, CancellationToken.None);
 
         Assert.NotNull(descriptor);
-        Assert.Equal("ucli.scene.open", descriptor.Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, descriptor.Name);
         Assert.Equal(UcliOperationKind.Query, descriptor.Kind);
         Assert.Equal(OperationPolicy.Safe, descriptor.Policy);
     }
@@ -33,7 +33,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.resolve", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -56,7 +56,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.scene.tree", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneTree, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -83,7 +83,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.go.create", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -111,7 +111,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.go.describe", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -137,8 +137,8 @@ public sealed class OperationCatalogTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("ucli.project.refresh")]
-    [InlineData("ucli.project.save")]
+    [InlineData(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh)]
+    [InlineData(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectSave)]
     public async Task Get_WhenOperationIsProjectMutation_ReturnsStrictEmptyObjectSchema (string operationName)
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
@@ -182,8 +182,8 @@ public sealed class OperationCatalogTests
     {
         var provider = new TestOperationCatalogProvider(
         [
-            new UcliOperationDescriptor("ucli.scene.open", UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
-            new UcliOperationDescriptor("ucli.scene.open", UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
         ]);
         var catalog = new OperationCatalog(provider);
 

@@ -26,7 +26,7 @@ public sealed class RefreshServiceTests
         Assert.NotNull(operationExecuteService.CapturedDefinition);
         Assert.Equal(UcliCommandIds.Refresh, operationExecuteService.CapturedDefinition!.Command);
         Assert.Equal("refresh", operationExecuteService.CapturedDefinition.OperationId);
-        Assert.Equal("ucli.project.refresh", operationExecuteService.CapturedDefinition.Descriptor.Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh, operationExecuteService.CapturedDefinition.Descriptor.Name);
         Assert.Equal(OperationPolicy.Advanced, operationExecuteService.CapturedDefinition.Descriptor.Policy);
         Assert.Equal(JsonValueKind.Object, operationExecuteService.CapturedDefinition.Args.ValueKind);
         Assert.Equal("/repo/UnityProject", operationExecuteService.CapturedProjectPath);

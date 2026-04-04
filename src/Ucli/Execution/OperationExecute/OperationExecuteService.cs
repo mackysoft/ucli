@@ -229,10 +229,11 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         {
             protocolVersion = IpcProtocol.CurrentVersion,
             requestId,
-            ops = new[]
+            steps = new[]
             {
                 new
                 {
+                    kind = "op",
                     id = definition.OperationId,
                     op = definition.Descriptor.Name,
                     args = definition.Args,
@@ -372,7 +373,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
     /// <summary> Creates one normalized operation execution result. </summary>
     /// <param name="requestId"> The request identifier. </param>
-    /// <param name="opResults"> The per-operation execution results. </param>
+    /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="errors"> The machine-readable error list. </param>
     /// <param name="exitCode"> The associated process exit code. </param>
     /// <returns> The normalized operation execution result. </returns>

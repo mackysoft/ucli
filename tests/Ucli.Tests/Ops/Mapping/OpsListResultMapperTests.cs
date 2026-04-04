@@ -17,12 +17,12 @@ public sealed class OpsListResultMapperTests
                 Operations:
                 [
                     new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                        Name: "ucli.scene.save",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
                         Kind: "mutation",
                         Policy: "advanced",
                         ArgsSchemaJson: """{"type":"object"}"""),
                     new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                        Name: "ucli.go.describe",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Kind: "query",
                         Policy: "safe",
                         ArgsSchemaJson: """{"type":"object"}"""),
@@ -36,8 +36,8 @@ public sealed class OpsListResultMapperTests
                     null)));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("ucli.go.describe", result.Output!.Operations[0].Name);
-        Assert.Equal("ucli.scene.save", result.Output.Operations[1].Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, result.Output!.Operations[0].Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, result.Output.Operations[1].Name);
         Assert.Equal("index", result.Output.ReadIndex.Source);
         Assert.Equal("fresh", result.Output.ReadIndex.Freshness);
     }

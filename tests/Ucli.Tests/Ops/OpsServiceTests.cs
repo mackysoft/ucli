@@ -42,7 +42,7 @@ public sealed class OpsServiceTests
             Operations:
             [
                 new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                    Name: "ucli.scene.save",
+                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
                     Kind: "mutation",
                     Policy: "advanced",
                     ArgsSchemaJson: """{"type":"object"}"""),
@@ -62,7 +62,7 @@ public sealed class OpsServiceTests
             new OpsListExecutionOutput(
                 Operations:
                 [
-                    new OpsOperationListItem("ucli.scene.save", "mutation", "advanced"),
+                    new OpsOperationListItem(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced"),
                 ],
                 ReadIndex: new OpsReadIndexInfo(true, true, "index", "fresh", DateTimeOffset.UtcNow, null)),
             "mapped");

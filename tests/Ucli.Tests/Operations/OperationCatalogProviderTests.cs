@@ -39,7 +39,7 @@ public sealed class OperationCatalogProviderTests
         Assert.Same(unityProject, catalogReader.ReceivedProject);
         Assert.Same(config, catalogReader.ReceivedConfig);
         Assert.Single(operations);
-        Assert.Equal("ucli.scene.open", operations[0].Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, operations[0].Name);
     }
 
     private sealed class SpyProjectContextResolver : IProjectContextResolver
@@ -81,7 +81,7 @@ public sealed class OperationCatalogProviderTests
                 Operations:
                 [
                     new IndexOpEntryJsonContract(
-                        Name: "ucli.scene.open",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
                         Kind: "query",
                         Policy: "safe",
                         ArgsSchemaJson: JsonSerializer.Serialize(new

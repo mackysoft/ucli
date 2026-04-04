@@ -20,7 +20,7 @@ public sealed class RefreshCommandTests
             [
                 new IpcExecuteOperationResult(
                     OpId: "refresh",
-                    Op: "ucli.project.refresh",
+                    Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
                     Phase: IpcExecuteOperationPhaseNames.Call,
                     Applied: true,
                     Changed: true,
@@ -63,7 +63,7 @@ public sealed class RefreshCommandTests
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op
                     .HasString("opId", "refresh")
-                    .HasString("op", "ucli.project.refresh")
+                    .HasString("op", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh)
                     .HasString("phase", "call")
                     .HasBoolean("applied", true)
                     .HasBoolean("changed", true)
