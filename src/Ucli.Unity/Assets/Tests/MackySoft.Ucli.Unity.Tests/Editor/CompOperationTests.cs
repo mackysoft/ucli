@@ -12,6 +12,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 #nullable enable
@@ -471,8 +472,9 @@ namespace MackySoft.Ucli.Unity.Tests
             child.transform.SetParent(root.transform, worldPositionStays: false);
 
             var context = scope.CreateExecutionContext();
-            context.SetTemporaryAlias("host", target, scenePath);
-            context.SetTemporaryAlias("child", child, scenePath);
+            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            context.SetTemporaryAlias("host", target, resource);
+            context.SetTemporaryAlias("child", child, resource);
             Assert.That(context.AliasStore.TryGet("host", out _), Is.False);
             Assert.That(context.AliasStore.TryGet("child", out _), Is.False);
 
@@ -502,6 +504,52 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: true, changed: true, scenePath);
             Assert.That(target.ObjectReferenceValue, Is.EqualTo(child));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Set_Call_WhenObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var operation = new CompSetOperation();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var target = root.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("host", UnityObjectReferenceResolver.CreateResolvedReference(target));
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var previewOnly = new GameObject("PreviewOnly");
+            SceneManager.MoveGameObjectToScene(previewOnly, temporaryScene);
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "host",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "objectReferenceValue",
+                            value = new
+                            {
+                                scene = scenePath,
+                                hierarchyPath = "PreviewOnly",
+                            },
+                        },
+                    },
+                });
+
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-set");
+            Assert.That(target.ObjectReferenceValue, Is.Null);
         });
 
         [Test]
@@ -539,7 +587,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 target,
                 parsedArguments.Sets,
                 scope.CreateExecutionContext(),
-                allowTemporaryState: false,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
                 out var changed,
                 out var errorMessage);
 

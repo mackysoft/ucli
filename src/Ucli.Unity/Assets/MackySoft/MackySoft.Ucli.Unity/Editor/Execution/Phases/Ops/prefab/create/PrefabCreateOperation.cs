@@ -85,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: true,
                 touched: OperationResourceUtilities.CreateTouches(
                     validationState.SourceResource,
-                    OperationResource.Prefab(validationState.PrefabPath))));
+                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
         }
 
         public Task<OperationPhaseStepResult> Call (
@@ -118,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: true,
                 touched: OperationResourceUtilities.CreateTouches(
                     validationState.SourceResource,
-                    OperationResource.Prefab(validationState.PrefabPath))));
+                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
         }
 
         private static bool TryValidateArguments (

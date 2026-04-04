@@ -11,8 +11,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Tracks request-local preview scenes used as persisted scene sandboxes during plan execution. </summary>
     internal sealed class TemporarySceneRegistry
     {
-        private readonly Dictionary<string, Scene> previewScenesByPath =
-            new Dictionary<string, Scene>(StringComparer.Ordinal);
+        private readonly Dictionary<string, TemporaryPreviewScene> previewScenesByPath =
+            new Dictionary<string, TemporaryPreviewScene>(StringComparer.Ordinal);
 
         /// <summary> Tries to get one tracked preview scene by asset path. </summary>
         /// <param name="scenePath"> The scene asset path. </param>
@@ -33,13 +33,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!value.IsValid() || !value.isLoaded || !EditorSceneManager.IsPreviewScene(value))
+            if (!value.PreviewScene.IsValid() || !value.PreviewScene.isLoaded || !EditorSceneManager.IsPreviewScene(value.PreviewScene))
             {
                 previewScenesByPath.Remove(scenePath);
                 return false;
             }
 
-            scene = value;
+            scene = value.PreviewScene;
             return true;
         }
 
@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             foreach (var pair in previewScenesByPath)
             {
-                var trackedScene = pair.Value;
+                var trackedScene = pair.Value.PreviewScene;
                 if (!trackedScene.IsValid() || !trackedScene.isLoaded || !EditorSceneManager.IsPreviewScene(trackedScene))
                 {
                     continue;
@@ -75,6 +75,35 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return false;
+        }
+
+        /// <summary> Tries to resolve one mirrored preview object back to its live scene source object. </summary>
+        /// <param name="scenePath"> The tracked logical scene path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="sourceObject"> The mirrored live source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object originated from one dirty loaded-scene mirror; otherwise <see langword="false" />. </returns>
+        public bool TryResolveMirroredSourceObject (
+            string scenePath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? sourceObject)
+        {
+            sourceObject = null;
+            if (previewObject == null)
+            {
+                throw new ArgumentNullException(nameof(previewObject));
+            }
+
+            if (!previewScenesByPath.TryGetValue(scenePath, out var previewSceneState))
+            {
+                return false;
+            }
+
+            if (previewSceneState.MirrorMapping == null)
+            {
+                return false;
+            }
+
+            return previewSceneState.MirrorMapping.TryGetSourceObject(previewObject, out sourceObject);
         }
 
         /// <summary> Gets one tracked preview scene or opens it from persisted asset contents when needed. </summary>
@@ -110,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            previewScenesByPath[scenePath] = scene;
+            previewScenesByPath[scenePath] = new TemporaryPreviewScene(scene, mirrorMapping: null);
             errorMessage = string.Empty;
             return true;
         }
@@ -151,18 +180,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 // When the editor scene is dirty, plan execution must observe the same hierarchy snapshot
                 // that selection already resolved against. Mirror the current live hierarchy into one
                 // request-local preview scene instead of reopening persisted asset contents.
+                var mirrorMapping = new TemporaryMirrorMapping();
                 var roots = sourceScene.GetRootGameObjects();
                 for (var i = 0; i < roots.Length; i++)
                 {
                     var clonedRoot = UnityEngine.Object.Instantiate(roots[i]);
                     clonedRoot.name = roots[i].name;
                     SceneManager.MoveGameObjectToScene(clonedRoot, scene);
+                    if (!TemporaryMirrorUtilities.TryRegisterHierarchyMirror(roots[i], clonedRoot, mirrorMapping, out errorMessage))
+                    {
+                        TryClosePreviewScene(scene);
+                        scene = default;
+                        return false;
+                    }
+                }
+
+                if (!TemporaryMirrorUtilities.TryRebindMirroredLocalReferences(mirrorMapping, out errorMessage))
+                {
+                    TryClosePreviewScene(scene);
+                    scene = default;
+                    return false;
                 }
 
                 if (sourceScene.isDirty)
                 {
                     EditorSceneManager.MarkSceneDirty(scene);
                 }
+
+                previewScenesByPath[scenePath] = new TemporaryPreviewScene(scene, mirrorMapping);
             }
             catch (Exception exception)
             {
@@ -172,7 +217,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            previewScenesByPath[scenePath] = scene;
             errorMessage = string.Empty;
             return true;
         }
@@ -182,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             foreach (var pair in previewScenesByPath)
             {
-                var previewScene = pair.Value;
+                var previewScene = pair.Value.PreviewScene;
                 TryClosePreviewScene(previewScene);
             }
 
@@ -222,6 +266,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             EditorSceneManager.ClosePreviewScene(previewScene);
+        }
+
+        private readonly struct TemporaryPreviewScene
+        {
+            public TemporaryPreviewScene (
+                Scene previewScene,
+                TemporaryMirrorMapping? mirrorMapping)
+            {
+                PreviewScene = previewScene;
+                MirrorMapping = mirrorMapping;
+            }
+
+            public Scene PreviewScene { get; }
+
+            public TemporaryMirrorMapping? MirrorMapping { get; }
         }
     }
 }

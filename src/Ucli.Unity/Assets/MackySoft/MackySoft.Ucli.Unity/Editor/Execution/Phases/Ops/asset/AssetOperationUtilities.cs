@@ -143,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!OperationObjectReferenceUtilities.TryResolveUnityObject(
                 reference,
                 executionContext,
-                allowTemporaryState: false,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
                 out unityObject,
                 out errorMessage))
             {

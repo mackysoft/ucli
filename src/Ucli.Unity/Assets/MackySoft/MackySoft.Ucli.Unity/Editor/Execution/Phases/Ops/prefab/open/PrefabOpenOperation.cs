@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.SetTemporaryAlias(
                     operation.As,
                     prefabContentsRoot!,
-                    OperationResource.Prefab(validationState.PrefabPath));
+                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
             }
 
             executionContext.TrackPlannedLivePrefabOpen(validationState.PrefabPath);
@@ -79,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    PrefabOperationUtilities.CreatePrefabTouch(validationState.PrefabPath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
                 }));
         }
 
@@ -112,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.SetTemporaryAlias(
                     operation.As,
                     prefabContentsRoot,
-                    OperationResource.Prefab(validationState.PrefabPath));
+                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
                 if (UnityObjectReferenceResolver.TryCreateResolvedReference(prefabContentsRoot, out var resolvedReference))
                 {
                     executionContext.AliasStore.Set(operation.As, resolvedReference!);
@@ -124,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    PrefabOperationUtilities.CreatePrefabTouch(validationState.PrefabPath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
                 }));
         }
 

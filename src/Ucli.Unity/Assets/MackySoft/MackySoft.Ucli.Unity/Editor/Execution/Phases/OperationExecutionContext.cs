@@ -51,23 +51,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Stores or replaces one temporary alias value used during plan execution. </summary>
         /// <param name="alias"> The alias name. </param>
         /// <param name="unityObject"> The temporary live object. </param>
-        /// <param name="scenePath"> The logical resource path associated with the temporary object. </param>
-        internal void SetTemporaryAlias (
-            string alias,
-            UnityEngine.Object unityObject,
-            string scenePath,
-            string? sourceGlobalObjectId = null)
-        {
-            SetTemporaryAlias(
-                alias,
-                unityObject,
-                OperationResource.Scene(scenePath),
-                sourceGlobalObjectId);
-        }
-
-        /// <summary> Stores or replaces one temporary alias value used during plan execution. </summary>
-        /// <param name="alias"> The alias name. </param>
-        /// <param name="unityObject"> The temporary live object. </param>
         /// <param name="resource"> The logical owner resource associated with the temporary object. </param>
         /// <param name="sourceGlobalObjectId"> The optional source GlobalObjectId used to synchronize shadows. </param>
         internal void SetTemporaryAlias (
@@ -88,24 +71,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out TemporaryAliasRegistry.TemporaryAliasState state)
         {
             return temporaryAliasRegistry.TryGetState(alias, out state);
-        }
-
-        /// <summary> Stores or replaces one plan-time ensured component keyed by target GameObject and component type. </summary>
-        /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
-        /// <param name="componentType"> The ensured component runtime type. </param>
-        /// <param name="component"> The temporary ensured component. </param>
-        /// <param name="scenePath"> The owning resource path. </param>
-        internal void SetEnsuredComponent (
-            string targetGlobalObjectId,
-            Type componentType,
-            Component component,
-            string scenePath)
-        {
-            SetEnsuredComponent(
-                targetGlobalObjectId,
-                componentType,
-                component,
-                OperationResource.Scene(scenePath));
         }
 
         /// <summary> Stores or replaces one plan-time ensured component keyed by target GameObject and component type. </summary>
@@ -149,21 +114,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
         /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
         /// <param name="component"> The temporary shadow component. </param>
-        /// <param name="scenePath"> The owning resource path. </param>
-        internal void SetComponentShadow (
-            string globalObjectId,
-            Component component,
-            string scenePath)
-        {
-            SetComponentShadow(
-                globalObjectId,
-                component,
-                OperationResource.Scene(scenePath));
-        }
-
-        /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
-        /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
-        /// <param name="component"> The temporary shadow component. </param>
         /// <param name="resource"> The owning resource. </param>
         internal void SetComponentShadow (
             string globalObjectId,
@@ -171,21 +121,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationResource resource)
         {
             componentSandboxRegistry.SetComponentShadow(globalObjectId, component, resource, temporaryAliasRegistry);
-        }
-
-        /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
-        /// <param name="sourceComponent"> The previous temporary component instance. </param>
-        /// <param name="replacementComponent"> The replacement temporary component instance. </param>
-        /// <param name="scenePath"> The owning resource path. </param>
-        internal void ReplaceTrackedTemporaryComponent (
-            Component sourceComponent,
-            Component replacementComponent,
-            string scenePath)
-        {
-            ReplaceTrackedTemporaryComponent(
-                sourceComponent,
-                replacementComponent,
-                OperationResource.Scene(scenePath));
         }
 
         /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
@@ -245,6 +180,40 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string prefabPath)
         {
             return temporaryObjectScope.TryResolveTemporaryPrefabPath(gameObject, out prefabPath);
+        }
+
+        /// <summary> Tries to resolve one request-local preview scene object back to its mirrored live source object. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="sourceObject"> The mirrored live source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object originated from a dirty loaded-scene mirror; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporarySceneSourceObject (
+            string scenePath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? sourceObject)
+        {
+            return temporarySceneRegistry.TryResolveMirroredSourceObject(scenePath, previewObject, out sourceObject);
+        }
+
+        /// <summary> Tries to resolve one request-local preview prefab object back to its mirrored live source object. </summary>
+        /// <param name="prefabPath"> The logical prefab asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="sourceObject"> The mirrored live source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object originated from an opened Prefab Stage mirror; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabSourceObject (
+            string prefabPath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? sourceObject)
+        {
+            return temporaryObjectScope.TryResolveMirroredSourceObject(prefabPath, previewObject, out sourceObject);
+        }
+
+        internal bool TryResolveTemporaryPrefabStableSourceObject (
+            string prefabPath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? stableSourceObject)
+        {
+            return temporaryObjectScope.TryResolveMirroredStableSourceObject(prefabPath, previewObject, out stableSourceObject);
         }
 
         /// <summary> Resolves one scene path to the active execution session for the current request. </summary>

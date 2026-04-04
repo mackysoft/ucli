@@ -190,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     parsedArguments.Name,
                     scene,
                     parent: null,
-                    OperationResource.Scene(parsedArguments.ScenePath!));
+                    new OperationResource(OperationTouchKind.Scene, parsedArguments.ScenePath!));
                 return true;
             }
 

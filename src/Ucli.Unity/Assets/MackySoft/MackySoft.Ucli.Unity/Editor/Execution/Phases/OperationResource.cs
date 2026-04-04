@@ -18,22 +18,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             Path = path;
         }
 
-        /// <summary> Creates one scene owner resource. </summary>
-        /// <param name="scenePath"> The scene path. </param>
-        /// <returns> The scene owner resource. </returns>
-        public static OperationResource Scene (string scenePath)
-        {
-            return new OperationResource(OperationTouchKind.Scene, scenePath);
-        }
-
-        /// <summary> Creates one prefab owner resource. </summary>
-        /// <param name="prefabPath"> The prefab path. </param>
-        /// <returns> The prefab owner resource. </returns>
-        public static OperationResource Prefab (string prefabPath)
-        {
-            return new OperationResource(OperationTouchKind.Prefab, prefabPath);
-        }
-
         /// <summary> Creates one persistent asset owner resource from a Unity asset path. </summary>
         /// <param name="assetPath"> The Unity asset path. </param>
         /// <returns> The normalized asset owner resource. </returns>

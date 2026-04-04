@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var resource = OperationResource.Prefab(resolutionState.PrefabPath);
+            var resource = new OperationResource(OperationTouchKind.Prefab, resolutionState.PrefabPath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             var isDirty = resolutionState.PrefabContentsRoot.scene.isDirty;
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var resource = OperationResource.Prefab(resolutionState.PrefabPath);
+            var resource = new OperationResource(OperationTouchKind.Prefab, resolutionState.PrefabPath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             var isDirty = resolutionState.PrefabContentsRoot.scene.isDirty;
             if (!hasRequestAttributedChange

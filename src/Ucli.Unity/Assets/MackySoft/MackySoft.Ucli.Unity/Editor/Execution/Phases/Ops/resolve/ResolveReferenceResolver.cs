@@ -160,6 +160,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return true;
                 }
 
+                if (executionContext.TryResolveTemporarySceneSourceObject(scenePath, temporaryTarget!, out var mirroredSourceObject)
+                    && mirroredSourceObject != null
+                    && TryCreateResolvedReference(mirroredSourceObject, out resolvedReference, out _))
+                {
+                    errorMessage = string.Empty;
+                    return true;
+                }
+
                 errorMessage = "Resolved target does not expose a stable GlobalObjectId in the current editor state.";
                 return false;
             }
@@ -207,6 +215,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     errorMessage = string.Empty;
                     return true;
+                }
+
+                if (executionContext.TryResolveTemporaryPrefabSourceObject(prefabPath, temporaryTarget!, out var mirroredSourceObject)
+                    && mirroredSourceObject != null)
+                {
+                    if (executionContext.TryResolveTemporaryPrefabStableSourceObject(prefabPath, temporaryTarget!, out var mirroredStableSourceObject)
+                        && mirroredStableSourceObject != null
+                        && TryCreateResolvedReference(mirroredStableSourceObject, out resolvedReference, out _))
+                    {
+                        errorMessage = string.Empty;
+                        return true;
+                    }
+
+                    if (TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, mirroredSourceObject, out resolvedReference, out _))
+                    {
+                        errorMessage = string.Empty;
+                        return true;
+                    }
                 }
 
                 errorMessage = "Resolved target does not expose a stable GlobalObjectId in the current editor state.";
@@ -747,6 +773,46 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             errorMessage = string.Empty;
             return true;
+        }
+
+        private static bool TryCreateResolvedReferenceFromPrefabMirrorSource (
+            string prefabPath,
+            UnityEngine.Object unityObject,
+            out ResolvedReference? resolvedReference,
+            out string errorMessage)
+        {
+            if (TryCreateResolvedReference(unityObject, out resolvedReference, out _))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            var prefabSourceAtPath = PrefabUtility.GetCorrespondingObjectFromSourceAtPath(unityObject, prefabPath);
+            if (prefabSourceAtPath != null
+                && TryCreateResolvedReference(prefabSourceAtPath, out resolvedReference, out _))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            var prefabSourceObject = PrefabUtility.GetCorrespondingObjectFromSource(unityObject);
+            if (prefabSourceObject != null
+                && TryCreateResolvedReference(prefabSourceObject, out resolvedReference, out _))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            var originalSource = PrefabUtility.GetCorrespondingObjectFromOriginalSource(unityObject);
+            if (originalSource != null
+                && TryCreateResolvedReference(originalSource, out resolvedReference, out _))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            errorMessage = "Resolved target does not expose a stable GlobalObjectId in the current editor state.";
+            return false;
         }
     }
 }

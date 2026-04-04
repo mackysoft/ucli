@@ -414,6 +414,54 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Plan_WhenDirtyOpenedPrefabStageIsMirrored_FallsBackToLiveObjectStableReference () => UniTask.ToCoroutine(async () =>
+        {
+            var resolveOperation = new ResolveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ResolveOperationTests), "PrefabRoot", "Child");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            Assert.That(prefabStage, Is.Not.Null);
+            var stageChild = prefabStage!.prefabContentsRoot.transform.Find("Child");
+            Assert.That(stageChild, Is.Not.Null);
+            stageChild!.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAssetRoot, Is.Not.Null);
+            var expectedTarget = prefabAssetRoot!.transform.Find("Child");
+            Assert.That(expectedTarget, Is.Not.Null);
+            var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(expectedTarget!.gameObject).ToString();
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
+            Assert.That(temporaryRoot, Is.Not.Null);
+            var previewChild = temporaryRoot!.transform.Find("Renamed");
+            Assert.That(previewChild, Is.Not.Null);
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            var hierarchyPath = $"{temporaryRoot.name}/Renamed";
+
+            var resolveRequest = CreateOperation(
+                opId: "op-resolve",
+                alias: "resolved",
+                args: new
+                {
+                    prefab = prefabPath,
+                    hierarchyPath,
+                });
+
+            var resolveResult = await resolveOperation.Plan(resolveRequest, context, CancellationToken.None);
+
+            Assert.That(resolveResult.IsSuccess, Is.True, resolveResult.Failure?.Message);
+            Assert.That(resolveResult.Applied, Is.False);
+            Assert.That(resolveResult.Changed, Is.False);
+            Assert.That(resolveResult.Failure, Is.Null);
+            Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
+            Assert.That(resolvedReference, Is.Not.Null);
+            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Call_WhenOpenedPrefabStageTargetHasNoStableGlobalObjectId_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new PrefabOpenOperation();
@@ -557,6 +605,46 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertInvalidArgument(result, "op-1");
             Assert.That(context.AliasStore.TryGet("resolved", out _), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Plan_WhenDirtyLoadedSceneIsMirrored_FallsBackToLiveObjectStableReference () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new ResolveOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ResolveOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            child.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(child).ToString();
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
+            var previewChild = FindRootGameObject(previewScene, "Root").transform.Find("Renamed");
+            Assert.That(previewChild, Is.Not.Null);
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+
+            var requestOperation = CreateOperation(
+                opId: "op-1",
+                alias: "resolved",
+                args: new
+                {
+                    scene = scenePath,
+                    hierarchyPath = "Root/Renamed",
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
+            Assert.That(resolvedReference, Is.Not.Null);
+            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]

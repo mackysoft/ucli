@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(scenePath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, scenePath)),
                 },
                 result: IpcPayloadCodec.SerializeToElement(payload)));
         }

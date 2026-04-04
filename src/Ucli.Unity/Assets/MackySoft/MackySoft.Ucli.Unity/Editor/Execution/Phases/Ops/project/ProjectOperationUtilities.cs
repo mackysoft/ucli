@@ -203,11 +203,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 if (touchKind == OperationTouchKind.Scene)
                 {
-                    touched.Add(SceneOperationUtilities.CreateSceneTouch(pair.Key));
+                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, pair.Key)));
                 }
                 else
                 {
-                    touched.Add(PrefabOperationUtilities.CreatePrefabTouch(pair.Key));
+                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, pair.Key)));
                 }
 
                 var resource = new OperationResource(touchKind, pair.Key);

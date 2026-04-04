@@ -12,8 +12,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [SerializeField]
         private string text = "before";
 
+        [SerializeField]
+        private GameObject? objectReferenceValue;
+
         public int IntegerValue => integerValue;
 
         public string Text => text;
+
+        public GameObject? ObjectReferenceValue => objectReferenceValue;
     }
 }

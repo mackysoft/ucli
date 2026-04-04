@@ -79,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (executionContext.TryResolveTemporaryPrefabPath(gameObject, out var temporaryPrefabPath))
             {
-                resource = OperationResource.Prefab(temporaryPrefabPath);
+                resource = new OperationResource(OperationTouchKind.Prefab, temporaryPrefabPath);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (prefabStage != null
                 && !string.IsNullOrWhiteSpace(prefabStage.assetPath))
             {
-                resource = OperationResource.Prefab(prefabStage.assetPath);
+                resource = new OperationResource(OperationTouchKind.Prefab, prefabStage.assetPath);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -98,7 +98,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && scene.isLoaded
                 && executionContext.TryResolveTemporaryScenePath(scene, out var previewScenePath))
             {
-                resource = OperationResource.Scene(previewScenePath);
+                resource = new OperationResource(OperationTouchKind.Scene, previewScenePath);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && scene.isLoaded
                 && !string.IsNullOrWhiteSpace(scene.path))
             {
-                resource = OperationResource.Scene(scene.path);
+                resource = new OperationResource(OperationTouchKind.Scene, scene.path);
                 errorMessage = string.Empty;
                 return true;
             }

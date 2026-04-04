@@ -229,6 +229,56 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenOpenedPrefabStageIsDirty_RebindsCrossRootObjectReferencesInsideTemporaryPrefabSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            var sourceA = new GameObject("A");
+            sourceA.transform.SetParent(editableRoot.transform, worldPositionStays: false);
+            var sourceComponent = sourceA.AddComponent<CompOperationTestComponent>();
+            var sourceB = new GameObject("B");
+            sourceB.transform.SetParent(editableRoot.transform, worldPositionStays: false);
+            var serializedObject = new SerializedObject(sourceComponent);
+            serializedObject.FindProperty("objectReferenceValue").objectReferenceValue = sourceB;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            var stageRoot = prefabStage!.prefabContentsRoot;
+            var stageB = stageRoot.transform.Find("B");
+            Assert.That(stageB, Is.Not.Null);
+            stageB!.name = "RenamedB";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot), Is.True);
+            Assert.That(prefabContentsRoot, Is.Not.Null);
+            var previewA = prefabContentsRoot!.transform.Find("A");
+            var previewB = prefabContentsRoot.transform.Find("RenamedB");
+            Assert.That(previewA, Is.Not.Null);
+            Assert.That(previewB, Is.Not.Null);
+            var previewComponent = previewA!.GetComponent<CompOperationTestComponent>();
+            Assert.That(previewComponent, Is.Not.Null);
+            Assert.That(previewComponent!.ObjectReferenceValue, Is.SameAs(previewB!.gameObject));
+            Assert.That(previewComponent.ObjectReferenceValue, Is.Not.SameAs(stageB.gameObject));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Open_Plan_WhenCompEnsureTargetsPrefabSelector_UsesPrefabOwnerResource () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new PrefabOpenOperation();

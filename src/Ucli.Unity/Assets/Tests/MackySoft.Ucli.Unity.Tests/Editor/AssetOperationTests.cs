@@ -12,6 +12,7 @@ using MackySoft.Ucli.Unity.Index;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 #nullable enable
@@ -341,6 +342,50 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(asset.IntegerValue, Is.EqualTo(64));
             Assert.That(asset.Text, Is.EqualTo("updated"));
             Assert.That(EditorUtility.IsDirty(asset), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Set_Call_WhenObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetSetOperation();
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(AssetOperationTests), out var assetPath);
+            var scenePath = scope.CreateScenePath(nameof(AssetOperationTests));
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var previewOnly = new GameObject("PreviewOnly");
+            SceneManager.MoveGameObjectToScene(previewOnly, temporaryScene);
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
+                    {
+                        assetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "objectReferenceValue",
+                            value = new
+                            {
+                                scene = scenePath,
+                                hierarchyPath = "PreviewOnly",
+                            },
+                        },
+                    },
+                });
+
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-set");
+            Assert.That(asset.ObjectReferenceValue, Is.Null);
         });
 
         [UnityTest]

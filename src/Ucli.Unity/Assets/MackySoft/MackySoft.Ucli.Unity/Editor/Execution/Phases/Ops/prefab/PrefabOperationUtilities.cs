@@ -69,15 +69,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             errorMessage = string.Empty;
             return true;
         }
-
-        /// <summary> Creates one touched entry for the specified prefab path. </summary>
-        /// <param name="prefabPath"> The prefab path. </param>
-        /// <returns> The touched prefab entry. </returns>
-        public static OperationTouch CreatePrefabTouch (string prefabPath)
-        {
-            return OperationResourceUtilities.CreateTouch(OperationResource.Prefab(prefabPath));
-        }
-
         /// <summary> Gets one currently opened prefab stage by asset path. </summary>
         /// <param name="prefabPath"> The prefab asset path. </param>
         /// <param name="prefabStage"> The opened prefab stage when successful. </param>

@@ -160,6 +160,46 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenLoadedSceneIsDirty_RebindsCrossRootObjectReferencesInsidePreviewScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var rootA = new GameObject("RootA");
+            var component = rootA.AddComponent<CompOperationTestComponent>();
+            var rootB = new GameObject("RootB");
+            var serializedObject = new SerializedObject(component);
+            serializedObject.FindProperty("objectReferenceValue").objectReferenceValue = rootB;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            rootB.name = "RenamedRootB";
+            EditorSceneManager.MarkSceneDirty(scene);
+
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var context = scope.CreateExecutionContext();
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
+            var previewRootA = FindRootGameObject(previewScene, "RootA");
+            var previewRootB = FindRootGameObject(previewScene, "RenamedRootB");
+            var previewComponent = previewRootA.GetComponent<CompOperationTestComponent>();
+            Assert.That(previewComponent, Is.Not.Null);
+            Assert.That(previewComponent!.ObjectReferenceValue, Is.SameAs(previewRootB));
+            Assert.That(previewComponent.ObjectReferenceValue, Is.Not.SameAs(rootB));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Save_Plan_WhenPreviewSceneIsDirty_ReturnsChangedTrue () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new SceneOpenOperation();
@@ -247,7 +287,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(saveResult, "op-save");
-            Assert.That(context.HasRequestAttributedChange(OperationResource.Scene(scenePath)), Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
         });
 
         [UnityTest]
@@ -614,6 +654,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Touched.Count, Is.EqualTo(1));
             Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Scene));
             Assert.That(result.Failure, Is.Null);
+        }
+
+        private static GameObject FindRootGameObject (
+            Scene scene,
+            string name)
+        {
+            var rootGameObjects = scene.GetRootGameObjects();
+            for (var i = 0; i < rootGameObjects.Length; i++)
+            {
+                if (rootGameObjects[i].name == name)
+                {
+                    return rootGameObjects[i];
+                }
+            }
+
+            Assert.Fail($"Root GameObject was not found: {name}.");
+            return null!;
         }
     }
 }

@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sandbox!,
                 sets!,
                 executionContext,
-                allowTemporaryState: true,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -162,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sandbox!,
                 sets!,
                 executionContext,
-                allowTemporaryState: true,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
                 out var changed,
                 out var applyErrorMessage))
             {

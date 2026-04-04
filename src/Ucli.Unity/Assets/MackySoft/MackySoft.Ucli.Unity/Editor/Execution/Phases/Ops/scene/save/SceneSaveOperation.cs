@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var resource = OperationResource.Scene(validationState.ScenePath);
+            var resource = new OperationResource(OperationTouchKind.Scene, validationState.ScenePath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
@@ -96,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     $"Scene is not loaded: {validationState.ScenePath}. Use 'ucli.scene.open' first."));
             }
 
-            var resource = OperationResource.Scene(validationState.ScenePath);
+            var resource = new OperationResource(OperationTouchKind.Scene, validationState.ScenePath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             if (!hasRequestAttributedChange
                 && !validationState.Scene.isDirty)

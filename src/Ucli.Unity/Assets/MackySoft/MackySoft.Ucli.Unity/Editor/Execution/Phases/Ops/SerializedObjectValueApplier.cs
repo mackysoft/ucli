@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityEngine.Object unityObject,
             IReadOnlyList<SerializedPropertyAssignment> assignments,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             out bool changed,
             out string errorMessage)
         {
@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     property,
                     assignment.Value,
                     executionContext,
-                    allowTemporaryState,
+                    referenceResolutionPolicy,
                     assignment.Path,
                     out var assignmentChanged,
                     out errorMessage))
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SerializedProperty property,
             JsonElement value,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -114,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     property,
                     value,
                     executionContext,
-                    allowTemporaryState,
+                    referenceResolutionPolicy,
                     logicalPath,
                     out changed,
                     out errorMessage);
@@ -139,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return TryApplyColor(property, value, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.ObjectReference:
-                    return TryApplyObjectReference(property, value, executionContext, allowTemporaryState, logicalPath, out changed, out errorMessage);
+                    return TryApplyObjectReference(property, value, executionContext, referenceResolutionPolicy, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.Enum:
                     return TryApplyEnum(serializedObject, property, rootType, value, logicalPath, out changed, out errorMessage);
@@ -172,7 +172,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return TryApplyQuaternion(property, value, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.ExposedReference:
-                    return TryApplyExposedReference(property, value, executionContext, allowTemporaryState, logicalPath, out changed, out errorMessage);
+                    return TryApplyExposedReference(property, value, executionContext, referenceResolutionPolicy, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.Vector2Int:
                     return TryApplyVector2Int(property, value, logicalPath, out changed, out errorMessage);
@@ -193,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         property,
                         value,
                         executionContext,
-                        allowTemporaryState,
+                        referenceResolutionPolicy,
                         logicalPath,
                         out changed,
                         out errorMessage);
@@ -208,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         property,
                         value,
                         executionContext,
-                        allowTemporaryState,
+                        referenceResolutionPolicy,
                         logicalPath,
                         out changed,
                         out errorMessage);
@@ -225,7 +225,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SerializedProperty property,
             JsonElement value,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -249,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     elementProperty,
                     element,
                     executionContext,
-                    allowTemporaryState,
+                    referenceResolutionPolicy,
                     $"{logicalPath}.Array.data[{index}]",
                     out var elementChanged,
                     out errorMessage))
@@ -451,13 +451,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SerializedProperty property,
             JsonElement value,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             string logicalPath,
             out bool changed,
             out string errorMessage)
         {
             changed = false;
-            if (!TryResolveUnityObjectValue(value, executionContext, allowTemporaryState, logicalPath, out var unityObject, out errorMessage))
+            if (!TryResolveUnityObjectValue(value, executionContext, referenceResolutionPolicy, logicalPath, out var unityObject, out errorMessage))
             {
                 return false;
             }
@@ -665,13 +665,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SerializedProperty property,
             JsonElement value,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             string logicalPath,
             out bool changed,
             out string errorMessage)
         {
             changed = false;
-            if (!TryResolveUnityObjectValue(value, executionContext, allowTemporaryState, logicalPath, out var unityObject, out errorMessage))
+            if (!TryResolveUnityObjectValue(value, executionContext, referenceResolutionPolicy, logicalPath, out var unityObject, out errorMessage))
             {
                 return false;
             }
@@ -760,7 +760,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SerializedProperty property,
             JsonElement value,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -821,7 +821,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 refreshedProperty,
                 contract.Payload,
                 executionContext,
-                allowTemporaryState,
+                referenceResolutionPolicy,
                 logicalPath,
                 out var payloadChanged,
                 out errorMessage))
@@ -869,7 +869,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             SerializedProperty property,
             JsonElement value,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -897,7 +897,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     childProperty,
                     child.Value,
                     executionContext,
-                    allowTemporaryState,
+                    referenceResolutionPolicy,
                     $"{logicalPath}.{child.Name}",
                     out var childChanged,
                     out errorMessage))
@@ -969,7 +969,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static bool TryResolveUnityObjectValue (
             JsonElement value,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
             string logicalPath,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
@@ -989,7 +989,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return OperationObjectReferenceUtilities.TryResolveUnityObject(
                 reference,
                 executionContext,
-                allowTemporaryState,
+                referenceResolutionPolicy,
                 out unityObject,
                 out errorMessage);
         }

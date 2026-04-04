@@ -46,13 +46,5 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             errorMessage = string.Empty;
             return true;
         }
-
-        /// <summary> Creates one touched entry for the specified scene path. </summary>
-        /// <param name="scenePath"> The scene path. </param>
-        /// <returns> The touched scene entry. </returns>
-        public static OperationTouch CreateSceneTouch (string scenePath)
-        {
-            return OperationResourceUtilities.CreateTouch(OperationResource.Scene(scenePath));
-        }
     }
 }

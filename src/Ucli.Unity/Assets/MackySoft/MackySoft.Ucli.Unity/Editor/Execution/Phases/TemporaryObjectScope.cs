@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -23,7 +24,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             TrackTemporaryPrefabContentsRoot(
                 prefabPath,
                 prefabContentsRoot,
-                TemporaryPrefabCleanupKind.UnloadPrefabContents);
+                TemporaryPrefabCleanupKind.UnloadPrefabContents,
+                mirrorMapping: null);
         }
 
         public bool TryCloneTemporaryPrefabContentsRootFromOpenedStage (
@@ -72,6 +74,42 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 prefabContentsRoot = UnityEngine.Object.Instantiate(openedPrefabContentsRoot);
                 prefabContentsRoot.name = openedPrefabContentsRoot.name;
                 SceneManager.MoveGameObjectToScene(prefabContentsRoot, previewScene);
+                var mirrorMapping = new TemporaryMirrorMapping();
+                if (!TemporaryMirrorUtilities.TryRegisterHierarchyMirror(openedPrefabContentsRoot, prefabContentsRoot, mirrorMapping, out errorMessage))
+                {
+                    UnityEngine.Object.DestroyImmediate(prefabContentsRoot);
+                    EditorSceneManager.ClosePreviewScene(previewScene);
+                    prefabContentsRoot = null;
+                    return false;
+                }
+
+                if (!TemporaryMirrorUtilities.TryRebindMirroredLocalReferences(mirrorMapping, out errorMessage))
+                {
+                    UnityEngine.Object.DestroyImmediate(prefabContentsRoot);
+                    EditorSceneManager.ClosePreviewScene(previewScene);
+                    prefabContentsRoot = null;
+                    return false;
+                }
+
+                var prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                if (prefabAssetRoot != null)
+                {
+                    TemporaryMirrorUtilities.RegisterStableSourceHierarchyBestEffort(
+                        openedPrefabContentsRoot,
+                        prefabAssetRoot,
+                        mirrorMapping);
+                }
+
+                if (openedPrefabContentsRoot.scene.isDirty)
+                {
+                    EditorSceneManager.MarkSceneDirty(previewScene);
+                }
+
+                TrackTemporaryPrefabContentsRoot(
+                    prefabPath,
+                    prefabContentsRoot,
+                    TemporaryPrefabCleanupKind.ClosePreviewScene,
+                    mirrorMapping);
             }
             catch (Exception exception)
             {
@@ -86,10 +124,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            TrackTemporaryPrefabContentsRoot(
-                prefabPath,
-                prefabContentsRoot,
-                TemporaryPrefabCleanupKind.ClosePreviewScene);
             errorMessage = string.Empty;
             return true;
         }
@@ -146,6 +180,60 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             prefabPath = string.Empty;
             return false;
+        }
+
+        public bool TryResolveMirroredSourceObject (
+            string prefabPath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? sourceObject)
+        {
+            sourceObject = null;
+            if (previewObject == null)
+            {
+                throw new ArgumentNullException(nameof(previewObject));
+            }
+
+            if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
+            {
+                return false;
+            }
+
+            if (trackedRoot.MirrorMapping == null)
+            {
+                return false;
+            }
+
+            return trackedRoot.MirrorMapping.TryGetSourceObject(previewObject, out sourceObject);
+        }
+
+        public bool TryResolveMirroredStableSourceObject (
+            string prefabPath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? stableSourceObject)
+        {
+            stableSourceObject = null;
+            if (previewObject == null)
+            {
+                throw new ArgumentNullException(nameof(previewObject));
+            }
+
+            if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
+            {
+                return false;
+            }
+
+            if (trackedRoot.MirrorMapping == null)
+            {
+                return false;
+            }
+
+            if (!trackedRoot.MirrorMapping.TryGetSourceObject(previewObject, out var sourceObject)
+                || sourceObject == null)
+            {
+                return false;
+            }
+
+            return trackedRoot.MirrorMapping.TryGetStableSourceObject(sourceObject, out stableSourceObject);
         }
 
         public void TrackTemporaryObject (UnityEngine.Object unityObject)
@@ -218,7 +306,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private void TrackTemporaryPrefabContentsRoot (
             string prefabPath,
             GameObject prefabContentsRoot,
-            TemporaryPrefabCleanupKind cleanupKind)
+            TemporaryPrefabCleanupKind cleanupKind,
+            TemporaryMirrorMapping? mirrorMapping)
         {
             if (string.IsNullOrWhiteSpace(prefabPath))
             {
@@ -231,22 +320,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             temporaryPrefabContentsRootsByPath[prefabPath] =
-                new TemporaryPrefabContentsRoot(prefabContentsRoot, cleanupKind);
+                new TemporaryPrefabContentsRoot(prefabContentsRoot, cleanupKind, mirrorMapping);
         }
 
         private readonly struct TemporaryPrefabContentsRoot
         {
             public TemporaryPrefabContentsRoot (
                 GameObject prefabContentsRoot,
-                TemporaryPrefabCleanupKind cleanupKind)
+                TemporaryPrefabCleanupKind cleanupKind,
+                TemporaryMirrorMapping? mirrorMapping)
             {
                 PrefabContentsRoot = prefabContentsRoot;
                 CleanupKind = cleanupKind;
+                MirrorMapping = mirrorMapping;
             }
 
             public GameObject PrefabContentsRoot { get; }
 
             public TemporaryPrefabCleanupKind CleanupKind { get; }
+
+            public TemporaryMirrorMapping? MirrorMapping { get; }
         }
 
         private enum TemporaryPrefabCleanupKind
