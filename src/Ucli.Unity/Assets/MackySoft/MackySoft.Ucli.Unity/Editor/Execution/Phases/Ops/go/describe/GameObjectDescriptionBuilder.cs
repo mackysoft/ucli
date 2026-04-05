@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var children = currentDepth >= maxDepth
                 ? Array.Empty<GameObjectDescription>()
                 : BuildChildren(transform, currentDepth, maxDepth, executionContext, includeTemporaryState);
-            var globalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(gameObject, out var resolvedReference)
+            var globalObjectId = ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
                 ? resolvedReference!.GlobalObjectId
                 : string.Empty;
             return new GameObjectDescription(

@@ -80,6 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.SetTemporaryAlias(operation.As, validationState.Target, validationState.SourceResource);
             }
 
+            executionContext.MarkRequestAttributedChange(validationState.SourceResource);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: true,
@@ -112,6 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     $"Prefab could not be created: {validationState.PrefabPath}."));
             }
 
+            executionContext.MarkRequestAttributedChange(validationState.SourceResource);
             StoreAliasIfNeeded(operation.As, executionContext, validationState.Target, validationState.SourceResource);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,

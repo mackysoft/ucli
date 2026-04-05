@@ -15,6 +15,40 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return GlobalObjectId.TryParse(globalObjectIdText, out _);
         }
 
+        /// <summary> Tries to create one stable reference for a GameObject, including request-local preview fallback for mirrored scene and prefab plan state. </summary>
+        /// <param name="gameObject"> The GameObject whose stable identity is required. </param>
+        /// <param name="executionContext"> The current request execution context when request-local preview fallback should be considered. </param>
+        /// <param name="resolvedReference"> The resolved stable reference when successful. </param>
+        /// <returns> <see langword="true" /> when a stable reference can be created; otherwise <see langword="false" />. </returns>
+        public static bool TryCreateGameObjectResolvedReference (
+            GameObject gameObject,
+            OperationExecutionContext? executionContext,
+            out ResolvedReference? resolvedReference)
+        {
+            if (gameObject == null)
+            {
+                throw new ArgumentNullException(nameof(gameObject));
+            }
+
+            resolvedReference = null;
+            if (TryCreateResolvedReference(gameObject, out resolvedReference, out _))
+            {
+                return true;
+            }
+
+            if (executionContext == null)
+            {
+                return false;
+            }
+
+            if (TryCreateResolvedReferenceFromPreviewSceneObject(gameObject, executionContext, out resolvedReference))
+            {
+                return true;
+            }
+
+            return TryCreateResolvedReferenceFromPreviewPrefabObject(gameObject, executionContext, out resolvedReference);
+        }
+
         /// <summary> Tries to resolve one selector to a GlobalObjectId-normalized reference. </summary>
         /// <param name="selector"> The parsed selector. </param>
         /// <param name="executionContext"> The current request execution context. Must not be <see langword="null" />. </param>
@@ -327,10 +361,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return TryResolveAssetObjectFromGuid(selector.AssetGuid!, out unityObject, out errorMessage);
 
                 case ResolveSelectorKind.AssetPath:
-                    return TryResolveAssetObjectFromPath(selector.AssetPath!, out unityObject, out errorMessage);
+                    return TryResolveAssetObjectFromPath(
+                        selector.AssetPath!,
+                        executionContext,
+                        allowTemporaryState,
+                        out unityObject,
+                        out errorMessage);
 
                 case ResolveSelectorKind.ProjectAssetPath:
-                    return TryResolveAssetObjectFromPath(selector.ProjectAssetPath!, out unityObject, out errorMessage);
+                    return TryResolveAssetObjectFromPath(
+                        selector.ProjectAssetPath!,
+                        executionContext,
+                        allowTemporaryState,
+                        out unityObject,
+                        out errorMessage);
 
                 case ResolveSelectorKind.SceneHierarchyPath:
                     return TryResolveSceneTarget(
@@ -949,18 +993,36 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return TryResolveAssetObjectFromPath(assetPath, out unityObject, out errorMessage);
+            return TryResolveAssetObjectFromPath(
+                assetPath,
+                executionContext: null,
+                allowTemporaryState: false,
+                out unityObject,
+                out errorMessage);
         }
 
         private static bool TryResolveAssetObjectFromPath (
             string assetPath,
+            OperationExecutionContext? executionContext,
+            bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
-            unityObject = AssetDatabase.LoadMainAssetAtPath(assetPath);
+            var normalizedAssetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            if (allowTemporaryState
+                && executionContext != null
+                && executionContext.TryGetPlannedAssetState(normalizedAssetPath, out var plannedAssetState)
+                && plannedAssetState.UnityObject != null)
+            {
+                unityObject = plannedAssetState.UnityObject;
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            unityObject = AssetDatabase.LoadMainAssetAtPath(normalizedAssetPath);
             if (unityObject == null)
             {
-                errorMessage = $"Asset path could not be resolved to a main asset: {assetPath}.";
+                errorMessage = $"Asset path could not be resolved to a main asset: {normalizedAssetPath}.";
                 return false;
             }
 
@@ -1033,6 +1095,54 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             errorMessage = string.Empty;
             return true;
+        }
+
+        private static bool TryCreateResolvedReferenceFromPreviewSceneObject (
+            GameObject gameObject,
+            OperationExecutionContext executionContext,
+            out ResolvedReference? resolvedReference)
+        {
+            resolvedReference = null;
+            if (!executionContext.TryResolveTemporaryScenePath(gameObject.scene, out var scenePath))
+            {
+                return false;
+            }
+
+            if (!executionContext.TryResolveTemporarySceneSourceObject(scenePath, gameObject, out var sourceObject)
+                || sourceObject == null)
+            {
+                return false;
+            }
+
+            return TryCreateResolvedReference(sourceObject, out resolvedReference, out _);
+        }
+
+        private static bool TryCreateResolvedReferenceFromPreviewPrefabObject (
+            GameObject gameObject,
+            OperationExecutionContext executionContext,
+            out ResolvedReference? resolvedReference)
+        {
+            resolvedReference = null;
+            if (!executionContext.TryResolveTemporaryPrefabPath(gameObject, out var prefabPath))
+            {
+                return false;
+            }
+
+            if (executionContext.TryResolveTemporaryPrefabStableSourceObject(prefabPath, gameObject, out var stableSourceObject)
+                && stableSourceObject != null
+                && TryCreateResolvedReference(stableSourceObject, out resolvedReference, out _))
+            {
+                return true;
+            }
+
+            if (executionContext.TryResolveTemporaryPrefabSourceObject(prefabPath, gameObject, out var mirroredSourceObject)
+                && mirroredSourceObject != null
+                && TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, mirroredSourceObject, out resolvedReference, out _))
+            {
+                return true;
+            }
+
+            return TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, gameObject, out resolvedReference, out _);
         }
 
         /// <summary> Creates one stable resolved reference from one prefab mirror object or its persisted prefab correspondence. </summary>

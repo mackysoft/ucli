@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sandbox!,
                 sets!,
                 executionContext,
-                GetPlanReferenceResolutionPolicy(operation),
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -327,14 +327,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             binding = new TargetBinding(unityObject!, assetPath, sourceGlobalObjectId, alias, plannedOwnerExecutionKey: null);
             sets = arguments.Sets;
             return true;
-        }
-
-        private static OperationObjectReferenceUtilities.ReferenceResolutionPolicy GetPlanReferenceResolutionPolicy (
-            NormalizedOperation operation)
-        {
-            return string.IsNullOrWhiteSpace(operation.InternalExecutionKey)
-                ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
-                : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState;
         }
 
         private readonly struct ValidatedTargetState
