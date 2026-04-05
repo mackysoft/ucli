@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     opResults[stepIndex] = new IpcExecuteOperationResult(
                         OpId: step.Id,
                         Op: step.OperationName,
-                        Phase: ToOperationPhaseName(OperationPhase.Skipped),
+                        Phase: ToOperationPhaseName(OperationPhase.Plan),
                         Applied: false,
                         Changed: false,
                         Touched: Array.Empty<IpcExecuteTouchedResource>());

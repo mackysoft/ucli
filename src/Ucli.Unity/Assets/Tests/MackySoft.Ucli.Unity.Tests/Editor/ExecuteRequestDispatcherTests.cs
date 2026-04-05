@@ -425,6 +425,33 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenEditStepCompilesToNoPrimitives_ReturnsPlanPhaseForSuccessfulNoOp () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedEditRequest(stepId: "edit-1");
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest, editPrimitiveCount: 0),
+                operationTraces: Array.Empty<OperationPhaseTrace>()));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Call, operationId: "edit-1", operationName: "edit");
+
+            var response = await DispatchAsync(dispatcher, request, context, "Successful no-op edit response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            var opResult = GetSingleArrayElement(response.Payload.GetProperty("opResults"));
+            Assert.That(opResult.GetProperty("opId").GetString(), Is.EqualTo("edit-1"));
+            Assert.That(opResult.GetProperty("op").GetString(), Is.EqualTo("edit"));
+            Assert.That(opResult.GetProperty("phase").GetString(), Is.EqualTo(IpcExecuteOperationPhaseNames.Plan));
+            Assert.That(opResult.GetProperty("applied").GetBoolean(), Is.False);
+            Assert.That(opResult.GetProperty("changed").GetBoolean(), Is.False);
+            Assert.That(opResult.GetProperty("touched").GetArrayLength(), Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCancellationRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest();
