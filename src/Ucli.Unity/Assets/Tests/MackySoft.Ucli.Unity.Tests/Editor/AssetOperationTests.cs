@@ -361,6 +361,59 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_Plan_WhenValueUsesPlannedAssetPath_ResolvesPlannedAsset () => UniTask.ToCoroutine(async () =>
+        {
+            var createOperation = new AssetCreateOperation();
+            var setOperation = new AssetSetOperation();
+            using var scope = new EditorTestScope();
+            var createdAssetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var targetAsset = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(AssetOperationTests), out var targetAssetPath);
+            var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(targetAsset).GlobalObjectId;
+            var context = scope.CreateExecutionContext();
+            var createRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = createdAssetPath,
+                });
+            var setRequest = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
+                    {
+                        assetPath = targetAssetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "assetReferenceValue",
+                            value = new
+                            {
+                                assetPath = createdAssetPath,
+                            },
+                        },
+                    },
+                });
+
+            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+            var setResult = await setOperation.Plan(setRequest, context, CancellationToken.None);
+
+            AssertAssetSuccess(createResult, applied: false, changed: true, createdAssetPath);
+            AssertAssetSuccess(setResult, applied: false, changed: true, targetAssetPath);
+            Assert.That(context.TryGetPlannedAssetState(createdAssetPath, out var plannedAssetState), Is.True);
+            Assert.That(context.TryGetAssetShadow(targetGlobalObjectId, out var shadowAsset, out var shadowAssetPath), Is.True);
+            Assert.That(shadowAssetPath, Is.EqualTo(targetAssetPath));
+            Assert.That(shadowAsset, Is.TypeOf<AssetOperationTestAsset>());
+            Assert.That(((AssetOperationTestAsset)shadowAsset!).AssetReferenceValue, Is.SameAs(plannedAssetState.UnityObject));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Set_Call_WhenTargetIsScriptableObjectAsset_UpdatesValueAndLeavesAssetDirty () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
@@ -400,7 +453,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Set_Plan_WhenRawObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Set_Plan_WhenRawObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_UsesRequestLocalPlanState () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
             using var scope = new EditorTestScope();
@@ -438,7 +491,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
-            AssertInvalidArgument(result, "op-set");
+            AssertAssetSuccess(result, applied: false, changed: true, assetPath);
+            var sourceGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(asset).GlobalObjectId;
+            Assert.That(context.TryGetAssetShadow(sourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath), Is.True);
+            Assert.That(shadowAssetPath, Is.EqualTo(assetPath));
+            Assert.That(shadowAsset, Is.TypeOf<AssetOperationTestAsset>());
+            Assert.That(((AssetOperationTestAsset)shadowAsset!).ObjectReferenceValue, Is.SameAs(previewOnly));
             Assert.That(asset.ObjectReferenceValue, Is.Null);
         });
 

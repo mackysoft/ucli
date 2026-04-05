@@ -499,7 +499,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Set_Plan_WhenRawObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Set_Plan_WhenRawObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_UsesRequestLocalPlanState () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
             var operation = new CompSetOperation();
@@ -539,7 +539,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
-            AssertInvalidArgument(result, "op-set");
+            AssertSuccess(result, applied: false, changed: true, scenePath);
+            var targetGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(target).GlobalObjectId;
+            Assert.That(context.TryGetComponentShadowState(targetGlobalObjectId, out var shadowState), Is.True);
+            Assert.That(shadowState.Component, Is.TypeOf<CompOperationTestComponent>());
+            Assert.That(((CompOperationTestComponent)shadowState.Component).ObjectReferenceValue, Is.SameAs(previewOnly));
+            Assert.That(target.ObjectReferenceValue, Is.Null);
         });
 
         [UnityTest]

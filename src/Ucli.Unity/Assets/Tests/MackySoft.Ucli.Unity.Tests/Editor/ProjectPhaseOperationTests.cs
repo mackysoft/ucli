@@ -349,6 +349,44 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenPrefabCreatePlanRan_ReturnsTouchedSourceScene () => UniTask.ToCoroutine(async () =>
+        {
+            var prefabCreateOperation = new PrefabCreateOperation();
+            var saveOperation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ProjectPhaseOperationTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(ProjectPhaseOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var prefabCreateRequest = CreateOperation(
+                opId: "op-prefab-create",
+                opName: UcliPrimitiveOperationNames.PrefabCreate,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    path = prefabPath,
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var prefabCreateResult = await prefabCreateOperation.Plan(prefabCreateRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(prefabCreateResult, applied: false, changed: true);
+            AssertSuccess(saveResult, applied: false, changed: true);
+            Assert.That(saveResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Save_Call_WhenScriptableObjectAssetIsDirty_SavesAssetAndReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ProjectSavePhaseOperation();
@@ -423,6 +461,49 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(scene.isDirty, Is.False);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenPrefabCreateCallRan_SavesSourceSceneAndReturnsTouchedScene () => UniTask.ToCoroutine(async () =>
+        {
+            var prefabCreateOperation = new PrefabCreateOperation();
+            var saveOperation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ProjectPhaseOperationTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(ProjectPhaseOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var prefabCreateRequest = CreateOperation(
+                opId: "op-prefab-create",
+                opName: UcliPrimitiveOperationNames.PrefabCreate,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    path = prefabPath,
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var prefabCreateResult = await prefabCreateOperation.Call(prefabCreateRequest, context, CancellationToken.None);
+            AssertSuccess(prefabCreateResult, applied: true, changed: true);
+            Assert.That(scene.isDirty, Is.True);
+            Assert.That(PrefabUtility.IsPartOfPrefabInstance(root), Is.True);
+
+            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(saveResult, applied: true, changed: true);
+            Assert.That(scene.isDirty, Is.False);
+            Assert.That(saveResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
         });
 

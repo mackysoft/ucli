@@ -7,6 +7,78 @@ namespace MackySoft.Ucli.Tests;
 
 internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvider
 {
+    private static readonly string AssetTargetArgsSchemaJson = """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "globalObjectId": { "type": "string", "minLength": 1 },
+            "assetGuid": { "type": "string", "minLength": 1 },
+            "assetPath": { "type": "string", "minLength": 1 },
+            "projectAssetPath": { "type": "string", "minLength": 1 }
+          },
+          "oneOf": [
+            { "required": ["globalObjectId"] },
+            { "required": ["assetGuid"] },
+            { "required": ["assetPath"] },
+            { "required": ["projectAssetPath"] }
+          ]
+        }
+        """;
+
+    private static readonly string GameObjectTargetArgsSchemaJson = """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "globalObjectId": { "type": "string", "minLength": 1 },
+            "scene": { "type": "string", "minLength": 1 },
+            "prefab": { "type": "string", "minLength": 1 },
+            "hierarchyPath": { "type": "string", "minLength": 1 }
+          },
+          "oneOf": [
+            { "required": ["globalObjectId"] },
+            { "required": ["scene", "hierarchyPath"] },
+            { "required": ["prefab", "hierarchyPath"] }
+          ]
+        }
+        """;
+
+    private static readonly string SceneGameObjectTargetArgsSchemaJson = """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "globalObjectId": { "type": "string", "minLength": 1 },
+            "scene": { "type": "string", "minLength": 1 },
+            "hierarchyPath": { "type": "string", "minLength": 1 }
+          },
+          "oneOf": [
+            { "required": ["globalObjectId"] },
+            { "required": ["scene", "hierarchyPath"] }
+          ]
+        }
+        """;
+
+    private static readonly string ComponentTargetArgsSchemaJson = """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "globalObjectId": { "type": "string", "minLength": 1 },
+            "scene": { "type": "string", "minLength": 1 },
+            "prefab": { "type": "string", "minLength": 1 },
+            "hierarchyPath": { "type": "string", "minLength": 1 },
+            "componentType": { "type": "string", "minLength": 1 }
+          },
+          "oneOf": [
+            { "required": ["globalObjectId"] },
+            { "required": ["scene", "hierarchyPath", "componentType"] },
+            { "required": ["prefab", "hierarchyPath", "componentType"] }
+          ]
+        }
+        """;
+
     private const string ResolveArgsSchemaJson = """
         {
           "type": "object",
@@ -79,14 +151,12 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "var": { "type": "string", "minLength": 1 },
                 "globalObjectId": { "type": "string", "minLength": 1 },
                 "scene": { "type": "string", "minLength": 1 },
                 "prefab": { "type": "string", "minLength": 1 },
                 "hierarchyPath": { "type": "string", "minLength": 1 }
               },
               "oneOf": [
-                { "required": ["var"] },
                 { "required": ["globalObjectId"] },
                 { "required": ["scene", "hierarchyPath"] },
                 { "required": ["prefab", "hierarchyPath"] }
@@ -110,14 +180,12 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "var": { "type": "string", "minLength": 1 },
                 "globalObjectId": { "type": "string", "minLength": 1 },
                 "prefab": { "type": "string", "minLength": 1 },
                 "scene": { "type": "string", "minLength": 1 },
                 "hierarchyPath": { "type": "string", "minLength": 1 }
               },
               "oneOf": [
-                { "required": ["var"] },
                 { "required": ["globalObjectId"] },
                 { "required": ["prefab", "hierarchyPath"] },
                 { "required": ["scene", "hierarchyPath"] }
@@ -145,52 +213,60 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         }
         """;
 
-    private const string ComponentEnsureArgsSchemaJson = """
+    private static readonly string ComponentEnsureArgsSchemaJson = $$"""
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "target": { "type": "object" },
+            "target": {{GameObjectTargetArgsSchemaJson}},
             "type": { "type": "string", "minLength": 1 }
           },
           "required": ["target", "type"]
         }
         """;
 
-    private const string ComponentSetArgsSchemaJson = """
+    private static readonly string ComponentSetArgsSchemaJson = $$"""
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "target": { "type": "object" },
+            "target": {{ComponentTargetArgsSchemaJson}},
             "sets": {
               "type": "array",
               "minItems": 1,
-              "items": { "type": "object" }
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string", "minLength": 1 },
+                  "value": {}
+                },
+                "required": ["path", "value"]
+              }
             }
           },
           "required": ["target", "sets"]
         }
         """;
 
-    private const string GoDeleteArgsSchemaJson = """
+    private static readonly string GoDeleteArgsSchemaJson = $$"""
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "target": { "type": "object" }
+            "target": {{GameObjectTargetArgsSchemaJson}}
           },
           "required": ["target"]
         }
         """;
 
-    private const string GoReparentArgsSchemaJson = """
+    private static readonly string GoReparentArgsSchemaJson = $$"""
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "target": { "type": "object" },
-            "parent": { "type": "object" }
+            "target": {{GameObjectTargetArgsSchemaJson}},
+            "parent": {{GameObjectTargetArgsSchemaJson}}
           },
           "required": ["target", "parent"]
         }
@@ -208,23 +284,62 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         }
         """;
 
-    private const string AssetMutationArgsSchemaJson = """
+    private static readonly string AssetSchemaArgsSchemaJson = $$"""
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "target": { "type": "object" }
+            "type": { "type": "string", "minLength": 1 },
+            "target": {{AssetTargetArgsSchemaJson}}
           },
-          "required": ["target"]
+          "oneOf": [
+            { "required": ["type"] },
+            { "required": ["target"] }
+          ]
         }
         """;
 
-    private const string PrefabCreateArgsSchemaJson = """
+    private const string CompSchemaArgsSchemaJson = """
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "target": { "type": "object" },
+            "type": { "type": "string", "minLength": 1 }
+          },
+          "required": ["type"]
+        }
+        """;
+
+    private static readonly string AssetSetArgsSchemaJson = $$"""
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {{AssetTargetArgsSchemaJson}},
+            "sets": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": { "type": "string", "minLength": 1 },
+                  "value": {}
+                },
+                "required": ["path", "value"]
+              }
+            }
+          },
+          "required": ["target", "sets"]
+        }
+        """;
+
+    private static readonly string PrefabCreateArgsSchemaJson = $$"""
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "target": {{SceneGameObjectTargetArgsSchemaJson}},
             "path": { "type": "string", "minLength": 1 }
           },
           "required": ["target", "path"]
@@ -242,10 +357,10 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
     [
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetCreateArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSchema, UcliOperationKind.Query, OperationPolicy.Safe, AssetMutationArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetMutationArgsSchemaJson),
+        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSchema, UcliOperationKind.Query, OperationPolicy.Safe, AssetSchemaArgsSchemaJson),
+        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetSetArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompEnsure, UcliOperationKind.Mutation, OperationPolicy.Advanced, ComponentEnsureArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSchema, UcliOperationKind.Query, OperationPolicy.Safe, AssetMutationArgsSchemaJson),
+        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSchema, UcliOperationKind.Query, OperationPolicy.Safe, CompSchemaArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, ComponentSetArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ScenePathArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneQuery, UcliOperationKind.Query, OperationPolicy.Safe, SceneQueryArgsSchemaJson),

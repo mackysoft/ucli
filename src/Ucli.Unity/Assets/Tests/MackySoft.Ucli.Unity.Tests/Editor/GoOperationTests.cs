@@ -337,6 +337,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Describe_Plan_WhenTargetUsesMirroredPrefabObject_PreservesStableGlobalObjectId () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new GoDescribeOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(GoOperationTests), "PrefabRoot", "Child");
+            var prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefabAssetRoot, Is.Not.Null);
+            var persistedChild = prefabAssetRoot!.transform.Find("Child");
+            Assert.That(persistedChild, Is.Not.Null);
+            var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(persistedChild!.gameObject).ToString();
+
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            Assert.That(prefabStage, Is.Not.Null);
+            var stageChild = prefabStage!.prefabContentsRoot.transform.Find("Child");
+            Assert.That(stageChild, Is.Not.Null);
+            stageChild!.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
+            Assert.That(temporaryRoot, Is.Not.Null);
+            var previewChild = temporaryRoot!.transform.Find("Renamed");
+            Assert.That(previewChild, Is.Not.Null);
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            var requestOperation = CreateOperation(
+                opId: "op-describe",
+                opName: UcliPrimitiveOperationNames.GoDescribe,
+                args: new
+                {
+                    target = new
+                    {
+                        prefab = prefabPath,
+                        hierarchyPath = $"{temporaryRoot.name}/Renamed",
+                    },
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(result.Result.HasValue, Is.True);
+            Assert.That(result.Result!.Value.GetProperty("globalObjectId").GetString(), Is.EqualTo(expectedGlobalObjectId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Describe_Validate_WhenDepthIsNegative_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoDescribeOperation();

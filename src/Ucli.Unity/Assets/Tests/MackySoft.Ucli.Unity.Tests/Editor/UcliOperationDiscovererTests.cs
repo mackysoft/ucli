@@ -174,6 +174,33 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void BuildCatalog_WhenBuiltInOperationsAreExported_RemovesVarSelectorsFromPublicSchemas ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
+
+            var goCreateSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate);
+            using var goCreateSchemaDocument = JsonDocument.Parse(goCreateSchemaJson);
+            var goCreateParentProperties = goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("properties");
+            Assert.That(goCreateParentProperties.TryGetProperty("var", out _), Is.False);
+            Assert.That(goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(3));
+
+            var goDescribeSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
+            using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeSchemaJson);
+            var goDescribeTargetProperties = goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
+            Assert.That(goDescribeTargetProperties.TryGetProperty("var", out _), Is.False);
+            Assert.That(goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(3));
+
+            for (var i = 0; i < snapshot.Catalog.Operations!.Count; i++)
+            {
+                using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
+                AssertContainsNoVarBranch(schemaDocument.RootElement);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Discover_WhenUcliDefinedAssembliesAreExcluded_ReturnsNoBuiltInOperations ()
         {
             var operations = UcliOperationDiscoverer.Discover(
@@ -254,6 +281,55 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.Fail($"Operation metadata was not discovered: {operationName}");
             return null!;
+        }
+
+        private static string FindCatalogSchema (
+            IReadOnlyList<MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract> operations,
+            string operationName)
+        {
+            for (var i = 0; i < operations.Count; i++)
+            {
+                if (operations[i].Name == operationName)
+                {
+                    return operations[i].ArgsSchemaJson!;
+                }
+            }
+
+            Assert.Fail($"Catalog schema was not discovered: {operationName}");
+            return null!;
+        }
+
+        private static void AssertContainsNoVarBranch (JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        Assert.That(property.Name, Is.Not.EqualTo("var"));
+                        AssertContainsNoVarBranch(property.Value);
+                    }
+
+                    return;
+
+                case JsonValueKind.Array:
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.String)
+                        {
+                            Assert.That(item.GetString(), Is.Not.EqualTo("var"));
+                        }
+                        else
+                        {
+                            AssertContainsNoVarBranch(item);
+                        }
+                    }
+
+                    return;
+
+                default:
+                    return;
+            }
         }
     }
 }

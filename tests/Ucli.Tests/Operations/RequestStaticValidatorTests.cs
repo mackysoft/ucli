@@ -255,6 +255,218 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Validate_WhenCompSetUsesPrefabComponentSelector_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-comp-set", UcliPrimitiveOperationNames.CompSet, new
+                {
+                    target = new
+                    {
+                        prefab = "Assets/Prefabs/Enemy.prefab",
+                        hierarchyPath = "Enemy/Armature",
+                        componentType = "UnityEngine.Transform, UnityEngine.CoreModule",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "m_LocalPosition.x",
+                            value = 1,
+                        },
+                    },
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenAssetSetUsesProjectAssetPathTarget_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-asset-set", UcliPrimitiveOperationNames.AssetSet, new
+                {
+                    target = new
+                    {
+                        projectAssetPath = "ProjectSettings/TagManager.asset",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "tags.Array.size",
+                            value = 1,
+                        },
+                    },
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenAssetSchemaUsesTypeOnly_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-asset-schema", UcliPrimitiveOperationNames.AssetSchema, new
+                {
+                    type = "MyGame.ConfigAsset, Assembly-CSharp",
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenCompSchemaUsesTypeOnly_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-comp-schema", UcliPrimitiveOperationNames.CompSchema, new
+                {
+                    type = "UnityEngine.Transform, UnityEngine.CoreModule",
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenGoDeleteUsesPrefabTargetSelector_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-go-delete", UcliPrimitiveOperationNames.GoDelete, new
+                {
+                    target = new
+                    {
+                        prefab = "Assets/Prefabs/Enemy.prefab",
+                        hierarchyPath = "Enemy/Weapon",
+                    },
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenGoReparentUsesPrefabSelectors_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-go-reparent", UcliPrimitiveOperationNames.GoReparent, new
+                {
+                    target = new
+                    {
+                        prefab = "Assets/Prefabs/Enemy.prefab",
+                        hierarchyPath = "Enemy/Weapon",
+                    },
+                    parent = new
+                    {
+                        prefab = "Assets/Prefabs/Enemy.prefab",
+                        hierarchyPath = "Enemy/Hand",
+                    },
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenPrefabCreateUsesPrefabTargetSelector_AddsOperationArgsInvalidError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-prefab-create", UcliPrimitiveOperationNames.PrefabCreate, new
+                {
+                    target = new
+                    {
+                        prefab = "Assets/Prefabs/Enemy.prefab",
+                        hierarchyPath = "Enemy/Weapon",
+                    },
+                    path = "Assets/Prefabs/Generated.prefab",
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenRawOpUsesVarSelector_AddsOperationArgsInvalidError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-go-create", UcliPrimitiveOperationNames.GoCreate, new
+                {
+                    name = "GeneratedChild",
+                    parent = new
+                    {
+                        @var = "created-parent",
+                    },
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Validate_ReturnsValidResult_WhenRequestSatisfiesAllChecks ()
     {
         var validator = CreateValidator();

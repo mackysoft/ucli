@@ -522,6 +522,44 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Tree_Plan_WhenSceneUsesMirroredLoadedState_PreservesStableGlobalObjectId () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
+            root.name = "RenamedRoot";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var previewRoots = temporaryScene.GetRootGameObjects();
+            Assert.That(previewRoots, Has.Length.EqualTo(1));
+            Assert.That(previewRoots[0].name, Is.EqualTo("RenamedRoot"));
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewRoots[0], out _), Is.False);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(result.Result.HasValue, Is.True);
+            var roots = result.Result!.Value.GetProperty("roots");
+            Assert.That(roots.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(roots[0].GetProperty("name").GetString(), Is.EqualTo("RenamedRoot"));
+            Assert.That(roots[0].GetProperty("globalObjectId").GetString(), Is.EqualTo(expectedGlobalObjectId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Query_Plan_WhenPreviewSceneHasPlannedChanges_UsesPreviewSceneState () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new SceneOpenOperation();
