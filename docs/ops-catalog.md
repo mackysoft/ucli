@@ -8,6 +8,7 @@
 
 > [!NOTE]
 > raw `ucli.asset.*` は `assetPath` に加えて `projectAssetPath` も扱う。`ucli.asset.create` が作れるのは `Assets/` 配下の既存 folder に置く `.asset` main asset だけで、`ProjectSettings/` 直下や directory 自動作成は行わない。
+> `ucli.asset.set` の object reference 値は `Plan` で request-local selector を検証できるが、`Call` で persistent asset へ書き込めるのは live state または temporary alias に解決できる参照だけで、preview-only selector は拒否する。
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
@@ -25,6 +26,7 @@
 
 > [!NOTE]
 > raw `scene` / `prefab` selector を使う primitive op は、`Call` では対応する Scene が loaded、または Prefab が opened stage であることを前提にする。`Plan` では同一 request の先行 primitive や edit lowering が作った request-local plan state を観測でき、まだ存在しない場合でも現在の loaded Scene / opened Prefab Stage から request-local plan state を確保して評価する。
+> `ucli.comp.set` の object reference 値は `Plan` で request-local selector を解決できるが、`Call` で live component へ書き込めるのは live state または temporary alias に解決できる参照だけで、preview-only selector は拒否する。
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
@@ -41,11 +43,11 @@
 ## go
 
 > [!NOTE]
-> raw `scene` / `prefab` selector を使う primitive op は、`Call` では対応する Scene が loaded、または Prefab が opened stage であることを前提にする。`Plan` では同一 request の先行 primitive や edit lowering が作った request-local plan state を観測できる。prefab context で `ucli.go.delete` は prefab root 自身を削除できない。
+> raw `scene` / `prefab` selector を使う primitive op は、`Call` では対応する Scene が loaded、または Prefab が opened stage であることを前提にする。`Plan` では同一 request の先行 primitive や edit lowering が作った request-local plan state を観測でき、まだ存在しない場合でも現在の loaded Scene / opened Prefab Stage から request-local plan state を確保して評価する。prefab context で `ucli.go.delete` は prefab root 自身を削除できない。
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.go.create` | mutation | advanced | mvp-core | 指定親配下、または loaded Scene の root に GameObject を作成する。 | `{ name, parent? }` |
+| `ucli.go.create` | mutation | advanced | mvp-core | 指定親配下、または loaded Scene の root に GameObject を作成する。 | `{ name, scene }` または `{ name, parent }` |
 | `ucli.go.delete` | mutation | advanced | mvp-core | 指定 GameObject を削除する。prefab root は対象にできない。 | `{ target }` |
 | `ucli.go.describe` | query | safe | mvp-support | GameObjectの構造とコンポーネント情報を取得する。plan では request-local ensured component も観測対象に含む。 | `{ target, depth? }` |
 | `ucli.go.reparent` | mutation | advanced | mvp-core | 指定 GameObject の親を付け替える。 | `{ target, parent }` |
@@ -56,7 +58,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `ucli.prefab.create` | mutation | advanced | mvp-core | Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | `{ target, path }` |
 | `ucli.prefab.open` | query | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `{ path }` |
-| `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。 | `{ path }` |
+| `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `{ path }` |
 
 ## project
 
@@ -69,13 +71,13 @@
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.resolve` | query | safe | mvp-core | セレクタを対象オブジェクト参照へ解決する。 | `{ globalObjectId | assetGuid | assetPath | projectAssetPath | scene + hierarchyPath | prefab + hierarchyPath, componentType? }` |
+| `ucli.resolve` | query | safe | mvp-core | セレクタを対象オブジェクト参照へ解決する。 | `{ globalObjectId | assetGuid | assetPath | projectAssetPath | scene + hierarchyPath (+ componentType?) | prefab + hierarchyPath }` |
 
 ## scene
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.scene.open` | query | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。 | `{ path }` |
+| `ucli.scene.open` | query | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。閉じている Scene を live で開くときは `OpenSceneMode.Single` を使う。 | `{ path }` |
 | `ucli.scene.query` | query | safe | mvp-core | scene context 内で selection candidate を列挙する。`/` を含む GameObject 名は `hierarchyPath` で表現できないため candidate に含めない。 | `{ scene, pathPrefix?, componentType? }` |
-| `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。 | `{ path }` |
+| `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `{ path }` |
 | `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。 | `{ path, depth? }` |

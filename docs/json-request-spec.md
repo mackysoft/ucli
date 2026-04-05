@@ -110,6 +110,12 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `select`: 対象選択
 - `actions`: 実行する編集操作列
 - `commit`: 保存境界
+### 実行前提
+- `scene` / `prefab` context の `edit` は、`createAsset` だけを含む step を除き、対応する live context が既に使えることを前提にする
+- `scene` context で mutation action または `commit: "context"` を使う場合、対象 Scene は loaded であるか、前段 `kind: "op"` で `ucli.scene.open` を実行しておく
+- `prefab` context で mutation action または `commit: "context"` を使う場合、対象 Prefab は opened stage であるか、前段 `kind: "op"` で `ucli.prefab.open` を実行しておく
+- CLI の static validation / preflight は構造・登録 schema・primitive 参照・認可だけを検証し、Scene / Prefab の live open 状態までは保証しない
+- CLI の static validation / preflight は `select` の実ヒット件数を見ず、structural lowering で参照される primitive を認可対象に含める。`cardinality: "all"` や `"atMostOne"` が runtime で 0 件になって no-op になる step でも、その action primitive は事前認可が必要である
 ## `on` の仕様
 `on` は編集コンテキストであり、**永続化境界**を表す。
 ### 許容形
@@ -287,7 +293,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 ```
 ## `commit` の仕様
 `commit` は保存境界を表す。  
-複数 context 一括保存は中核仕様に入れない。
+1 step で複数編集 context を一括指定する保存モデルは中核仕様に入れない。
 ### 許容値
 - `none`
 - `context`
