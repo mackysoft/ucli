@@ -56,6 +56,11 @@ internal static class IpcEditStepActionsReader
         "parent",
     };
 
+    /// <summary> Reads and validates the <c>actions</c> array for one public edit step. </summary>
+    /// <param name="stepElement"> The raw step JSON element. </param>
+    /// <param name="actions"> The parsed action contracts when validation succeeds. </param>
+    /// <param name="errorMessage"> The contract violation message when validation fails. </param>
+    /// <returns> <see langword="true" /> when the step contains one valid non-empty action array; otherwise <see langword="false" />. </returns>
     public static bool TryRead (
         JsonElement stepElement,
         out IReadOnlyList<IpcEditStepContract.EditAction> actions,
@@ -201,6 +206,7 @@ internal static class IpcEditStepActionsReader
             actionIndex,
             actionKind,
             hasValues,
+            values,
             target,
             type,
             name,
@@ -228,6 +234,7 @@ internal static class IpcEditStepActionsReader
         int actionIndex,
         IpcEditStepContract.ActionKind actionKind,
         bool hasValues,
+        JsonElement values,
         string? target,
         string? type,
         string? name,
@@ -252,6 +259,12 @@ internal static class IpcEditStepActionsReader
                 if (!hasValues)
                 {
                     errorMessage = $"Edit step property 'step.actions[{actionIndex}].values' is required.";
+                    return false;
+                }
+
+                if (!HasAtLeastOneProperty(values))
+                {
+                    errorMessage = $"Edit step property 'step.actions[{actionIndex}].values' must contain at least one assignment.";
                     return false;
                 }
 
@@ -317,5 +330,11 @@ internal static class IpcEditStepActionsReader
             IpcEditStepContract.ActionKind.Reparent => ReparentActionProperties,
             _ => SetActionProperties,
         };
+    }
+
+    private static bool HasAtLeastOneProperty (JsonElement element)
+    {
+        var enumerator = element.EnumerateObject();
+        return enumerator.MoveNext();
     }
 }

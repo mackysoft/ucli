@@ -301,6 +301,59 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return false;
         }
 
+        /// <summary> Ensures that one resource has request-local plan state available without widening the raw primitive contract beyond live editor state. </summary>
+        /// <param name="resource"> The resource that one plan-time mutation will touch. </param>
+        /// <param name="executionContext"> The request execution context. </param>
+        /// <param name="errorMessage"> The validation error message when request-local plan state cannot be prepared. </param>
+        /// <returns> <see langword="true" /> when request-local plan state is available for the resource; otherwise <see langword="false" />. </returns>
+        public static bool TryEnsurePlanResourceState (
+            OperationResource resource,
+            OperationExecutionContext executionContext,
+            out string errorMessage)
+        {
+            if (executionContext == null)
+            {
+                throw new System.ArgumentNullException(nameof(executionContext));
+            }
+
+            switch (resource.Kind)
+            {
+                case OperationTouchKind.Scene:
+                    if (executionContext.TryGetTemporaryScene(resource.Path, out _))
+                    {
+                        errorMessage = string.Empty;
+                        return true;
+                    }
+
+                    if (!SceneOperationUtilities.TryGetLoadedScene(resource.Path, out _, out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    return executionContext.TryEnsureSceneExecutionSession(resource.Path, out errorMessage);
+
+                case OperationTouchKind.Prefab:
+                    if (executionContext.TryGetTemporaryPrefabContentsRoot(resource.Path, out var prefabContentsRoot)
+                        && prefabContentsRoot != null)
+                    {
+                        errorMessage = string.Empty;
+                        return true;
+                    }
+
+                    if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(resource.Path, out _, out _))
+                    {
+                        errorMessage = $"Prefab is not opened: {resource.Path}. Use 'ucli.prefab.open' first.";
+                        return false;
+                    }
+
+                    return executionContext.TryEnsurePrefabExecutionSession(resource.Path, out errorMessage);
+
+                default:
+                    errorMessage = $"Operation does not support plan-time GameObject state for resource kind '{resource.Kind}'.";
+                    return false;
+            }
+        }
+
         internal readonly struct EditableGameObjectResolutionState
         {
             public EditableGameObjectResolutionState (

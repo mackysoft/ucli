@@ -33,6 +33,9 @@ internal static class ValidationErrorCodes
     /// <summary> Gets the error code used when operation is blocked by authorization rules. </summary>
     public const string OperationNotAllowed = "OPERATION_NOT_ALLOWED";
 
+    /// <summary> Gets the error code used when an op step args object violates the registered schema. </summary>
+    public const string OperationArgsInvalid = "OPERATION_ARGS_INVALID";
+
     /// <summary> Gets the error code used when an edit step violates DSL constraints. </summary>
     public const string EditStepInvalid = "EDIT_STEP_INVALID";
 }

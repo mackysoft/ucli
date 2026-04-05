@@ -117,6 +117,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(prefabOpenProperties.TryGetProperty("path", out _), Is.True);
             Assert.That(prefabOpenSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(1));
 
+            var goCreateMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate);
+            using var goCreateSchemaDocument = JsonDocument.Parse(goCreateMetadata.ArgsSchemaJson);
+            var goCreateParentProperties = goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("properties");
+            Assert.That(goCreateParentProperties.TryGetProperty("prefab", out _), Is.True);
+            Assert.That(goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
+
             var goDeleteMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDelete);
             using var goDeleteSchemaDocument = JsonDocument.Parse(goDeleteMetadata.ArgsSchemaJson);
             var goDeleteTargetProperties = goDeleteSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
@@ -158,6 +164,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(assetSchemaDocument.RootElement.GetProperty("oneOf").GetArrayLength(), Is.EqualTo(2));
             var assetSchemaTargetProperties = assetSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
             Assert.That(assetSchemaTargetProperties.TryGetProperty("projectAssetPath", out _), Is.True);
+
+            var goDescribeMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
+            using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeMetadata.ArgsSchemaJson);
+            var goDescribeTargetProperties = goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
+            Assert.That(goDescribeTargetProperties.TryGetProperty("prefab", out _), Is.True);
+            Assert.That(goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
         }
 
         [Test]

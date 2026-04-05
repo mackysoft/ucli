@@ -32,7 +32,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "op-1",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
@@ -256,7 +258,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "op-1",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ],
               "unknown": 1
@@ -397,7 +401,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "op-1",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {},
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  },
                   "unknown": 1
                 }
               ]
@@ -435,7 +441,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": " op-1 ",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
@@ -472,7 +480,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "op-1",
                   "op": " ucli.scene.open ",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
@@ -509,7 +519,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "op-1",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {},
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  },
                   "as": 123
                 }
               ]
@@ -547,7 +559,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "op-1",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {},
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  },
                   "expect": {
                     "count": 1,
                     "min": 0
@@ -588,13 +602,17 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "dup",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 },
                 {
                   "kind": "op",
                   "id": "dup",
                   "op": "ucli.unknown",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
@@ -661,7 +679,9 @@ public sealed class PhaseExecutionPreflightServiceTests
                   "kind": "op",
                   "id": "op-1",
                   "op": "__SCENE_OPEN_OP__",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }

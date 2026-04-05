@@ -218,6 +218,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var stepOperations = new List<NormalizedOperation>(editStep.Actions.Count + 4);
+            var shouldReleaseImplicitExecutionContextOnNoTargets =
+                ShouldReleaseImplicitExecutionContextOnNoTargets(editStep, executionContext);
+            if (!TryEnsureImplicitExecutionContext(editStep, executionContext, out error))
+            {
+                return false;
+            }
+
             if (!TryResolveSelection(editStep, executionContext, out var selectedTargets, out error))
             {
                 return false;
@@ -226,16 +233,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             if (selectedTargets.Count > 0)
             {
                 if (!TryValidateLiveEditContextAvailability(editStep, executionContext, out error))
-                {
-                    return false;
-                }
-
-                if (!TryValidateCommitContextAvailability(editStep, executionContext, out error))
-                {
-                    return false;
-                }
-
-                if (!TryEnsureImplicitExecutionContext(editStep, executionContext, out error))
                 {
                     return false;
                 }
@@ -253,10 +250,20 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     }
                 }
 
-                if (!TryAddCommitOperation(stepOperations, editStep, executionContext, out error))
-                {
-                    return false;
-                }
+            }
+            else if (shouldReleaseImplicitExecutionContextOnNoTargets)
+            {
+                ReleaseImplicitExecutionContext(editStep, executionContext);
+            }
+
+            if (!TryValidateCommitContextAvailability(editStep, executionContext, out error))
+            {
+                return false;
+            }
+
+            if (!TryAddCommitOperation(stepOperations, editStep, out error))
+            {
+                return false;
             }
 
             compiledStep = new NormalizedRequestStep(
@@ -275,7 +282,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             out ExecuteRequestNormalizationError error)
         {
             error = default!;
-            if (!RequiresLiveEditableContext(step))
+            if (!IpcEditStepLoweringRules.RequiresLiveEditableContext(step))
             {
                 return true;
             }
@@ -311,17 +318,37 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
         }
 
-        private static bool RequiresLiveEditableContext (IpcEditStepContract step)
+        private static bool ShouldReleaseImplicitExecutionContextOnNoTargets (
+            IpcEditStepContract step,
+            OperationExecutionContext executionContext)
         {
-            for (var actionIndex = 0; actionIndex < step.Actions.Count; actionIndex++)
+            switch (step.Context.Kind)
             {
-                if (step.Actions[actionIndex].Kind != IpcEditStepContract.ActionKind.CreateAsset)
-                {
-                    return true;
-                }
-            }
+                case IpcEditStepContract.ContextKind.Scene:
+                    return !executionContext.TryGetTemporaryScene(step.Context.Path!, out _);
 
-            return false;
+                case IpcEditStepContract.ContextKind.Prefab:
+                    return !executionContext.TryGetTemporaryPrefabContentsRoot(step.Context.Path!, out _);
+
+                default:
+                    return false;
+            }
+        }
+
+        private static void ReleaseImplicitExecutionContext (
+            IpcEditStepContract step,
+            OperationExecutionContext executionContext)
+        {
+            switch (step.Context.Kind)
+            {
+                case IpcEditStepContract.ContextKind.Scene:
+                    executionContext.ReleaseTemporaryScene(step.Context.Path!);
+                    break;
+
+                case IpcEditStepContract.ContextKind.Prefab:
+                    executionContext.ReleaseTemporaryPrefabExecutionSession(step.Context.Path!);
+                    break;
+            }
         }
 
         private static bool TryValidateCommitContextAvailability (
@@ -670,6 +697,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
                     action.Kind,
                     target.Kind,
                     parentTargetKind: null,
@@ -708,6 +736,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
                     action.Kind,
                     target.Kind,
                     parentTargetKind: null,
@@ -748,6 +777,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             out ExecuteRequestNormalizationError error)
         {
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
                     action.Kind,
                     branchTarget.Kind,
                     parentTargetKind: null,
@@ -785,6 +815,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             out ExecuteRequestNormalizationError error)
         {
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
                     action.Kind,
                     IpcEditTargetKind.Asset,
                     parentTargetKind: null,
@@ -822,6 +853,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
                     action.Kind,
                     target.Kind,
                     parentTargetKind: null,
@@ -859,6 +891,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
                     action.Kind,
                     target.Kind,
                     parentTargetKind: null,
@@ -901,6 +934,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                    step.Context.Kind,
                     action.Kind,
                     target.Kind,
                     parent.Kind,
@@ -927,7 +961,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         private static bool TryAddCommitOperation (
             ICollection<NormalizedOperation> operations,
             IpcEditStepContract step,
-            OperationExecutionContext executionContext,
             out ExecuteRequestNormalizationError error)
         {
             var operationName = IpcEditStepLoweringRules.GetCommitOperationName(step.Context.Kind, step.Commit);
@@ -935,16 +968,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             {
                 error = default!;
                 return true;
-            }
-
-            if (operationName == UcliPrimitiveOperationNames.SceneSave
-                && !SceneOperationUtilities.TryGetLoadedScene(step.Context.Path!, out _, out _)
-                && !executionContext.HasPlannedLiveSceneOpen(step.Context.Path!))
-            {
-                error = ExecuteRequestNormalizationError.InvalidArgument(
-                    $"Edit step '{step.Id}' saves scene context '{step.Context.Path}', but the scene is not loaded. Add 'ucli.scene.open' before this step.",
-                    step.Id);
-                return false;
             }
 
             var args = operationName == UcliPrimitiveOperationNames.ProjectSave

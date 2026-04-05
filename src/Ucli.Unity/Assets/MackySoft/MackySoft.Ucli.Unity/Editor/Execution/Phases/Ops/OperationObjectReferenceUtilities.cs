@@ -8,10 +8,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides shared Unity-object reference helpers for operation implementations. </summary>
     internal static class OperationObjectReferenceUtilities
     {
+        /// <summary> Defines how request-local aliases, mirrors, and shadows participate in Unity-object reference resolution. </summary>
         internal enum ReferenceResolutionPolicy
         {
+            /// <summary> Resolves only against current live editor state. </summary>
             LiveOnly = 0,
+
+            /// <summary> Resolves live state and temporary aliases, but does not allow request-local selector overrides. </summary>
             AllowTemporaryAliases = 1,
+
+            /// <summary> Resolves live state, temporary aliases, and request-local mirrors, shadows, and deletions. </summary>
             AllowTemporaryState = 2,
         }
 
@@ -36,12 +42,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             unityObject = null;
             if (resolutionPolicy >= ReferenceResolutionPolicy.AllowTemporaryAliases
-                && reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
+                && reference.Kind == UnityObjectReferenceKind.Alias)
             {
-                unityObject = temporaryAliasState.UnityObject;
-                errorMessage = string.Empty;
-                return true;
+                if (UnityObjectReferenceResolver.TryResolve(reference, executionContext, out unityObject, out errorMessage))
+                {
+                    return true;
+                }
+
+                if (executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
+                {
+                    unityObject = temporaryAliasState.UnityObject;
+                    errorMessage = string.Empty;
+                    return true;
+                }
+
+                return false;
             }
 
             if (resolutionPolicy == ReferenceResolutionPolicy.AllowTemporaryState)

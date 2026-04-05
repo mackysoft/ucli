@@ -8,23 +8,26 @@ namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 internal static class IpcEditStepLoweringRules
 {
     /// <summary>
-    /// Gets the implicit primitive operation name required to enter the specified edit context.
+    /// Determines whether one edit step needs a live editable scene or prefab context for its actions.
     /// </summary>
-    /// <param name="contextKind"> The edit context kind. </param>
-    /// <returns> The implicit primitive operation name, or <see langword="null" /> when the context requires no prelude operation. </returns>
-    public static string? GetContextPreludeOperationName (IpcEditStepContract.ContextKind contextKind)
+    /// <param name="stepContract"> The validated edit-step contract. </param>
+    /// <returns> <see langword="true" /> when at least one action requires a live editable context; otherwise <see langword="false" />. </returns>
+    public static bool RequiresLiveEditableContext (IpcEditStepContract stepContract)
     {
-        switch (contextKind)
+        if (stepContract == null)
         {
-            case IpcEditStepContract.ContextKind.Scene:
-                return UcliPrimitiveOperationNames.SceneOpen;
-
-            case IpcEditStepContract.ContextKind.Prefab:
-                return UcliPrimitiveOperationNames.PrefabOpen;
-
-            default:
-                return null;
+            throw new ArgumentNullException(nameof(stepContract));
         }
+
+        for (var actionIndex = 0; actionIndex < stepContract.Actions.Count; actionIndex++)
+        {
+            if (stepContract.Actions[actionIndex].Kind != IpcEditStepContract.ActionKind.CreateAsset)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -145,6 +148,7 @@ internal static class IpcEditStepLoweringRules
     /// <param name="errorMessage"> The structural validation error message when validation fails. </param>
     /// <returns> <see langword="true" /> when the action can be lowered for the supplied target categories; otherwise <see langword="false" />. </returns>
     public static bool TryGetActionOperationName (
+        IpcEditStepContract.ContextKind contextKind,
         IpcEditStepContract.ActionKind actionKind,
         IpcEditTargetKind targetKind,
         IpcEditTargetKind? parentTargetKind,
@@ -202,7 +206,14 @@ internal static class IpcEditStepLoweringRules
                 return true;
 
             case IpcEditStepContract.ActionKind.CreatePrefab:
-                if (targetKind == IpcEditTargetKind.GameObject)
+                if (targetKind != IpcEditTargetKind.GameObject)
+                {
+                    operationName = string.Empty;
+                    errorMessage = "Edit action 'createPrefab' requires a GameObject target.";
+                    return false;
+                }
+
+                if (contextKind == IpcEditStepContract.ContextKind.Scene)
                 {
                     operationName = UcliPrimitiveOperationNames.PrefabCreate;
                     errorMessage = string.Empty;
@@ -210,7 +221,7 @@ internal static class IpcEditStepLoweringRules
                 }
 
                 operationName = string.Empty;
-                errorMessage = "Edit action 'createPrefab' requires a GameObject target.";
+                errorMessage = "Edit action 'createPrefab' requires a GameObject target in scene context.";
                 return false;
 
             case IpcEditStepContract.ActionKind.Delete:

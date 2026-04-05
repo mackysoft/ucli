@@ -15,10 +15,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [SerializeField]
         private GameObject? objectReferenceValue;
 
+        [SerializeField]
+        private AssetOperationTestAsset? assetReferenceValue;
+
         public int IntegerValue => integerValue;
 
         public string Text => text;
 
         public GameObject? ObjectReferenceValue => objectReferenceValue;
+
+        public AssetOperationTestAsset? AssetReferenceValue => assetReferenceValue;
     }
 }

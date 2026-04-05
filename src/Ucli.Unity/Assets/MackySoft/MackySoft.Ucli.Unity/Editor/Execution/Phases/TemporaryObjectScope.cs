@@ -17,6 +17,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly List<UnityEngine.Object> temporaryObjects = new List<UnityEngine.Object>();
 
+        /// <summary> Tracks one loaded temporary prefab-contents root for cleanup at request end. </summary>
+        /// <param name="prefabPath"> The prefab asset path associated with the temporary contents root. </param>
+        /// <param name="prefabContentsRoot"> The loaded temporary prefab-contents root. </param>
         public void TrackTemporaryPrefabContentsRoot (
             string prefabPath,
             GameObject prefabContentsRoot)
@@ -28,6 +31,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 mirrorMapping: null);
         }
 
+        /// <summary> Gets one tracked temporary prefab root or mirrors the current opened Prefab Stage into request-local preview state. </summary>
+        /// <param name="prefabPath"> The prefab asset path. Must not be <see langword="null" />, empty, or whitespace. </param>
+        /// <param name="openedPrefabContentsRoot"> The opened Prefab Stage root to mirror. Must not be <see langword="null" />. </param>
+        /// <param name="prefabContentsRoot"> The tracked or newly mirrored temporary prefab root when successful. </param>
+        /// <param name="errorMessage"> The validation error message when the prefab mirror cannot be created. </param>
+        /// <returns> <see langword="true" /> when request-local prefab contents are available; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="prefabPath" /> is <see langword="null" />, empty, or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="openedPrefabContentsRoot" /> is <see langword="null" />. </exception>
         public bool TryCloneTemporaryPrefabContentsRootFromOpenedStage (
             string prefabPath,
             GameObject openedPrefabContentsRoot,
@@ -128,6 +139,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Tries to get one tracked temporary prefab-contents root. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <param name="prefabContentsRoot"> The tracked temporary prefab root when found. </param>
+        /// <returns> <see langword="true" /> when a temporary prefab root is tracked for <paramref name="prefabPath" />; otherwise <see langword="false" />. </returns>
         public bool TryGetTemporaryPrefabContentsRoot (
             string prefabPath,
             out GameObject? prefabContentsRoot)
@@ -153,6 +168,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Tries to resolve one tracked temporary prefab GameObject back to its prefab asset path. </summary>
+        /// <param name="gameObject"> The candidate GameObject. Must not be <see langword="null" />. </param>
+        /// <param name="prefabPath"> The tracked prefab asset path when found. </param>
+        /// <returns> <see langword="true" /> when <paramref name="gameObject" /> belongs to tracked temporary prefab contents; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="gameObject" /> is <see langword="null" />. </exception>
         public bool TryResolveTemporaryPrefabPath (
             GameObject gameObject,
             out string prefabPath)
@@ -182,6 +202,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return false;
         }
 
+        /// <summary> Tries to resolve one preview prefab object back to its mirrored live source object. </summary>
+        /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
+        /// <param name="previewObject"> The preview object. Must not be <see langword="null" />. </param>
+        /// <param name="sourceObject"> The mirrored live source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object belongs to a mirrored opened Prefab Stage snapshot; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="previewObject" /> is <see langword="null" />. </exception>
         public bool TryResolveMirroredSourceObject (
             string prefabPath,
             UnityEngine.Object previewObject,
@@ -206,6 +232,42 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return trackedRoot.MirrorMapping.TryGetSourceObject(previewObject, out sourceObject);
         }
 
+        /// <summary> Tries to resolve one mirrored live prefab object to its request-local preview counterpart. </summary>
+        /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
+        /// <param name="sourceObject"> The mirrored live source object. Must not be <see langword="null" />. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the mirrored live object has a preview counterpart; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="sourceObject" /> is <see langword="null" />. </exception>
+        public bool TryResolvePreviewObjectFromMirroredSourceObject (
+            string prefabPath,
+            UnityEngine.Object sourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (sourceObject == null)
+            {
+                throw new ArgumentNullException(nameof(sourceObject));
+            }
+
+            if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
+            {
+                return false;
+            }
+
+            if (trackedRoot.MirrorMapping == null)
+            {
+                return false;
+            }
+
+            return trackedRoot.MirrorMapping.TryGetPreviewObject(sourceObject, out previewObject);
+        }
+
+        /// <summary> Tries to resolve one preview prefab object to its persisted stable-source object. </summary>
+        /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
+        /// <param name="previewObject"> The preview object. Must not be <see langword="null" />. </param>
+        /// <param name="stableSourceObject"> The persisted stable-source object when found. </param>
+        /// <returns> <see langword="true" /> when a stable-source mapping exists for the preview object; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="previewObject" /> is <see langword="null" />. </exception>
         public bool TryResolveMirroredStableSourceObject (
             string prefabPath,
             UnityEngine.Object previewObject,
@@ -236,6 +298,39 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return trackedRoot.MirrorMapping.TryGetStableSourceObject(sourceObject, out stableSourceObject);
         }
 
+        /// <summary> Tries to resolve one persisted stable-source prefab object to its preview counterpart. </summary>
+        /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
+        /// <param name="stableSourceObject"> The persisted stable-source object. Must not be <see langword="null" />. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the stable-source object maps back into the temporary contents; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stableSourceObject" /> is <see langword="null" />. </exception>
+        public bool TryResolvePreviewObjectFromMirroredStableSourceObject (
+            string prefabPath,
+            UnityEngine.Object stableSourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (stableSourceObject == null)
+            {
+                throw new ArgumentNullException(nameof(stableSourceObject));
+            }
+
+            if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
+            {
+                return false;
+            }
+
+            if (trackedRoot.MirrorMapping == null)
+            {
+                return false;
+            }
+
+            return trackedRoot.MirrorMapping.TryGetPreviewObjectFromStableSource(stableSourceObject, out previewObject);
+        }
+
+        /// <summary> Tracks one temporary Unity object for destruction at request end. </summary>
+        /// <param name="unityObject"> The temporary Unity object. Must not be <see langword="null" />. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
         public void TrackTemporaryObject (UnityEngine.Object unityObject)
         {
             if (unityObject == null)
@@ -246,6 +341,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             temporaryObjects.Add(unityObject);
         }
 
+        /// <summary> Determines whether one Unity object is tracked as temporary request-local state. </summary>
+        /// <param name="unityObject"> The candidate Unity object. Must not be <see langword="null" />. </param>
+        /// <returns> <see langword="true" /> when the object is tracked for temporary cleanup; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
         public bool ContainsTemporaryObject (UnityEngine.Object unityObject)
         {
             if (unityObject == null)
@@ -264,29 +363,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return false;
         }
 
+        /// <summary> Releases one tracked temporary prefab-contents root and performs the configured cleanup. </summary>
+        /// <param name="prefabPath"> The prefab asset path whose temporary contents should be released. </param>
+        /// <returns> <see langword="true" /> when tracked temporary contents were released; otherwise <see langword="false" />. </returns>
+        public bool ReleaseTemporaryPrefabContentsRoot (string prefabPath)
+        {
+            if (string.IsNullOrWhiteSpace(prefabPath))
+            {
+                return false;
+            }
+
+            if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
+            {
+                return false;
+            }
+
+            temporaryPrefabContentsRootsByPath.Remove(prefabPath);
+            CleanupTemporaryPrefabContentsRoot(trackedRoot);
+            return true;
+        }
+
+        /// <summary> Releases every tracked temporary prefab root and destroys every tracked temporary Unity object. </summary>
         public void Cleanup ()
         {
             foreach (var pair in temporaryPrefabContentsRootsByPath)
             {
-                var prefabContentsRoot = pair.Value.PrefabContentsRoot;
-                if (prefabContentsRoot != null)
-                {
-                    switch (pair.Value.CleanupKind)
-                    {
-                        case TemporaryPrefabCleanupKind.UnloadPrefabContents:
-                            UnityEditor.PrefabUtility.UnloadPrefabContents(prefabContentsRoot);
-                            break;
-
-                        case TemporaryPrefabCleanupKind.ClosePreviewScene:
-                            var previewScene = prefabContentsRoot.scene;
-                            if (previewScene.IsValid() && previewScene.isLoaded && EditorSceneManager.IsPreviewScene(previewScene))
-                            {
-                                EditorSceneManager.ClosePreviewScene(previewScene);
-                            }
-
-                            break;
-                    }
-                }
+                CleanupTemporaryPrefabContentsRoot(pair.Value);
             }
 
             temporaryPrefabContentsRootsByPath.Clear();
@@ -321,6 +423,31 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             temporaryPrefabContentsRootsByPath[prefabPath] =
                 new TemporaryPrefabContentsRoot(prefabContentsRoot, cleanupKind, mirrorMapping);
+        }
+
+        private static void CleanupTemporaryPrefabContentsRoot (TemporaryPrefabContentsRoot trackedRoot)
+        {
+            var prefabContentsRoot = trackedRoot.PrefabContentsRoot;
+            if (prefabContentsRoot == null)
+            {
+                return;
+            }
+
+            switch (trackedRoot.CleanupKind)
+            {
+                case TemporaryPrefabCleanupKind.UnloadPrefabContents:
+                    UnityEditor.PrefabUtility.UnloadPrefabContents(prefabContentsRoot);
+                    break;
+
+                case TemporaryPrefabCleanupKind.ClosePreviewScene:
+                    var previewScene = prefabContentsRoot.scene;
+                    if (previewScene.IsValid() && previewScene.isLoaded && EditorSceneManager.IsPreviewScene(previewScene))
+                    {
+                        EditorSceneManager.ClosePreviewScene(previewScene);
+                    }
+
+                    break;
+            }
         }
 
         private readonly struct TemporaryPrefabContentsRoot

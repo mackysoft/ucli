@@ -88,6 +88,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!GoOperationUtilities.TryEnsurePlanResourceState(
+                    state.TargetResource,
+                    executionContext,
+                    out var targetPreparationErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    targetPreparationErrorMessage));
+            }
+
+            if (!AreSameResource(state.TargetResource, state.ParentResource)
+                && !GoOperationUtilities.TryEnsurePlanResourceState(
+                    state.ParentResource,
+                    executionContext,
+                    out var parentPreparationErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    parentPreparationErrorMessage));
+            }
+
+            if (!TryValidate(operation, executionContext, allowTemporaryState: true, out state, out failure))
+            {
+                return Task.FromResult(failure!);
+            }
+
             if (!GoOperationUtilities.TryEnsureRequestLocalPlanGameObject(
                 state.Target,
                 state.TargetResource,
@@ -104,6 +130,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 out var parentErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parentErrorMessage));
+            }
+
+            if (state.Target.transform.parent == state.Parent.transform)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success(
+                    applied: false,
+                    changed: false));
             }
 
             state.Target.transform.SetParent(state.Parent.transform, worldPositionStays: false);
@@ -124,6 +157,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!TryValidate(operation, executionContext, allowTemporaryState: false, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
+            }
+
+            if (state.Target.transform.parent == state.Parent.transform)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: false));
             }
 
             state.Target.transform.SetParent(state.Parent.transform, worldPositionStays: false);

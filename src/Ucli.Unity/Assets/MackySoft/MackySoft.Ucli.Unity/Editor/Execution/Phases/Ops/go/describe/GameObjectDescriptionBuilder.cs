@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 #nullable enable
@@ -17,13 +18,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             GameObject root,
             int? depth)
         {
+            return Build(root, depth, executionContext: null, includeTemporaryState: false);
+        }
+
+        /// <summary> Builds one structural description from the specified root GameObject and optional request-local state. </summary>
+        /// <param name="root"> The root GameObject to describe. </param>
+        /// <param name="depth"> The maximum child depth to include. <see langword="null" /> means unlimited depth. </param>
+        /// <param name="executionContext"> The optional request execution context. </param>
+        /// <param name="includeTemporaryState"> Whether request-local ensured components may augment the description. </param>
+        /// <returns> The built GameObject description. </returns>
+        public static GameObjectDescription Build (
+            GameObject root,
+            int? depth,
+            OperationExecutionContext? executionContext,
+            bool includeTemporaryState)
+        {
             if (root == null)
             {
                 throw new ArgumentNullException(nameof(root));
             }
 
             var maxDepth = depth ?? int.MaxValue;
-            return Build(root.transform, currentDepth: 0, maxDepth);
+            return Build(root.transform, currentDepth: 0, maxDepth, executionContext, includeTemporaryState);
         }
 
         /// <summary> Builds one description node from the specified transform. </summary>
@@ -34,20 +50,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static GameObjectDescription Build (
             Transform transform,
             int currentDepth,
-            int maxDepth)
+            int maxDepth,
+            OperationExecutionContext? executionContext,
+            bool includeTemporaryState)
         {
             var gameObject = transform.gameObject;
-            var components = gameObject.GetComponents<Component>();
-            var componentDescriptions = new GameObjectComponentDescription[components.Length];
-            for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
-            {
-                var component = components[componentIndex];
-                componentDescriptions[componentIndex] = new GameObjectComponentDescription(component != null ? component.GetType().FullName : null);
-            }
+            var componentDescriptions = BuildComponentDescriptions(gameObject, executionContext, includeTemporaryState);
 
             var children = currentDepth >= maxDepth
                 ? Array.Empty<GameObjectDescription>()
-                : BuildChildren(transform, currentDepth, maxDepth);
+                : BuildChildren(transform, currentDepth, maxDepth, executionContext, includeTemporaryState);
             var globalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(gameObject, out var resolvedReference)
                 ? resolvedReference!.GlobalObjectId
                 : string.Empty;
@@ -66,15 +78,72 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static GameObjectDescription[] BuildChildren (
             Transform transform,
             int currentDepth,
-            int maxDepth)
+            int maxDepth,
+            OperationExecutionContext? executionContext,
+            bool includeTemporaryState)
         {
             var childDescriptions = new GameObjectDescription[transform.childCount];
             for (var childIndex = 0; childIndex < transform.childCount; childIndex++)
             {
-                childDescriptions[childIndex] = Build(transform.GetChild(childIndex), currentDepth + 1, maxDepth);
+                childDescriptions[childIndex] = Build(
+                    transform.GetChild(childIndex),
+                    currentDepth + 1,
+                    maxDepth,
+                    executionContext,
+                    includeTemporaryState);
             }
 
             return childDescriptions;
+        }
+
+        private static GameObjectComponentDescription[] BuildComponentDescriptions (
+            GameObject gameObject,
+            OperationExecutionContext? executionContext,
+            bool includeTemporaryState)
+        {
+            var components = gameObject.GetComponents<Component>();
+            List<GameObjectComponentDescription>? ensuredComponentDescriptions = null;
+            if (includeTemporaryState
+                && executionContext != null)
+            {
+                var targetTrackingKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
+                var ensuredComponents = new List<ComponentSandboxRegistry.EnsuredComponentState>();
+                executionContext.CollectEnsuredComponentStates(targetTrackingKey, ensuredComponents);
+                if (ensuredComponents.Count > 0)
+                {
+                    ensuredComponentDescriptions = new List<GameObjectComponentDescription>(ensuredComponents.Count);
+                    for (var ensuredIndex = 0; ensuredIndex < ensuredComponents.Count; ensuredIndex++)
+                    {
+                        var ensuredComponent = ensuredComponents[ensuredIndex].Component;
+                        if (ensuredComponent == null)
+                        {
+                            continue;
+                        }
+
+                        ensuredComponentDescriptions.Add(new GameObjectComponentDescription(ensuredComponent.GetType().FullName));
+                    }
+                }
+            }
+
+            var componentDescriptionCount = components.Length + (ensuredComponentDescriptions != null ? ensuredComponentDescriptions.Count : 0);
+            var componentDescriptions = new GameObjectComponentDescription[componentDescriptionCount];
+            for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
+            {
+                var component = components[componentIndex];
+                componentDescriptions[componentIndex] = new GameObjectComponentDescription(component != null ? component.GetType().FullName : null);
+            }
+
+            if (ensuredComponentDescriptions == null)
+            {
+                return componentDescriptions;
+            }
+
+            for (var ensuredIndex = 0; ensuredIndex < ensuredComponentDescriptions.Count; ensuredIndex++)
+            {
+                componentDescriptions[components.Length + ensuredIndex] = ensuredComponentDescriptions[ensuredIndex];
+            }
+
+            return componentDescriptions;
         }
     }
 }

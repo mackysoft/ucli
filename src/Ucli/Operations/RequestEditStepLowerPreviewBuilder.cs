@@ -8,6 +8,11 @@ namespace MackySoft.Ucli.Operations;
 /// <summary> Builds one structural primitive-operation preview for an <c>edit</c> step. </summary>
 internal static class RequestEditStepLowerPreviewBuilder
 {
+    /// <summary> Builds one referenced-operation preview for one public <c>kind:"edit"</c> step. </summary>
+    /// <param name="stepElement"> The raw edit-step JSON element. </param>
+    /// <param name="operationNames"> The primitive operation names referenced by the step when structural lowering succeeds. </param>
+    /// <param name="errorMessage"> The structural validation error message when the step cannot be lowered. </param>
+    /// <returns> <see langword="true" /> when the edit step can be structurally lowered into primitive operation names; otherwise <see langword="false" />. </returns>
     public static bool TryBuild (
         JsonElement stepElement,
         out IReadOnlyList<string> operationNames,
@@ -21,7 +26,6 @@ internal static class RequestEditStepLowerPreviewBuilder
         }
 
         var operations = new List<string>(stepContract.Actions.Count + 3);
-        AddIfPresent(IpcEditStepLoweringRules.GetContextPreludeOperationName(stepContract.Context.Kind), operations);
         AddIfPresent(IpcEditStepLoweringRules.GetSelectionSourceOperationName(stepContract.Selection), operations);
 
         var currentTargetKind = IpcEditStepLoweringRules.DetermineStructuralSelectionTargetKind(stepContract);
@@ -73,7 +77,7 @@ internal static class RequestEditStepLowerPreviewBuilder
                     return false;
                 }
 
-                return TryAddOperationName(action.Kind, setTargetKind, parentTargetKind: null, operations, out errorMessage);
+                return TryAddOperationName(stepContract.Context.Kind, action.Kind, setTargetKind, parentTargetKind: null, operations, out errorMessage);
 
             case IpcEditStepContract.ActionKind.EnsureComponent:
                 if (!TryResolveTargetKind(action.Target, currentTargetKind, aliases, out var ensureTargetKind, out errorMessage))
@@ -81,7 +85,7 @@ internal static class RequestEditStepLowerPreviewBuilder
                     return false;
                 }
 
-                if (!TryAddOperationName(action.Kind, ensureTargetKind, parentTargetKind: null, operations, out errorMessage))
+                if (!TryAddOperationName(stepContract.Context.Kind, action.Kind, ensureTargetKind, parentTargetKind: null, operations, out errorMessage))
                 {
                     return false;
                 }
@@ -90,7 +94,7 @@ internal static class RequestEditStepLowerPreviewBuilder
                 return true;
 
             case IpcEditStepContract.ActionKind.CreateObject:
-                if (!TryAddOperationName(action.Kind, currentTargetKind, parentTargetKind: null, operations, out errorMessage))
+                if (!TryAddOperationName(stepContract.Context.Kind, action.Kind, currentTargetKind, parentTargetKind: null, operations, out errorMessage))
                 {
                     return false;
                 }
@@ -99,7 +103,7 @@ internal static class RequestEditStepLowerPreviewBuilder
                 return true;
 
             case IpcEditStepContract.ActionKind.CreateAsset:
-                return TryAddOperationName(action.Kind, currentTargetKind, parentTargetKind: null, operations, out errorMessage);
+                return TryAddOperationName(stepContract.Context.Kind, action.Kind, currentTargetKind, parentTargetKind: null, operations, out errorMessage);
 
             case IpcEditStepContract.ActionKind.CreatePrefab:
                 if (!TryResolveTargetKind(action.Target, currentTargetKind, aliases, out var prefabTargetKind, out errorMessage))
@@ -107,7 +111,7 @@ internal static class RequestEditStepLowerPreviewBuilder
                     return false;
                 }
 
-                return TryAddOperationName(action.Kind, prefabTargetKind, parentTargetKind: null, operations, out errorMessage);
+                return TryAddOperationName(stepContract.Context.Kind, action.Kind, prefabTargetKind, parentTargetKind: null, operations, out errorMessage);
 
             case IpcEditStepContract.ActionKind.Delete:
                 if (!TryResolveTargetKind(action.Target, currentTargetKind, aliases, out var deleteTargetKind, out errorMessage))
@@ -115,7 +119,7 @@ internal static class RequestEditStepLowerPreviewBuilder
                     return false;
                 }
 
-                return TryAddOperationName(action.Kind, deleteTargetKind, parentTargetKind: null, operations, out errorMessage);
+                return TryAddOperationName(stepContract.Context.Kind, action.Kind, deleteTargetKind, parentTargetKind: null, operations, out errorMessage);
 
             case IpcEditStepContract.ActionKind.Reparent:
                 if (!TryResolveTargetKind(action.Target, currentTargetKind, aliases, out var reparentTargetKind, out errorMessage))
@@ -139,7 +143,7 @@ internal static class RequestEditStepLowerPreviewBuilder
                     return false;
                 }
 
-                return TryAddOperationName(action.Kind, reparentTargetKind, parentTargetKind, operations, out errorMessage);
+                return TryAddOperationName(stepContract.Context.Kind, action.Kind, reparentTargetKind, parentTargetKind, operations, out errorMessage);
 
             default:
                 errorMessage = $"Unsupported edit action kind '{action.Kind}'.";
@@ -214,6 +218,7 @@ internal static class RequestEditStepLowerPreviewBuilder
     }
 
     private static bool TryAddOperationName (
+        IpcEditStepContract.ContextKind contextKind,
         IpcEditStepContract.ActionKind actionKind,
         IpcEditTargetKind targetKind,
         IpcEditTargetKind? parentTargetKind,
@@ -221,6 +226,7 @@ internal static class RequestEditStepLowerPreviewBuilder
         out string errorMessage)
     {
         if (!IpcEditStepLoweringRules.TryGetActionOperationName(
+                contextKind,
                 actionKind,
                 targetKind,
                 parentTargetKind,

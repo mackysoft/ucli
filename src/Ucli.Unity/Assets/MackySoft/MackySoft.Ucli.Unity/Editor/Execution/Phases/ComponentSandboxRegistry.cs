@@ -99,6 +99,36 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return false;
         }
 
+        public void CollectEnsuredComponentStates (
+            string targetGlobalObjectId,
+            ICollection<EnsuredComponentState> destination)
+        {
+            if (string.IsNullOrWhiteSpace(targetGlobalObjectId))
+            {
+                throw new ArgumentException("Target GlobalObjectId must not be null, empty, or whitespace.", nameof(targetGlobalObjectId));
+            }
+
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            foreach (var pair in ensuredComponentsByKey)
+            {
+                if (!string.Equals(pair.Key.TargetGlobalObjectId, targetGlobalObjectId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (pair.Value.Component == null)
+                {
+                    continue;
+                }
+
+                destination.Add(new EnsuredComponentState(pair.Value.Component, pair.Value.Resource));
+            }
+        }
+
         public void SetComponentShadow (
             string globalObjectId,
             Component component,

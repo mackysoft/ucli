@@ -12,6 +12,7 @@ using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Index;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -36,7 +37,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     unexpected = true,
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-refresh");
         });
@@ -51,7 +53,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectRefresh,
                 args: new { });
 
-            var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
@@ -89,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void SyncDirtyStateChanges_WhenSceneTransitionsToDirty_MarksRequestAttributedChangeAndTouchesScene ()
         {
             var scenePath = "Assets/ProjectPhaseOperationTests_Scene.unity";
-            var executionContext = new OperationExecutionContext();
+            using var executionContext = new OperationExecutionContext();
             var touched = new List<OperationTouch>();
 
             ProjectOperationUtilities.SyncDirtyStateChanges(
@@ -117,7 +120,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void SyncDirtyStateChanges_WhenPrefabTransitionsToClean_ClearsRequestAttributedChangeAndTouchesPrefab ()
         {
             var prefabPath = "Assets/ProjectPhaseOperationTests_Prefab.prefab";
-            var executionContext = new OperationExecutionContext();
+            using var executionContext = new OperationExecutionContext();
             var resource = new OperationResource(OperationTouchKind.Prefab, prefabPath);
             executionContext.MarkRequestAttributedChange(resource);
             var touched = new List<OperationTouch>();
@@ -151,10 +154,197 @@ namespace MackySoft.Ucli.Unity.Tests
                 opName: UcliPrimitiveOperationNames.ProjectSave,
                 args: new { });
 
-            var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Touched, Is.Empty);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenRequestAttributedSceneExists_ReturnsTouchedScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ProjectPhaseOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            context.MarkRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath));
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: true);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenRequestAttributedSceneHasPlannedLiveOpen_ReturnsTouchedScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ProjectPhaseOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            context.MarkRequestAttributedChange(resource);
+            context.TrackPlannedLiveSceneOpen(scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: true);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenRequestAttributedOpenedPrefabStageExists_ReturnsTouchedPrefab () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ProjectPhaseOperationTests), "PrefabRoot");
+            _ = PrefabStageUtility.OpenPrefab(prefabPath);
+            var context = scope.CreateExecutionContext();
+            context.MarkRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath));
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: true);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Prefab && touched.Path == prefabPath), Is.True);
+        });
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Save_Plan_WhenRequestAttributedPrefabHasPlannedLiveOpen_ReturnsTouchedPrefab ()
+        {
+            var operation = new ProjectSavePhaseOperation();
+            using var executionContext = new OperationExecutionContext();
+            const string prefabPath = "Assets/Generated/Planned.prefab";
+            var resource = new OperationResource(OperationTouchKind.Prefab, prefabPath);
+            executionContext.MarkRequestAttributedChange(resource);
+            executionContext.TrackPlannedLivePrefabOpen(prefabPath);
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: true);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Prefab && touched.Path == prefabPath), Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task Save_Plan_WhenRequestAttributedAssetExists_ReturnsTouchedAsset ()
+        {
+            var operation = new ProjectSavePhaseOperation();
+            using var executionContext = new OperationExecutionContext();
+            const string assetPath = "Assets/Generated/Config.asset";
+            executionContext.MarkRequestAttributedChange(new OperationResource(OperationTouchKind.Asset, assetPath));
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: true);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Asset && touched.Path == assetPath), Is.True);
+        }
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenAssetCreatePlanRan_ReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
+        {
+            var createOperation = new AssetCreateOperation();
+            var saveOperation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope();
+            var executionContext = scope.CreateExecutionContext();
+            var assetPath = scope.CreateAssetPath(nameof(ProjectPhaseOperationTests), "Created.asset");
+            var createRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(IndexCatalogTestAsset)),
+                    path = assetPath,
+                });
+
+            var createResult = await createOperation.Plan(createRequest, executionContext, CancellationToken.None);
+
+            AssertSuccess(createResult, applied: false, changed: true);
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+            var saveResult = await saveOperation.Plan(saveRequest, executionContext, CancellationToken.None);
+
+            AssertSuccess(saveResult, applied: false, changed: true);
+            Assert.That(saveResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Asset && touched.Path == assetPath), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenAssetSetPlanChanged_ReturnsTouchedAsset () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new AssetSetOperation();
+            var saveOperation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<IndexCatalogTestAsset>(nameof(ProjectPhaseOperationTests), out var assetPath);
+            AssetDatabase.SaveAssets();
+            var executionContext = scope.CreateExecutionContext();
+            var setRequest = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
+                    {
+                        assetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "speed",
+                            value = 42.0f,
+                        },
+                    },
+                });
+
+            var setResult = await setOperation.Plan(setRequest, executionContext, CancellationToken.None);
+
+            AssertSuccess(setResult, applied: false, changed: true);
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+            var saveResult = await saveOperation.Plan(saveRequest, executionContext, CancellationToken.None);
+
+            AssertSuccess(saveResult, applied: false, changed: true);
+            Assert.That(saveResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Asset && touched.Path == assetPath), Is.True);
+            var serializedObject = new SerializedObject(asset);
+            Assert.That(serializedObject.FindProperty("speed").floatValue, Is.Not.EqualTo(42.0f));
         });
 
         [UnityTest]
@@ -207,6 +397,64 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: true, changed: false);
             Assert.That(scene.isDirty, Is.True);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenRequestAttributedSceneIsDirty_SavesSceneAndReturnsTouchedScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ProjectPhaseOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            _ = new GameObject("DirtySceneObject");
+            EditorSceneManager.MarkSceneDirty(scene);
+            var context = scope.CreateExecutionContext();
+            context.MarkRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath));
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: true);
+            Assert.That(scene.isDirty, Is.False);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenRequestAttributedPrefabStageIsDirty_SavesPrefabAndReturnsTouchedPrefab () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new ProjectSavePhaseOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ProjectPhaseOperationTests), "PrefabRoot");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            var child = new GameObject("Child");
+            child.transform.SetParent(prefabStage!.prefabContentsRoot.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var context = scope.CreateExecutionContext();
+            context.MarkRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath));
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.ProjectSave,
+                args: new { });
+
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: true);
+            Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
+            Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Prefab && touched.Path == prefabPath), Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath)), Is.False);
+
+            scope.CloseCurrentPrefabStageIfOpen();
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
+            Assert.That(loadedPrefabContentsRoot.transform.Find("Child"), Is.Not.Null);
         });
 
         private static string ToAbsolutePath (string assetPath)

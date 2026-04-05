@@ -231,7 +231,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Execute_WhenCallCompileFailsAfterPlanTokenPrevalidation_ReturnsStateChangedSincePlan () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Execute_WhenCallCompileFailsAfterPlanTokenPrevalidation_ReturnsCompiledExecutionChangedSincePlan () => UniTask.ToCoroutine(async () =>
         {
             var request = CreateRequest(
                 operations: new[] { ("edit-1", "unused") },
@@ -265,16 +265,73 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubPlanTokenCoordinator(
                     issueResultFactory: _ => throw new InvalidOperationException("Issue should not be called."),
                     requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
-                    validationResultFactory: _ => throw new InvalidOperationException("ValidateCall should not be called after compile failure.")));
+                    validationResultFactory: _ => PlanTokenValidationResult.Failed(new OperationFailure(
+                        IpcErrorCodes.StateChangedSincePlan,
+                        "Compiled execution changed since plan token issuance.",
+                        null))));
 
-            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call compile failure should map to state drift");
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call compile failure should map to compiled execution drift");
 
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
             Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+            Assert.That(trace.Errors[0].Message, Is.EqualTo("Compiled execution changed since plan token issuance."));
             Assert.That(trace.Errors[0].OpId, Is.EqualTo("edit-1"));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
             Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(IpcErrorCodes.StateChangedSincePlan));
+            Assert.That(trace.OperationTraces[0].Failure!.Message, Is.EqualTo("Compiled execution changed since plan token issuance."));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallCompileFailsAfterPlanTokenPrevalidationAndTokenStillValid_ReturnsOriginalCompileFailure () => UniTask.ToCoroutine(async () =>
+        {
+            var request = CreateRequest(
+                operations: new[] { ("edit-1", "unused") },
+                planToken: "token",
+                canonicalPayloadJson: "{}");
+            var planPassResult = new PlanPassResult(
+                CompiledSteps: new[]
+                {
+                    new NormalizedRequestStep("edit-1", IpcRequestStepKind.Edit, "edit", 1),
+                },
+                CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
+                OperationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        OpId: "edit-1",
+                        Op: "edit",
+                        Phase: OperationPhase.Validate,
+                        Applied: false,
+                        Changed: false,
+                        Touched: Array.Empty<OperationTouch>(),
+                        Failure: new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
+                },
+                Errors: new[]
+                {
+                    new OperationFailure(IpcErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
+                },
+                PreparedOperations: Array.Empty<PreparedOperation>());
+            var coordinator = new StubPlanTokenCoordinator(
+                issueResultFactory: _ => throw new InvalidOperationException("Issue should not be called."),
+                requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
+                validationResultFactory: _ => PlanTokenValidationResult.Success());
+            var executor = new OperationPhaseExecutor(
+                new StubPlanPassExecutor(planPassResult),
+                new OperationCallPassExecutor(),
+                coordinator);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Legacy-compatible token should preserve compile failure");
+
+            Assert.That(trace.IsSuccess, Is.False);
+            Assert.That(trace.Errors.Count, Is.EqualTo(1));
+            Assert.That(trace.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.Errors[0].Message, Is.EqualTo("selection no longer resolves."));
+            Assert.That(trace.Errors[0].OpId, Is.EqualTo("edit-1"));
+            Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
+            Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(trace.OperationTraces[0].Failure!.Message, Is.EqualTo("selection no longer resolves."));
+            Assert.That(coordinator.ValidateCallCount, Is.EqualTo(1));
         });
 
         [UnityTest]
@@ -464,7 +521,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void ValidateCall_WhenLegacyTokenOmitsCompiledExecutionDigest_ReturnsPlanTokenInvalid ()
+        public void ValidateCall_WhenLegacyTokenOmitsCompiledExecutionDigest_Succeeds ()
         {
             using var scope = new PlanTokenTestScope();
             var environment = scope.CreateEnvironment();
@@ -496,9 +553,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
 
-            Assert.That(validationResult.IsSuccess, Is.False);
-            Assert.That(validationResult.Failure, Is.Not.Null);
-            Assert.That(validationResult.Failure!.Code, Is.EqualTo(IpcErrorCodes.PlanTokenInvalid));
+            Assert.That(validationResult.IsSuccess, Is.True);
+            Assert.That(validationResult.Failure, Is.Null);
         }
 
         [Test]

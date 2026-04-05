@@ -70,6 +70,90 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Open_Call_WhenAnotherDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforeOpening () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var targetScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(targetScene, scenePath);
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening scene"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenAnotherDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var targetScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(targetScene, scenePath);
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening scene"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenDirtyPrefabStageExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var targetScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(targetScene, scenePath);
+            var prefabPath = scope.CreatePrefabAsset(nameof(SceneOperationTests), "PrefabRoot");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            prefabStage!.prefabContentsRoot.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty prefab stage blocks opening scene"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Save_Call_WhenSceneIsOnlyDirtyWithoutRequestChange_SavesLoadedScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneSaveOperation();
@@ -93,6 +177,67 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(scene.isDirty, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenOnlyPreviewSceneExistsWithoutPlannedLiveOpen_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneSaveOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryGetOrOpenTemporaryScene(scenePath, out _, out var previewErrorMessage), Is.True, previewErrorMessage);
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.SceneSave,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-save");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenSceneOpenWasPlannedForClosedScene_Succeeds () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new SceneOpenOperation();
+            var saveOperation = new SceneSaveOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.SceneSave,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var openPlanResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var savePlanResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(openPlanResult, applied: false, changed: false);
+            AssertSuccess(savePlanResult, applied: false, changed: false);
         });
 
         [UnityTest]
@@ -171,6 +316,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var rootB = new GameObject("RootB");
             var serializedObject = new SerializedObject(component);
             serializedObject.FindProperty("objectReferenceValue").objectReferenceValue = rootB;
+            serializedObject.FindProperty("componentReferenceValue").objectReferenceValue = rootB.transform;
+            serializedObject.FindProperty("exposedObjectReferenceValue.defaultValue").objectReferenceValue = rootB;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             EditorSceneManager.SaveScene(scene, scenePath);
 
@@ -196,6 +343,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(previewComponent, Is.Not.Null);
             Assert.That(previewComponent!.ObjectReferenceValue, Is.SameAs(previewRootB));
             Assert.That(previewComponent.ObjectReferenceValue, Is.Not.SameAs(rootB));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.SameAs(previewRootB.transform));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.Not.SameAs(rootB.transform));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.SameAs(previewRootB));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.Not.SameAs(rootB));
         });
 
         [UnityTest]

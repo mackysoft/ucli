@@ -25,6 +25,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly RequestAttributedChangeRegistry requestAttributedChangeRegistry = new RequestAttributedChangeRegistry();
 
+        private readonly DeletedGlobalObjectIdRegistry deletedGlobalObjectIdRegistry = new DeletedGlobalObjectIdRegistry();
+
         private readonly HashSet<string> plannedLiveSceneOpenPaths = new HashSet<string>(StringComparer.Ordinal);
 
         private readonly HashSet<string> plannedLivePrefabOpenPaths = new HashSet<string>(StringComparer.Ordinal);
@@ -98,6 +100,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out ComponentSandboxRegistry.EnsuredComponentState state)
         {
             return componentSandboxRegistry.TryGetEnsuredComponentState(targetGlobalObjectId, componentType, out state);
+        }
+
+        /// <summary> Collects all plan-time ensured components tracked for one target object. </summary>
+        /// <param name="targetGlobalObjectId"> The target tracking key. </param>
+        /// <param name="destination"> The destination collection that receives the ensured components. </param>
+        internal void CollectEnsuredComponentStates (
+            string targetGlobalObjectId,
+            ICollection<ComponentSandboxRegistry.EnsuredComponentState> destination)
+        {
+            componentSandboxRegistry.CollectEnsuredComponentStates(targetGlobalObjectId, destination);
         }
 
         /// <summary> Tries to resolve one tracked temporary component back to its logical owner resource. </summary>
@@ -195,6 +207,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporarySceneRegistry.TryResolveMirroredSourceObject(scenePath, previewObject, out sourceObject);
         }
 
+        /// <summary> Tries to resolve one mirrored live scene source object to its request-local preview object. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the source object originated one dirty loaded-scene mirror; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryScenePreviewObject (
+            string scenePath,
+            UnityEngine.Object sourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            return temporarySceneRegistry.TryResolvePreviewObjectFromSourceObject(scenePath, sourceObject, out previewObject);
+        }
+
         /// <summary> Tries to resolve one request-local preview prefab object back to its mirrored live source object. </summary>
         /// <param name="prefabPath"> The logical prefab asset path. </param>
         /// <param name="previewObject"> The preview object. </param>
@@ -208,12 +233,43 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporaryObjectScope.TryResolveMirroredSourceObject(prefabPath, previewObject, out sourceObject);
         }
 
+        /// <summary> Tries to resolve one mirrored live prefab object to its request-local preview object. </summary>
+        /// <param name="prefabPath"> The logical prefab asset path. </param>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the live source object belongs to an opened-stage mirror tracked for the request; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabPreviewObject (
+            string prefabPath,
+            UnityEngine.Object sourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            return temporaryObjectScope.TryResolvePreviewObjectFromMirroredSourceObject(prefabPath, sourceObject, out previewObject);
+        }
+
+        /// <summary> Tries to resolve one preview prefab object to its persisted stable-source object. </summary>
+        /// <param name="prefabPath"> The logical prefab asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="stableSourceObject"> The persisted stable-source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object belongs to a mirrored opened-stage snapshot with a stable-source mapping; otherwise <see langword="false" />. </returns>
         internal bool TryResolveTemporaryPrefabStableSourceObject (
             string prefabPath,
             UnityEngine.Object previewObject,
             out UnityEngine.Object? stableSourceObject)
         {
             return temporaryObjectScope.TryResolveMirroredStableSourceObject(prefabPath, previewObject, out stableSourceObject);
+        }
+
+        /// <summary> Tries to resolve one persisted stable-source prefab object to its request-local preview object. </summary>
+        /// <param name="prefabPath"> The logical prefab asset path. </param>
+        /// <param name="stableSourceObject"> The persisted stable-source object. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the stable-source object maps into request-local prefab mirror state; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabPreviewObjectFromStableSource (
+            string prefabPath,
+            UnityEngine.Object stableSourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            return temporaryObjectScope.TryResolvePreviewObjectFromMirroredStableSourceObject(prefabPath, stableSourceObject, out previewObject);
         }
 
         /// <summary> Resolves one scene path to the active execution session for the current request. </summary>
@@ -366,6 +422,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             requestAttributedChangeRegistry.MarkChanged(resource);
         }
 
+        /// <summary> Marks one stable GlobalObjectId as deleted from request-local plan state. </summary>
+        /// <param name="globalObjectId"> The deleted stable GlobalObjectId. </param>
+        internal void MarkDeletedGlobalObjectId (string globalObjectId)
+        {
+            deletedGlobalObjectIdRegistry.MarkDeleted(globalObjectId);
+        }
+
+        /// <summary> Determines whether one stable GlobalObjectId was deleted from request-local plan state. </summary>
+        /// <param name="globalObjectId"> The stable GlobalObjectId. </param>
+        /// <returns> <see langword="true" /> when the object was deleted in request-local plan state; otherwise <see langword="false" />. </returns>
+        internal bool IsDeletedGlobalObjectId (string globalObjectId)
+        {
+            return deletedGlobalObjectIdRegistry.Contains(globalObjectId);
+        }
+
         /// <summary> Determines whether one persistence resource has been changed by the current request. </summary>
         /// <param name="resource"> The resource to test. </param>
         /// <returns> <see langword="true" /> when the request changed the resource; otherwise <see langword="false" />. </returns>
@@ -379,6 +450,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal void UnmarkRequestAttributedChange (OperationResource resource)
         {
             requestAttributedChangeRegistry.UnmarkChanged(resource);
+        }
+
+        /// <summary> Copies all request-attributed resources tracked for the current request into the destination collection. </summary>
+        /// <param name="destination"> The destination collection that receives tracked resources. </param>
+        internal void CopyRequestAttributedChangesTo (ICollection<OperationResource> destination)
+        {
+            requestAttributedChangeRegistry.CopyTo(destination);
         }
 
         /// <summary> Tracks that one prior step planned an explicit live scene open for the specified path. </summary>
@@ -470,6 +548,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporarySceneRegistry.TryGetPreviewScene(scenePath, out scene);
         }
 
+        /// <summary> Releases one request-local preview scene when it was created speculatively for the current request. </summary>
+        /// <param name="scenePath"> The logical scene path to release. </param>
+        internal void ReleaseTemporaryScene (string scenePath)
+        {
+            _ = temporarySceneRegistry.ReleasePreviewScene(scenePath);
+        }
+
         /// <summary> Gets one request-local preview scene or creates one from the current loaded scene snapshot when needed. </summary>
         /// <param name="scenePath"> The scene asset path. </param>
         /// <param name="scene"> The preview scene when successful. </param>
@@ -554,6 +639,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporarySceneRegistry.TryResolvePreviewScenePath(scene, out scenePath);
         }
 
+        /// <summary> Releases one request-local temporary prefab execution session. </summary>
+        /// <param name="prefabPath"> The prefab asset path to release. </param>
+        internal void ReleaseTemporaryPrefabExecutionSession (string prefabPath)
+        {
+            _ = temporaryObjectScope.ReleaseTemporaryPrefabContentsRoot(prefabPath);
+        }
+
         /// <summary> Tracks one temporary object for cleanup at the end of request execution. </summary>
         /// <param name="unityObject"> The temporary object to destroy. </param>
         internal void TrackTemporaryObject (UnityEngine.Object unityObject)
@@ -585,6 +677,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assetSandboxRegistry.Clear();
             plannedAssetRegistry.Clear();
             requestAttributedChangeRegistry.ClearAll();
+            deletedGlobalObjectIdRegistry.Clear();
             plannedLiveSceneOpenPaths.Clear();
             plannedLivePrefabOpenPaths.Clear();
         }

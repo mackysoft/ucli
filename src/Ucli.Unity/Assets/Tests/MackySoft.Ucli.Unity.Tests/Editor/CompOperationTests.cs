@@ -112,16 +112,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var root = new GameObject("Root");
             var first = root.AddComponent<CompOperationTestComponent>();
             _ = root.AddComponent<CompOperationTestComponent>();
-            var previousIgnoreFailingMessages = LogAssert.ignoreFailingMessages;
-            LogAssert.ignoreFailingMessages = true;
-            try
-            {
-                EditorSceneManager.SaveScene(scene, scenePath);
-            }
-            finally
-            {
-                LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
-            }
+            EditorSceneManager.SaveScene(scene, scenePath);
 
             var requestOperation = CreateOperation(
                 opId: "op-ensure",
@@ -508,6 +499,51 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_Plan_WhenRawObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var operation = new CompSetOperation();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var target = root.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("host", UnityObjectReferenceResolver.CreateResolvedReference(target));
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var previewOnly = new GameObject("PreviewOnly");
+            SceneManager.MoveGameObjectToScene(previewOnly, temporaryScene);
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "host",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "objectReferenceValue",
+                            value = new
+                            {
+                                scene = scenePath,
+                                hierarchyPath = "PreviewOnly",
+                            },
+                        },
+                    },
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-set");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Set_Call_WhenObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
@@ -646,7 +682,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-set");
         });
@@ -1020,7 +1057,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     type = typeId,
                 });
 
-            var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Result.HasValue, Is.True);

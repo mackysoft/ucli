@@ -21,21 +21,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
               ""properties"": {
                 ""name"": { ""type"": ""string"", ""minLength"": 1 },
                 ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                ""parent"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""scene"", ""hierarchyPath""] }
-                  ]
-                }
+	                ""parent"": {
+	                  ""type"": ""object"",
+	                  ""additionalProperties"": false,
+	                  ""properties"": {
+	                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
+	                  },
+	                  ""oneOf"": [
+	                    { ""required"": [""var""] },
+	                    { ""required"": [""globalObjectId""] },
+	                    { ""required"": [""scene"", ""hierarchyPath""] },
+	                    { ""required"": [""prefab"", ""hierarchyPath""] }
+	                  ]
+	                }
               },
               ""required"": [""name""],
               ""oneOf"": [
@@ -86,6 +88,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 allowTemporaryState: true,
                 out var validationState,
                 out var failure))
+            {
+                return Task.FromResult(failure!);
+            }
+
+            if (!GoOperationUtilities.TryEnsurePlanResourceState(
+                    validationState.Resource,
+                    executionContext,
+                    out var preparationErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    preparationErrorMessage));
+            }
+
+            if (!TryValidateArguments(
+                    operation,
+                    executionContext,
+                    allowTemporaryState: true,
+                    out validationState,
+                    out failure))
             {
                 return Task.FromResult(failure!);
             }

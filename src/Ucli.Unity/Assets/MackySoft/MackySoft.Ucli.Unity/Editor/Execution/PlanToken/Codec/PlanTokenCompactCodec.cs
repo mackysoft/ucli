@@ -163,7 +163,11 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.WriteString("kid", payload.KeyId);
                 writer.WriteString("projectFingerprint", payload.ProjectFingerprint);
                 writer.WriteString("requestDigest", payload.RequestDigest);
-                writer.WriteString("compiledExecutionDigest", payload.CompiledExecutionDigest);
+                if (!string.IsNullOrWhiteSpace(payload.CompiledExecutionDigest))
+                {
+                    writer.WriteString("compiledExecutionDigest", payload.CompiledExecutionDigest);
+                }
+
                 writer.WriteString("stateFingerprint", payload.StateFingerprint);
                 writer.WriteString("issuedAtUtc", payload.IssuedAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
                 writer.WriteString("expiresAtUtc", payload.ExpiresAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
@@ -287,6 +291,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 var kid = PlanTokenJsonUtilities.TryReadString(root, "kid");
                 var projectFingerprint = PlanTokenJsonUtilities.TryReadString(root, "projectFingerprint");
                 var requestDigest = PlanTokenJsonUtilities.TryReadString(root, "requestDigest");
+                var hasCompiledExecutionDigest = root.TryGetProperty("compiledExecutionDigest", out _);
                 var compiledExecutionDigest = PlanTokenJsonUtilities.TryReadString(root, "compiledExecutionDigest");
                 var stateFingerprint = PlanTokenJsonUtilities.TryReadString(root, "stateFingerprint");
                 var issuedAt = PlanTokenJsonUtilities.TryReadString(root, "issuedAtUtc");
@@ -296,7 +301,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 if (string.IsNullOrWhiteSpace(kid)
                     || string.IsNullOrWhiteSpace(projectFingerprint)
                     || string.IsNullOrWhiteSpace(requestDigest)
-                    || string.IsNullOrWhiteSpace(compiledExecutionDigest)
+                    || (hasCompiledExecutionDigest && string.IsNullOrWhiteSpace(compiledExecutionDigest))
                     || string.IsNullOrWhiteSpace(stateFingerprint)
                     || string.IsNullOrWhiteSpace(issuedAt)
                     || string.IsNullOrWhiteSpace(expiresAt)
@@ -328,7 +333,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                     KeyId: kid,
                     ProjectFingerprint: projectFingerprint,
                     RequestDigest: requestDigest,
-                    CompiledExecutionDigest: compiledExecutionDigest,
+                    CompiledExecutionDigest: string.IsNullOrWhiteSpace(compiledExecutionDigest) ? null : compiledExecutionDigest,
                     StateFingerprint: stateFingerprint,
                     IssuedAtUtc: issuedAtUtc,
                     ExpiresAtUtc: expiresAtUtc,

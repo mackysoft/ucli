@@ -62,10 +62,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var resource = new OperationResource(OperationTouchKind.Prefab, resolutionState.PrefabPath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
-            var isDirty = resolutionState.PrefabContentsRoot.scene.isDirty;
+            var hasDirtyPrefab = resolutionState.PrefabContentsRoot.scene.isDirty;
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
-                changed: hasRequestAttributedChange || isDirty,
+                changed: hasRequestAttributedChange || hasDirtyPrefab,
                 touched: new[]
                 {
                     OperationResourceUtilities.CreateTouch(resource),
@@ -89,9 +89,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var resource = new OperationResource(OperationTouchKind.Prefab, resolutionState.PrefabPath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
-            var isDirty = resolutionState.PrefabContentsRoot.scene.isDirty;
-            if (!hasRequestAttributedChange
-                && !isDirty)
+            var hasDirtyPrefab = resolutionState.PrefabContentsRoot.scene.isDirty;
+            if (!hasRequestAttributedChange && !hasDirtyPrefab)
             {
                 return Task.FromResult(OperationPhaseStepResult.Success(
                     applied: false,
@@ -145,18 +144,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!executionContext.TryResolvePrefabExecutionSession(
-                    prefabPath,
-                    createTemporaryIfMissing: false,
-                    out var prefabContentsRoot,
-                    out var prefabStage,
-                    out _,
-                    out var errorMessage))
+            var hasOpenedStage = PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var openedPrefabStage, out _);
+            if (!hasOpenedStage
+                && !executionContext.HasPlannedLivePrefabOpen(prefabPath))
             {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    $"Prefab is not opened: {prefabPath}. Use 'ucli.prefab.open' first.");
                 return false;
             }
 
+            if (executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabContentsRoot)
+                && temporaryPrefabContentsRoot != null)
+            {
+                resolutionState = new ResolutionState(prefabPath, temporaryPrefabContentsRoot, openedPrefabStage);
+                return true;
+            }
+
+            if (!hasOpenedStage)
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    $"Prefab plan state is not available: {prefabPath}.");
+                return false;
+            }
+
+            var prefabContentsRoot = openedPrefabStage!.prefabContentsRoot;
             if (prefabContentsRoot == null)
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
@@ -165,7 +178,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            resolutionState = new ResolutionState(prefabPath, prefabContentsRoot, prefabStage);
+            resolutionState = new ResolutionState(prefabPath, prefabContentsRoot, openedPrefabStage);
             return true;
         }
 

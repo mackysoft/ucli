@@ -55,6 +55,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(validationState.PrefabPath, out _, out _)
+                && !PrefabOperationUtilities.TryEnsureCanOpenPrefabStage(validationState.PrefabPath, out var blockerErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    blockerErrorMessage));
+            }
+
             GameObject? prefabContentsRoot;
             if (!executionContext.TryGetOrCreateTemporaryPrefabContentsRoot(
                     validationState.PrefabPath,

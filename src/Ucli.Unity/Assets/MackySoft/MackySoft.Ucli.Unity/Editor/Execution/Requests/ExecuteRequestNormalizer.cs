@@ -123,6 +123,13 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
         private static ExecuteRequestNormalizationError MapReadError (in IpcRequestContractReadError readError)
         {
+            if (readError.Kind == IpcRequestContractReadErrorKind.StepEditContractViolation)
+            {
+                return ExecuteRequestNormalizationError.InvalidArgument(
+                    message: readError.DiagnosticMessage ?? "Request arguments are invalid.",
+                    opId: readError.StepId);
+            }
+
             var violation = IpcRequestContractViolationClassifier.Classify(readError);
             var stepId = violation.StepId ?? string.Empty;
             return violation.Kind switch

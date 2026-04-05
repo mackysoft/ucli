@@ -108,6 +108,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var prefabPath = CreatePrefabPath(prefix);
+            resetEditorSceneState = true;
             var sourceRoot = new GameObject(rootName);
             try
             {
@@ -304,51 +305,40 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private void DeleteTrackedAssets ()
         {
-            var previousIgnoreFailingMessages = UnityEngine.TestTools.LogAssert.ignoreFailingMessages;
-            UnityEngine.TestTools.LogAssert.ignoreFailingMessages = true;
-            try
+            foreach (var assetPath in assetPaths)
             {
-                foreach (var assetPath in assetPaths)
+                if (AssetDatabase.DeleteAsset(assetPath))
                 {
-                    if (AssetDatabase.DeleteAsset(assetPath))
-                    {
-                        continue;
-                    }
-
-                    DeleteAssetFiles(assetPath);
+                    continue;
                 }
 
-                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
-            }
-            finally
-            {
-                UnityEngine.TestTools.LogAssert.ignoreFailingMessages = previousIgnoreFailingMessages;
+                if (!AssetPathExists(assetPath))
+                {
+                    continue;
+                }
+
+                throw new InvalidOperationException($"Tracked test asset could not be deleted: {assetPath}");
             }
 
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             assetPaths.Clear();
         }
 
-        private static void DeleteAssetFiles (string assetPath)
+        private static bool AssetPathExists (string assetPath)
         {
             var projectRootPath = Path.GetDirectoryName(Application.dataPath);
             if (string.IsNullOrWhiteSpace(projectRootPath))
             {
-                return;
+                return AssetDatabase.LoadMainAssetAtPath(assetPath) != null;
             }
 
             var relativePath = assetPath.Replace('/', Path.DirectorySeparatorChar);
             var absolutePath = Path.Combine(projectRootPath, relativePath);
             var metaPath = absolutePath + ".meta";
 
-            if (File.Exists(absolutePath))
-            {
-                File.Delete(absolutePath);
-            }
-
-            if (File.Exists(metaPath))
-            {
-                File.Delete(metaPath);
-            }
+            return AssetDatabase.LoadMainAssetAtPath(assetPath) != null
+                || File.Exists(absolutePath)
+                || File.Exists(metaPath);
         }
 
         private void DestroyTrackedUnityObjects ()

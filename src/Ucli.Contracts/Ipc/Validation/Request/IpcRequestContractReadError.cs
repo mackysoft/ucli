@@ -6,6 +6,7 @@ namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 /// <param name="UnknownPropertyName"> The unknown property name when the error is unknown-property related. </param>
 /// <param name="StepId"> The step identifier context when available. </param>
 /// <param name="DuplicatedStepId"> The duplicated step identifier for duplicate-id errors. </param>
+/// <param name="DiagnosticMessage"> The nested detailed diagnostic message for structural contract violations. </param>
 /// <param name="JsonStringReadError"> The nested JSON string read error for string-contract violations. </param>
 /// <param name="StepPropertyReadErrorKind"> The nested object/array property read error kind for step contract violations. </param>
 internal readonly record struct IpcRequestContractReadError (
@@ -14,6 +15,7 @@ internal readonly record struct IpcRequestContractReadError (
     string? UnknownPropertyName,
     string? StepId,
     string? DuplicatedStepId,
+    string? DiagnosticMessage,
     JsonStringReadError JsonStringReadError,
     StepPropertyReadErrorKind StepPropertyReadErrorKind)
 {
@@ -24,171 +26,97 @@ internal readonly record struct IpcRequestContractReadError (
         UnknownPropertyName: null,
         StepId: null,
         DuplicatedStepId: null,
+        DiagnosticMessage: null,
         JsonStringReadError: JsonStringReadError.None,
         StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
 
     public static IpcRequestContractReadError RequestMustBeObject ()
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.RequestMustBeObject,
-            StepIndex: -1,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(IpcRequestContractReadErrorKind.RequestMustBeObject);
     }
 
     public static IpcRequestContractReadError UnknownRequestProperty (string unknownPropertyName)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.UnknownRequestProperty,
-            StepIndex: -1,
-            UnknownPropertyName: unknownPropertyName,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.UnknownRequestProperty,
+            unknownPropertyName: unknownPropertyName);
     }
 
     public static IpcRequestContractReadError ProtocolVersionMissing ()
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.ProtocolVersionMissing,
-            StepIndex: -1,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(IpcRequestContractReadErrorKind.ProtocolVersionMissing);
     }
 
     public static IpcRequestContractReadError ProtocolVersionTypeMismatch ()
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch,
-            StepIndex: -1,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch);
     }
 
     public static IpcRequestContractReadError RequestIdContractViolation (JsonStringReadError jsonStringReadError)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.RequestIdContractViolation,
-            StepIndex: -1,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: jsonStringReadError,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.RequestIdContractViolation,
+            jsonStringReadError: jsonStringReadError);
     }
 
     public static IpcRequestContractReadError RequestIdFormatMismatch ()
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.RequestIdFormatMismatch,
-            StepIndex: -1,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(IpcRequestContractReadErrorKind.RequestIdFormatMismatch);
     }
 
     public static IpcRequestContractReadError StepsMissing ()
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepsMissing,
-            StepIndex: -1,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(IpcRequestContractReadErrorKind.StepsMissing);
     }
 
     public static IpcRequestContractReadError StepsTypeMismatch ()
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepsTypeMismatch,
-            StepIndex: -1,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(IpcRequestContractReadErrorKind.StepsTypeMismatch);
     }
 
     public static IpcRequestContractReadError StepMustBeObject (int stepIndex)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepMustBeObject,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(IpcRequestContractReadErrorKind.StepMustBeObject, stepIndex: stepIndex);
     }
 
     public static IpcRequestContractReadError StepKindContractViolation (
         int stepIndex,
         JsonStringReadError jsonStringReadError)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepKindContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: jsonStringReadError,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.StepKindContractViolation,
+            stepIndex: stepIndex,
+            jsonStringReadError: jsonStringReadError);
     }
 
     public static IpcRequestContractReadError StepKindUnsupported (
         int stepIndex,
         string stepKind)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepKindUnsupported,
-            StepIndex: stepIndex,
-            UnknownPropertyName: stepKind,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.StepKindUnsupported,
+            stepIndex: stepIndex,
+            unknownPropertyName: stepKind);
     }
 
     public static IpcRequestContractReadError UnknownStepProperty (
         int stepIndex,
         string unknownPropertyName)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.UnknownStepProperty,
-            StepIndex: stepIndex,
-            UnknownPropertyName: unknownPropertyName,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.UnknownStepProperty,
+            stepIndex: stepIndex,
+            unknownPropertyName: unknownPropertyName);
     }
 
     public static IpcRequestContractReadError StepIdContractViolation (
         int stepIndex,
         JsonStringReadError jsonStringReadError)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepIdContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: null,
-            DuplicatedStepId: null,
-            JsonStringReadError: jsonStringReadError,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.StepIdContractViolation,
+            stepIndex: stepIndex,
+            jsonStringReadError: jsonStringReadError);
     }
 
     public static IpcRequestContractReadError StepOpContractViolation (
@@ -196,14 +124,11 @@ internal readonly record struct IpcRequestContractReadError (
         string? stepId,
         JsonStringReadError jsonStringReadError)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepOpContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: stepId,
-            DuplicatedStepId: null,
-            JsonStringReadError: jsonStringReadError,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.StepOpContractViolation,
+            stepIndex: stepIndex,
+            stepId: stepId,
+            jsonStringReadError: jsonStringReadError);
     }
 
     public static IpcRequestContractReadError StepArgsContractViolation (
@@ -211,14 +136,11 @@ internal readonly record struct IpcRequestContractReadError (
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepArgsContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: stepId,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: propertyReadErrorKind);
+        return Create(
+            IpcRequestContractReadErrorKind.StepArgsContractViolation,
+            stepIndex: stepIndex,
+            stepId: stepId,
+            stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
     public static IpcRequestContractReadError StepOnContractViolation (
@@ -226,14 +148,11 @@ internal readonly record struct IpcRequestContractReadError (
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepOnContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: stepId,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: propertyReadErrorKind);
+        return Create(
+            IpcRequestContractReadErrorKind.StepOnContractViolation,
+            stepIndex: stepIndex,
+            stepId: stepId,
+            stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
     public static IpcRequestContractReadError StepSelectContractViolation (
@@ -241,14 +160,11 @@ internal readonly record struct IpcRequestContractReadError (
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepSelectContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: stepId,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: propertyReadErrorKind);
+        return Create(
+            IpcRequestContractReadErrorKind.StepSelectContractViolation,
+            stepIndex: stepIndex,
+            stepId: stepId,
+            stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
     public static IpcRequestContractReadError StepActionsContractViolation (
@@ -256,28 +172,21 @@ internal readonly record struct IpcRequestContractReadError (
         string? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepActionsContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: stepId,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: propertyReadErrorKind);
+        return Create(
+            IpcRequestContractReadErrorKind.StepActionsContractViolation,
+            stepIndex: stepIndex,
+            stepId: stepId,
+            stepPropertyReadErrorKind: propertyReadErrorKind);
     }
 
     public static IpcRequestContractReadError StepActionMustBeObject (
         int stepIndex,
         string? stepId)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepActionMustBeObject,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: stepId,
-            DuplicatedStepId: null,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.StepActionMustBeObject,
+            stepIndex: stepIndex,
+            stepId: stepId);
     }
 
     public static IpcRequestContractReadError StepCommitContractViolation (
@@ -285,27 +194,59 @@ internal readonly record struct IpcRequestContractReadError (
         string? stepId,
         JsonStringReadError jsonStringReadError)
     {
-        return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.StepCommitContractViolation,
-            StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: stepId,
-            DuplicatedStepId: null,
-            JsonStringReadError: jsonStringReadError,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+        return Create(
+            IpcRequestContractReadErrorKind.StepCommitContractViolation,
+            stepIndex: stepIndex,
+            stepId: stepId,
+            jsonStringReadError: jsonStringReadError);
+    }
+
+    public static IpcRequestContractReadError StepEditContractViolation (
+        int stepIndex,
+        string? stepId,
+        string diagnosticMessage)
+    {
+        return Create(
+            IpcRequestContractReadErrorKind.StepEditContractViolation,
+            stepIndex: stepIndex,
+            stepId: stepId,
+            diagnosticMessage: diagnosticMessage);
     }
 
     public static IpcRequestContractReadError DuplicatedStepIdError (
         int stepIndex,
         string duplicatedStepId)
     {
+        return Create(
+            IpcRequestContractReadErrorKind.DuplicatedStepId,
+            stepIndex: stepIndex,
+            stepId: duplicatedStepId,
+            duplicatedStepId: duplicatedStepId);
+    }
+
+    private static IpcRequestContractReadError Create (
+        IpcRequestContractReadErrorKind kind,
+        int stepIndex = -1,
+        string? unknownPropertyName = null,
+        string? stepId = null,
+        string? duplicatedStepId = null,
+        string? diagnosticMessage = null,
+        JsonStringReadError jsonStringReadError = default,
+        StepPropertyReadErrorKind stepPropertyReadErrorKind = StepPropertyReadErrorKind.None)
+    {
+        if (jsonStringReadError == default)
+        {
+            jsonStringReadError = JsonStringReadError.None;
+        }
+
         return new IpcRequestContractReadError(
-            Kind: IpcRequestContractReadErrorKind.DuplicatedStepId,
+            Kind: kind,
             StepIndex: stepIndex,
-            UnknownPropertyName: null,
-            StepId: duplicatedStepId,
+            UnknownPropertyName: unknownPropertyName,
+            StepId: stepId,
             DuplicatedStepId: duplicatedStepId,
-            JsonStringReadError: JsonStringReadError.None,
-            StepPropertyReadErrorKind: StepPropertyReadErrorKind.None);
+            DiagnosticMessage: diagnosticMessage,
+            JsonStringReadError: jsonStringReadError,
+            StepPropertyReadErrorKind: stepPropertyReadErrorKind);
     }
 }

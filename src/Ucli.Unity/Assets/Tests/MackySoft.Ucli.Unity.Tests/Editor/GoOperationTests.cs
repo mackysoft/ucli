@@ -174,7 +174,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
         });
@@ -192,7 +193,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     name = "CreatedRoot",
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
         });
@@ -285,6 +287,56 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Describe_Plan_WhenTargetHasEnsuredComponent_IncludesEnsuredComponent () => UniTask.ToCoroutine(async () =>
+        {
+            var ensureOperation = new CompEnsureOperation();
+            var describeOperation = new GoDescribeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+
+            var ensureRequest = CreateOperation(
+                opId: "op-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    type = "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                });
+            var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
+            AssertSuccess(ensureResult, applied: false, changed: true);
+
+            var describeRequest = CreateOperation(
+                opId: "op-describe",
+                opName: UcliPrimitiveOperationNames.GoDescribe,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                });
+
+            var describeResult = await describeOperation.Plan(describeRequest, context, CancellationToken.None);
+
+            AssertSuccess(describeResult, applied: false, changed: false);
+            Assert.That(describeResult.Result.HasValue, Is.True);
+            var components = describeResult.Result!.Value.GetProperty("components").EnumerateArray()
+                .Select(element => element.GetProperty("type").GetString())
+                .ToArray();
+            Assert.That(components, Does.Contain(typeof(BoxCollider).FullName));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Describe_Validate_WhenDepthIsNegative_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoDescribeOperation();
@@ -300,7 +352,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     depth = -1,
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-describe");
         });
@@ -354,13 +407,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Create_Plan_WhenSceneIsLoadedWithoutPriorOpen_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Create_Plan_WhenSceneIsLoadedWithoutPriorOpen_UsesRequestLocalPlanState () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             using var scope = new EditorTestScope();
             var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(scene, scenePath);
+            var loadedScene = SceneManager.GetSceneByPath(scenePath);
             var requestOperation = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.GoCreate,
@@ -369,15 +423,19 @@ namespace MackySoft.Ucli.Unity.Tests
                     name = "CreatedRoot",
                     scene = scenePath,
                 });
+            var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
-            AssertInvalidArgument(result, "op-create");
+            AssertSuccess(result, applied: false, changed: true);
+            Assert.That(loadedScene.GetRootGameObjects().Any(static gameObject => gameObject.name == "CreatedRoot"), Is.False);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            Assert.That(temporaryScene.GetRootGameObjects().Any(static gameObject => gameObject.name == "CreatedRoot"), Is.True);
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Create_Plan_WhenParentIsLiveSceneObjectWithoutPriorOpen_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Create_Plan_WhenParentIsLiveSceneObjectWithoutPriorOpen_UsesRequestLocalPlanState () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoCreateOperation();
             using var scope = new EditorTestScope();
@@ -397,10 +455,16 @@ namespace MackySoft.Ucli.Unity.Tests
                         hierarchyPath = parent.name,
                     },
                 });
+            var context = scope.CreateExecutionContext();
 
-            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
-            AssertInvalidArgument(result, "op-create");
+            AssertSuccess(result, applied: false, changed: true);
+            Assert.That(parent.transform.childCount, Is.EqualTo(0));
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var temporaryParent = temporaryScene.GetRootGameObjects().Single(static gameObject => gameObject.name == "Parent");
+            Assert.That(temporaryParent.transform.childCount, Is.EqualTo(1));
+            Assert.That(temporaryParent.transform.GetChild(0).name, Is.EqualTo("CreatedChild"));
         });
 
         [UnityTest]
@@ -501,6 +565,40 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Delete_Plan_WhenTargetIsLiveSceneObjectWithoutPriorOpen_UsesRequestLocalPlanState () => UniTask.ToCoroutine(async () =>
+        {
+            var deleteOperation = new GoDeleteOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var deleteRequest = CreateOperation(
+                opId: "op-delete",
+                opName: UcliPrimitiveOperationNames.GoDelete,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root/Child",
+                    },
+                });
+            var context = scope.CreateExecutionContext();
+
+            var deleteResult = await deleteOperation.Plan(deleteRequest, context, CancellationToken.None);
+
+            AssertSuccess(deleteResult, applied: false, changed: true);
+            Assert.That(root.transform.childCount, Is.EqualTo(1));
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var temporaryRoot = temporaryScene.GetRootGameObjects().Single(static gameObject => gameObject.name == "Root");
+            Assert.That(temporaryRoot.transform.childCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Delete_Call_WhenOnlyPreviewSceneIsTracked_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new SceneOpenOperation();
@@ -538,6 +636,127 @@ namespace MackySoft.Ucli.Unity.Tests
             var deleteResult = await deleteOperation.Call(deleteRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(deleteResult, "op-delete");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Delete_Plan_WhenTargetIsPrefabRoot_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new PrefabOpenOperation();
+            var deleteOperation = new GoDeleteOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(GoOperationTests), "PrefabRoot", "Child");
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+
+            Assert.That(openResult.IsSuccess, Is.True);
+
+            var deleteRequest = CreateOperation(
+                opId: "op-delete",
+                opName: UcliPrimitiveOperationNames.GoDelete,
+                args: new
+                {
+                    target = new
+                    {
+                        prefab = prefabPath,
+                        hierarchyPath = prefabRootName,
+                    },
+                });
+
+            var deleteResult = await deleteOperation.Plan(deleteRequest, context, CancellationToken.None);
+
+            AssertInvalidArgument(deleteResult, "op-delete");
+            Assert.That(deleteResult.Failure!.Message, Does.Contain("Prefab root cannot be deleted."));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Delete_Call_WhenTargetIsPrefabRoot_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new PrefabOpenOperation();
+            var deleteOperation = new GoDeleteOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(GoOperationTests), "PrefabRoot", "Child");
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+
+            Assert.That(openResult.IsSuccess, Is.True);
+
+            var deleteRequest = CreateOperation(
+                opId: "op-delete",
+                opName: UcliPrimitiveOperationNames.GoDelete,
+                args: new
+                {
+                    target = new
+                    {
+                        prefab = prefabPath,
+                        hierarchyPath = prefabRootName,
+                    },
+                });
+
+            var deleteResult = await deleteOperation.Call(deleteRequest, context, CancellationToken.None);
+
+            AssertInvalidArgument(deleteResult, "op-delete");
+            Assert.That(deleteResult.Failure!.Message, Does.Contain("Prefab root cannot be deleted."));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Reparent_Plan_WhenLiveSceneObjectsAreUsedWithoutPriorOpen_UsesRequestLocalPlanState () => UniTask.ToCoroutine(async () =>
+        {
+            var reparentOperation = new GoReparentOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            _ = new GameObject("Container");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var reparentRequest = CreateOperation(
+                opId: "op-reparent",
+                opName: UcliPrimitiveOperationNames.GoReparent,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root/Child",
+                    },
+                    parent = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Container",
+                    },
+                });
+            var context = scope.CreateExecutionContext();
+
+            var reparentResult = await reparentOperation.Plan(reparentRequest, context, CancellationToken.None);
+
+            AssertSuccess(reparentResult, applied: false, changed: true);
+            Assert.That(child.transform.parent, Is.SameAs(root.transform));
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var temporaryContainer = temporaryScene.GetRootGameObjects().Single(static gameObject => gameObject.name == "Container");
+            Assert.That(temporaryContainer.transform.childCount, Is.EqualTo(1));
+            Assert.That(temporaryContainer.transform.GetChild(0).name, Is.EqualTo("Child"));
         });
 
         [UnityTest]
@@ -620,6 +839,98 @@ namespace MackySoft.Ucli.Unity.Tests
             var oldPathResult = await describeOperation.Plan(oldPathDescribe, context, CancellationToken.None);
 
             AssertInvalidArgument(oldPathResult, "op-describe-old");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Reparent_Plan_WhenTargetAlreadyUsesSpecifiedParent_ReturnsNoChange () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new SceneOpenOperation();
+            var reparentOperation = new GoReparentOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+
+            AssertSuccess(openResult, applied: false, changed: false);
+
+            var reparentRequest = CreateOperation(
+                opId: "op-reparent",
+                opName: UcliPrimitiveOperationNames.GoReparent,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root/Child",
+                    },
+                    parent = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                });
+
+            var reparentResult = await reparentOperation.Plan(reparentRequest, context, CancellationToken.None);
+
+            Assert.That(reparentResult.IsSuccess, Is.True);
+            Assert.That(reparentResult.Applied, Is.False);
+            Assert.That(reparentResult.Changed, Is.False);
+            Assert.That(reparentResult.Touched, Is.Empty);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Reparent_Call_WhenTargetAlreadyUsesSpecifiedParent_ReturnsNoChange () => UniTask.ToCoroutine(async () =>
+        {
+            var reparentOperation = new GoReparentOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var reparentRequest = CreateOperation(
+                opId: "op-reparent",
+                opName: UcliPrimitiveOperationNames.GoReparent,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root/Child",
+                    },
+                    parent = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                });
+
+            var reparentResult = await reparentOperation.Call(reparentRequest, context, CancellationToken.None);
+
+            Assert.That(reparentResult.IsSuccess, Is.True);
+            Assert.That(reparentResult.Applied, Is.True);
+            Assert.That(reparentResult.Changed, Is.False);
+            Assert.That(reparentResult.Touched, Is.Empty);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
+            Assert.That(child.transform.parent, Is.SameAs(root.transform));
         });
 
         [UnityTest]

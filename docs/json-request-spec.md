@@ -294,16 +294,19 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `project`
 ### 意味
 - `none`: 保存しない
-- `context`: 現在の context を保存する
+- `context`: 現在の context に対応する保存境界を実行する  
+  `scene` / `prefab` context ではその context を保存し、`asset` / `project` context では `ucli.project.save` を実行する
 - `project`: project 全体を保存する
 ### 原則
 - `commit` は `edit` では必須
 - 暗黙保存は禁止
 - `modify != persist` を徹底する
+- `ucli.project.save` は request 中に追跡した open Scene / opened Prefab の変更もあわせて保存し得る
 ## 複数 Scene / 複数 context の扱い
 
 複数 context を扱う場合は、**step を並べて表現する**。  
-1 step で複数 Scene をまたぐことはしない。
+1 step で複数 Scene をまたぐ編集対象を明示しない。  
+ただし `asset` / `project` context の `commit: "context"` は `ucli.project.save` を使うため、request 中に追跡した open Scene / opened Prefab の保存まで含み得る。
 
 ### 例
 

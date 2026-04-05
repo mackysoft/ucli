@@ -256,8 +256,10 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasOperationNames(
                     UcliPrimitiveOperationNames.AssetSet,
-                    UcliPrimitiveOperationNames.ProjectSave)
-                .HasProjectAssetTarget(0, "ProjectSettings/TagManager.asset");
+                    UcliPrimitiveOperationNames.ProjectSave);
+            var target = compiledOperations[0].Args.GetProperty("target");
+            Assert.That(target.GetProperty("projectAssetPath").GetString(), Is.EqualTo("ProjectSettings/TagManager.asset"));
+            Assert.That(target.TryGetProperty("assetPath", out _), Is.False);
         }
 
         [Test]
@@ -323,7 +325,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.IsSuccess, Is.True);
                 var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
                 _ = new ExecuteRequestCompileFailureAssert(error)
-                    .HasInvalidArgument("createAssetForMany");
+                    .HasInvalidArgument("createAssetForMany")
+                    .HasMessageContaining("requires the selection to resolve to at most one target.");
         }
 
         [Test]
@@ -389,10 +392,60 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var result = new ExecuteRequestNormalizer().Normalize(request);
 
-                Assert.That(result.IsSuccess, Is.True);
-                var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
-                _ = new ExecuteRequestCompileFailureAssert(error)
-                    .HasInvalidArgument("createPrefabForMany");
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("createPrefabForMany")
+                .HasMessageContaining("requires the selection to resolve to at most one target.");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenPrefabEditContainsCreatePrefabAction_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "createPrefabInPrefabContext",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = "PrefabRoot",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createPrefab",
+                                    path = "Assets/Generated/Nested.prefab",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("createPrefabInPrefabContext")
+                .HasMessageContaining("requires a GameObject target in scene context.");
         }
 
         [Test]
@@ -453,7 +506,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizedRequest = result.Request!;
             var error = CompileSingleStepFailure(normalizedRequest, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("deletePersistedRoot");
+                .HasInvalidArgument("deletePersistedRoot")
+                .HasMessageContaining("cardinality 'one' requires exactly one target.");
         }
 
         [Test]
@@ -514,7 +568,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasOperationNames(UcliPrimitiveOperationNames.CompEnsure);
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
+                .AllHavePublicId("ensureDirtySceneTarget")
+                .HaveDistinctInternalExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(
                 temporaryScene.GetRootGameObjects(),
@@ -573,7 +629,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedSceneDelete");
+                .HasInvalidArgument("closedSceneDelete")
+                .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         }
 
         [Test]
@@ -624,7 +681,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedSceneCommit");
+                .HasInvalidArgument("closedSceneCommit")
+                .HasMessageContaining("Add 'ucli.scene.open' before this step.");
         }
 
         [Test]
@@ -752,7 +810,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasOperationNames(UcliPrimitiveOperationNames.GoDelete);
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .AllHavePublicId("loadedSceneDelete")
+                .HaveDistinctInternalExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(EditorSceneManager.IsPreviewScene(temporaryScene), Is.True);
 
@@ -809,7 +869,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedPrefabEnsure");
+                .HasInvalidArgument("closedPrefabEnsure")
+                .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         }
 
         [Test]
@@ -860,7 +921,59 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("closedPrefabCreateAssetWithCommit");
+                .HasInvalidArgument("closedPrefabCreateAssetWithCommit")
+                .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedPrefabOptionalSelectionDoesNotResolveAndCommitIsContext_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedPrefabOptionalCreateAssetWithCommit",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Missing",
+                                cardinality = "atMostOne",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/FromClosedOptionalPrefab.asset",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("closedPrefabOptionalCreateAssetWithCommit")
+                .HasMessageContaining("Add 'ucli.prefab.open' before this step.");
         }
 
         [Test]
@@ -914,7 +1027,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasOperationNames(UcliPrimitiveOperationNames.CompEnsure);
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
+                .AllHavePublicId("openedPrefabEnsure")
+                .HaveDistinctInternalExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot), Is.True);
             Assert.That(temporaryPrefabRoot, Is.Not.Null);
             Assert.That(temporaryPrefabRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
@@ -993,7 +1108,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(openPlanResult.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasOperationNames(UcliPrimitiveOperationNames.CompEnsure);
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
+                .AllHavePublicId("closedPrefabEnsureAfterOpen")
+                .HaveDistinctInternalExecutionKeys();
         }
 
         [Test]
@@ -1064,9 +1181,87 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasOperationNames(
+                .HasLoweredOperations(
+                    IpcRequestStepKind.Edit,
+                    "edit",
                     UcliPrimitiveOperationNames.AssetCreate,
-                    UcliPrimitiveOperationNames.PrefabSave);
+                    UcliPrimitiveOperationNames.PrefabSave)
+                .AllHavePublicId("closedPrefabCreateAssetAfterOpen")
+                .HaveDistinctInternalExecutionKeys();
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenOpenedPrefabOptionalSelectionDoesNotResolveAndCommitIsContext_RuntimeCompileLowersPrefabSaveOnly ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "op",
+                            id = "openPrefabForOptionalCommit",
+                            op = UcliPrimitiveOperationNames.PrefabOpen,
+                            args = new
+                            {
+                                path = prefabPath,
+                            },
+                        },
+                        new
+                        {
+                            kind = "edit",
+                            id = "openedPrefabOptionalCommit",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Missing",
+                                cardinality = "atMostOne",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/FromOpenedOptionalPrefab.asset",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var compiler = new ExecuteRequestCompiler();
+            var executionContext = scope.CreateExecutionContext();
+            Assert.That(
+                compiler.TryCompileExecutionStep(result.Request!.SourceSteps[0], executionContext, out _, out var openOperations, out var openError),
+                Is.True,
+                openError?.Message);
+            var openPlanResult = new PrefabOpenOperation().Plan(openOperations[0], executionContext, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(openPlanResult.IsSuccess, Is.True, openPlanResult.Failure?.Message);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request, 1, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(
+                    IpcRequestStepKind.Edit,
+                    "edit",
+                    UcliPrimitiveOperationNames.PrefabSave)
+                .AllHavePublicId("openedPrefabOptionalCommit")
+                .HaveDistinctInternalExecutionKeys();
         }
 
         [Test]
@@ -1118,7 +1313,387 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("missingDirectSelection");
+                .HasInvalidArgument("missingDirectSelection")
+                .HasMessageContaining("cardinality 'one' requires exactly one target.");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedSceneOptionalSelectionDoesNotResolveAndCommitIsNone_RuntimeCompileSucceedsWithNoOperations ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "optionalMissingDirectSelectionNoCommit",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Missing",
+                                cardinality = "atMostOne",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/OptionalMissingNoCommit.asset",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .AllHavePublicId("optionalMissingDirectSelectionNoCommit");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedSceneOptionalSelectionDoesNotResolveAndCommitIsProject_RuntimeCompileSucceedsWithNoOperations ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "optionalMissingDirectSelectionProjectCommit",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Missing",
+                                cardinality = "atMostOne",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/OptionalMissingProjectCommit.asset",
+                                },
+                            },
+                            commit = "project",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(
+                    IpcRequestStepKind.Edit,
+                    "edit",
+                    UcliPrimitiveOperationNames.ProjectSave)
+                .AllHavePublicId("optionalMissingDirectSelectionProjectCommit");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedSceneOptionalSelectionDoesNotResolveAndCommitIsContext_RuntimeCompileReturnsInvalidArgumentError ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "optionalMissingDirectSelectionSceneContextCommit",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Missing",
+                                cardinality = "atMostOne",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/OptionalMissingSceneContextCommit.asset",
+                                },
+                            },
+                            commit = "context",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompileFailureAssert(error)
+                .HasInvalidArgument("optionalMissingDirectSelectionSceneContextCommit")
+                .HasMessageContaining("Add 'ucli.scene.open' before this step.");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedSceneOptionalSelectionDoesNotResolveAndCommitIsNone_DoesNotRetainImplicitPreviewState ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "optionalMissingDirectSelectionNoCommitReleaseScenePreview",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root/Missing",
+                                cardinality = "atMostOne",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/OptionalMissingNoCommit.asset",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var executionContext = scope.CreateExecutionContext();
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleaseScenePreview");
+            Assert.That(executionContext.TryGetTemporaryScene(scenePath, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedPrefabOptionalSelectionDoesNotResolveAndCommitIsNone_DoesNotRetainImplicitPreviewState ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "optionalMissingDirectSelectionNoCommitReleasePrefabPreview",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Missing",
+                                cardinality = "atMostOne",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/OptionalMissingNoCommitPrefab.asset",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var executionContext = scope.CreateExecutionContext();
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleasePrefabPreview");
+            Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedSceneDirectSelectionTargetsPersistedObjectForCreateAsset_RuntimeCompileSucceeds ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedSceneCreateAsset",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/FromClosedScene.asset",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(UcliPrimitiveOperationNames.AssetCreate)
+                .AllHavePublicId("closedSceneCreateAsset");
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenClosedPrefabDirectSelectionTargetsPersistedObjectForCreateAsset_RuntimeCompileSucceeds ()
+        {
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
+            var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "closedPrefabCreateAsset",
+                            on = new
+                            {
+                                prefab = prefabPath,
+                            },
+                            select = new
+                            {
+                                gameObject = prefabRootName,
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "createAsset",
+                                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                                    path = "Assets/Generated/FromClosedPrefab.asset",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.True);
+            var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
+            _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
+                .HasOperationNames(UcliPrimitiveOperationNames.AssetCreate)
+                .AllHavePublicId("closedPrefabCreateAsset");
         }
 
         [Test]
@@ -1413,6 +1988,52 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertInvalidArgument(result, "prefabFrom");
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenEditCommitLiteralIsUnsupported_ReturnsDetailedInvalidArgumentError ()
+        {
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "badCommit",
+                            on = new
+                            {
+                                scene = "Assets/Scenes/Main.unity",
+                            },
+                            select = new
+                            {
+                                gameObject = "Root",
+                                cardinality = "one",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "later",
+                        },
+                    },
+                });
+
+            var result = new ExecuteRequestNormalizer().Normalize(request);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(result.Error.OpId, Is.EqualTo("badCommit"));
+            Assert.That(result.Error.Message, Is.EqualTo("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'."));
+        }
+
         private static (NormalizedRequestStep Step, IReadOnlyList<NormalizedOperation> Operations) CompileSingleStep (
             NormalizedExecuteRequest request,
             int stepIndex)
@@ -1452,7 +2073,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static void AssertInvalidArgument (
             ExecuteRequestNormalizationResult result,
-            string? expectedOpId = null)
+            string expectedOpId = null)
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Request, Is.Null);

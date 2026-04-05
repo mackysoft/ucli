@@ -29,5 +29,16 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(error.OpId, Is.EqualTo(expectedOpId));
             return this;
         }
+
+        /// <summary>
+        /// Asserts that the wrapped failure message contains the expected fragment.
+        /// </summary>
+        /// <param name="expectedMessageFragment"> The expected failure-message fragment. </param>
+        /// <returns> The current assertion instance. </returns>
+        public ExecuteRequestCompileFailureAssert HasMessageContaining (string expectedMessageFragment)
+        {
+            Assert.That(error.Message, Does.Contain(expectedMessageFragment));
+            return this;
+        }
     }
 }

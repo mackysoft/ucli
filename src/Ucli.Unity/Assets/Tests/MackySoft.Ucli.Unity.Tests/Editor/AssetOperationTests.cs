@@ -76,6 +76,59 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_Call_WhenValueUsesCreatedAssetAlias_ResolvesPersistedAssetAlias () => UniTask.ToCoroutine(async () =>
+        {
+            var createOperation = new AssetCreateOperation();
+            var setOperation = new AssetSetOperation();
+            using var scope = new EditorTestScope();
+            var createdAssetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var targetAsset = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(AssetOperationTests), out var targetAssetPath);
+            var context = scope.CreateExecutionContext();
+            var createRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = createdAssetPath,
+                },
+                alias: "created");
+            var setRequest = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
+                    {
+                        assetPath = targetAssetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "assetReferenceValue",
+                            value = new
+                            {
+                                @var = "created",
+                            },
+                        },
+                    },
+                });
+
+            var createResult = await createOperation.Call(createRequest, context, CancellationToken.None);
+            var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
+
+            AssertAssetSuccess(createResult, applied: true, changed: true, createdAssetPath);
+            AssertAssetSuccess(setResult, applied: true, changed: true, targetAssetPath);
+            var createdAsset = AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(createdAssetPath);
+            Assert.That(createdAsset, Is.Not.Null);
+            Assert.That(targetAsset.AssetReferenceValue, Is.SameAs(createdAsset));
+            Assert.That(context.TryGetTemporaryAliasState("created", out var temporaryAliasState), Is.True);
+            Assert.That(temporaryAliasState.UnityObject, Is.SameAs(createdAsset));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
@@ -89,7 +142,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = scope.CreateAssetPath(nameof(AssetOperationTests)),
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-create");
         });
@@ -346,6 +400,50 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_Plan_WhenRawObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetSetOperation();
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(AssetOperationTests), out var assetPath);
+            var scenePath = scope.CreateScenePath(nameof(AssetOperationTests));
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(UnityEditor.SceneManagement.NewSceneSetup.EmptyScene, UnityEditor.SceneManagement.NewSceneMode.Single);
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var previewOnly = new GameObject("PreviewOnly");
+            SceneManager.MoveGameObjectToScene(previewOnly, temporaryScene);
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.AssetSet,
+                args: new
+                {
+                    target = new
+                    {
+                        assetPath,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "objectReferenceValue",
+                            value = new
+                            {
+                                scene = scenePath,
+                                hierarchyPath = "PreviewOnly",
+                            },
+                        },
+                    },
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-set");
+            Assert.That(asset.ObjectReferenceValue, Is.Null);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Set_Call_WhenObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetSetOperation();
@@ -532,7 +630,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     },
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
             Assert.That(result.Applied, Is.False);
@@ -554,7 +653,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     type = IndexTypeIdFormatter.Format(typeof(Material)),
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-schema");
         });

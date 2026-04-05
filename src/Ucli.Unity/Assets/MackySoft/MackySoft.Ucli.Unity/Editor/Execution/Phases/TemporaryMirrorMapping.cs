@@ -18,10 +18,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly Dictionary<UnityEngine.Object, UnityEngine.Object> stableSourceObjectsBySource =
             new Dictionary<UnityEngine.Object, UnityEngine.Object>(ReferenceEqualityComparer.Instance);
 
+        private readonly Dictionary<UnityEngine.Object, UnityEngine.Object> previewObjectsByStableSource =
+            new Dictionary<UnityEngine.Object, UnityEngine.Object>(ReferenceEqualityComparer.Instance);
+
         private readonly List<ComponentPair> componentPairs = new List<ComponentPair>();
 
+        /// <summary> Gets the mirrored component pairs registered for the current mirror graph. </summary>
         public IReadOnlyList<ComponentPair> ComponentPairs => componentPairs;
 
+        /// <summary> Registers one live-to-preview object pair in the mirror graph. </summary>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="previewObject"> The request-local preview object. </param>
         public void AddObjectPair (
             UnityEngine.Object sourceObject,
             UnityEngine.Object previewObject)
@@ -30,6 +37,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             sourceObjectsByPreview[previewObject] = sourceObject;
         }
 
+        /// <summary> Registers one live-to-preview component pair in the mirror graph. </summary>
+        /// <param name="sourceComponent"> The mirrored live source component. </param>
+        /// <param name="previewComponent"> The request-local preview component. </param>
         public void AddComponentPair (
             Component sourceComponent,
             Component previewComponent)
@@ -38,6 +48,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             componentPairs.Add(new ComponentPair(sourceComponent, previewComponent));
         }
 
+        /// <summary> Tries to resolve one mirrored live source object to its preview counterpart. </summary>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="previewObject"> The request-local preview object when found. </param>
+        /// <returns> <see langword="true" /> when the source object is registered in the mirror graph; otherwise <see langword="false" />. </returns>
         public bool TryGetPreviewObject (
             UnityEngine.Object sourceObject,
             out UnityEngine.Object? previewObject)
@@ -45,6 +59,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return previewObjectsBySource.TryGetValue(sourceObject, out previewObject);
         }
 
+        /// <summary> Tries to resolve one preview object back to its mirrored live source object. </summary>
+        /// <param name="previewObject"> The request-local preview object. </param>
+        /// <param name="sourceObject"> The mirrored live source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object is registered in the mirror graph; otherwise <see langword="false" />. </returns>
         public bool TryGetSourceObject (
             UnityEngine.Object previewObject,
             out UnityEngine.Object? sourceObject)
@@ -52,13 +70,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return sourceObjectsByPreview.TryGetValue(previewObject, out sourceObject);
         }
 
+        /// <summary> Registers one live-source to persisted stable-source pair for later stable reference fallback. </summary>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="stableSourceObject"> The persisted stable-source object that corresponds to <paramref name="sourceObject" />. </param>
         public void AddStableSourcePair (
             UnityEngine.Object sourceObject,
             UnityEngine.Object stableSourceObject)
         {
             stableSourceObjectsBySource[sourceObject] = stableSourceObject;
+            if (previewObjectsBySource.TryGetValue(sourceObject, out var previewObject))
+            {
+                previewObjectsByStableSource[stableSourceObject] = previewObject;
+            }
         }
 
+        /// <summary> Tries to resolve one mirrored live source object to its persisted stable-source object. </summary>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="stableSourceObject"> The persisted stable-source object when found. </param>
+        /// <returns> <see langword="true" /> when a stable-source mapping is registered; otherwise <see langword="false" />. </returns>
         public bool TryGetStableSourceObject (
             UnityEngine.Object sourceObject,
             out UnityEngine.Object? stableSourceObject)
@@ -66,8 +95,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return stableSourceObjectsBySource.TryGetValue(sourceObject, out stableSourceObject);
         }
 
+        /// <summary> Tries to resolve one persisted stable-source object to its preview counterpart. </summary>
+        /// <param name="stableSourceObject"> The persisted stable-source object. </param>
+        /// <param name="previewObject"> The request-local preview object when found. </param>
+        /// <returns> <see langword="true" /> when the stable-source object maps back into the mirror graph; otherwise <see langword="false" />. </returns>
+        public bool TryGetPreviewObjectFromStableSource (
+            UnityEngine.Object stableSourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            return previewObjectsByStableSource.TryGetValue(stableSourceObject, out previewObject);
+        }
+
+        /// <summary> Represents one mirrored live-to-preview component pair. </summary>
         public readonly struct ComponentPair
         {
+            /// <summary> Initializes a new instance of the <see cref="ComponentPair" /> struct. </summary>
+            /// <param name="sourceComponent"> The mirrored live source component. </param>
+            /// <param name="previewComponent"> The request-local preview component. </param>
             public ComponentPair (
                 Component sourceComponent,
                 Component previewComponent)
@@ -76,8 +120,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 PreviewComponent = previewComponent;
             }
 
+            /// <summary> Gets the mirrored live source component. </summary>
             public Component SourceComponent { get; }
 
+            /// <summary> Gets the request-local preview component. </summary>
             public Component PreviewComponent { get; }
         }
 

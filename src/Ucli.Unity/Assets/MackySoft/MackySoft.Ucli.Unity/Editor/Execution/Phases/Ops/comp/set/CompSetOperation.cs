@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sandbox!,
                 bindingState.Sets,
                 executionContext,
-                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
+                GetPlanReferenceResolutionPolicy(operation),
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -187,6 +187,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     OperationResourceUtilities.CreateTouch(bindingState.Binding.Resource),
                 }));
+        }
+
+        private static OperationObjectReferenceUtilities.ReferenceResolutionPolicy GetPlanReferenceResolutionPolicy (
+            NormalizedOperation operation)
+        {
+            return string.IsNullOrWhiteSpace(operation.InternalExecutionKey)
+                ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
+                : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState;
         }
 
         private static bool TryResolveValidateTarget (

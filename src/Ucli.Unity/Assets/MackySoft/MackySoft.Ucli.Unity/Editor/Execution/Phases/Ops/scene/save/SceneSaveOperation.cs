@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
+            if (!TryResolvePlanValidationState(operation, executionContext, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -58,16 +58,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out var validationState, out var failure))
+            if (!TryResolvePlanValidationState(operation, executionContext, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
             var resource = new OperationResource(OperationTouchKind.Scene, validationState.ScenePath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
+            var hasDirtyScene = validationState.Scene.isDirty;
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
-                changed: hasRequestAttributedChange || validationState.Scene.isDirty,
+                changed: hasRequestAttributedChange || hasDirtyScene,
                 touched: new[]
                 {
                     OperationResourceUtilities.CreateTouch(resource),
@@ -84,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: false, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, executionContext, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -98,8 +99,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var resource = new OperationResource(OperationTouchKind.Scene, validationState.ScenePath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
-            if (!hasRequestAttributedChange
-                && !validationState.Scene.isDirty)
+            var hasDirtyScene = validationState.Scene.isDirty;
+            if (!hasRequestAttributedChange && !hasDirtyScene)
             {
                 return Task.FromResult(OperationPhaseStepResult.Success(
                     applied: false,
@@ -139,7 +140,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static bool TryValidateArguments (
             NormalizedOperation operation,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
@@ -157,15 +157,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            Scene scene;
-            if (allowTemporaryState
-                && executionContext.TryGetTemporaryScene(scenePath, out scene))
-            {
-                validationState = new ValidationState(scenePath, scene);
-                return true;
-            }
-
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out scene, out sceneErrorMessage))
+            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out var scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
@@ -173,6 +165,54 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             validationState = new ValidationState(scenePath, scene);
             return true;
+        }
+
+        private static bool TryResolvePlanValidationState (
+            NormalizedOperation operation,
+            OperationExecutionContext executionContext,
+            out ValidationState validationState,
+            out OperationPhaseStepResult? failure)
+        {
+            validationState = default;
+            failure = null;
+            if (!SceneOperationArgumentsCodec.TryParsePathArguments(operation.Args, out var scenePath, out var parseErrorMessage))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
+                return false;
+            }
+
+            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
+                return false;
+            }
+
+            var hasLoadedScene = SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _);
+            if (!hasLoadedScene
+                && !executionContext.HasPlannedLiveSceneOpen(scenePath))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    $"Scene is not loaded: {scenePath}. Use 'ucli.scene.open' first.");
+                return false;
+            }
+
+            if (executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
+            {
+                validationState = new ValidationState(scenePath, temporaryScene);
+                return true;
+            }
+
+            if (hasLoadedScene)
+            {
+                validationState = new ValidationState(scenePath, loadedScene);
+                return true;
+            }
+
+            failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                operation.Id,
+                $"Scene plan state is not available: {scenePath}.");
+            return false;
         }
 
         private readonly struct ValidationState

@@ -151,6 +151,19 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                         continue;
                     }
 
+                    if (operationsByName.TryGetValue(normalizedOperationName, out var operationDescriptor))
+                    {
+                        var argsValidationFailure = TryValidateOperationArgs(
+                            step,
+                            normalizedStepId,
+                            operationDescriptor,
+                            errors);
+                        if (argsValidationFailure is not null)
+                        {
+                            return argsValidationFailure;
+                        }
+                    }
+
                     await ValidateReferencedOperation(
                             normalizedOperationName,
                             normalizedStepId,
@@ -209,6 +222,48 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         }
 
         return new ValidationResult(errors);
+    }
+
+    private static ValidationResult? TryValidateOperationArgs (
+        ValidateRequestStep step,
+        string? stepId,
+        UcliOperationDescriptor operationDescriptor,
+        ICollection<ValidationError> errors)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        ArgumentNullException.ThrowIfNull(operationDescriptor);
+        ArgumentNullException.ThrowIfNull(errors);
+
+        if (!step.Element.TryGetProperty("args", out var argsElement)
+            || argsElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            errors.Add(new ValidationError(
+                Code: ValidationErrorCodes.OperationArgsInvalid,
+                Message: $"Step '{stepId ?? string.Empty}' property 'args' must be an object.",
+                OpId: stepId));
+            return null;
+        }
+
+        if (OperationArgsStaticSchemaValidator.TryValidate(
+            operationDescriptor.ArgsSchemaJson,
+            argsElement,
+            out var schemaInvalid,
+            out var error))
+        {
+            return null;
+        }
+
+        if (schemaInvalid)
+        {
+            return ValidationResult.Failure(ExecutionError.InternalError(
+                $"Static validation could not validate args for operation '{operationDescriptor.Name}'. {error}"));
+        }
+
+        errors.Add(new ValidationError(
+            Code: ValidationErrorCodes.OperationArgsInvalid,
+            Message: $"Step '{stepId ?? string.Empty}' args for operation '{operationDescriptor.Name}' are invalid. {error}",
+            OpId: stepId));
+        return null;
     }
 
     private async ValueTask ValidateReferencedOperation (

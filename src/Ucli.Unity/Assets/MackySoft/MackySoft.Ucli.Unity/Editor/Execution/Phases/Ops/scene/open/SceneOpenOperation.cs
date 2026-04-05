@@ -62,6 +62,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!SceneOperationUtilities.TryGetLoadedScene(validationState.ScenePath, out _, out _)
+                && !SceneOperationUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    blockerErrorMessage));
+            }
+
             if (!executionContext.TryGetOrOpenTemporaryScene(validationState.ScenePath, out _, out var sceneErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
@@ -104,6 +112,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
                     }));
+            }
+
+            if (!SceneOperationUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    blockerErrorMessage));
             }
 
             var openedScene = EditorSceneManager.OpenScene(validationState.ScenePath, OpenSceneMode.Single);

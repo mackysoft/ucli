@@ -36,6 +36,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             switch (selector.Kind)
             {
+                case ResolveSelectorKind.GlobalObjectId:
+                    return TryResolveGlobalObjectIdStableReference(
+                        selector.GlobalObjectId!,
+                        executionContext,
+                        allowTemporaryState,
+                        out resolvedReference,
+                        out errorMessage);
+
                 case ResolveSelectorKind.SceneHierarchyPath:
                     return TryResolveSceneStableReference(
                         selector.ScenePath!,
@@ -308,7 +316,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             switch (selector.Kind)
             {
                 case ResolveSelectorKind.GlobalObjectId:
-                    return TryResolveUnityObjectFromGlobalObjectId(selector.GlobalObjectId!, out unityObject, out errorMessage);
+                    return TryResolveUnityObjectFromGlobalObjectId(
+                        selector.GlobalObjectId!,
+                        executionContext,
+                        allowTemporaryState,
+                        out unityObject,
+                        out errorMessage);
 
                 case ResolveSelectorKind.AssetGuid:
                     return TryResolveAssetObjectFromGuid(selector.AssetGuid!, out unityObject, out errorMessage);
@@ -652,15 +665,49 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Validates one GlobalObjectId selector against current request-local state and preserves its stable identity. </summary>
+        /// <param name="globalObjectIdText"> The GlobalObjectId selector literal. </param>
+        /// <param name="executionContext"> The current request execution context. </param>
+        /// <param name="allowTemporaryState"> <see langword="true" /> to honor request-local shadows, mirrors, and deletions before current live state. </param>
+        /// <param name="resolvedReference"> The normalized resolved reference when the identifier is valid in current request-local state. </param>
+        /// <param name="errorMessage"> The resolution error message when the identifier cannot be resolved in current request-local state. </param>
+        /// <returns> <see langword="true" /> when the GlobalObjectId remains valid for the current request state; otherwise <see langword="false" />. </returns>
+        private static bool TryResolveGlobalObjectIdStableReference (
+            string globalObjectIdText,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
+            out ResolvedReference? resolvedReference,
+            out string errorMessage)
+        {
+            resolvedReference = null;
+            if (!TryResolveUnityObjectFromGlobalObjectId(
+                    globalObjectIdText,
+                    executionContext,
+                    allowTemporaryState,
+                    out _,
+                    out errorMessage))
+            {
+                return false;
+            }
+
+            resolvedReference = new ResolvedReference(globalObjectIdText);
+            errorMessage = string.Empty;
+            return true;
+        }
+
         /// <summary>
         /// Resolves one GlobalObjectId literal to the live Unity object that currently exposes that identity.
         /// </summary>
         /// <param name="globalObjectIdText"> The GlobalObjectId text literal. </param>
+        /// <param name="executionContext"> The current request execution context. </param>
+        /// <param name="allowTemporaryState"> <see langword="true" /> to let request-local shadows, mirrors, and deletions override current live editor state. </param>
         /// <param name="unityObject"> The resolved Unity object when successful. </param>
         /// <param name="errorMessage"> The resolution error message when failed. </param>
         /// <returns> <see langword="true" /> when the GlobalObjectId resolves in the current editor state; otherwise <see langword="false" />. </returns>
         private static bool TryResolveUnityObjectFromGlobalObjectId (
             string globalObjectIdText,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
@@ -671,6 +718,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            if (allowTemporaryState)
+            {
+                if (executionContext.IsDeletedGlobalObjectId(globalObjectIdText))
+                {
+                    unityObject = null;
+                    errorMessage = $"GlobalObjectId is not resolvable in current request-local state: {globalObjectIdText}.";
+                    return false;
+                }
+
+                if (executionContext.TryGetComponentShadowState(globalObjectIdText, out var componentShadowState))
+                {
+                    unityObject = componentShadowState.Component;
+                    errorMessage = string.Empty;
+                    return true;
+                }
+
+                if (executionContext.TryGetAssetShadow(globalObjectIdText, out unityObject, out _)
+                    && unityObject != null)
+                {
+                    errorMessage = string.Empty;
+                    return true;
+                }
+            }
+
             unityObject = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(globalObjectId);
             if (unityObject == null)
             {
@@ -678,7 +749,190 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            if (allowTemporaryState
+                && TryResolveRequestLocalPreviewOverride(unityObject, executionContext, out var requestLocalObject))
+            {
+                unityObject = requestLocalObject;
+            }
+
             errorMessage = string.Empty;
+            return true;
+        }
+
+        /// <summary> Tries to replace one live or persisted object with a request-local preview override. </summary>
+        /// <param name="liveOrPersistentObject"> The live or persisted Unity object. Must not be <see langword="null" />. </param>
+        /// <param name="executionContext"> The current request execution context. </param>
+        /// <param name="previewObject"> The request-local preview override when found. </param>
+        /// <returns> <see langword="true" /> when request-local mirror state should override the supplied object; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="liveOrPersistentObject" /> is <see langword="null" />. </exception>
+        private static bool TryResolveRequestLocalPreviewOverride (
+            UnityEngine.Object liveOrPersistentObject,
+            OperationExecutionContext executionContext,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (liveOrPersistentObject == null)
+            {
+                throw new ArgumentNullException(nameof(liveOrPersistentObject));
+            }
+
+            if (TryResolvePreviewSceneObjectOverride(liveOrPersistentObject, executionContext, out previewObject))
+            {
+                return true;
+            }
+
+            return TryResolvePreviewPrefabObjectOverride(liveOrPersistentObject, executionContext, out previewObject);
+        }
+
+        /// <summary> Tries to replace one live scene object with its request-local preview counterpart. </summary>
+        /// <param name="liveObject"> The live scene object or component. </param>
+        /// <param name="executionContext"> The current request execution context. </param>
+        /// <param name="previewObject"> The preview counterpart when found. </param>
+        /// <returns> <see langword="true" /> when the object belongs to a mirrored dirty loaded scene tracked in the request; otherwise <see langword="false" />. </returns>
+        private static bool TryResolvePreviewSceneObjectOverride (
+            UnityEngine.Object liveObject,
+            OperationExecutionContext executionContext,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            var sourceGameObject = liveObject as GameObject;
+            if (sourceGameObject == null)
+            {
+                var sourceComponent = liveObject as Component;
+                if (sourceComponent == null)
+                {
+                    return false;
+                }
+
+                sourceGameObject = sourceComponent.gameObject;
+            }
+
+            var scene = sourceGameObject.scene;
+            if (!scene.IsValid()
+                || !scene.isLoaded
+                || string.IsNullOrWhiteSpace(scene.path))
+            {
+                return false;
+            }
+
+            if (!executionContext.TryResolveTemporaryScenePreviewObject(scene.path, liveObject, out previewObject))
+            {
+                previewObject = null;
+                return false;
+            }
+
+            if (previewObject == null)
+            {
+                previewObject = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary> Tries to replace one live or persisted prefab object with its request-local preview counterpart. </summary>
+        /// <param name="liveOrPersistentObject"> The live or persisted prefab object. </param>
+        /// <param name="executionContext"> The current request execution context. </param>
+        /// <param name="previewObject"> The preview counterpart when found. </param>
+        /// <returns> <see langword="true" /> when the object maps into tracked request-local prefab mirror state; otherwise <see langword="false" />. </returns>
+        private static bool TryResolvePreviewPrefabObjectOverride (
+            UnityEngine.Object liveOrPersistentObject,
+            OperationExecutionContext executionContext,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (TryResolvePreviewPrefabMirrorSourceObjectOverride(liveOrPersistentObject, executionContext, out previewObject))
+            {
+                return true;
+            }
+
+            return TryResolvePreviewPrefabStableSourceObjectOverride(liveOrPersistentObject, executionContext, out previewObject);
+        }
+
+        /// <summary> Tries to resolve one mirrored opened-stage prefab object to its request-local preview counterpart. </summary>
+        /// <param name="sourceObject"> The mirrored opened-stage prefab object. </param>
+        /// <param name="executionContext"> The current request execution context. </param>
+        /// <param name="previewObject"> The preview counterpart when found. </param>
+        /// <returns> <see langword="true" /> when the object belongs to tracked mirrored prefab state; otherwise <see langword="false" />. </returns>
+        private static bool TryResolvePreviewPrefabMirrorSourceObjectOverride (
+            UnityEngine.Object sourceObject,
+            OperationExecutionContext executionContext,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (!TryGetPrefabAssetPath(sourceObject, out var prefabPath))
+            {
+                return false;
+            }
+
+            if (!executionContext.TryResolveTemporaryPrefabPreviewObject(prefabPath, sourceObject, out previewObject))
+            {
+                previewObject = null;
+                return false;
+            }
+
+            if (previewObject == null)
+            {
+                previewObject = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary> Tries to resolve one persisted stable-source prefab object to its request-local preview counterpart. </summary>
+        /// <param name="stableSourceObject"> The persisted stable-source prefab object. </param>
+        /// <param name="executionContext"> The current request execution context. </param>
+        /// <param name="previewObject"> The preview counterpart when found. </param>
+        /// <returns> <see langword="true" /> when the stable-source object maps into tracked mirrored prefab state; otherwise <see langword="false" />. </returns>
+        private static bool TryResolvePreviewPrefabStableSourceObjectOverride (
+            UnityEngine.Object stableSourceObject,
+            OperationExecutionContext executionContext,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (!TryGetPrefabAssetPath(stableSourceObject, out var prefabPath))
+            {
+                return false;
+            }
+
+            if (!executionContext.TryResolveTemporaryPrefabPreviewObjectFromStableSource(prefabPath, stableSourceObject, out previewObject))
+            {
+                previewObject = null;
+                return false;
+            }
+
+            if (previewObject == null)
+            {
+                previewObject = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary> Tries to resolve the prefab asset path that owns one prefab asset object or prefab-stage object. </summary>
+        /// <param name="unityObject"> The prefab-related Unity object. </param>
+        /// <param name="prefabPath"> The normalized prefab asset path when found. </param>
+        /// <returns> <see langword="true" /> when the object can be associated with an existing prefab asset path; otherwise <see langword="false" />. </returns>
+        private static bool TryGetPrefabAssetPath (
+            UnityEngine.Object unityObject,
+            out string prefabPath)
+        {
+            prefabPath = string.Empty;
+            var assetPath = AssetDatabase.GetAssetPath(unityObject);
+            if (string.IsNullOrWhiteSpace(assetPath))
+            {
+                return false;
+            }
+
+            assetPath = UnityAssetPathUtility.NormalizeAssetPath(assetPath);
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(assetPath, out _))
+            {
+                return false;
+            }
+
+            prefabPath = assetPath;
             return true;
         }
 
@@ -781,6 +1035,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Creates one stable resolved reference from one prefab mirror object or its persisted prefab correspondence. </summary>
+        /// <param name="prefabPath"> The prefab asset path used to search persisted prefab correspondence. </param>
+        /// <param name="unityObject"> The prefab mirror object, opened-stage object, or persisted prefab object. </param>
+        /// <param name="resolvedReference"> The stable resolved reference when the object or one of its persisted correspondences exposes a GlobalObjectId. </param>
+        /// <param name="errorMessage"> The validation error message when no stable prefab correspondence can be normalized. </param>
+        /// <returns> <see langword="true" /> when a stable resolved reference can be created; otherwise <see langword="false" />. </returns>
         private static bool TryCreateResolvedReferenceFromPrefabMirrorSource (
             string prefabPath,
             UnityEngine.Object unityObject,

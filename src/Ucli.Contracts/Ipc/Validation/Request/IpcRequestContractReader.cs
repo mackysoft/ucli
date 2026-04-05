@@ -430,6 +430,13 @@ internal static class IpcRequestContractReader
             return false;
         }
 
+        if (profile.RequireStepObject
+            && !IpcEditStepContractReader.TryRead(stepElement, out _, out var editErrorMessage))
+        {
+            error = IpcRequestContractReadError.StepEditContractViolation(stepIndex, stepId, editErrorMessage);
+            return false;
+        }
+
         error = IpcRequestContractReadError.None;
         return true;
     }

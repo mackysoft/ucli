@@ -106,6 +106,35 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return previewSceneState.MirrorMapping.TryGetSourceObject(previewObject, out sourceObject);
         }
 
+        /// <summary> Tries to resolve one mirrored live scene source object to its request-local preview object. </summary>
+        /// <param name="scenePath"> The tracked logical scene path. </param>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the source object belongs to one dirty loaded-scene mirror; otherwise <see langword="false" />. </returns>
+        public bool TryResolvePreviewObjectFromSourceObject (
+            string scenePath,
+            UnityEngine.Object sourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (sourceObject == null)
+            {
+                throw new ArgumentNullException(nameof(sourceObject));
+            }
+
+            if (!previewScenesByPath.TryGetValue(scenePath, out var previewSceneState))
+            {
+                return false;
+            }
+
+            if (previewSceneState.MirrorMapping == null)
+            {
+                return false;
+            }
+
+            return previewSceneState.MirrorMapping.TryGetPreviewObject(sourceObject, out previewObject);
+        }
+
         /// <summary> Gets one tracked preview scene or opens it from persisted asset contents when needed. </summary>
         /// <param name="scenePath"> The scene asset path. </param>
         /// <param name="scene"> The tracked or newly opened preview scene when successful. </param>
@@ -231,6 +260,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             previewScenesByPath.Clear();
+        }
+
+        /// <summary> Releases one tracked preview scene by logical scene path. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <returns> <see langword="true" /> when one tracked preview scene was removed; otherwise <see langword="false" />. </returns>
+        public bool ReleasePreviewScene (string scenePath)
+        {
+            if (string.IsNullOrWhiteSpace(scenePath))
+            {
+                return false;
+            }
+
+            if (!previewScenesByPath.TryGetValue(scenePath, out var previewSceneState))
+            {
+                return false;
+            }
+
+            previewScenesByPath.Remove(scenePath);
+            TryClosePreviewScene(previewSceneState.PreviewScene);
+            return true;
         }
 
         private static bool TryCreateEmptyPreviewScene (

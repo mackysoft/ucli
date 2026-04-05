@@ -81,6 +81,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.SetPlannedAsset(assetPath!, operation.EffectiveExecutionKey, temporaryAsset!);
+            executionContext.MarkRequestAttributedChange(OperationResource.PersistentAsset(assetPath!));
             if (operation.As != null)
             {
                 executionContext.SetTemporaryAlias(
@@ -124,9 +125,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 AssetDatabase.CreateAsset(asset, assetPath!);
                 created = true;
+                executionContext.MarkRequestAttributedChange(OperationResource.PersistentAsset(assetPath!));
                 if (operation.As != null)
                 {
-                    executionContext.AliasStore.Set(operation.As, UnityObjectReferenceResolver.CreateResolvedReference(asset));
+                    if (UnityObjectReferenceResolver.TryCreateResolvedReference(asset, out var resolvedReference))
+                    {
+                        executionContext.SetTemporaryAlias(
+                            operation.As,
+                            asset,
+                            OperationResource.PersistentAsset(assetPath!),
+                            resolvedReference!.GlobalObjectId);
+                        executionContext.AliasStore.Set(operation.As, resolvedReference);
+                    }
+                    else
+                    {
+                        executionContext.SetTemporaryAlias(
+                            operation.As,
+                            asset,
+                            OperationResource.PersistentAsset(assetPath!));
+                    }
                 }
 
                 return Task.FromResult(OperationPhaseStepResult.Success(

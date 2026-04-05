@@ -92,20 +92,5 @@ namespace MackySoft.Ucli.Unity.Tests
             return this;
         }
 
-        /// <summary>
-        /// Asserts that the selected operation target uses one project-asset selector and does not expose an asset selector.
-        /// </summary>
-        /// <param name="operationIndex"> The zero-based operation index. </param>
-        /// <param name="expectedProjectAssetPath"> The expected project-asset path. </param>
-        /// <returns> The current assertion instance. </returns>
-        public ExecuteRequestCompilerAssert HasProjectAssetTarget (
-            int operationIndex,
-            string expectedProjectAssetPath)
-        {
-            var target = compiledOperations[operationIndex].Args.GetProperty("target");
-            Assert.That(target.GetProperty("projectAssetPath").GetString(), Is.EqualTo(expectedProjectAssetPath));
-            Assert.That(target.TryGetProperty("assetPath", out _), Is.False);
-            return this;
-        }
     }
 }

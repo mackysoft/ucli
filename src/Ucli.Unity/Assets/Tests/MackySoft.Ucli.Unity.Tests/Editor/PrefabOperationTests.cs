@@ -76,9 +76,88 @@ namespace MackySoft.Ucli.Unity.Tests
                     path = "Assets/MissingTarget.prefab",
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-create");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Call_WhenDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforeOpening () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-prefab-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening prefab"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-prefab-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening prefab"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenAnotherDirtyPrefabStageExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var dirtyPrefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "DirtyPrefabRoot");
+            var targetPrefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "TargetPrefabRoot");
+            var dirtyPrefabStage = PrefabStageUtility.OpenPrefab(dirtyPrefabPath);
+            dirtyPrefabStage!.prefabContentsRoot.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(dirtyPrefabStage.scene);
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = targetPrefabPath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-prefab-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty prefab stage blocks opening prefab"));
         });
 
         [UnityTest]
@@ -243,6 +322,8 @@ namespace MackySoft.Ucli.Unity.Tests
             sourceB.transform.SetParent(editableRoot.transform, worldPositionStays: false);
             var serializedObject = new SerializedObject(sourceComponent);
             serializedObject.FindProperty("objectReferenceValue").objectReferenceValue = sourceB;
+            serializedObject.FindProperty("componentReferenceValue").objectReferenceValue = sourceB.transform;
+            serializedObject.FindProperty("exposedObjectReferenceValue.defaultValue").objectReferenceValue = sourceB;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
             scope.UnloadPrefabContents(editableRoot);
@@ -275,6 +356,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(previewComponent, Is.Not.Null);
             Assert.That(previewComponent!.ObjectReferenceValue, Is.SameAs(previewB!.gameObject));
             Assert.That(previewComponent.ObjectReferenceValue, Is.Not.SameAs(stageB.gameObject));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.SameAs(previewB.transform));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.Not.SameAs(stageB.transform));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.SameAs(previewB.gameObject));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.Not.SameAs(stageB.gameObject));
         });
 
         [UnityTest]
@@ -496,7 +581,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Save_Call_WhenOpenedPrefabStageIsDirtyWithoutRequestChange_SavesStageContents () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Save_Call_WhenOpenedPrefabStageIsDirtyWithoutRequestChange_SavesOpenedPrefabStage () => UniTask.ToCoroutine(async () =>
         {
             var saveOperation = new PrefabSaveOperation();
             using var scope = new EditorTestScope()
@@ -520,10 +605,61 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(saveResult, applied: true, changed: true);
             AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
             Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
+        });
 
-            scope.CloseCurrentPrefabStageIfOpen();
-            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
-            Assert.That(loadedPrefabContentsRoot.transform.Find("Child"), Is.Not.Null);
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenOnlyTemporaryPrefabPreviewExistsWithoutPlannedLiveOpen_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var saveResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+
+            AssertInvalidArgument(saveResult, "op-prefab-save");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenPrefabOpenWasPlannedForClosedPrefab_Succeeds () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new PrefabOpenOperation();
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var openPlanResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var savePlanResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(openPlanResult, applied: false, changed: false);
+            AssertSuccess(savePlanResult, applied: false, changed: false);
         });
 
         [UnityTest]

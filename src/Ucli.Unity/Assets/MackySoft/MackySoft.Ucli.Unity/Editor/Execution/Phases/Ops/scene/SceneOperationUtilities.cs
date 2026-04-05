@@ -46,5 +46,48 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             errorMessage = string.Empty;
             return true;
         }
+
+        /// <summary> Validates that opening one live scene will not be blocked by dirty live editor state. </summary>
+        /// <param name="scenePath"> The target scene path. </param>
+        /// <param name="errorMessage"> The validation error message when blocked. </param>
+        /// <returns> <see langword="true" /> when the scene can be opened without dirty-state blockers; otherwise <see langword="false" />. </returns>
+        public static bool TryEnsureCanOpenSceneLive (
+            string scenePath,
+            out string errorMessage)
+        {
+            var currentPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (currentPrefabStage != null
+                && currentPrefabStage.scene.isDirty)
+            {
+                errorMessage = $"Dirty prefab stage blocks opening scene '{scenePath}': {currentPrefabStage.assetPath}.";
+                return false;
+            }
+
+            for (var i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var loadedScene = SceneManager.GetSceneAt(i);
+                if (!loadedScene.IsValid()
+                    || !loadedScene.isLoaded
+                    || EditorSceneManager.IsPreviewScene(loadedScene)
+                    || !loadedScene.isDirty
+                    || string.Equals(loadedScene.path, scenePath, System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                errorMessage = $"Dirty loaded scene blocks opening scene '{scenePath}': {CreateSceneDisplayName(loadedScene)}.";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        private static string CreateSceneDisplayName (Scene scene)
+        {
+            return string.IsNullOrWhiteSpace(scene.path)
+                ? scene.name
+                : scene.path;
+        }
     }
 }

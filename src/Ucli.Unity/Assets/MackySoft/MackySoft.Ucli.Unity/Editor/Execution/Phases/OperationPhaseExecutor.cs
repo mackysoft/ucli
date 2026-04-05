@@ -98,7 +98,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (command == PhaseExecutionCommand.Call
                     && !string.IsNullOrWhiteSpace(request.PlanToken))
                 {
-                    return CreateStateChangedSincePlanFailure(request, planPassResult);
+                    var planTokenValidationResult = planTokenCoordinator.ValidateCall(
+                        request,
+                        planPassResult.OperationTraces,
+                        planPassResult.CompiledDigestPayloadUtf8,
+                        cancellationToken);
+                    if (!planTokenValidationResult.IsSuccess)
+                    {
+                        return CreatePlanTokenValidationFailure(request, planPassResult, planTokenValidationResult.Failure!);
+                    }
                 }
 
                 return PhaseExecutionTrace.Failure(
@@ -180,9 +188,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return steps;
         }
 
-        private static PhaseExecutionTrace CreateStateChangedSincePlanFailure (
+        private static PhaseExecutionTrace CreatePlanTokenValidationFailure (
             NormalizedExecuteRequest request,
-            PlanPassResult planPassResult)
+            PlanPassResult planPassResult,
+            OperationFailure validationFailure)
         {
             var remappedTraces = new OperationPhaseTrace[planPassResult.OperationTraces.Count];
             for (var i = 0; i < planPassResult.OperationTraces.Count; i++)
@@ -196,14 +205,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 remappedTraces[i] = trace with
                 {
-                    Failure = CreateStateChangedSincePlanFailure(trace.Failure),
+                    Failure = CreatePlanTokenValidationFailure(trace.Failure, validationFailure),
                 };
             }
 
             var remappedErrors = new OperationFailure[planPassResult.Errors.Count];
             for (var i = 0; i < planPassResult.Errors.Count; i++)
             {
-                remappedErrors[i] = CreateStateChangedSincePlanFailure(planPassResult.Errors[i]);
+                remappedErrors[i] = CreatePlanTokenValidationFailure(planPassResult.Errors[i], validationFailure);
             }
 
             return PhaseExecutionTrace.Failure(
@@ -214,12 +223,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 errors: remappedErrors);
         }
 
-        private static OperationFailure CreateStateChangedSincePlanFailure (OperationFailure failure)
+        private static OperationFailure CreatePlanTokenValidationFailure (
+            OperationFailure failure,
+            OperationFailure validationFailure)
         {
             return new OperationFailure(
-                Code: MackySoft.Ucli.Contracts.Ipc.IpcErrorCodes.StateChangedSincePlan,
-                Message: $"Project state changed since plan token issuance. {failure.Message}",
-                OpId: failure.OpId);
+                Code: validationFailure.Code,
+                Message: validationFailure.Message,
+                OpId: failure.OpId ?? validationFailure.OpId);
         }
     }
 }

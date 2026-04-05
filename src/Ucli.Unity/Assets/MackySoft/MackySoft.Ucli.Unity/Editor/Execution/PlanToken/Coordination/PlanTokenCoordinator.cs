@@ -180,13 +180,16 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 }
 
                 var payload = decodedToken.Payload;
-                var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.Span);
-                if (!string.Equals(compiledExecutionDigest, payload.CompiledExecutionDigest, StringComparison.Ordinal))
+                if (!string.IsNullOrWhiteSpace(payload.CompiledExecutionDigest))
                 {
-                    return PlanTokenValidationResult.Failed(new OperationFailure(
-                        Code: IpcErrorCodes.StateChangedSincePlan,
-                        Message: "Compiled execution changed since plan token issuance.",
-                        OpId: null));
+                    var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.Span);
+                    if (!string.Equals(compiledExecutionDigest, payload.CompiledExecutionDigest, StringComparison.Ordinal))
+                    {
+                        return PlanTokenValidationResult.Failed(new OperationFailure(
+                            Code: IpcErrorCodes.StateChangedSincePlan,
+                            Message: "Compiled execution changed since plan token issuance.",
+                            OpId: null));
+                    }
                 }
 
                 var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);

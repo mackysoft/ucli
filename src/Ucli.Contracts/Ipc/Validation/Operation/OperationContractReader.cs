@@ -12,8 +12,6 @@ internal static class OperationContractReader
         "id",
         "op",
         "args",
-        "as",
-        "expect",
     };
 
     /// <summary> Finds the first unknown property in one operation object. </summary>
@@ -100,23 +98,4 @@ internal static class OperationContractReader
         return true;
     }
 
-    /// <summary> Reads one optional operation alias value. </summary>
-    /// <param name="operationElement"> The operation JSON object. </param>
-    /// <param name="alias"> The parsed alias, or <see langword="null" /> when unspecified. </param>
-    /// <param name="error"> The machine-readable read error on failure. </param>
-    /// <returns> <see langword="true" /> when alias contract is satisfied; otherwise <see langword="false" />. </returns>
-    public static bool TryReadOperationAlias (
-        JsonElement operationElement,
-        out string? alias,
-        out JsonStringReadError error)
-    {
-        return JsonStringContractReader.TryRead(
-            jsonObject: operationElement,
-            propertyName: "as",
-            presenceRequirement: JsonStringPresenceRequirement.OptionalStrict,
-            rejectEmptyOrWhitespace: true,
-            rejectOuterWhitespace: true,
-            value: out alias,
-            error: out error);
-    }
 }

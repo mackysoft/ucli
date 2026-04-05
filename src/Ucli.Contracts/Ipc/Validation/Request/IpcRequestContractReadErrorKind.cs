@@ -66,6 +66,9 @@ internal enum IpcRequestContractReadErrorKind
     /// <summary> Property <c>commit</c> violates string-contract constraints. </summary>
     StepCommitContractViolation,
 
+    /// <summary> One <c>kind:"edit"</c> step violates the detailed public edit-step contract. </summary>
+    StepEditContractViolation,
+
     /// <summary> Step identifier is duplicated in the same request. </summary>
     DuplicatedStepId,
 }

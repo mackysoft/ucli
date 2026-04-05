@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -8,6 +9,18 @@ namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 /// <summary> Reads the <c>select</c> object for one public edit step. </summary>
 internal static class IpcEditStepSelectionReader
 {
+    private static readonly ISet<string> AllowedFromSelectionProperties = new HashSet<string>
+    {
+        "cardinality",
+        "from",
+    };
+
+    private static readonly ISet<string> AllowedFromProperties = new HashSet<string>
+    {
+        "op",
+        "args",
+    };
+
     public static bool TryRead (
         JsonElement stepElement,
         IpcEditStepContract.ContextKind contextKind,
@@ -53,6 +66,13 @@ internal static class IpcEditStepSelectionReader
                 return false;
             }
 
+            var unknownSelectProperty = JsonPropertyGuard.FindUnknownProperty(selectElement, AllowedFromSelectionProperties);
+            if (unknownSelectProperty is not null)
+            {
+                errorMessage = $"Edit step property 'step.select' contains an unknown property: {unknownSelectProperty}.";
+                return false;
+            }
+
             return TryReadFromSelection(fromElement, cardinality, out selection, out errorMessage);
         }
 
@@ -69,6 +89,13 @@ internal static class IpcEditStepSelectionReader
         if (fromElement.ValueKind != JsonValueKind.Object)
         {
             errorMessage = "Edit step property 'step.select.from' must be an object.";
+            return false;
+        }
+
+        var unknownFromProperty = JsonPropertyGuard.FindUnknownProperty(fromElement, AllowedFromProperties);
+        if (unknownFromProperty is not null)
+        {
+            errorMessage = $"Edit step property 'step.select.from' contains an unknown property: {unknownFromProperty}.";
             return false;
         }
 

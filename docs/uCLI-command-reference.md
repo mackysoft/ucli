@@ -1,17 +1,15 @@
 > [!IMPORTANT]
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
+>
+> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`daemon`、`logs`、`ops`、`test` のみである。
+> `validate` / `plan` / `call` / `resolve` / `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
 
 ## コマンド概要
 
 | Command | 概要 | 備考 |
 | --- | --- | --- |
 | `ucli init` | `.ucli` の設定雛形を生成する | Git repository root を優先する |
-| `ucli validate` | JSON リクエストの静的検証を行う | ローカル静的検証のみ |
-| `ucli plan` | 対象解決と差分見積りを返す | 公開 payload では `planToken` を返す |
-| `ucli call` | Unity へリクエストを送って適用・保存する | 実行前に `plan` 相当の検証を挟む |
-| `ucli resolve` | セレクタを durable identity へ解決する | `readIndex` を利用可能 |
-| `ucli query` | 検索・構造取得・スキーマ取得を行う | `readIndex` を利用可能 |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
 | `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
@@ -19,36 +17,11 @@
 | `ucli daemon` | daemon の起動・停止・掃除・状態取得を行う | `start` / `stop` / `cleanup` / `status` / `list` |
 | `ucli test` | Unity Test Framework 実行と結果正規化を扱う | `run` / `profile init` |
 
-## 基本コマンド
-- `ucli validate`
-  - JSON リクエストの静的検証を行う。
-  - 保証範囲は形式、スキーマ、許可判定までで、実在確認や差分見積りは含まない。
-  - Unity 実体への接続や解決は行わない。
-  - `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
-- `ucli plan`
-  - 対象解決と差分見積りを返す。
-  - 公開 payload では `planToken` を返す。
-  - `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
-  - `--waitUntilReady` を受け付ける。
-- `ucli call`
-  - Unity へリクエストを送って実行し、保存する。
-  - `--planToken <token>` を受け付ける。
-  - `dangerous` op を含む場合は `--allowDangerous` を必須とする。
-  - `--withPlan` は call レスポンスに plan 相当を同梱する任意オプションとする。
-  - `--waitUntilReady` を受け付ける。
-- `ucli resolve`
-  - セレクタを GlobalObjectId などへ解決する。
-  - `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
-  - `--waitUntilReady` を受け付ける。
-- `ucli query`
-  - 検索、構造取得、スキーマ取得を行う。
-  - `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
-  - `--waitUntilReady` を受け付ける。
+## 公開コマンド
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
   - `describe <opName>` は特定オペレーションの引数スキーマを返す。
   - `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
-  - `--waitUntilReady` を受け付けるが、適用されるのは live source fallback が必要な場合だけとする。
 - `ucli status`
   - daemon と lifecycle の状態を JSON で返す。
   - `--timeout <int>` で daemon 状態確認タイムアウトを上書きする。
@@ -65,7 +38,6 @@
 - 指定時だけ `starting`, `busy`, `compiling`, `domainReloading` を待機対象とする。
 - `blockedByModal`, `safeMode`, `playmode`, `shuttingDown` は待機中でも即時失敗する。
 - 待機は既存の `--timeout` budget を消費し、budget を使い切った場合は `IPC_TIMEOUT` を返す。
-- `ops list` / `ops describe` は readIndex hit の場合は待機を行わず、live source fallback 時だけこの契約を適用する。
 
 ### 共通エラー契約
 - lifecycle 専用エラー
@@ -208,8 +180,8 @@ Git root が判定できない環境では実行時 CWD を対象にする。
 - `payload` のフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 
 ## `ucli refresh`
-`ucli refresh` は独立コマンドであり、`ucli call` の別名ではない。  
-CLI は内部で固定の標準 `call` `execute` リクエストを組み立て、Unity 側の既存 `ucli.project.refresh` 実装へ流す。
+`ucli refresh` は独立コマンドであり、未公開の request 系 CLI surface の別名ではない。  
+CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity 側の既存 `ucli.project.refresh` 実装へ流す。
 
 ### `refresh` options
 | Option | Short | Description |

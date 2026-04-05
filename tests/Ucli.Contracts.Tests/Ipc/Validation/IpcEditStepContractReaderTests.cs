@@ -137,4 +137,76 @@ public sealed class IpcEditStepContractReaderTests
         Assert.False(result);
         Assert.Equal("Edit step property 'step.select.from' is supported only for scene context.", errorMessage);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryRead_WhenSelectFromContainsUnknownProperty_ReturnsFalse ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "kind": "edit",
+              "id": "edit-query",
+              "on": {
+                "scene": "Assets/Scenes/Main.unity"
+              },
+              "select": {
+                "from": {
+                  "op": "__SCENE_QUERY_OP__",
+                  "args": {
+                    "pathPrefix": "Root"
+                  },
+                  "extra": true
+                },
+                "cardinality": "all"
+              },
+              "actions": [
+                {
+                  "kind": "delete"
+                }
+              ],
+              "commit": "context"
+            }
+            """
+                .Replace("__SCENE_QUERY_OP__", UcliPrimitiveOperationNames.SceneQuery, StringComparison.Ordinal));
+
+        var result = IpcEditStepContractReader.TryRead(document.RootElement, out _, out var errorMessage);
+
+        Assert.False(result);
+        Assert.Equal("Edit step property 'step.select.from' contains an unknown property: extra.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryRead_WhenSetActionValuesIsEmpty_ReturnsFalse ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "kind": "edit",
+              "id": "edit-project",
+              "on": {
+                "project": true
+              },
+              "select": {
+                "projectAsset": {
+                  "path": "ProjectSettings/TagManager.asset"
+                },
+                "cardinality": "one"
+              },
+              "actions": [
+                {
+                  "kind": "set",
+                  "values": {}
+                }
+              ],
+              "commit": "project"
+            }
+            """);
+
+        var result = IpcEditStepContractReader.TryRead(document.RootElement, out _, out var errorMessage);
+
+        Assert.False(result);
+        Assert.Equal("Edit step property 'step.actions[0].values' must contain at least one assignment.", errorMessage);
+    }
 }

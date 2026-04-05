@@ -9,6 +9,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides shared helpers for building and repairing one mirrored preview object graph from a live source graph. </summary>
     internal static class TemporaryMirrorUtilities
     {
+        /// <summary> Registers one mirrored live hierarchy into the supplied mirror mapping. </summary>
+        /// <param name="sourceRoot"> The live hierarchy root to mirror. Must not be <see langword="null" />. </param>
+        /// <param name="previewRoot"> The request-local preview root cloned from <paramref name="sourceRoot" />. Must not be <see langword="null" />. </param>
+        /// <param name="mirrorMapping"> The mirror mapping that records object and component pairs. Must not be <see langword="null" />. </param>
+        /// <param name="errorMessage"> The validation error message when the preview hierarchy no longer matches the live hierarchy shape. </param>
+        /// <returns> <see langword="true" /> when the mirrored hierarchy can be registered without shape divergence; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="sourceRoot" />, <paramref name="previewRoot" />, or <paramref name="mirrorMapping" /> is <see langword="null" />. </exception>
         public static bool TryRegisterHierarchyMirror (
             GameObject sourceRoot,
             GameObject previewRoot,
@@ -78,6 +85,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Rebinds scene-local or prefab-local object references inside one mirrored preview graph. </summary>
+        /// <param name="mirrorMapping"> The mirror mapping that relates live objects to preview objects. Must not be <see langword="null" />. </param>
+        /// <param name="errorMessage"> The validation error message when the mirrored serialized layouts diverge during rebinding. </param>
+        /// <returns> <see langword="true" /> when all mirrored object references can be redirected to preview objects; otherwise <see langword="false" />. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="mirrorMapping" /> is <see langword="null" />. </exception>
         public static bool TryRebindMirroredLocalReferences (
             TemporaryMirrorMapping mirrorMapping,
             out string errorMessage)
@@ -101,6 +113,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Registers best-effort stable-source pairs for one mirrored prefab hierarchy. </summary>
+        /// <param name="sourceRoot"> The mirrored live prefab root. Must not be <see langword="null" />. </param>
+        /// <param name="stableRoot"> The persisted prefab root used as the stable-source baseline. Must not be <see langword="null" />. </param>
+        /// <param name="mirrorMapping"> The mirror mapping that receives stable-source pairs. Must not be <see langword="null" />. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="sourceRoot" />, <paramref name="stableRoot" />, or <paramref name="mirrorMapping" /> is <see langword="null" />. </exception>
         public static void RegisterStableSourceHierarchyBestEffort (
             GameObject sourceRoot,
             GameObject stableRoot,
@@ -273,9 +290,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             var sourceChildren = GetDirectChildGameObjects(sourceTransform);
             var stableChildren = GetDirectChildGameObjects(stableTransform);
-            var matchedSource = new bool[sourceChildren.Length];
-            var matchedStable = new bool[stableChildren.Length];
-
             for (var sourceIndex = 0; sourceIndex < sourceChildren.Length; sourceIndex++)
             {
                 var sourceChild = sourceChildren[sourceIndex];
@@ -291,63 +305,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                matchedSource[sourceIndex] = true;
-                matchedStable[stableMatchIndex] = true;
                 RegisterStableSourceHierarchyBestEffort(sourceChild, stableChildren[stableMatchIndex], mirrorMapping);
-            }
-
-            var remainingSourceCount = 0;
-            for (var i = 0; i < matchedSource.Length; i++)
-            {
-                if (!matchedSource[i])
-                {
-                    remainingSourceCount++;
-                }
-            }
-
-            var remainingStableCount = 0;
-            for (var i = 0; i < matchedStable.Length; i++)
-            {
-                if (!matchedStable[i])
-                {
-                    remainingStableCount++;
-                }
-            }
-
-            if (remainingSourceCount != remainingStableCount)
-            {
-                return;
-            }
-
-            var stableCursor = 0;
-            for (var sourceIndex = 0; sourceIndex < sourceChildren.Length; sourceIndex++)
-            {
-                if (matchedSource[sourceIndex])
-                {
-                    continue;
-                }
-
-                while (stableCursor < stableChildren.Length && matchedStable[stableCursor])
-                {
-                    stableCursor++;
-                }
-
-                if (stableCursor >= stableChildren.Length)
-                {
-                    return;
-                }
-
-                var sourceChild = sourceChildren[sourceIndex];
-                var stableChild = stableChildren[stableCursor];
-                if (!HaveCompatibleHierarchyShape(sourceChild, stableChild))
-                {
-                    return;
-                }
-
-                RegisterStableSourceHierarchyBestEffort(sourceChild, stableChild, mirrorMapping);
-                matchedSource[sourceIndex] = true;
-                matchedStable[stableCursor] = true;
-                stableCursor++;
             }
         }
 
@@ -398,20 +356,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return matchedIndex;
-        }
-
-        private static bool HaveCompatibleHierarchyShape (
-            GameObject sourceObject,
-            GameObject stableObject)
-        {
-            if (sourceObject.transform.childCount != stableObject.transform.childCount)
-            {
-                return false;
-            }
-
-            return HaveMatchingComponentTypeSequence(
-                sourceObject.GetComponents<Component>(),
-                stableObject.GetComponents<Component>());
         }
 
         private static bool HaveMatchingComponentTypeSequence (

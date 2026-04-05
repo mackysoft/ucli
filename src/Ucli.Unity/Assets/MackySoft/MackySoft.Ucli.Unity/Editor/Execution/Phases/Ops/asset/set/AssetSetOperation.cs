@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sandbox!,
                 sets!,
                 executionContext,
-                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
+                GetPlanReferenceResolutionPolicy(operation),
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -106,6 +106,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (changed)
             {
+                executionContext.MarkRequestAttributedChange(OperationResource.PersistentAsset(binding.AssetPath));
                 if (binding.SourceGlobalObjectId != null)
                 {
                     executionContext.SetAssetShadow(binding.SourceGlobalObjectId, sandbox!, binding.AssetPath);
@@ -180,7 +181,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (changed)
             {
+                executionContext.MarkRequestAttributedChange(OperationResource.PersistentAsset(binding.AssetPath));
                 EditorUtility.SetDirty(binding.UnityObject);
+            }
+
+            if (binding.Alias != null
+                && UnityObjectReferenceResolver.TryCreateResolvedReference(binding.UnityObject, out var resolvedReference))
+            {
+                executionContext.SetTemporaryAlias(
+                    binding.Alias,
+                    binding.UnityObject,
+                    OperationResource.PersistentAsset(binding.AssetPath),
+                    resolvedReference!.GlobalObjectId);
+                executionContext.AliasStore.Set(binding.Alias, resolvedReference);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -301,16 +314,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 allowTemporaryState: false,
                 out var unityObject,
                 out var assetPath,
-                out _,
+                out var sourceGlobalObjectId,
                 out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            binding = new TargetBinding(unityObject!, assetPath, sourceGlobalObjectId: null, alias: null, plannedOwnerExecutionKey: null);
+            var alias = arguments.TargetReference.Kind == UnityObjectReferenceKind.Alias
+                ? arguments.TargetReference.Alias
+                : null;
+            binding = new TargetBinding(unityObject!, assetPath, sourceGlobalObjectId, alias, plannedOwnerExecutionKey: null);
             sets = arguments.Sets;
             return true;
+        }
+
+        private static OperationObjectReferenceUtilities.ReferenceResolutionPolicy GetPlanReferenceResolutionPolicy (
+            NormalizedOperation operation)
+        {
+            return string.IsNullOrWhiteSpace(operation.InternalExecutionKey)
+                ? OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases
+                : OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState;
         }
 
         private readonly struct ValidatedTargetState

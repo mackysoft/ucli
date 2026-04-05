@@ -43,11 +43,13 @@ public sealed class OperationCatalogTests
         Assert.False(additionalProperties.GetBoolean());
         Assert.True(schemaRoot.TryGetProperty("oneOf", out var oneOf));
         Assert.Equal(JsonValueKind.Array, oneOf.ValueKind);
-        Assert.Equal(4, oneOf.GetArrayLength());
+        Assert.Equal(6, oneOf.GetArrayLength());
         Assert.True(ContainsRequiredProperty(oneOf, "globalObjectId"));
         Assert.True(ContainsRequiredProperty(oneOf, "assetGuid"));
         Assert.True(ContainsRequiredProperty(oneOf, "assetPath"));
+        Assert.True(ContainsRequiredProperty(oneOf, "projectAssetPath"));
         Assert.True(ContainsRequiredProperties(oneOf, "scene", "hierarchyPath"));
+        Assert.True(ContainsRequiredProperties(oneOf, "prefab", "hierarchyPath"));
     }
 
     [Fact]
@@ -94,11 +96,13 @@ public sealed class OperationCatalogTests
         Assert.True(schemaRoot.TryGetProperty("properties", out var properties));
         Assert.True(properties.TryGetProperty("scene", out _));
         Assert.True(properties.TryGetProperty("parent", out var parentProperty));
+        Assert.True(parentProperty.GetProperty("properties").TryGetProperty("prefab", out _));
         Assert.True(parentProperty.TryGetProperty("oneOf", out var parentOneOf));
-        Assert.Equal(3, parentOneOf.GetArrayLength());
+        Assert.Equal(4, parentOneOf.GetArrayLength());
         Assert.True(ContainsRequiredProperty(parentOneOf, "var"));
         Assert.True(ContainsRequiredProperty(parentOneOf, "globalObjectId"));
         Assert.True(ContainsRequiredProperties(parentOneOf, "scene", "hierarchyPath"));
+        Assert.True(ContainsRequiredProperties(parentOneOf, "prefab", "hierarchyPath"));
         Assert.True(schemaRoot.TryGetProperty("oneOf", out var rootOneOf));
         Assert.Equal(2, rootOneOf.GetArrayLength());
         Assert.True(ContainsRequiredProperty(rootOneOf, "scene"));
@@ -122,9 +126,10 @@ public sealed class OperationCatalogTests
         Assert.True(schemaRoot.TryGetProperty("properties", out var properties));
         Assert.True(properties.TryGetProperty("target", out var targetProperty));
         Assert.True(targetProperty.TryGetProperty("oneOf", out var targetOneOf));
-        Assert.Equal(3, targetOneOf.GetArrayLength());
+        Assert.Equal(4, targetOneOf.GetArrayLength());
         Assert.True(ContainsRequiredProperty(targetOneOf, "var"));
         Assert.True(ContainsRequiredProperty(targetOneOf, "globalObjectId"));
+        Assert.True(ContainsRequiredProperties(targetOneOf, "prefab", "hierarchyPath"));
         Assert.True(ContainsRequiredProperties(targetOneOf, "scene", "hierarchyPath"));
         Assert.True(properties.TryGetProperty("depth", out var depthProperty));
         Assert.True(depthProperty.TryGetProperty("type", out var depthType));

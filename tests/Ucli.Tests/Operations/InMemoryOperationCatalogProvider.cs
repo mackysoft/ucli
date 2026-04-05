@@ -15,14 +15,29 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
             "globalObjectId": { "type": "string", "minLength": 1 },
             "assetGuid": { "type": "string", "minLength": 1 },
             "assetPath": { "type": "string", "minLength": 1 },
+            "projectAssetPath": { "type": "string", "minLength": 1 },
             "scene": { "type": "string", "minLength": 1 },
-            "hierarchyPath": { "type": "string", "minLength": 1 }
+            "prefab": { "type": "string", "minLength": 1 },
+            "hierarchyPath": { "type": "string", "minLength": 1 },
+            "componentType": { "type": "string", "minLength": 1 }
           },
           "oneOf": [
             { "required": ["globalObjectId"] },
             { "required": ["assetGuid"] },
             { "required": ["assetPath"] },
-            { "required": ["scene", "hierarchyPath"] }
+            { "required": ["projectAssetPath"] },
+            { "required": ["scene", "hierarchyPath"] },
+            { "required": ["prefab", "hierarchyPath"] }
+          ],
+          "allOf": [
+            {
+              "if": { "required": ["componentType"] },
+              "then": {
+                "oneOf": [
+                  { "required": ["scene", "hierarchyPath"] }
+                ]
+              }
+            }
           ]
         }
         """;
@@ -67,12 +82,14 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
                 "var": { "type": "string", "minLength": 1 },
                 "globalObjectId": { "type": "string", "minLength": 1 },
                 "scene": { "type": "string", "minLength": 1 },
+                "prefab": { "type": "string", "minLength": 1 },
                 "hierarchyPath": { "type": "string", "minLength": 1 }
               },
               "oneOf": [
                 { "required": ["var"] },
                 { "required": ["globalObjectId"] },
-                { "required": ["scene", "hierarchyPath"] }
+                { "required": ["scene", "hierarchyPath"] },
+                { "required": ["prefab", "hierarchyPath"] }
               ]
             }
           },
@@ -95,12 +112,14 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
               "properties": {
                 "var": { "type": "string", "minLength": 1 },
                 "globalObjectId": { "type": "string", "minLength": 1 },
+                "prefab": { "type": "string", "minLength": 1 },
                 "scene": { "type": "string", "minLength": 1 },
                 "hierarchyPath": { "type": "string", "minLength": 1 }
               },
               "oneOf": [
                 { "required": ["var"] },
                 { "required": ["globalObjectId"] },
+                { "required": ["prefab", "hierarchyPath"] },
                 { "required": ["scene", "hierarchyPath"] }
               ]
             },
@@ -146,6 +165,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
             "target": { "type": "object" },
             "sets": {
               "type": "array",
+              "minItems": 1,
               "items": { "type": "object" }
             }
           },

@@ -70,6 +70,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!GoOperationUtilities.TryEnsurePlanResourceState(
+                    state.Resource,
+                    executionContext,
+                    out var preparationErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    preparationErrorMessage));
+            }
+
+            if (!TryValidate(operation, executionContext, allowTemporaryState: true, out state, out failure))
+            {
+                return Task.FromResult(failure!);
+            }
+
             if (!GoOperationUtilities.TryEnsureRequestLocalPlanGameObject(
                 state.Target,
                 state.Resource,
@@ -79,6 +94,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
             }
 
+            RegisterDeletedGlobalObjectIds(state.Target, state.Resource, executionContext);
             Object.DestroyImmediate(state.Target);
             GoOperationUtilities.MarkPlanResourceDirty(state.Resource, executionContext);
             executionContext.MarkRequestAttributedChange(state.Resource);
@@ -145,8 +161,121 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            if (!TryValidateDeletionTarget(
+                    targetResolution.GameObject!,
+                    targetResolution.Resource,
+                    executionContext,
+                    out errorMessage))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
+                return false;
+            }
+
             state = new ValidationState(targetResolution.GameObject!, targetResolution.Resource);
             return true;
+        }
+
+        private static bool TryValidateDeletionTarget (
+            GameObject target,
+            OperationResource resource,
+            OperationExecutionContext executionContext,
+            out string errorMessage)
+        {
+            if (resource.Kind != OperationTouchKind.Prefab)
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (executionContext.TryGetTemporaryPrefabContentsRoot(resource.Path, out var temporaryPrefabContentsRoot)
+                && temporaryPrefabContentsRoot != null
+                && target == temporaryPrefabContentsRoot)
+            {
+                errorMessage = "Prefab root cannot be deleted.";
+                return false;
+            }
+
+            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(resource.Path, out var openedPrefabStage, out _))
+            {
+                var prefabContentsRoot = openedPrefabStage!.prefabContentsRoot;
+                if (prefabContentsRoot != null
+                    && target == prefabContentsRoot)
+                {
+                    errorMessage = "Prefab root cannot be deleted.";
+                    return false;
+                }
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        private static void RegisterDeletedGlobalObjectIds (
+            GameObject target,
+            OperationResource resource,
+            OperationExecutionContext executionContext)
+        {
+            RegisterDeletedGlobalObjectId(target, resource, executionContext);
+            var components = target.GetComponents<Component>();
+            for (var i = 0; i < components.Length; i++)
+            {
+                var component = components[i];
+                if (component == null)
+                {
+                    continue;
+                }
+
+                RegisterDeletedGlobalObjectId(component, resource, executionContext);
+            }
+
+            var childCount = target.transform.childCount;
+            for (var i = 0; i < childCount; i++)
+            {
+                var child = target.transform.GetChild(i);
+                RegisterDeletedGlobalObjectIds(child.gameObject, resource, executionContext);
+            }
+        }
+
+        private static void RegisterDeletedGlobalObjectId (
+            UnityEngine.Object unityObject,
+            OperationResource resource,
+            OperationExecutionContext executionContext)
+        {
+            if (UnityObjectReferenceResolver.TryCreateResolvedReference(unityObject, out var directReference))
+            {
+                executionContext.MarkDeletedGlobalObjectId(directReference!.GlobalObjectId);
+            }
+
+            switch (resource.Kind)
+            {
+                case OperationTouchKind.Scene:
+                    if (executionContext.TryResolveTemporarySceneSourceObject(resource.Path, unityObject, out var sourceSceneObject)
+                        && sourceSceneObject != null
+                        && UnityObjectReferenceResolver.TryCreateResolvedReference(sourceSceneObject, out var sourceSceneReference))
+                    {
+                        executionContext.MarkDeletedGlobalObjectId(sourceSceneReference!.GlobalObjectId);
+                    }
+
+                    break;
+
+                case OperationTouchKind.Prefab:
+                    if (executionContext.TryResolveTemporaryPrefabStableSourceObject(resource.Path, unityObject, out var stablePrefabSourceObject)
+                        && stablePrefabSourceObject != null
+                        && UnityObjectReferenceResolver.TryCreateResolvedReference(stablePrefabSourceObject, out var stablePrefabReference))
+                    {
+                        executionContext.MarkDeletedGlobalObjectId(stablePrefabReference!.GlobalObjectId);
+                        break;
+                    }
+
+                    if (executionContext.TryResolveTemporaryPrefabSourceObject(resource.Path, unityObject, out var sourcePrefabObject)
+                        && sourcePrefabObject != null
+                        && UnityObjectReferenceResolver.TryCreateResolvedReference(sourcePrefabObject, out var sourcePrefabReference))
+                    {
+                        executionContext.MarkDeletedGlobalObjectId(sourcePrefabReference!.GlobalObjectId);
+                    }
+
+                    break;
+            }
         }
 
         private readonly struct ValidationState
