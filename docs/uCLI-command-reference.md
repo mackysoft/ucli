@@ -272,6 +272,8 @@ ucli test run \
 
 #### `run` の出力
 - `payload` のフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
+- daemon IPC timeout と `--waitUntilReady` の待機 timeout は `IPC_TIMEOUT` を返す。
+- `oneshot` 実行中の Unity process timeout は `UNITY_TEST_EXECUTION_TIMEOUT` を返す。
 
 ### `ucli test profile init`
 `test` 実行用のプロファイル JSON 雛形を作成する。
