@@ -53,6 +53,38 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator PingHandler_WhenStartupIsPending_DoesNotConsumeStarting () => UniTask.ToCoroutine(async () =>
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 0,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: true);
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new UnityEditorReadinessGate(telemetryState));
+
+            var firstResponse = await handler.Handle(CreatePingRequest("req-ping-starting-1", new IpcPingRequest("client")), CancellationToken.None);
+            var secondResponse = await handler.Handle(CreatePingRequest("req-ping-starting-2", new IpcPingRequest("client")), CancellationToken.None);
+
+            Assert.That(IpcPayloadCodec.TryDeserialize(firstResponse.Payload, out IpcPingResponse firstPayload, out _), Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(secondResponse.Payload, out IpcPingResponse secondPayload, out _), Is.True);
+            Assert.That(firstPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(secondPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+
+            telemetryState.ObserveEditorUpdate(
+                isCompiling: false,
+                isUpdating: false);
+            var readyResponse = await handler.Handle(CreatePingRequest("req-ping-starting-3", new IpcPingRequest("client")), CancellationToken.None);
+
+            Assert.That(IpcPayloadCodec.TryDeserialize(readyResponse.Payload, out IpcPingResponse readyPayload, out _), Is.True);
+            Assert.That(readyPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(readyPayload.CanAcceptExecutionRequests, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator ExecuteHandler_WhenPayloadIsValid_CallsDispatcher () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = new StubExecuteRequestDispatcher();

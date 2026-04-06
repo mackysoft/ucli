@@ -82,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void CaptureSnapshot_WhenStartupIsPending_ReturnsBlockedSnapshot ()
+        public void CaptureSnapshot_WhenStartupIsPending_DoesNotConsumeStarting ()
         {
             var gate = CreateGate(
                 compileGeneration: 4,
@@ -92,14 +92,41 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: true,
                 out _);
 
-            var snapshot = gate.CaptureSnapshot();
+            var first = gate.CaptureSnapshot();
+            var second = gate.CaptureSnapshot();
 
-            Assert.That(snapshot.Runtime, Is.EqualTo("batchmode"));
-            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
-            Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.Startup));
-            Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
-            Assert.That(snapshot.CompileGeneration, Is.EqualTo("4"));
-            Assert.That(snapshot.DomainReloadGeneration, Is.EqualTo("9"));
+            Assert.That(first.Runtime, Is.EqualTo("batchmode"));
+            Assert.That(first.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(first.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.Startup));
+            Assert.That(first.CanAcceptExecutionRequests, Is.False);
+            Assert.That(first.CompileGeneration, Is.EqualTo("4"));
+            Assert.That(first.DomainReloadGeneration, Is.EqualTo("9"));
+            Assert.That(second.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(second.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.Startup));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureSnapshot_WhenEditorUpdateCompletesStartup_ReturnsReadySnapshot ()
+        {
+            var gate = CreateGate(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: true,
+                out var lifecycleTelemetryState);
+
+            var beforeUpdate = gate.CaptureSnapshot();
+            lifecycleTelemetryState.ObserveEditorUpdate(
+                isCompiling: false,
+                isUpdating: false);
+            var afterUpdate = gate.CaptureSnapshot();
+
+            Assert.That(beforeUpdate.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(afterUpdate.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(afterUpdate.BlockingReason, Is.Null);
+            Assert.That(afterUpdate.CanAcceptExecutionRequests, Is.True);
         }
 
         [UnityTest]

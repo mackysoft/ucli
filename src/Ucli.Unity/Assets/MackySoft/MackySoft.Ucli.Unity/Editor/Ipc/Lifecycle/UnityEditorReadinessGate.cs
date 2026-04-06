@@ -43,6 +43,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             CompilationPipeline.compilationFinished -= OnCompilationFinished;
             AssemblyReloadEvents.beforeAssemblyReload -= OnBeforeAssemblyReload;
             AssemblyReloadEvents.afterAssemblyReload -= OnAfterAssemblyReload;
+            EditorApplication.update -= OnEditorUpdate;
             EditorApplication.wantsToQuit -= OnWantsToQuit;
             EditorApplication.quitting -= OnQuitting;
 
@@ -50,6 +51,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             CompilationPipeline.compilationFinished += OnCompilationFinished;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
             AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
+            EditorApplication.update += OnEditorUpdate;
             EditorApplication.wantsToQuit += OnWantsToQuit;
             EditorApplication.quitting += OnQuitting;
         }
@@ -67,10 +69,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isCompiling, EditorApplication.isUpdating);
             var blockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState);
             var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, System.StringComparison.Ordinal);
-            if (canAcceptExecutionRequests)
-            {
-                lifecycleTelemetryState.MarkReady();
-            }
 
             // TODO: Add GUI / non-batchmode runtime detection when lifecycle telemetry is supported
             // outside the batchmode IPC host. Current runtime reporting is batchmode-only.
@@ -140,6 +138,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             sharedLifecycleTelemetryState.OnAfterAssemblyReload();
         }
 
+        private static void OnEditorUpdate ()
+        {
+            sharedLifecycleTelemetryState.ObserveEditorUpdate(EditorApplication.isCompiling, EditorApplication.isUpdating);
+        }
+
         private sealed class ReadinessWaitState
         {
             private readonly UnityEditorReadinessGate readinessGate;
@@ -177,6 +180,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private void OnEditorUpdate ()
             {
+                readinessGate.lifecycleTelemetryState.ObserveEditorUpdate(EditorApplication.isCompiling, EditorApplication.isUpdating);
                 var snapshot = readinessGate.CaptureSnapshot();
                 if (snapshot.CanAcceptExecutionRequests)
                 {

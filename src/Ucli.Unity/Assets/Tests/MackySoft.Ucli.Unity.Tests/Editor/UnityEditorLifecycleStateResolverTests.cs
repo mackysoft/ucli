@@ -8,26 +8,26 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [Test]
         [Category("Size.Small")]
-        public void Resolve_WhenStartupPending_ReturnsStartingOnceThenReady ()
+        public void Resolve_WhenStartupPending_ReturnsStartingWithoutMutatingState ()
         {
             var isStartupPending = true;
 
             var first = UnityEditorLifecycleStateResolver.Resolve(
-                ref isStartupPending,
+                isStartupPending,
                 isShuttingDown: false,
                 isDomainReloading: false,
                 isCompiling: false,
                 isUpdating: false);
             var second = UnityEditorLifecycleStateResolver.Resolve(
-                ref isStartupPending,
+                isStartupPending,
                 isShuttingDown: false,
                 isDomainReloading: false,
                 isCompiling: false,
                 isUpdating: false);
 
             Assert.That(first, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
-            Assert.That(second, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
-            Assert.That(isStartupPending, Is.False);
+            Assert.That(second, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(isStartupPending, Is.True);
         }
 
         [Test]
@@ -37,13 +37,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var isStartupPending = true;
 
             var compiling = UnityEditorLifecycleStateResolver.Resolve(
-                ref isStartupPending,
+                isStartupPending,
                 isShuttingDown: false,
                 isDomainReloading: false,
                 isCompiling: true,
                 isUpdating: false);
             var starting = UnityEditorLifecycleStateResolver.Resolve(
-                ref isStartupPending,
+                isStartupPending,
                 isShuttingDown: false,
                 isDomainReloading: false,
                 isCompiling: false,
@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var isStartupPending = true;
 
             var actual = UnityEditorLifecycleStateResolver.Resolve(
-                ref isStartupPending,
+                isStartupPending,
                 isShuttingDown: true,
                 isDomainReloading: true,
                 isCompiling: true,
@@ -68,6 +68,31 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.ShuttingDown));
             Assert.That(isStartupPending, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ObserveEditorUpdate_WhenStartupPendingAndEditorIsIdle_ClearsStartupPending ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 0,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: true);
+
+            var beforeUpdate = telemetryState.ResolveLifecycleState(
+                isCompiling: false,
+                isUpdating: false);
+            telemetryState.ObserveEditorUpdate(
+                isCompiling: false,
+                isUpdating: false);
+            var afterUpdate = telemetryState.ResolveLifecycleState(
+                isCompiling: false,
+                isUpdating: false);
+
+            Assert.That(beforeUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(afterUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
         }
     }
 }

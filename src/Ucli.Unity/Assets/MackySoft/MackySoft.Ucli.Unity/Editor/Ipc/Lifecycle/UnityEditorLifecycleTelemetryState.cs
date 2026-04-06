@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Gets the current domain-reload generation counter. </summary>
         public string DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration).ToString(CultureInfo.InvariantCulture);
 
-        /// <summary> Resolves the current lifecycle-state and advances transient startup tracking when needed. </summary>
+        /// <summary> Resolves the current lifecycle-state from the tracked editor activity flags. </summary>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
         /// <param name="isUpdating"> Whether editor import/update work is in progress. </param>
         /// <returns> The canonical lifecycle-state literal. </returns>
@@ -62,16 +62,30 @@ namespace MackySoft.Ucli.Unity.Ipc
             bool isUpdating)
         {
             return UnityEditorLifecycleStateResolver.Resolve(
-                ref isStartupPending,
+                isStartupPending,
                 isShuttingDown,
                 isDomainReloading,
                 isCompiling,
                 isUpdating);
         }
 
-        /// <summary> Marks startup reporting as completed after the editor accepts execution requests. </summary>
-        public void MarkReady ()
+        /// <summary> Advances startup tracking after one editor update confirms no higher-priority blocking state remains. </summary>
+        /// <param name="isCompiling"> Whether script compilation is in progress. </param>
+        /// <param name="isUpdating"> Whether editor import/update work is in progress. </param>
+        internal void ObserveEditorUpdate (
+            bool isCompiling,
+            bool isUpdating)
         {
+            if (!isStartupPending)
+            {
+                return;
+            }
+
+            if (isShuttingDown || isDomainReloading || isCompiling || isUpdating)
+            {
+                return;
+            }
+
             isStartupPending = false;
         }
 

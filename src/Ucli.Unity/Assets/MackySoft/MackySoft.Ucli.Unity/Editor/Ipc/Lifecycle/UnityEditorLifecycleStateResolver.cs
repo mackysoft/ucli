@@ -5,15 +5,15 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Resolves canonical editor lifecycle-state values from observed editor activity flags. </summary>
     internal static class UnityEditorLifecycleStateResolver
     {
-        /// <summary> Resolves one lifecycle-state and advances transient startup tracking when required. </summary>
-        /// <param name="isStartupPending"> Whether one transient startup state still needs to be reported. </param>
+        /// <summary> Resolves one lifecycle-state from observed editor activity flags. </summary>
+        /// <param name="isStartupPending"> Whether startup is still in progress. </param>
         /// <param name="isShuttingDown"> Whether editor shutdown has started. </param>
         /// <param name="isDomainReloading"> Whether domain reload is in progress. </param>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
         /// <param name="isUpdating"> Whether editor update/import work is in progress. </param>
         /// <returns> The canonical lifecycle-state literal. </returns>
         public static string Resolve (
-            ref bool isStartupPending,
+            bool isStartupPending,
             bool isShuttingDown,
             bool isDomainReloading,
             bool isCompiling,
@@ -41,7 +41,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (isStartupPending)
             {
-                isStartupPending = false;
                 return IpcEditorLifecycleStateCodec.Starting;
             }
 
