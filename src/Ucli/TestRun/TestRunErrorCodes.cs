@@ -6,6 +6,9 @@ internal static class TestRunErrorCodes
     /// <summary> Gets the error code emitted when Unity test process execution fails. </summary>
     public const string UnityTestExecutionFailed = "UNITY_TEST_EXECUTION_FAILED";
 
+    /// <summary> Gets the error code emitted when Unity test execution exceeds its runtime budget. </summary>
+    public const string UnityTestExecutionTimeout = "UNITY_TEST_EXECUTION_TIMEOUT";
+
     /// <summary> Gets the error code emitted when Unity test results XML is invalid. </summary>
     public const string TestResultsXmlInvalid = "TEST_RESULTS_XML_INVALID";
 

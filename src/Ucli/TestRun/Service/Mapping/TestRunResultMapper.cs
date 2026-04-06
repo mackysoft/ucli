@@ -53,7 +53,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             var errorCode = unityExecutionResult.FailureKind switch
             {
                 UnityTestExecutionFailureKind.Canceled => CliErrorCodes.Canceled,
-                UnityTestExecutionFailureKind.TimedOut => CliErrorCodes.IpcTimeout,
+                UnityTestExecutionFailureKind.IpcTimedOut => CliErrorCodes.IpcTimeout,
+                UnityTestExecutionFailureKind.ProcessTimedOut => TestRunErrorCodes.UnityTestExecutionTimeout,
                 _ when !string.IsNullOrWhiteSpace(unityExecutionResult.ErrorCode) => unityExecutionResult.ErrorCode!,
                 _ => TestRunErrorCodes.UnityTestExecutionFailed,
             };

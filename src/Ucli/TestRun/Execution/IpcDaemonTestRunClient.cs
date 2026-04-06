@@ -82,7 +82,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
         catch (TimeoutException)
         {
             return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.TimedOut,
+                UnityTestExecutionFailureKind.IpcTimedOut,
                 $"Unity daemon test run request timed out after {timeout.TotalMilliseconds:0} milliseconds.");
         }
         catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))

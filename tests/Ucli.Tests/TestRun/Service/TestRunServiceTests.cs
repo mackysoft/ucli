@@ -180,7 +180,7 @@ public sealed class TestRunServiceTests
         var configuration = CreateResolvedConfiguration();
         var daemonTestRunClient = new StubDaemonTestRunClient((_, _, _, _, _) =>
             ValueTask.FromResult(UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.TimedOut,
+                UnityTestExecutionFailureKind.IpcTimedOut,
                 "Unity daemon test run request timed out.")));
 
         var service = CreateService(
@@ -201,6 +201,34 @@ public sealed class TestRunServiceTests
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
         Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenAutoModeFallsBackToOneshotAndExecutionTimesOut_ReturnsExecutionTimeoutErrorCode ()
+    {
+        var configuration = CreateResolvedConfiguration();
+        var session = CreateArtifactsSession(configuration);
+
+        var service = CreateService(
+            configurationResolver: new StubConfigurationResolver(TestRunConfigurationResolutionResult.Success(configuration)),
+            modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(UnityExecutionMode.Auto, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
+            artifactsService: new StubArtifactsService(
+                prepare: _ => ArtifactsPreparationResult.Success(session),
+                complete: (_, _) => ArtifactsCompletionResult.Success()),
+            unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) =>
+                ValueTask.FromResult(UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.ProcessTimedOut,
+                    "Unity process timed out after 30000 milliseconds."))),
+            resultsConverter: new StubResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))));
+
+        var result = await service.Execute(CreateInput(), CancellationToken.None);
+
+        Assert.Null(result.Result);
+        Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
+        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(TestRunErrorCodes.UnityTestExecutionTimeout, result.ErrorCode);
     }
 
     [Fact]

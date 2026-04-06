@@ -66,7 +66,7 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
 
             case ProcessRunStatus.TimedOut:
                 return UnityTestExecutionResult.Failure(
-                    UnityTestExecutionFailureKind.TimedOut,
+                    UnityTestExecutionFailureKind.ProcessTimedOut,
                     processRunResult.ErrorMessage ?? $"Unity process timed out after {timeout.TotalMilliseconds:0} milliseconds.");
 
             case ProcessRunStatus.Canceled:

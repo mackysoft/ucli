@@ -85,7 +85,7 @@ public sealed class IpcDaemonTestRunClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenIpcRequestTimesOut_ReturnsTimedOutFailure ()
+    public async Task Execute_WhenIpcRequestTimesOut_ReturnsIpcTimedOutFailure ()
     {
         var daemonTransportClient = new StubUnityIpcTransportClient((_) => throw new TimeoutException("timeout"));
         var sessionTokenProvider = new StubDaemonSessionTokenProvider(
@@ -103,7 +103,7 @@ public sealed class IpcDaemonTestRunClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UnityTestExecutionFailureKind.TimedOut, result.FailureKind);
+        Assert.Equal(UnityTestExecutionFailureKind.IpcTimedOut, result.FailureKind);
     }
 
     [Fact]
