@@ -36,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             writer.WritePropertyName("arguments");
             CanonicalRequestWriter.WriteCanonicalJsonValue(writer, request.Arguments);
             writer.WriteString("command", request.Command);
-            writer.WriteBoolean("waitUntilReady", request.WaitUntilReady);
+            writer.WriteBoolean("failFast", request.FailFast);
             if (normalizedPlanToken is null)
             {
                 writer.WriteNull("planToken");

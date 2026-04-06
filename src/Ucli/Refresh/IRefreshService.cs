@@ -9,13 +9,13 @@ internal interface IRefreshService
     /// <param name="projectPath"> The optional <c>--projectPath</c> value. </param>
     /// <param name="mode"> The optional <c>--mode</c> value. </param>
     /// <param name="timeout"> The optional <c>--timeout</c> value in milliseconds. </param>
-    /// <param name="waitUntilReady"> Whether Unity-side execution may wait for lifecycle readiness before failing. </param>
+    /// <param name="failFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the refresh execution result. </returns>
     ValueTask<OperationExecuteResult> Execute (
         string? projectPath,
         string? mode,
         string? timeout,
-        bool waitUntilReady,
+        bool failFast,
         CancellationToken cancellationToken = default);
 }

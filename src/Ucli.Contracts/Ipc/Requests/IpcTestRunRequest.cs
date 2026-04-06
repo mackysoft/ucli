@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="TestSettingsPath"> The optional path to <c>TestSettings.json</c>. </param>
 /// <param name="ResultsXmlPath"> The absolute output path for Unity test <c>results.xml</c>. </param>
 /// <param name="EditorLogPath"> The absolute output path for extracted <c>editor.log</c>. </param>
-/// <param name="WaitUntilReady"> Whether execution may wait for lifecycle readiness before failing. </param>
+/// <param name="FailFast"> Whether execution should fail immediately instead of waiting for lifecycle readiness. </param>
 public sealed record IpcTestRunRequest (
     string TestPlatform,
     string? BuildTarget,
@@ -19,4 +19,4 @@ public sealed record IpcTestRunRequest (
     string? TestSettingsPath,
     string ResultsXmlPath,
     string EditorLogPath,
-    bool WaitUntilReady = false);
+    bool FailFast = false);

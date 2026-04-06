@@ -470,7 +470,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubExecuteRequestDispatcher(),
                 testRunService,
                 new StubDaemonShutdownSignal());
-            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run", waitUntilReady: true);
+            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run", failFast: true);
 
             var response = await server.HandleRequest(request);
 
@@ -479,7 +479,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(testRunService.CallCount, Is.EqualTo(1));
             Assert.That(testRunService.LastRequest, Is.Not.Null);
             Assert.That(testRunService.LastRequest.TestPlatform, Is.EqualTo("editmode"));
-            Assert.That(testRunService.LastRequest.WaitUntilReady, Is.True);
+            Assert.That(testRunService.LastRequest.FailFast, Is.True);
             var payload = response.Payload.Deserialize<IpcTestRunResponse>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.ExitCode, Is.EqualTo(2));
@@ -625,7 +625,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcRequest CreateTestRunRequest (
             string sessionToken,
             string requestId,
-            bool waitUntilReady = false)
+            bool failFast = false)
         {
             var payload = JsonSerializer.SerializeToElement(
                 new IpcTestRunRequest(
@@ -637,7 +637,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     TestSettingsPath: null,
                     ResultsXmlPath: "/tmp/results.xml",
                     EditorLogPath: "/tmp/editor.log",
-                    WaitUntilReady: waitUntilReady),
+                    FailFast: failFast),
                 SerializerOptions);
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,

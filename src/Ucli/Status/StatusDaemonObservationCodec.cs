@@ -35,21 +35,28 @@ internal static class StatusDaemonObservationCodec
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
+        var lifecycleState = IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var normalizedLifecycleState)
+            ? normalizedLifecycleState
+            : null;
+        var blockingReason = lifecycleState is null || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+            ? null
+            : IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
+                ? normalizedBlockingReason
+                : null;
+        var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+            && pingResponse.CanAcceptExecutionRequests;
+
         return new StatusDaemonObservation(
             DaemonStatus: StatusDaemonStateCodec.ToValue(daemonStatus),
             ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
-            LifecycleState: IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState)
-                ? lifecycleState
-                : null,
-            BlockingReason: IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var blockingReason)
-                ? blockingReason
-                : null,
+            LifecycleState: lifecycleState,
+            BlockingReason: blockingReason,
             CompileState: IpcCompileStateCodec.TryParse(pingResponse.CompileState, out var compileState)
                 ? compileState
                 : null,
             CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
-            CanAcceptExecutionRequests: pingResponse.CanAcceptExecutionRequests,
+            CanAcceptExecutionRequests: canAcceptExecutionRequests,
             Runtime: StringValueNormalizer.TrimToNull(pingResponse.Runtime));
     }
 }

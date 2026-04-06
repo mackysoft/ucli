@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public int CallCount { get; private set; }
 
-        public bool? LastWaitUntilReady { get; private set; }
+        public bool? LastFailFast { get; private set; }
 
         public Task WaitObserved => waitObserved.Task;
 
@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcEditorLifecycleStateCodec.Busy,
                     IpcEditorBlockingReasonCodec.Busy,
                     IpcErrorCodes.EditorBusy,
-                    "Unity editor is busy with internal work. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request."),
+                    "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
                 new TaskCompletionSource<UnityEditorExecutionReadinessResult>(TaskCreationOptions.RunContinuationsAsynchronously));
         }
 
@@ -59,14 +59,14 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
-            bool waitUntilReady,
+            bool failFast,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            LastWaitUntilReady = waitUntilReady;
+            LastFailFast = failFast;
             waitObserved.TrySetResult(true);
-            if (completionSource != null && waitUntilReady)
+            if (completionSource != null && !failFast)
             {
                 return completionSource.Task;
             }

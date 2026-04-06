@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -14,29 +15,34 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
 
     private readonly IDaemonSessionTokenProvider daemonSessionTokenProvider;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonTestRunClient" /> class. </summary>
     /// <param name="transportClient"> The shared Unity IPC transport client dependency. </param>
     /// <param name="daemonSessionTokenProvider"> The daemon session-token provider dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     public IpcDaemonTestRunClient (
         IUnityIpcTransportClient transportClient,
-        IDaemonSessionTokenProvider daemonSessionTokenProvider)
+        IDaemonSessionTokenProvider daemonSessionTokenProvider,
+        TimeProvider? timeProvider = null)
     {
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.daemonSessionTokenProvider = daemonSessionTokenProvider ?? throw new ArgumentNullException(nameof(daemonSessionTokenProvider));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary> Executes one Unity test run through daemon IPC and validates generated artifacts. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
     /// <param name="artifactPaths"> The run artifact paths. </param>
-    /// <param name="timeout"> The IPC timeout used for one daemon request. </param>
-    /// <param name="waitUntilReady"> Whether daemon execution may wait for lifecycle readiness before failing. </param>
+    /// <param name="timeout"> The remaining execution timeout budget for the daemon path. </param>
+    /// <param name="failFast"> Whether daemon execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the Unity test execution result. </returns>
     public async ValueTask<UnityTestExecutionResult> Execute (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         TimeSpan timeout,
-        bool waitUntilReady,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -44,15 +50,36 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
         ArgumentNullException.ThrowIfNull(artifactPaths);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+
         try
         {
-            var sessionToken = await ResolveSessionToken(configuration, cancellationToken).ConfigureAwait(false);
-            var request = IpcDaemonTestRunRequestCodec.CreateRequest(configuration, artifactPaths, sessionToken, waitUntilReady);
+            var sessionTokenResult = await ResolveSessionToken(
+                    configuration,
+                    deadline,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (sessionTokenResult.FailureResult is not null)
+            {
+                return sessionTokenResult.FailureResult;
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+            {
+                return CreateTimeoutFailure(timeout);
+            }
+
+            var request = IpcDaemonTestRunRequestCodec.CreateRequest(
+                configuration,
+                artifactPaths,
+                sessionTokenResult.SessionToken!,
+                failFast);
             var response = await transportClient.SendAsync(
                     configuration.UnityProject.RepositoryRoot,
                     configuration.UnityProject.ProjectFingerprint,
                     request,
-                    timeout,
+                    requestTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -81,15 +108,14 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
         }
         catch (TimeoutException)
         {
-            return UnityTestExecutionResult.Failure(
-                UnityTestExecutionFailureKind.IpcTimedOut,
-                $"Unity daemon test run request timed out after {timeout.TotalMilliseconds:0} milliseconds.");
+            return CreateTimeoutFailure(timeout);
         }
         catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {
             return UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.StartFailed,
-                $"Unity daemon is not running. {exception.Message}");
+                $"Unity daemon is not running. {exception.Message}",
+                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
         }
         catch (Exception exception)
         {
@@ -101,24 +127,72 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
 
     /// <summary> Resolves the daemon session token from local daemon session storage. </summary>
     /// <param name="configuration"> The resolved test-run configuration. </param>
+    /// <param name="deadline"> The shared execution deadline. </param>
+    /// <param name="timeout"> The original daemon execution timeout budget. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
-    /// <returns> A task that resolves to session token value. </returns>
-    private async ValueTask<string> ResolveSessionToken (
+    /// <returns> One tuple containing the resolved session token or a normalized failure result. </returns>
+    private async ValueTask<(string? SessionToken, UnityTestExecutionResult? FailureResult)> ResolveSessionToken (
         ResolvedTestRunConfiguration configuration,
+        ExecutionDeadline deadline,
+        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        var sessionTokenResult = await daemonSessionTokenProvider.Resolve(
-                configuration.UnityProject,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!sessionTokenResult.IsSuccess)
+        if (!deadline.TryGetRemainingTimeout(out var sessionTokenTimeout))
         {
-            var message = sessionTokenResult.IsSessionNotAvailable
-                ? "Daemon session token is not available."
-                : $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}";
-            throw new InvalidOperationException(message);
+            return (null, CreateTimeoutFailure(timeout));
         }
 
-        return sessionTokenResult.Token!;
+        using var sessionTokenCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            sessionTokenTimeout,
+            timeProvider);
+
+        DaemonSessionTokenResolutionResult sessionTokenResult;
+        try
+        {
+            sessionTokenResult = await daemonSessionTokenProvider.Resolve(
+                    configuration.UnityProject,
+                    sessionTokenCancellationScope.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && sessionTokenCancellationScope.HasTimedOut)
+        {
+            return (null, CreateTimeoutFailure(timeout));
+        }
+
+        if (!sessionTokenResult.IsSuccess)
+        {
+            if (sessionTokenResult.IsSessionNotAvailable)
+            {
+                return (
+                    null,
+                    UnityTestExecutionResult.Failure(
+                        UnityTestExecutionFailureKind.StartFailed,
+                        "Unity daemon is not running. Daemon session token is not available.",
+                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning));
+            }
+
+            var error = sessionTokenResult.Error!;
+            if (error.Kind == ExecutionErrorKind.Timeout)
+            {
+                return (null, CreateTimeoutFailure(timeout));
+            }
+
+            return (
+                null,
+                UnityTestExecutionResult.Failure(
+                    UnityTestExecutionFailureKind.ClientSetupFailed,
+                    $"Daemon session token could not be resolved. {error.Message}",
+                    ExecutionErrorKindCodeMapper.ToCode(error.Kind)));
+        }
+
+        return (sessionTokenResult.Token!, null);
+    }
+
+    private static UnityTestExecutionResult CreateTimeoutFailure (TimeSpan timeout)
+    {
+        return UnityTestExecutionResult.Failure(
+            UnityTestExecutionFailureKind.IpcTimedOut,
+            $"Unity daemon test run request timed out after {timeout.TotalMilliseconds:0} milliseconds.");
     }
 }

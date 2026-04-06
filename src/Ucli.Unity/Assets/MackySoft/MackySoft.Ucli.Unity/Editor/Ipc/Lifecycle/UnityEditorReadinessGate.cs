@@ -84,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
-            bool waitUntilReady,
+            bool failFast,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(snapshot));
             }
 
-            if (!waitUntilReady || !UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.LifecycleState))
+            if (failFast || !UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.LifecycleState))
             {
                 return Task.FromResult(UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot));
             }

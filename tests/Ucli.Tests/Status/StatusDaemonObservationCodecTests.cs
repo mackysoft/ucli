@@ -53,11 +53,59 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Equal("running", actual.DaemonStatus);
         Assert.Equal("0.5.0", actual.ServerVersion);
         Assert.Equal("ready", actual.LifecycleState);
-        Assert.Equal("busy", actual.BlockingReason);
+        Assert.Null(actual.BlockingReason);
         Assert.Equal(expectedCompileState, actual.CompileState);
         Assert.Equal("42", actual.CompileGeneration);
         Assert.Equal("17", actual.DomainReloadGeneration);
         Assert.True(actual.CanAcceptExecutionRequests);
         Assert.Equal("batchmode", actual.Runtime);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateFromPing_WhenLifecycleStateIsUnsupported_ClearsBlockingAndReadinessFields ()
+    {
+        var pingResponse = new IpcPingResponse(
+            ServerVersion: "0.5.0",
+            Runtime: "batchmode",
+            UnityVersion: "2022.3.5f1",
+            CompileState: "ready",
+            LifecycleState: "unsupported",
+            BlockingReason: "busy",
+            CompileGeneration: "42",
+            DomainReloadGeneration: "17",
+            CanAcceptExecutionRequests: true);
+
+        var actual = StatusDaemonObservationCodec.CreateFromPing(
+            DaemonStatusKind.Running,
+            pingResponse);
+
+        Assert.Null(actual.LifecycleState);
+        Assert.Null(actual.BlockingReason);
+        Assert.False(actual.CanAcceptExecutionRequests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateFromPing_WhenLifecycleStateIsReady_ClearsBlockingReason ()
+    {
+        var pingResponse = new IpcPingResponse(
+            ServerVersion: "0.5.0",
+            Runtime: "batchmode",
+            UnityVersion: "2022.3.5f1",
+            CompileState: "ready",
+            LifecycleState: "ready",
+            BlockingReason: "busy",
+            CompileGeneration: "42",
+            DomainReloadGeneration: "17",
+            CanAcceptExecutionRequests: true);
+
+        var actual = StatusDaemonObservationCodec.CreateFromPing(
+            DaemonStatusKind.Running,
+            pingResponse);
+
+        Assert.Equal("ready", actual.LifecycleState);
+        Assert.Null(actual.BlockingReason);
+        Assert.True(actual.CanAcceptExecutionRequests);
     }
 }

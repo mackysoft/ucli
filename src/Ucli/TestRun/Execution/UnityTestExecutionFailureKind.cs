@@ -20,4 +20,7 @@ internal enum UnityTestExecutionFailureKind
 
     /// <summary> Indicates required artifacts were not produced. </summary>
     ArtifactMissing = 5,
+
+    /// <summary> Indicates client-side daemon execution setup failed before Unity request dispatch. </summary>
+    ClientSetupFailed = 6,
 }

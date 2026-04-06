@@ -14,7 +14,7 @@ internal static class UcliContractConstants
 
         public const string Mode = "--mode";
 
-        public const string WaitUntilReady = "--waitUntilReady";
+        public const string FailFast = "--failFast";
 
         public const string ReadIndexMode = "--readIndexMode";
 

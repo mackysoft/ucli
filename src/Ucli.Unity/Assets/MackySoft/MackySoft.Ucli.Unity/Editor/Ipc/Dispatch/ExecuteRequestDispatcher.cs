@@ -156,7 +156,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     SerializerOptions);
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReady(request.WaitUntilReady, cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReady(request.FailFast, cancellationToken).ConfigureAwait(false);
             if (!readinessResult.IsReady)
             {
                 var lifecycleError = readinessResult.Error!;
@@ -203,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
-                bool waitUntilReady,
+                bool failFast,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();

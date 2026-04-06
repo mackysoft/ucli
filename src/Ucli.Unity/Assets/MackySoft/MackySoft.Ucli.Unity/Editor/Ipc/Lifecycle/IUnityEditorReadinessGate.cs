@@ -10,12 +10,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The normalized lifecycle snapshot. </returns>
         UnityEditorLifecycleSnapshot CaptureSnapshot ();
 
-        /// <summary> Ensures the editor can accept execution requests, optionally waiting for readiness. </summary>
-        /// <param name="waitUntilReady"> Whether waitable lifecycle states may be waited out before failing. </param>
+        /// <summary> Ensures the editor can accept execution requests, optionally failing fast. </summary>
+        /// <param name="failFast"> Whether waitable lifecycle states should fail immediately instead of being waited out. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
         /// <returns> The readiness decision result. </returns>
         Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
-            bool waitUntilReady,
+            bool failFast,
             CancellationToken cancellationToken = default);
     }
 }

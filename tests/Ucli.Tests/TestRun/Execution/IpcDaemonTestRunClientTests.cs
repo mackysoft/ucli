@@ -2,6 +2,8 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
+using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.TestRun.Artifacts;
 using MackySoft.Ucli.TestRun.Configuration;
@@ -35,7 +37,7 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
-            waitUntilReady: true,
+            failFast: true,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -48,7 +50,7 @@ public sealed class IpcDaemonTestRunClientTests
         Assert.Equal("editmode", payload.TestPlatform);
         Assert.Equal(artifactPaths.ResultsXmlPath, payload.ResultsXmlPath);
         Assert.Equal(artifactPaths.EditorLogPath, payload.EditorLogPath);
-        Assert.True(payload.WaitUntilReady);
+        Assert.True(payload.FailFast);
     }
 
     [Fact]
@@ -75,7 +77,7 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
-            waitUntilReady: false,
+            failFast: false,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -99,11 +101,78 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
-            waitUntilReady: false,
+            failFast: false,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.IpcTimedOut, result.FailureKind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenSessionTokenResolutionConsumesBudget_PropagatesRemainingTimeoutToTransport ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                new IpcTestRunResponse(0)));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("session-token"))
+        {
+            OnResolve = () => timeProvider.Advance(TimeSpan.FromMilliseconds(300)),
+        };
+        using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "remaining-timeout");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        scope.WriteFile("run/results.xml", "<test-run />");
+        scope.WriteFile("run/editor.log", "log");
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider, timeProvider);
+
+        var result = await client.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(4500),
+            failFast: false,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TimeSpan.FromMilliseconds(4200), daemonTransportClient.LastTimeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenSessionTokenResolutionConsumesEntireBudget_ReturnsIpcTimedOutFailure ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                new IpcTestRunResponse(0)));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("session-token"))
+        {
+            OnResolve = () => timeProvider.Advance(TimeSpan.FromMilliseconds(4500)),
+        };
+        using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "session-timeout");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider, timeProvider);
+
+        var result = await client.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(4500),
+            failFast: false,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.IpcTimedOut, result.FailureKind);
+        Assert.Equal(0, daemonTransportClient.CallCount);
     }
 
     [Fact]
@@ -129,13 +198,73 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
-            waitUntilReady: false,
+            failFast: false,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.AbnormalExit, result.FailureKind);
         Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
         Assert.Contains(IpcErrorCodes.EditorBusy, result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenSessionTokenIsNotAvailable_PreservesDaemonNotRunningCode ()
+    {
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                new IpcTestRunResponse(0)));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.SessionNotAvailable());
+        using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "session-not-available");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
+
+        var result = await client.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(4500),
+            failFast: false,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.StartFailed, result.FailureKind);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenSessionTokenResolutionFailsInternally_ReturnsClientSetupFailure ()
+    {
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                new IpcTestRunResponse(0)));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Failure(ExecutionError.InternalError("session store read failed")));
+        using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "session-resolution-internal-error");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
+
+        var result = await client.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(4500),
+            failFast: false,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ClientSetupFailed, result.FailureKind);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(0, daemonTransportClient.CallCount);
     }
 
     [Fact]
@@ -159,7 +288,7 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
-            waitUntilReady: false,
+            failFast: false,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -201,6 +330,8 @@ public sealed class IpcDaemonTestRunClientTests
 
         public IpcRequest? LastRequest { get; private set; }
 
+        public TimeSpan LastTimeout { get; private set; }
+
         public ValueTask<IpcResponse> SendAsync (
             string storageRoot,
             string projectFingerprint,
@@ -210,6 +341,7 @@ public sealed class IpcDaemonTestRunClientTests
         {
             CallCount++;
             LastRequest = request;
+            LastTimeout = timeout;
             return ValueTask.FromResult(responseFactory(request));
         }
     }
@@ -223,10 +355,13 @@ public sealed class IpcDaemonTestRunClientTests
             this.result = result;
         }
 
+        public Action? OnResolve { get; init; }
+
         public ValueTask<DaemonSessionTokenResolutionResult> Resolve (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
+            OnResolve?.Invoke();
             return ValueTask.FromResult(result);
         }
     }

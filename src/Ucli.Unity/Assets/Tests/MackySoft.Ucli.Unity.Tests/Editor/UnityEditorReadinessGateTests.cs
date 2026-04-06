@@ -34,22 +34,22 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcEditorLifecycleStateCodec.Starting,
             IpcEditorBlockingReasonCodec.Startup,
             IpcErrorCodes.EditorStarting,
-            "Unity editor startup is still in progress. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.")]
+            "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.Busy,
             IpcEditorBlockingReasonCodec.Busy,
             IpcErrorCodes.EditorBusy,
-            "Unity editor is busy with internal work. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.")]
+            "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.Compiling,
             IpcEditorBlockingReasonCodec.Compile,
             IpcErrorCodes.EditorCompiling,
-            "Unity editor is compiling scripts. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.")]
+            "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.DomainReloading,
             IpcEditorBlockingReasonCodec.DomainReload,
             IpcErrorCodes.EditorDomainReloading,
-            "Unity editor is reloading the AppDomain. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.")]
+            "Unity editor is reloading the AppDomain. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.ShuttingDown,
             IpcEditorBlockingReasonCodec.Shutdown,
@@ -158,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator EnsureExecutionReady_WhenWaitUntilReadyIsEnabled_WaitsUntilEditorBecomesReady () => UniTask.ToCoroutine(async () =>
+        public IEnumerator EnsureExecutionReady_WhenFailFastIsDisabled_WaitsUntilEditorBecomesReady () => UniTask.ToCoroutine(async () =>
         {
             await TestAwaiter.WaitAsync(
                 UniTask.WaitUntil(static () => !EditorApplication.isCompiling && !EditorApplication.isUpdating).AsTask(),
@@ -173,13 +173,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: false,
                 out var lifecycleTelemetryState);
 
-            var resultTask = gate.EnsureExecutionReady(waitUntilReady: true);
+            var resultTask = gate.EnsureExecutionReady(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             lifecycleTelemetryState.SetDomainReloading(false);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
-                "Readiness gate wait-until-ready completion",
+                "Readiness gate default-wait completion",
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.True);
@@ -204,7 +204,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: false,
                 out var lifecycleTelemetryState);
 
-            var resultTask = gate.EnsureExecutionReady(waitUntilReady: true);
+            var resultTask = gate.EnsureExecutionReady(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             lifecycleTelemetryState.SetDomainReloading(false);
@@ -238,7 +238,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 out _);
             using var cancellationTokenSource = new CancellationTokenSource();
 
-            var resultTask = gate.EnsureExecutionReady(waitUntilReady: true, cancellationTokenSource.Token);
+            var resultTask = gate.EnsureExecutionReady(failFast: false, cancellationTokenSource.Token);
             Assert.That(resultTask.IsCompleted, Is.False);
 
             cancellationTokenSource.Cancel();

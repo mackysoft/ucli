@@ -17,7 +17,7 @@ internal static class IpcDaemonTestRunRequestCodec
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         string sessionToken,
-        bool waitUntilReady)
+        bool failFast)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(artifactPaths);
@@ -37,7 +37,7 @@ internal static class IpcDaemonTestRunRequestCodec
                 TestSettingsPath: configuration.TestSettingsPath,
                 ResultsXmlPath: artifactPaths.ResultsXmlPath,
                 EditorLogPath: artifactPaths.EditorLogPath,
-                WaitUntilReady: waitUntilReady));
+                FailFast: failFast));
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: $"test-run-{Guid.NewGuid():N}",

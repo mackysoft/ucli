@@ -56,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestContext = requestContextFactory.Create(request);
-            var readinessResult = await readinessGate.EnsureExecutionReady(request.WaitUntilReady, cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReady(request.FailFast, cancellationToken).ConfigureAwait(false);
             if (!readinessResult.IsReady)
             {
                 return UnityTestRunServiceResult.Failure(readinessResult.Error!);

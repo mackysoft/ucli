@@ -132,14 +132,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new TestRunUnityIpcMethodHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-success",
-                CreateValidTestRunPayload(waitUntilReady: true));
+                CreateValidTestRunPayload(failFast: true));
 
             var response = await handler.Handle(request, CancellationToken.None);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(service.CallCount, Is.EqualTo(1));
             Assert.That(service.LastRequest, Is.Not.Null);
-            Assert.That(service.LastRequest.WaitUntilReady, Is.True);
+            Assert.That(service.LastRequest.FailFast, Is.True);
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcTestRunResponse payload, out _), Is.True);
             Assert.That(payload.ExitCode, Is.EqualTo(2));
         });
@@ -567,7 +567,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Events[0].Message, Is.EqualTo("after"));
         });
 
-        private static object CreateValidTestRunPayload (bool waitUntilReady = false)
+        private static object CreateValidTestRunPayload (bool failFast = false)
         {
             return new IpcTestRunRequest(
                 TestPlatform: IpcTestRunPlatformCodec.EditMode,
@@ -578,7 +578,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 TestSettingsPath: null,
                 ResultsXmlPath: "/tmp/results.xml",
                 EditorLogPath: "/tmp/editor.log",
-                WaitUntilReady: waitUntilReady);
+                FailFast: failFast);
         }
 
         private static IpcRequest CreatePingRequest (

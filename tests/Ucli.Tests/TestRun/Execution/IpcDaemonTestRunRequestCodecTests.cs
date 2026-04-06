@@ -21,7 +21,7 @@ public sealed class IpcDaemonTestRunRequestCodecTests
             configuration,
             artifactPaths,
             "session-token",
-            waitUntilReady: true);
+            failFast: true);
 
         Assert.Equal(IpcMethodNames.TestRun, request.Method);
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
@@ -35,7 +35,7 @@ public sealed class IpcDaemonTestRunRequestCodecTests
         Assert.Equal(configuration.TestSettingsPath, payload.TestSettingsPath);
         Assert.Equal(artifactPaths.ResultsXmlPath, payload.ResultsXmlPath);
         Assert.Equal(artifactPaths.EditorLogPath, payload.EditorLogPath);
-        Assert.True(payload.WaitUntilReady);
+        Assert.True(payload.FailFast);
     }
 
     private static ResolvedTestRunConfiguration CreateConfiguration (TestDirectoryScope scope)

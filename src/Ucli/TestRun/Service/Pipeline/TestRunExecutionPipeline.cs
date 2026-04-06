@@ -83,19 +83,19 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
             configuration,
             artifactsSession,
             CancellationToken.None).ConfigureAwait(false);
-        if (!completionResult.IsSuccess)
+        if (conversionUnexpectedError is not null)
         {
             return TestRunExecutionPipelineResult.Failure(
-                completionResult.Error!,
+                conversionUnexpectedError,
                 artifactsSession,
                 unityExecutionResult,
                 conversionResult);
         }
 
-        if (conversionUnexpectedError is not null)
+        if (!completionResult.IsSuccess)
         {
             return TestRunExecutionPipelineResult.Failure(
-                conversionUnexpectedError,
+                completionResult.Error!,
                 artifactsSession,
                 unityExecutionResult,
                 conversionResult);
@@ -176,7 +176,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                         context.Configuration,
                         session.Paths,
                         context.Timeout,
-                        context.WaitUntilReady,
+                        context.FailFast,
                         cancellationToken)
                     .ConfigureAwait(false),
                 UnityExecutionTarget.Oneshot => await unityTestExecutor.Execute(

@@ -17,6 +17,14 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
     {
         ArgumentNullException.ThrowIfNull(pipelineResult);
 
+        if (ShouldPreferPrimaryRunOutcome(pipelineResult))
+        {
+            return CreateExecutionResult(
+                pipelineResult.UnityExecutionResult!,
+                pipelineResult.ConversionResult!,
+                pipelineResult.Session!);
+        }
+
         if (pipelineResult.Error is not null)
         {
             return TestRunServiceErrorMapper.MapExecutionError(pipelineResult.Error, pipelineResult.Session);
@@ -38,6 +46,21 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
             pipelineResult.Session!);
     }
 
+    private static bool ShouldPreferPrimaryRunOutcome (TestRunExecutionPipelineResult pipelineResult)
+    {
+        // NOTE:
+        // When artifact completion fails after Unity execution or results conversion already produced
+        // the primary user-facing outcome, preserve that outcome instead of replacing it with a
+        // secondary cleanup error.
+        return pipelineResult.Error is not null
+            && pipelineResult.Session is not null
+            && pipelineResult.UnityExecutionResult is not null
+            && pipelineResult.ConversionResult is not null
+            && (!pipelineResult.UnityExecutionResult.IsSuccess
+                || !pipelineResult.ConversionResult.IsSuccess
+                || pipelineResult.ConversionResult.HasFailedTests);
+    }
+
     /// <summary> Creates final output from execution and conversion outcomes. </summary>
     /// <param name="unityExecutionResult"> The Unity execution result. </param>
     /// <param name="conversionResult"> The results conversion result. </param>
@@ -50,6 +73,20 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
     {
         if (!unityExecutionResult.IsSuccess)
         {
+            if (unityExecutionResult.FailureKind == UnityTestExecutionFailureKind.ClientSetupFailed)
+            {
+                var setupErrorCode = string.IsNullOrWhiteSpace(unityExecutionResult.ErrorCode)
+                    ? IpcErrorCodes.InternalError
+                    : unityExecutionResult.ErrorCode!;
+
+                return TestRunServiceResult.InfraError(
+                    unityExecutionResult.ErrorMessage ?? "Daemon execution setup failed.",
+                    setupErrorCode,
+                    runId: session.RunId,
+                    artifactsDir: session.Paths.ArtifactsDir,
+                    summaryJsonPath: session.Paths.SummaryJsonPath);
+            }
+
             var errorCode = unityExecutionResult.FailureKind switch
             {
                 UnityTestExecutionFailureKind.Canceled => CliErrorCodes.Canceled,

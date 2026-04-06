@@ -47,19 +47,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 IpcEditorLifecycleStateCodec.Starting => new IpcError(
                     IpcErrorCodes.EditorStarting,
-                    "Unity editor startup is still in progress. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.",
+                    "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Busy => new IpcError(
                     IpcErrorCodes.EditorBusy,
-                    "Unity editor is busy with internal work. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.",
+                    "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Compiling => new IpcError(
                     IpcErrorCodes.EditorCompiling,
-                    "Unity editor is compiling scripts. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.",
+                    "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.DomainReloading => new IpcError(
                     IpcErrorCodes.EditorDomainReloading,
-                    "Unity editor is reloading the AppDomain. Retry with --waitUntilReady or wait until lifecycleState=ready before executing request.",
+                    "Unity editor is reloading the AppDomain. Retry without --failFast or wait until lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Playmode => new IpcError(
                     IpcErrorCodes.EditorPlaymode,

@@ -123,7 +123,7 @@ public sealed class IpcContractSerializationTests
         var withTokenJson = JsonSerializer.SerializeToElement(requestWithToken, SerializerOptions);
         Assert.True(withTokenJson.TryGetProperty("planToken", out var planTokenElement));
         Assert.Equal("token-value", planTokenElement.GetString());
-        Assert.False(withTokenJson.TryGetProperty("waitUntilReady", out _));
+        Assert.False(withTokenJson.TryGetProperty("failFast", out _));
 
         var requestWithoutToken = new IpcExecuteRequest(
             Command: UcliCommandIds.Plan,
@@ -134,12 +134,12 @@ public sealed class IpcContractSerializationTests
                 steps = Array.Empty<object>(),
             }))
         {
-            WaitUntilReady = true,
+            FailFast = true,
         };
         var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
-        Assert.True(withoutTokenJson.TryGetProperty("waitUntilReady", out var waitUntilReadyElement));
-        Assert.True(waitUntilReadyElement.GetBoolean());
+        Assert.True(withoutTokenJson.TryGetProperty("failFast", out var failFastElement));
+        Assert.True(failFastElement.GetBoolean());
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public sealed class IpcContractSerializationTests
             TestSettingsPath: null,
             ResultsXmlPath: "/tmp/results.xml",
             EditorLogPath: "/tmp/editor.log",
-            WaitUntilReady: true);
+            FailFast: true);
         var responsePayload = new IpcTestRunResponse(ExitCode: 2);
 
         using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
@@ -230,7 +230,7 @@ public sealed class IpcContractSerializationTests
             .IsNull("testSettingsPath")
             .HasString("resultsXmlPath", "/tmp/results.xml")
             .HasString("editorLogPath", "/tmp/editor.log")
-            .HasBoolean("waitUntilReady", true);
+            .HasBoolean("failFast", true);
         JsonAssert.For(responseDocument.RootElement)
             .HasInt32("exitCode", 2);
     }

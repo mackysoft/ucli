@@ -41,7 +41,7 @@ public sealed class RefreshCommandTests
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
-            waitUntilReady: true,
+            failFast: true,
             cancellationToken: cancellationTokenSource.Token));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
@@ -49,7 +49,7 @@ public sealed class RefreshCommandTests
         Assert.Equal("/repo/UnityProject", service.CapturedProjectPath);
         Assert.Equal("oneshot", service.CapturedMode);
         Assert.Equal("1234", service.CapturedTimeout);
-        Assert.True(service.CapturedWaitUntilReady);
+        Assert.True(service.CapturedFailFast);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
@@ -87,7 +87,7 @@ public sealed class RefreshCommandTests
 
         public string? CapturedTimeout { get; private set; }
 
-        public bool CapturedWaitUntilReady { get; private set; }
+        public bool CapturedFailFast { get; private set; }
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
@@ -95,15 +95,15 @@ public sealed class RefreshCommandTests
             string? projectPath,
             string? mode,
             string? timeout,
-            bool waitUntilReady,
+            bool failFast,
             CancellationToken cancellationToken = default)
         {
             CapturedProjectPath = projectPath;
             CapturedMode = mode;
             CapturedTimeout = timeout;
-            CapturedWaitUntilReady = waitUntilReady;
+            CapturedFailFast = failFast;
             CapturedCancellationToken = cancellationToken;
-            return handler(projectPath, mode, timeout, waitUntilReady);
+            return handler(projectPath, mode, timeout, failFast);
         }
     }
 }

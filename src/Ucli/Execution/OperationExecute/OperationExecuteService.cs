@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
@@ -21,6 +22,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
     private readonly IUnityIpcRequestExecutor unityIpcRequestExecutor;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="OperationExecuteService" /> class. </summary>
     /// <param name="projectContextResolver"> The shared project-context resolver dependency. </param>
     /// <param name="operationAuthorizationService"> The operation authorization dependency. </param>
@@ -29,11 +32,13 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     public OperationExecuteService (
         IProjectContextResolver projectContextResolver,
         IOperationAuthorizationService operationAuthorizationService,
-        IUnityIpcRequestExecutor unityIpcRequestExecutor)
+        IUnityIpcRequestExecutor unityIpcRequestExecutor,
+        TimeProvider? timeProvider = null)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.operationAuthorizationService = operationAuthorizationService ?? throw new ArgumentNullException(nameof(operationAuthorizationService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -42,7 +47,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         string? projectPath,
         string? mode,
         string? timeout,
-        bool waitUntilReady,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -64,6 +69,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             return CreateFailureFromExecutionError(requestId, timeoutResolutionResult.Error!);
         }
 
+        var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
+
         var authorizationResult = await operationAuthorizationService.Authorize(
                 definition.Descriptor,
                 config,
@@ -84,12 +91,19 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         string? planToken = null;
         if (config.PlanTokenMode == PlanTokenMode.Required)
         {
+            if (!TryGetRemainingTimeoutOption(deadline, out var planTimeoutOption))
+            {
+                return CreateFailureFromExecutionError(
+                    requestId,
+                    ExecutionError.Timeout("Timed out before Unity IPC plan request could begin."));
+            }
+
             var planTokenResult = await IssuePlanToken(
                     definition,
                     requestId,
                     mode,
-                    timeout,
-                    waitUntilReady,
+                    planTimeoutOption,
+                    failFast,
                     config,
                     projectContext.UnityProject,
                     cancellationToken)
@@ -102,14 +116,21 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             planToken = planTokenResult.PlanToken;
         }
 
+        if (!TryGetRemainingTimeoutOption(deadline, out var executeTimeoutOption))
+        {
+            return CreateFailureFromExecutionError(
+                requestId,
+                ExecutionError.Timeout("Timed out before Unity IPC execute request could begin."));
+        }
+
         var executionResult = await unityIpcRequestExecutor.Execute(
                 definition.Command,
                 mode,
-                timeout,
+                executeTimeoutOption,
                 config,
                 projectContext.UnityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, waitUntilReady, planToken),
+                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, failFast, planToken),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -132,7 +153,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <param name="requestId"> The generated request identifier. </param>
     /// <param name="mode"> The optional Unity execution mode. </param>
     /// <param name="timeout"> The optional timeout in milliseconds. </param>
-    /// <param name="waitUntilReady"> Whether lifecycle readiness waits are allowed during the plan pass. </param>
+    /// <param name="failFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="config"> The resolved CLI configuration. </param>
     /// <param name="unityProject"> The resolved Unity project. </param>
     /// <param name="cancellationToken"> The propagated cancellation token. </param>
@@ -142,7 +163,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         string requestId,
         string? mode,
         string? timeout,
-        bool waitUntilReady,
+        bool failFast,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken)
@@ -160,7 +181,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 config,
                 unityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Plan, waitUntilReady),
+                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Plan, failFast),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -214,18 +235,33 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         return (payload.PlanToken, null);
     }
 
+    private static bool TryGetRemainingTimeoutOption (
+        ExecutionDeadline deadline,
+        out string? timeout)
+    {
+        var remainingMilliseconds = deadline.GetRemainingWaitMilliseconds();
+        if (remainingMilliseconds <= 0)
+        {
+            timeout = null;
+            return false;
+        }
+
+        timeout = remainingMilliseconds.ToString(CultureInfo.InvariantCulture);
+        return true;
+    }
+
     /// <summary> Creates the execute payload for one fixed operation execution. </summary>
     /// <param name="definition"> The fixed operation definition. </param>
     /// <param name="requestId"> The generated request identifier. </param>
     /// <param name="command"> The internal execute command sent to Unity. </param>
-    /// <param name="waitUntilReady"> Whether Unity-side execution may wait for lifecycle readiness before failing. </param>
+    /// <param name="failFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="planToken"> The optional plan token attached to call execution. </param>
     /// <returns> The serialized IPC execute payload. </returns>
     private static JsonElement CreateExecuteRequestPayload (
         OperationExecuteDefinition definition,
         string requestId,
         UcliCommand command,
-        bool waitUntilReady,
+        bool failFast,
         string? planToken = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
@@ -249,7 +285,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         return IpcPayloadCodec.SerializeToElement(new IpcExecuteRequest(command, executeArguments)
         {
-            WaitUntilReady = waitUntilReady,
+            FailFast = failFast,
             PlanToken = planToken,
         });
     }
