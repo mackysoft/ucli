@@ -192,6 +192,29 @@ public sealed class OperationCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsAssetsFind_ReturnsRegisteredDescriptorWithOptionalFilters ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind, descriptor.Name);
+        Assert.Equal(UcliOperationKind.Query, descriptor.Kind);
+        Assert.Equal(OperationPolicy.Safe, descriptor.Policy);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var root = schemaDocument.RootElement;
+        Assert.Equal(JsonValueKind.Object, root.ValueKind);
+        Assert.Equal(1, root.GetProperty("minProperties").GetInt32());
+        var properties = root.GetProperty("properties");
+        Assert.True(properties.TryGetProperty("type", out _));
+        Assert.True(properties.TryGetProperty("pathPrefix", out _));
+        Assert.True(properties.TryGetProperty("nameContains", out _));
+        Assert.False(root.TryGetProperty("required", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Get_WhenOperationIsCompSchema_ReturnsTypeOnlySchema ()
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());

@@ -20,7 +20,13 @@
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.assets.find` | query | safe | mvp-support | 条件に一致するAssetを検索する。 | 予定 |
+| `ucli.assets.find` | query | safe | mvp-support | `Assets/` 配下の persistent main asset を検索する。`Plan` は request-local planned asset と asset shadow を観測し、`Call` は live Unity state のみを観測する。primitive op 自体は limit / cursor を持たない。 | `{ type?, pathPrefix?, nameContains? }`（1つ以上必須） |
+
+- `type` は stable `typeId` を受け取り、runtime type が指定型へ assignable な main asset を一致とみなす
+- `pathPrefix` は `Assets` またはその配下を受け取り、ordinal prefix で比較する
+- `nameContains` は main asset 名に対する大小文字無視の部分一致で評価する
+- `result.matches[]` は `assetPath`, `assetGuid`, `name`, `typeId` を返し、`assetPath` の ordinal 昇順で並ぶ
+- `touched` は常に空配列で、結果フィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する
 
 ## comp
 

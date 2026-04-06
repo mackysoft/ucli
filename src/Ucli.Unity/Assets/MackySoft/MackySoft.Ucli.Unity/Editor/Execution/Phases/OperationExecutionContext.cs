@@ -530,6 +530,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return assetSandboxRegistry.TryGetAssetShadow(globalObjectId, out unityObject, out assetPath);
         }
 
+        /// <summary> Collects current live temporary asset-shadow states. Destroyed shadow objects are omitted. </summary>
+        /// <param name="destination"> The destination collection that receives current asset-shadow states. </param>
+        /// <exception cref="ArgumentNullException"> <paramref name="destination" /> is <see langword="null" />. </exception>
+        internal void CollectAssetShadowStates (ICollection<AssetSandboxRegistry.AssetShadowState> destination)
+        {
+            assetSandboxRegistry.CollectAssetShadowStates(destination);
+        }
+
         /// <summary> Stores or replaces one plan-time created asset keyed by its reserved asset path. </summary>
         /// <param name="assetPath"> The reserved asset path. </param>
         /// <param name="ownerExecutionKey"> The request-internal primitive execution key that owns the reservation. </param>
@@ -551,6 +559,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out PlannedAssetRegistry.PlannedAssetState state)
         {
             return plannedAssetRegistry.TryGetState(assetPath, out state);
+        }
+
+        /// <summary> Collects current live plan-time created asset states. Destroyed planned objects are omitted. </summary>
+        /// <param name="destination"> The destination collection that receives current planned-asset states. </param>
+        /// <exception cref="ArgumentNullException"> <paramref name="destination" /> is <see langword="null" />. </exception>
+        internal void CollectPlannedAssetStates (ICollection<PlannedAssetRegistry.PlannedAssetState> destination)
+        {
+            plannedAssetRegistry.CollectPlannedAssetStates(destination);
         }
 
         /// <summary> Tries to get one request-local preview scene. </summary>

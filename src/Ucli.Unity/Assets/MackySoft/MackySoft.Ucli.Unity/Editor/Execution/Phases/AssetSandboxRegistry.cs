@@ -73,6 +73,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Collects live asset shadow states into the specified destination. Destroyed shadow objects are omitted. </summary>
+        /// <param name="destination"> The collection that receives the current live asset shadow states. </param>
+        /// <exception cref="ArgumentNullException"> <paramref name="destination"/> is <see langword="null"/>. </exception>
+        public void CollectAssetShadowStates (ICollection<AssetShadowState> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            foreach (var pair in assetShadowsByGlobalObjectId)
+            {
+                if (pair.Value.UnityObject == null)
+                {
+                    continue;
+                }
+
+                destination.Add(new AssetShadowState(
+                    pair.Key,
+                    pair.Value.UnityObject,
+                    pair.Value.AssetPath));
+            }
+        }
+
         public void Clear ()
         {
             assetShadowsByGlobalObjectId.Clear();
@@ -90,6 +114,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public UnityEngine.Object UnityObject { get; }
 
+            public string AssetPath { get; }
+        }
+
+        /// <summary> Represents a live asset shadow that overrides a persisted asset during plan-time queries. </summary>
+        internal readonly struct AssetShadowState
+        {
+            public AssetShadowState (
+                string sourceGlobalObjectId,
+                UnityEngine.Object unityObject,
+                string assetPath)
+            {
+                SourceGlobalObjectId = sourceGlobalObjectId;
+                UnityObject = unityObject;
+                AssetPath = assetPath;
+            }
+
+            /// <summary> Gets the source persistent object's global identifier that the shadow replaces. </summary>
+            public string SourceGlobalObjectId { get; }
+
+            /// <summary> Gets the live shadow object. Collected states always provide a non-destroyed object. </summary>
+            public UnityEngine.Object? UnityObject { get; }
+
+            /// <summary> Gets the asset path that remains associated with the shadowed persistent asset. </summary>
             public string AssetPath { get; }
         }
     }

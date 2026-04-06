@@ -174,6 +174,26 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Discover_WhenAssetsFindOperationIsRead_ReturnsConcreteArgsSchema ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var metadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind);
+            using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
+            var root = schemaDocument.RootElement;
+            Assert.That(root.GetProperty("additionalProperties").GetBoolean(), Is.False);
+            Assert.That(root.GetProperty("minProperties").GetInt32(), Is.EqualTo(1));
+            var properties = root.GetProperty("properties");
+            Assert.That(properties.TryGetProperty("type", out var typeProperty), Is.True);
+            Assert.That(typeProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
+            Assert.That(properties.TryGetProperty("pathPrefix", out var pathPrefixProperty), Is.True);
+            Assert.That(pathPrefixProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
+            Assert.That(properties.TryGetProperty("nameContains", out var nameContainsProperty), Is.True);
+            Assert.That(nameContainsProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void BuildCatalog_WhenBuiltInOperationsAreExported_RemovesVarSelectorsFromPublicSchemas ()
         {
             var operations = UcliOperationDiscoverer.Discover();

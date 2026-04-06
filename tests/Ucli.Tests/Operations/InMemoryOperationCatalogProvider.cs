@@ -284,6 +284,19 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         }
         """;
 
+    private const string AssetsFindArgsSchemaJson = """
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "minLength": 1 },
+            "pathPrefix": { "type": "string", "minLength": 1 },
+            "nameContains": { "type": "string", "minLength": 1 }
+          },
+          "minProperties": 1
+        }
+        """;
+
     private static readonly string AssetSchemaArgsSchemaJson = $$"""
         {
           "type": "object",
@@ -357,6 +370,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
     [
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetCreateArgsSchemaJson),
+        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind, UcliOperationKind.Query, OperationPolicy.Safe, AssetsFindArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSchema, UcliOperationKind.Query, OperationPolicy.Safe, AssetSchemaArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetSetArgsSchemaJson),
         new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompEnsure, UcliOperationKind.Mutation, OperationPolicy.Advanced, ComponentEnsureArgsSchemaJson),
