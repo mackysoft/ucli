@@ -73,6 +73,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        public void CollectAssetShadowStates (ICollection<AssetShadowState> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            foreach (var pair in assetShadowsByGlobalObjectId)
+            {
+                if (pair.Value.UnityObject == null)
+                {
+                    continue;
+                }
+
+                destination.Add(new AssetShadowState(
+                    pair.Key,
+                    pair.Value.UnityObject,
+                    pair.Value.AssetPath));
+            }
+        }
+
         public void Clear ()
         {
             assetShadowsByGlobalObjectId.Clear();
@@ -89,6 +110,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             public UnityEngine.Object UnityObject { get; }
+
+            public string AssetPath { get; }
+        }
+
+        internal readonly struct AssetShadowState
+        {
+            public AssetShadowState (
+                string sourceGlobalObjectId,
+                UnityEngine.Object unityObject,
+                string assetPath)
+            {
+                SourceGlobalObjectId = sourceGlobalObjectId;
+                UnityObject = unityObject;
+                AssetPath = assetPath;
+            }
+
+            public string SourceGlobalObjectId { get; }
+
+            public UnityEngine.Object? UnityObject { get; }
 
             public string AssetPath { get; }
         }

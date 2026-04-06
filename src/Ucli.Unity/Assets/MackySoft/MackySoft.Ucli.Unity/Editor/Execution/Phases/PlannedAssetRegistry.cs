@@ -78,6 +78,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        public void CollectPlannedAssetStates (ICollection<PlannedAssetState> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+
+            foreach (var pair in valuesByAssetPath)
+            {
+                if (pair.Value.UnityObject == null)
+                {
+                    continue;
+                }
+
+                destination.Add(new PlannedAssetState(
+                    pair.Value.OwnerExecutionKey,
+                    pair.Key,
+                    pair.Value.UnityObject));
+            }
+        }
+
         public void Clear ()
         {
             valuesByAssetPath.Clear();

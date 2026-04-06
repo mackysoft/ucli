@@ -367,6 +367,31 @@ internal static class OperationArgsStaticSchemaValidator
         out bool schemaInvalid,
         out string? error)
     {
+        if (schema.TryGetProperty("minProperties", out var minPropertiesElement))
+        {
+            if (minPropertiesElement.ValueKind != JsonValueKind.Number
+                || !minPropertiesElement.TryGetInt32(out var minProperties)
+                || minProperties < 0)
+            {
+                schemaInvalid = true;
+                error = $"Schema property 'minProperties' for '{path}' must be a non-negative integer.";
+                return false;
+            }
+
+            var propertyCount = 0;
+            foreach (var _ in value.EnumerateObject())
+            {
+                propertyCount++;
+            }
+
+            if (propertyCount < minProperties)
+            {
+                schemaInvalid = false;
+                error = $"Property '{path}' must contain at least {minProperties} properties.";
+                return false;
+            }
+        }
+
         if (schema.TryGetProperty("required", out var requiredElement))
         {
             if (requiredElement.ValueKind != JsonValueKind.Array)
