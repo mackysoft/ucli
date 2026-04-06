@@ -15,12 +15,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly Dictionary<UnityEngine.Object, UnityEngine.Object> sourceObjectsByPreview =
             new Dictionary<UnityEngine.Object, UnityEngine.Object>(ReferenceEqualityComparer.Instance);
 
-        private readonly Dictionary<UnityEngine.Object, UnityEngine.Object> stableSourceObjectsBySource =
-            new Dictionary<UnityEngine.Object, UnityEngine.Object>(ReferenceEqualityComparer.Instance);
-
-        private readonly Dictionary<UnityEngine.Object, UnityEngine.Object> previewObjectsByStableSource =
-            new Dictionary<UnityEngine.Object, UnityEngine.Object>(ReferenceEqualityComparer.Instance);
-
         private readonly List<ComponentPair> componentPairs = new List<ComponentPair>();
 
         /// <summary> Gets the mirrored component pairs registered for the current mirror graph. </summary>
@@ -33,8 +27,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityEngine.Object sourceObject,
             UnityEngine.Object previewObject)
         {
-            previewObjectsBySource[sourceObject] = previewObject;
-            sourceObjectsByPreview[previewObject] = sourceObject;
+            if (previewObjectsBySource.TryGetValue(sourceObject, out var existingPreviewObject))
+            {
+                if (ReferenceEquals(existingPreviewObject, previewObject))
+                {
+                    return;
+                }
+
+                throw new System.InvalidOperationException(
+                    $"Source object '{sourceObject.name}' is already bound to preview object '{existingPreviewObject.name}' and cannot be rebound to '{previewObject.name}'.");
+            }
+
+            if (sourceObjectsByPreview.TryGetValue(previewObject, out var existingSourceObject))
+            {
+                if (ReferenceEquals(existingSourceObject, sourceObject))
+                {
+                    return;
+                }
+
+                throw new System.InvalidOperationException(
+                    $"Preview object '{previewObject.name}' is already bound to source object '{existingSourceObject.name}' and cannot be rebound to '{sourceObject.name}'.");
+            }
+
+            previewObjectsBySource.Add(sourceObject, previewObject);
+            sourceObjectsByPreview.Add(previewObject, sourceObject);
         }
 
         /// <summary> Registers one live-to-preview component pair in the mirror graph. </summary>
@@ -68,42 +84,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out UnityEngine.Object? sourceObject)
         {
             return sourceObjectsByPreview.TryGetValue(previewObject, out sourceObject);
-        }
-
-        /// <summary> Registers one live-source to persisted stable-source pair for later stable reference fallback. </summary>
-        /// <param name="sourceObject"> The mirrored live source object. </param>
-        /// <param name="stableSourceObject"> The persisted stable-source object that corresponds to <paramref name="sourceObject" />. </param>
-        public void AddStableSourcePair (
-            UnityEngine.Object sourceObject,
-            UnityEngine.Object stableSourceObject)
-        {
-            stableSourceObjectsBySource[sourceObject] = stableSourceObject;
-            if (previewObjectsBySource.TryGetValue(sourceObject, out var previewObject))
-            {
-                previewObjectsByStableSource[stableSourceObject] = previewObject;
-            }
-        }
-
-        /// <summary> Tries to resolve one mirrored live source object to its persisted stable-source object. </summary>
-        /// <param name="sourceObject"> The mirrored live source object. </param>
-        /// <param name="stableSourceObject"> The persisted stable-source object when found. </param>
-        /// <returns> <see langword="true" /> when a stable-source mapping is registered; otherwise <see langword="false" />. </returns>
-        public bool TryGetStableSourceObject (
-            UnityEngine.Object sourceObject,
-            out UnityEngine.Object? stableSourceObject)
-        {
-            return stableSourceObjectsBySource.TryGetValue(sourceObject, out stableSourceObject);
-        }
-
-        /// <summary> Tries to resolve one persisted stable-source object to its preview counterpart. </summary>
-        /// <param name="stableSourceObject"> The persisted stable-source object. </param>
-        /// <param name="previewObject"> The request-local preview object when found. </param>
-        /// <returns> <see langword="true" /> when the stable-source object maps back into the mirror graph; otherwise <see langword="false" />. </returns>
-        public bool TryGetPreviewObjectFromStableSource (
-            UnityEngine.Object stableSourceObject,
-            out UnityEngine.Object? previewObject)
-        {
-            return previewObjectsByStableSource.TryGetValue(stableSourceObject, out previewObject);
         }
 
         /// <summary> Represents one mirrored live-to-preview component pair. </summary>

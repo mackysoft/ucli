@@ -135,6 +135,64 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return previewSceneState.MirrorMapping.TryGetPreviewObject(sourceObject, out previewObject);
         }
 
+        /// <summary> Tries to resolve one preview object to its stable GlobalObjectId text. </summary>
+        /// <param name="scenePath"> The tracked logical scene path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <returns> <see langword="true" /> when the preview object has an explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
+        public bool TryResolveStableReferenceFromPreviewObject (
+            string scenePath,
+            UnityEngine.Object previewObject,
+            out string stableReference)
+        {
+            stableReference = string.Empty;
+            if (!previewScenesByPath.TryGetValue(scenePath, out var previewSceneState))
+            {
+                return false;
+            }
+
+            return previewSceneState.StableReferenceIndex.TryGetStableReference(previewObject, out stableReference);
+        }
+
+        /// <summary> Tries to resolve one stable GlobalObjectId text to its preview object in the specified scene. </summary>
+        /// <param name="scenePath"> The tracked logical scene path. </param>
+        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the stable reference maps into the specified preview scene; otherwise <see langword="false" />. </returns>
+        public bool TryResolvePreviewObjectFromStableReference (
+            string scenePath,
+            string stableReference,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            if (!previewScenesByPath.TryGetValue(scenePath, out var previewSceneState))
+            {
+                return false;
+            }
+
+            return previewSceneState.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject);
+        }
+
+        /// <summary> Tries to resolve one stable GlobalObjectId text to any tracked preview scene object. </summary>
+        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the stable reference maps into one tracked preview scene; otherwise <see langword="false" />. </returns>
+        public bool TryResolvePreviewObjectFromStableReference (
+            string stableReference,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            foreach (var pair in previewScenesByPath)
+            {
+                if (pair.Value.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary> Gets one tracked preview scene or opens it from persisted asset contents when needed. </summary>
         /// <param name="scenePath"> The scene asset path. </param>
         /// <param name="scene"> The tracked or newly opened preview scene when successful. </param>
@@ -168,7 +226,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            previewScenesByPath[scenePath] = new TemporaryPreviewScene(scene, mirrorMapping: null);
+            var stableReferenceIndex = new TemporaryPreviewStableReferenceIndex();
+            TemporaryMirrorUtilities.RegisterPreviewSceneStableReferencesBestEffort(scene, stableReferenceIndex);
+            previewScenesByPath[scenePath] = new TemporaryPreviewScene(scene, mirrorMapping: null, stableReferenceIndex);
             errorMessage = string.Empty;
             return true;
         }
@@ -210,6 +270,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 // that selection already resolved against. Mirror the current live hierarchy into one
                 // request-local preview scene instead of reopening persisted asset contents.
                 var mirrorMapping = new TemporaryMirrorMapping();
+                var stableReferenceIndex = new TemporaryPreviewStableReferenceIndex();
                 var roots = sourceScene.GetRootGameObjects();
                 for (var i = 0; i < roots.Length; i++)
                 {
@@ -222,6 +283,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         scene = default;
                         return false;
                     }
+
+                    TemporaryMirrorUtilities.RegisterMirroredHierarchyStableReferencesBestEffort(
+                        roots[i],
+                        clonedRoot,
+                        stableReferenceIndex);
                 }
 
                 if (!TemporaryMirrorUtilities.TryRebindMirroredLocalReferences(mirrorMapping, out errorMessage))
@@ -236,7 +302,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     EditorSceneManager.MarkSceneDirty(scene);
                 }
 
-                previewScenesByPath[scenePath] = new TemporaryPreviewScene(scene, mirrorMapping);
+                previewScenesByPath[scenePath] = new TemporaryPreviewScene(scene, mirrorMapping, stableReferenceIndex);
             }
             catch (Exception exception)
             {
@@ -321,15 +387,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public TemporaryPreviewScene (
                 Scene previewScene,
-                TemporaryMirrorMapping? mirrorMapping)
+                TemporaryMirrorMapping? mirrorMapping,
+                TemporaryPreviewStableReferenceIndex stableReferenceIndex)
             {
                 PreviewScene = previewScene;
                 MirrorMapping = mirrorMapping;
+                StableReferenceIndex = stableReferenceIndex;
             }
 
             public Scene PreviewScene { get; }
 
             public TemporaryMirrorMapping? MirrorMapping { get; }
+
+            public TemporaryPreviewStableReferenceIndex StableReferenceIndex { get; }
         }
     }
 }

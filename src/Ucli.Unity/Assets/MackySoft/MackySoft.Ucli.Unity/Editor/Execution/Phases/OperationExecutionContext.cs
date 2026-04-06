@@ -220,6 +220,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporarySceneRegistry.TryResolvePreviewObjectFromSourceObject(scenePath, sourceObject, out previewObject);
         }
 
+        /// <summary> Tries to resolve one request-local preview scene object to its stable GlobalObjectId text. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporarySceneStableReference (
+            string scenePath,
+            UnityEngine.Object previewObject,
+            out string stableReference)
+        {
+            return temporarySceneRegistry.TryResolveStableReferenceFromPreviewObject(scenePath, previewObject, out stableReference);
+        }
+
         /// <summary> Tries to resolve one request-local preview prefab object back to its mirrored live source object. </summary>
         /// <param name="prefabPath"> The logical prefab asset path. </param>
         /// <param name="previewObject"> The preview object. </param>
@@ -246,30 +259,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporaryObjectScope.TryResolvePreviewObjectFromMirroredSourceObject(prefabPath, sourceObject, out previewObject);
         }
 
-        /// <summary> Tries to resolve one preview prefab object to its persisted stable-source object. </summary>
+        /// <summary> Tries to resolve one request-local preview prefab object to its stable GlobalObjectId text. </summary>
         /// <param name="prefabPath"> The logical prefab asset path. </param>
         /// <param name="previewObject"> The preview object. </param>
-        /// <param name="stableSourceObject"> The persisted stable-source object when found. </param>
-        /// <returns> <see langword="true" /> when the preview object belongs to a mirrored opened-stage snapshot with a stable-source mapping; otherwise <see langword="false" />. </returns>
-        internal bool TryResolveTemporaryPrefabStableSourceObject (
+        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabStableReference (
             string prefabPath,
             UnityEngine.Object previewObject,
-            out UnityEngine.Object? stableSourceObject)
+            out string stableReference)
         {
-            return temporaryObjectScope.TryResolveMirroredStableSourceObject(prefabPath, previewObject, out stableSourceObject);
+            return temporaryObjectScope.TryResolveStableReferenceFromPreviewObject(prefabPath, previewObject, out stableReference);
         }
 
-        /// <summary> Tries to resolve one persisted stable-source prefab object to its request-local preview object. </summary>
-        /// <param name="prefabPath"> The logical prefab asset path. </param>
-        /// <param name="stableSourceObject"> The persisted stable-source object. </param>
+        /// <summary> Tries to resolve one stable GlobalObjectId text to any request-local preview object. </summary>
+        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
         /// <param name="previewObject"> The preview object when found. </param>
-        /// <returns> <see langword="true" /> when the stable-source object maps into request-local prefab mirror state; otherwise <see langword="false" />. </returns>
-        internal bool TryResolveTemporaryPrefabPreviewObjectFromStableSource (
-            string prefabPath,
-            UnityEngine.Object stableSourceObject,
+        /// <returns> <see langword="true" /> when the stable reference maps into tracked request-local preview state; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPreviewObjectFromStableReference (
+            string stableReference,
             out UnityEngine.Object? previewObject)
         {
-            return temporaryObjectScope.TryResolvePreviewObjectFromMirroredStableSourceObject(prefabPath, stableSourceObject, out previewObject);
+            if (temporarySceneRegistry.TryResolvePreviewObjectFromStableReference(stableReference, out previewObject))
+            {
+                return true;
+            }
+
+            return temporaryObjectScope.TryResolvePreviewObjectFromStableReference(stableReference, out previewObject);
         }
 
         /// <summary> Resolves one scene path to the active execution session for the current request. </summary>

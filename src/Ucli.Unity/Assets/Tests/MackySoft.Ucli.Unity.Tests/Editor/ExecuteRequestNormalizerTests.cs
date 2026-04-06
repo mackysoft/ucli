@@ -401,7 +401,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenPrefabEditContainsCreatePrefabAction_RuntimeCompileReturnsInvalidArgumentError ()
+        public void Normalize_WhenPrefabEditContainsCreatePrefabAction_ReturnsInvalidArgumentError ()
         {
             using var scope = new EditorTestScope();
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
@@ -441,11 +441,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = new ExecuteRequestNormalizer().Normalize(request);
 
-            Assert.That(result.IsSuccess, Is.True);
-            var error = CompileSingleStepFailure(result.Request!, 0, scope.CreateExecutionContext());
-            _ = new ExecuteRequestCompileFailureAssert(error)
-                .HasInvalidArgument("createPrefabInPrefabContext")
-                .HasMessageContaining("requires a GameObject target in scene context.");
+            AssertInvalidArgument(result, "createPrefabInPrefabContext");
+            Assert.That(result.Error!.Message, Does.Contain("requires both 'target' and 'path'."));
         }
 
         [Test]

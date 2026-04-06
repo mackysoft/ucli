@@ -24,11 +24,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string prefabPath,
             GameObject prefabContentsRoot)
         {
+            var stableReferenceIndex = new TemporaryPreviewStableReferenceIndex();
+            TemporaryMirrorUtilities.RegisterPreviewPrefabStableReferencesBestEffort(prefabPath, prefabContentsRoot, stableReferenceIndex);
             TrackTemporaryPrefabContentsRoot(
                 prefabPath,
                 prefabContentsRoot,
                 TemporaryPrefabCleanupKind.UnloadPrefabContents,
-                mirrorMapping: null);
+                mirrorMapping: null,
+                stableReferenceIndex);
         }
 
         /// <summary> Gets one tracked temporary prefab root or mirrors the current opened Prefab Stage into request-local preview state. </summary>
@@ -86,6 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 prefabContentsRoot.name = openedPrefabContentsRoot.name;
                 SceneManager.MoveGameObjectToScene(prefabContentsRoot, previewScene);
                 var mirrorMapping = new TemporaryMirrorMapping();
+                var stableReferenceIndex = new TemporaryPreviewStableReferenceIndex();
                 if (!TemporaryMirrorUtilities.TryRegisterHierarchyMirror(openedPrefabContentsRoot, prefabContentsRoot, mirrorMapping, out errorMessage))
                 {
                     UnityEngine.Object.DestroyImmediate(prefabContentsRoot);
@@ -102,14 +106,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                var prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-                if (prefabAssetRoot != null)
-                {
-                    TemporaryMirrorUtilities.RegisterStableSourceHierarchyBestEffort(
-                        openedPrefabContentsRoot,
-                        prefabAssetRoot,
-                        mirrorMapping);
-                }
+                TemporaryMirrorUtilities.RegisterMirroredHierarchyStableReferencesBestEffort(
+                    openedPrefabContentsRoot,
+                    prefabContentsRoot,
+                    stableReferenceIndex);
 
                 if (openedPrefabContentsRoot.scene.isDirty)
                 {
@@ -120,7 +120,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     prefabPath,
                     prefabContentsRoot,
                     TemporaryPrefabCleanupKind.ClosePreviewScene,
-                    mirrorMapping);
+                    mirrorMapping,
+                    stableReferenceIndex);
             }
             catch (Exception exception)
             {
@@ -262,70 +263,62 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return trackedRoot.MirrorMapping.TryGetPreviewObject(sourceObject, out previewObject);
         }
 
-        /// <summary> Tries to resolve one preview prefab object to its persisted stable-source object. </summary>
+        /// <summary> Tries to resolve one preview prefab object to its stable GlobalObjectId text. </summary>
         /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
-        /// <param name="previewObject"> The preview object. Must not be <see langword="null" />. </param>
-        /// <param name="stableSourceObject"> The persisted stable-source object when found. </param>
-        /// <returns> <see langword="true" /> when a stable-source mapping exists for the preview object; otherwise <see langword="false" />. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="previewObject" /> is <see langword="null" />. </exception>
-        public bool TryResolveMirroredStableSourceObject (
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
+        public bool TryResolveStableReferenceFromPreviewObject (
             string prefabPath,
             UnityEngine.Object previewObject,
-            out UnityEngine.Object? stableSourceObject)
+            out string stableReference)
         {
-            stableSourceObject = null;
-            if (previewObject == null)
-            {
-                throw new ArgumentNullException(nameof(previewObject));
-            }
-
+            stableReference = string.Empty;
             if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
             {
                 return false;
             }
 
-            if (trackedRoot.MirrorMapping == null)
-            {
-                return false;
-            }
-
-            if (!trackedRoot.MirrorMapping.TryGetSourceObject(previewObject, out var sourceObject)
-                || sourceObject == null)
-            {
-                return false;
-            }
-
-            return trackedRoot.MirrorMapping.TryGetStableSourceObject(sourceObject, out stableSourceObject);
+            return trackedRoot.StableReferenceIndex.TryGetStableReference(previewObject, out stableReference);
         }
 
-        /// <summary> Tries to resolve one persisted stable-source prefab object to its preview counterpart. </summary>
+        /// <summary> Tries to resolve one stable GlobalObjectId text to its preview prefab object in the specified temporary contents root. </summary>
         /// <param name="prefabPath"> The prefab asset path that owns the temporary contents. </param>
-        /// <param name="stableSourceObject"> The persisted stable-source object. Must not be <see langword="null" />. </param>
+        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
         /// <param name="previewObject"> The preview object when found. </param>
-        /// <returns> <see langword="true" /> when the stable-source object maps back into the temporary contents; otherwise <see langword="false" />. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stableSourceObject" /> is <see langword="null" />. </exception>
-        public bool TryResolvePreviewObjectFromMirroredStableSourceObject (
+        /// <returns> <see langword="true" /> when the stable reference maps into the specified temporary contents; otherwise <see langword="false" />. </returns>
+        public bool TryResolvePreviewObjectFromStableReference (
             string prefabPath,
-            UnityEngine.Object stableSourceObject,
+            string stableReference,
             out UnityEngine.Object? previewObject)
         {
             previewObject = null;
-            if (stableSourceObject == null)
-            {
-                throw new ArgumentNullException(nameof(stableSourceObject));
-            }
-
             if (!temporaryPrefabContentsRootsByPath.TryGetValue(prefabPath, out var trackedRoot))
             {
                 return false;
             }
 
-            if (trackedRoot.MirrorMapping == null)
+            return trackedRoot.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject);
+        }
+
+        /// <summary> Tries to resolve one stable GlobalObjectId text to any tracked preview prefab object. </summary>
+        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the stable reference maps into one tracked temporary prefab contents root; otherwise <see langword="false" />. </returns>
+        public bool TryResolvePreviewObjectFromStableReference (
+            string stableReference,
+            out UnityEngine.Object? previewObject)
+        {
+            previewObject = null;
+            foreach (var pair in temporaryPrefabContentsRootsByPath)
             {
-                return false;
+                if (pair.Value.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject))
+                {
+                    return true;
+                }
             }
 
-            return trackedRoot.MirrorMapping.TryGetPreviewObjectFromStableSource(stableSourceObject, out previewObject);
+            return false;
         }
 
         /// <summary> Tracks one temporary Unity object for destruction at request end. </summary>
@@ -409,7 +402,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string prefabPath,
             GameObject prefabContentsRoot,
             TemporaryPrefabCleanupKind cleanupKind,
-            TemporaryMirrorMapping? mirrorMapping)
+            TemporaryMirrorMapping? mirrorMapping,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
         {
             if (string.IsNullOrWhiteSpace(prefabPath))
             {
@@ -421,8 +415,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(prefabContentsRoot));
             }
 
+            if (stableReferenceIndex == null)
+            {
+                throw new ArgumentNullException(nameof(stableReferenceIndex));
+            }
+
             temporaryPrefabContentsRootsByPath[prefabPath] =
-                new TemporaryPrefabContentsRoot(prefabContentsRoot, cleanupKind, mirrorMapping);
+                new TemporaryPrefabContentsRoot(prefabContentsRoot, cleanupKind, mirrorMapping, stableReferenceIndex);
         }
 
         private static void CleanupTemporaryPrefabContentsRoot (TemporaryPrefabContentsRoot trackedRoot)
@@ -455,11 +454,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public TemporaryPrefabContentsRoot (
                 GameObject prefabContentsRoot,
                 TemporaryPrefabCleanupKind cleanupKind,
-                TemporaryMirrorMapping? mirrorMapping)
+                TemporaryMirrorMapping? mirrorMapping,
+                TemporaryPreviewStableReferenceIndex stableReferenceIndex)
             {
                 PrefabContentsRoot = prefabContentsRoot;
                 CleanupKind = cleanupKind;
                 MirrorMapping = mirrorMapping;
+                StableReferenceIndex = stableReferenceIndex;
             }
 
             public GameObject PrefabContentsRoot { get; }
@@ -467,6 +468,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public TemporaryPrefabCleanupKind CleanupKind { get; }
 
             public TemporaryMirrorMapping? MirrorMapping { get; }
+
+            public TemporaryPreviewStableReferenceIndex StableReferenceIndex { get; }
         }
 
         private enum TemporaryPrefabCleanupKind

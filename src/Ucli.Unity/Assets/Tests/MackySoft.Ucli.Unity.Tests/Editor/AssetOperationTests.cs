@@ -492,7 +492,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
             AssertAssetSuccess(result, applied: false, changed: true, assetPath);
-            var sourceGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(asset).GlobalObjectId;
+            var persistedAsset = AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath);
+            Assert.That(persistedAsset, Is.Not.Null);
+            var sourceGlobalObjectId = UnityObjectReferenceResolver.CreateResolvedReference(persistedAsset).GlobalObjectId;
             Assert.That(context.TryGetAssetShadow(sourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath), Is.True);
             Assert.That(shadowAssetPath, Is.EqualTo(assetPath));
             Assert.That(shadowAsset, Is.TypeOf<AssetOperationTestAsset>());

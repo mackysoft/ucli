@@ -196,15 +196,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (TryCreateResolvedReference(temporaryTarget!, out resolvedReference, out _))
-                {
-                    errorMessage = string.Empty;
-                    return true;
-                }
-
-                if (executionContext.TryResolveTemporarySceneSourceObject(scenePath, temporaryTarget!, out var mirroredSourceObject)
-                    && mirroredSourceObject != null
-                    && TryCreateResolvedReference(mirroredSourceObject, out resolvedReference, out _))
+                if (TryCreateResolvedReferenceFromTemporarySceneTarget(
+                        scenePath,
+                        temporaryTarget!,
+                        executionContext,
+                        out resolvedReference))
                 {
                     errorMessage = string.Empty;
                     return true;
@@ -253,28 +249,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (TryCreateResolvedReference(temporaryTarget!, out resolvedReference, out _))
+                if (TryCreateResolvedReferenceFromTemporaryPrefabTarget(
+                        prefabPath,
+                        temporaryTarget!,
+                        executionContext,
+                        out resolvedReference))
                 {
                     errorMessage = string.Empty;
                     return true;
-                }
-
-                if (executionContext.TryResolveTemporaryPrefabSourceObject(prefabPath, temporaryTarget!, out var mirroredSourceObject)
-                    && mirroredSourceObject != null)
-                {
-                    if (executionContext.TryResolveTemporaryPrefabStableSourceObject(prefabPath, temporaryTarget!, out var mirroredStableSourceObject)
-                        && mirroredStableSourceObject != null
-                        && TryCreateResolvedReference(mirroredStableSourceObject, out resolvedReference, out _))
-                    {
-                        errorMessage = string.Empty;
-                        return true;
-                    }
-
-                    if (TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, mirroredSourceObject, out resolvedReference, out _))
-                    {
-                        errorMessage = string.Empty;
-                        return true;
-                    }
                 }
 
                 errorMessage = "Resolved target does not expose a stable GlobalObjectId in the current editor state.";
@@ -784,6 +766,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     errorMessage = string.Empty;
                     return true;
                 }
+
+                if (executionContext.TryResolveTemporaryPreviewObjectFromStableReference(globalObjectIdText, out unityObject)
+                    && unityObject != null)
+                {
+                    errorMessage = string.Empty;
+                    return true;
+                }
             }
 
             unityObject = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(globalObjectId);
@@ -797,6 +786,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && TryResolveRequestLocalPreviewOverride(unityObject, executionContext, out var requestLocalObject))
             {
                 unityObject = requestLocalObject;
+            }
+            else if (allowTemporaryState
+                && TryGetPrefabAssetPath(unityObject, out var prefabPath)
+                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot)
+                && temporaryPrefabRoot != null)
+            {
+                unityObject = null;
+                errorMessage = $"GlobalObjectId is not resolvable in current request-local state: {globalObjectIdText}.";
+                return false;
             }
 
             errorMessage = string.Empty;
@@ -861,8 +859,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!executionContext.TryResolveTemporaryScenePreviewObject(scene.path, liveObject, out previewObject))
             {
-                previewObject = null;
-                return false;
+                if (!TryCreateResolvedReference(liveObject, out var resolvedReference, out _)
+                    || !executionContext.TryResolveTemporaryPreviewObjectFromStableReference(resolvedReference!.GlobalObjectId, out previewObject))
+                {
+                    previewObject = null;
+                    return false;
+                }
             }
 
             if (previewObject == null)
@@ -890,7 +892,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            return TryResolvePreviewPrefabStableSourceObjectOverride(liveOrPersistentObject, executionContext, out previewObject);
+            if (!TryGetPrefabAssetPath(liveOrPersistentObject, out var prefabPath))
+            {
+                previewObject = null;
+                return false;
+            }
+
+            if (!executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot)
+                || temporaryPrefabRoot == null)
+            {
+                previewObject = null;
+                return false;
+            }
+
+            if (!TryCreateResolvedReference(liveOrPersistentObject, out var resolvedReference, out _)
+                || !executionContext.TryResolveTemporaryPreviewObjectFromStableReference(resolvedReference!.GlobalObjectId, out previewObject))
+            {
+                previewObject = null;
+                return false;
+            }
+
+            return previewObject != null;
         }
 
         /// <summary> Tries to resolve one mirrored opened-stage prefab object to its request-local preview counterpart. </summary>
@@ -910,37 +932,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             if (!executionContext.TryResolveTemporaryPrefabPreviewObject(prefabPath, sourceObject, out previewObject))
-            {
-                previewObject = null;
-                return false;
-            }
-
-            if (previewObject == null)
-            {
-                previewObject = null;
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary> Tries to resolve one persisted stable-source prefab object to its request-local preview counterpart. </summary>
-        /// <param name="stableSourceObject"> The persisted stable-source prefab object. </param>
-        /// <param name="executionContext"> The current request execution context. </param>
-        /// <param name="previewObject"> The preview counterpart when found. </param>
-        /// <returns> <see langword="true" /> when the stable-source object maps into tracked mirrored prefab state; otherwise <see langword="false" />. </returns>
-        private static bool TryResolvePreviewPrefabStableSourceObjectOverride (
-            UnityEngine.Object stableSourceObject,
-            OperationExecutionContext executionContext,
-            out UnityEngine.Object? previewObject)
-        {
-            previewObject = null;
-            if (!TryGetPrefabAssetPath(stableSourceObject, out var prefabPath))
-            {
-                return false;
-            }
-
-            if (!executionContext.TryResolveTemporaryPrefabPreviewObjectFromStableSource(prefabPath, stableSourceObject, out previewObject))
             {
                 previewObject = null;
                 return false;
@@ -1108,13 +1099,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!executionContext.TryResolveTemporarySceneSourceObject(scenePath, gameObject, out var sourceObject)
-                || sourceObject == null)
-            {
-                return false;
-            }
-
-            return TryCreateResolvedReference(sourceObject, out resolvedReference, out _);
+            return TryCreateResolvedReferenceFromTemporarySceneTarget(scenePath, gameObject, executionContext, out resolvedReference);
         }
 
         private static bool TryCreateResolvedReferenceFromPreviewPrefabObject (
@@ -1128,21 +1113,53 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (executionContext.TryResolveTemporaryPrefabStableSourceObject(prefabPath, gameObject, out var stableSourceObject)
-                && stableSourceObject != null
-                && TryCreateResolvedReference(stableSourceObject, out resolvedReference, out _))
+            return TryCreateResolvedReferenceFromTemporaryPrefabTarget(prefabPath, gameObject, executionContext, out resolvedReference);
+        }
+
+        private static bool TryCreateResolvedReferenceFromTemporarySceneTarget (
+            string scenePath,
+            UnityEngine.Object unityObject,
+            OperationExecutionContext executionContext,
+            out ResolvedReference? resolvedReference)
+        {
+            resolvedReference = null;
+            if (executionContext.TryResolveTemporarySceneStableReference(scenePath, unityObject, out var stableReference))
+            {
+                resolvedReference = new ResolvedReference(stableReference);
+                return true;
+            }
+
+            if (TryCreateResolvedReference(unityObject, out resolvedReference, out _))
             {
                 return true;
             }
 
-            if (executionContext.TryResolveTemporaryPrefabSourceObject(prefabPath, gameObject, out var mirroredSourceObject)
+            return executionContext.TryResolveTemporarySceneSourceObject(scenePath, unityObject, out var mirroredSourceObject)
                 && mirroredSourceObject != null
-                && TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, mirroredSourceObject, out resolvedReference, out _))
+                && TryCreateResolvedReference(mirroredSourceObject, out resolvedReference, out _);
+        }
+
+        private static bool TryCreateResolvedReferenceFromTemporaryPrefabTarget (
+            string prefabPath,
+            UnityEngine.Object unityObject,
+            OperationExecutionContext executionContext,
+            out ResolvedReference? resolvedReference)
+        {
+            resolvedReference = null;
+            if (executionContext.TryResolveTemporaryPrefabStableReference(prefabPath, unityObject, out var stableReference))
+            {
+                resolvedReference = new ResolvedReference(stableReference);
+                return true;
+            }
+
+            if (TryCreateResolvedReference(unityObject, out resolvedReference, out _))
             {
                 return true;
             }
 
-            return TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, gameObject, out resolvedReference, out _);
+            return executionContext.TryResolveTemporaryPrefabSourceObject(prefabPath, unityObject, out var mirroredSourceObject)
+                && mirroredSourceObject != null
+                && TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, mirroredSourceObject, out resolvedReference, out _);
         }
 
         /// <summary> Creates one stable resolved reference from one prefab mirror object or its persisted prefab correspondence. </summary>

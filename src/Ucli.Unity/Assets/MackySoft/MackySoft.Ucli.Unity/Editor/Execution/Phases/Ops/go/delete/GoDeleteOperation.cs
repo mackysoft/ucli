@@ -259,14 +259,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     break;
 
                 case OperationTouchKind.Prefab:
-                    if (executionContext.TryResolveTemporaryPrefabStableSourceObject(resource.Path, unityObject, out var stablePrefabSourceObject)
-                        && stablePrefabSourceObject != null
-                        && UnityObjectReferenceResolver.TryCreateResolvedReference(stablePrefabSourceObject, out var stablePrefabReference))
-                    {
-                        executionContext.MarkDeletedGlobalObjectId(stablePrefabReference!.GlobalObjectId);
-                        break;
-                    }
-
                     if (executionContext.TryResolveTemporaryPrefabSourceObject(resource.Path, unityObject, out var sourcePrefabObject)
                         && sourcePrefabObject != null
                         && UnityObjectReferenceResolver.TryCreateResolvedReference(sourcePrefabObject, out var sourcePrefabReference))

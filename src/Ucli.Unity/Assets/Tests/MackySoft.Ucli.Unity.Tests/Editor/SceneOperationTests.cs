@@ -134,9 +134,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var targetScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             _ = new GameObject("Root");
             EditorSceneManager.SaveScene(targetScene, scenePath);
+            _ = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var prefabPath = scope.CreatePrefabAsset(nameof(SceneOperationTests), "PrefabRoot");
             var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
-            prefabStage!.prefabContentsRoot.name = "Renamed";
+            var child = new GameObject("DirtyChild");
+            child.transform.SetParent(prefabStage!.prefabContentsRoot.transform, worldPositionStays: false);
             EditorSceneManager.MarkSceneDirty(prefabStage.scene);
             var requestOperation = CreateOperation(
                 opId: "op-open",

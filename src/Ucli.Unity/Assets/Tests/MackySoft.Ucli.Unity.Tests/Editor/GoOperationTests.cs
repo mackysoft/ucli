@@ -330,24 +330,19 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(describeResult, applied: false, changed: false);
             Assert.That(describeResult.Result.HasValue, Is.True);
             var components = describeResult.Result!.Value.GetProperty("components").EnumerateArray()
-                .Select(element => element.GetProperty("type").GetString())
+                .Select(element => element.GetProperty("typeName").GetString())
                 .ToArray();
             Assert.That(components, Does.Contain(typeof(BoxCollider).FullName));
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Describe_Plan_WhenTargetUsesMirroredPrefabObject_PreservesStableGlobalObjectId () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Describe_Plan_WhenTargetUsesMirroredPrefabObject_DoesNotInventStableGlobalObjectId () => UniTask.ToCoroutine(async () =>
         {
             var operation = new GoDescribeOperation();
             using var scope = new EditorTestScope()
                 .EnablePrefabStageCleanup();
             var prefabPath = scope.CreatePrefabAsset(nameof(GoOperationTests), "PrefabRoot", "Child");
-            var prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            Assert.That(prefabAssetRoot, Is.Not.Null);
-            var persistedChild = prefabAssetRoot!.transform.Find("Child");
-            Assert.That(persistedChild, Is.Not.Null);
-            var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(persistedChild!.gameObject).ToString();
 
             var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
             Assert.That(prefabStage, Is.Not.Null);
@@ -377,9 +372,106 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
+            AssertSuccess(result, applied: false, changed: false, expectedTouchKind: OperationTouchKind.Prefab);
+            Assert.That(result.Result.HasValue, Is.True);
+            Assert.That(result.Result!.Value.GetProperty("globalObjectId").GetString(), Is.EqualTo(string.Empty));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Describe_Plan_WhenPreviewSceneChildWasRecreated_DoesNotReuseStableGlobalObjectId () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new GoDescribeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            UnityEngine.Object.DestroyImmediate(child);
+            var recreatedChild = new GameObject("Child");
+            recreatedChild.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(scene);
+
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var temporaryRoot = temporaryScene.GetRootGameObjects().Single(static gameObject => gameObject.name == "Root");
+            var previewChild = temporaryRoot.transform.Find("Child");
+            Assert.That(previewChild, Is.Not.Null);
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            var requestOperation = CreateOperation(
+                opId: "op-describe",
+                opName: UcliPrimitiveOperationNames.GoDescribe,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root/Child",
+                    },
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(result.Result.HasValue, Is.True);
-            Assert.That(result.Result!.Value.GetProperty("globalObjectId").GetString(), Is.EqualTo(expectedGlobalObjectId));
+            var describedGlobalObjectId = result.Result!.Value.GetProperty("globalObjectId").GetString();
+            if (UnityObjectReferenceResolver.TryCreateResolvedReference(recreatedChild, out var recreatedReference))
+            {
+                Assert.That(describedGlobalObjectId, Is.EqualTo(recreatedReference!.GlobalObjectId));
+            }
+            else
+            {
+                Assert.That(describedGlobalObjectId, Is.EqualTo(string.Empty));
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Describe_Plan_WhenPreviewPrefabChildWasRecreated_DoesNotReuseStableGlobalObjectId () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new GoDescribeOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(GoOperationTests), "PrefabRoot", "Child");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            Assert.That(prefabStage, Is.Not.Null);
+            var stageRoot = prefabStage!.prefabContentsRoot;
+            Assert.That(stageRoot, Is.Not.Null);
+            var stageChild = stageRoot!.transform.Find("Child");
+            Assert.That(stageChild, Is.Not.Null);
+
+            UnityEngine.Object.DestroyImmediate(stageChild!.gameObject);
+            var recreatedChild = new GameObject("Child");
+            recreatedChild.transform.SetParent(stageRoot.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
+            Assert.That(temporaryRoot, Is.Not.Null);
+            var previewChild = temporaryRoot!.transform.Find("Child");
+            Assert.That(previewChild, Is.Not.Null);
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            var requestOperation = CreateOperation(
+                opId: "op-describe",
+                opName: UcliPrimitiveOperationNames.GoDescribe,
+                args: new
+                {
+                    target = new
+                    {
+                        prefab = prefabPath,
+                        hierarchyPath = $"{temporaryRoot.name}/Child",
+                    },
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false, expectedTouchKind: OperationTouchKind.Prefab);
+            Assert.That(result.Result.HasValue, Is.True);
+            Assert.That(result.Result!.Value.GetProperty("globalObjectId").GetString(), Is.EqualTo(string.Empty));
         });
 
         [UnityTest]
@@ -1087,13 +1179,14 @@ namespace MackySoft.Ucli.Unity.Tests
         private static void AssertSuccess (
             OperationPhaseStepResult result,
             bool applied,
-            bool changed)
+            bool changed,
+            OperationTouchKind expectedTouchKind = OperationTouchKind.Scene)
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Applied, Is.EqualTo(applied));
             Assert.That(result.Changed, Is.EqualTo(changed));
             Assert.That(result.Touched.Count, Is.EqualTo(1));
-            Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Scene));
+            Assert.That(result.Touched[0].Kind, Is.EqualTo(expectedTouchKind));
             Assert.That(result.Failure, Is.Null);
         }
     }

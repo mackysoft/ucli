@@ -280,7 +280,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var saveOperation = new ProjectSavePhaseOperation();
             using var scope = new EditorTestScope();
             var executionContext = scope.CreateExecutionContext();
-            var assetPath = scope.CreateAssetPath(nameof(ProjectPhaseOperationTests), "Created.asset");
+            var assetPath = scope.CreateAssetPath(nameof(ProjectPhaseOperationTests), ".asset");
             var createRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.AssetCreate,
@@ -496,7 +496,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var prefabCreateResult = await prefabCreateOperation.Call(prefabCreateRequest, context, CancellationToken.None);
             AssertSuccess(prefabCreateResult, applied: true, changed: true);
-            Assert.That(scene.isDirty, Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
+            Assert.That(prefabCreateResult.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
             Assert.That(PrefabUtility.IsPartOfPrefabInstance(root), Is.True);
 
             var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);

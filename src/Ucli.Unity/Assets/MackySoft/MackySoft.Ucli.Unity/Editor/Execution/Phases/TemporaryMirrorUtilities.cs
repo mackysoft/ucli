@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 #nullable enable
 
@@ -113,34 +115,106 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        /// <summary> Registers best-effort stable-source pairs for one mirrored prefab hierarchy. </summary>
-        /// <param name="sourceRoot"> The mirrored live prefab root. Must not be <see langword="null" />. </param>
-        /// <param name="stableRoot"> The persisted prefab root used as the stable-source baseline. Must not be <see langword="null" />. </param>
-        /// <param name="mirrorMapping"> The mirror mapping that receives stable-source pairs. Must not be <see langword="null" />. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="sourceRoot" />, <paramref name="stableRoot" />, or <paramref name="mirrorMapping" /> is <see langword="null" />. </exception>
-        public static void RegisterStableSourceHierarchyBestEffort (
+        /// <summary> Registers explicit stable references for one mirrored live hierarchy. </summary>
+        /// <param name="sourceRoot"> The live hierarchy root that already matches the preview hierarchy shape. </param>
+        /// <param name="previewRoot"> The preview hierarchy root. </param>
+        /// <param name="stableReferenceIndex"> The destination stable-reference index. </param>
+        public static void RegisterMirroredHierarchyStableReferencesBestEffort (
             GameObject sourceRoot,
-            GameObject stableRoot,
-            TemporaryMirrorMapping mirrorMapping)
+            GameObject previewRoot,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
         {
             if (sourceRoot == null)
             {
                 throw new ArgumentNullException(nameof(sourceRoot));
             }
 
-            if (stableRoot == null)
+            if (previewRoot == null)
             {
-                throw new ArgumentNullException(nameof(stableRoot));
+                throw new ArgumentNullException(nameof(previewRoot));
             }
 
-            if (mirrorMapping == null)
+            if (stableReferenceIndex == null)
             {
-                throw new ArgumentNullException(nameof(mirrorMapping));
+                throw new ArgumentNullException(nameof(stableReferenceIndex));
             }
 
-            mirrorMapping.AddStableSourcePair(sourceRoot, stableRoot);
-            RegisterStableSourceComponentsBestEffort(sourceRoot, stableRoot, mirrorMapping);
-            RegisterStableSourceChildrenBestEffort(sourceRoot.transform, stableRoot.transform, mirrorMapping);
+            TryRegisterStableReferenceFromSource(previewRoot, sourceRoot, stableReferenceIndex);
+
+            var sourceComponents = sourceRoot.GetComponents<Component>();
+            var previewComponents = previewRoot.GetComponents<Component>();
+            var componentCount = Math.Min(sourceComponents.Length, previewComponents.Length);
+            for (var componentIndex = 0; componentIndex < componentCount; componentIndex++)
+            {
+                var sourceComponent = sourceComponents[componentIndex];
+                var previewComponent = previewComponents[componentIndex];
+                if (sourceComponent == null || previewComponent == null)
+                {
+                    continue;
+                }
+
+                if (sourceComponent.GetType() != previewComponent.GetType())
+                {
+                    continue;
+                }
+
+                TryRegisterStableReferenceFromSource(previewComponent, sourceComponent, stableReferenceIndex);
+            }
+
+            var childCount = Math.Min(sourceRoot.transform.childCount, previewRoot.transform.childCount);
+            for (var childIndex = 0; childIndex < childCount; childIndex++)
+            {
+                RegisterMirroredHierarchyStableReferencesBestEffort(
+                    sourceRoot.transform.GetChild(childIndex).gameObject,
+                    previewRoot.transform.GetChild(childIndex).gameObject,
+                    stableReferenceIndex);
+            }
+        }
+
+        /// <summary> Registers stable GlobalObjectId entries for one preview scene opened from persisted contents. </summary>
+        /// <param name="previewScene"> The preview scene. </param>
+        /// <param name="mirrorMapping"> The mapping that receives stable reference entries. </param>
+        public static void RegisterPreviewSceneStableReferencesBestEffort (
+            Scene previewScene,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
+        {
+            if (stableReferenceIndex == null)
+            {
+                throw new ArgumentNullException(nameof(stableReferenceIndex));
+            }
+
+            if (!previewScene.IsValid() || !previewScene.isLoaded)
+            {
+                return;
+            }
+
+            var roots = previewScene.GetRootGameObjects();
+            for (var i = 0; i < roots.Length; i++)
+            {
+                RegisterPreviewSceneHierarchyStableReferencesBestEffort(roots[i], stableReferenceIndex);
+            }
+        }
+
+        /// <summary> Registers stable GlobalObjectId entries for one temporary prefab contents hierarchy. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <param name="prefabContentsRoot"> The temporary prefab contents root. </param>
+        /// <param name="mirrorMapping"> The mapping that receives stable reference entries. </param>
+        public static void RegisterPreviewPrefabStableReferencesBestEffort (
+            string prefabPath,
+            GameObject prefabContentsRoot,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
+        {
+            if (prefabContentsRoot == null)
+            {
+                throw new ArgumentNullException(nameof(prefabContentsRoot));
+            }
+
+            if (stableReferenceIndex == null)
+            {
+                throw new ArgumentNullException(nameof(stableReferenceIndex));
+            }
+
+            RegisterPreviewPrefabHierarchyStableReferencesBestEffort(prefabPath, prefabContentsRoot, stableReferenceIndex);
         }
 
         private static bool TryRebindMirroredComponentReferences (
@@ -211,183 +285,120 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        private static void RegisterStableSourceComponentsBestEffort (
-            GameObject sourceRoot,
-            GameObject stableRoot,
-            TemporaryMirrorMapping mirrorMapping)
+        private static void RegisterPreviewSceneHierarchyStableReferencesBestEffort (
+            GameObject previewRoot,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
         {
-            var sourceComponents = sourceRoot.GetComponents<Component>();
-            var stableComponents = stableRoot.GetComponents<Component>();
-            if (HaveMatchingComponentTypeSequence(sourceComponents, stableComponents))
-            {
-                for (var i = 0; i < sourceComponents.Length; i++)
-                {
-                    var sourceComponent = sourceComponents[i];
-                    var stableComponent = stableComponents[i];
-                    if (sourceComponent == null || stableComponent == null)
-                    {
-                        continue;
-                    }
+            TryRegisterStableReference(previewRoot, stableReferenceIndex);
 
-                    mirrorMapping.AddStableSourcePair(sourceComponent, stableComponent);
+            var components = previewRoot.GetComponents<Component>();
+            for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
+            {
+                var component = components[componentIndex];
+                if (component == null)
+                {
+                    continue;
                 }
 
+                TryRegisterStableReference(component, stableReferenceIndex);
+            }
+
+            for (var childIndex = 0; childIndex < previewRoot.transform.childCount; childIndex++)
+            {
+                RegisterPreviewSceneHierarchyStableReferencesBestEffort(
+                    previewRoot.transform.GetChild(childIndex).gameObject,
+                    stableReferenceIndex);
+            }
+        }
+
+        private static void RegisterPreviewPrefabHierarchyStableReferencesBestEffort (
+            string prefabPath,
+            GameObject previewRoot,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
+        {
+            TryRegisterPrefabStableReference(previewRoot, prefabPath, stableReferenceIndex);
+
+            var components = previewRoot.GetComponents<Component>();
+            for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
+            {
+                var component = components[componentIndex];
+                if (component == null)
+                {
+                    continue;
+                }
+
+                TryRegisterPrefabStableReference(component, prefabPath, stableReferenceIndex);
+            }
+
+            for (var childIndex = 0; childIndex < previewRoot.transform.childCount; childIndex++)
+            {
+                RegisterPreviewPrefabHierarchyStableReferencesBestEffort(
+                    prefabPath,
+                    previewRoot.transform.GetChild(childIndex).gameObject,
+                    stableReferenceIndex);
+            }
+        }
+
+        private static void TryRegisterStableReference (
+            UnityEngine.Object previewObject,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
+        {
+            if (UnityObjectReferenceResolver.TryCreateResolvedReference(previewObject, out var resolvedReference))
+            {
+                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
+            }
+        }
+
+        private static void TryRegisterStableReferenceFromSource (
+            UnityEngine.Object previewObject,
+            UnityEngine.Object sourceObject,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
+        {
+            if (UnityObjectReferenceResolver.TryCreateResolvedReference(sourceObject, out var resolvedReference))
+            {
+                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
+            }
+        }
+
+        private static void TryRegisterPrefabStableReference (
+            UnityEngine.Object previewObject,
+            string prefabPath,
+            TemporaryPreviewStableReferenceIndex stableReferenceIndex)
+        {
+            if (UnityObjectReferenceResolver.TryCreateResolvedReference(previewObject, out var resolvedReference))
+            {
+                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
                 return;
             }
 
-            for (var sourceIndex = 0; sourceIndex < sourceComponents.Length; sourceIndex++)
+            var stableSourceObject = TryGetPrefabStableSourceObject(previewObject, prefabPath);
+            if (stableSourceObject != null
+                && UnityObjectReferenceResolver.TryCreateResolvedReference(stableSourceObject, out resolvedReference))
             {
-                var sourceComponent = sourceComponents[sourceIndex];
-                if (sourceComponent == null)
-                {
-                    continue;
-                }
-
-                var sourceType = sourceComponent.GetType();
-                var sourceMatchCount = 0;
-                for (var i = 0; i < sourceComponents.Length; i++)
-                {
-                    if (sourceComponents[i] != null && sourceComponents[i]!.GetType() == sourceType)
-                    {
-                        sourceMatchCount++;
-                    }
-                }
-
-                if (sourceMatchCount != 1)
-                {
-                    continue;
-                }
-
-                var stableMatchIndex = -1;
-                var stableMatchCount = 0;
-                for (var stableIndex = 0; stableIndex < stableComponents.Length; stableIndex++)
-                {
-                    var stableComponent = stableComponents[stableIndex];
-                    if (stableComponent != null && stableComponent.GetType() == sourceType)
-                    {
-                        stableMatchIndex = stableIndex;
-                        stableMatchCount++;
-                    }
-                }
-
-                if (stableMatchCount != 1)
-                {
-                    continue;
-                }
-
-                var stableMatchedComponent = stableComponents[stableMatchIndex];
-                if (stableMatchedComponent != null)
-                {
-                    mirrorMapping.AddStableSourcePair(sourceComponent, stableMatchedComponent);
-                }
+                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
             }
         }
 
-        private static void RegisterStableSourceChildrenBestEffort (
-            Transform sourceTransform,
-            Transform stableTransform,
-            TemporaryMirrorMapping mirrorMapping)
+        private static UnityEngine.Object? TryGetPrefabStableSourceObject (
+            UnityEngine.Object unityObject,
+            string prefabPath)
         {
-            var sourceChildren = GetDirectChildGameObjects(sourceTransform);
-            var stableChildren = GetDirectChildGameObjects(stableTransform);
-            for (var sourceIndex = 0; sourceIndex < sourceChildren.Length; sourceIndex++)
+            if (!string.IsNullOrWhiteSpace(prefabPath))
             {
-                var sourceChild = sourceChildren[sourceIndex];
-                var sourceNameMatchCount = CountChildrenWithName(sourceChildren, sourceChild.name);
-                if (sourceNameMatchCount != 1)
+                var sourceAtPath = PrefabUtility.GetCorrespondingObjectFromSourceAtPath(unityObject, prefabPath);
+                if (sourceAtPath != null)
                 {
-                    continue;
-                }
-
-                var stableMatchIndex = FindUniqueChildIndexByName(stableChildren, sourceChild.name, out var stableNameMatchCount);
-                if (stableNameMatchCount != 1)
-                {
-                    continue;
-                }
-
-                RegisterStableSourceHierarchyBestEffort(sourceChild, stableChildren[stableMatchIndex], mirrorMapping);
-            }
-        }
-
-        private static GameObject[] GetDirectChildGameObjects (Transform transform)
-        {
-            var childCount = transform.childCount;
-            var children = new GameObject[childCount];
-            for (var childIndex = 0; childIndex < childCount; childIndex++)
-            {
-                children[childIndex] = transform.GetChild(childIndex).gameObject;
-            }
-
-            return children;
-        }
-
-        private static int CountChildrenWithName (
-            GameObject[] children,
-            string childName)
-        {
-            var count = 0;
-            for (var childIndex = 0; childIndex < children.Length; childIndex++)
-            {
-                if (string.Equals(children[childIndex].name, childName, StringComparison.Ordinal))
-                {
-                    count++;
+                    return sourceAtPath;
                 }
             }
 
-            return count;
-        }
-
-        private static int FindUniqueChildIndexByName (
-            GameObject[] children,
-            string childName,
-            out int matchCount)
-        {
-            var matchedIndex = -1;
-            matchCount = 0;
-            for (var childIndex = 0; childIndex < children.Length; childIndex++)
+            var sourceObject = PrefabUtility.GetCorrespondingObjectFromSource(unityObject);
+            if (sourceObject != null)
             {
-                if (!string.Equals(children[childIndex].name, childName, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                matchedIndex = childIndex;
-                matchCount++;
+                return sourceObject;
             }
 
-            return matchedIndex;
-        }
-
-        private static bool HaveMatchingComponentTypeSequence (
-            Component[] sourceComponents,
-            Component[] stableComponents)
-        {
-            if (sourceComponents.Length != stableComponents.Length)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < sourceComponents.Length; i++)
-            {
-                var sourceComponent = sourceComponents[i];
-                var stableComponent = stableComponents[i];
-                if (sourceComponent == null || stableComponent == null)
-                {
-                    if (sourceComponent != stableComponent)
-                    {
-                        return false;
-                    }
-
-                    continue;
-                }
-
-                if (sourceComponent.GetType() != stableComponent.GetType())
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return PrefabUtility.GetCorrespondingObjectFromOriginalSource(unityObject);
         }
 
         private static bool TryGetMirroredReferenceValue (
