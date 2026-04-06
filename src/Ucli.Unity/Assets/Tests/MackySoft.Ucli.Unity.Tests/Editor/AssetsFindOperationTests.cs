@@ -438,10 +438,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             scope.TrackAsset(assetPath);
             var asset = scope.TrackUnityObject(ScriptableObject.CreateInstance<TAsset>());
-            asset.name = assetName;
             AssetDatabase.CreateAsset(asset, assetPath);
-            AssetDatabase.SaveAssets();
-            return asset;
+            return PersistMainAssetName<TAsset>(assetPath, assetName);
         }
 
         private static TextAsset CreateTrackedTextAsset (
@@ -451,10 +449,31 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             scope.TrackAsset(assetPath);
             var asset = scope.TrackUnityObject(new TextAsset("assets-find-test"));
-            asset.name = assetName;
             AssetDatabase.CreateAsset(asset, assetPath);
+            return PersistMainAssetName<TextAsset>(assetPath, assetName);
+        }
+
+        private static TAsset PersistMainAssetName<TAsset> (
+            string assetPath,
+            string assetName)
+            where TAsset : UnityEngine.Object
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<TAsset>(assetPath);
+            Assert.That(asset, Is.Not.Null);
+
+            var serializedObject = new SerializedObject(asset);
+            var nameProperty = serializedObject.FindProperty("m_Name");
+            Assert.That(nameProperty, Is.Not.Null);
+            nameProperty.stringValue = assetName;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssets();
-            return asset;
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
+
+            var reloadedAsset = AssetDatabase.LoadAssetAtPath<TAsset>(assetPath);
+            Assert.That(reloadedAsset, Is.Not.Null);
+            Assert.That(reloadedAsset.name, Is.EqualTo(assetName));
+            return reloadedAsset;
         }
 
         private static void CreateTrackedPrefabAsset (
