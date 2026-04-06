@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             new ComponentSchemaExtractor(new IndexSchemaPropertyCollector());
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.comp.schema",
+            operationName: UcliPrimitiveOperationNames.CompSchema,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);

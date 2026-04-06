@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
 using UnityEngine;
@@ -39,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.prefab.create",
+            operationName: UcliPrimitiveOperationNames.PrefabCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -79,6 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.SetTemporaryAlias(operation.As, validationState.Target, validationState.SourceResource);
             }
 
+            executionContext.MarkRequestAttributedChange(validationState.SourceResource);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: true,
@@ -111,6 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     $"Prefab could not be created: {validationState.PrefabPath}."));
             }
 
+            executionContext.MarkRequestAttributedChange(validationState.SourceResource);
             StoreAliasIfNeeded(operation.As, executionContext, validationState.Target, validationState.SourceResource);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,

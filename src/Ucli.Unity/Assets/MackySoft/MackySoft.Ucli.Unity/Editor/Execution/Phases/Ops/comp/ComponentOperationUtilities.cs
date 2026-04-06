@@ -9,6 +9,59 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides reusable helpers shared by component-domain operations. </summary>
     internal static class ComponentOperationUtilities
     {
+        /// <summary> Resolves one component selector against the specified GameObject and optional request-local ensure state. </summary>
+        /// <param name="gameObject"> The candidate GameObject. </param>
+        /// <param name="componentType"> The component type selector. </param>
+        /// <param name="executionContext"> The request execution context. </param>
+        /// <param name="allowTemporaryState"> Whether request-local ensure state may contribute to the selector result. </param>
+        /// <param name="resolution"> The selector resolution result when type parsing succeeds. </param>
+        /// <param name="errorMessage"> The validation error message when the component type cannot be parsed. </param>
+        /// <returns> <see langword="true" /> when selector evaluation completes; otherwise <see langword="false" />. </returns>
+        public static bool TryResolveComponentSelector (
+            GameObject gameObject,
+            string componentType,
+            OperationExecutionContext? executionContext,
+            bool allowTemporaryState,
+            out ComponentSelectorResolutionState resolution,
+            out string errorMessage)
+        {
+            if (gameObject == null)
+            {
+                throw new ArgumentNullException(nameof(gameObject));
+            }
+
+            resolution = default;
+            if (!ComponentTypeResolver.TryResolveComponentType(componentType, out var componentRuntimeType, out errorMessage))
+            {
+                return false;
+            }
+
+            var components = gameObject.GetComponents(componentRuntimeType!);
+            Component? ensuredComponent = null;
+            var ensuredComponentCount = 0;
+            if (allowTemporaryState
+                && executionContext != null)
+            {
+                var targetReferenceKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
+                if (executionContext.TryGetEnsuredComponentState(targetReferenceKey, componentRuntimeType!, out var ensuredComponentState))
+                {
+                    ensuredComponent = ensuredComponentState.Component;
+                    if (ensuredComponent != null)
+                    {
+                        ensuredComponentCount = 1;
+                    }
+                }
+            }
+
+            var totalComponentCount = components.Length + ensuredComponentCount;
+            var resolvedComponent = components.Length == 1
+                ? components[0]
+                : ensuredComponent;
+            resolution = new ComponentSelectorResolutionState(totalComponentCount, resolvedComponent);
+            errorMessage = string.Empty;
+            return true;
+        }
+
         /// <summary> Resolves one reference to a Component. Temporary plan aliases can be enabled when required. </summary>
         /// <param name="reference"> The parsed Unity-object reference. </param>
         /// <param name="executionContext"> The request execution context. </param>
@@ -39,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!UnityObjectReferenceResolver.TryResolve(reference, executionContext, out var unityObject, out errorMessage))
+            if (!UnityObjectReferenceResolver.TryResolve(reference, executionContext, allowTemporaryState, out var unityObject, out errorMessage))
             {
                 return false;
             }
@@ -51,7 +104,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!OperationResourceUtilities.TryResolveOwnerResource(component, out var resource, out errorMessage))
+            if (allowTemporaryState
+                && executionContext.TryResolveTrackedComponentResource(component, out var trackedResource))
+            {
+                resolution = new ComponentResolutionState(component, trackedResource);
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (!OperationResourceUtilities.TryResolveOwnerResource(component, executionContext, out var resource, out errorMessage))
             {
                 return false;
             }
@@ -166,6 +227,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public Component? Component { get; }
 
             public OperationResource Resource { get; }
+        }
+
+        internal readonly struct ComponentSelectorResolutionState
+        {
+            public ComponentSelectorResolutionState (
+                int matchCount,
+                Component? component)
+            {
+                MatchCount = matchCount;
+                Component = component;
+            }
+
+            public int MatchCount { get; }
+
+            public Component? Component { get; }
         }
     }
 }

@@ -18,50 +18,126 @@ public sealed class IpcRequestContractViolationClassifierTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Classify_OperationArgsTypeMismatch_RetainsOperationContext ()
+    public void Classify_StepArgsTypeMismatch_RetainsStepContext ()
     {
-        var readError = IpcRequestContractReadError.OperationArgsContractViolation(
-            operationIndex: 2,
-            operationId: "op-2",
-            operationObjectReadErrorKind: OperationObjectReadErrorKind.TypeMismatch);
+        var readError = IpcRequestContractReadError.StepArgsContractViolation(
+            stepIndex: 2,
+            stepId: "step-2",
+            propertyReadErrorKind: StepPropertyReadErrorKind.TypeMismatch);
 
         var violation = IpcRequestContractViolationClassifier.Classify(readError);
 
-        Assert.Equal(IpcRequestContractViolationKind.OperationArgsTypeMismatch, violation.Kind);
-        Assert.Equal(2, violation.OperationIndex);
-        Assert.Equal("op-2", violation.OperationId);
+        Assert.Equal(IpcRequestContractViolationKind.StepArgsTypeMismatch, violation.Kind);
+        Assert.Equal(2, violation.StepIndex);
+        Assert.Equal("step-2", violation.StepId);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Classify_ExpectationUnknownProperty_RetainsUnknownPropertyName ()
+    public void Classify_UnknownStepProperty_RetainsUnknownPropertyName ()
     {
-        var readError = IpcRequestContractReadError.OperationExpectationContractViolation(
-            operationIndex: 1,
-            operationId: "op-1",
-            expectationReadError: new ExpectationConstraintReadError(
-                Kind: ExpectationConstraintReadErrorKind.ExpectationContainsUnknownProperty,
-                PropertyPath: "expect",
-                UnknownPropertyName: "unknownField"));
+        var readError = IpcRequestContractReadError.UnknownStepProperty(
+            stepIndex: 1,
+            unknownPropertyName: "unknownField");
 
         var violation = IpcRequestContractViolationClassifier.Classify(readError);
 
-        Assert.Equal(IpcRequestContractViolationKind.ExpectationContainsUnknownProperty, violation.Kind);
+        Assert.Equal(IpcRequestContractViolationKind.UnknownStepProperty, violation.Kind);
+        Assert.Equal(1, violation.StepIndex);
         Assert.Equal("unknownField", violation.UnknownPropertyName);
-        Assert.Equal("expect", violation.PropertyPath);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Classify_DuplicatedOperationId_RetainsDuplicatedValue ()
+    public void Classify_DuplicatedStepId_RetainsDuplicatedValue ()
     {
-        var readError = IpcRequestContractReadError.DuplicatedOperationIdError(
-            operationIndex: 3,
-            duplicatedOperationId: "duplicate-op");
+        var readError = IpcRequestContractReadError.DuplicatedStepIdError(
+            stepIndex: 3,
+            duplicatedStepId: "duplicate-step");
 
         var violation = IpcRequestContractViolationClassifier.Classify(readError);
 
-        Assert.Equal(IpcRequestContractViolationKind.DuplicatedOperationId, violation.Kind);
-        Assert.Equal("duplicate-op", violation.DuplicatedOperationId);
+        Assert.Equal(IpcRequestContractViolationKind.DuplicatedStepId, violation.Kind);
+        Assert.Equal("duplicate-step", violation.DuplicatedStepId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Classify_StepSelectMissing_ReturnsNormalizedKind ()
+    {
+        var readError = IpcRequestContractReadError.StepSelectContractViolation(
+            stepIndex: 0,
+            stepId: "edit-1",
+            propertyReadErrorKind: StepPropertyReadErrorKind.Missing);
+
+        var violation = IpcRequestContractViolationClassifier.Classify(readError);
+
+        Assert.Equal(IpcRequestContractViolationKind.StepSelectMissing, violation.Kind);
+        Assert.Equal("edit-1", violation.StepId);
+        Assert.Equal(0, violation.StepIndex);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Classify_StepCommitTypeMismatch_ReturnsNormalizedKind ()
+    {
+        var readError = IpcRequestContractReadError.StepCommitContractViolation(
+            stepIndex: 1,
+            stepId: "edit-2",
+            jsonStringReadError: new JsonStringReadError(JsonStringReadErrorKind.TypeMismatch, "commit"));
+
+        var violation = IpcRequestContractViolationClassifier.Classify(readError);
+
+        Assert.Equal(IpcRequestContractViolationKind.StepCommitTypeMismatch, violation.Kind);
+        Assert.Equal("edit-2", violation.StepId);
+        Assert.Equal(1, violation.StepIndex);
+        Assert.Equal("commit", violation.PropertyPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Classify_StepCommitMissing_ReturnsNormalizedKind ()
+    {
+        var readError = IpcRequestContractReadError.StepCommitContractViolation(
+            stepIndex: 2,
+            stepId: "edit-3",
+            jsonStringReadError: new JsonStringReadError(JsonStringReadErrorKind.Missing, "commit"));
+
+        var violation = IpcRequestContractViolationClassifier.Classify(readError);
+
+        Assert.Equal(IpcRequestContractViolationKind.StepCommitMissing, violation.Kind);
+        Assert.Equal("edit-3", violation.StepId);
+        Assert.Equal(2, violation.StepIndex);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Classify_StepActionMustBeObject_RetainsStepContext ()
+    {
+        var readError = IpcRequestContractReadError.StepActionMustBeObject(
+            stepIndex: 4,
+            stepId: "edit-4");
+
+        var violation = IpcRequestContractViolationClassifier.Classify(readError);
+
+        Assert.Equal(IpcRequestContractViolationKind.StepActionMustBeObject, violation.Kind);
+        Assert.Equal("edit-4", violation.StepId);
+        Assert.Equal(4, violation.StepIndex);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Classify_StepOnMissing_ReturnsNormalizedKind ()
+    {
+        var readError = IpcRequestContractReadError.StepOnContractViolation(
+            stepIndex: 5,
+            stepId: "edit-5",
+            propertyReadErrorKind: StepPropertyReadErrorKind.Missing);
+
+        var violation = IpcRequestContractViolationClassifier.Classify(readError);
+
+        Assert.Equal(IpcRequestContractViolationKind.StepOnMissing, violation.Kind);
+        Assert.Equal("edit-5", violation.StepId);
+        Assert.Equal(5, violation.StepIndex);
     }
 }

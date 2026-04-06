@@ -4,20 +4,22 @@ using System;
 
 namespace MackySoft.Ucli.Unity.Execution.PlanToken
 {
-    /// <summary> Represents one compact-token payload model. </summary>
-    /// <param name="Version"> The token format version. </param>
-    /// <param name="KeyId"> The key identifier. </param>
-    /// <param name="ProjectFingerprint"> The project fingerprint marker. </param>
-    /// <param name="RequestDigest"> The request digest marker. </param>
-    /// <param name="StateFingerprint"> The state fingerprint marker. </param>
-    /// <param name="IssuedAtUtc"> The token issue time. </param>
-    /// <param name="ExpiresAtUtc"> The token expiration time. </param>
-    /// <param name="Nonce"> The nonce value. </param>
-    internal sealed record PlanTokenPayload (
+/// <summary> Represents one signed compact-token payload. </summary>
+/// <param name="Version"> The compact-token format version expected by the decoder. </param>
+/// <param name="KeyId"> The signing-key identifier embedded into the token header and payload. </param>
+/// <param name="ProjectFingerprint"> The stable project fingerprint captured when the token was issued. </param>
+/// <param name="RequestDigest"> The digest of the canonical public request payload. </param>
+/// <param name="CompiledExecutionDigest"> The digest of the canonical compiled primitive payload. <see langword="null" /> for legacy <c>v1</c> tokens issued before compiled execution digests were added. </param>
+/// <param name="StateFingerprint"> The fingerprint of project state touched by the planned primitives. </param>
+/// <param name="IssuedAtUtc"> The UTC timestamp recorded when the token was issued. </param>
+/// <param name="ExpiresAtUtc"> The UTC timestamp after which the token is no longer accepted. </param>
+/// <param name="Nonce"> The token-unique nonce used to prevent deterministic replay tokens. </param>
+internal sealed record PlanTokenPayload (
         int Version,
         string KeyId,
         string ProjectFingerprint,
         string RequestDigest,
+        string? CompiledExecutionDigest,
         string StateFingerprint,
         DateTimeOffset IssuedAtUtc,
         DateTimeOffset ExpiresAtUtc,

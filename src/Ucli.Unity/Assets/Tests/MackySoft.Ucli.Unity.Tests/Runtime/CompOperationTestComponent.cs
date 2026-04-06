@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Playables;
 
 #nullable enable
 
@@ -22,6 +23,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [SerializeField]
         private GameObject? objectReferenceValue;
+
+        [SerializeField]
+        private Component? componentReferenceValue;
+
+        [SerializeField]
+        private ExposedReference<GameObject> exposedObjectReferenceValue;
 
         [SerializeField]
         private NestedValue nestedValue = new NestedValue();
@@ -60,6 +67,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public SampleMode EnumValue => enumValue;
 
         public GameObject? ObjectReferenceValue => objectReferenceValue;
+
+        public Component? ComponentReferenceValue => componentReferenceValue;
+
+        public GameObject? ExposedObjectReferenceValue => exposedObjectReferenceValue.defaultValue as GameObject;
 
         public NestedValue NestedValueValue => nestedValue;
 

@@ -61,13 +61,20 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 OpId: null));
         }
 
-        if (request.Ops is null || request.Ops.Count == 0)
+        if (request.Steps is null)
         {
             errors.Add(new ValidationError(
-                Code: ValidationErrorCodes.OpsRequired,
-                Message: "ops must contain at least one operation.",
+                Code: ValidationErrorCodes.StepsRequired,
+                Message: "steps is required.",
                 OpId: null));
             return new ValidationResult(errors);
+        }
+
+        if (request.Steps.Count == 0)
+        {
+            return errors.Count == 0
+                ? ValidationResult.Success()
+                : new ValidationResult(errors);
         }
 
         IReadOnlyList<UcliOperationDescriptor> operations;
@@ -89,69 +96,221 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
             operationsByName[operationDescriptor.Name] = operationDescriptor;
         }
 
-        var usedOpIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var operationRequest in request.Ops)
+        var authorizationCache = new Dictionary<string, OperationAuthorizationResult>(StringComparer.Ordinal);
+        var usedStepIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var step in request.Steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (operationRequest is null)
+            if (step is null)
             {
                 errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.OpIdRequired,
-                    Message: "opId is required.",
+                    Code: ValidationErrorCodes.StepIdRequired,
+                    Message: "step.id is required.",
                     OpId: null));
                 errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.OpNameRequired,
-                    Message: "op is required.",
+                    Code: ValidationErrorCodes.StepKindRequired,
+                    Message: "step.kind is required.",
                     OpId: null));
                 continue;
             }
 
-            if (!StringValueNormalizer.TryTrimToNonEmpty(operationRequest.OpId, out var normalizedOpId))
+            if (!StringValueNormalizer.TryTrimToNonEmpty(step.StepId, out var normalizedStepId))
             {
                 errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.OpIdRequired,
-                    Message: "opId is required.",
+                    Code: ValidationErrorCodes.StepIdRequired,
+                    Message: "step.id is required.",
                     OpId: null));
             }
-            else if (!usedOpIds.Add(normalizedOpId))
+            else if (!usedStepIds.Add(normalizedStepId))
             {
                 errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.OpIdDuplicated,
-                    Message: $"opId '{normalizedOpId}' is duplicated.",
-                    OpId: normalizedOpId));
+                    Code: ValidationErrorCodes.StepIdDuplicated,
+                    Message: $"step.id '{normalizedStepId}' is duplicated.",
+                    OpId: normalizedStepId));
             }
 
-            if (!StringValueNormalizer.TryTrimToNonEmpty(operationRequest.Op, out var normalizedOperationName))
+            if (step.Kind is null)
             {
                 errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.OpNameRequired,
-                    Message: "op is required.",
-                    OpId: normalizedOpId));
+                    Code: ValidationErrorCodes.StepKindRequired,
+                    Message: "step.kind is required.",
+                    OpId: normalizedStepId));
                 continue;
             }
 
-            if (!operationsByName.TryGetValue(normalizedOperationName, out var descriptor))
+            switch (step.Kind)
             {
-                errors.Add(new ValidationError(
-                    Code: ValidationErrorCodes.OperationNotFound,
-                    Message: $"Operation '{normalizedOperationName}' is not registered.",
-                    OpId: normalizedOpId));
-                continue;
-            }
+                case Contracts.Ipc.Validation.IpcRequestStepKind.Op:
+                    if (!StringValueNormalizer.TryTrimToNonEmpty(step.Op, out var normalizedOperationName))
+                    {
+                        errors.Add(new ValidationError(
+                            Code: ValidationErrorCodes.OperationNameRequired,
+                            Message: "step.op is required.",
+                            OpId: normalizedStepId));
+                        continue;
+                    }
 
-            var authorizationResult = await operationAuthorizationService
-                .Authorize(descriptor, config, cancellationToken)
-                .ConfigureAwait(false);
-            if (!authorizationResult.IsAllowed)
-            {
-                errors.Add(new ValidationError(
-                    Code: authorizationResult.ErrorCode ?? ValidationErrorCodes.OperationNotAllowed,
-                    Message: authorizationResult.Message,
-                    OpId: normalizedOpId));
+                    if (operationsByName.TryGetValue(normalizedOperationName, out var operationDescriptor))
+                    {
+                        var argsValidationFailure = TryValidateOperationArgs(
+                            step,
+                            normalizedStepId,
+                            operationDescriptor,
+                            errors);
+                        if (argsValidationFailure is not null)
+                        {
+                            return argsValidationFailure;
+                        }
+                    }
+
+                    await ValidateReferencedOperation(
+                            normalizedOperationName,
+                            normalizedStepId,
+                            isImplicitEditOperation: false,
+                            operationsByName,
+                            authorizationCache,
+                            config,
+                            errors,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    break;
+
+                case Contracts.Ipc.Validation.IpcRequestStepKind.Edit:
+                    if (!RequestEditStepLowerPreviewBuilder.TryBuild(
+                        step.Element,
+                        out var operationNames,
+                        out var errorMessage))
+                    {
+                        errors.Add(new ValidationError(
+                            Code: ValidationErrorCodes.EditStepInvalid,
+                            Message: errorMessage,
+                            OpId: normalizedStepId));
+                        continue;
+                    }
+
+                    var uniqueOperationNames = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (var operationName in operationNames)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (!uniqueOperationNames.Add(operationName))
+                        {
+                            continue;
+                        }
+
+                        await ValidateReferencedOperation(
+                                operationName,
+                                normalizedStepId,
+                                isImplicitEditOperation: true,
+                                operationsByName,
+                                authorizationCache,
+                                config,
+                                errors,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
+                    break;
+
+                default:
+                    errors.Add(new ValidationError(
+                        Code: ValidationErrorCodes.StepKindInvalid,
+                        Message: $"step.kind '{step.Kind}' is unsupported.",
+                        OpId: normalizedStepId));
+                    break;
             }
         }
 
         return new ValidationResult(errors);
+    }
+
+    private static ValidationResult? TryValidateOperationArgs (
+        ValidateRequestStep step,
+        string? stepId,
+        UcliOperationDescriptor operationDescriptor,
+        ICollection<ValidationError> errors)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        ArgumentNullException.ThrowIfNull(operationDescriptor);
+        ArgumentNullException.ThrowIfNull(errors);
+
+        if (!step.Element.TryGetProperty("args", out var argsElement)
+            || argsElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+        {
+            errors.Add(new ValidationError(
+                Code: ValidationErrorCodes.OperationArgsInvalid,
+                Message: $"Step '{stepId ?? string.Empty}' property 'args' must be an object.",
+                OpId: stepId));
+            return null;
+        }
+
+        if (OperationArgsStaticSchemaValidator.TryValidate(
+            operationDescriptor.ArgsSchemaJson,
+            argsElement,
+            out var schemaInvalid,
+            out var error))
+        {
+            return null;
+        }
+
+        if (schemaInvalid)
+        {
+            return ValidationResult.Failure(ExecutionError.InternalError(
+                $"Static validation could not validate args for operation '{operationDescriptor.Name}'. {error}"));
+        }
+
+        errors.Add(new ValidationError(
+            Code: ValidationErrorCodes.OperationArgsInvalid,
+            Message: $"Step '{stepId ?? string.Empty}' args for operation '{operationDescriptor.Name}' are invalid. {error}",
+            OpId: stepId));
+        return null;
+    }
+
+    private async ValueTask ValidateReferencedOperation (
+        string operationName,
+        string? stepId,
+        bool isImplicitEditOperation,
+        IReadOnlyDictionary<string, UcliOperationDescriptor> operationsByName,
+        IDictionary<string, OperationAuthorizationResult> authorizationCache,
+        UcliConfig config,
+        ICollection<ValidationError> errors,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
+        ArgumentNullException.ThrowIfNull(operationsByName);
+        ArgumentNullException.ThrowIfNull(authorizationCache);
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(errors);
+
+        if (!operationsByName.TryGetValue(operationName, out var descriptor))
+        {
+            var message = isImplicitEditOperation
+                ? $"Edit step '{stepId ?? string.Empty}' requires operation '{operationName}', but it is not registered."
+                : $"Operation '{operationName}' is not registered.";
+            errors.Add(new ValidationError(
+                Code: ValidationErrorCodes.OperationNotFound,
+                Message: message,
+                OpId: stepId));
+            return;
+        }
+
+        if (!authorizationCache.TryGetValue(operationName, out var authorizationResult))
+        {
+            authorizationResult = await operationAuthorizationService
+                .Authorize(descriptor, config, cancellationToken)
+                .ConfigureAwait(false);
+            authorizationCache[operationName] = authorizationResult;
+        }
+
+        if (!authorizationResult.IsAllowed)
+        {
+            var message = isImplicitEditOperation
+                ? $"Edit step '{stepId ?? string.Empty}' requires operation '{operationName}'. {authorizationResult.Message}"
+                : authorizationResult.Message;
+            errors.Add(new ValidationError(
+                Code: authorizationResult.ErrorCode ?? ValidationErrorCodes.OperationNotAllowed,
+                Message: message,
+                OpId: stepId));
+        }
     }
 }

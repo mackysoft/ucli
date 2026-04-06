@@ -28,7 +28,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 ### 必須フィールド
 - `protocolVersion`: 整数。現行は `1`
 - `requestId`: UUID 文字列
-- `steps`: step 配列。1件以上必須
+- `steps`: step 配列。空配列は許可する
 ### 実行原則
 - 実行順は `steps[]` の並び順
 - 既定は fail-fast
@@ -61,9 +61,6 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `id`: step 識別子
 - `op`: 実行する op 名
 - `args`: op 固有引数
-### 任意フィールド
-- `export`: step 結果から durable value を抽出する
-- `meta`: 将来拡張用
 ### 用途
 `op` は少なくとも次を表現する。
 - scene / prefab / project の open / save / refresh
@@ -73,6 +70,10 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - schema
 - find
 - その他 primitive operation
+### 原則
+- `op` は自己完結 primitive とする
+- 前段 step の結果や束縛に依存しない
+- step 間データフローは持たない
 ## `kind: "edit"` の仕様
 `edit` は、高頻度の編集を短く表現するための上位構文である。  
 `edit` は公開 DSL であり、内部では primitive `op` へ lower される。
@@ -109,8 +110,12 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `select`: 対象選択
 - `actions`: 実行する編集操作列
 - `commit`: 保存境界
-### 任意フィールド
-- `export`: durable value の抽出
+### 実行前提
+- `scene` / `prefab` context の `edit` は、`createAsset` だけを含む step を除き、対応する live context が既に使えることを前提にする
+- `scene` context で mutation action または `commit: "context"` を使う場合、対象 Scene は loaded であるか、前段 `kind: "op"` で `ucli.scene.open` を実行しておく
+- `prefab` context で mutation action または `commit: "context"` を使う場合、対象 Prefab は opened stage であるか、前段 `kind: "op"` で `ucli.prefab.open` を実行しておく
+- CLI の static validation / preflight は構造・登録 schema・primitive 参照・認可だけを検証し、Scene / Prefab の live open 状態までは保証しない
+- CLI の static validation / preflight は `select` の実ヒット件数を見ず、structural lowering で参照される primitive を認可対象に含める。`cardinality: "all"` や `"atMostOne"` が runtime で 0 件になって no-op になる step でも、その action primitive は事前認可が必要である
 ## `on` の仕様
 `on` は編集コンテキストであり、**永続化境界**を表す。
 ### 許容形
@@ -166,19 +171,26 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 ```
 ### `cardinality`
 選択件数制約は `select` の責務とする。  
+`cardinality` は必須フィールドとする。  
 許容値は次の4つ。
 - `one`
 - `first`
 - `all`
 - `atMostOne`
 ### 原則
+- 直接 selector 形は target をその場で指す
+- `from` は candidate set を作り、selection set に正規化する
 - query 起点でも selection set に正規化する
 - raw JSON を直接 mutation target にしない
 - 件数制約は `select.cardinality` に集約する
+- `select.from` の公開対応は #141 では scene context のみ
+- `gameObject` と `hierarchyPath` は `/` 区切りの hierarchy path として解釈するため、各 segment の GameObject 名に `/` は含めない
+- `/` を含む GameObject 名は hierarchyPath で表現できないため、`scene.query` と `select.from` の candidate にも含めない
 ## `actions` の仕様
 
 `actions` は編集内容の配列であり、`do` ではなく **`actions`** を正式採用する。  
 理由は、配列であることが自然で、各要素を discriminated union として扱いやすいためである。
+`actions` は 1 件以上を含む非空配列とする。
 
 ### 基本形
 
@@ -234,6 +246,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - 明示 `target` がなければ、初期 current target は `select` の結果
 - `as` により束縛した対象は、後続 action で `target: "$name"` として参照できる
 - current target の暗黙切替は限定的にのみ許可する
+- `createAsset` と `createPrefab` は fixed-path action として扱い、複数 target に解決した edit step では使わない
 ## `as` の仕様
 `as` は**採用する**。  
 ただし、**局所束縛に限定**する。
@@ -246,6 +259,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - step をまたぐ長寿命参照
 - raw JSON 結果の保持
 - UnityObject 生参照の持ち回り
+- `op` step への導入
 ### 例
 
 ```json
@@ -279,23 +293,26 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 ```
 ## `commit` の仕様
 `commit` は保存境界を表す。  
-複数 context 一括保存は中核仕様に入れない。
+1 step で複数編集 context を一括指定する保存モデルは中核仕様に入れない。
 ### 許容値
 - `none`
 - `context`
 - `project`
 ### 意味
 - `none`: 保存しない
-- `context`: 現在の context を保存する
+- `context`: 現在の context に対応する保存境界を実行する  
+  `scene` / `prefab` context ではその context を保存し、`asset` / `project` context では `ucli.project.save` を実行する
 - `project`: project 全体を保存する
 ### 原則
 - `commit` は `edit` では必須
 - 暗黙保存は禁止
 - `modify != persist` を徹底する
+- `ucli.project.save` は request 中に追跡した open Scene / opened Prefab の変更もあわせて保存し得る
 ## 複数 Scene / 複数 context の扱い
 
 複数 context を扱う場合は、**step を並べて表現する**。  
-1 step で複数 Scene をまたぐことはしない。
+1 step で複数 Scene をまたぐ編集対象を明示しない。  
+ただし `asset` / `project` context の `commit: "context"` は `ucli.project.save` を使うため、request 中に追跡した open Scene / opened Prefab の保存まで含み得る。
 
 ### 例
 
@@ -381,7 +398,6 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
   "actions": [
     {
       "kind": "set",
-      "mode": "samePatchEach",
       "values": {
         "spawnInterval": 3.0,
         "maxCount": 10
@@ -396,31 +412,13 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - target ごとに異なる値を与える
 - 異種型を一括で扱う
 - 複数 context を一括編集する
-## `expect` / `assert` の扱い
+## 中核に含めないもの
 
-### 結論
-- **中核仕様には採用しない**
-- 必要なら将来の**補助検証機能**として `assert` を追加可能
-- `expect` は採用しない
-### 理由
-- `expect` は件数制約、null 制約、結果検証、状態検証が混ざりやすい
-- 件数制約は `select.cardinality` に入れる方が強い
-- 中核構文は `on / select / actions / commit` で十分
-## step 間受け渡し
-
-step 間受け渡しには、**`export`** を使う。  
-受け渡すのは durable value のみ。
-### 許容値
-- `assetPath`
-- `guid`
-- `scenePath`
-- `hierarchyPath`
-- `componentType`
-- scalar 値
-### 禁止値
-- UnityObject の生参照
-- step 内局所束縛の再利用
-- raw query JSON
+- `expect`
+- `export`
+- `meta`
+- step 間データフロー
+- public `op.as`
 ## `asset` / `project` の扱い
 
 ### 通常 asset
@@ -459,6 +457,7 @@ asset は file context として扱い、内部 object は `select` で選ぶ。
 
 ProjectSettings のような project-scoped settings は `on.project` で扱う。  
 `projectAsset` の path は `on` ではなく `select` に置く。
+この target は通常の `assetPath` selector には縮退させず、project-scoped selector として解決する。
 
 ```json
 {

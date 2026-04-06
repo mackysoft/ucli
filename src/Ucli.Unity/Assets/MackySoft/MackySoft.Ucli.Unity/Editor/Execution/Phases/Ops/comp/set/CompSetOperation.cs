@@ -24,11 +24,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                   ""additionalProperties"": false,
                   ""properties"": {
                     ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 }
+                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""componentType"": { ""type"": ""string"", ""minLength"": 1 }
                   },
                   ""oneOf"": [
                     { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] }
+                    { ""required"": [""globalObjectId""] },
+                    { ""required"": [""scene"", ""hierarchyPath"", ""componentType""] },
+                    { ""required"": [""prefab"", ""hierarchyPath"", ""componentType""] }
                   ]
                 },
                 ""sets"": {
@@ -49,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.comp.set",
+            operationName: UcliPrimitiveOperationNames.CompSet,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -91,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sandbox!,
                 bindingState.Sets,
                 executionContext,
-                allowTemporaryState: true,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -111,6 +117,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     executionContext.SetTemporaryAlias(bindingState.Binding.Alias, sandbox!, bindingState.Binding.Resource, bindingState.Binding.SourceGlobalObjectId);
                 }
+
+                executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -145,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sandbox!,
                 bindingState.Sets,
                 executionContext,
-                allowTemporaryState: false,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -157,7 +165,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     bindingState.Binding.Component,
                     bindingState.Sets,
                     executionContext,
-                    allowTemporaryState: false,
+                    OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
                     out _,
                     out var commitErrorMessage))
             {
@@ -165,6 +173,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Code: IpcErrorCodes.InternalError,
                     Message: $"Validated component mutation could not be committed. {commitErrorMessage}",
                     OpId: operation.Id)));
+            }
+
+            if (changed)
+            {
+                executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
             }
 
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -247,7 +260,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 targetReference,
                 executionContext,
-                allowTemporaryState: false,
+                allowTemporaryState: true,
                 out var componentResolution,
                 out var errorMessage))
             {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
@@ -51,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var containsResolveOperation = false;
             for (var i = 0; i < operations.Count; i++)
             {
-                if (operations[i].Metadata.OperationName == "ucli.resolve")
+                if (operations[i].Metadata.OperationName == MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve)
                 {
                     containsResolveOperation = true;
                     break;
@@ -67,47 +68,135 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var operations = UcliOperationDiscoverer.Discover();
 
-            var resolveMetadata = FindMetadata(operations, "ucli.resolve");
+            var resolveMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
             using var resolveSchemaDocument = JsonDocument.Parse(resolveMetadata.ArgsSchemaJson);
+            var resolveProperties = resolveSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(
-                resolveSchemaDocument.RootElement.GetProperty("properties").TryGetProperty("globalObjectId", out _),
+                resolveProperties.TryGetProperty("globalObjectId", out _),
                 Is.True);
-            Assert.That(resolveSchemaDocument.RootElement.GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
+            Assert.That(resolveProperties.TryGetProperty("projectAssetPath", out _), Is.True);
+            Assert.That(resolveProperties.TryGetProperty("prefab", out _), Is.True);
+            Assert.That(resolveProperties.TryGetProperty("componentType", out _), Is.True);
+            Assert.That(resolveSchemaDocument.RootElement.GetProperty("oneOf").GetArrayLength(), Is.EqualTo(6));
+            var resolveAllOf = resolveSchemaDocument.RootElement.GetProperty("allOf");
+            Assert.That(resolveAllOf.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(
+                resolveAllOf[0].GetProperty("if").GetProperty("required")[0].GetString(),
+                Is.EqualTo("componentType"));
+            var resolveComponentTypeTargets = resolveAllOf[0].GetProperty("then").GetProperty("oneOf");
+            Assert.That(resolveComponentTypeTargets.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(resolveComponentTypeTargets[0].GetProperty("required")[0].GetString(), Is.EqualTo("scene"));
 
-            var compSetMetadata = FindMetadata(operations, "ucli.comp.set");
+            var compEnsureMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompEnsure);
+            using var compEnsureSchemaDocument = JsonDocument.Parse(compEnsureMetadata.ArgsSchemaJson);
+            var compEnsureTargetProperties = compEnsureSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
+            Assert.That(compEnsureTargetProperties.TryGetProperty("prefab", out _), Is.True);
+            Assert.That(compEnsureSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
+
+            var compSetMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSet);
             using var compSetSchemaDocument = JsonDocument.Parse(compSetMetadata.ArgsSchemaJson);
             var compSetProperties = compSetSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(compSetProperties.TryGetProperty("target", out _), Is.True);
             Assert.That(compSetProperties.GetProperty("sets").GetProperty("minItems").GetInt32(), Is.EqualTo(1));
+            var compSetTargetProperties = compSetProperties.GetProperty("target").GetProperty("properties");
+            Assert.That(compSetTargetProperties.TryGetProperty("scene", out _), Is.True);
+            Assert.That(compSetTargetProperties.TryGetProperty("prefab", out _), Is.True);
+            Assert.That(compSetTargetProperties.TryGetProperty("componentType", out _), Is.True);
+            Assert.That(compSetProperties.GetProperty("target").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
 
-            var prefabCreateMetadata = FindMetadata(operations, "ucli.prefab.create");
+            var prefabCreateMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.PrefabCreate);
             using var prefabCreateSchemaDocument = JsonDocument.Parse(prefabCreateMetadata.ArgsSchemaJson);
             var prefabCreateProperties = prefabCreateSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(prefabCreateProperties.TryGetProperty("target", out _), Is.True);
             Assert.That(prefabCreateProperties.TryGetProperty("path", out _), Is.True);
             Assert.That(prefabCreateSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(2));
 
-            var prefabOpenMetadata = FindMetadata(operations, "ucli.prefab.open");
+            var prefabOpenMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.PrefabOpen);
             using var prefabOpenSchemaDocument = JsonDocument.Parse(prefabOpenMetadata.ArgsSchemaJson);
             var prefabOpenProperties = prefabOpenSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(prefabOpenProperties.TryGetProperty("path", out _), Is.True);
             Assert.That(prefabOpenSchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(1));
 
-            var assetCreateMetadata = FindMetadata(operations, "ucli.asset.create");
+            var goCreateMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate);
+            using var goCreateSchemaDocument = JsonDocument.Parse(goCreateMetadata.ArgsSchemaJson);
+            var goCreateParentProperties = goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("properties");
+            Assert.That(goCreateParentProperties.TryGetProperty("prefab", out _), Is.True);
+            Assert.That(goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
+
+            var goDeleteMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDelete);
+            using var goDeleteSchemaDocument = JsonDocument.Parse(goDeleteMetadata.ArgsSchemaJson);
+            var goDeleteTargetProperties = goDeleteSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
+            Assert.That(goDeleteTargetProperties.TryGetProperty("componentType", out _), Is.False);
+
+            var goReparentMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoReparent);
+            using var goReparentSchemaDocument = JsonDocument.Parse(goReparentMetadata.ArgsSchemaJson);
+            var goReparentProperties = goReparentSchemaDocument.RootElement.GetProperty("properties");
+            Assert.That(goReparentProperties.GetProperty("target").GetProperty("properties").TryGetProperty("componentType", out _), Is.False);
+            Assert.That(goReparentProperties.GetProperty("parent").GetProperty("properties").TryGetProperty("componentType", out _), Is.False);
+
+            var sceneQueryMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneQuery);
+            using var sceneQuerySchemaDocument = JsonDocument.Parse(sceneQueryMetadata.ArgsSchemaJson);
+            Assert.That(sceneQuerySchemaDocument.RootElement.GetProperty("additionalProperties").GetBoolean(), Is.False);
+            var sceneQueryProperties = sceneQuerySchemaDocument.RootElement.GetProperty("properties");
+            Assert.That(sceneQueryProperties.TryGetProperty("scene", out _), Is.True);
+            Assert.That(sceneQueryProperties.TryGetProperty("pathPrefix", out _), Is.True);
+            Assert.That(sceneQueryProperties.TryGetProperty("componentType", out _), Is.True);
+            Assert.That(sceneQueryProperties.EnumerateObject().Count(), Is.EqualTo(3));
+            Assert.That(sceneQuerySchemaDocument.RootElement.GetProperty("required").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(sceneQuerySchemaDocument.RootElement.GetProperty("required")[0].GetString(), Is.EqualTo("scene"));
+
+            var assetCreateMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetCreate);
             using var assetCreateSchemaDocument = JsonDocument.Parse(assetCreateMetadata.ArgsSchemaJson);
             var assetCreateProperties = assetCreateSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(assetCreateProperties.TryGetProperty("type", out _), Is.True);
             Assert.That(assetCreateProperties.TryGetProperty("path", out _), Is.True);
 
-            var assetSetMetadata = FindMetadata(operations, "ucli.asset.set");
+            var assetSetMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSet);
             using var assetSetSchemaDocument = JsonDocument.Parse(assetSetMetadata.ArgsSchemaJson);
             var assetSetProperties = assetSetSchemaDocument.RootElement.GetProperty("properties");
             Assert.That(assetSetProperties.TryGetProperty("target", out _), Is.True);
             Assert.That(assetSetProperties.GetProperty("sets").GetProperty("minItems").GetInt32(), Is.EqualTo(1));
+            var assetSetTargetProperties = assetSetProperties.GetProperty("target").GetProperty("properties");
+            Assert.That(assetSetTargetProperties.TryGetProperty("projectAssetPath", out _), Is.True);
 
-            var assetSchemaMetadata = FindMetadata(operations, "ucli.asset.schema");
+            var assetSchemaMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSchema);
             using var assetSchemaDocument = JsonDocument.Parse(assetSchemaMetadata.ArgsSchemaJson);
             Assert.That(assetSchemaDocument.RootElement.GetProperty("oneOf").GetArrayLength(), Is.EqualTo(2));
+            var assetSchemaTargetProperties = assetSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
+            Assert.That(assetSchemaTargetProperties.TryGetProperty("projectAssetPath", out _), Is.True);
+
+            var goDescribeMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
+            using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeMetadata.ArgsSchemaJson);
+            var goDescribeTargetProperties = goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
+            Assert.That(goDescribeTargetProperties.TryGetProperty("prefab", out _), Is.True);
+            Assert.That(goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void BuildCatalog_WhenBuiltInOperationsAreExported_RemovesVarSelectorsFromPublicSchemas ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
+
+            var goCreateSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate);
+            using var goCreateSchemaDocument = JsonDocument.Parse(goCreateSchemaJson);
+            var goCreateParentProperties = goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("properties");
+            Assert.That(goCreateParentProperties.TryGetProperty("var", out _), Is.False);
+            Assert.That(goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(3));
+
+            var goDescribeSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
+            using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeSchemaJson);
+            var goDescribeTargetProperties = goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
+            Assert.That(goDescribeTargetProperties.TryGetProperty("var", out _), Is.False);
+            Assert.That(goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(3));
+
+            for (var i = 0; i < snapshot.Catalog.Operations!.Count; i++)
+            {
+                using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
+                AssertContainsNoVarBranch(schemaDocument.RootElement);
+            }
         }
 
         [Test]
@@ -192,6 +281,55 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.Fail($"Operation metadata was not discovered: {operationName}");
             return null!;
+        }
+
+        private static string FindCatalogSchema (
+            IReadOnlyList<MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract> operations,
+            string operationName)
+        {
+            for (var i = 0; i < operations.Count; i++)
+            {
+                if (operations[i].Name == operationName)
+                {
+                    return operations[i].ArgsSchemaJson!;
+                }
+            }
+
+            Assert.Fail($"Catalog schema was not discovered: {operationName}");
+            return null!;
+        }
+
+        private static void AssertContainsNoVarBranch (JsonElement element)
+        {
+            switch (element.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    foreach (var property in element.EnumerateObject())
+                    {
+                        Assert.That(property.Name, Is.Not.EqualTo("var"));
+                        AssertContainsNoVarBranch(property.Value);
+                    }
+
+                    return;
+
+                case JsonValueKind.Array:
+                    foreach (var item in element.EnumerateArray())
+                    {
+                        if (item.ValueKind == JsonValueKind.String)
+                        {
+                            Assert.That(item.GetString(), Is.Not.EqualTo("var"));
+                        }
+                        else
+                        {
+                            AssertContainsNoVarBranch(item);
+                        }
+                    }
+
+                    return;
+
+                default:
+                    return;
+            }
         }
     }
 }

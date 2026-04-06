@@ -7,5 +7,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         AssetGuid = 2,
         AssetPath = 3,
         SceneHierarchyPath = 4,
+        PrefabHierarchyPath = 5,
+        SceneComponent = 6,
+        PrefabComponent = 7,
+        ProjectAssetPath = 8,
     }
 }

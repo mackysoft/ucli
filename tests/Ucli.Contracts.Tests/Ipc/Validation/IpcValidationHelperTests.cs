@@ -161,7 +161,7 @@ public sealed class IpcValidationHelperTests
         var operationElement = JsonSerializer.SerializeToElement(new
         {
             id = "op-1",
-            op = "ucli.scene.open",
+            op = MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
             args = new { },
         });
 
@@ -284,7 +284,7 @@ public sealed class IpcValidationHelperTests
         var operationElement = JsonSerializer.SerializeToElement(new
         {
             id = "op-1",
-            op = "ucli.scene.open",
+            op = MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
         });
 
         var result = OperationContractReader.TryReadOperationArgs(operationElement, out _, out var errorKind);
@@ -310,14 +310,13 @@ public sealed class IpcValidationHelperTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void OperationContractReader_ReturnsTypeMismatchError_WhenAliasIsNotString ()
+    public void OperationContractReader_FlagsAliasPropertyAsUnknownInCoreOperationContract ()
     {
-        using var parsed = JsonDocument.Parse("""{"as":123}""");
+        using var parsed = JsonDocument.Parse("""{"id":"op-1","op":"ucli.scene.open","args":{},"as":"alias"}""");
 
-        var result = OperationContractReader.TryReadOperationAlias(parsed.RootElement, out _, out var error);
+        var unknownPropertyName = OperationContractReader.FindUnknownOperationProperty(parsed.RootElement);
 
-        Assert.False(result);
-        AssertJsonStringReadError(error, JsonStringReadErrorKind.TypeMismatch, "as");
+        Assert.Equal("as", unknownPropertyName);
     }
 
     [Fact]

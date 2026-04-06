@@ -11,15 +11,15 @@ public sealed class OperationAuthorizationServiceTests
 
     public static TheoryData<string, string, string, string, string> AllowedAuthorizationCases => new()
     {
-        { "ucli.scene.open", "query", "safe", "safe", "^ucli\\." },
+        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "query", "safe", "safe", "^ucli\\." },
         { "ucli.cs.invoke", "mutation", "dangerous", "dangerous", "^ucli\\." },
     };
 
     public static TheoryData<string, string, string, string, string, string?> DeniedAuthorizationCases => new()
     {
-        { "ucli.scene.save", "mutation", "advanced", "safe", "^ucli\\.", null },
-        { "ucli.scene.open", "query", "safe", "safe", "^myorg\\.", null },
-        { "ucli.scene.open", "query", "safe", "safe", "[", "invalid regex" },
+        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced", "safe", "^ucli\\.", null },
+        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "query", "safe", "safe", "^myorg\\.", null },
+        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "query", "safe", "safe", "[", "invalid regex" },
     };
 
     [Theory]

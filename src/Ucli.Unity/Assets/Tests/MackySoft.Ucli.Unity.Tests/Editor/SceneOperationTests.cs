@@ -23,65 +23,424 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Open_Call_WhenScenePathIsValid_OpensTargetScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneOpenOperation();
-            var scenePath = CreateTemporaryScenePath();
-            try
-            {
-                var createdScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                _ = new GameObject("Root");
-                EditorSceneManager.SaveScene(createdScene, scenePath);
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var requestOperation = CreateOperation(
-                    opId: "op-open",
-                    opName: "ucli.scene.open",
-                    args: new
-                    {
-                        path = scenePath,
-                    });
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var createdScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(createdScene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
 
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertSuccess(result, applied: true, changed: false);
-                Assert.That(SceneManager.GetActiveScene().path, Is.EqualTo(scenePath));
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(scenePath);
-            }
+            AssertSuccess(result, applied: true, changed: false);
+            Assert.That(SceneManager.GetActiveScene().path, Is.EqualTo(scenePath));
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Save_Call_WhenSceneIsDirty_ReturnsChangedTrueAndSavesScene () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Open_Call_WhenSceneIsAlreadyLoaded_ReusesLoadedScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: false);
+            Assert.That(SceneManager.sceneCount, Is.EqualTo(1));
+            Assert.That(SceneManager.GetActiveScene().path, Is.EqualTo(scenePath));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Call_WhenAnotherDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforeOpening () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var targetScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(targetScene, scenePath);
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening scene"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenAnotherDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var targetScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(targetScene, scenePath);
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening scene"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenDirtyPrefabStageExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var targetScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(targetScene, scenePath);
+            _ = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var prefabPath = scope.CreatePrefabAsset(nameof(SceneOperationTests), "PrefabRoot");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            var child = new GameObject("DirtyChild");
+            child.transform.SetParent(prefabStage!.prefabContentsRoot.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty prefab stage blocks opening scene"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenSceneIsOnlyDirtyWithoutRequestChange_SavesLoadedScene () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneSaveOperation();
-            var scenePath = CreateTemporaryScenePath();
-            try
-            {
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                _ = new GameObject("Root");
-                EditorSceneManager.SaveScene(scene, scenePath);
-                _ = new GameObject("DirtyObject");
-                EditorSceneManager.MarkSceneDirty(scene);
-                Assert.That(scene.isDirty, Is.True);
-                var requestOperation = CreateOperation(
-                    opId: "op-save",
-                    opName: "ucli.scene.save",
-                    args: new
-                    {
-                        path = scenePath,
-                    });
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            _ = new GameObject("DirtyObject");
+            EditorSceneManager.MarkSceneDirty(scene);
+            Assert.That(scene.isDirty, Is.True);
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.SceneSave,
+                args: new
+                {
+                    path = scenePath,
+                });
 
-                var result = await operation.Call(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertSuccess(result, applied: true, changed: true);
-                Assert.That(scene.isDirty, Is.False);
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(scenePath);
-            }
+            AssertSuccess(result, applied: true, changed: true);
+            Assert.That(scene.isDirty, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenOnlyPreviewSceneExistsWithoutPlannedLiveOpen_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneSaveOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryGetOrOpenTemporaryScene(scenePath, out _, out var previewErrorMessage), Is.True, previewErrorMessage);
+            var requestOperation = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.SceneSave,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-save");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenSceneOpenWasPlannedForClosedScene_Succeeds () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new SceneOpenOperation();
+            var saveOperation = new SceneSaveOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.SceneSave,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var openPlanResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var savePlanResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(openPlanResult, applied: false, changed: false);
+            AssertSuccess(savePlanResult, applied: false, changed: false);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenScenePathIsValid_TracksPreviewScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var createdScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(createdScene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var context = scope.CreateExecutionContext();
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
+            Assert.That(previewScene.IsValid(), Is.True);
+            Assert.That(previewScene.isLoaded, Is.True);
+            Assert.That(EditorSceneManager.IsPreviewScene(previewScene), Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenLoadedSceneIsDirty_TracksPreviewSceneSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            root.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var context = scope.CreateExecutionContext();
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
+            Assert.That(previewScene.IsValid(), Is.True);
+            Assert.That(previewScene.isLoaded, Is.True);
+            Assert.That(EditorSceneManager.IsPreviewScene(previewScene), Is.True);
+            Assert.That(previewScene, Is.Not.EqualTo(scene));
+            Assert.That(
+                previewScene.GetRootGameObjects(),
+                Has.Some.Matches<GameObject>(gameObject => gameObject.name == "Renamed"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenLoadedSceneIsDirty_RebindsCrossRootObjectReferencesInsidePreviewScene () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new SceneOpenOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var rootA = new GameObject("RootA");
+            var component = rootA.AddComponent<CompOperationTestComponent>();
+            var rootB = new GameObject("RootB");
+            var serializedObject = new SerializedObject(component);
+            serializedObject.FindProperty("objectReferenceValue").objectReferenceValue = rootB;
+            serializedObject.FindProperty("componentReferenceValue").objectReferenceValue = rootB.transform;
+            serializedObject.FindProperty("exposedObjectReferenceValue.defaultValue").objectReferenceValue = rootB;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            rootB.name = "RenamedRootB";
+            EditorSceneManager.MarkSceneDirty(scene);
+
+            var requestOperation = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var context = scope.CreateExecutionContext();
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
+            var previewRootA = FindRootGameObject(previewScene, "RootA");
+            var previewRootB = FindRootGameObject(previewScene, "RenamedRootB");
+            var previewComponent = previewRootA.GetComponent<CompOperationTestComponent>();
+            Assert.That(previewComponent, Is.Not.Null);
+            Assert.That(previewComponent!.ObjectReferenceValue, Is.SameAs(previewRootB));
+            Assert.That(previewComponent.ObjectReferenceValue, Is.Not.SameAs(rootB));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.SameAs(previewRootB.transform));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.Not.SameAs(rootB.transform));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.SameAs(previewRootB));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.Not.SameAs(rootB));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenPreviewSceneIsDirty_ReturnsChangedTrue () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new SceneOpenOperation();
+            var createOperation = new GoCreateOperation();
+            var saveOperation = new SceneSaveOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+
+            AssertSuccess(openResult, applied: false, changed: false);
+
+            var createRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.GoCreate,
+                args: new
+                {
+                    name = "CreatedRoot",
+                    scene = scenePath,
+                });
+            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+
+            AssertSuccess(createResult, applied: false, changed: true);
+
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.SceneSave,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var saveResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(saveResult, applied: false, changed: true);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenOnlyPreviewSceneIsTracked_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new SceneOpenOperation();
+            var createOperation = new GoCreateOperation();
+            var saveOperation = new SceneSaveOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var createRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.GoCreate,
+                args: new
+                {
+                    name = "CreatedRoot",
+                    scene = scenePath,
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-save",
+                opName: UcliPrimitiveOperationNames.SceneSave,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            _ = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            _ = await createOperation.Plan(createRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+
+            AssertInvalidArgument(saveResult, "op-save");
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
         });
 
         [UnityTest]
@@ -89,30 +448,23 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Tree_Validate_WhenDepthIsNegative_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneTreeOperation();
-            var scenePath = CreateTemporaryScenePath();
-            try
-            {
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                _ = new GameObject("Root");
-                EditorSceneManager.SaveScene(scene, scenePath);
-                var requestOperation = CreateOperation(
-                    opId: "op-tree",
-                    opName: "ucli.scene.tree",
-                    args: new
-                    {
-                        path = scenePath,
-                        depth = -1,
-                    });
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                    depth = -1,
+                });
 
-                var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Validate(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertInvalidArgument(result, "op-tree");
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(scenePath);
-            }
+            AssertInvalidArgument(result, "op-tree");
         });
 
         [UnityTest]
@@ -120,36 +472,29 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Tree_Plan_WhenDepthIsNull_AcceptsUnlimitedDepth () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneTreeOperation();
-            var scenePath = CreateTemporaryScenePath();
-            try
-            {
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var root = new GameObject("Root");
-                var child = new GameObject("Child");
-                child.transform.SetParent(root.transform, worldPositionStays: false);
-                EditorSceneManager.SaveScene(scene, scenePath);
-                var requestOperation = CreateOperation(
-                    opId: "op-tree",
-                    opName: "ucli.scene.tree",
-                    args: new
-                    {
-                        path = scenePath,
-                        depth = (int?)null,
-                    });
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                    depth = (int?)null,
+                });
 
-                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertSuccess(result, applied: false, changed: false);
-                Assert.That(result.Result.HasValue, Is.True);
-                Assert.That(result.Result!.Value.GetProperty("path").GetString(), Is.EqualTo(scenePath));
-                Assert.That(result.Result.Value.GetProperty("roots").GetArrayLength(), Is.EqualTo(1));
-                Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("children").GetArrayLength(), Is.EqualTo(1));
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(scenePath);
-            }
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(result.Result.HasValue, Is.True);
+            Assert.That(result.Result!.Value.GetProperty("path").GetString(), Is.EqualTo(scenePath));
+            Assert.That(result.Result.Value.GetProperty("roots").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("children").GetArrayLength(), Is.EqualTo(1));
         });
 
         [UnityTest]
@@ -157,37 +502,314 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Tree_Plan_WhenDepthIsOmitted_AcceptsUnlimitedDepth () => UniTask.ToCoroutine(async () =>
         {
             var operation = new SceneTreeOperation();
-            var scenePath = CreateTemporaryScenePath();
-            try
-            {
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var root = new GameObject("Root");
-                var child = new GameObject("Child");
-                child.transform.SetParent(root.transform, worldPositionStays: false);
-                EditorSceneManager.SaveScene(scene, scenePath);
-                var requestOperation = CreateOperation(
-                    opId: "op-tree",
-                    opName: "ucli.scene.tree",
-                    args: new
-                    {
-                        path = scenePath,
-                    });
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                });
 
-                var result = await operation.Plan(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
-                AssertSuccess(result, applied: false, changed: false);
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(scenePath);
-            }
+            AssertSuccess(result, applied: false, changed: false);
         });
 
-        private static string CreateTemporaryScenePath ()
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Tree_Plan_WhenSceneUsesMirroredLoadedState_PreservesStableGlobalObjectId () => UniTask.ToCoroutine(async () =>
         {
-            return $"Assets/SceneOperationTests_{Guid.NewGuid():N}.unity";
-        }
+            var operation = new SceneTreeOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
+            root.name = "RenamedRoot";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
+            var previewRoots = temporaryScene.GetRootGameObjects();
+            Assert.That(previewRoots, Has.Length.EqualTo(1));
+            Assert.That(previewRoots[0].name, Is.EqualTo("RenamedRoot"));
+            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewRoots[0], out _), Is.False);
+            var requestOperation = CreateOperation(
+                opId: "op-tree",
+                opName: UcliPrimitiveOperationNames.SceneTree,
+                args: new
+                {
+                    path = scenePath,
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(result.Result.HasValue, Is.True);
+            var roots = result.Result!.Value.GetProperty("roots");
+            Assert.That(roots.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(roots[0].GetProperty("name").GetString(), Is.EqualTo("RenamedRoot"));
+            Assert.That(roots[0].GetProperty("globalObjectId").GetString(), Is.EqualTo(expectedGlobalObjectId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Plan_WhenPreviewSceneHasPlannedChanges_UsesPreviewSceneState () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new SceneOpenOperation();
+            var createOperation = new GoCreateOperation();
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+
+            AssertSuccess(openResult, applied: false, changed: false);
+
+            var createRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.GoCreate,
+                args: new
+                {
+                    name = "CreatedRoot",
+                    scene = scenePath,
+                });
+            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+
+            AssertSuccess(createResult, applied: false, changed: true);
+
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    pathPrefix = "CreatedRoot",
+                });
+            var queryResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
+
+            AssertSuccess(queryResult, applied: false, changed: false);
+            Assert.That(queryResult.Result.HasValue, Is.True);
+            Assert.That(queryResult.Result!.Value.GetProperty("scene").GetString(), Is.EqualTo(scenePath));
+            Assert.That(queryResult.Result.Value.GetProperty("matches").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(queryResult.Result.Value.GetProperty("matches")[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("CreatedRoot"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Plan_WhenPreviewSceneHasEnsuredComponent_IncludesEnsuredComponentMatch () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new SceneOpenOperation();
+            var ensureOperation = new CompEnsureOperation();
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+
+            var openRequest = CreateOperation(
+                opId: "op-open",
+                opName: UcliPrimitiveOperationNames.SceneOpen,
+                args: new
+                {
+                    path = scenePath,
+                });
+            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            AssertSuccess(openResult, applied: false, changed: false);
+
+            var componentTypeId = MackySoft.Ucli.Unity.Index.IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var ensureRequest = CreateOperation(
+                opId: "op-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                    },
+                    type = componentTypeId,
+                });
+            var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
+            AssertSuccess(ensureResult, applied: false, changed: true);
+
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    pathPrefix = "Root",
+                    componentType = componentTypeId,
+                });
+            var queryResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
+
+            AssertSuccess(queryResult, applied: false, changed: false);
+            Assert.That(queryResult.Result.HasValue, Is.True);
+            var matches = queryResult.Result!.Value.GetProperty("matches");
+            Assert.That(matches.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(matches[0].GetProperty("kind").GetString(), Is.EqualTo("component"));
+            Assert.That(matches[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("Root"));
+            Assert.That(matches[0].GetProperty("componentType").GetString(), Is.EqualTo(componentTypeId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Plan_WhenSceneIsClosed_DoesNotPrepareTrackedPreviewState () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            var createOperation = new GoCreateOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var context = scope.CreateExecutionContext();
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    pathPrefix = "Root",
+                });
+
+            var queryResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
+
+            AssertSuccess(queryResult, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out _), Is.False);
+
+            var createRequest = CreateOperation(
+                opId: "op-create",
+                opName: UcliPrimitiveOperationNames.GoCreate,
+                args: new
+                {
+                    name = "CreatedAfterQuery",
+                    scene = scenePath,
+                });
+            var createResult = await createOperation.Plan(createRequest, context, CancellationToken.None);
+
+            AssertInvalidArgument(createResult, "op-create");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_PlanAndCall_WhenLoadedSceneIsDirty_UseLoadedSceneState () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(scene);
+            Assert.That(scene.isDirty, Is.True);
+
+            var context = scope.CreateExecutionContext();
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    pathPrefix = "DirtyRoot",
+                });
+
+            var planResult = await queryOperation.Plan(queryRequest, context, CancellationToken.None);
+            var callResult = await queryOperation.Call(queryRequest, context, CancellationToken.None);
+
+            AssertSuccess(planResult, applied: false, changed: false);
+            AssertSuccess(callResult, applied: true, changed: false);
+            Assert.That(context.TryGetTemporaryScene(scenePath, out _), Is.False);
+            Assert.That(planResult.Result.HasValue, Is.True);
+            Assert.That(callResult.Result.HasValue, Is.True);
+            Assert.That(planResult.Result!.Value.GetProperty("matches").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(callResult.Result!.Value.GetProperty("matches").GetArrayLength(), Is.EqualTo(1));
+            Assert.That(planResult.Result.Value.GetProperty("matches")[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("DirtyRoot"));
+            Assert.That(callResult.Result.Value.GetProperty("matches")[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("DirtyRoot"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Plan_WhenHierarchyPathIsAmbiguous_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var duplicateA = new GameObject("Dup");
+            duplicateA.transform.SetParent(root.transform, worldPositionStays: false);
+            var duplicateB = new GameObject("Dup");
+            duplicateB.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    pathPrefix = "Root/Dup",
+                });
+
+            var queryResult = await queryOperation.Plan(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(queryResult, "op-query");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Plan_WhenUnrelatedHierarchyContainsSlashInName_IgnoresThatSubtree () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("GoodRoot");
+            _ = new GameObject("Bad/Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    pathPrefix = "GoodRoot",
+                });
+
+            var queryResult = await queryOperation.Plan(queryRequest, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(queryResult, applied: false, changed: false);
+            Assert.That(queryResult.Result.HasValue, Is.True);
+            var matches = queryResult.Result!.Value.GetProperty("matches");
+            Assert.That(matches.GetArrayLength(), Is.EqualTo(1));
+            Assert.That(matches[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("GoodRoot"));
+        });
 
         private static NormalizedOperation CreateOperation (
             string opId,
@@ -223,6 +845,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Touched.Count, Is.EqualTo(1));
             Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Scene));
             Assert.That(result.Failure, Is.Null);
+        }
+
+        private static GameObject FindRootGameObject (
+            Scene scene,
+            string name)
+        {
+            var rootGameObjects = scene.GetRootGameObjects();
+            for (var i = 0; i < rootGameObjects.Length; i++)
+            {
+                if (rootGameObjects[i].name == name)
+                {
+                    return rootGameObjects[i];
+                }
+            }
+
+            Assert.Fail($"Root GameObject was not found: {name}.");
+            return null!;
         }
     }
 }

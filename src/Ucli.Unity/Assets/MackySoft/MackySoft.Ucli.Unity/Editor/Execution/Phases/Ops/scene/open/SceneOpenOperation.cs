@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
 
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.scene.open",
+            operationName: UcliPrimitiveOperationNames.SceneOpen,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
@@ -61,12 +62,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!SceneOperationUtilities.TryGetLoadedScene(validationState.ScenePath, out _, out _)
+                && !SceneOperationUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    blockerErrorMessage));
+            }
+
+            if (!executionContext.TryGetOrOpenTemporaryScene(validationState.ScenePath, out _, out var sceneErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    sceneErrorMessage));
+            }
+
+            executionContext.TrackPlannedLiveSceneOpen(validationState.ScenePath);
+
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
                 }));
         }
 
@@ -85,6 +103,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (SceneOperationUtilities.TryGetLoadedScene(validationState.ScenePath, out _, out _))
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: false,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
+                    }));
+            }
+
+            if (!SceneOperationUtilities.TryEnsureCanOpenSceneLive(validationState.ScenePath, out var blockerErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    blockerErrorMessage));
+            }
+
             var openedScene = EditorSceneManager.OpenScene(validationState.ScenePath, OpenSceneMode.Single);
             if (!openedScene.IsValid() || !openedScene.isLoaded)
             {
@@ -98,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
                 }));
         }
 

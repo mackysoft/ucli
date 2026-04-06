@@ -152,6 +152,76 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return touched;
         }
 
+        /// <summary> Synchronizes scene/prefab dirty-state transitions into touched resources and request-attributed change markers. </summary>
+        /// <param name="beforeState"> The dirty-state snapshot captured before the project-domain operation. </param>
+        /// <param name="afterState"> The dirty-state snapshot captured after the project-domain operation. </param>
+        /// <param name="touchKind"> The persistence kind represented by the dirty-state map. </param>
+        /// <param name="touched"> The touched-resource sink that receives state-transition entries. </param>
+        /// <param name="executionContext"> The per-request execution context that tracks request-attributed changes. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when any reference argument is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="touchKind" /> is not Scene or Prefab. </exception>
+        public static void SyncDirtyStateChanges (
+            IReadOnlyDictionary<string, bool> beforeState,
+            IReadOnlyDictionary<string, bool> afterState,
+            OperationTouchKind touchKind,
+            ICollection<OperationTouch> touched,
+            OperationExecutionContext executionContext)
+        {
+            if (beforeState == null)
+            {
+                throw new ArgumentNullException(nameof(beforeState));
+            }
+
+            if (afterState == null)
+            {
+                throw new ArgumentNullException(nameof(afterState));
+            }
+
+            if (touched == null)
+            {
+                throw new ArgumentNullException(nameof(touched));
+            }
+
+            if (executionContext == null)
+            {
+                throw new ArgumentNullException(nameof(executionContext));
+            }
+
+            if (touchKind != OperationTouchKind.Scene
+                && touchKind != OperationTouchKind.Prefab)
+            {
+                throw new ArgumentOutOfRangeException(nameof(touchKind), touchKind, "Dirty-state syncing supports only scene and prefab resources.");
+            }
+
+            foreach (var pair in afterState)
+            {
+                if (beforeState.TryGetValue(pair.Key, out var beforeDirty)
+                    && beforeDirty == pair.Value)
+                {
+                    continue;
+                }
+
+                if (touchKind == OperationTouchKind.Scene)
+                {
+                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, pair.Key)));
+                }
+                else
+                {
+                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, pair.Key)));
+                }
+
+                var resource = new OperationResource(touchKind, pair.Key);
+                if (pair.Value)
+                {
+                    executionContext.MarkRequestAttributedChange(resource);
+                }
+                else
+                {
+                    executionContext.UnmarkRequestAttributedChange(resource);
+                }
+            }
+        }
+
         /// <summary> Adds touched candidates into the deduplication map. </summary>
         /// <param name="candidatePaths"> The candidate path collection. </param>
         /// <param name="touchedByPath"> The deduplication map keyed by touched path. </param>

@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -31,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.scene.tree",
+            operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
@@ -46,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken = default)
         {
-            if (!TryValidateArguments(operation, out _, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -90,18 +89,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             bool applied)
         {
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: !applied, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
 
-            var tree = BuildSceneTree(validationState.ScenePath, validationState.Scene, validationState.Depth);
+            var tree = BuildSceneTree(validationState.ScenePath, validationState.Scene, validationState.Depth, executionContext);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
                 touched: new[]
                 {
-                    SceneOperationUtilities.CreateSceneTouch(validationState.ScenePath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
                 },
                 result: IpcPayloadCodec.SerializeToElement(tree)));
         }
@@ -113,6 +112,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            OperationExecutionContext executionContext,
+            bool allowTemporaryState,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
@@ -131,7 +132,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out var scene, out sceneErrorMessage))
+            if (!GoOperationUtilities.TryResolveScene(scenePath, executionContext, allowTemporaryState, out var scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
@@ -149,14 +150,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static SceneTreeDescription BuildSceneTree (
             string scenePath,
             Scene scene,
-            int? depth)
+            int? depth,
+            OperationExecutionContext executionContext)
         {
             var maxDepth = depth ?? int.MaxValue;
             var roots = scene.GetRootGameObjects();
             var rootDescriptions = new SceneTreeNodeDescription[roots.Length];
             for (var rootIndex = 0; rootIndex < roots.Length; rootIndex++)
             {
-                rootDescriptions[rootIndex] = BuildNode(roots[rootIndex], currentDepth: 0, maxDepth);
+                rootDescriptions[rootIndex] = BuildNode(roots[rootIndex], currentDepth: 0, maxDepth, executionContext);
             }
 
             return new SceneTreeDescription(scenePath, rootDescriptions);
@@ -170,14 +172,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static SceneTreeNodeDescription BuildNode (
             GameObject gameObject,
             int currentDepth,
-            int maxDepth)
+            int maxDepth,
+            OperationExecutionContext executionContext)
         {
             var children = currentDepth >= maxDepth
                 ? System.Array.Empty<SceneTreeNodeDescription>()
-                : BuildChildren(gameObject.transform, currentDepth + 1, maxDepth);
+                : BuildChildren(gameObject.transform, currentDepth + 1, maxDepth, executionContext);
+            var globalObjectId = ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
+                ? resolvedReference!.GlobalObjectId
+                : string.Empty;
             return new SceneTreeNodeDescription(
                 Name: gameObject.name,
-                GlobalObjectId: GlobalObjectId.GetGlobalObjectIdSlow(gameObject).ToString(),
+                GlobalObjectId: globalObjectId,
                 Children: children);
         }
 
@@ -189,7 +195,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static IReadOnlyList<SceneTreeNodeDescription> BuildChildren (
             Transform transform,
             int childDepth,
-            int maxDepth)
+            int maxDepth,
+            OperationExecutionContext executionContext)
         {
             if (transform.childCount == 0)
             {
@@ -199,7 +206,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var children = new SceneTreeNodeDescription[transform.childCount];
             for (var childIndex = 0; childIndex < transform.childCount; childIndex++)
             {
-                children[childIndex] = BuildNode(transform.GetChild(childIndex).gameObject, childDepth, maxDepth);
+                children[childIndex] = BuildNode(transform.GetChild(childIndex).gameObject, childDepth, maxDepth, executionContext);
             }
 
             return children;

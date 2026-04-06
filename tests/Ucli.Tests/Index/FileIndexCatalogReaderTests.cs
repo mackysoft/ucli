@@ -22,7 +22,7 @@ public sealed class FileIndexCatalogReaderTests
             Entries:
             [
                 new IndexOpEntryJsonContract(
-                    Name: "ucli.go.describe",
+                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
                     ArgsSchemaJson: """{"type":"object"}"""),

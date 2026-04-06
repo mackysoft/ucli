@@ -3,6 +3,7 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 #nullable enable
 
@@ -69,15 +70,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             errorMessage = string.Empty;
             return true;
         }
-
-        /// <summary> Creates one touched entry for the specified prefab path. </summary>
-        /// <param name="prefabPath"> The prefab path. </param>
-        /// <returns> The touched prefab entry. </returns>
-        public static OperationTouch CreatePrefabTouch (string prefabPath)
-        {
-            return OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, prefabPath));
-        }
-
         /// <summary> Gets one currently opened prefab stage by asset path. </summary>
         /// <param name="prefabPath"> The prefab asset path. </param>
         /// <param name="prefabStage"> The opened prefab stage when successful. </param>
@@ -121,6 +113,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
+            if (!TryEnsureCanOpenPrefabStage(prefabPath, out errorMessage))
+            {
+                prefabStage = null;
+                return false;
+            }
+
             try
             {
                 prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
@@ -137,6 +135,41 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 errorMessage = $"Prefab could not be opened: {prefabPath}.";
                 prefabStage = null;
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        /// <summary> Validates that opening one live prefab stage will not be blocked by dirty live editor state. </summary>
+        /// <param name="prefabPath"> The target prefab path. </param>
+        /// <param name="errorMessage"> The validation error message when blocked. </param>
+        /// <returns> <see langword="true" /> when the prefab stage can be opened without dirty-state blockers; otherwise <see langword="false" />. </returns>
+        public static bool TryEnsureCanOpenPrefabStage (
+            string prefabPath,
+            out string errorMessage)
+        {
+            var currentPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (currentPrefabStage != null
+                && currentPrefabStage.scene.isDirty)
+            {
+                errorMessage = $"Dirty prefab stage blocks opening prefab '{prefabPath}': {currentPrefabStage.assetPath}.";
+                return false;
+            }
+
+            for (var i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var loadedScene = SceneManager.GetSceneAt(i);
+                if (!loadedScene.IsValid()
+                    || !loadedScene.isLoaded
+                    || EditorSceneManager.IsPreviewScene(loadedScene)
+                    || !loadedScene.isDirty)
+                {
+                    continue;
+                }
+
+                errorMessage = $"Dirty loaded scene blocks opening prefab '{prefabPath}': {CreateSceneDisplayName(loadedScene)}.";
                 return false;
             }
 
@@ -187,6 +220,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             executionContext.TrackTemporaryPrefabContentsRoot(prefabPath, prefabContentsRoot);
             errorMessage = string.Empty;
             return true;
+        }
+
+        private static string CreateSceneDisplayName (Scene scene)
+        {
+            return string.IsNullOrWhiteSpace(scene.path)
+                ? scene.name
+                : scene.path;
         }
 
         private static bool TryValidatePrefabAssetPathFormat (

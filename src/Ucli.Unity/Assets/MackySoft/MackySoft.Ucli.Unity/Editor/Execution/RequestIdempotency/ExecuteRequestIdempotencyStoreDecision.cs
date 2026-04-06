@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 {
     /// <summary> Represents one store decision used by request-id idempotency coordination flows. </summary>

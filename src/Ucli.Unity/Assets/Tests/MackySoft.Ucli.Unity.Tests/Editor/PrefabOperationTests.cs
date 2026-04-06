@@ -27,48 +27,40 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Create_Call_WhenSceneGameObjectIsValid_CreatesPrefabAndConnectsSourceObject () => UniTask.ToCoroutine(async () =>
         {
             var operation = new PrefabCreateOperation();
-            var scenePath = CreateTemporaryScenePath();
-            var prefabPath = CreateTemporaryPrefabPath();
-            try
-            {
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var root = new GameObject("Root");
-                EditorSceneManager.SaveScene(scene, scenePath);
-                var context = new OperationExecutionContext();
-                var requestOperation = CreateOperation(
-                    opId: "op-prefab-create",
-                    opName: "ucli.prefab.create",
-                    args: new
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var scenePath = scope.CreateScenePath(nameof(PrefabOperationTests));
+            var prefabPath = scope.CreatePrefabPath(nameof(PrefabOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-create",
+                opName: UcliPrimitiveOperationNames.PrefabCreate,
+                args: new
+                {
+                    target = new
                     {
-                        target = new
-                        {
-                            scene = scenePath,
-                            hierarchyPath = "Root",
-                        },
-                        path = prefabPath,
+                        scene = scenePath,
+                        hierarchyPath = "Root",
                     },
-                    alias: "created");
+                    path = prefabPath,
+                },
+                alias: "created");
 
-                var result = await operation.Call(requestOperation, context, CancellationToken.None);
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
 
-                AssertSuccess(result, applied: true, changed: true);
-                AssertTouchSet(
-                    result,
-                    (OperationTouchKind.Scene, scenePath),
-                    (OperationTouchKind.Prefab, prefabPath));
-                Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath), Is.Not.Null);
-                Assert.That(PrefabUtility.IsPartOfPrefabInstance(root), Is.True);
-                Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(root), Is.Not.Null);
-                Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
-                Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(UnityObjectReferenceResolver.CreateResolvedReference(root).GlobalObjectId));
-            }
-            finally
-            {
-                ClosePrefabStageIfOpen();
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(scenePath);
-                AssetDatabase.DeleteAsset(prefabPath);
-            }
+            AssertSuccess(result, applied: true, changed: true);
+            AssertTouchSet(
+                result,
+                (OperationTouchKind.Scene, scenePath),
+                (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath), Is.Not.Null);
+            Assert.That(PrefabUtility.IsPartOfPrefabInstance(root), Is.True);
+            Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(root), Is.Not.Null);
+            Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
+            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(UnityObjectReferenceResolver.CreateResolvedReference(root).GlobalObjectId));
         });
 
         [UnityTest]
@@ -78,15 +70,95 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new PrefabCreateOperation();
             var requestOperation = CreateOperation(
                 opId: "op-prefab-create",
-                opName: "ucli.prefab.create",
+                opName: UcliPrimitiveOperationNames.PrefabCreate,
                 args: new
                 {
                     path = "Assets/MissingTarget.prefab",
                 });
 
-            var result = await operation.Validate(requestOperation, new OperationExecutionContext(), CancellationToken.None);
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Validate(requestOperation, executionContext, CancellationToken.None);
 
             AssertInvalidArgument(result, "op-prefab-create");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Call_WhenDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforeOpening () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var result = await operation.Call(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-prefab-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening prefab"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenDirtyLoadedSceneExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var dirtyScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("DirtyRoot");
+            EditorSceneManager.MarkSceneDirty(dirtyScene);
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-prefab-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty loaded scene blocks opening prefab"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenAnotherDirtyPrefabStageExists_ReturnsInvalidArgumentBeforePlanning () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var dirtyPrefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "DirtyPrefabRoot");
+            var targetPrefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "TargetPrefabRoot");
+            var dirtyPrefabStage = PrefabStageUtility.OpenPrefab(dirtyPrefabPath);
+            var child = new GameObject("DirtyChild");
+            child.transform.SetParent(dirtyPrefabStage!.prefabContentsRoot.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(dirtyPrefabStage.scene);
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = targetPrefabPath,
+                });
+
+            var result = await operation.Plan(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-prefab-open");
+            Assert.That(result.Failure!.Message, Does.Contain("Dirty prefab stage blocks opening prefab"));
         });
 
         [UnityTest]
@@ -94,38 +166,30 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Open_Plan_WhenAliasIsSpecified_StoresTemporaryPrefabRootAlias () => UniTask.ToCoroutine(async () =>
         {
             var operation = new PrefabOpenOperation();
-            var prefabPath = CreateTemporaryPrefabPath();
-            try
-            {
-                CreatePrefabAsset(prefabPath, "PrefabRoot");
-                var context = new OperationExecutionContext();
-                var requestOperation = CreateOperation(
-                    opId: "op-prefab-open",
-                    opName: "ucli.prefab.open",
-                    args: new
-                    {
-                        path = prefabPath,
-                    },
-                    alias: "root");
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                },
+                alias: "root");
 
-                var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
-                AssertSuccess(result, applied: false, changed: false);
-                AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
-                Assert.That(context.TryGetTemporaryAliasState("root", out var temporaryAliasState), Is.True);
-                Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
-                Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
-                Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<GameObject>());
-                Assert.That(
-                    ((GameObject)temporaryAliasState.UnityObject!).name,
-                    Is.EqualTo(Path.GetFileNameWithoutExtension(prefabPath)));
-            }
-            finally
-            {
-                ClosePrefabStageIfOpen();
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(prefabPath);
-            }
+            AssertSuccess(result, applied: false, changed: false);
+            AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(context.TryGetTemporaryAliasState("root", out var temporaryAliasState), Is.True);
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
+            Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<GameObject>());
+            Assert.That(
+                ((GameObject)temporaryAliasState.UnityObject!).name,
+                Is.EqualTo(Path.GetFileNameWithoutExtension(prefabPath)));
         });
 
         [UnityTest]
@@ -136,84 +200,211 @@ namespace MackySoft.Ucli.Unity.Tests
             var goCreateOperation = new GoCreateOperation();
             var compEnsureOperation = new CompEnsureOperation();
             var compSetOperation = new CompSetOperation();
-            var prefabPath = CreateTemporaryPrefabPath();
-            try
-            {
-                CreatePrefabAsset(prefabPath, "PrefabRoot");
-                var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
-                var context = new OperationExecutionContext();
-                var openRequest = CreateOperation(
-                    opId: "op-prefab-open",
-                    opName: "ucli.prefab.open",
-                    args: new
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                },
+                alias: "root");
+            var createRequest = CreateOperation(
+                opId: "op-go-create",
+                opName: UcliPrimitiveOperationNames.GoCreate,
+                args: new
+                {
+                    name = "Child",
+                    parent = new
                     {
-                        path = prefabPath,
+                        @var = "root",
                     },
-                    alias: "root");
-                var createRequest = CreateOperation(
-                    opId: "op-go-create",
-                    opName: "ucli.go.create",
-                    args: new
+                },
+                alias: "child");
+            var ensureRequest = CreateOperation(
+                opId: "op-comp-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
                     {
-                        name = "Child",
-                        parent = new
+                        @var = "child",
+                    },
+                    type = componentTypeId,
+                },
+                alias: "childComp");
+            var setRequest = CreateOperation(
+                opId: "op-comp-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "childComp",
+                    },
+                    sets = new object[]
+                    {
+                        new
                         {
-                            @var = "root",
+                            path = "integerValue",
+                            value = 11,
                         },
                     },
-                    alias: "child");
-                var ensureRequest = CreateOperation(
-                    opId: "op-comp-ensure",
-                    opName: "ucli.comp.ensure",
-                    args: new
-                    {
-                        target = new
-                        {
-                            @var = "child",
-                        },
-                        type = componentTypeId,
-                    },
-                    alias: "childComp");
-                var setRequest = CreateOperation(
-                    opId: "op-comp-set",
-                    opName: "ucli.comp.set",
-                    args: new
-                    {
-                        target = new
-                        {
-                            @var = "childComp",
-                        },
-                        sets = new object[]
-                        {
-                            new
-                            {
-                                path = "integerValue",
-                                value = 11,
-                            },
-                        },
-                    });
+                });
 
-                var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
-                var createResult = await goCreateOperation.Plan(createRequest, context, CancellationToken.None);
-                var ensureResult = await compEnsureOperation.Plan(ensureRequest, context, CancellationToken.None);
-                var setResult = await compSetOperation.Plan(setRequest, context, CancellationToken.None);
+            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var createResult = await goCreateOperation.Plan(createRequest, context, CancellationToken.None);
+            var ensureResult = await compEnsureOperation.Plan(ensureRequest, context, CancellationToken.None);
+            var setResult = await compSetOperation.Plan(setRequest, context, CancellationToken.None);
 
-                AssertSuccess(openResult, applied: false, changed: false);
-                AssertSuccess(createResult, applied: false, changed: true);
-                AssertSuccess(ensureResult, applied: false, changed: true);
-                AssertSuccess(setResult, applied: false, changed: true);
-                Assert.That(context.TryGetTemporaryAliasState("childComp", out var temporaryAliasState), Is.True);
-                Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
-                Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
-                Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<CompOperationTestComponent>());
-                Assert.That(((CompOperationTestComponent)temporaryAliasState.UnityObject!).IntegerValue, Is.EqualTo(11));
-            }
-            finally
-            {
-                ClosePrefabStageIfOpen();
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(prefabPath);
-            }
+            AssertSuccess(openResult, applied: false, changed: false);
+            AssertSuccess(createResult, applied: false, changed: true);
+            AssertSuccess(ensureResult, applied: false, changed: true);
+            AssertSuccess(setResult, applied: false, changed: true);
+            Assert.That(context.TryGetTemporaryAliasState("childComp", out var temporaryAliasState), Is.True);
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
+            Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<CompOperationTestComponent>());
+            Assert.That(((CompOperationTestComponent)temporaryAliasState.UnityObject!).IntegerValue, Is.EqualTo(11));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenOpenedPrefabStageIsDirty_TracksTemporaryPrefabContentsSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot", "Child");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            prefabStage!.prefabContentsRoot.transform.GetChild(0).name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                },
+                alias: "root");
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot), Is.True);
+            Assert.That(prefabContentsRoot, Is.Not.Null);
+            Assert.That(prefabContentsRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
+            Assert.That(prefabContentsRoot!.transform.GetChild(0).name, Is.EqualTo("Renamed"));
+            Assert.That(context.TryGetTemporaryAliasState("root", out var temporaryAliasState), Is.True);
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
+            Assert.That(temporaryAliasState.UnityObject, Is.SameAs(prefabContentsRoot));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenOpenedPrefabStageIsDirty_RebindsCrossRootObjectReferencesInsideTemporaryPrefabSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new PrefabOpenOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var editableRoot = scope.LoadPrefabContents(prefabPath);
+            var sourceA = new GameObject("A");
+            sourceA.transform.SetParent(editableRoot.transform, worldPositionStays: false);
+            var sourceComponent = sourceA.AddComponent<CompOperationTestComponent>();
+            var sourceB = new GameObject("B");
+            sourceB.transform.SetParent(editableRoot.transform, worldPositionStays: false);
+            var serializedObject = new SerializedObject(sourceComponent);
+            serializedObject.FindProperty("objectReferenceValue").objectReferenceValue = sourceB;
+            serializedObject.FindProperty("componentReferenceValue").objectReferenceValue = sourceB.transform;
+            serializedObject.FindProperty("exposedObjectReferenceValue.defaultValue").objectReferenceValue = sourceB;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            _ = PrefabUtility.SaveAsPrefabAsset(editableRoot, prefabPath);
+            scope.UnloadPrefabContents(editableRoot);
+
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            var stageRoot = prefabStage!.prefabContentsRoot;
+            var stageB = stageRoot.transform.Find("B");
+            Assert.That(stageB, Is.Not.Null);
+            stageB!.name = "RenamedB";
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var result = await operation.Plan(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: false, changed: false);
+            Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot), Is.True);
+            Assert.That(prefabContentsRoot, Is.Not.Null);
+            var previewA = prefabContentsRoot!.transform.Find("A");
+            var previewB = prefabContentsRoot.transform.Find("RenamedB");
+            Assert.That(previewA, Is.Not.Null);
+            Assert.That(previewB, Is.Not.Null);
+            var previewComponent = previewA!.GetComponent<CompOperationTestComponent>();
+            Assert.That(previewComponent, Is.Not.Null);
+            Assert.That(previewComponent!.ObjectReferenceValue, Is.SameAs(previewB!.gameObject));
+            Assert.That(previewComponent.ObjectReferenceValue, Is.Not.SameAs(stageB.gameObject));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.SameAs(previewB.transform));
+            Assert.That(previewComponent.ComponentReferenceValue, Is.Not.SameAs(stageB.transform));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.SameAs(previewB.gameObject));
+            Assert.That(previewComponent.ExposedObjectReferenceValue, Is.Not.SameAs(stageB.gameObject));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Open_Plan_WhenCompEnsureTargetsPrefabSelector_UsesPrefabOwnerResource () => UniTask.ToCoroutine(async () =>
+        {
+            var openOperation = new PrefabOpenOperation();
+            var ensureOperation = new CompEnsureOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+            var ensureRequest = CreateOperation(
+                opId: "op-comp-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        prefab = prefabPath,
+                        hierarchyPath = Path.GetFileNameWithoutExtension(prefabPath),
+                    },
+                    type = componentTypeId,
+                },
+                alias: "component");
+
+            var openResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.Plan(ensureRequest, context, CancellationToken.None);
+
+            AssertSuccess(openResult, applied: false, changed: false);
+            AssertSuccess(ensureResult, applied: false, changed: true);
+            AssertTouchSet(ensureResult, (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(context.TryGetTemporaryAliasState("component", out var temporaryAliasState), Is.True);
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
+            Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<CompOperationTestComponent>());
         });
 
         [UnityTest]
@@ -224,90 +415,76 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureOperation = new CompEnsureOperation();
             var setOperation = new CompSetOperation();
             var saveOperation = new PrefabSaveOperation();
-            var prefabPath = CreateTemporaryPrefabPath();
-            GameObject? loadedPrefabContentsRoot = null;
-            try
-            {
-                CreatePrefabAsset(prefabPath, "PrefabRoot");
-                var context = new OperationExecutionContext();
-                var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
-                var openRequest = CreateOperation(
-                    opId: "op-prefab-open",
-                    opName: "ucli.prefab.open",
-                    args: new
-                    {
-                        path = prefabPath,
-                    },
-                    alias: "root");
-                var ensureRequest = CreateOperation(
-                    opId: "op-comp-ensure",
-                    opName: "ucli.comp.ensure",
-                    args: new
-                    {
-                        target = new
-                        {
-                            @var = "root",
-                        },
-                        type = componentTypeId,
-                    },
-                    alias: "component");
-                var setRequest = CreateOperation(
-                    opId: "op-comp-set",
-                    opName: "ucli.comp.set",
-                    args: new
-                    {
-                        target = new
-                        {
-                            @var = "component",
-                        },
-                        sets = new object[]
-                        {
-                            new
-                            {
-                                path = "integerValue",
-                                value = 42,
-                            },
-                        },
-                    });
-                var saveRequest = CreateOperation(
-                    opId: "op-prefab-save",
-                    opName: "ucli.prefab.save",
-                    args: new
-                    {
-                        path = prefabPath,
-                    });
-
-                var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
-                var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
-                var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
-                var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
-
-                AssertSuccess(openResult, applied: true, changed: false);
-                AssertSuccess(ensureResult, applied: true, changed: true);
-                AssertSuccess(setResult, applied: true, changed: true);
-                AssertSuccess(saveResult, applied: true, changed: true);
-                AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
-                var openedPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
-                Assert.That(openedPrefabStage, Is.Not.Null);
-                Assert.That(openedPrefabStage!.prefabContentsRoot.scene.isDirty, Is.False);
-
-                ClosePrefabStageIfOpen();
-                loadedPrefabContentsRoot = PrefabUtility.LoadPrefabContents(prefabPath);
-                var component = loadedPrefabContentsRoot.GetComponent<CompOperationTestComponent>();
-                Assert.That(component, Is.Not.Null);
-                Assert.That(component!.IntegerValue, Is.EqualTo(42));
-            }
-            finally
-            {
-                if (loadedPrefabContentsRoot != null)
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var openRequest = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
                 {
-                    PrefabUtility.UnloadPrefabContents(loadedPrefabContentsRoot);
-                }
+                    path = prefabPath,
+                },
+                alias: "root");
+            var ensureRequest = CreateOperation(
+                opId: "op-comp-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "root",
+                    },
+                    type = componentTypeId,
+                },
+                alias: "component");
+            var setRequest = CreateOperation(
+                opId: "op-comp-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "component",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
 
-                ClosePrefabStageIfOpen();
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(prefabPath);
-            }
+            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
+            var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(openResult, applied: true, changed: false);
+            AssertSuccess(ensureResult, applied: true, changed: true);
+            AssertSuccess(setResult, applied: true, changed: true);
+            AssertSuccess(saveResult, applied: true, changed: true);
+            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            var openedPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            Assert.That(openedPrefabStage, Is.Not.Null);
+            Assert.That(openedPrefabStage!.prefabContentsRoot.scene.isDirty, Is.False);
+
+            scope.CloseCurrentPrefabStageIfOpen();
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
+            var component = loadedPrefabContentsRoot.GetComponent<CompOperationTestComponent>();
+            Assert.That(component, Is.Not.Null);
+            Assert.That(component!.IntegerValue, Is.EqualTo(42));
         });
 
         [UnityTest]
@@ -319,143 +496,193 @@ namespace MackySoft.Ucli.Unity.Tests
             var ensureOperation = new CompEnsureOperation();
             var setOperation = new CompSetOperation();
             var saveOperation = new PrefabSaveOperation();
-            var prefabPath = CreateTemporaryPrefabPath();
-            GameObject? loadedPrefabContentsRoot = null;
-            try
-            {
-                CreatePrefabAsset(prefabPath, "PrefabRoot");
-                var context = new OperationExecutionContext();
-                var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
-                var openRequest = CreateOperation(
-                    opId: "op-prefab-open",
-                    opName: "ucli.prefab.open",
-                    args: new
-                    {
-                        path = prefabPath,
-                    },
-                    alias: "root");
-                var createRequest = CreateOperation(
-                    opId: "op-go-create",
-                    opName: "ucli.go.create",
-                    args: new
-                    {
-                        name = "Child",
-                        parent = new
-                        {
-                            @var = "root",
-                        },
-                    },
-                    alias: "child");
-                var ensureRequest = CreateOperation(
-                    opId: "op-comp-ensure",
-                    opName: "ucli.comp.ensure",
-                    args: new
-                    {
-                        target = new
-                        {
-                            @var = "child",
-                        },
-                        type = componentTypeId,
-                    },
-                    alias: "childComp");
-                var setRequest = CreateOperation(
-                    opId: "op-comp-set",
-                    opName: "ucli.comp.set",
-                    args: new
-                    {
-                        target = new
-                        {
-                            @var = "childComp",
-                        },
-                        sets = new object[]
-                        {
-                            new
-                            {
-                                path = "integerValue",
-                                value = 7,
-                            },
-                        },
-                    });
-                var saveRequest = CreateOperation(
-                    opId: "op-prefab-save",
-                    opName: "ucli.prefab.save",
-                    args: new
-                    {
-                        path = prefabPath,
-                    });
-
-                var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
-                var createResult = await goCreateOperation.Call(createRequest, context, CancellationToken.None);
-                var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
-                var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
-                var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
-
-                AssertSuccess(openResult, applied: true, changed: false);
-                AssertSuccess(createResult, applied: true, changed: true);
-                AssertSuccess(ensureResult, applied: true, changed: true);
-                AssertSuccess(setResult, applied: true, changed: true);
-                AssertSuccess(saveResult, applied: true, changed: true);
-
-                ClosePrefabStageIfOpen();
-                loadedPrefabContentsRoot = PrefabUtility.LoadPrefabContents(prefabPath);
-                var child = loadedPrefabContentsRoot.transform.Find("Child");
-                Assert.That(child, Is.Not.Null);
-                var component = child!.GetComponent<CompOperationTestComponent>();
-                Assert.That(component, Is.Not.Null);
-                Assert.That(component!.IntegerValue, Is.EqualTo(7));
-            }
-            finally
-            {
-                if (loadedPrefabContentsRoot != null)
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
+            var openRequest = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
                 {
-                    PrefabUtility.UnloadPrefabContents(loadedPrefabContentsRoot);
-                }
+                    path = prefabPath,
+                },
+                alias: "root");
+            var createRequest = CreateOperation(
+                opId: "op-go-create",
+                opName: UcliPrimitiveOperationNames.GoCreate,
+                args: new
+                {
+                    name = "Child",
+                    parent = new
+                    {
+                        @var = "root",
+                    },
+                },
+                alias: "child");
+            var ensureRequest = CreateOperation(
+                opId: "op-comp-ensure",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "child",
+                    },
+                    type = componentTypeId,
+                },
+                alias: "childComp");
+            var setRequest = CreateOperation(
+                opId: "op-comp-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "childComp",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 7,
+                        },
+                    },
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
 
-                ClosePrefabStageIfOpen();
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                AssetDatabase.DeleteAsset(prefabPath);
-            }
+            var openResult = await openOperation.Call(openRequest, context, CancellationToken.None);
+            var createResult = await goCreateOperation.Call(createRequest, context, CancellationToken.None);
+            var ensureResult = await ensureOperation.Call(ensureRequest, context, CancellationToken.None);
+            var setResult = await setOperation.Call(setRequest, context, CancellationToken.None);
+            var saveResult = await saveOperation.Call(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(openResult, applied: true, changed: false);
+            AssertSuccess(createResult, applied: true, changed: true);
+            AssertSuccess(ensureResult, applied: true, changed: true);
+            AssertSuccess(setResult, applied: true, changed: true);
+            AssertSuccess(saveResult, applied: true, changed: true);
+
+            scope.CloseCurrentPrefabStageIfOpen();
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
+            var child = loadedPrefabContentsRoot.transform.Find("Child");
+            Assert.That(child, Is.Not.Null);
+            var component = child!.GetComponent<CompOperationTestComponent>();
+            Assert.That(component, Is.Not.Null);
+            Assert.That(component!.IntegerValue, Is.EqualTo(7));
         });
 
-        private static void CreatePrefabAsset (
-            string prefabPath,
-            string rootName)
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenOpenedPrefabStageIsDirtyWithoutRequestChange_SavesOpenedPrefabStage () => UniTask.ToCoroutine(async () =>
         {
-            var temporaryRoot = new GameObject(rootName);
-            try
-            {
-                Assert.That(PrefabUtility.SaveAsPrefabAsset(temporaryRoot, prefabPath), Is.Not.Null);
-                AssetDatabase.SaveAssets();
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(temporaryRoot);
-            }
-        }
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
+            var child = new GameObject("Child");
+            child.transform.SetParent(prefabStage!.prefabContentsRoot.transform, worldPositionStays: false);
+            EditorSceneManager.MarkSceneDirty(prefabStage.prefabContentsRoot.scene);
+            Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.True);
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
 
-        private static void ClosePrefabStageIfOpen ()
+            var saveResult = await saveOperation.Call(saveRequest, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertSuccess(saveResult, applied: true, changed: true);
+            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenOnlyTemporaryPrefabPreviewExistsWithoutPlannedLiveOpen_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
-            if (prefabStage == null)
-            {
-                return;
-            }
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsurePrefabExecutionSession(prefabPath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
 
-            // NOTE: Close the stage without relying on the user's Prefab Auto Save preference. In batchmode,
-            // leaving the stage dirty here can trigger the modified-prefab dialog path and fail unrelated tests.
-            prefabStage.ClearDirtiness();
-            StageUtility.GoToMainStage();
-        }
+            var saveResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
 
-        private static string CreateTemporaryScenePath ()
+            AssertInvalidArgument(saveResult, "op-prefab-save");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Plan_WhenPrefabOpenWasPlannedForClosedPrefab_Succeeds () => UniTask.ToCoroutine(async () =>
         {
-            return $"Assets/PrefabOperationTests_{Guid.NewGuid():N}.unity";
-        }
+            var openOperation = new PrefabOpenOperation();
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var context = scope.CreateExecutionContext();
+            var openRequest = CreateOperation(
+                opId: "op-prefab-open",
+                opName: UcliPrimitiveOperationNames.PrefabOpen,
+                args: new
+                {
+                    path = prefabPath,
+                });
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
 
-        private static string CreateTemporaryPrefabPath ()
+            var openPlanResult = await openOperation.Plan(openRequest, context, CancellationToken.None);
+            var savePlanResult = await saveOperation.Plan(saveRequest, context, CancellationToken.None);
+
+            AssertSuccess(openPlanResult, applied: false, changed: false);
+            AssertSuccess(savePlanResult, applied: false, changed: false);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Save_Call_WhenPrefabIsNotOpened_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            return $"Assets/PrefabOperationTests_{Guid.NewGuid():N}.prefab";
-        }
+            var saveOperation = new PrefabSaveOperation();
+            using var scope = new EditorTestScope()
+                .EnablePrefabStageCleanup();
+            var prefabPath = scope.CreatePrefabAsset(nameof(PrefabOperationTests), "PrefabRoot");
+            var saveRequest = CreateOperation(
+                opId: "op-prefab-save",
+                opName: UcliPrimitiveOperationNames.PrefabSave,
+                args: new
+                {
+                    path = prefabPath,
+                });
+
+            var saveResult = await saveOperation.Call(saveRequest, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertInvalidArgument(saveResult, "op-prefab-save");
+        });
 
         private static NormalizedOperation CreateOperation (
             string opId,

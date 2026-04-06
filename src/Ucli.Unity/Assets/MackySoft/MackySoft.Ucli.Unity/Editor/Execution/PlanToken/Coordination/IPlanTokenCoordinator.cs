@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using System;
 
 #nullable enable
 
@@ -18,6 +19,15 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         PlanTokenIssueResult Issue (
             NormalizedExecuteRequest request,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
+            ReadOnlyMemory<byte> compiledDigestPayloadUtf8,
+            CancellationToken cancellationToken = default);
+
+        /// <summary> Validates one incoming call plan token against request-level invariants that do not require runtime compilation. </summary>
+        /// <param name="request"> The normalized request model. </param>
+        /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
+        /// <returns> The validation result. </returns>
+        PlanTokenValidationResult ValidateCallRequest (
+            NormalizedExecuteRequest request,
             CancellationToken cancellationToken = default);
 
         /// <summary> Validates one incoming call plan token against request and current state. </summary>
@@ -28,6 +38,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         PlanTokenValidationResult ValidateCall (
             NormalizedExecuteRequest request,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
+            ReadOnlyMemory<byte> compiledDigestPayloadUtf8,
             CancellationToken cancellationToken = default);
     }
 }

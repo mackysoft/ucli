@@ -40,7 +40,7 @@ public sealed class OpsDescribeResultMapperTests
                 Operations:
                 [
                     new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                        Name: "ucli.resolve",
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve,
                         Kind: "query",
                         Policy: "safe",
                         ArgsSchemaJson: "\"not-an-object\""),
@@ -52,7 +52,7 @@ public sealed class OpsDescribeResultMapperTests
                     MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
                     DateTimeOffset.UtcNow,
                     null)),
-            "ucli.resolve");
+            MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);

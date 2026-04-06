@@ -29,6 +29,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            return TryResolveSceneObject(scene, hierarchyPath, out gameObject, out errorMessage);
+        }
+
+        /// <summary> Resolves one unique GameObject under the specified scene and hierarchy path. </summary>
+        /// <param name="scene"> The source scene. </param>
+        /// <param name="hierarchyPath"> The hierarchy path value. </param>
+        /// <param name="gameObject"> The resolved GameObject when successful. </param>
+        /// <param name="errorMessage"> The resolution error message when failed. </param>
+        /// <returns> <see langword="true" /> when path resolves uniquely; otherwise <see langword="false" />. </returns>
+        public static bool TryResolveSceneObject (
+            Scene scene,
+            string hierarchyPath,
+            out GameObject? gameObject,
+            out string errorMessage)
+        {
+            if (!scene.IsValid() || !scene.isLoaded)
+            {
+                gameObject = null;
+                errorMessage = $"Scene is not loaded: {scene.path}.";
+                return false;
+            }
+
             return TryResolveUniqueGameObject(scene, hierarchyPath, out gameObject, out errorMessage);
         }
 

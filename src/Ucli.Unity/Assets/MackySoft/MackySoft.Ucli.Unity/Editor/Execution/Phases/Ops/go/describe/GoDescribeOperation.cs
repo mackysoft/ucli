@@ -24,12 +24,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                   ""properties"": {
                     ""var"": { ""type"": ""string"", ""minLength"": 1 },
                     ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
                     ""scene"": { ""type"": ""string"", ""minLength"": 1 },
                     ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
                   },
                   ""oneOf"": [
                     { ""required"": [""var""] },
                     { ""required"": [""globalObjectId""] },
+                    { ""required"": [""prefab"", ""hierarchyPath""] },
                     { ""required"": [""scene"", ""hierarchyPath""] }
                   ]
                 },
@@ -42,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.go.describe",
+            operationName: UcliPrimitiveOperationNames.GoDescribe,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
@@ -114,7 +116,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var description = GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth);
+            var description = applied
+                ? GameObjectDescriptionBuilder.Build(validationState.Target, validationState.Depth)
+                : GameObjectDescriptionBuilder.Build(
+                    validationState.Target,
+                    validationState.Depth,
+                    executionContext,
+                    includeTemporaryState: true);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,

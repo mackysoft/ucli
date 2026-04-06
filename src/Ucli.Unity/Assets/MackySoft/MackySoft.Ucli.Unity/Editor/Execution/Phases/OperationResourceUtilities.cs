@@ -63,12 +63,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when owner resource was resolved; otherwise <see langword="false" />. </returns>
         public static bool TryResolveOwnerResource (
             GameObject gameObject,
+            OperationExecutionContext executionContext,
             out OperationResource resource,
             out string errorMessage)
         {
             if (gameObject == null)
             {
                 throw new ArgumentNullException(nameof(gameObject));
+            }
+
+            if (executionContext == null)
+            {
+                throw new ArgumentNullException(nameof(executionContext));
+            }
+
+            if (executionContext.TryResolveTemporaryPrefabPath(gameObject, out var temporaryPrefabPath))
+            {
+                resource = new OperationResource(OperationTouchKind.Prefab, temporaryPrefabPath);
+                errorMessage = string.Empty;
+                return true;
             }
 
             var prefabStage = PrefabStageUtility.GetPrefabStage(gameObject);
@@ -83,6 +96,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var scene = gameObject.scene;
             if (scene.IsValid()
                 && scene.isLoaded
+                && executionContext.TryResolveTemporaryScenePath(scene, out var previewScenePath))
+            {
+                resource = new OperationResource(OperationTouchKind.Scene, previewScenePath);
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (scene.IsValid()
+                && scene.isLoaded
                 && !string.IsNullOrWhiteSpace(scene.path))
             {
                 resource = new OperationResource(OperationTouchKind.Scene, scene.path);
@@ -91,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             resource = default;
-            errorMessage = "GameObject is not part of a loaded scene or opened prefab.";
+            errorMessage = "GameObject is not part of a loaded scene, tracked prefab preview, or opened prefab.";
             return false;
         }
 
@@ -102,6 +124,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when owner resource was resolved; otherwise <see langword="false" />. </returns>
         public static bool TryResolveOwnerResource (
             Component component,
+            OperationExecutionContext executionContext,
             out OperationResource resource,
             out string errorMessage)
         {
@@ -110,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(component));
             }
 
-            return TryResolveOwnerResource(component.gameObject, out resource, out errorMessage);
+            return TryResolveOwnerResource(component.gameObject, executionContext, out resource, out errorMessage);
         }
 
         private static string? ResolveGuid (OperationResource resource)

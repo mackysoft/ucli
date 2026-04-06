@@ -12,20 +12,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         private readonly OperationPlanStepRunner stepRunner;
 
+        private readonly ExecuteRequestCompiler requestCompiler;
+
         /// <summary> Initializes a new instance of the <see cref="OperationPlanPassExecutor" /> class. </summary>
         /// <param name="operationRegistry"> The phase-operation registry dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationRegistry" /> is <see langword="null" />. </exception>
         public OperationPlanPassExecutor (IPhaseOperationRegistry operationRegistry)
-            : this(new OperationPlanStepRunner(operationRegistry))
+            : this(new OperationPlanStepRunner(operationRegistry), new ExecuteRequestCompiler())
         {
         }
 
         /// <summary> Initializes a new instance of the <see cref="OperationPlanPassExecutor" /> class. </summary>
         /// <param name="stepRunner"> The one-operation plan-step runner dependency. </param>
+        /// <param name="requestCompiler"> The runtime request compiler dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stepRunner" /> is <see langword="null" />. </exception>
-        internal OperationPlanPassExecutor (OperationPlanStepRunner stepRunner)
+        internal OperationPlanPassExecutor (
+            OperationPlanStepRunner stepRunner,
+            ExecuteRequestCompiler requestCompiler)
         {
             this.stepRunner = stepRunner ?? throw new ArgumentNullException(nameof(stepRunner));
+            this.requestCompiler = requestCompiler ?? throw new ArgumentNullException(nameof(requestCompiler));
         }
 
         /// <summary> Executes validate and plan phases for all operations with fail-fast semantics. </summary>
@@ -48,26 +54,47 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
-            var accumulator = new PlanPassAccumulator(request.Ops.Count);
-            var operationUseCounts = OperationPhaseExecutionUtilities.CountOperationUse(request.Ops);
-
-            for (var i = 0; i < request.Ops.Count; i++)
+            var accumulator = new PlanPassAccumulator(request.SourceSteps.Count);
+            for (var stepIndex = 0; stepIndex < request.SourceSteps.Count; stepIndex++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var operation = request.Ops[i];
                 if (accumulator.HasFailures)
                 {
-                    accumulator.AddSkipped(operation);
+                    accumulator.AddSkippedStep(request.SourceSteps[stepIndex]);
                     continue;
                 }
 
-                var outcome = await stepRunner.Execute(
-                    operation,
-                    executionContext,
-                    requiresPreCallPlanReplay: operationUseCounts[operation.Op] > 1,
-                    cancellationToken).ConfigureAwait(false);
-                accumulator.Add(outcome);
+                var sourceStep = request.SourceSteps[stepIndex];
+                if (!requestCompiler.TryCompileExecutionStep(
+                        sourceStep,
+                        executionContext,
+                        out var compiledStep,
+                        out var compiledOperations,
+                        out var compileError))
+                {
+                    accumulator.AddCompileFailure(sourceStep, compileError);
+                    continue;
+                }
+
+                accumulator.AddCompiledStep(compiledStep, compiledOperations);
+                for (var operationIndex = 0; operationIndex < compiledOperations.Count; operationIndex++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var operation = compiledOperations[operationIndex];
+                    if (accumulator.HasFailures)
+                    {
+                        accumulator.AddSkipped(operation);
+                        continue;
+                    }
+
+                    var outcome = await stepRunner.Execute(
+                        operation,
+                        executionContext,
+                        cancellationToken).ConfigureAwait(false);
+                    accumulator.Add(outcome);
+                }
             }
 
             return accumulator.Build();

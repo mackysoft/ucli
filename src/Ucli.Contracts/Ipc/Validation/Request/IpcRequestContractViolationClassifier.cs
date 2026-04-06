@@ -1,52 +1,46 @@
 namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 
-/// <summary> Classifies request-contract read errors into normalized violation kinds. </summary>
 internal static class IpcRequestContractViolationClassifier
 {
-    /// <summary> Classifies one request-contract read error. </summary>
-    /// <param name="readError"> The request-contract read error. </param>
-    /// <returns> The normalized violation value. </returns>
     public static IpcRequestContractViolation Classify (in IpcRequestContractReadError readError)
     {
-        switch (readError.Kind)
+        return readError.Kind switch
         {
-            case IpcRequestContractReadErrorKind.None:
-                return IpcRequestContractViolation.None;
-            case IpcRequestContractReadErrorKind.RequestMustBeObject:
-                return Create(readError, IpcRequestContractViolationKind.RequestMustBeObject);
-            case IpcRequestContractReadErrorKind.UnknownRequestProperty:
-                return Create(readError, IpcRequestContractViolationKind.UnknownRequestProperty);
-            case IpcRequestContractReadErrorKind.ProtocolVersionMissing:
-                return Create(readError, IpcRequestContractViolationKind.ProtocolVersionMissing);
-            case IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch:
-                return Create(readError, IpcRequestContractViolationKind.ProtocolVersionTypeMismatch);
-            case IpcRequestContractReadErrorKind.RequestIdFormatMismatch:
-                return Create(readError, IpcRequestContractViolationKind.RequestIdFormatMismatch);
-            case IpcRequestContractReadErrorKind.OperationsMissing:
-                return Create(readError, IpcRequestContractViolationKind.OperationsMissing);
-            case IpcRequestContractReadErrorKind.OperationsTypeMismatch:
-                return Create(readError, IpcRequestContractViolationKind.OperationsTypeMismatch);
-            case IpcRequestContractReadErrorKind.OperationMustBeObject:
-                return Create(readError, IpcRequestContractViolationKind.OperationMustBeObject);
-            case IpcRequestContractReadErrorKind.UnknownOperationProperty:
-                return Create(readError, IpcRequestContractViolationKind.UnknownOperationProperty);
-            case IpcRequestContractReadErrorKind.DuplicatedOperationId:
-                return Create(readError, IpcRequestContractViolationKind.DuplicatedOperationId);
-            case IpcRequestContractReadErrorKind.RequestIdContractViolation:
-                return ClassifyRequestIdContractViolation(readError);
-            case IpcRequestContractReadErrorKind.OperationIdContractViolation:
-                return ClassifyOperationIdContractViolation(readError);
-            case IpcRequestContractReadErrorKind.OperationNameContractViolation:
-                return ClassifyOperationNameContractViolation(readError);
-            case IpcRequestContractReadErrorKind.OperationArgsContractViolation:
-                return ClassifyOperationArgsContractViolation(readError);
-            case IpcRequestContractReadErrorKind.OperationAliasContractViolation:
-                return ClassifyOperationAliasContractViolation(readError);
-            case IpcRequestContractReadErrorKind.OperationExpectationContractViolation:
-                return ClassifyOperationExpectationContractViolation(readError);
-            default:
-                return Create(readError, IpcRequestContractViolationKind.Unknown);
-        }
+            IpcRequestContractReadErrorKind.RequestMustBeObject => Create(readError, IpcRequestContractViolationKind.RequestMustBeObject),
+            IpcRequestContractReadErrorKind.UnknownRequestProperty => Create(readError, IpcRequestContractViolationKind.UnknownRequestProperty),
+            IpcRequestContractReadErrorKind.ProtocolVersionMissing => Create(readError, IpcRequestContractViolationKind.ProtocolVersionMissing),
+            IpcRequestContractReadErrorKind.ProtocolVersionTypeMismatch => Create(readError, IpcRequestContractViolationKind.ProtocolVersionTypeMismatch),
+            IpcRequestContractReadErrorKind.RequestIdContractViolation => ClassifyRequestIdContractViolation(readError),
+            IpcRequestContractReadErrorKind.RequestIdFormatMismatch => Create(readError, IpcRequestContractViolationKind.RequestIdFormatMismatch),
+            IpcRequestContractReadErrorKind.StepsMissing => Create(readError, IpcRequestContractViolationKind.StepsMissing),
+            IpcRequestContractReadErrorKind.StepsTypeMismatch => Create(readError, IpcRequestContractViolationKind.StepsTypeMismatch),
+            IpcRequestContractReadErrorKind.StepMustBeObject => Create(readError, IpcRequestContractViolationKind.StepMustBeObject),
+            IpcRequestContractReadErrorKind.StepKindContractViolation => ClassifyStepKindContractViolation(readError),
+            IpcRequestContractReadErrorKind.StepKindUnsupported => Create(readError, IpcRequestContractViolationKind.StepKindUnsupported),
+            IpcRequestContractReadErrorKind.UnknownStepProperty => Create(readError, IpcRequestContractViolationKind.UnknownStepProperty),
+            IpcRequestContractReadErrorKind.StepIdContractViolation => ClassifyStepIdContractViolation(readError),
+            IpcRequestContractReadErrorKind.StepOpContractViolation => ClassifyStepOpContractViolation(readError),
+            IpcRequestContractReadErrorKind.StepArgsContractViolation => ClassifyPropertyViolation(
+                readError,
+                IpcRequestContractViolationKind.StepArgsMissing,
+                IpcRequestContractViolationKind.StepArgsTypeMismatch),
+            IpcRequestContractReadErrorKind.StepOnContractViolation => ClassifyPropertyViolation(
+                readError,
+                IpcRequestContractViolationKind.StepOnMissing,
+                IpcRequestContractViolationKind.StepOnTypeMismatch),
+            IpcRequestContractReadErrorKind.StepSelectContractViolation => ClassifyPropertyViolation(
+                readError,
+                IpcRequestContractViolationKind.StepSelectMissing,
+                IpcRequestContractViolationKind.StepSelectTypeMismatch),
+            IpcRequestContractReadErrorKind.StepActionsContractViolation => ClassifyPropertyViolation(
+                readError,
+                IpcRequestContractViolationKind.StepActionsMissing,
+                IpcRequestContractViolationKind.StepActionsTypeMismatch),
+            IpcRequestContractReadErrorKind.StepActionMustBeObject => Create(readError, IpcRequestContractViolationKind.StepActionMustBeObject),
+            IpcRequestContractReadErrorKind.StepCommitContractViolation => ClassifyStepCommitContractViolation(readError),
+            IpcRequestContractReadErrorKind.DuplicatedStepId => Create(readError, IpcRequestContractViolationKind.DuplicatedStepId),
+            _ => Create(readError, IpcRequestContractViolationKind.Unknown),
+        };
     }
 
     private static IpcRequestContractViolation ClassifyRequestIdContractViolation (in IpcRequestContractReadError readError)
@@ -61,63 +55,63 @@ internal static class IpcRequestContractViolationClassifier
         };
     }
 
-    private static IpcRequestContractViolation ClassifyOperationIdContractViolation (in IpcRequestContractReadError readError)
+    private static IpcRequestContractViolation ClassifyStepKindContractViolation (in IpcRequestContractReadError readError)
     {
         return readError.JsonStringReadError.Kind switch
         {
-            JsonStringReadErrorKind.Missing => Create(readError, IpcRequestContractViolationKind.OperationIdMissing),
-            JsonStringReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.OperationIdTypeMismatch),
-            JsonStringReadErrorKind.EmptyOrWhitespace => Create(readError, IpcRequestContractViolationKind.OperationIdEmptyOrWhitespace),
-            JsonStringReadErrorKind.OuterWhitespace => Create(readError, IpcRequestContractViolationKind.OperationIdOuterWhitespace),
+            JsonStringReadErrorKind.Missing => Create(readError, IpcRequestContractViolationKind.StepKindMissing),
+            JsonStringReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.StepKindTypeMismatch),
+            JsonStringReadErrorKind.EmptyOrWhitespace => Create(readError, IpcRequestContractViolationKind.StepKindEmptyOrWhitespace),
+            JsonStringReadErrorKind.OuterWhitespace => Create(readError, IpcRequestContractViolationKind.StepKindOuterWhitespace),
             _ => Create(readError, IpcRequestContractViolationKind.Unknown),
         };
     }
 
-    private static IpcRequestContractViolation ClassifyOperationNameContractViolation (in IpcRequestContractReadError readError)
+    private static IpcRequestContractViolation ClassifyStepIdContractViolation (in IpcRequestContractReadError readError)
     {
         return readError.JsonStringReadError.Kind switch
         {
-            JsonStringReadErrorKind.Missing => Create(readError, IpcRequestContractViolationKind.OperationNameMissing),
-            JsonStringReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.OperationNameTypeMismatch),
-            JsonStringReadErrorKind.EmptyOrWhitespace => Create(readError, IpcRequestContractViolationKind.OperationNameEmptyOrWhitespace),
-            JsonStringReadErrorKind.OuterWhitespace => Create(readError, IpcRequestContractViolationKind.OperationNameOuterWhitespace),
+            JsonStringReadErrorKind.Missing => Create(readError, IpcRequestContractViolationKind.StepIdMissing),
+            JsonStringReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.StepIdTypeMismatch),
+            JsonStringReadErrorKind.EmptyOrWhitespace => Create(readError, IpcRequestContractViolationKind.StepIdEmptyOrWhitespace),
+            JsonStringReadErrorKind.OuterWhitespace => Create(readError, IpcRequestContractViolationKind.StepIdOuterWhitespace),
             _ => Create(readError, IpcRequestContractViolationKind.Unknown),
         };
     }
 
-    private static IpcRequestContractViolation ClassifyOperationArgsContractViolation (in IpcRequestContractReadError readError)
-    {
-        return readError.OperationObjectReadErrorKind switch
-        {
-            OperationObjectReadErrorKind.Missing => Create(readError, IpcRequestContractViolationKind.OperationArgsMissing),
-            OperationObjectReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.OperationArgsTypeMismatch),
-            _ => Create(readError, IpcRequestContractViolationKind.Unknown),
-        };
-    }
-
-    private static IpcRequestContractViolation ClassifyOperationAliasContractViolation (in IpcRequestContractReadError readError)
+    private static IpcRequestContractViolation ClassifyStepOpContractViolation (in IpcRequestContractReadError readError)
     {
         return readError.JsonStringReadError.Kind switch
         {
-            JsonStringReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.OperationAliasTypeMismatch),
-            JsonStringReadErrorKind.EmptyOrWhitespace => Create(readError, IpcRequestContractViolationKind.OperationAliasEmptyOrWhitespace),
-            JsonStringReadErrorKind.OuterWhitespace => Create(readError, IpcRequestContractViolationKind.OperationAliasOuterWhitespace),
+            JsonStringReadErrorKind.Missing => Create(readError, IpcRequestContractViolationKind.StepOpMissing),
+            JsonStringReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.StepOpTypeMismatch),
+            JsonStringReadErrorKind.EmptyOrWhitespace => Create(readError, IpcRequestContractViolationKind.StepOpEmptyOrWhitespace),
+            JsonStringReadErrorKind.OuterWhitespace => Create(readError, IpcRequestContractViolationKind.StepOpOuterWhitespace),
             _ => Create(readError, IpcRequestContractViolationKind.Unknown),
         };
     }
 
-    private static IpcRequestContractViolation ClassifyOperationExpectationContractViolation (in IpcRequestContractReadError readError)
+    private static IpcRequestContractViolation ClassifyStepCommitContractViolation (in IpcRequestContractReadError readError)
     {
-        return readError.ExpectationReadError.Kind switch
+        return readError.JsonStringReadError.Kind switch
         {
-            ExpectationConstraintReadErrorKind.ExpectationMustBeObject => Create(readError, IpcRequestContractViolationKind.ExpectationMustBeObject),
-            ExpectationConstraintReadErrorKind.ExpectationContainsUnknownProperty => Create(readError, IpcRequestContractViolationKind.ExpectationContainsUnknownProperty),
-            ExpectationConstraintReadErrorKind.ExpectationMustContainAtLeastOneConstraint => Create(readError, IpcRequestContractViolationKind.ExpectationMustContainAtLeastOneConstraint),
-            ExpectationConstraintReadErrorKind.BooleanConstraintMustBeBoolean => Create(readError, IpcRequestContractViolationKind.ExpectationBooleanConstraintMustBeBoolean),
-            ExpectationConstraintReadErrorKind.IntegerConstraintMustBeInteger => Create(readError, IpcRequestContractViolationKind.ExpectationIntegerConstraintMustBeInteger),
-            ExpectationConstraintReadErrorKind.IntegerConstraintMustBeNonNegative => Create(readError, IpcRequestContractViolationKind.ExpectationIntegerConstraintMustBeNonNegative),
-            ExpectationConstraintReadErrorKind.CountCannotCombineWithMinOrMax => Create(readError, IpcRequestContractViolationKind.ExpectationCountCannotCombineWithMinOrMax),
-            ExpectationConstraintReadErrorKind.MinMustBeLessThanOrEqualToMax => Create(readError, IpcRequestContractViolationKind.ExpectationMinMustBeLessThanOrEqualToMax),
+            JsonStringReadErrorKind.Missing => Create(readError, IpcRequestContractViolationKind.StepCommitMissing),
+            JsonStringReadErrorKind.TypeMismatch => Create(readError, IpcRequestContractViolationKind.StepCommitTypeMismatch),
+            JsonStringReadErrorKind.EmptyOrWhitespace => Create(readError, IpcRequestContractViolationKind.StepCommitEmptyOrWhitespace),
+            JsonStringReadErrorKind.OuterWhitespace => Create(readError, IpcRequestContractViolationKind.StepCommitOuterWhitespace),
+            _ => Create(readError, IpcRequestContractViolationKind.Unknown),
+        };
+    }
+
+    private static IpcRequestContractViolation ClassifyPropertyViolation (
+        in IpcRequestContractReadError readError,
+        IpcRequestContractViolationKind missingKind,
+        IpcRequestContractViolationKind typeMismatchKind)
+    {
+        return readError.StepPropertyReadErrorKind switch
+        {
+            StepPropertyReadErrorKind.Missing => Create(readError, missingKind),
+            StepPropertyReadErrorKind.TypeMismatch => Create(readError, typeMismatchKind),
             _ => Create(readError, IpcRequestContractViolationKind.Unknown),
         };
     }
@@ -128,10 +122,10 @@ internal static class IpcRequestContractViolationClassifier
     {
         return new IpcRequestContractViolation(
             Kind: violationKind,
-            OperationIndex: readError.OperationIndex,
-            OperationId: readError.OperationId,
-            UnknownPropertyName: readError.UnknownPropertyName ?? readError.ExpectationReadError.UnknownPropertyName,
-            PropertyPath: readError.ExpectationReadError.PropertyPath,
-            DuplicatedOperationId: readError.DuplicatedOperationId);
+            StepIndex: readError.StepIndex,
+            StepId: readError.StepId,
+            UnknownPropertyName: readError.UnknownPropertyName,
+            PropertyPath: readError.JsonStringReadError.PropertyName,
+            DuplicatedStepId: readError.DuplicatedStepId);
     }
 }

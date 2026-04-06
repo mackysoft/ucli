@@ -19,10 +19,10 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.scene.open", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, CancellationToken.None);
 
         Assert.NotNull(descriptor);
-        Assert.Equal("ucli.scene.open", descriptor.Name);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, descriptor.Name);
         Assert.Equal(UcliOperationKind.Query, descriptor.Kind);
         Assert.Equal(OperationPolicy.Safe, descriptor.Policy);
     }
@@ -33,7 +33,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.resolve", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -43,11 +43,13 @@ public sealed class OperationCatalogTests
         Assert.False(additionalProperties.GetBoolean());
         Assert.True(schemaRoot.TryGetProperty("oneOf", out var oneOf));
         Assert.Equal(JsonValueKind.Array, oneOf.ValueKind);
-        Assert.Equal(4, oneOf.GetArrayLength());
+        Assert.Equal(6, oneOf.GetArrayLength());
         Assert.True(ContainsRequiredProperty(oneOf, "globalObjectId"));
         Assert.True(ContainsRequiredProperty(oneOf, "assetGuid"));
         Assert.True(ContainsRequiredProperty(oneOf, "assetPath"));
+        Assert.True(ContainsRequiredProperty(oneOf, "projectAssetPath"));
         Assert.True(ContainsRequiredProperties(oneOf, "scene", "hierarchyPath"));
+        Assert.True(ContainsRequiredProperties(oneOf, "prefab", "hierarchyPath"));
     }
 
     [Fact]
@@ -56,7 +58,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.scene.tree", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneTree, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -83,7 +85,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.go.create", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -94,11 +96,12 @@ public sealed class OperationCatalogTests
         Assert.True(schemaRoot.TryGetProperty("properties", out var properties));
         Assert.True(properties.TryGetProperty("scene", out _));
         Assert.True(properties.TryGetProperty("parent", out var parentProperty));
+        Assert.True(parentProperty.GetProperty("properties").TryGetProperty("prefab", out _));
         Assert.True(parentProperty.TryGetProperty("oneOf", out var parentOneOf));
         Assert.Equal(3, parentOneOf.GetArrayLength());
-        Assert.True(ContainsRequiredProperty(parentOneOf, "var"));
         Assert.True(ContainsRequiredProperty(parentOneOf, "globalObjectId"));
         Assert.True(ContainsRequiredProperties(parentOneOf, "scene", "hierarchyPath"));
+        Assert.True(ContainsRequiredProperties(parentOneOf, "prefab", "hierarchyPath"));
         Assert.True(schemaRoot.TryGetProperty("oneOf", out var rootOneOf));
         Assert.Equal(2, rootOneOf.GetArrayLength());
         Assert.True(ContainsRequiredProperty(rootOneOf, "scene"));
@@ -111,7 +114,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get("ucli.go.describe", CancellationToken.None);
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -123,8 +126,8 @@ public sealed class OperationCatalogTests
         Assert.True(properties.TryGetProperty("target", out var targetProperty));
         Assert.True(targetProperty.TryGetProperty("oneOf", out var targetOneOf));
         Assert.Equal(3, targetOneOf.GetArrayLength());
-        Assert.True(ContainsRequiredProperty(targetOneOf, "var"));
         Assert.True(ContainsRequiredProperty(targetOneOf, "globalObjectId"));
+        Assert.True(ContainsRequiredProperties(targetOneOf, "prefab", "hierarchyPath"));
         Assert.True(ContainsRequiredProperties(targetOneOf, "scene", "hierarchyPath"));
         Assert.True(properties.TryGetProperty("depth", out var depthProperty));
         Assert.True(depthProperty.TryGetProperty("type", out var depthType));
@@ -135,10 +138,124 @@ public sealed class OperationCatalogTests
         Assert.Equal(0, depthMinimum.GetInt32());
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsCompSet_ReturnsComponentSelectorAndMinItemsSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSet, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var properties = schemaDocument.RootElement.GetProperty("properties");
+        var targetProperty = properties.GetProperty("target");
+        Assert.True(targetProperty.GetProperty("properties").TryGetProperty("componentType", out _));
+        Assert.True(targetProperty.GetProperty("properties").TryGetProperty("prefab", out _));
+        Assert.Equal(3, targetProperty.GetProperty("oneOf").GetArrayLength());
+        Assert.Equal(1, properties.GetProperty("sets").GetProperty("minItems").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsAssetSet_ReturnsAssetSelectorAndMinItemsSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSet, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var properties = schemaDocument.RootElement.GetProperty("properties");
+        var targetProperty = properties.GetProperty("target");
+        Assert.True(targetProperty.GetProperty("properties").TryGetProperty("projectAssetPath", out _));
+        Assert.Equal(4, targetProperty.GetProperty("oneOf").GetArrayLength());
+        Assert.Equal(1, properties.GetProperty("sets").GetProperty("minItems").GetInt32());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsAssetSchema_ReturnsTypeOrTargetSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSchema, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var root = schemaDocument.RootElement;
+        Assert.Equal(2, root.GetProperty("oneOf").GetArrayLength());
+        var properties = root.GetProperty("properties");
+        Assert.True(properties.TryGetProperty("type", out _));
+        Assert.True(properties.GetProperty("target").GetProperty("properties").TryGetProperty("projectAssetPath", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsCompSchema_ReturnsTypeOnlySchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSchema, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var root = schemaDocument.RootElement;
+        Assert.True(root.GetProperty("properties").TryGetProperty("type", out _));
+        Assert.True(root.TryGetProperty("required", out var required));
+        Assert.True(ContainsArrayLiteral(required, "type"));
+        Assert.False(root.GetProperty("properties").TryGetProperty("target", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsGoDelete_ReturnsPublicTargetSelectorSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDelete, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var targetProperty = schemaDocument.RootElement.GetProperty("properties").GetProperty("target");
+        Assert.True(targetProperty.GetProperty("properties").TryGetProperty("prefab", out _));
+        Assert.Equal(3, targetProperty.GetProperty("oneOf").GetArrayLength());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsGoReparent_ReturnsPublicTargetAndParentSelectorSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoReparent, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var properties = schemaDocument.RootElement.GetProperty("properties");
+        Assert.Equal(3, properties.GetProperty("target").GetProperty("oneOf").GetArrayLength());
+        Assert.Equal(3, properties.GetProperty("parent").GetProperty("oneOf").GetArrayLength());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsPrefabCreate_ReturnsSceneOnlyTargetSelectorSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.PrefabCreate, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var targetProperty = schemaDocument.RootElement.GetProperty("properties").GetProperty("target");
+        Assert.False(targetProperty.GetProperty("properties").TryGetProperty("prefab", out _));
+        Assert.Equal(2, targetProperty.GetProperty("oneOf").GetArrayLength());
+    }
+
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("ucli.project.refresh")]
-    [InlineData("ucli.project.save")]
+    [InlineData(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh)]
+    [InlineData(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectSave)]
     public async Task Get_WhenOperationIsProjectMutation_ReturnsStrictEmptyObjectSchema (string operationName)
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
@@ -182,8 +299,8 @@ public sealed class OperationCatalogTests
     {
         var provider = new TestOperationCatalogProvider(
         [
-            new UcliOperationDescriptor("ucli.scene.open", UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
-            new UcliOperationDescriptor("ucli.scene.open", UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
         ]);
         var catalog = new OperationCatalog(provider);
 

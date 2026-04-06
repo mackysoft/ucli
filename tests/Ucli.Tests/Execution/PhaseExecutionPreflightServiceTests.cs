@@ -3,9 +3,13 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Validation;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Operations;
+using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests;
@@ -19,19 +23,23 @@ public sealed class PhaseExecutionPreflightServiceTests
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "success");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open",
-                  "args": {}
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -41,11 +49,146 @@ public sealed class PhaseExecutionPreflightServiceTests
 
         var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
+        Assert.True(
+            result.IsSuccess,
+            result.Error?.Message ?? string.Join(" | ", result.ValidationErrors.Select(static x => $"{x.Code}:{x.Message}")));
         var preparedRequest = Assert.IsType<PhaseExecutionPreparedRequest>(result.PreparedRequest);
         Assert.Equal(RequestInputSource.StandardInput, preparedRequest.InputSource);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", preparedRequest.Request.RequestId);
         Assert.Equal(unityProjectPath, preparedRequest.UnityProject.UnityProjectRoot);
+        Assert.Empty(result.ValidationErrors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsPreparedRequest_WhenEditInputTargetsDirectComponentSelection ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "edit-success");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var configStore = new UcliConfigStore();
+        var saveResult = await configStore.Save(
+            unityProjectPath,
+            new UcliConfig(
+                SchemaVersion: 1,
+                OperationPolicy: OperationPolicy.Advanced,
+                PlanTokenMode: PlanTokenMode.Optional,
+                ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
+                OperationAllowlist:
+                [
+                    "^ucli\\.",
+                ]),
+            CancellationToken.None);
+        Assert.True(saveResult.IsSuccess);
+
+        var requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "steps": [
+                {
+                  "kind": "edit",
+                  "id": "edit-1",
+                  "on": {
+                    "scene": "Assets/Scenes/Main.unity"
+                  },
+                  "select": {
+                    "gameObject": "Root/Spawner",
+                    "component": "Game.EnemySpawner, Assembly-CSharp",
+                    "cardinality": "one"
+                  },
+                  "actions": [
+                    {
+                      "kind": "set",
+                      "values": {
+                        "spawnInterval": 3.0
+                      }
+                    }
+                  ],
+                  "commit": "context"
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: configStore,
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.True(
+            result.IsSuccess,
+            result.Error?.Message ?? string.Join(" | ", result.ValidationErrors.Select(static x => $"{x.Code}:{x.Message}")));
+        var preparedRequest = Assert.IsType<PhaseExecutionPreparedRequest>(result.PreparedRequest);
+        Assert.NotNull(preparedRequest.Request.Steps);
+        var directSelectionStep = Assert.IsType<ValidateRequestStep>(Assert.Single(preparedRequest.Request.Steps!));
+        Assert.Equal("edit-1", directSelectionStep.StepId);
+        Assert.Equal(IpcRequestStepKind.Edit, directSelectionStep.Kind);
+        Assert.Empty(result.ValidationErrors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsPreparedRequest_WhenEditInputUsesEnsureAndSetBindings ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "edit-success");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
+        var requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "steps": [
+                {
+                  "kind": "edit",
+                  "id": "edit-1",
+                  "on": {
+                    "scene": "Assets/Scenes/Main.unity"
+                  },
+                  "select": {
+                    "gameObject": "Root/Spawner",
+                    "cardinality": "one"
+                  },
+                  "actions": [
+                    {
+                      "kind": "ensureComponent",
+                      "type": "UnityEngine.BoxCollider, UnityEngine.PhysicsModule",
+                      "as": "collider"
+                    },
+                    {
+                      "kind": "set",
+                      "target": "$collider",
+                      "values": {
+                        "isTrigger": true
+                      }
+                    }
+                  ],
+                  "commit": "context"
+                }
+              ]
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new StaticConfigStore(CreateAdvancedConfig()),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.True(
+            result.IsSuccess,
+            result.Error?.Message ?? string.Join(" | ", result.ValidationErrors.Select(static x => $"{x.Code}:{x.Message}")));
+        var preparedRequest = Assert.IsType<PhaseExecutionPreparedRequest>(result.PreparedRequest);
+        Assert.Equal(RequestInputSource.StandardInput, preparedRequest.InputSource);
+        Assert.NotNull(preparedRequest.Request.Steps);
+        var bindingStep = Assert.IsType<ValidateRequestStep>(Assert.Single(preparedRequest.Request.Steps!));
+        Assert.Equal(IpcRequestStepKind.Edit, bindingStep.Kind);
         Assert.Empty(result.ValidationErrors);
         Assert.Null(result.Error);
     }
@@ -106,20 +249,24 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "request-unknown-property");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open",
-                  "args": {}
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ],
               "unknown": 1
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -142,18 +289,20 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "args-missing");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open"
+                  "op": "__SCENE_OPEN_OP__"
                 }
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -172,17 +321,18 @@ public sealed class PhaseExecutionPreflightServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Prepare_ReturnsInvalidArgument_WhenOpsPropertyIsNotArray ()
+    public async Task Prepare_ReturnsInvalidArgument_WhenStepsPropertyIsNotArray ()
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "ops-invalid-kind");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": {}
+              "steps": {}
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -196,7 +346,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.False(result.HasValidationErrors);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ops", error.Message, StringComparison.Ordinal);
+        Assert.Contains("steps", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -205,19 +355,21 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "args-invalid-kind");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open",
+                  "op": "__SCENE_OPEN_OP__",
                   "args": []
                 }
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -240,20 +392,24 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-unknown-property");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open",
-                  "args": {},
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  },
                   "unknown": 1
                 }
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -276,19 +432,23 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-id-outer-whitespace");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": " op-1 ",
-                  "op": "ucli.scene.open",
-                  "args": {}
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -311,19 +471,23 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-name-outer-whitespace");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
                   "op": " ucli.scene.open ",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -346,20 +510,24 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-alias-invalid");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open",
-                  "args": {},
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  },
                   "as": 123
                 }
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -382,15 +550,18 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "operation-expectation-invalid");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        const string requestJson = """
+        var requestJson = """
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open",
-                  "args": {},
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  },
                   "expect": {
                     "count": 1,
                     "min": 0
@@ -399,6 +570,7 @@ public sealed class PhaseExecutionPreflightServiceTests
               ]
             }
             """;
+        requestJson = ReplaceSceneOpenOperationName(requestJson);
         var service = CreateService(
             requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
             requestJsonParser: new ValidateRequestJsonParser(),
@@ -425,16 +597,22 @@ public sealed class PhaseExecutionPreflightServiceTests
             {
               "protocolVersion": 999,
               "requestId": "invalid",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "dup",
-                  "op": "ucli.scene.open",
-                  "args": {}
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 },
                 {
+                  "kind": "op",
                   "id": "dup",
                   "op": "ucli.unknown",
-                  "args": {}
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
@@ -458,6 +636,36 @@ public sealed class PhaseExecutionPreflightServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Prepare_ReturnsExecutionError_WhenProtocolVersionPropertyHasInvalidType ()
+    {
+        using var scope = TestDirectories.CreateTempScope("phase-preflight", "protocol-version-type-mismatch");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        const string requestJson = """
+            {
+              "protocolVersion": "1",
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "steps": []
+            }
+            """;
+        var service = CreateService(
+            requestInputReader: new StubRequestInputReader(RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput)),
+            requestJsonParser: new ValidateRequestJsonParser(),
+            unityProjectResolver: new UnityProjectResolver(),
+            configStore: new UcliConfigStore(),
+            requestStaticValidator: CreateRequestStaticValidator());
+
+        var result = await service.Prepare(requestPath: null, projectPath: unityProjectPath, cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("protocolVersion", error.Message, StringComparison.Ordinal);
+        Assert.Contains("integer", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Prepare_ReturnsExecutionError_WhenStaticValidationCannotLoadCatalog ()
     {
         using var scope = TestDirectories.CreateTempScope("phase-preflight", "validation-catalog-failure");
@@ -466,11 +674,14 @@ public sealed class PhaseExecutionPreflightServiceTests
             {
               "protocolVersion": 1,
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-              "ops": [
+              "steps": [
                 {
+                  "kind": "op",
                   "id": "op-1",
-                  "op": "ucli.scene.open",
-                  "args": {}
+                  "op": "__SCENE_OPEN_OP__",
+                  "args": {
+                    "path": "Assets/Scenes/Main.unity"
+                  }
                 }
               ]
             }
@@ -501,9 +712,21 @@ public sealed class PhaseExecutionPreflightServiceTests
         var request = new ValidateRequest(
             ProtocolVersion: 1,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            Ops:
+            Steps:
             [
-                new ValidateRequestOperation("op-1", "ucli.scene.open", JsonSerializer.SerializeToElement(new { })),
+                new ValidateRequestStep(
+                    Kind: IpcRequestStepKind.Op,
+                    StepId: "op-1",
+                    Op: UcliPrimitiveOperationNames.SceneOpen,
+                    Element: JsonSerializer.SerializeToElement(new
+                    {
+                        kind = "op",
+                        id = "op-1",
+                        op = UcliPrimitiveOperationNames.SceneOpen,
+                        args = new
+                        {
+                        },
+                    })),
             ]);
         var requestInputReader = new SpyRequestInputReader();
         var parser = new StubValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(request));
@@ -545,6 +768,24 @@ public sealed class PhaseExecutionPreflightServiceTests
         return new RequestStaticValidator(operationCatalog, authorizationService);
     }
 
+    private static UcliConfig CreateAdvancedConfig ()
+    {
+        return new UcliConfig(
+            SchemaVersion: UcliContractConstants.Config.SchemaVersion,
+            OperationPolicy: OperationPolicy.Advanced,
+            PlanTokenMode: PlanTokenMode.Optional,
+            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
+            OperationAllowlist:
+            [
+                "^ucli\\.",
+            ]);
+    }
+
+    private static string ReplaceSceneOpenOperationName (string requestJson)
+    {
+        return requestJson.Replace("__SCENE_OPEN_OP__", UcliPrimitiveOperationNames.SceneOpen, StringComparison.Ordinal);
+    }
+
     private sealed class StubRequestInputReader : IRequestInputReader
     {
         private readonly RequestInputReadResult readResult;
@@ -572,7 +813,7 @@ public sealed class PhaseExecutionPreflightServiceTests
         {
             ReceivedToken = cancellationToken;
             return ValueTask.FromResult(RequestInputReadResult.Success(
-                json: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","ops":[{"id":"op-1","op":"ucli.scene.open","args":{}}]}""",
+                json: ReplaceSceneOpenOperationName("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[{"kind":"op","id":"op-1","op":"__SCENE_OPEN_OP__","args":{}}]}"""),
                 source: RequestInputSource.StandardInput));
         }
     }
@@ -619,6 +860,37 @@ public sealed class PhaseExecutionPreflightServiceTests
         {
             ReceivedToken = cancellationToken;
             return ValueTask.FromResult(UcliConfigLoadResult.Success(UcliConfig.CreateDefault(), ConfigSource.Default));
+        }
+
+        public ValueTask<UcliConfigSaveResult> Save (
+            string storageRoot,
+            UcliConfig config,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    private sealed class StaticConfigStore : IUcliConfigStore
+    {
+        private readonly UcliConfig config;
+
+        public StaticConfigStore (UcliConfig config)
+        {
+            this.config = config ?? throw new ArgumentNullException(nameof(config));
+        }
+
+        public string GetConfigPath (string storageRoot)
+        {
+            return Path.Combine(storageRoot, ".ucli", "config.json");
+        }
+
+        public ValueTask<UcliConfigLoadResult> Load (
+            string storageRoot,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(UcliConfigLoadResult.Success(config, ConfigSource.File));
         }
 
         public ValueTask<UcliConfigSaveResult> Save (

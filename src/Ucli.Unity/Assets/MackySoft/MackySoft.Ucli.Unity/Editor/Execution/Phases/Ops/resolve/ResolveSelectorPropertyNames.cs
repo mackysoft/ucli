@@ -9,8 +9,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         public const string AssetPath = "assetPath";
 
+        public const string ProjectAssetPath = "projectAssetPath";
+
         public const string Scene = "scene";
 
+        public const string Prefab = "prefab";
+
         public const string HierarchyPath = "hierarchyPath";
+
+        public const string ComponentType = "componentType";
     }
 }

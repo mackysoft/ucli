@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Validation;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
@@ -37,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(serializerOptions));
             }
 
-            var payloadModel = CreateExecutePayload(trace.OperationTraces, trace.PlanToken);
+            var payloadModel = CreateExecutePayload(trace.Steps, trace.OperationTraces, trace.PlanToken);
             var errors = CreateErrors(trace.Errors);
             return new IpcResponse(
                 ProtocolVersion: context.ProtocolVersion,
@@ -83,49 +84,127 @@ namespace MackySoft.Ucli.Unity.Ipc
                 });
         }
 
-        /// <summary> Creates one execute payload from operation traces. </summary>
-        /// <param name="operationTraces"> The operation traces to map. </param>
-        /// <returns> The execute payload contract model. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationTraces" /> is <see langword="null" />. </exception>
+        /// <summary>
+        /// Creates one execute payload from compiled step metadata and primitive traces.
+        /// </summary>
+        /// <param name="steps"> The normalized public steps in source order. Must not be <see langword="null" />. </param>
+        /// <param name="operationTraces"> The primitive traces in compiled execution order. Must not be <see langword="null" />. </param>
+        /// <param name="planToken"> The optional plan token issued for the response. </param>
+        /// <returns> The execute payload whose <c>opResults</c> are aggregated back to public step granularity. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="steps" /> or <paramref name="operationTraces" /> is <see langword="null" />. </exception>
         private static IpcExecuteResponse CreateExecutePayload (
+            IReadOnlyList<Execution.Requests.NormalizedRequestStep> steps,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             string? planToken)
         {
+            if (steps == null)
+            {
+                throw new ArgumentNullException(nameof(steps));
+            }
+
             if (operationTraces == null)
             {
                 throw new ArgumentNullException(nameof(operationTraces));
             }
 
-            var opResults = new IpcExecuteOperationResult[operationTraces.Count];
-            for (var i = 0; i < operationTraces.Count; i++)
+            var opResults = new IpcExecuteOperationResult[steps.Count];
+            var operationTraceIndex = 0;
+            for (var stepIndex = 0; stepIndex < steps.Count; stepIndex++)
             {
-                var operationTrace = operationTraces[i];
-                var touchedResources = new IpcExecuteTouchedResource[operationTrace.Touched.Count];
-                for (var touchedIndex = 0; touchedIndex < operationTrace.Touched.Count; touchedIndex++)
+                var step = steps[stepIndex];
+                if (step.PrimitiveCount == 0)
                 {
-                    var touchedResource = operationTrace.Touched[touchedIndex];
-                    touchedResources[touchedIndex] = new IpcExecuteTouchedResource(
-                        Kind: ToTouchedResourceKindName(touchedResource.Kind),
-                        Path: touchedResource.Path,
-                        Guid: touchedResource.Guid);
+                    opResults[stepIndex] = new IpcExecuteOperationResult(
+                        OpId: step.Id,
+                        Op: step.OperationName,
+                        Phase: ToOperationPhaseName(OperationPhase.Plan),
+                        Applied: false,
+                        Changed: false,
+                        Touched: Array.Empty<IpcExecuteTouchedResource>());
+                    continue;
                 }
 
-                opResults[i] = new IpcExecuteOperationResult(
-                    OpId: operationTrace.OpId,
-                    Op: operationTrace.Op,
-                    Phase: ToOperationPhaseName(operationTrace.Phase),
-                    Applied: operationTrace.Applied,
-                    Changed: operationTrace.Changed,
+                if (operationTraceIndex + step.PrimitiveCount > operationTraces.Count)
+                {
+                    throw new InvalidOperationException("Operation traces do not match compiled step metadata.");
+                }
+
+                var lastPhase = OperationPhase.Skipped;
+                var applied = false;
+                var changed = false;
+                JsonElement? result = null;
+                var touchedResources = AggregateTouched(step.PrimitiveCount, operationTraces, operationTraceIndex, ref lastPhase, ref applied, ref changed, ref result);
+
+                opResults[stepIndex] = new IpcExecuteOperationResult(
+                    OpId: step.Id,
+                    Op: step.OperationName,
+                    Phase: ToOperationPhaseName(lastPhase),
+                    Applied: applied,
+                    Changed: changed,
                     Touched: touchedResources)
                 {
-                    Result = operationTrace.Result,
+                    Result = step.Kind == IpcRequestStepKind.Op ? result : null,
                 };
+                operationTraceIndex += step.PrimitiveCount;
             }
 
             return new IpcExecuteResponse(opResults)
             {
                 PlanToken = planToken,
             };
+        }
+
+        /// <summary>
+        /// Aggregates touched resources and result flags across one compiled primitive range.
+        /// </summary>
+        /// <param name="primitiveCount"> The number of primitive traces that belong to the current public step. </param>
+        /// <param name="operationTraces"> The primitive traces in compiled execution order. </param>
+        /// <param name="startIndex"> The first primitive index that belongs to the current public step. </param>
+        /// <param name="lastPhase"> Receives the aggregated public phase for the compiled primitive range. Trailing skipped primitives do not overwrite an earlier non-skipped phase. </param>
+        /// <param name="applied"> Receives <see langword="true" /> when any primitive in the aggregated range was applied. </param>
+        /// <param name="changed"> Receives <see langword="true" /> when any primitive in the aggregated range changed state. </param>
+        /// <param name="result"> Receives the last primitive result in the aggregated range. </param>
+        /// <returns> The touched resources in first-seen order with duplicates removed by kind, path, and GUID. </returns>
+        private static IpcExecuteTouchedResource[] AggregateTouched (
+            int primitiveCount,
+            IReadOnlyList<OperationPhaseTrace> operationTraces,
+            int startIndex,
+            ref OperationPhase lastPhase,
+            ref bool applied,
+            ref bool changed,
+            ref JsonElement? result)
+        {
+            var touchedResources = new List<IpcExecuteTouchedResource>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < primitiveCount; i++)
+            {
+                var operationTrace = operationTraces[startIndex + i];
+                if (operationTrace.Phase != OperationPhase.Skipped
+                    || lastPhase == OperationPhase.Skipped)
+                {
+                    lastPhase = operationTrace.Phase;
+                }
+
+                applied |= operationTrace.Applied;
+                changed |= operationTrace.Changed;
+                result = operationTrace.Result;
+                for (var touchedIndex = 0; touchedIndex < operationTrace.Touched.Count; touchedIndex++)
+                {
+                    var touchedResource = operationTrace.Touched[touchedIndex];
+                    var key = touchedResource.Kind + "\u001f" + touchedResource.Path + "\u001f" + touchedResource.Guid;
+                    if (!seen.Add(key))
+                    {
+                        continue;
+                    }
+
+                    touchedResources.Add(new IpcExecuteTouchedResource(
+                        Kind: ToTouchedResourceKindName(touchedResource.Kind),
+                        Path: touchedResource.Path,
+                        Guid: touchedResource.Guid));
+                }
+            }
+
+            return touchedResources.ToArray();
         }
 
         /// <summary> Creates one empty execute payload. </summary>

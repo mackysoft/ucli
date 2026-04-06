@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy)
-            : this(operationName, kind, policy, "{\"type\":\"object\"}")
+            : this(operationName, kind, policy, "{\"type\":\"object\"}", requiresPreCallPlanReplay: false)
         {
         }
 
@@ -32,6 +32,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UcliOperationKind kind,
             OperationPolicy policy,
             string argsSchemaJson)
+            : this(operationName, kind, policy, argsSchemaJson, requiresPreCallPlanReplay: false)
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="UcliOperationMetadata" /> class. </summary>
+        /// <param name="operationName"> The operation name. </param>
+        /// <param name="kind"> The operation kind metadata. </param>
+        /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="argsSchemaJson"> The args-schema JSON object text. </param>
+        /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
+        public UcliOperationMetadata (
+            string operationName,
+            UcliOperationKind kind,
+            OperationPolicy policy,
+            string argsSchemaJson,
+            bool requiresPreCallPlanReplay)
         {
             if (string.IsNullOrWhiteSpace(operationName))
             {
@@ -65,6 +82,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             Kind = kind;
             Policy = policy;
             ArgsSchemaJson = argsSchemaJson;
+            RequiresPreCallPlanReplay = requiresPreCallPlanReplay;
         }
 
         /// <summary> Gets the registered operation name. </summary>
@@ -78,5 +96,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets the args-schema JSON object text. </summary>
         public string ArgsSchemaJson { get; }
+
+        /// <summary> Gets a value indicating whether call execution must replay plan immediately beforehand. </summary>
+        public bool RequiresPreCallPlanReplay { get; }
     }
 }

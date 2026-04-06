@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 #nullable enable
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one per-request execution context shared by operation phases. </summary>
-    public sealed class OperationExecutionContext
+    public sealed class OperationExecutionContext : IDisposable
     {
         private readonly TemporaryAliasRegistry temporaryAliasRegistry = new TemporaryAliasRegistry();
 
@@ -16,7 +19,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly PlannedAssetRegistry plannedAssetRegistry = new PlannedAssetRegistry();
 
+        private readonly TemporarySceneRegistry temporarySceneRegistry = new TemporarySceneRegistry();
+
         private readonly TemporaryObjectScope temporaryObjectScope = new TemporaryObjectScope();
+
+        private readonly RequestAttributedChangeRegistry requestAttributedChangeRegistry = new RequestAttributedChangeRegistry();
+
+        private readonly DeletedGlobalObjectIdRegistry deletedGlobalObjectIdRegistry = new DeletedGlobalObjectIdRegistry();
+
+        private readonly HashSet<string> plannedLiveSceneOpenPaths = new HashSet<string>(StringComparer.Ordinal);
+
+        private readonly HashSet<string> plannedLivePrefabOpenPaths = new HashSet<string>(StringComparer.Ordinal);
+
+        private bool disposed;
 
         /// <summary> Initializes a new instance of the <see cref="OperationExecutionContext" /> class. </summary>
         public OperationExecutionContext ()
@@ -34,23 +49,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets the alias store used to share resolved references within one request. </summary>
         internal OperationAliasStore AliasStore { get; }
-
-        /// <summary> Stores or replaces one temporary alias value used during plan execution. </summary>
-        /// <param name="alias"> The alias name. </param>
-        /// <param name="unityObject"> The temporary live object. </param>
-        /// <param name="scenePath"> The logical resource path associated with the temporary object. </param>
-        internal void SetTemporaryAlias (
-            string alias,
-            UnityEngine.Object unityObject,
-            string scenePath,
-            string? sourceGlobalObjectId = null)
-        {
-            SetTemporaryAlias(
-                alias,
-                unityObject,
-                new OperationResource(OperationTouchKind.Scene, scenePath),
-                sourceGlobalObjectId);
-        }
 
         /// <summary> Stores or replaces one temporary alias value used during plan execution. </summary>
         /// <param name="alias"> The alias name. </param>
@@ -81,24 +79,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
         /// <param name="componentType"> The ensured component runtime type. </param>
         /// <param name="component"> The temporary ensured component. </param>
-        /// <param name="scenePath"> The owning resource path. </param>
-        internal void SetEnsuredComponent (
-            string targetGlobalObjectId,
-            Type componentType,
-            Component component,
-            string scenePath)
-        {
-            SetEnsuredComponent(
-                targetGlobalObjectId,
-                componentType,
-                component,
-                new OperationResource(OperationTouchKind.Scene, scenePath));
-        }
-
-        /// <summary> Stores or replaces one plan-time ensured component keyed by target GameObject and component type. </summary>
-        /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
-        /// <param name="componentType"> The ensured component runtime type. </param>
-        /// <param name="component"> The temporary ensured component. </param>
         /// <param name="resource"> The owning resource. </param>
         internal void SetEnsuredComponent (
             string targetGlobalObjectId,
@@ -122,19 +102,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return componentSandboxRegistry.TryGetEnsuredComponentState(targetGlobalObjectId, componentType, out state);
         }
 
-        /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
-        /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
-        /// <param name="component"> The temporary shadow component. </param>
-        /// <param name="scenePath"> The owning resource path. </param>
-        internal void SetComponentShadow (
-            string globalObjectId,
-            Component component,
-            string scenePath)
+        /// <summary> Collects all plan-time ensured components tracked for one target object. </summary>
+        /// <param name="targetGlobalObjectId"> The target tracking key. </param>
+        /// <param name="destination"> The destination collection that receives the ensured components. </param>
+        internal void CollectEnsuredComponentStates (
+            string targetGlobalObjectId,
+            ICollection<ComponentSandboxRegistry.EnsuredComponentState> destination)
         {
-            SetComponentShadow(
-                globalObjectId,
-                component,
-                new OperationResource(OperationTouchKind.Scene, scenePath));
+            componentSandboxRegistry.CollectEnsuredComponentStates(targetGlobalObjectId, destination);
+        }
+
+        /// <summary> Tries to resolve one tracked temporary component back to its logical owner resource. </summary>
+        /// <param name="component"> The tracked temporary component. </param>
+        /// <param name="resource"> The logical owner resource when found. </param>
+        /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTrackedComponentResource (
+            Component component,
+            out OperationResource resource)
+        {
+            return componentSandboxRegistry.TryResolveTrackedComponentResource(component, out resource);
         }
 
         /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
@@ -147,21 +133,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationResource resource)
         {
             componentSandboxRegistry.SetComponentShadow(globalObjectId, component, resource, temporaryAliasRegistry);
-        }
-
-        /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
-        /// <param name="sourceComponent"> The previous temporary component instance. </param>
-        /// <param name="replacementComponent"> The replacement temporary component instance. </param>
-        /// <param name="scenePath"> The owning resource path. </param>
-        internal void ReplaceTrackedTemporaryComponent (
-            Component sourceComponent,
-            Component replacementComponent,
-            string scenePath)
-        {
-            ReplaceTrackedTemporaryComponent(
-                sourceComponent,
-                replacementComponent,
-                new OperationResource(OperationTouchKind.Scene, scenePath));
         }
 
         /// <summary> Replaces tracked temporary component references that still point to an older plan-time component instance. </summary>
@@ -212,6 +183,328 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporaryObjectScope.TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot);
         }
 
+        /// <summary> Tries to resolve one tracked temporary prefab asset path from a prefab-contents GameObject. </summary>
+        /// <param name="gameObject"> The candidate GameObject. </param>
+        /// <param name="prefabPath"> The tracked prefab asset path when found. </param>
+        /// <returns> <see langword="true" /> when the GameObject belongs to tracked temporary prefab contents; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabPath (
+            GameObject gameObject,
+            out string prefabPath)
+        {
+            return temporaryObjectScope.TryResolveTemporaryPrefabPath(gameObject, out prefabPath);
+        }
+
+        /// <summary> Tries to resolve one request-local preview scene object back to its mirrored live source object. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="sourceObject"> The mirrored live source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object originated from a dirty loaded-scene mirror; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporarySceneSourceObject (
+            string scenePath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? sourceObject)
+        {
+            return temporarySceneRegistry.TryResolveMirroredSourceObject(scenePath, previewObject, out sourceObject);
+        }
+
+        /// <summary> Tries to resolve one mirrored live scene source object to its request-local preview object. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the source object originated one dirty loaded-scene mirror; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryScenePreviewObject (
+            string scenePath,
+            UnityEngine.Object sourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            return temporarySceneRegistry.TryResolvePreviewObjectFromSourceObject(scenePath, sourceObject, out previewObject);
+        }
+
+        /// <summary> Tries to resolve one request-local preview scene object to its stable GlobalObjectId text. </summary>
+        /// <param name="scenePath"> The logical scene asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporarySceneStableReference (
+            string scenePath,
+            UnityEngine.Object previewObject,
+            out string stableReference)
+        {
+            return temporarySceneRegistry.TryResolveStableReferenceFromPreviewObject(scenePath, previewObject, out stableReference);
+        }
+
+        /// <summary> Tries to resolve one request-local preview prefab object back to its mirrored live source object. </summary>
+        /// <param name="prefabPath"> The logical prefab asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="sourceObject"> The mirrored live source object when found. </param>
+        /// <returns> <see langword="true" /> when the preview object originated from an opened Prefab Stage mirror; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabSourceObject (
+            string prefabPath,
+            UnityEngine.Object previewObject,
+            out UnityEngine.Object? sourceObject)
+        {
+            return temporaryObjectScope.TryResolveMirroredSourceObject(prefabPath, previewObject, out sourceObject);
+        }
+
+        /// <summary> Tries to resolve one mirrored live prefab object to its request-local preview object. </summary>
+        /// <param name="prefabPath"> The logical prefab asset path. </param>
+        /// <param name="sourceObject"> The mirrored live source object. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the live source object belongs to an opened-stage mirror tracked for the request; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabPreviewObject (
+            string prefabPath,
+            UnityEngine.Object sourceObject,
+            out UnityEngine.Object? previewObject)
+        {
+            return temporaryObjectScope.TryResolvePreviewObjectFromMirroredSourceObject(prefabPath, sourceObject, out previewObject);
+        }
+
+        /// <summary> Tries to resolve one request-local preview prefab object to its stable GlobalObjectId text. </summary>
+        /// <param name="prefabPath"> The logical prefab asset path. </param>
+        /// <param name="previewObject"> The preview object. </param>
+        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPrefabStableReference (
+            string prefabPath,
+            UnityEngine.Object previewObject,
+            out string stableReference)
+        {
+            return temporaryObjectScope.TryResolveStableReferenceFromPreviewObject(prefabPath, previewObject, out stableReference);
+        }
+
+        /// <summary> Tries to resolve one stable GlobalObjectId text to any request-local preview object. </summary>
+        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <param name="previewObject"> The preview object when found. </param>
+        /// <returns> <see langword="true" /> when the stable reference maps into tracked request-local preview state; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryPreviewObjectFromStableReference (
+            string stableReference,
+            out UnityEngine.Object? previewObject)
+        {
+            if (temporarySceneRegistry.TryResolvePreviewObjectFromStableReference(stableReference, out previewObject))
+            {
+                return true;
+            }
+
+            return temporaryObjectScope.TryResolvePreviewObjectFromStableReference(stableReference, out previewObject);
+        }
+
+        /// <summary> Resolves one scene path to the active execution session for the current request. </summary>
+        /// <param name="scenePath"> The scene asset path. </param>
+        /// <param name="createTemporaryIfMissing"> Whether one request-owned preview scene may be opened when the scene is not already loaded. </param>
+        /// <param name="scene"> The resolved scene when successful. </param>
+        /// <param name="isRequestOwned"> <see langword="true" /> when the resolved scene is one request-owned preview scene. </param>
+        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
+        /// <returns> <see langword="true" /> when the scene can be resolved for request execution; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveSceneExecutionSession (
+            string scenePath,
+            bool createTemporaryIfMissing,
+            out Scene scene,
+            out bool isRequestOwned,
+            out string errorMessage)
+        {
+            scene = default;
+            isRequestOwned = false;
+            if (SceneOperationUtilities.TryGetLoadedScene(scenePath, out scene, out _))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (TryGetTemporaryScene(scenePath, out scene))
+            {
+                isRequestOwned = true;
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (!createTemporaryIfMissing)
+            {
+                errorMessage = $"Scene is not loaded: {scenePath}. Use 'ucli.scene.open' first.";
+                return false;
+            }
+
+            if (!TryGetOrOpenTemporaryScene(scenePath, out scene, out errorMessage))
+            {
+                return false;
+            }
+
+            isRequestOwned = true;
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        /// <summary> Ensures that one scene path has request-local plan state available for implicit edit flow. </summary>
+        /// <param name="scenePath"> The scene asset path. </param>
+        /// <param name="errorMessage"> The validation error message when acquisition fails. </param>
+        /// <returns> <see langword="true" /> when request-local scene state is available; otherwise <see langword="false" />. </returns>
+        internal bool TryEnsureSceneExecutionSession (
+            string scenePath,
+            out string errorMessage)
+        {
+            if (TryGetTemporaryScene(scenePath, out _))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            return TryGetOrOpenTemporaryScene(scenePath, out _, out errorMessage);
+        }
+
+        /// <summary> Resolves one prefab path to the active execution session for the current request. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <param name="createTemporaryIfMissing"> Whether one request-owned prefab contents root may be loaded when the prefab stage is not already open. </param>
+        /// <param name="prefabContentsRoot"> The resolved prefab contents root when successful. </param>
+        /// <param name="prefabStage"> The opened prefab stage when the resolved session is live; otherwise <see langword="null" />. </param>
+        /// <param name="isRequestOwned"> <see langword="true" /> when the resolved contents root is request-owned temporary state. </param>
+        /// <param name="errorMessage"> The validation error message when resolution fails. </param>
+        /// <returns> <see langword="true" /> when the prefab can be resolved for request execution; otherwise <see langword="false" />. </returns>
+        internal bool TryResolvePrefabExecutionSession (
+            string prefabPath,
+            bool createTemporaryIfMissing,
+            out GameObject? prefabContentsRoot,
+            out PrefabStage? prefabStage,
+            out bool isRequestOwned,
+            out string errorMessage)
+        {
+            prefabContentsRoot = null;
+            prefabStage = null;
+            isRequestOwned = false;
+            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out prefabStage, out _))
+            {
+                prefabContentsRoot = prefabStage!.prefabContentsRoot;
+                if (prefabContentsRoot == null)
+                {
+                    errorMessage = $"Prefab root is not available after open: {prefabPath}.";
+                    return false;
+                }
+
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot)
+                && prefabContentsRoot != null)
+            {
+                isRequestOwned = true;
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (!createTemporaryIfMissing)
+            {
+                errorMessage = $"Prefab is not opened: {prefabPath}. Use 'ucli.prefab.open' first.";
+                return false;
+            }
+
+            if (!PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
+                    prefabPath,
+                    this,
+                    out prefabContentsRoot,
+                    out errorMessage))
+            {
+                return false;
+            }
+
+            isRequestOwned = true;
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        /// <summary> Ensures that one prefab path has request-local plan state available for implicit edit flow. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <param name="errorMessage"> The validation error message when acquisition fails. </param>
+        /// <returns> <see langword="true" /> when request-local prefab state is available; otherwise <see langword="false" />. </returns>
+        internal bool TryEnsurePrefabExecutionSession (
+            string prefabPath,
+            out string errorMessage)
+        {
+            if (TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot)
+                && prefabContentsRoot != null)
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            return TryGetOrCreateTemporaryPrefabContentsRoot(
+                prefabPath,
+                out _,
+                out errorMessage);
+        }
+
+        /// <summary> Marks one persistence resource as changed by the current request. </summary>
+        /// <param name="resource"> The changed resource. </param>
+        internal void MarkRequestAttributedChange (OperationResource resource)
+        {
+            requestAttributedChangeRegistry.MarkChanged(resource);
+        }
+
+        /// <summary> Marks one stable GlobalObjectId as deleted from request-local plan state. </summary>
+        /// <param name="globalObjectId"> The deleted stable GlobalObjectId. </param>
+        internal void MarkDeletedGlobalObjectId (string globalObjectId)
+        {
+            deletedGlobalObjectIdRegistry.MarkDeleted(globalObjectId);
+        }
+
+        /// <summary> Determines whether one stable GlobalObjectId was deleted from request-local plan state. </summary>
+        /// <param name="globalObjectId"> The stable GlobalObjectId. </param>
+        /// <returns> <see langword="true" /> when the object was deleted in request-local plan state; otherwise <see langword="false" />. </returns>
+        internal bool IsDeletedGlobalObjectId (string globalObjectId)
+        {
+            return deletedGlobalObjectIdRegistry.Contains(globalObjectId);
+        }
+
+        /// <summary> Determines whether one persistence resource has been changed by the current request. </summary>
+        /// <param name="resource"> The resource to test. </param>
+        /// <returns> <see langword="true" /> when the request changed the resource; otherwise <see langword="false" />. </returns>
+        internal bool HasRequestAttributedChange (OperationResource resource)
+        {
+            return requestAttributedChangeRegistry.Contains(resource);
+        }
+
+        /// <summary> Removes the request-attributed changed marker for one persistence resource. </summary>
+        /// <param name="resource"> The resource whose changed marker should be cleared. </param>
+        internal void UnmarkRequestAttributedChange (OperationResource resource)
+        {
+            requestAttributedChangeRegistry.UnmarkChanged(resource);
+        }
+
+        /// <summary> Copies all request-attributed resources tracked for the current request into the destination collection. </summary>
+        /// <param name="destination"> The destination collection that receives tracked resources. </param>
+        internal void CopyRequestAttributedChangesTo (ICollection<OperationResource> destination)
+        {
+            requestAttributedChangeRegistry.CopyTo(destination);
+        }
+
+        /// <summary> Tracks that one prior step planned an explicit live scene open for the specified path. </summary>
+        /// <param name="scenePath"> The scene asset path. </param>
+        internal void TrackPlannedLiveSceneOpen (string scenePath)
+        {
+            plannedLiveSceneOpenPaths.Add(scenePath);
+        }
+
+        /// <summary> Determines whether one prior step planned an explicit live scene open for the specified path. </summary>
+        /// <param name="scenePath"> The scene asset path. </param>
+        /// <returns> <see langword="true" /> when an explicit live scene open was planned earlier in this request; otherwise <see langword="false" />. </returns>
+        internal bool HasPlannedLiveSceneOpen (string scenePath)
+        {
+            return plannedLiveSceneOpenPaths.Contains(scenePath);
+        }
+
+        /// <summary> Tracks that one prior step planned an explicit live prefab open for the specified path. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        internal void TrackPlannedLivePrefabOpen (string prefabPath)
+        {
+            plannedLivePrefabOpenPaths.Add(prefabPath);
+        }
+
+        /// <summary> Determines whether one prior step planned an explicit live prefab open for the specified path. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <returns> <see langword="true" /> when an explicit live prefab open was planned earlier in this request; otherwise <see langword="false" />. </returns>
+        internal bool HasPlannedLivePrefabOpen (string prefabPath)
+        {
+            return plannedLivePrefabOpenPaths.Contains(prefabPath);
+        }
+
         /// <summary> Stores or replaces one temporary asset shadow keyed by source GlobalObjectId. </summary>
         /// <param name="globalObjectId"> The source asset GlobalObjectId. </param>
         /// <param name="unityObject"> The temporary asset shadow. </param>
@@ -239,14 +532,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Stores or replaces one plan-time created asset keyed by its reserved asset path. </summary>
         /// <param name="assetPath"> The reserved asset path. </param>
-        /// <param name="ownerOperationId"> The operation id that owns the reservation. </param>
+        /// <param name="ownerExecutionKey"> The request-internal primitive execution key that owns the reservation. </param>
         /// <param name="unityObject"> The current temporary asset instance. </param>
         internal void SetPlannedAsset (
             string assetPath,
-            string ownerOperationId,
+            string ownerExecutionKey,
             UnityEngine.Object unityObject)
         {
-            plannedAssetRegistry.SetPlannedAsset(assetPath, ownerOperationId, unityObject, temporaryAliasRegistry);
+            plannedAssetRegistry.SetPlannedAsset(assetPath, ownerExecutionKey, unityObject, temporaryAliasRegistry);
         }
 
         /// <summary> Tries to get one plan-time created asset state keyed by asset path. </summary>
@@ -260,6 +553,115 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return plannedAssetRegistry.TryGetState(assetPath, out state);
         }
 
+        /// <summary> Tries to get one request-local preview scene. </summary>
+        /// <param name="scenePath"> The scene asset path. </param>
+        /// <param name="scene"> The preview scene when tracked. </param>
+        /// <returns> <see langword="true" /> when the request already owns a preview scene for <paramref name="scenePath" />; otherwise <see langword="false" />. </returns>
+        internal bool TryGetTemporaryScene (
+            string scenePath,
+            out Scene scene)
+        {
+            return temporarySceneRegistry.TryGetPreviewScene(scenePath, out scene);
+        }
+
+        /// <summary> Releases one request-local preview scene when it was created speculatively for the current request. </summary>
+        /// <param name="scenePath"> The logical scene path to release. </param>
+        internal void ReleaseTemporaryScene (string scenePath)
+        {
+            _ = temporarySceneRegistry.ReleasePreviewScene(scenePath);
+        }
+
+        /// <summary> Gets one request-local preview scene or creates one from the current loaded scene snapshot when needed. </summary>
+        /// <param name="scenePath"> The scene asset path. </param>
+        /// <param name="scene"> The preview scene when successful. </param>
+        /// <param name="errorMessage"> The validation error message when preview scene acquisition fails. </param>
+        /// <returns> <see langword="true" /> when a preview scene is available for <paramref name="scenePath" />; otherwise <see langword="false" />. </returns>
+        internal bool TryGetOrOpenTemporaryScene (
+            string scenePath,
+            out Scene scene,
+            out string errorMessage)
+        {
+            if (temporarySceneRegistry.TryGetPreviewScene(scenePath, out scene))
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _)
+                && loadedScene.isDirty)
+            {
+                return temporarySceneRegistry.TryGetOrCreatePreviewSceneFromLoadedScene(
+                    scenePath,
+                    loadedScene,
+                    out scene,
+                    out errorMessage);
+            }
+
+            return temporarySceneRegistry.TryGetOrOpenPreviewScene(scenePath, out scene, out errorMessage);
+        }
+
+        /// <summary> Gets one request-local temporary prefab root or mirrors the current opened prefab-stage snapshot when needed. </summary>
+        /// <param name="prefabPath"> The prefab asset path. </param>
+        /// <param name="prefabContentsRoot"> The temporary prefab root when successful. </param>
+        /// <param name="errorMessage"> The validation error message when acquisition fails. </param>
+        /// <returns> <see langword="true" /> when request-local prefab state is available; otherwise <see langword="false" />. </returns>
+        internal bool TryGetOrCreateTemporaryPrefabContentsRoot (
+            string prefabPath,
+            out GameObject? prefabContentsRoot,
+            out string errorMessage)
+        {
+            if (temporaryObjectScope.TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot)
+                && prefabContentsRoot != null)
+            {
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            {
+                var openedPrefabRoot = prefabStage!.prefabContentsRoot;
+                if (openedPrefabRoot == null)
+                {
+                    prefabContentsRoot = null;
+                    errorMessage = $"Opened prefab root is not available: {prefabPath}.";
+                    return false;
+                }
+
+                if (openedPrefabRoot.scene.isDirty)
+                {
+                    return temporaryObjectScope.TryCloneTemporaryPrefabContentsRootFromOpenedStage(
+                        prefabPath,
+                        openedPrefabRoot,
+                        out prefabContentsRoot,
+                        out errorMessage);
+                }
+            }
+
+            return PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
+                prefabPath,
+                this,
+                out prefabContentsRoot,
+                out errorMessage);
+        }
+
+        /// <summary> Tries to resolve one tracked preview scene back to its logical scene asset path. </summary>
+        /// <param name="scene"> The preview scene instance. </param>
+        /// <param name="scenePath"> The logical scene asset path when the scene is tracked. </param>
+        /// <returns> <see langword="true" /> when <paramref name="scene" /> is one request-local preview scene; otherwise <see langword="false" />. </returns>
+        internal bool TryResolveTemporaryScenePath (
+            Scene scene,
+            out string scenePath)
+        {
+            return temporarySceneRegistry.TryResolvePreviewScenePath(scene, out scenePath);
+        }
+
+        /// <summary> Releases one request-local temporary prefab execution session. </summary>
+        /// <param name="prefabPath"> The prefab asset path to release. </param>
+        internal void ReleaseTemporaryPrefabExecutionSession (string prefabPath)
+        {
+            _ = temporaryObjectScope.ReleaseTemporaryPrefabContentsRoot(prefabPath);
+        }
+
         /// <summary> Tracks one temporary object for cleanup at the end of request execution. </summary>
         /// <param name="unityObject"> The temporary object to destroy. </param>
         internal void TrackTemporaryObject (UnityEngine.Object unityObject)
@@ -267,14 +669,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             temporaryObjectScope.TrackTemporaryObject(unityObject);
         }
 
-        /// <summary> Destroys all tracked temporary objects and clears temporary state. </summary>
-        internal void CleanupTemporaryObjects ()
+        /// <summary> Determines whether one Unity object is tracked as request-local temporary state. </summary>
+        /// <param name="unityObject"> The Unity object to test. </param>
+        /// <returns> <see langword="true" /> when the object belongs to this request-local temporary scope; otherwise <see langword="false" />. </returns>
+        internal bool IsTrackedTemporaryObject (UnityEngine.Object unityObject)
         {
+            return temporaryObjectScope.ContainsTemporaryObject(unityObject);
+        }
+
+        /// <summary> Releases all request-local temporary resources owned by this execution context. </summary>
+        public void Dispose ()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            temporarySceneRegistry.Clear();
             temporaryObjectScope.Cleanup();
             temporaryAliasRegistry.Clear();
             componentSandboxRegistry.Clear();
             assetSandboxRegistry.Clear();
             plannedAssetRegistry.Clear();
+            requestAttributedChangeRegistry.ClearAll();
+            deletedGlobalObjectIdRegistry.Clear();
+            plannedLiveSceneOpenPaths.Clear();
+            plannedLivePrefabOpenPaths.Clear();
         }
     }
 }

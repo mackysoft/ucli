@@ -51,8 +51,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (preparedOperation.RequiresPreCallPlanReplay)
                 {
                     // NOTE:
-                    // Duplicate operation names resolve to the same phase-operation instance.
-                    // Replaying Plan immediately before Call keeps per-op planned state adjacent.
+                    // Some operations keep request-local plan state inside the phase-operation instance.
+                    // Those operations opt into plan replay explicitly through metadata so Call observes
+                    // state derived from the current operation immediately beforehand.
                     var replayedPlanStepResult = await OperationPhaseExecutionUtilities.ExecutePhaseStep(
                         preparedOperation.Operation,
                         OperationPhase.Plan,

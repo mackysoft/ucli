@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -24,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.prefab.open",
+            operationName: UcliPrimitiveOperationNames.PrefabOpen,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
             argsSchemaJson: ArgsSchemaJson);
@@ -54,11 +55,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            if (!PrefabOperationUtilities.TryGetOrLoadTemporaryPrefabContentsRoot(
-                validationState.PrefabPath,
-                executionContext,
-                out var prefabContentsRoot,
-                out var errorMessage))
+            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(validationState.PrefabPath, out _, out _)
+                && !PrefabOperationUtilities.TryEnsureCanOpenPrefabStage(validationState.PrefabPath, out var blockerErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    blockerErrorMessage));
+            }
+
+            GameObject? prefabContentsRoot;
+            if (!executionContext.TryGetOrCreateTemporaryPrefabContentsRoot(
+                    validationState.PrefabPath,
+                    out prefabContentsRoot,
+                    out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
             }
@@ -71,12 +80,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
             }
 
+            executionContext.TrackPlannedLivePrefabOpen(validationState.PrefabPath);
+
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
                 touched: new[]
                 {
-                    PrefabOperationUtilities.CreatePrefabTouch(validationState.PrefabPath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
                 }));
         }
 
@@ -121,7 +132,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    PrefabOperationUtilities.CreatePrefabTouch(validationState.PrefabPath),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
                 }));
         }
 

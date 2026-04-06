@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
@@ -36,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             scene = SceneManager.GetSceneByPath(scenePath);
-            if (!scene.IsValid() || !scene.isLoaded)
+            if (!scene.IsValid() || !scene.isLoaded || EditorSceneManager.IsPreviewScene(scene))
             {
                 errorMessage = $"Scene is not loaded: {scenePath}. Use 'ucli.scene.open' first.";
                 return false;
@@ -46,16 +47,47 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        /// <summary> Creates one touched entry for the specified scene path. </summary>
-        /// <param name="scenePath"> The scene path. </param>
-        /// <returns> The touched scene entry. </returns>
-        public static OperationTouch CreateSceneTouch (string scenePath)
+        /// <summary> Validates that opening one live scene will not be blocked by dirty live editor state. </summary>
+        /// <param name="scenePath"> The target scene path. </param>
+        /// <param name="errorMessage"> The validation error message when blocked. </param>
+        /// <returns> <see langword="true" /> when the scene can be opened without dirty-state blockers; otherwise <see langword="false" />. </returns>
+        public static bool TryEnsureCanOpenSceneLive (
+            string scenePath,
+            out string errorMessage)
         {
-            var sceneGuid = AssetDatabase.AssetPathToGUID(scenePath);
-            return new OperationTouch(
-                Kind: OperationTouchKind.Scene,
-                Path: scenePath,
-                Guid: string.IsNullOrWhiteSpace(sceneGuid) ? null : sceneGuid);
+            var currentPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (currentPrefabStage != null
+                && currentPrefabStage.scene.isDirty)
+            {
+                errorMessage = $"Dirty prefab stage blocks opening scene '{scenePath}': {currentPrefabStage.assetPath}.";
+                return false;
+            }
+
+            for (var i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var loadedScene = SceneManager.GetSceneAt(i);
+                if (!loadedScene.IsValid()
+                    || !loadedScene.isLoaded
+                    || EditorSceneManager.IsPreviewScene(loadedScene)
+                    || !loadedScene.isDirty
+                    || string.Equals(loadedScene.path, scenePath, System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                errorMessage = $"Dirty loaded scene blocks opening scene '{scenePath}': {CreateSceneDisplayName(loadedScene)}.";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        private static string CreateSceneDisplayName (Scene scene)
+        {
+            return string.IsNullOrWhiteSpace(scene.path)
+                ? scene.name
+                : scene.path;
         }
     }
 }

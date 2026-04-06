@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -20,21 +21,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
               ""properties"": {
                 ""name"": { ""type"": ""string"", ""minLength"": 1 },
                 ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                ""parent"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""scene"", ""hierarchyPath""] }
-                  ]
-                }
+	                ""parent"": {
+	                  ""type"": ""object"",
+	                  ""additionalProperties"": false,
+	                  ""properties"": {
+	                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
+	                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
+	                  },
+	                  ""oneOf"": [
+	                    { ""required"": [""var""] },
+	                    { ""required"": [""globalObjectId""] },
+	                    { ""required"": [""scene"", ""hierarchyPath""] },
+	                    { ""required"": [""prefab"", ""hierarchyPath""] }
+	                  ]
+	                }
               },
               ""required"": [""name""],
               ""oneOf"": [
@@ -44,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }";
 
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
-            operationName: "ucli.go.create",
+            operationName: UcliPrimitiveOperationNames.GoCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
             argsSchemaJson: ArgsSchemaJson);
@@ -89,10 +92,39 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            if (!GoOperationUtilities.TryEnsurePlanResourceState(
+                    validationState.Resource,
+                    executionContext,
+                    out var preparationErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    preparationErrorMessage));
+            }
+
+            if (!TryValidateArguments(
+                    operation,
+                    executionContext,
+                    allowTemporaryState: true,
+                    out validationState,
+                    out failure))
+            {
+                return Task.FromResult(failure!);
+            }
+
+            if (!TryEnsureRequestLocalPlanDestination(validationState, executionContext, out var destinationErrorMessage))
+            {
+                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    destinationErrorMessage));
+            }
+
+            var temporaryGameObject = GoOperationUtilities.CreateTemporaryGameObject(validationState.Name, executionContext);
+            AttachGameObject(validationState, temporaryGameObject);
+            GoOperationUtilities.MarkPlanResourceDirty(validationState.Resource, executionContext);
+            executionContext.MarkRequestAttributedChange(validationState.Resource);
             if (operation.As != null)
             {
-                var temporaryGameObject = GoOperationUtilities.CreateTemporaryGameObject(validationState.Name, executionContext);
-                TryParentTemporaryGameObject(validationState, executionContext, temporaryGameObject);
                 executionContext.SetTemporaryAlias(operation.As, temporaryGameObject, validationState.Resource);
             }
 
@@ -127,16 +159,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var createdGameObject = new GameObject(validationState.Name);
-            if (validationState.Parent != null)
-            {
-                SceneManager.MoveGameObjectToScene(createdGameObject, validationState.Parent.scene);
-                createdGameObject.transform.SetParent(validationState.Parent.transform, worldPositionStays: false);
-            }
-            else
-            {
-                SceneManager.MoveGameObjectToScene(createdGameObject, validationState.Scene);
-            }
+            AttachGameObject(validationState, createdGameObject);
 
+            executionContext.MarkRequestAttributedChange(validationState.Resource);
             StoreAliasIfNeeded(operation.As, executionContext, createdGameObject, validationState.Resource);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,
@@ -171,7 +196,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!parsedArguments.HasParentReference)
             {
-                if (!GoOperationUtilities.TryResolveLoadedScene(parsedArguments.ScenePath!, out var scene, out var sceneErrorMessage))
+                if (!GoOperationUtilities.TryResolveScene(
+                    parsedArguments.ScenePath!,
+                    executionContext,
+                    allowTemporaryState,
+                    out var scene,
+                    out var sceneErrorMessage))
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                     return false;
@@ -182,7 +212,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     parsedArguments.Name,
                     scene,
                     parent: null,
-                    new OperationResource(OperationTouchKind.Scene, scene.path));
+                    new OperationResource(OperationTouchKind.Scene, parsedArguments.ScenePath!));
                 return true;
             }
 
@@ -206,34 +236,57 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        /// <summary> Parents one temporary GameObject under one temporary parent when the plan uses temporary aliases. </summary>
-        /// <param name="validationState"> The validated operation state. </param>
+        /// <summary> Verifies that one plan-time create destination belongs to request-local mutable state. </summary>
+        /// <param name="validationState"> The validated create destination. </param>
         /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="temporaryGameObject"> The temporary GameObject created for plan-time aliasing. </param>
-        private static void TryParentTemporaryGameObject (
+        /// <param name="errorMessage"> The validation error message when destination does not belong to request-local plan state. </param>
+        /// <returns> <see langword="true" /> when the create destination is request-local; otherwise <see langword="false" />. </returns>
+        private static bool TryEnsureRequestLocalPlanDestination (
             ValidationState validationState,
             OperationExecutionContext executionContext,
-            GameObject temporaryGameObject)
+            out string errorMessage)
         {
-            if (!validationState.ParsedArguments.HasParentReference
-                || validationState.Parent == null
-                || validationState.ParsedArguments.ParentReference.Kind != UnityObjectReferenceKind.Alias)
+            if (validationState.Parent != null)
             {
+                return GoOperationUtilities.TryEnsureRequestLocalPlanGameObject(
+                    validationState.Parent,
+                    validationState.Resource,
+                    executionContext,
+                    out errorMessage);
+            }
+
+            if (validationState.Resource.Kind != OperationTouchKind.Scene)
+            {
+                errorMessage = $"GameObject could not be projected into request-local plan state: {validationState.Resource.Path}.";
+                return false;
+            }
+
+            if (!executionContext.TryGetTemporaryScene(validationState.Resource.Path, out var temporaryScene)
+                || validationState.Scene != temporaryScene)
+            {
+                errorMessage = $"GameObject could not be projected into request-local plan state: {validationState.Resource.Path}.";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        /// <summary> Moves one created GameObject into the validated destination scene or parent. </summary>
+        /// <param name="validationState"> The validated operation state. </param>
+        /// <param name="createdGameObject"> The created GameObject. </param>
+        private static void AttachGameObject (
+            ValidationState validationState,
+            GameObject createdGameObject)
+        {
+            if (validationState.Parent != null)
+            {
+                SceneManager.MoveGameObjectToScene(createdGameObject, validationState.Parent.scene);
+                createdGameObject.transform.SetParent(validationState.Parent.transform, worldPositionStays: false);
                 return;
             }
 
-            if (!executionContext.TryGetTemporaryAliasState(validationState.ParsedArguments.ParentReference.Alias!, out var temporaryParentState))
-            {
-                return;
-            }
-
-            var temporaryParent = temporaryParentState.UnityObject as GameObject;
-            if (temporaryParent == null)
-            {
-                return;
-            }
-
-            temporaryGameObject.transform.SetParent(temporaryParent.transform, worldPositionStays: false);
+            SceneManager.MoveGameObjectToScene(createdGameObject, validationState.Scene);
         }
 
         /// <summary> Stores one alias for the created GameObject when the request specifies <c>as</c>. </summary>
