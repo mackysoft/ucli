@@ -74,6 +74,28 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `op` は自己完結 primitive とする
 - 前段 step の結果や束縛に依存しない
 - step 間データフローは持たない
+
+### 代表例: `ucli.assets.find`
+
+```json
+{
+  "kind": "op",
+  "id": "findBalanceAssets",
+  "op": "ucli.assets.find",
+  "args": {
+    "type": "Game.GameBalanceAsset, Assembly-CSharp",
+    "pathPrefix": "Assets/Data",
+    "nameContains": "Balance"
+  }
+}
+```
+
+- `args` では `type` / `pathPrefix` / `nameContains` のうち少なくとも1つを指定する
+- `type` は stable `typeId` を受け取り、runtime type が指定型へ assignable な main asset を一致とみなす
+- `pathPrefix` は `Assets` またはその配下を受け取り、ordinal prefix で比較する
+- `nameContains` は main asset 名に対する大小文字無視の部分一致で評価する
+- primitive `ucli.assets.find` 自体は limit / cursor を持たず、deterministic order の全件結果を返す
+
 ## `kind: "edit"` の仕様
 `edit` は、高頻度の編集を短く表現するための上位構文である。  
 `edit` は公開 DSL であり、内部では primitive `op` へ lower される。
