@@ -78,6 +78,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
+        /// <summary> Collects live planned asset states into the specified destination. Destroyed planned objects are omitted. </summary>
+        /// <param name="destination"> The collection that receives the current live planned asset states. </param>
+        /// <exception cref="ArgumentNullException"> <paramref name="destination"/> is <see langword="null"/>. </exception>
         public void CollectPlannedAssetStates (ICollection<PlannedAssetState> destination)
         {
             if (destination == null)
@@ -119,6 +122,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public UnityEngine.Object UnityObject { get; }
         }
 
+        /// <summary> Represents a live planned asset that exists only within the current request. </summary>
         internal readonly struct PlannedAssetState
         {
             public PlannedAssetState (
@@ -131,10 +135,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 UnityObject = unityObject;
             }
 
+            /// <summary> Gets the execution key of the operation that reserved the planned asset path. </summary>
             public string OwnerExecutionKey { get; }
 
+            /// <summary> Gets the normalized asset path reserved for the planned asset. </summary>
             public string AssetPath { get; }
 
+            /// <summary> Gets the live planned asset object. Collected states always provide a non-destroyed object. </summary>
             public UnityEngine.Object? UnityObject { get; }
         }
     }

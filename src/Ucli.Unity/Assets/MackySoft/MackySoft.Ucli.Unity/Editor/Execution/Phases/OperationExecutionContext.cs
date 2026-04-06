@@ -530,8 +530,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return assetSandboxRegistry.TryGetAssetShadow(globalObjectId, out unityObject, out assetPath);
         }
 
-        /// <summary> Collects all tracked temporary asset shadows. </summary>
+        /// <summary> Collects current live temporary asset-shadow states. Destroyed shadow objects are omitted. </summary>
         /// <param name="destination"> The destination collection that receives current asset-shadow states. </param>
+        /// <exception cref="ArgumentNullException"> <paramref name="destination" /> is <see langword="null" />. </exception>
         internal void CollectAssetShadowStates (ICollection<AssetSandboxRegistry.AssetShadowState> destination)
         {
             assetSandboxRegistry.CollectAssetShadowStates(destination);
@@ -560,8 +561,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return plannedAssetRegistry.TryGetState(assetPath, out state);
         }
 
-        /// <summary> Collects all tracked plan-time created assets. </summary>
+        /// <summary> Collects current live plan-time created asset states. Destroyed planned objects are omitted. </summary>
         /// <param name="destination"> The destination collection that receives current planned-asset states. </param>
+        /// <exception cref="ArgumentNullException"> <paramref name="destination" /> is <see langword="null" />. </exception>
         internal void CollectPlannedAssetStates (ICollection<PlannedAssetRegistry.PlannedAssetState> destination)
         {
             plannedAssetRegistry.CollectPlannedAssetStates(destination);
