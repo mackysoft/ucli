@@ -218,6 +218,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <param name="definition"> The fixed operation definition. </param>
     /// <param name="requestId"> The generated request identifier. </param>
     /// <param name="command"> The internal execute command sent to Unity. </param>
+    /// <param name="waitUntilReady"> Whether Unity-side execution may wait for lifecycle readiness before failing. </param>
     /// <param name="planToken"> The optional plan token attached to call execution. </param>
     /// <returns> The serialized IPC execute payload. </returns>
     private static JsonElement CreateExecuteRequestPayload (

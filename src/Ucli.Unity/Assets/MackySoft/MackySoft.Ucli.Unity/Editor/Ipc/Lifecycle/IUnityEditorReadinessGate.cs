@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Captures editor lifecycle telemetry and gates editor-mutating operations. </summary>
+    /// <summary> Captures editor lifecycle telemetry and gates execution requests. </summary>
     internal interface IUnityEditorReadinessGate
     {
         /// <summary> Captures the current editor lifecycle snapshot. </summary>

@@ -25,6 +25,7 @@ internal sealed record UnityTestExecutionResult (
     /// <summary> Creates a failed execution result. </summary>
     /// <param name="failureKind"> The failure kind. </param>
     /// <param name="errorMessage"> The user-facing error message. </param>
+    /// <param name="errorCode"> The machine-readable execution error code when one is available. </param>
     /// <returns> The failed execution result. </returns>
     public static UnityTestExecutionResult Failure (
         UnityTestExecutionFailureKind failureKind,
