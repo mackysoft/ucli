@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Reflection;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -26,9 +25,7 @@ namespace MackySoft.Ucli.Unity.Tests
             string lifecycleState,
             bool expected)
         {
-            var actual = InvokePrivateStatic<bool>(
-                "IsWaitableState",
-                lifecycleState);
+            var actual = UnityEditorExecutionReadinessPolicy.IsWaitableState(lifecycleState);
 
             Assert.That(actual, Is.EqualTo(expected));
         }
@@ -74,9 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 DomainReloadGeneration: "3",
                 CanAcceptExecutionRequests: false);
 
-            var result = InvokePrivateStatic<UnityEditorExecutionReadinessResult>(
-                "CreateBlockedResult",
-                snapshot);
+            var result = UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot);
 
             Assert.That(result.IsReady, Is.False);
             Assert.That(result.Snapshot, Is.EqualTo(snapshot));
@@ -89,13 +84,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CaptureSnapshot_WhenStartupIsPending_ReturnsBlockedSnapshot ()
         {
-            using var scope = new ReadinessGateStaticStateScope(
+            var gate = CreateGate(
                 compileGeneration: 4,
                 domainReloadGeneration: 9,
                 isDomainReloading: false,
                 isShuttingDown: false,
-                isStartupPending: true);
-            var gate = new UnityEditorReadinessGate();
+                isStartupPending: true,
+                out _);
 
             var snapshot = gate.CaptureSnapshot();
 
@@ -116,13 +111,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Editor idle before readiness snapshot",
                 AsyncWaitTimeout);
 
-            using var scope = new ReadinessGateStaticStateScope(
+            var gate = CreateGate(
                 compileGeneration: 5,
                 domainReloadGeneration: 12,
                 isDomainReloading: false,
                 isShuttingDown: false,
-                isStartupPending: false);
-            var gate = new UnityEditorReadinessGate();
+                isStartupPending: false,
+                out _);
 
             var snapshot = gate.CaptureSnapshot();
 
@@ -143,18 +138,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Editor idle before readiness wait",
                 AsyncWaitTimeout);
 
-            using var scope = new ReadinessGateStaticStateScope(
+            var gate = CreateGate(
                 compileGeneration: 6,
                 domainReloadGeneration: 13,
                 isDomainReloading: true,
                 isShuttingDown: false,
-                isStartupPending: false);
-            var gate = new UnityEditorReadinessGate();
+                isStartupPending: false,
+                out var lifecycleTelemetryState);
 
             var resultTask = gate.EnsureExecutionReady(waitUntilReady: true);
             Assert.That(resultTask.IsCompleted, Is.False);
 
-            scope.SetDomainReloading(false);
+            lifecycleTelemetryState.SetDomainReloading(false);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate wait-until-ready completion",
@@ -174,19 +169,19 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Editor idle before non-waitable transition",
                 AsyncWaitTimeout);
 
-            using var scope = new ReadinessGateStaticStateScope(
+            var gate = CreateGate(
                 compileGeneration: 7,
                 domainReloadGeneration: 14,
                 isDomainReloading: true,
                 isShuttingDown: false,
-                isStartupPending: false);
-            var gate = new UnityEditorReadinessGate();
+                isStartupPending: false,
+                out var lifecycleTelemetryState);
 
             var resultTask = gate.EnsureExecutionReady(waitUntilReady: true);
             Assert.That(resultTask.IsCompleted, Is.False);
 
-            scope.SetDomainReloading(false);
-            scope.SetShuttingDown(true);
+            lifecycleTelemetryState.SetDomainReloading(false);
+            lifecycleTelemetryState.SetShuttingDown(true);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate non-waitable transition",
@@ -207,14 +202,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Editor idle before readiness cancellation",
                 AsyncWaitTimeout);
 
-            using var scope = new ReadinessGateStaticStateScope(
+            var gate = CreateGate(
                 compileGeneration: 8,
                 domainReloadGeneration: 15,
                 isDomainReloading: true,
                 isShuttingDown: false,
-                isStartupPending: false);
+                isStartupPending: false,
+                out _);
             using var cancellationTokenSource = new CancellationTokenSource();
-            var gate = new UnityEditorReadinessGate();
 
             var resultTask = gate.EnsureExecutionReady(waitUntilReady: true, cancellationTokenSource.Token);
             Assert.That(resultTask.IsCompleted, Is.False);
@@ -229,100 +224,21 @@ namespace MackySoft.Ucli.Unity.Tests
             }, "Readiness gate cancellation result", AsyncWaitTimeout);
         });
 
-        private static T InvokePrivateStatic<T> (
-            string methodName,
-            params object[] arguments)
+        private static UnityEditorReadinessGate CreateGate (
+            int compileGeneration,
+            int domainReloadGeneration,
+            bool isDomainReloading,
+            bool isShuttingDown,
+            bool isStartupPending,
+            out UnityEditorLifecycleTelemetryState lifecycleTelemetryState)
         {
-            var method = typeof(UnityEditorReadinessGate).GetMethod(
-                methodName,
-                BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null, $"Private static method '{methodName}' was not found.");
-
-            var result = method!.Invoke(null, arguments);
-            Assert.That(result, Is.Not.Null, $"Private static method '{methodName}' returned null.");
-            return (T)result!;
-        }
-
-        private sealed class ReadinessGateStaticStateScope : IDisposable
-        {
-            private readonly int originalCompileGeneration;
-
-            private readonly int originalDomainReloadGeneration;
-
-            private readonly bool originalIsDomainReloading;
-
-            private readonly bool originalIsShuttingDown;
-
-            private readonly bool originalIsStartupPending;
-
-            public ReadinessGateStaticStateScope (
-                int compileGeneration,
-                int domainReloadGeneration,
-                bool isDomainReloading,
-                bool isShuttingDown,
-                bool isStartupPending)
-            {
-                originalCompileGeneration = GetPrivateStaticField<int>("compileGeneration");
-                originalDomainReloadGeneration = GetPrivateStaticField<int>("domainReloadGeneration");
-                originalIsDomainReloading = GetPrivateStaticField<bool>("isDomainReloading");
-                originalIsShuttingDown = GetPrivateStaticField<bool>("isShuttingDown");
-                originalIsStartupPending = GetPrivateStaticField<bool>("isStartupPending");
-
-                SetPrivateStaticField("compileGeneration", compileGeneration);
-                SetPrivateStaticField("domainReloadGeneration", domainReloadGeneration);
-                SetPrivateStaticField("isDomainReloading", isDomainReloading);
-                SetPrivateStaticField("isShuttingDown", isShuttingDown);
-                SetPrivateStaticField("isStartupPending", isStartupPending);
-            }
-
-            public void SetShuttingDown (bool value)
-            {
-                SetPrivateStaticField("isShuttingDown", value);
-            }
-
-            public void SetDomainReloading (bool value)
-            {
-                SetPrivateStaticField("isDomainReloading", value);
-            }
-
-            public void SetStartupPending (bool value)
-            {
-                SetPrivateStaticField("isStartupPending", value);
-            }
-
-            public void Dispose ()
-            {
-                SetPrivateStaticField("compileGeneration", originalCompileGeneration);
-                SetPrivateStaticField("domainReloadGeneration", originalDomainReloadGeneration);
-                SetPrivateStaticField("isDomainReloading", originalIsDomainReloading);
-                SetPrivateStaticField("isShuttingDown", originalIsShuttingDown);
-                SetPrivateStaticField("isStartupPending", originalIsStartupPending);
-            }
-
-            private static T GetPrivateStaticField<T> (string fieldName)
-            {
-                var field = GetPrivateStaticFieldInfo(fieldName);
-                var value = field.GetValue(null);
-                Assert.That(value, Is.Not.Null, $"Private static field '{fieldName}' returned null.");
-                return (T)value!;
-            }
-
-            private static void SetPrivateStaticField<T> (
-                string fieldName,
-                T value)
-            {
-                var field = GetPrivateStaticFieldInfo(fieldName);
-                field.SetValue(null, value);
-            }
-
-            private static FieldInfo GetPrivateStaticFieldInfo (string fieldName)
-            {
-                var field = typeof(UnityEditorReadinessGate).GetField(
-                    fieldName,
-                    BindingFlags.Static | BindingFlags.NonPublic);
-                Assert.That(field, Is.Not.Null, $"Private static field '{fieldName}' was not found.");
-                return field!;
-            }
+            lifecycleTelemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration,
+                domainReloadGeneration,
+                isDomainReloading,
+                isShuttingDown,
+                isStartupPending);
+            return new UnityEditorReadinessGate(lifecycleTelemetryState);
         }
     }
 }
