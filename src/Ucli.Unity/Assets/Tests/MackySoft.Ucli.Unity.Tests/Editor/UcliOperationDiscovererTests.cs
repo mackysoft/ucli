@@ -165,23 +165,31 @@ namespace MackySoft.Ucli.Unity.Tests
             var assetSchemaTargetProperties = assetSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
             Assert.That(assetSchemaTargetProperties.TryGetProperty("projectAssetPath", out _), Is.True);
 
-            var assetsFindMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind);
-            using var assetsFindSchemaDocument = JsonDocument.Parse(assetsFindMetadata.ArgsSchemaJson);
-            Assert.That(assetsFindSchemaDocument.RootElement.GetProperty("additionalProperties").GetBoolean(), Is.False);
-            Assert.That(assetsFindSchemaDocument.RootElement.GetProperty("minProperties").GetInt32(), Is.EqualTo(1));
-            var assetsFindProperties = assetsFindSchemaDocument.RootElement.GetProperty("properties");
-            Assert.That(assetsFindProperties.TryGetProperty("type", out var assetsFindTypeProperty), Is.True);
-            Assert.That(assetsFindTypeProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
-            Assert.That(assetsFindProperties.TryGetProperty("pathPrefix", out var assetsFindPathPrefixProperty), Is.True);
-            Assert.That(assetsFindPathPrefixProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
-            Assert.That(assetsFindProperties.TryGetProperty("nameContains", out var assetsFindNameContainsProperty), Is.True);
-            Assert.That(assetsFindNameContainsProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
-
             var goDescribeMetadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe);
             using var goDescribeSchemaDocument = JsonDocument.Parse(goDescribeMetadata.ArgsSchemaJson);
             var goDescribeTargetProperties = goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("properties");
             Assert.That(goDescribeTargetProperties.TryGetProperty("prefab", out _), Is.True);
             Assert.That(goDescribeSchemaDocument.RootElement.GetProperty("properties").GetProperty("target").GetProperty("oneOf").GetArrayLength(), Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Discover_WhenAssetsFindOperationIsRead_ReturnsConcreteArgsSchema ()
+        {
+            var operations = UcliOperationDiscoverer.Discover();
+
+            var metadata = FindMetadata(operations, MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind);
+            using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
+            var root = schemaDocument.RootElement;
+            Assert.That(root.GetProperty("additionalProperties").GetBoolean(), Is.False);
+            Assert.That(root.GetProperty("minProperties").GetInt32(), Is.EqualTo(1));
+            var properties = root.GetProperty("properties");
+            Assert.That(properties.TryGetProperty("type", out var typeProperty), Is.True);
+            Assert.That(typeProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
+            Assert.That(properties.TryGetProperty("pathPrefix", out var pathPrefixProperty), Is.True);
+            Assert.That(pathPrefixProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
+            Assert.That(properties.TryGetProperty("nameContains", out var nameContainsProperty), Is.True);
+            Assert.That(nameContainsProperty.GetProperty("minLength").GetInt32(), Is.EqualTo(1));
         }
 
         [Test]
