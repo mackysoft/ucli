@@ -156,7 +156,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                     SerializerOptions);
             }
 
-            await readinessGate.WaitUntilReady(cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReady(request.WaitUntilReady, cancellationToken).ConfigureAwait(false);
+            if (!readinessResult.IsReady)
+            {
+                var lifecycleError = readinessResult.Error!;
+                return ExecuteResponseBuilder.CreateErrorResponse(
+                    context,
+                    lifecycleError.Code,
+                    lifecycleError.Message,
+                    lifecycleError.OpId,
+                    SerializerOptions);
+            }
 
             try
             {
@@ -180,10 +190,24 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private sealed class PassThroughUnityEditorReadinessGate : IUnityEditorReadinessGate
         {
-            public Task WaitUntilReady (CancellationToken cancellationToken = default)
+            public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+            {
+                return new UnityEditorLifecycleSnapshot(
+                    Runtime: "batchmode",
+                    LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+                    BlockingReason: null,
+                    CompileState: IpcCompileStateCodec.Ready,
+                    CompileGeneration: "0",
+                    DomainReloadGeneration: "0",
+                    CanAcceptExecutionRequests: true);
+            }
+
+            public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReady (
+                bool waitUntilReady,
+                CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return Task.CompletedTask;
+                return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CaptureSnapshot()));
             }
         }
 

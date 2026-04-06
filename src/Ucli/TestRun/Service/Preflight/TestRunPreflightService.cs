@@ -82,7 +82,8 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         var context = new TestRunExecutionContext(
             Configuration: configuration,
             Target: modeDecisionResult.Decision!.Target,
-            Timeout: modeDecisionResult.Decision.Timeout);
+            Timeout: modeDecisionResult.Decision.Timeout,
+            WaitUntilReady: input.WaitUntilReady);
         return TestRunPreflightResult.Success(context);
     }
 

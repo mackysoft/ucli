@@ -56,7 +56,12 @@ internal sealed class StatusCommand
                     daemonStatus = output.DaemonStatus,
                     unityVersion = output.UnityVersion,
                     serverVersion = output.ServerVersion,
+                    lifecycleState = output.LifecycleState,
+                    blockingReason = output.BlockingReason,
                     compileState = output.CompileState,
+                    compileGeneration = output.CompileGeneration,
+                    domainReloadGeneration = output.DomainReloadGeneration,
+                    canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
                     runtime = output.Runtime,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                 });

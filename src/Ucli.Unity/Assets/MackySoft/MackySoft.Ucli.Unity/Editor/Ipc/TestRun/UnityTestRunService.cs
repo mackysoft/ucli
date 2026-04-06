@@ -45,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response payload. </returns>
         /// <exception cref="ArgumentException"> Thrown when request payload violates contract. </exception>
         /// <exception cref="InvalidOperationException"> Thrown when run artifacts cannot be produced. </exception>
-        public async Task<IpcTestRunResponse> Execute (
+        public async Task<UnityTestRunServiceResult> Execute (
             IpcTestRunRequest request,
             CancellationToken cancellationToken = default)
         {
@@ -56,7 +56,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestContext = requestContextFactory.Create(request);
-            await readinessGate.WaitUntilReady(cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReady(request.WaitUntilReady, cancellationToken).ConfigureAwait(false);
+            if (!readinessResult.IsReady)
+            {
+                return UnityTestRunServiceResult.Failure(readinessResult.Error!);
+            }
 
             var startOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
             var testResult = await unityTestRunner.Run(requestContext, cancellationToken);
@@ -72,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 cancellationToken);
 
             var exitCode = testResult.FailCount > 0 ? 2 : 0;
-            return new IpcTestRunResponse(exitCode);
+            return UnityTestRunServiceResult.Success(new IpcTestRunResponse(exitCode));
         }
 
         /// <summary> Reads file length when file exists; otherwise returns zero. </summary>

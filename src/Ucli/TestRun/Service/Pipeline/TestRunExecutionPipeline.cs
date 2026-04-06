@@ -176,6 +176,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
                         context.Configuration,
                         session.Paths,
                         context.Timeout,
+                        context.WaitUntilReady,
                         cancellationToken)
                     .ConfigureAwait(false),
                 UnityExecutionTarget.Oneshot => await unityTestExecutor.Execute(

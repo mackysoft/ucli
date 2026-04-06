@@ -24,7 +24,12 @@ public sealed class StatusServiceTests
             ServerVersion: "0.5.0",
             Runtime: "batchmode",
             UnityVersion: "2022.3.5f1",
-            CompileState: "ready"));
+            CompileState: "ready",
+            LifecycleState: "busy",
+            BlockingReason: "busy",
+            CompileGeneration: "12",
+            DomainReloadGeneration: "7",
+            CanAcceptExecutionRequests: false));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -38,7 +43,12 @@ public sealed class StatusServiceTests
         Assert.Equal("running", output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
+        Assert.Equal("busy", output.LifecycleState);
+        Assert.Equal("busy", output.BlockingReason);
         Assert.Equal("ready", output.CompileState);
+        Assert.Equal("12", output.CompileGeneration);
+        Assert.Equal("7", output.DomainReloadGeneration);
+        Assert.False(output.CanAcceptExecutionRequests);
         Assert.Equal("batchmode", output.Runtime);
         Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, output.TimeoutMilliseconds);
         Assert.Equal("session-token", daemonPingInfoClient.LastSessionToken);
@@ -71,7 +81,12 @@ public sealed class StatusServiceTests
         Assert.Equal("notRunning", output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Null(output.ServerVersion);
+        Assert.Null(output.LifecycleState);
+        Assert.Null(output.BlockingReason);
         Assert.Null(output.CompileState);
+        Assert.Null(output.CompileGeneration);
+        Assert.Null(output.DomainReloadGeneration);
+        Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.Runtime);
         Assert.Equal(0, daemonPingInfoClient.CallCount);
     }
@@ -101,7 +116,12 @@ public sealed class StatusServiceTests
         Assert.Equal("stale", output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Null(output.ServerVersion);
+        Assert.Null(output.LifecycleState);
+        Assert.Null(output.BlockingReason);
         Assert.Null(output.CompileState);
+        Assert.Null(output.CompileGeneration);
+        Assert.Null(output.DomainReloadGeneration);
+        Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.Runtime);
         Assert.Equal(0, daemonPingInfoClient.CallCount);
     }

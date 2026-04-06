@@ -15,11 +15,15 @@ public sealed class DaemonStatusOperationTests
     {
         var context = CreateContext("fingerprint-status-running");
         var session = CreateSession(processId: 2001, projectFingerprint: context.ProjectFingerprint);
+        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
         var sessionStore = new StubDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Success(session),
         };
-        var diagnosisStore = new StubDaemonDiagnosisStore();
+        var diagnosisStore = new StubDaemonDiagnosisStore
+        {
+            ReadResult = DaemonDiagnosisReadResult.Success(diagnosis),
+        };
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
@@ -32,7 +36,7 @@ public sealed class DaemonStatusOperationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Running, result.Status);
         Assert.Equal(session, result.Session);
-        Assert.Null(result.Diagnosis);
+        Assert.Equal(diagnosis, result.Diagnosis);
         Assert.Null(result.Error);
     }
 

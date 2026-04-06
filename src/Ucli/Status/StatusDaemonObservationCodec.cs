@@ -15,7 +15,12 @@ internal static class StatusDaemonObservationCodec
         return new StatusDaemonObservation(
             DaemonStatus: StatusDaemonStateCodec.ToValue(daemonStatus),
             ServerVersion: null,
+            LifecycleState: null,
+            BlockingReason: null,
             CompileState: null,
+            CompileGeneration: null,
+            DomainReloadGeneration: null,
+            CanAcceptExecutionRequests: false,
             Runtime: null);
     }
 
@@ -33,9 +38,18 @@ internal static class StatusDaemonObservationCodec
         return new StatusDaemonObservation(
             DaemonStatus: StatusDaemonStateCodec.ToValue(daemonStatus),
             ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
+            LifecycleState: IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState)
+                ? lifecycleState
+                : null,
+            BlockingReason: IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var blockingReason)
+                ? blockingReason
+                : null,
             CompileState: IpcCompileStateCodec.TryParse(pingResponse.CompileState, out var compileState)
                 ? compileState
                 : null,
+            CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
+            DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
+            CanAcceptExecutionRequests: pingResponse.CanAcceptExecutionRequests,
             Runtime: StringValueNormalizer.TrimToNull(pingResponse.Runtime));
     }
 }

@@ -18,12 +18,15 @@ internal sealed record DaemonStatusResult (
 
     /// <summary> Creates a running result. </summary>
     /// <param name="session"> The current daemon session metadata. </param>
+    /// <param name="diagnosis"> The persisted daemon diagnosis metadata when available. </param>
     /// <returns> The running result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
-    public static DaemonStatusResult Running (DaemonSession session)
+    public static DaemonStatusResult Running (
+        DaemonSession session,
+        DaemonDiagnosis? diagnosis = null)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return new DaemonStatusResult(DaemonStatusKind.Running, session, null, null);
+        return new DaemonStatusResult(DaemonStatusKind.Running, session, diagnosis, null);
     }
 
     /// <summary> Creates a not-running result. </summary>

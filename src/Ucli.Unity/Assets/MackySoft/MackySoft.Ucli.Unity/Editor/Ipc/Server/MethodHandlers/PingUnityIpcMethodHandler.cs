@@ -11,15 +11,18 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class PingUnityIpcMethodHandler : IUnityIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
+        private readonly IUnityEditorReadinessGate readinessGate;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
+            IUnityEditorReadinessGate readinessGate,
             IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
@@ -54,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var payload = UnityPingResponseCodec.CreatePayload(
                 Application.unityVersion,
                 serverVersionProvider.GetVersion(),
-                EditorApplication.isCompiling);
+                readinessGate.CaptureSnapshot());
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }

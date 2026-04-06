@@ -39,6 +39,14 @@ public sealed class DaemonCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "notRunning")
+                .IsNull("serverVersion")
+                .IsNull("runtime")
+                .IsNull("lifecycleState")
+                .IsNull("blockingReason")
+                .IsNull("compileState")
+                .IsNull("compileGeneration")
+                .IsNull("domainReloadGeneration")
+                .HasBoolean("canAcceptExecutionRequests", false)
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonStatusMilliseconds)
                 .IsNull("session")
                 .IsNull("diagnosis"));

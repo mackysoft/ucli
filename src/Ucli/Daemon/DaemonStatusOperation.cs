@@ -88,7 +88,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
                     readResult.Session!.SessionToken,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return DaemonStatusResult.Running(readResult.Session!);
+            return DaemonStatusResult.Running(readResult.Session!, persistedDiagnosis);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

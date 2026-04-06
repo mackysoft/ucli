@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="request"> The decoded request payload. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The response payload. </returns>
-        Task<IpcTestRunResponse> Execute (
+        Task<UnityTestRunServiceResult> Execute (
             IpcTestRunRequest request,
             CancellationToken cancellationToken = default);
     }

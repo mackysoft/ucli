@@ -2,6 +2,7 @@ using System;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Unity.Ipc;
 using UnityEditor;
 using UnityEngine;
 
@@ -34,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 ProjectFingerprint: projectFingerprint,
                 UnityVersion: unityVersion,
                 CompileState: compileState,
-                DomainReloadGeneration: "na");
+                DomainReloadGeneration: UnityEditorReadinessGate.CurrentDomainReloadGeneration);
         }
     }
 }

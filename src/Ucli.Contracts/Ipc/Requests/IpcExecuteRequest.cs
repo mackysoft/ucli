@@ -10,6 +10,11 @@ public sealed record IpcExecuteRequest (
     string Command,
     JsonElement Arguments)
 {
+    /// <summary> Gets a value indicating whether execution may wait for lifecycle readiness before failing. </summary>
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool WaitUntilReady { get; init; }
+
     /// <summary> Gets the optional plan token used for call-time drift validation. </summary>
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -30,6 +30,7 @@ internal sealed class TestRunCommand
     /// <param name="assemblyName"> -a|--assemblyName, comma-separated assembly names. </param>
     /// <param name="testSettingsPath"> -s|--testSettingsPath, path to <c>TestSettings.json</c>. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
+    /// <param name="waitUntilReady"> Waits until Unity editor lifecycle becomes <c>ready</c> before executing. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
@@ -46,6 +47,7 @@ internal sealed class TestRunCommand
         string? assemblyName = null,
         string? testSettingsPath = null,
         int? timeout = null,
+        bool waitUntilReady = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -65,7 +67,8 @@ internal sealed class TestRunCommand
                 TestCategory: SplitCommaSeparatedValues(testCategory),
                 AssemblyName: SplitCommaSeparatedValues(assemblyName),
                 TestSettingsPath: testSettingsPath,
-                TimeoutMilliseconds: timeout),
+                TimeoutMilliseconds: timeout,
+                WaitUntilReady: waitUntilReady),
             cancellationToken).ConfigureAwait(false);
         var commandResult = TestRunCommandResultFactory.Create(serviceResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);

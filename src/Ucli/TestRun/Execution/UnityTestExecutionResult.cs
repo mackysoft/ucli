@@ -4,10 +4,12 @@ namespace MackySoft.Ucli.TestRun.Execution;
 /// <param name="ProcessExitCode"> The Unity process exit code on success; otherwise <see langword="null" />. </param>
 /// <param name="FailureKind"> The execution failure kind on failure; otherwise <see langword="null" />. </param>
 /// <param name="ErrorMessage"> The user-facing execution error message on failure; otherwise <see langword="null" />. </param>
+/// <param name="ErrorCode"> The machine-readable execution error code on failure; otherwise <see langword="null" />. </param>
 internal sealed record UnityTestExecutionResult (
     int? ProcessExitCode,
     UnityTestExecutionFailureKind? FailureKind,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    string? ErrorCode)
 {
     /// <summary> Gets a value indicating whether execution succeeded. </summary>
     public bool IsSuccess => ProcessExitCode.HasValue && FailureKind is null;
@@ -17,7 +19,7 @@ internal sealed record UnityTestExecutionResult (
     /// <returns> The successful execution result. </returns>
     public static UnityTestExecutionResult Success (int processExitCode)
     {
-        return new UnityTestExecutionResult(processExitCode, null, null);
+        return new UnityTestExecutionResult(processExitCode, null, null, null);
     }
 
     /// <summary> Creates a failed execution result. </summary>
@@ -26,8 +28,9 @@ internal sealed record UnityTestExecutionResult (
     /// <returns> The failed execution result. </returns>
     public static UnityTestExecutionResult Failure (
         UnityTestExecutionFailureKind failureKind,
-        string errorMessage)
+        string errorMessage,
+        string? errorCode = null)
     {
-        return new UnityTestExecutionResult(null, failureKind, errorMessage);
+        return new UnityTestExecutionResult(null, failureKind, errorMessage, errorCode);
     }
 }

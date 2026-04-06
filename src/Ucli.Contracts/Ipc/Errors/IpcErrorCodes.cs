@@ -54,6 +54,30 @@ public static class IpcErrorCodes
     /// <summary> Gets the error code emitted when one request-id is reused with different request content. </summary>
     public const string RequestIdConflict = "REQUEST_ID_CONFLICT";
 
+    /// <summary> Gets the error code emitted when Unity editor startup is still in progress. </summary>
+    public const string EditorStarting = "EDITOR_STARTING";
+
+    /// <summary> Gets the error code emitted when Unity editor is busy with internal work. </summary>
+    public const string EditorBusy = "EDITOR_BUSY";
+
+    /// <summary> Gets the error code emitted when Unity editor is compiling scripts. </summary>
+    public const string EditorCompiling = "EDITOR_COMPILING";
+
+    /// <summary> Gets the error code emitted when Unity editor is reloading the AppDomain. </summary>
+    public const string EditorDomainReloading = "EDITOR_DOMAIN_RELOADING";
+
+    /// <summary> Gets the error code emitted when Unity editor is in Play Mode. </summary>
+    public const string EditorPlaymode = "EDITOR_PLAYMODE";
+
+    /// <summary> Gets the error code emitted when a modal dialog blocks Unity editor execution. </summary>
+    public const string EditorModalBlocked = "EDITOR_MODAL_BLOCKED";
+
+    /// <summary> Gets the error code emitted when Unity editor is in Safe Mode. </summary>
+    public const string EditorSafeMode = "EDITOR_SAFE_MODE";
+
+    /// <summary> Gets the error code emitted when Unity editor shutdown is in progress. </summary>
+    public const string EditorShuttingDown = "EDITOR_SHUTTING_DOWN";
+
     /// <summary> Gets the error code emitted when an unexpected internal failure occurs. </summary>
     public const string InternalError = "INTERNAL_ERROR";
 }

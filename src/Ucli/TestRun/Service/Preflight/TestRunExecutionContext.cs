@@ -7,7 +7,9 @@ namespace MackySoft.Ucli.TestRun.Service.Preflight;
 /// <param name="Configuration"> The resolved test-run configuration. </param>
 /// <param name="Target"> The resolved Unity execution target. </param>
 /// <param name="Timeout"> The resolved timeout used for execution and daemon probing. </param>
+/// <param name="WaitUntilReady"> Whether daemon execution may wait for lifecycle readiness before failing. </param>
 internal sealed record TestRunExecutionContext (
     ResolvedTestRunConfiguration Configuration,
     UnityExecutionTarget Target,
-    TimeSpan Timeout);
+    TimeSpan Timeout,
+    bool WaitUntilReady);

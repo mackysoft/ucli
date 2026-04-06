@@ -190,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Dispatch_WhenEditorIsWaitingForReadiness_DelaysPhaseExecutionUntilReady () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Dispatch_WhenWaitUntilReadyIsEnabled_DelaysPhaseExecutionUntilReady () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest();
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
@@ -198,12 +198,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(UcliCommandIds.Plan);
+            var request = CreateExecuteRequest(UcliCommandIds.Plan, waitUntilReady: true);
 
             var responseTask = dispatcher.Dispatch(request, context).AsUniTask();
             await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Execute dispatcher readiness wait", AsyncWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastWaitUntilReady, Is.True);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
 
             readinessGate.Release();
@@ -211,6 +212,29 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenWaitUntilReadyIsDisabled_ReturnsLifecycleErrorWithoutExecuting () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest();
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(UcliCommandIds.Call, waitUntilReady: false);
+
+            var response = await DispatchAsync(dispatcher, request, context, "Execute dispatcher lifecycle fail-fast response");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastWaitUntilReady, Is.False);
+            AssertEmptyOpResultsPayload(response.Payload);
+            Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
@@ -361,7 +385,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(
                 UcliCommandIds.Call,
-                planToken: null,
+                false,
+                null,
                 ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve),
                 ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen));
 
@@ -577,16 +602,19 @@ namespace MackySoft.Ucli.Unity.Tests
             string commandName,
             string operationId = "op-1",
             string operationName = MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve,
+            bool waitUntilReady = false,
             string? planToken = null)
         {
             return CreateExecuteRequest(
                 commandName,
+                waitUntilReady,
                 planToken,
                 (operationId, operationName));
         }
 
         private static IpcExecuteRequest CreateExecuteRequest (
             string commandName,
+            bool waitUntilReady,
             string? planToken,
             params (string OperationId, string OperationName)[] operations)
         {
@@ -599,6 +627,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     steps = CreateExecuteStepContracts(operations),
                 }))
             {
+                WaitUntilReady = waitUntilReady,
                 PlanToken = planToken,
             };
         }

@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Execute_WhenEditorIsWaitingForReadiness_DelaysRunnerUntilReady () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Execute_WhenWaitUntilReadyIsEnabled_DelaysRunnerUntilReady () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var requestContext = CreateRequestContext();
@@ -36,10 +36,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 editorLogExporter,
                 readinessGate);
 
-            var responseTask = service.Execute(CreateRequest(), CancellationToken.None).AsUniTask();
+            var responseTask = service.Execute(CreateRequest(waitUntilReady: true), CancellationToken.None).AsUniTask();
             await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Unity test run service readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastWaitUntilReady, Is.True);
             Assert.That(runner.CallCount, Is.EqualTo(0));
             Assert.That(resultsWriter.CallCount, Is.EqualTo(0));
             Assert.That(editorLogExporter.CallCount, Is.EqualTo(0));
@@ -47,10 +48,37 @@ namespace MackySoft.Ucli.Unity.Tests
             readinessGate.Release();
             var response = await TestAwaiter.WaitAsync(responseTask, "Unity test run service response", SignalWaitTimeout);
 
-            Assert.That(response.ExitCode, Is.EqualTo(0));
+            Assert.That(response.IsSuccess, Is.True);
+            Assert.That(response.Payload!.ExitCode, Is.EqualTo(0));
             Assert.That(runner.CallCount, Is.EqualTo(1));
             Assert.That(resultsWriter.CallCount, Is.EqualTo(1));
             Assert.That(editorLogExporter.CallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenWaitUntilReadyIsDisabled_ReturnsLifecycleFailureWithoutRunningTests () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var runner = new StubUnityTestRunner((_, _) => Task.FromResult<ITestResultAdaptor>(new StubTestResultAdaptor(failCount: 0)));
+            var resultsWriter = new SpyUnityTestResultsXmlWriter();
+            var editorLogExporter = new SpyEditorLogRangeExporter();
+            var service = new UnityTestRunService(
+                new StubUnityTestRunRequestContextFactory(_ => CreateRequestContext()),
+                runner,
+                resultsWriter,
+                editorLogExporter,
+                readinessGate);
+
+            var response = await service.Execute(CreateRequest(waitUntilReady: false), CancellationToken.None).AsUniTask();
+
+            Assert.That(response.IsSuccess, Is.False);
+            Assert.That(response.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastWaitUntilReady, Is.False);
+            Assert.That(runner.CallCount, Is.EqualTo(0));
+            Assert.That(resultsWriter.CallCount, Is.EqualTo(0));
+            Assert.That(editorLogExporter.CallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
@@ -79,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(editorLogExporter.CallCount, Is.EqualTo(0));
         });
 
-        private static IpcTestRunRequest CreateRequest ()
+        private static IpcTestRunRequest CreateRequest (bool waitUntilReady = false)
         {
             return new IpcTestRunRequest(
                 TestPlatform: IpcTestRunPlatformCodec.EditMode,
@@ -89,7 +117,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssemblyNames: Array.Empty<string>(),
                 TestSettingsPath: null,
                 ResultsXmlPath: "/tmp/results.xml",
-                EditorLogPath: "/tmp/editor.log");
+                EditorLogPath: "/tmp/editor.log",
+                WaitUntilReady: waitUntilReady);
         }
 
         private static UnityTestRunRequestContext CreateRequestContext ()

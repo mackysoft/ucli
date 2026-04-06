@@ -35,6 +35,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
         TimeSpan timeout,
+        bool waitUntilReady,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -45,7 +46,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
         try
         {
             var sessionToken = await ResolveSessionToken(configuration, cancellationToken).ConfigureAwait(false);
-            var request = IpcDaemonTestRunRequestCodec.CreateRequest(configuration, artifactPaths, sessionToken);
+            var request = IpcDaemonTestRunRequestCodec.CreateRequest(configuration, artifactPaths, sessionToken, waitUntilReady);
             var response = await transportClient.SendAsync(
                     configuration.UnityProject.RepositoryRoot,
                     configuration.UnityProject.ProjectFingerprint,
@@ -54,11 +55,12 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            if (!IpcDaemonTestRunResponseCodec.TryDecode(response, out var exitCode, out var errorMessage))
+            if (!IpcDaemonTestRunResponseCodec.TryDecode(response, out var exitCode, out var errorCode, out var errorMessage))
             {
                 return UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.AbnormalExit,
-                    errorMessage!);
+                    errorMessage!,
+                    errorCode);
             }
 
             if (!TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var artifactValidationError))

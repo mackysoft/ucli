@@ -20,6 +20,7 @@ public sealed class RefreshServiceTests
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
+            waitUntilReady: true,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -32,6 +33,7 @@ public sealed class RefreshServiceTests
         Assert.Equal("/repo/UnityProject", operationExecuteService.CapturedProjectPath);
         Assert.Equal("oneshot", operationExecuteService.CapturedMode);
         Assert.Equal("1234", operationExecuteService.CapturedTimeout);
+        Assert.True(operationExecuteService.CapturedWaitUntilReady);
     }
 
     private sealed class SpyOperationExecuteService : IOperationExecuteService
@@ -51,11 +53,14 @@ public sealed class RefreshServiceTests
 
         public string? CapturedTimeout { get; private set; }
 
+        public bool CapturedWaitUntilReady { get; private set; }
+
         public ValueTask<OperationExecuteResult> Execute (
             OperationExecuteDefinition definition,
             string? projectPath,
             string? mode,
             string? timeout,
+            bool waitUntilReady,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -63,6 +68,7 @@ public sealed class RefreshServiceTests
             CapturedProjectPath = projectPath;
             CapturedMode = mode;
             CapturedTimeout = timeout;
+            CapturedWaitUntilReady = waitUntilReady;
             return ValueTask.FromResult(result);
         }
     }

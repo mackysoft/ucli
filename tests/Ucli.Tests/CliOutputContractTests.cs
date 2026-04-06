@@ -50,7 +50,12 @@ public sealed class CliOutputContractTests
                 .HasString("daemonStatus", "notRunning")
                 .HasString("unityVersion", "6000.1.4f1")
                 .IsNull("serverVersion")
+                .IsNull("lifecycleState")
+                .IsNull("blockingReason")
                 .IsNull("compileState")
+                .IsNull("compileGeneration")
+                .IsNull("domainReloadGeneration")
+                .HasBoolean("canAcceptExecutionRequests", false)
                 .IsNull("runtime")
                 .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds));
         FileSystemAssert.ForDirectory(ucliDirectoryPath).DoesNotExist();

@@ -21,6 +21,7 @@ internal sealed class RefreshCommand
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (<c>auto|daemon|oneshot</c>).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
+    /// <param name="waitUntilReady">Waits until Unity editor lifecycle becomes <c>ready</c> before executing.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Refresh)]
@@ -28,6 +29,7 @@ internal sealed class RefreshCommand
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
+        bool waitUntilReady = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -38,6 +40,7 @@ internal sealed class RefreshCommand
                 projectPath,
                 mode,
                 timeout,
+                waitUntilReady,
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);

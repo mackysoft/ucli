@@ -35,6 +35,7 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
+            waitUntilReady: true,
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -47,6 +48,7 @@ public sealed class IpcDaemonTestRunClientTests
         Assert.Equal("editmode", payload.TestPlatform);
         Assert.Equal(artifactPaths.ResultsXmlPath, payload.ResultsXmlPath);
         Assert.Equal(artifactPaths.EditorLogPath, payload.EditorLogPath);
+        Assert.True(payload.WaitUntilReady);
     }
 
     [Fact]
@@ -73,6 +75,7 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
+            waitUntilReady: false,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -96,10 +99,72 @@ public sealed class IpcDaemonTestRunClientTests
             configuration,
             artifactPaths,
             TimeSpan.FromMilliseconds(4500),
+            waitUntilReady: false,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityTestExecutionFailureKind.TimedOut, result.FailureKind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenDaemonReturnsLifecycleError_PreservesErrorCode ()
+    {
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusError,
+                [
+                    new IpcError(IpcErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null),
+                ],
+                new { }));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("session-token"));
+        using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "lifecycle-error");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
+
+        var result = await client.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(4500),
+            waitUntilReady: false,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.AbnormalExit, result.FailureKind);
+        Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
+        Assert.Contains(IpcErrorCodes.EditorBusy, result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenArtifactsAreMissingAfterSuccessResponse_ReturnsArtifactMissingFailure ()
+    {
+        var daemonTransportClient = new StubUnityIpcTransportClient(request =>
+            CreateResponse(
+                request,
+                IpcProtocol.StatusOk,
+                Array.Empty<IpcError>(),
+                new IpcTestRunResponse(0)));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider(
+            DaemonSessionTokenResolutionResult.Success("session-token"));
+        using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "missing-artifacts");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
+
+        var result = await client.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(4500),
+            waitUntilReady: false,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ArtifactMissing, result.FailureKind);
+        Assert.Contains("results.xml", result.ErrorMessage, StringComparison.Ordinal);
     }
 
     private static ResolvedTestRunConfiguration CreateConfiguration (TestDirectoryScope scope)

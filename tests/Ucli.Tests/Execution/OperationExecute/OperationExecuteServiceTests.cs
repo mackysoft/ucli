@@ -61,6 +61,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: "daemon",
             timeout: "120000",
+            waitUntilReady: true,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal(IpcProtocol.CurrentVersion, result.ProtocolVersion);
@@ -88,6 +89,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(JsonValueKind.Object, executeRequest.Arguments.ValueKind);
         Assert.Equal(IpcProtocol.CurrentVersion, executeRequest.Arguments.GetProperty("protocolVersion").GetInt32());
         Assert.Equal(result.RequestId, executeRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.True(executeRequest.WaitUntilReady);
         var step = Assert.Single(executeRequest.Arguments.GetProperty("steps").EnumerateArray());
         Assert.Equal("op", step.GetProperty("kind").GetString());
         Assert.Equal("refresh", step.GetProperty("id").GetString());
@@ -142,6 +144,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "120000",
+            waitUntilReady: true,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -154,6 +157,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(IpcPayloadReadError.None, planPayloadError);
         Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
         Assert.Null(planRequest.PlanToken);
+        Assert.True(planRequest.WaitUntilReady);
         Assert.Equal(result.RequestId, planRequest.Arguments.GetProperty("requestId").GetString());
 
         var callInvocation = ipcRequestExecutor.Invocations[1];
@@ -163,6 +167,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(IpcPayloadReadError.None, callPayloadError);
         Assert.Equal(UcliCommandIds.Call, callRequest.Command);
         Assert.Equal("plan-token-1", callRequest.PlanToken);
+        Assert.True(callRequest.WaitUntilReady);
         Assert.Equal(result.RequestId, callRequest.Arguments.GetProperty("requestId").GetString());
     }
 
@@ -186,6 +191,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            waitUntilReady: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -217,6 +223,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            waitUntilReady: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -257,6 +264,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            waitUntilReady: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -287,6 +295,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            waitUntilReady: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);

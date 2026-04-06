@@ -50,9 +50,13 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
     {
         if (!unityExecutionResult.IsSuccess)
         {
-            var errorCode = unityExecutionResult.FailureKind == UnityTestExecutionFailureKind.Canceled
-                ? CliErrorCodes.Canceled
-                : TestRunErrorCodes.UnityTestExecutionFailed;
+            var errorCode = unityExecutionResult.FailureKind switch
+            {
+                UnityTestExecutionFailureKind.Canceled => CliErrorCodes.Canceled,
+                UnityTestExecutionFailureKind.TimedOut => CliErrorCodes.IpcTimeout,
+                _ when !string.IsNullOrWhiteSpace(unityExecutionResult.ErrorCode) => unityExecutionResult.ErrorCode!,
+                _ => TestRunErrorCodes.UnityTestExecutionFailed,
+            };
 
             return TestRunServiceResult.ToolError(
                 unityExecutionResult.ErrorMessage ?? "Unity test execution failed.",

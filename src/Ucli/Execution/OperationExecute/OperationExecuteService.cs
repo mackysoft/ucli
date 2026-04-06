@@ -42,6 +42,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         string? projectPath,
         string? mode,
         string? timeout,
+        bool waitUntilReady,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -88,6 +89,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     mode,
                     timeout,
+                    waitUntilReady,
                     config,
                     projectContext.UnityProject,
                     cancellationToken)
@@ -107,7 +109,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 config,
                 projectContext.UnityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, planToken),
+                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, waitUntilReady, planToken),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -130,6 +132,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <param name="requestId"> The generated request identifier. </param>
     /// <param name="mode"> The optional Unity execution mode. </param>
     /// <param name="timeout"> The optional timeout in milliseconds. </param>
+    /// <param name="waitUntilReady"> Whether lifecycle readiness waits are allowed during the plan pass. </param>
     /// <param name="config"> The resolved CLI configuration. </param>
     /// <param name="unityProject"> The resolved Unity project. </param>
     /// <param name="cancellationToken"> The propagated cancellation token. </param>
@@ -139,6 +142,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         string requestId,
         string? mode,
         string? timeout,
+        bool waitUntilReady,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken)
@@ -156,7 +160,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 config,
                 unityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Plan),
+                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Plan, waitUntilReady),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -220,6 +224,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         OperationExecuteDefinition definition,
         string requestId,
         UcliCommand command,
+        bool waitUntilReady,
         string? planToken = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
@@ -243,6 +248,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         return IpcPayloadCodec.SerializeToElement(new IpcExecuteRequest(command, executeArguments)
         {
+            WaitUntilReady = waitUntilReady,
             PlanToken = planToken,
         });
     }

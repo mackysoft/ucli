@@ -16,7 +16,8 @@ internal static class IpcDaemonTestRunRequestCodec
     public static IpcRequest CreateRequest (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths,
-        string sessionToken)
+        string sessionToken,
+        bool waitUntilReady)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(artifactPaths);
@@ -35,7 +36,8 @@ internal static class IpcDaemonTestRunRequestCodec
                 AssemblyNames: configuration.AssemblyNames,
                 TestSettingsPath: configuration.TestSettingsPath,
                 ResultsXmlPath: artifactPaths.ResultsXmlPath,
-                EditorLogPath: artifactPaths.EditorLogPath));
+                EditorLogPath: artifactPaths.EditorLogPath,
+                WaitUntilReady: waitUntilReady));
         return new IpcRequest(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: $"test-run-{Guid.NewGuid():N}",

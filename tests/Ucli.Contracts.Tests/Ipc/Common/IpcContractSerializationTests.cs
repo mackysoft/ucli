@@ -93,6 +93,14 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("PLAN_TOKEN_REQUEST_MISMATCH", IpcErrorCodes.PlanTokenRequestMismatch);
         Assert.Equal("STATE_CHANGED_SINCE_PLAN", IpcErrorCodes.StateChangedSincePlan);
         Assert.Equal("REQUEST_ID_CONFLICT", IpcErrorCodes.RequestIdConflict);
+        Assert.Equal("EDITOR_STARTING", IpcErrorCodes.EditorStarting);
+        Assert.Equal("EDITOR_BUSY", IpcErrorCodes.EditorBusy);
+        Assert.Equal("EDITOR_COMPILING", IpcErrorCodes.EditorCompiling);
+        Assert.Equal("EDITOR_DOMAIN_RELOADING", IpcErrorCodes.EditorDomainReloading);
+        Assert.Equal("EDITOR_PLAYMODE", IpcErrorCodes.EditorPlaymode);
+        Assert.Equal("EDITOR_MODAL_BLOCKED", IpcErrorCodes.EditorModalBlocked);
+        Assert.Equal("EDITOR_SAFE_MODE", IpcErrorCodes.EditorSafeMode);
+        Assert.Equal("EDITOR_SHUTTING_DOWN", IpcErrorCodes.EditorShuttingDown);
         Assert.Equal("INTERNAL_ERROR", IpcErrorCodes.InternalError);
     }
 
@@ -115,6 +123,7 @@ public sealed class IpcContractSerializationTests
         var withTokenJson = JsonSerializer.SerializeToElement(requestWithToken, SerializerOptions);
         Assert.True(withTokenJson.TryGetProperty("planToken", out var planTokenElement));
         Assert.Equal("token-value", planTokenElement.GetString());
+        Assert.False(withTokenJson.TryGetProperty("waitUntilReady", out _));
 
         var requestWithoutToken = new IpcExecuteRequest(
             Command: UcliCommandIds.Plan,
@@ -123,9 +132,14 @@ public sealed class IpcContractSerializationTests
                 protocolVersion = 1,
                 requestId = "req-1",
                 steps = Array.Empty<object>(),
-            }));
+            }))
+        {
+            WaitUntilReady = true,
+        };
         var withoutTokenJson = JsonSerializer.SerializeToElement(requestWithoutToken, SerializerOptions);
         Assert.False(withoutTokenJson.TryGetProperty("planToken", out _));
+        Assert.True(withoutTokenJson.TryGetProperty("waitUntilReady", out var waitUntilReadyElement));
+        Assert.True(waitUntilReadyElement.GetBoolean());
     }
 
     [Fact]
@@ -200,7 +214,8 @@ public sealed class IpcContractSerializationTests
             AssemblyNames: Array.Empty<string>(),
             TestSettingsPath: null,
             ResultsXmlPath: "/tmp/results.xml",
-            EditorLogPath: "/tmp/editor.log");
+            EditorLogPath: "/tmp/editor.log",
+            WaitUntilReady: true);
         var responsePayload = new IpcTestRunResponse(ExitCode: 2);
 
         using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
@@ -214,7 +229,8 @@ public sealed class IpcContractSerializationTests
             .HasArrayLength("assemblyNames", 0)
             .IsNull("testSettingsPath")
             .HasString("resultsXmlPath", "/tmp/results.xml")
-            .HasString("editorLogPath", "/tmp/editor.log");
+            .HasString("editorLogPath", "/tmp/editor.log")
+            .HasBoolean("waitUntilReady", true);
         JsonAssert.For(responseDocument.RootElement)
             .HasInt32("exitCode", 2);
     }
