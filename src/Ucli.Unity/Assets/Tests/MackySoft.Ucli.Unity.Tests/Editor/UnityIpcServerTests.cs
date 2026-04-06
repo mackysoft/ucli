@@ -875,17 +875,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class InlineMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
         {
-            public Task<IpcResponse> Execute (
-                Func<Task<IpcResponse>> requestHandler,
+            public Task<T> Execute<T> (
+                Func<Task<T>> workItem,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (requestHandler == null)
+                if (workItem == null)
                 {
-                    throw new ArgumentNullException(nameof(requestHandler));
+                    throw new ArgumentNullException(nameof(workItem));
                 }
 
-                return requestHandler();
+                return workItem();
             }
         }
 

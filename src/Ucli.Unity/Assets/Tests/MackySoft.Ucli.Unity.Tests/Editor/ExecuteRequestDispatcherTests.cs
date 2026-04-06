@@ -196,7 +196,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
-            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            var mainThreadRequestExecutor = new SpyUnityMainThreadRequestExecutor();
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate, mainThreadRequestExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Plan, failFast: false);
 
@@ -211,6 +212,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var response = await TestAwaiter.WaitAsync(responseTask, "Execute dispatcher readiness-delayed response", AsyncWaitTimeout);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(1));
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(1));
         });
 
@@ -222,7 +224,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
             var phaseExecutor = new SpyOperationPhaseExecutor(CreateSuccessTrace(normalizedRequest));
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
-            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            var mainThreadRequestExecutor = new SpyUnityMainThreadRequestExecutor();
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate, mainThreadRequestExecutor);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
             var request = CreateExecuteRequest(UcliCommandIds.Call, failFast: true);
 
@@ -233,6 +236,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
             Assert.That(readinessGate.LastFailFast, Is.True);
+            Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(0));
             AssertEmptyOpResultsPayload(response.Payload);
             Assert.That(phaseExecutor.CallCount, Is.EqualTo(0));
         });
@@ -857,6 +861,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 CallCount++;
                 ReceivedCommand = command;
                 return Task.FromResult(executionTrace);
+            }
+        }
+
+        private sealed class SpyUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
+        {
+            public int CallCount { get; private set; }
+
+            public Task<T> Execute<T> (
+                Func<Task<T>> workItem,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CallCount++;
+                return workItem();
             }
         }
 

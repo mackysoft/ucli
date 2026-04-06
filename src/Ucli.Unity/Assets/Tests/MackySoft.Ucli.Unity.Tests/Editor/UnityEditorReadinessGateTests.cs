@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase(IpcEditorLifecycleStateCodec.Starting, true)]
         [TestCase(IpcEditorLifecycleStateCodec.Busy, true)]
         [TestCase(IpcEditorLifecycleStateCodec.Compiling, true)]
-        [TestCase(IpcEditorLifecycleStateCodec.DomainReloading, true)]
+        [TestCase(IpcEditorLifecycleStateCodec.DomainReloading, false)]
         [TestCase(IpcEditorLifecycleStateCodec.Ready, false)]
         [TestCase(IpcEditorLifecycleStateCodec.ShuttingDown, false)]
         [Category("Size.Small")]
@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcEditorLifecycleStateCodec.DomainReloading,
             IpcEditorBlockingReasonCodec.DomainReload,
             IpcErrorCodes.EditorDomainReloading,
-            "Unity editor is reloading the AppDomain. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
+            "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.ShuttingDown,
             IpcEditorBlockingReasonCodec.Shutdown,
@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Tests
             string expectedMessage)
         {
             var snapshot = new UnityEditorLifecycleSnapshot(
-                Runtime: "batchmode",
+                Runtime: IpcEditorRuntimeCodec.Batchmode,
                 LifecycleState: lifecycleState,
                 BlockingReason: blockingReason,
                 CompileState: IpcCompileStateCodec.Ready,
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var first = gate.CaptureSnapshot();
             var second = gate.CaptureSnapshot();
 
-            Assert.That(first.Runtime, Is.EqualTo("batchmode"));
+            Assert.That(first.Runtime, Is.EqualTo(IpcEditorRuntimeCodec.Batchmode));
             Assert.That(first.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
             Assert.That(first.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.Startup));
             Assert.That(first.CanAcceptExecutionRequests, Is.False);
@@ -148,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var snapshot = gate.CaptureSnapshot();
 
-            Assert.That(snapshot.Runtime, Is.EqualTo("batchmode"));
+            Assert.That(snapshot.Runtime, Is.EqualTo(IpcEditorRuntimeCodec.Batchmode));
             Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(snapshot.BlockingReason, Is.Null);
             Assert.That(snapshot.CanAcceptExecutionRequests, Is.True);
@@ -168,15 +168,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var gate = CreateGate(
                 compileGeneration: 6,
                 domainReloadGeneration: 13,
-                isDomainReloading: true,
+                isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false,
-                out var lifecycleTelemetryState);
+                isCompiling: false,
+                isUpdating: true,
+                out _,
+                out var activityProbe);
 
             var resultTask = gate.EnsureExecutionReady(failFast: false);
             Assert.That(resultTask.IsCompleted, Is.False);
 
-            lifecycleTelemetryState.SetDomainReloading(false);
+            activityProbe.IsUpdating = false;
+            await UniTask.Yield();
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate default-wait completion",
@@ -189,11 +193,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator EnsureExecutionReady_WhenStateBecomesNonWaitable_ReturnsBlockedResult () => UniTask.ToCoroutine(async () =>
+        public IEnumerator EnsureExecutionReady_WhenDomainReloading_ReturnsBlockedResultWithoutWaiting () => UniTask.ToCoroutine(async () =>
         {
             await TestAwaiter.WaitAsync(
                 UniTask.WaitUntil(static () => !EditorApplication.isCompiling && !EditorApplication.isUpdating).AsTask(),
-                "Editor idle before non-waitable transition",
+                "Editor idle before domain reload blocking",
                 AsyncWaitTimeout);
 
             var gate = CreateGate(
@@ -202,22 +206,19 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading: true,
                 isShuttingDown: false,
                 isStartupPending: false,
-                out var lifecycleTelemetryState);
+                out _);
 
             var resultTask = gate.EnsureExecutionReady(failFast: false);
-            Assert.That(resultTask.IsCompleted, Is.False);
-
-            lifecycleTelemetryState.SetDomainReloading(false);
-            lifecycleTelemetryState.SetShuttingDown(true);
+            Assert.That(resultTask.IsCompleted, Is.True);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
-                "Readiness gate non-waitable transition",
+                "Readiness gate domain reload blocked result",
                 AsyncWaitTimeout);
 
             Assert.That(result.IsReady, Is.False);
-            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.ShuttingDown));
+            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.DomainReloading));
             Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorShuttingDown));
+            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorDomainReloading));
         });
 
         [UnityTest]
@@ -232,9 +233,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var gate = CreateGate(
                 compileGeneration: 8,
                 domainReloadGeneration: 15,
-                isDomainReloading: true,
+                isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false,
+                isCompiling: false,
+                isUpdating: true,
+                out _,
                 out _);
             using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -259,13 +263,52 @@ namespace MackySoft.Ucli.Unity.Tests
             bool isStartupPending,
             out UnityEditorLifecycleTelemetryState lifecycleTelemetryState)
         {
+            return CreateGate(
+                compileGeneration,
+                domainReloadGeneration,
+                isDomainReloading,
+                isShuttingDown,
+                isStartupPending,
+                isCompiling: false,
+                isUpdating: false,
+                out lifecycleTelemetryState,
+                out _);
+        }
+
+        private static UnityEditorReadinessGate CreateGate (
+            int compileGeneration,
+            int domainReloadGeneration,
+            bool isDomainReloading,
+            bool isShuttingDown,
+            bool isStartupPending,
+            bool isCompiling,
+            bool isUpdating,
+            out UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
+            out EditorActivityProbe activityProbe)
+        {
+            var probe = new EditorActivityProbe
+            {
+                IsCompiling = isCompiling,
+                IsUpdating = isUpdating,
+            };
+            activityProbe = probe;
             lifecycleTelemetryState = new UnityEditorLifecycleTelemetryState(
                 compileGeneration,
                 domainReloadGeneration,
                 isDomainReloading,
                 isShuttingDown,
                 isStartupPending);
-            return new UnityEditorReadinessGate(lifecycleTelemetryState);
+            return new UnityEditorReadinessGate(
+                lifecycleTelemetryState,
+                () => probe.IsCompiling,
+                () => probe.IsUpdating);
+        }
+
+        private sealed class EditorActivityProbe
+        {
+            public bool IsCompiling { get; set; }
+
+            public bool IsUpdating { get; set; }
         }
     }
 }

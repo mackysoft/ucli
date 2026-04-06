@@ -57,6 +57,8 @@ internal static class StatusDaemonObservationCodec
             CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
             CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            Runtime: StringValueNormalizer.TrimToNull(pingResponse.Runtime));
+            Runtime: IpcEditorRuntimeCodec.TryParse(pingResponse.Runtime, out var runtime)
+                ? runtime
+                : null);
     }
 }

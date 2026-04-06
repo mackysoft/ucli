@@ -15,8 +15,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, System.StringComparison.Ordinal)
                 || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, System.StringComparison.Ordinal)
-                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, System.StringComparison.Ordinal)
-                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, System.StringComparison.Ordinal);
+                || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, System.StringComparison.Ordinal);
         }
 
         /// <summary> Resolves the canonical blocking-reason literal for one lifecycle state. </summary>
@@ -59,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null),
                 IpcEditorLifecycleStateCodec.DomainReloading => new IpcError(
                     IpcErrorCodes.EditorDomainReloading,
-                    "Unity editor is reloading the AppDomain. Retry without --failFast or wait until lifecycleState=ready before executing request.",
+                    "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request.",
                     null),
                 IpcEditorLifecycleStateCodec.Playmode => new IpcError(
                     IpcErrorCodes.EditorPlaymode,

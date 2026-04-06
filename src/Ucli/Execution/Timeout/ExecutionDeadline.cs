@@ -56,18 +56,29 @@ internal readonly struct ExecutionDeadline
         return true;
     }
 
+    /// <summary> Tries to get remaining timeout budget in milliseconds for wait APIs. </summary>
+    /// <param name="remainingMilliseconds"> The remaining wait budget in milliseconds when available; otherwise <c>0</c>. </param>
+    /// <returns> <see langword="true" /> when remaining wait budget is positive; otherwise <see langword="false" />. </returns>
+    public bool TryGetRemainingWaitMilliseconds (out int remainingMilliseconds)
+    {
+        if (!TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            remainingMilliseconds = 0;
+            return false;
+        }
+
+        var roundedMilliseconds = Math.Ceiling(remainingTimeout.TotalMilliseconds);
+        remainingMilliseconds = roundedMilliseconds >= int.MaxValue
+            ? int.MaxValue
+            : (int)roundedMilliseconds;
+        return true;
+    }
+
     /// <summary> Gets remaining timeout budget in milliseconds for wait APIs. </summary>
     /// <returns> Remaining wait budget in milliseconds. </returns>
     public int GetRemainingWaitMilliseconds ()
     {
-        if (!TryGetRemainingTimeout(out var remainingTimeout))
-        {
-            return 0;
-        }
-
-        var remainingMilliseconds = Math.Ceiling(remainingTimeout.TotalMilliseconds);
-        return remainingMilliseconds >= int.MaxValue
-            ? int.MaxValue
-            : (int)remainingMilliseconds;
+        _ = TryGetRemainingWaitMilliseconds(out var remainingMilliseconds);
+        return remainingMilliseconds;
     }
 }

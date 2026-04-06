@@ -239,8 +239,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         ExecutionDeadline deadline,
         out string? timeout)
     {
-        var remainingMilliseconds = deadline.GetRemainingWaitMilliseconds();
-        if (remainingMilliseconds <= 0)
+        if (!deadline.TryGetRemainingWaitMilliseconds(out var remainingMilliseconds))
         {
             timeout = null;
             return false;

@@ -37,7 +37,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: " 0.5.0 ",
-            Runtime: " batchmode ",
+            Runtime: $" {IpcEditorRuntimeCodec.Batchmode} ",
             UnityVersion: "2022.3.5f1",
             CompileState: compileState,
             LifecycleState: " ready ",
@@ -58,7 +58,7 @@ public sealed class StatusDaemonObservationCodecTests
         Assert.Equal("42", actual.CompileGeneration);
         Assert.Equal("17", actual.DomainReloadGeneration);
         Assert.True(actual.CanAcceptExecutionRequests);
-        Assert.Equal("batchmode", actual.Runtime);
+        Assert.Equal(IpcEditorRuntimeCodec.Batchmode, actual.Runtime);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            Runtime: IpcEditorRuntimeCodec.Batchmode,
             UnityVersion: "2022.3.5f1",
             CompileState: "ready",
             LifecycleState: "unsupported",
@@ -87,11 +87,33 @@ public sealed class StatusDaemonObservationCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CreateFromPing_WhenRuntimeIsUnsupported_ClearsRuntime ()
+    {
+        var pingResponse = new IpcPingResponse(
+            ServerVersion: "0.5.0",
+            Runtime: "unsupported",
+            UnityVersion: "2022.3.5f1",
+            CompileState: "ready",
+            LifecycleState: "ready",
+            BlockingReason: null,
+            CompileGeneration: "42",
+            DomainReloadGeneration: "17",
+            CanAcceptExecutionRequests: true);
+
+        var actual = StatusDaemonObservationCodec.CreateFromPing(
+            DaemonStatusKind.Running,
+            pingResponse);
+
+        Assert.Null(actual.Runtime);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateFromPing_WhenLifecycleStateIsReady_ClearsBlockingReason ()
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
-            Runtime: "batchmode",
+            Runtime: IpcEditorRuntimeCodec.Batchmode,
             UnityVersion: "2022.3.5f1",
             CompileState: "ready",
             LifecycleState: "ready",

@@ -68,6 +68,33 @@ public sealed class ExecutionDeadlineTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryGetRemainingWaitMilliseconds_BeforeTimeout_ReturnsTrueWithPositiveMilliseconds ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
+
+        var result = deadline.TryGetRemainingWaitMilliseconds(out var remainingMilliseconds);
+
+        Assert.True(result);
+        Assert.True(remainingMilliseconds > 0);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryGetRemainingWaitMilliseconds_WhenTimeoutElapsed_ReturnsFalseWithZero ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+
+        var result = deadline.TryGetRemainingWaitMilliseconds(out var remainingMilliseconds);
+
+        Assert.False(result);
+        Assert.Equal(0, remainingMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Start_WithNonPositiveTimeout_ThrowsArgumentOutOfRangeException ()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>

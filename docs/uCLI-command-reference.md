@@ -34,7 +34,8 @@
 
 ### `--failFast`
 - `--failFast` は CLI option のみであり、JSON request や `.ucli/config.json` には入れない。
-- readiness gate を持つ実行系コマンドは、既定で `starting`, `busy`, `compiling`, `domainReloading` の解消を待ってから実行する。
+- readiness gate を持つ実行系コマンドは、既定で `starting`, `busy`, `compiling` の解消を待ってから実行する。
+- `domainReloading` は AppDomain reload を跨いで要求を再開しないため、既定でも待機せず `EDITOR_DOMAIN_RELOADING` を返す。
 - `--failFast` 指定時だけ `lifecycleState != ready` を即時エラーとして返す。
 - `blockedByModal`, `safeMode`, `playmode`, `shuttingDown` は待機中でも即時失敗する。
 - 待機は既存の `--timeout` budget を消費し、budget を使い切った場合は `IPC_TIMEOUT` を返す。
@@ -195,7 +196,8 @@ CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity
 ### `refresh` 実行契約
 - `stdin` は読まない。
 - `--requestPath` / `--planToken` / `--withPlan` / `--readIndexMode` は指定できない。
-- 既定では wait 対象状態だけ待機し、`--failFast` 指定時は fail-fast で返す。
+- 既定では `starting`, `busy`, `compiling` のみ待機し、`domainReloading` は即時失敗する。
+- `--failFast` 指定時は wait 対象状態も fail-fast で返す。
 - `requestId` は CLI が実行ごとに UUID を生成する。
 - 実行対象は次の1件で固定する。
 

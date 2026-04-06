@@ -41,7 +41,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityMainThreadRequestExecutor>(new UnitySynchronizationContextRequestExecutor());
             services.AddSingleton<IExecuteRequestDispatcher>(serviceProvider => CreateExecuteRequestDispatcher(
                 serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>(),
-                serviceProvider.GetRequiredService<IUnityEditorReadinessGate>()));
+                serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
+                serviceProvider.GetRequiredService<IUnityMainThreadRequestExecutor>()));
             services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();
             services.AddSingleton<IUnityTestRunRequestContextFactory, UnityTestRunRequestContextFactory>();
             services.AddSingleton<IUnityTestRunner, UnityTestRunner>();
@@ -150,12 +151,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher (
             UcliOperationCatalogSnapshot snapshot,
-            IUnityEditorReadinessGate readinessGate)
+            IUnityEditorReadinessGate readinessGate,
+            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
         {
             var normalizer = new ExecuteRequestNormalizer();
             var operationRegistry = new InMemoryPhaseOperationRegistry(snapshot.Registrations);
             var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
+            return new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate, mainThreadRequestExecutor);
         }
     }
 }

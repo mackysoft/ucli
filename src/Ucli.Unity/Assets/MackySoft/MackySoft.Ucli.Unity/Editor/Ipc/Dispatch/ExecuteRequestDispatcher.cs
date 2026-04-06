@@ -24,6 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly IOperationPhaseExecutor operationPhaseExecutor;
         private readonly IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator;
         private readonly IUnityEditorReadinessGate readinessGate;
+        private readonly IUnityMainThreadRequestExecutor mainThreadRequestExecutor;
 
         /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
         /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
@@ -36,7 +37,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 requestNormalizer,
                 operationPhaseExecutor,
                 new ExecuteRequestIdempotencyCoordinator(),
-                new PassThroughUnityEditorReadinessGate())
+                new PassThroughUnityEditorReadinessGate(),
+                new InlineUnityMainThreadRequestExecutor())
         {
         }
 
@@ -53,7 +55,28 @@ namespace MackySoft.Ucli.Unity.Ipc
                 requestNormalizer,
                 operationPhaseExecutor,
                 new ExecuteRequestIdempotencyCoordinator(),
-                readinessGate)
+                readinessGate,
+                new InlineUnityMainThreadRequestExecutor())
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
+        /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
+        /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
+        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
+        /// <param name="mainThreadRequestExecutor"> The Unity main-thread executor dependency. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
+        public ExecuteRequestDispatcher (
+            IExecuteRequestNormalizer requestNormalizer,
+            IOperationPhaseExecutor operationPhaseExecutor,
+            IUnityEditorReadinessGate readinessGate,
+            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
+            : this(
+                requestNormalizer,
+                operationPhaseExecutor,
+                new ExecuteRequestIdempotencyCoordinator(),
+                readinessGate,
+                mainThreadRequestExecutor)
         {
         }
 
@@ -66,12 +89,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             IExecuteRequestNormalizer requestNormalizer,
             IOperationPhaseExecutor operationPhaseExecutor,
             IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator,
-            IUnityEditorReadinessGate readinessGate)
+            IUnityEditorReadinessGate readinessGate,
+            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
         {
             this.requestNormalizer = requestNormalizer ?? throw new ArgumentNullException(nameof(requestNormalizer));
             this.operationPhaseExecutor = operationPhaseExecutor ?? throw new ArgumentNullException(nameof(operationPhaseExecutor));
             this.requestIdempotencyCoordinator = requestIdempotencyCoordinator ?? throw new ArgumentNullException(nameof(requestIdempotencyCoordinator));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            this.mainThreadRequestExecutor = mainThreadRequestExecutor ?? throw new ArgumentNullException(nameof(mainThreadRequestExecutor));
         }
 
         /// <summary> Dispatches one execute request and returns the response envelope. </summary>
@@ -170,8 +195,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var trace = await operationPhaseExecutor.Execute(executionCommand, normalizationResult.Request!, cancellationToken);
-                return ExecuteResponseBuilder.CreateExecutionResponse(context, trace, SerializerOptions);
+                return await mainThreadRequestExecutor.Execute(async () =>
+                {
+                    var trace = await operationPhaseExecutor.Execute(executionCommand, normalizationResult.Request!, cancellationToken);
+                    return ExecuteResponseBuilder.CreateExecutionResponse(context, trace, SerializerOptions);
+                }, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -193,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             public UnityEditorLifecycleSnapshot CaptureSnapshot ()
             {
                 return new UnityEditorLifecycleSnapshot(
-                    Runtime: "batchmode",
+                    Runtime: IpcEditorRuntimeCodec.Batchmode,
                     LifecycleState: IpcEditorLifecycleStateCodec.Ready,
                     BlockingReason: null,
                     CompileState: IpcCompileStateCodec.Ready,
@@ -208,6 +236,22 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CaptureSnapshot()));
+            }
+        }
+
+        private sealed class InlineUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
+        {
+            public Task<T> Execute<T> (
+                Func<Task<T>> workItem,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (workItem == null)
+                {
+                    throw new ArgumentNullException(nameof(workItem));
+                }
+
+                return workItem();
             }
         }
 
