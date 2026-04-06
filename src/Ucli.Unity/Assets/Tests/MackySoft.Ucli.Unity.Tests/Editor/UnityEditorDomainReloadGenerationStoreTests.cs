@@ -8,13 +8,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [SetUp]
         public void SetUp ()
         {
-            UnityEditorDomainReloadGenerationStore.SetForTests(0);
+            UnityEditorDomainReloadGenerationStore.SetPersistedValue(0);
         }
 
         [TearDown]
         public void TearDown ()
         {
-            UnityEditorDomainReloadGenerationStore.SetForTests(0);
+            UnityEditorDomainReloadGenerationStore.SetPersistedValue(0);
         }
 
         [Test]
@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Advance_PersistsIncrementedGeneration ()
         {
-            var advanced = UnityEditorDomainReloadGenerationStore.Advance(0);
+            var advanced = UnityEditorDomainReloadGenerationStore.Advance();
             var restored = UnityEditorDomainReloadGenerationStore.Restore();
 
             Assert.That(advanced, Is.EqualTo(1));
@@ -41,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Advance_UsesPersistedGenerationWhenItIsHigherThanCurrentValue ()
         {
-            UnityEditorDomainReloadGenerationStore.SetForTests(3);
+            UnityEditorDomainReloadGenerationStore.SetPersistedValue(3);
 
             var actual = UnityEditorDomainReloadGenerationStore.Advance(1);
 

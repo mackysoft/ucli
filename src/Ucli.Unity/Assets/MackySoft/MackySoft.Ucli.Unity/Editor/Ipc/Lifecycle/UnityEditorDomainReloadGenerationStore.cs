@@ -14,19 +14,28 @@ namespace MackySoft.Ucli.Unity.Ipc
             return SessionState.GetInt(SessionStateKey, 0);
         }
 
-        /// <summary> Advances the persisted domain-reload generation and returns the new value. </summary>
-        /// <param name="currentValue"> The current in-memory generation value. </param>
+        /// <summary> Advances the persisted domain-reload generation from the current stored value. </summary>
         /// <returns> The incremented persisted generation value. </returns>
-        public static int Advance (int currentValue)
+        public static int Advance ()
         {
-            var nextValue = System.Math.Max(Restore(), currentValue) + 1;
+            var nextValue = Restore() + 1;
             SessionState.SetInt(SessionStateKey, nextValue);
             return nextValue;
         }
 
-        /// <summary> Sets one persisted generation value for test isolation. </summary>
+        /// <summary> Advances the persisted domain-reload generation and returns the new value. </summary>
+        /// <param name="minimumValue"> The minimum in-memory generation value that the next persisted generation must exceed. </param>
+        /// <returns> The incremented persisted generation value. </returns>
+        public static int Advance (int minimumValue)
+        {
+            var nextValue = System.Math.Max(Restore(), minimumValue) + 1;
+            SessionState.SetInt(SessionStateKey, nextValue);
+            return nextValue;
+        }
+
+        /// <summary> Stores one persisted generation value. </summary>
         /// <param name="value"> The persisted generation value to store. </param>
-        internal static void SetForTests (int value)
+        internal static void SetPersistedValue (int value)
         {
             SessionState.SetInt(SessionStateKey, value);
         }
