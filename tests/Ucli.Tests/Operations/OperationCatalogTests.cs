@@ -192,6 +192,29 @@ public sealed class OperationCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Get_WhenOperationIsAssetsFind_ReturnsOptionalFilterSchema ()
+    {
+        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
+
+        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind, CancellationToken.None);
+
+        Assert.NotNull(descriptor);
+        using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
+        var root = schemaDocument.RootElement;
+        Assert.True(root.GetProperty("additionalProperties").GetBoolean() == false);
+        Assert.Equal(1, root.GetProperty("minProperties").GetInt32());
+        var properties = root.GetProperty("properties");
+        Assert.True(properties.TryGetProperty("type", out var typeProperty));
+        Assert.Equal(1, typeProperty.GetProperty("minLength").GetInt32());
+        Assert.True(properties.TryGetProperty("pathPrefix", out var pathPrefixProperty));
+        Assert.Equal(1, pathPrefixProperty.GetProperty("minLength").GetInt32());
+        Assert.True(properties.TryGetProperty("nameContains", out var nameContainsProperty));
+        Assert.Equal(1, nameContainsProperty.GetProperty("minLength").GetInt32());
+        Assert.False(root.TryGetProperty("required", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Get_WhenOperationIsCompSchema_ReturnsTypeOnlySchema ()
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());

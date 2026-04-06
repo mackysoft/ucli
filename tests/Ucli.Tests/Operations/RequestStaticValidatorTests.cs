@@ -181,6 +181,25 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Validate_WhenAssetsFindArgsContainNoFilters_AddsOperationArgsInvalidError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-assets-find", UcliPrimitiveOperationNames.AssetsFind, new
+                {
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Validate_WhenResolvePrefabSelectorIncludesComponentType_AddsOperationArgsInvalidError ()
     {
         var validator = CreateValidator();
@@ -351,6 +370,27 @@ public sealed class RequestStaticValidatorTests
                 CreateOpStep("step-comp-schema", UcliPrimitiveOperationNames.CompSchema, new
                 {
                     type = "UnityEngine.Transform, UnityEngine.CoreModule",
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenAssetsFindUsesPathPrefixOnly_ReturnsValidResult ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-assets-find", UcliPrimitiveOperationNames.AssetsFind, new
+                {
+                    pathPrefix = "Assets/Data",
                 }),
             ]);
 
