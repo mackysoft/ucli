@@ -18,7 +18,7 @@ public sealed class DaemonStartupReadinessProbeTests
         {
             NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-success"),
@@ -47,7 +47,7 @@ public sealed class DaemonStartupReadinessProbeTests
         {
             NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-starting"),
@@ -76,7 +76,7 @@ public sealed class DaemonStartupReadinessProbeTests
         {
             NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-domain-reloading"),
@@ -105,7 +105,7 @@ public sealed class DaemonStartupReadinessProbeTests
         {
             NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext($"fingerprint-readiness-{lifecycleState}"),
@@ -134,7 +134,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 128),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-compiler-marker"),
@@ -163,7 +163,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 64),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-compiler-cs"),
@@ -193,7 +193,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 256),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-package-error"),
@@ -233,7 +233,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 512),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-ignore-previous-session-errors"),
@@ -259,7 +259,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-process-exited"),
@@ -289,7 +289,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-timeout"),
@@ -315,7 +315,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-timeout-exception"),
@@ -335,6 +335,13 @@ public sealed class DaemonStartupReadinessProbeTests
             RepositoryRoot: "/tmp/repo-root",
             ProjectFingerprint: fingerprint,
             PathSource: UnityProjectPathSource.CommandOption);
+    }
+
+    private static DaemonStartupReadinessProbe CreateProbe (
+        StubDaemonPingInfoClient pingClient,
+        StubUnityLogReader logReader)
+    {
+        return new DaemonStartupReadinessProbe(pingClient, logReader);
     }
 
     private static IpcPingResponse CreatePingPayload (

@@ -52,7 +52,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             cancellationToken.ThrowIfCancellationRequested();
             if (daemonProcessId is int processId && !ProcessLivenessProbe.IsAlive(processId))
             {
-                var startupFailureError = await TryResolveStartupFailureFromDaemonLog(
+                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -115,7 +115,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                var startupFailureError = await TryResolveStartupFailureFromDaemonLog(
+                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -214,7 +214,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal);
     }
 
-    private async ValueTask<ExecutionError?> TryResolveStartupFailureFromDaemonLog (
+    private async ValueTask<ExecutionError?> TryClassifyStartupFailureFromLatestLogText (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken)
     {
@@ -228,101 +228,9 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             return null;
         }
 
-        var latestStartupLogText = GetLatestStartupLogText(logReadResult.Text);
-        if (TryGetCompilerErrorSummary(latestStartupLogText, out var compilerErrorSummary))
-        {
-            return ExecutionError.InternalError(
-                $"Unity daemon startup failed because scripts have compiler errors. {compilerErrorSummary}");
-        }
-
-        if (TryGetPackageResolutionErrorSummary(latestStartupLogText, out var packageErrorSummary))
-        {
-            return ExecutionError.InternalError(
-                $"Unity daemon startup failed because package resolution failed. {packageErrorSummary}");
-        }
-
-        return null;
-    }
-
-    private static string GetLatestStartupLogText (string logText)
-    {
-        const string startupMarker = "COMMAND LINE ARGUMENTS:";
-        var markerIndex = logText.LastIndexOf(startupMarker, StringComparison.Ordinal);
-        return markerIndex >= 0
-            ? logText[markerIndex..]
-            : logText;
-    }
-
-    private static bool TryGetCompilerErrorSummary (
-        string logText,
-        out string summary)
-    {
-        const string compilerErrorsMarker = "Scripts have compiler errors";
-        summary = string.Empty;
-
-        var lines = logText.Split('\n');
-        foreach (var line in lines)
-        {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0)
-            {
-                continue;
-            }
-
-            if (trimmedLine.Contains("error CS", StringComparison.OrdinalIgnoreCase))
-            {
-                summary = $"FirstError={trimmedLine}";
-                return true;
-            }
-
-            if (trimmedLine.Contains(compilerErrorsMarker, StringComparison.OrdinalIgnoreCase))
-            {
-                summary = $"Marker={trimmedLine}";
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool TryGetPackageResolutionErrorSummary (
-        string logText,
-        out string summary)
-    {
-        const string packageFailureMarker = "An error occurred while resolving packages:";
-        summary = string.Empty;
-
-        var lines = logText.Split('\n');
-        var markerFound = false;
-        foreach (var line in lines)
-        {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0)
-            {
-                continue;
-            }
-
-            if (!markerFound)
-            {
-                if (trimmedLine.Contains(packageFailureMarker, StringComparison.OrdinalIgnoreCase))
-                {
-                    markerFound = true;
-                    summary = $"Marker={trimmedLine}";
-                }
-
-                continue;
-            }
-
-            if (trimmedLine.StartsWith("Project has invalid dependencies:", StringComparison.OrdinalIgnoreCase))
-            {
-                summary = $"Marker={trimmedLine}";
-                continue;
-            }
-
-            summary = $"FirstError={trimmedLine}";
-            return true;
-        }
-
-        return markerFound;
+        var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
+        return DaemonStartupFailureLogClassifier.TryClassify(latestStartupLogText, out var error)
+            ? error
+            : null;
     }
 }
