@@ -69,7 +69,7 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenStartupPingReportsStarting_RetriesUntilExecutionIsAccepted ()
+    public async Task SendAsync_WhenStartupPingReportsStarting_SendsRequestAfterFirstSuccessfulPing ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-retry");
         var unityProject = CreateUnityProject(scope);
@@ -103,10 +103,9 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(3, transportClient.CallCount);
+        Assert.Equal(2, transportClient.CallCount);
         Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
-        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[1].Method);
-        Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[2].Method);
+        Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[1].Method);
     }
 
     [Fact]

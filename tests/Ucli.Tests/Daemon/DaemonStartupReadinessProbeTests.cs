@@ -62,6 +62,67 @@ public sealed class DaemonStartupReadinessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenPingReportsDomainReloading_RetriesUntilExecutionIsAccepted ()
+    {
+        var attempt = 0;
+        var pingClient = new StubDaemonPingInfoClient(() =>
+        {
+            attempt++;
+            return ValueTask.FromResult(CreatePingPayload(
+                lifecycleState: attempt == 1 ? IpcEditorLifecycleStateCodec.DomainReloading : IpcEditorLifecycleStateCodec.Ready,
+                canAcceptExecutionRequests: attempt != 1));
+        });
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
+        };
+        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-domain-reloading"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsReady);
+        Assert.Null(result.Error);
+        Assert.Equal(2, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, "Exit Play Mode and retry after lifecycleState=ready.")]
+    [InlineData(IpcEditorLifecycleStateCodec.BlockedByModal, IpcEditorBlockingReasonCodec.ModalDialog, "Resolve the modal dialog and retry after lifecycleState=ready.")]
+    [InlineData(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode, "Resolve compiler errors and retry after lifecycleState=ready.")]
+    [InlineData(IpcEditorLifecycleStateCodec.ShuttingDown, IpcEditorBlockingReasonCodec.Shutdown, "Start a new daemon after shutdown finishes.")]
+    public async Task WaitUntilReady_WhenPingReportsNonWaitableLifecycleState_ReturnsInternalErrorImmediately (
+        string lifecycleState,
+        string blockingReason,
+        string expectedMessageSuffix)
+    {
+        var pingClient = new StubDaemonPingInfoClient(staticLifecycleState: lifecycleState, staticBlockingReason: blockingReason);
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
+        };
+        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext($"fingerprint-readiness-{lifecycleState}"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains($"lifecycleState={lifecycleState}", error.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedMessageSuffix, error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonLogContainsCompilerErrorMarker_ReturnsInternalErrorImmediately ()
     {
         var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
@@ -309,6 +370,22 @@ public sealed class DaemonStartupReadinessProbeTests
         public StubDaemonPingInfoClient (Func<ValueTask<IpcPingResponse>> handler)
         {
             this.handler = handler;
+        }
+
+        public StubDaemonPingInfoClient (
+            string staticLifecycleState,
+            string? staticBlockingReason)
+            : this(() => ValueTask.FromResult(new IpcPingResponse(
+                ServerVersion: "1.0.0",
+                Runtime: IpcEditorRuntimeCodec.Batchmode,
+                UnityVersion: "2023.2.22f1",
+                CompileState: IpcCompileStateCodec.Ready,
+                LifecycleState: staticLifecycleState,
+                BlockingReason: staticBlockingReason,
+                CompileGeneration: "0",
+                DomainReloadGeneration: "0",
+                CanAcceptExecutionRequests: false)))
+        {
         }
 
         public int CallCount { get; private set; }

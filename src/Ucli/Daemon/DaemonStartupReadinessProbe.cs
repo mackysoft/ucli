@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -24,7 +25,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
     }
 
-    /// <summary> Waits until daemon startup accepts execution requests, or timeout expires. </summary>
+    /// <summary> Waits until daemon startup accepts execution requests, or fails when timeout expires or startup reaches one non-waitable lifecycle state. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The startup readiness timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -85,6 +86,11 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                     return DaemonStartupReadinessProbeResult.Ready();
                 }
 
+                if (TryResolveNonRetryableLifecycleFailure(pingResponse, out var startupLifecycleError))
+                {
+                    return DaemonStartupReadinessProbeResult.Failure(startupLifecycleError!);
+                }
+
                 if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
                 {
                     return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
@@ -140,6 +146,72 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
             Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
         return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
+    }
+
+    private static bool TryResolveNonRetryableLifecycleFailure (
+        IpcPingResponse pingResponse,
+        out ExecutionError? error)
+    {
+        ArgumentNullException.ThrowIfNull(pingResponse);
+
+        if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
+        {
+            error = ExecutionError.InternalError(
+                $"Unity daemon startup probe returned unsupported lifecycleState '{pingResponse.LifecycleState}'.");
+            return true;
+        }
+
+        if (string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal))
+        {
+            error = ExecutionError.InternalError(
+                "Unity daemon startup probe returned lifecycleState=ready while canAcceptExecutionRequests=false.");
+            return true;
+        }
+
+        if (IsWaitableLifecycleState(lifecycleState!))
+        {
+            error = null;
+            return false;
+        }
+
+        var blockingReason = IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
+            ? normalizedBlockingReason
+            : null;
+        error = ExecutionError.InternalError(CreateNonWaitableLifecycleMessage(lifecycleState!, blockingReason));
+        return true;
+    }
+
+    private static string CreateNonWaitableLifecycleMessage (
+        string lifecycleState,
+        string? blockingReason)
+    {
+        var lifecycleDetails = blockingReason is null
+            ? $"lifecycleState={lifecycleState}"
+            : $"lifecycleState={lifecycleState}, blockingReason={blockingReason}";
+
+        return lifecycleState switch
+        {
+            IpcEditorLifecycleStateCodec.DomainReloading =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.Playmode =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Exit Play Mode and retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.BlockedByModal =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve the modal dialog and retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.SafeMode =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve compiler errors and retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.ShuttingDown =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Start a new daemon after shutdown finishes.",
+            _ =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}.",
+        };
+    }
+
+    private static bool IsWaitableLifecycleState (string lifecycleState)
+    {
+        return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal);
     }
 
     private async ValueTask<ExecutionError?> TryResolveStartupFailureFromDaemonLog (
