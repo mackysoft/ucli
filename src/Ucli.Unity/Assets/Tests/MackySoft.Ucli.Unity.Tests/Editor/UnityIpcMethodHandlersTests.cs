@@ -66,6 +66,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new UnityEditorReadinessGate(
                     telemetryState,
                     static () => false,
+                    static () => false,
                     static () => false));
 
             var firstResponse = await handler.Handle(CreatePingRequest("req-ping-starting-1", new IpcPingRequest("client")), CancellationToken.None);
@@ -77,6 +78,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(secondPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
 
             telemetryState.ObserveEditorUpdate(
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: false);
             var readyResponse = await handler.Handle(CreatePingRequest("req-ping-starting-3", new IpcPingRequest("client")), CancellationToken.None);
@@ -84,6 +86,32 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(IpcPayloadCodec.TryDeserialize(readyResponse.Payload, out IpcPingResponse readyPayload, out _), Is.True);
             Assert.That(readyPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
             Assert.That(readyPayload.CanAcceptExecutionRequests, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PingHandler_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 0,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new UnityEditorReadinessGate(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => true));
+
+            var response = await handler.Handle(CreatePingRequest("req-ping-playmode", new IpcPingRequest("client")), CancellationToken.None);
+
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
+            Assert.That(payload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(payload.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
+            Assert.That(payload.CanAcceptExecutionRequests, Is.False);
         });
 
         [UnityTest]

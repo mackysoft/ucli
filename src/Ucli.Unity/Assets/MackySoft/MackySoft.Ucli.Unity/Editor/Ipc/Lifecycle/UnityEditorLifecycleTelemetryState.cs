@@ -54,25 +54,30 @@ namespace MackySoft.Ucli.Unity.Ipc
         public string DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration).ToString(CultureInfo.InvariantCulture);
 
         /// <summary> Resolves the current lifecycle-state from the tracked editor activity flags. </summary>
+        /// <param name="isPlaymodeActive"> Whether Play Mode is active or about to activate. </param>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
         /// <param name="isUpdating"> Whether editor import/update work is in progress. </param>
         /// <returns> The canonical lifecycle-state literal. </returns>
         public string ResolveLifecycleState (
+            bool isPlaymodeActive,
             bool isCompiling,
             bool isUpdating)
         {
             return UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown,
+                isPlaymodeActive,
                 isDomainReloading,
                 isCompiling,
                 isUpdating);
         }
 
         /// <summary> Advances startup tracking after one editor update confirms no higher-priority blocking state remains. </summary>
+        /// <param name="isPlaymodeActive"> Whether Play Mode is active or about to activate. </param>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
         /// <param name="isUpdating"> Whether editor import/update work is in progress. </param>
         internal void ObserveEditorUpdate (
+            bool isPlaymodeActive,
             bool isCompiling,
             bool isUpdating)
         {
@@ -81,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            if (isShuttingDown || isDomainReloading || isCompiling || isUpdating)
+            if (isShuttingDown || isPlaymodeActive || isDomainReloading || isCompiling || isUpdating)
             {
                 return;
             }

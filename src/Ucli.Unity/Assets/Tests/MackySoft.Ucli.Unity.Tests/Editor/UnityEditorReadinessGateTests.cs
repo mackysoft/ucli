@@ -18,6 +18,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase(IpcEditorLifecycleStateCodec.Busy, true)]
         [TestCase(IpcEditorLifecycleStateCodec.Compiling, true)]
         [TestCase(IpcEditorLifecycleStateCodec.DomainReloading, false)]
+        [TestCase(IpcEditorLifecycleStateCodec.Playmode, false)]
         [TestCase(IpcEditorLifecycleStateCodec.Ready, false)]
         [TestCase(IpcEditorLifecycleStateCodec.ShuttingDown, false)]
         [Category("Size.Small")]
@@ -50,6 +51,11 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcEditorBlockingReasonCodec.DomainReload,
             IpcErrorCodes.EditorDomainReloading,
             "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request.")]
+        [TestCase(
+            IpcEditorLifecycleStateCodec.Playmode,
+            IpcEditorBlockingReasonCodec.PlayMode,
+            IpcErrorCodes.EditorPlaymode,
+            "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request.")]
         [TestCase(
             IpcEditorLifecycleStateCodec.ShuttingDown,
             IpcEditorBlockingReasonCodec.Shutdown,
@@ -90,6 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: true,
+                isPlaymodeActive: false,
                 out _);
 
             var first = gate.CaptureSnapshot();
@@ -115,10 +122,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: true,
+                isPlaymodeActive: false,
                 out var lifecycleTelemetryState);
 
             var beforeUpdate = gate.CaptureSnapshot();
             lifecycleTelemetryState.ObserveEditorUpdate(
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: false);
             var afterUpdate = gate.CaptureSnapshot();
@@ -131,6 +140,26 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator CaptureSnapshot_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                compileGeneration: 5,
+                domainReloadGeneration: 12,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                isPlaymodeActive: true,
+                out _);
+
+            var snapshot = gate.CaptureSnapshot();
+
+            Assert.That(snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(snapshot.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
+            Assert.That(snapshot.CanAcceptExecutionRequests, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator CaptureSnapshot_WhenEditorIsIdle_ReturnsReadySnapshot () => UniTask.ToCoroutine(async () =>
         {
             var gate = CreateGate(
@@ -139,6 +168,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false,
+                isPlaymodeActive: false,
                 out _);
 
             var snapshot = gate.CaptureSnapshot();
@@ -161,6 +191,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false,
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: true,
                 out _,
@@ -183,14 +214,71 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator EnsureExecutionReady_WhenDomainReloading_ReturnsBlockedResultWithoutWaiting () => UniTask.ToCoroutine(async () =>
+        public IEnumerator EnsureExecutionReady_WhenStartupIsPending_DoesNotConsumeStartingBeforeNextEditorUpdate () => UniTask.ToCoroutine(async () =>
         {
             var gate = CreateGate(
                 compileGeneration: 7,
                 domainReloadGeneration: 14,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: true,
+                isPlaymodeActive: false,
+                isCompiling: false,
+                isUpdating: false,
+                out _,
+                out _);
+
+            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            Assert.That(resultTask.IsCompleted, Is.False);
+
+            await UniTask.Yield();
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "Readiness gate startup update completion",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.True);
+            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenPlaymodeIsActive_ReturnsBlockedResultWithoutWaiting () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                compileGeneration: 8,
+                domainReloadGeneration: 15,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                isPlaymodeActive: true,
+                out _);
+
+            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            Assert.That(resultTask.IsCompleted, Is.True);
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "Readiness gate playmode blocked result",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.False);
+            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorPlaymode));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenDomainReloading_ReturnsBlockedResultWithoutWaiting () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                compileGeneration: 8,
+                domainReloadGeneration: 15,
                 isDomainReloading: true,
                 isShuttingDown: false,
                 isStartupPending: false,
+                isPlaymodeActive: false,
                 out _);
 
             var resultTask = gate.EnsureExecutionReady(failFast: false);
@@ -211,11 +299,12 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator EnsureExecutionReady_WhenCanceled_PropagatesCancellation () => UniTask.ToCoroutine(async () =>
         {
             var gate = CreateGate(
-                compileGeneration: 8,
-                domainReloadGeneration: 15,
+                compileGeneration: 9,
+                domainReloadGeneration: 16,
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false,
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: true,
                 out _,
@@ -240,11 +329,12 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator EnsureExecutionReady_WhenAssemblyReloadStartsDuringWait_ReturnsDomainReloadBlockedResult () => UniTask.ToCoroutine(async () =>
         {
             var gate = CreateGate(
-                compileGeneration: 9,
-                domainReloadGeneration: 16,
+                compileGeneration: 10,
+                domainReloadGeneration: 17,
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false,
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: true,
                 out _,
@@ -272,11 +362,12 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator EnsureExecutionReady_WhenEditorQuitsDuringWait_ReturnsShuttingDownBlockedResult () => UniTask.ToCoroutine(async () =>
         {
             var gate = CreateGate(
-                compileGeneration: 10,
-                domainReloadGeneration: 17,
+                compileGeneration: 11,
+                domainReloadGeneration: 18,
                 isDomainReloading: false,
                 isShuttingDown: false,
                 isStartupPending: false,
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: true,
                 out _,
@@ -305,6 +396,7 @@ namespace MackySoft.Ucli.Unity.Tests
             bool isDomainReloading,
             bool isShuttingDown,
             bool isStartupPending,
+            bool isPlaymodeActive,
             out UnityEditorLifecycleTelemetryState lifecycleTelemetryState)
         {
             return CreateGate(
@@ -313,6 +405,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading,
                 isShuttingDown,
                 isStartupPending,
+                isPlaymodeActive,
                 isCompiling: false,
                 isUpdating: false,
                 out lifecycleTelemetryState,
@@ -325,6 +418,7 @@ namespace MackySoft.Ucli.Unity.Tests
             bool isDomainReloading,
             bool isShuttingDown,
             bool isStartupPending,
+            bool isPlaymodeActive,
             bool isCompiling,
             bool isUpdating,
             out UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
@@ -336,6 +430,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isDomainReloading,
                 isShuttingDown,
                 isStartupPending,
+                isPlaymodeActive,
                 isCompiling,
                 isUpdating,
                 out lifecycleTelemetryState,
@@ -349,6 +444,7 @@ namespace MackySoft.Ucli.Unity.Tests
             bool isDomainReloading,
             bool isShuttingDown,
             bool isStartupPending,
+            bool isPlaymodeActive,
             bool isCompiling,
             bool isUpdating,
             out UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
@@ -359,6 +455,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 IsCompiling = isCompiling,
                 IsUpdating = isUpdating,
+                IsPlaymodeActive = isPlaymodeActive,
             };
             var signalBus = new WaitSignalBus();
             activityProbe = probe;
@@ -373,6 +470,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 lifecycleTelemetryState,
                 () => probe.IsCompiling,
                 () => probe.IsUpdating,
+                () => probe.IsPlaymodeActive,
                 signalBus.SubscribeBeforeAssemblyReload,
                 signalBus.UnsubscribeBeforeAssemblyReload,
                 signalBus.SubscribeQuitting,
@@ -384,6 +482,8 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool IsCompiling { get; set; }
 
             public bool IsUpdating { get; set; }
+
+            public bool IsPlaymodeActive { get; set; }
         }
 
         private sealed class WaitSignalBus

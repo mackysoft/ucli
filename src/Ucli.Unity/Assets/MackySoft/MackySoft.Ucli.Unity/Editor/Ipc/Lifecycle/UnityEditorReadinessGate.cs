@@ -18,6 +18,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly Func<bool> isUpdatingProvider;
 
+        private readonly Func<bool> isPlaymodeActiveProvider;
+
         private readonly Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber;
 
         private readonly Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber;
@@ -35,6 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 sharedLifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
+                static () => EditorApplication.isPlayingOrWillChangePlaymode,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
                 static handler => EditorApplication.quitting += handler,
@@ -50,6 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
+                static () => EditorApplication.isPlayingOrWillChangePlaymode,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
                 static handler => EditorApplication.quitting += handler,
@@ -62,14 +66,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
         /// <param name="isCompilingProvider"> The compile-state observer. </param>
         /// <param name="isUpdatingProvider"> The update-state observer. </param>
+        /// <param name="isPlaymodeActiveProvider"> The Play Mode observer. </param>
         internal UnityEditorReadinessGate (
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
-            Func<bool> isUpdatingProvider)
+            Func<bool> isUpdatingProvider,
+            Func<bool> isPlaymodeActiveProvider)
             : this(
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
+                isPlaymodeActiveProvider,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
                 static handler => EditorApplication.quitting += handler,
@@ -82,6 +89,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
         /// <param name="isCompilingProvider"> The compile-state observer. </param>
         /// <param name="isUpdatingProvider"> The update-state observer. </param>
+        /// <param name="isPlaymodeActiveProvider"> The Play Mode observer. </param>
         /// <param name="beforeAssemblyReloadSubscriber"> Subscribes one handler to the assembly-reload start event. </param>
         /// <param name="beforeAssemblyReloadUnsubscriber"> Unsubscribes one handler from the assembly-reload start event. </param>
         /// <param name="quittingSubscriber"> Subscribes one handler to the editor-quitting event. </param>
@@ -90,6 +98,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
             Func<bool> isUpdatingProvider,
+            Func<bool> isPlaymodeActiveProvider,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber,
             Action<Action> quittingSubscriber,
@@ -98,6 +107,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
+                isPlaymodeActiveProvider,
                 beforeAssemblyReloadSubscriber,
                 beforeAssemblyReloadUnsubscriber,
                 quittingSubscriber,
@@ -110,6 +120,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
             Func<bool> isUpdatingProvider,
+            Func<bool> isPlaymodeActiveProvider,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber,
             Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber,
             Action<Action> quittingSubscriber,
@@ -119,6 +130,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.lifecycleTelemetryState = lifecycleTelemetryState;
             this.isCompilingProvider = isCompilingProvider ?? throw new ArgumentNullException(nameof(isCompilingProvider));
             this.isUpdatingProvider = isUpdatingProvider ?? throw new ArgumentNullException(nameof(isUpdatingProvider));
+            this.isPlaymodeActiveProvider = isPlaymodeActiveProvider ?? throw new ArgumentNullException(nameof(isPlaymodeActiveProvider));
             this.beforeAssemblyReloadSubscriber = beforeAssemblyReloadSubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadSubscriber));
             this.beforeAssemblyReloadUnsubscriber = beforeAssemblyReloadUnsubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadUnsubscriber));
             this.quittingSubscriber = quittingSubscriber ?? throw new ArgumentNullException(nameof(quittingSubscriber));
@@ -150,13 +162,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             var isCompiling = isCompilingProvider();
             var isUpdating = isUpdatingProvider();
+            var isPlaymodeActive = isPlaymodeActiveProvider();
             var compileState = IpcCompileStateCodec.ToValue(isCompiling);
 
             // TODO: GUI / non-batchmode lifecycle support needs dedicated observation paths for
-            // Play Mode, Safe Mode, and modal dialogs. Batchmode daemon only reports states that
-            // are observable through public APIs today, so blockedByModal/safeMode/playmode are
-            // reserved literals but do not transition here yet.
-            var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isCompiling, isUpdating);
+            // Safe Mode and modal dialogs. Batchmode daemon only reports states that are observable
+            // through public APIs today, so blockedByModal/safeMode remain reserved literals here.
+            var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isPlaymodeActive, isCompiling, isUpdating);
             var blockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState);
             var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, System.StringComparison.Ordinal);
 
@@ -199,7 +211,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool OnWantsToQuit ()
         {
-            sharedLifecycleTelemetryState.OnShutdownStarted();
+            // NOTE:
+            // wantsToQuit may be canceled by another handler returning false. shuttingDown must only become
+            // observable after quitting is confirmed, otherwise execution requests could be rejected permanently.
             return true;
         }
 
@@ -230,7 +244,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void OnEditorUpdate ()
         {
-            sharedLifecycleTelemetryState.ObserveEditorUpdate(EditorApplication.isCompiling, EditorApplication.isUpdating);
+            sharedLifecycleTelemetryState.ObserveEditorUpdate(
+                EditorApplication.isPlayingOrWillChangePlaymode,
+                EditorApplication.isCompiling,
+                EditorApplication.isUpdating);
         }
 
         private sealed class ReadinessWaitState
@@ -268,15 +285,33 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }, this);
                 }
 
-                OnEditorUpdate();
+                TryCompleteFromCurrentSnapshot();
                 return completionSource.Task;
             }
 
             private void OnEditorUpdate ()
             {
                 readinessGate.lifecycleTelemetryState.ObserveEditorUpdate(
+                    readinessGate.isPlaymodeActiveProvider(),
                     readinessGate.isCompilingProvider(),
                     readinessGate.isUpdatingProvider());
+                var snapshot = readinessGate.CaptureSnapshot();
+                if (snapshot.CanAcceptExecutionRequests)
+                {
+                    Detach();
+                    completionSource.TrySetResult(UnityEditorExecutionReadinessResult.Ready(snapshot));
+                    return;
+                }
+
+                if (!UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.LifecycleState))
+                {
+                    Detach();
+                    completionSource.TrySetResult(UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot));
+                }
+            }
+
+            private void TryCompleteFromCurrentSnapshot ()
+            {
                 var snapshot = readinessGate.CaptureSnapshot();
                 if (snapshot.CanAcceptExecutionRequests)
                 {

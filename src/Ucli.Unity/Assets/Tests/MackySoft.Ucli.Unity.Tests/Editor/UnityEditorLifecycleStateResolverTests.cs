@@ -15,12 +15,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var first = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown: false,
+                isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: false,
                 isUpdating: false);
             var second = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown: false,
+                isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: false,
                 isUpdating: false);
@@ -39,12 +41,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var compiling = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown: false,
+                isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: true,
                 isUpdating: false);
             var starting = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown: false,
+                isPlaymodeActive: false,
                 isDomainReloading: false,
                 isCompiling: false,
                 isUpdating: false);
@@ -62,12 +66,28 @@ namespace MackySoft.Ucli.Unity.Tests
             var actual = UnityEditorLifecycleStateResolver.Resolve(
                 isStartupPending,
                 isShuttingDown: true,
+                isPlaymodeActive: true,
                 isDomainReloading: true,
                 isCompiling: true,
                 isUpdating: true);
 
             Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.ShuttingDown));
             Assert.That(isStartupPending, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Resolve_WhenPlaymodeIsActive_TakesPriorityOverReloadAndCompile ()
+        {
+            var actual = UnityEditorLifecycleStateResolver.Resolve(
+                isStartupPending: true,
+                isShuttingDown: false,
+                isPlaymodeActive: true,
+                isDomainReloading: true,
+                isCompiling: true,
+                isUpdating: true);
+
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
         }
 
         [Test]
@@ -82,12 +102,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: true);
 
             var beforeUpdate = telemetryState.ResolveLifecycleState(
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: false);
             telemetryState.ObserveEditorUpdate(
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: false);
             var afterUpdate = telemetryState.ResolveLifecycleState(
+                isPlaymodeActive: false,
                 isCompiling: false,
                 isUpdating: false);
 
