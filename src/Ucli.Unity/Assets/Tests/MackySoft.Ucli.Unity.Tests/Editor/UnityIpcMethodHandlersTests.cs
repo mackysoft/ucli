@@ -63,7 +63,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 isStartupPending: true);
             var handler = new PingUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
-                new UnityEditorReadinessGate(telemetryState));
+                new UnityEditorReadinessGate(
+                    telemetryState,
+                    static () => false,
+                    static () => false));
 
             var firstResponse = await handler.Handle(CreatePingRequest("req-ping-starting-1", new IpcPingRequest("client")), CancellationToken.None);
             var secondResponse = await handler.Handle(CreatePingRequest("req-ping-starting-2", new IpcPingRequest("client")), CancellationToken.None);

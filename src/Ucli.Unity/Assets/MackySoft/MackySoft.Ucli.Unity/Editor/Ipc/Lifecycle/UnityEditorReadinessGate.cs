@@ -18,6 +18,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly Func<bool> isUpdatingProvider;
 
+        private readonly Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber;
+
+        private readonly Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber;
+
+        private readonly Action<Action> quittingSubscriber;
+
+        private readonly Action<Action> quittingUnsubscriber;
+
         /// <summary> Gets a value indicating whether the editor is ready to start IPC host bootstrap. </summary>
         internal static bool IsReadyForBootstrapStartup => !EditorApplication.isCompiling;
 
@@ -27,6 +35,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 sharedLifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
+                static handler => EditorApplication.quitting += handler,
+                static handler => EditorApplication.quitting -= handler,
                 subscribeToEditorEvents: true)
         {
         }
@@ -38,6 +50,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lifecycleTelemetryState,
                 static () => EditorApplication.isCompiling,
                 static () => EditorApplication.isUpdating,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
+                static handler => EditorApplication.quitting += handler,
+                static handler => EditorApplication.quitting -= handler,
                 subscribeToEditorEvents: false)
         {
         }
@@ -54,6 +70,38 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lifecycleTelemetryState,
                 isCompilingProvider,
                 isUpdatingProvider,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
+                static handler => AssemblyReloadEvents.beforeAssemblyReload -= handler,
+                static handler => EditorApplication.quitting += handler,
+                static handler => EditorApplication.quitting -= handler,
+                subscribeToEditorEvents: false)
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
+        /// <param name="lifecycleTelemetryState"> The mutable lifecycle telemetry state to observe. </param>
+        /// <param name="isCompilingProvider"> The compile-state observer. </param>
+        /// <param name="isUpdatingProvider"> The update-state observer. </param>
+        /// <param name="beforeAssemblyReloadSubscriber"> Subscribes one handler to the assembly-reload start event. </param>
+        /// <param name="beforeAssemblyReloadUnsubscriber"> Unsubscribes one handler from the assembly-reload start event. </param>
+        /// <param name="quittingSubscriber"> Subscribes one handler to the editor-quitting event. </param>
+        /// <param name="quittingUnsubscriber"> Unsubscribes one handler from the editor-quitting event. </param>
+        internal UnityEditorReadinessGate (
+            UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
+            Func<bool> isCompilingProvider,
+            Func<bool> isUpdatingProvider,
+            Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber,
+            Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber,
+            Action<Action> quittingSubscriber,
+            Action<Action> quittingUnsubscriber)
+            : this(
+                lifecycleTelemetryState,
+                isCompilingProvider,
+                isUpdatingProvider,
+                beforeAssemblyReloadSubscriber,
+                beforeAssemblyReloadUnsubscriber,
+                quittingSubscriber,
+                quittingUnsubscriber,
                 subscribeToEditorEvents: false)
         {
         }
@@ -62,11 +110,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             Func<bool> isCompilingProvider,
             Func<bool> isUpdatingProvider,
+            Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadSubscriber,
+            Action<AssemblyReloadEvents.AssemblyReloadCallback> beforeAssemblyReloadUnsubscriber,
+            Action<Action> quittingSubscriber,
+            Action<Action> quittingUnsubscriber,
             bool subscribeToEditorEvents)
         {
             this.lifecycleTelemetryState = lifecycleTelemetryState;
             this.isCompilingProvider = isCompilingProvider ?? throw new ArgumentNullException(nameof(isCompilingProvider));
             this.isUpdatingProvider = isUpdatingProvider ?? throw new ArgumentNullException(nameof(isUpdatingProvider));
+            this.beforeAssemblyReloadSubscriber = beforeAssemblyReloadSubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadSubscriber));
+            this.beforeAssemblyReloadUnsubscriber = beforeAssemblyReloadUnsubscriber ?? throw new ArgumentNullException(nameof(beforeAssemblyReloadUnsubscriber));
+            this.quittingSubscriber = quittingSubscriber ?? throw new ArgumentNullException(nameof(quittingSubscriber));
+            this.quittingUnsubscriber = quittingUnsubscriber ?? throw new ArgumentNullException(nameof(quittingUnsubscriber));
             if (!subscribeToEditorEvents)
             {
                 return;
@@ -188,6 +244,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private CancellationTokenRegistration cancellationRegistration;
 
+            private bool isDetached;
+
             public ReadinessWaitState (
                 UnityEditorReadinessGate readinessGate,
                 CancellationToken cancellationToken)
@@ -199,6 +257,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             public Task<UnityEditorExecutionReadinessResult> AttachAndWait ()
             {
                 EditorApplication.update += OnEditorUpdate;
+                readinessGate.beforeAssemblyReloadSubscriber(OnBeforeAssemblyReload);
+                readinessGate.quittingSubscriber(OnQuitting);
                 if (cancellationToken.CanBeCanceled)
                 {
                     cancellationRegistration = cancellationToken.Register(static state =>
@@ -232,15 +292,56 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
 
+            private void OnBeforeAssemblyReload ()
+            {
+                // NOTE:
+                // Waited requests are not persisted across AppDomain reloads, so the gate must
+                // complete with a blocked result before Unity tears down the current domain.
+                CompleteBlocked(IpcEditorLifecycleStateCodec.DomainReloading);
+            }
+
+            private void OnQuitting ()
+            {
+                CompleteBlocked(IpcEditorLifecycleStateCodec.ShuttingDown);
+            }
+
             private void Cancel ()
             {
                 Detach();
                 completionSource.TrySetCanceled(cancellationToken);
             }
 
+            private void CompleteBlocked (string lifecycleState)
+            {
+                Detach();
+                completionSource.TrySetResult(CreateBlockedResult(lifecycleState));
+            }
+
+            private UnityEditorExecutionReadinessResult CreateBlockedResult (string lifecycleState)
+            {
+                var snapshot = readinessGate.CaptureSnapshot();
+                var blockedSnapshot = new UnityEditorLifecycleSnapshot(
+                    Runtime: snapshot.Runtime,
+                    LifecycleState: lifecycleState,
+                    BlockingReason: UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState),
+                    CompileState: snapshot.CompileState,
+                    CompileGeneration: snapshot.CompileGeneration,
+                    DomainReloadGeneration: snapshot.DomainReloadGeneration,
+                    CanAcceptExecutionRequests: false);
+                return UnityEditorExecutionReadinessPolicy.CreateBlockedResult(blockedSnapshot);
+            }
+
             private void Detach ()
             {
+                if (isDetached)
+                {
+                    return;
+                }
+
+                isDetached = true;
                 EditorApplication.update -= OnEditorUpdate;
+                readinessGate.beforeAssemblyReloadUnsubscriber(OnBeforeAssemblyReload);
+                readinessGate.quittingUnsubscriber(OnQuitting);
                 cancellationRegistration.Dispose();
             }
         }

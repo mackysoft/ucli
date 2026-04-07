@@ -25,8 +25,8 @@ public sealed class UnityOneshotIpcClientTests
         {
             return request.Method switch
             {
-                IpcMethodNames.Ping => CreateResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateResponse(request.RequestId),
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
+                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -69,6 +69,48 @@ public sealed class UnityOneshotIpcClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendAsync_WhenStartupPingReportsStarting_RetriesUntilExecutionIsAccepted ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "startup-retry");
+        var unityProject = CreateUnityProject(scope);
+        var endpoint = new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock");
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var pingAttempt = 0;
+        var transportClient = new StubUnityIpcTransportClient(request =>
+        {
+            return request.Method switch
+            {
+                IpcMethodNames.Ping => CreatePingResponse(
+                    request.RequestId,
+                    lifecycleState: ++pingAttempt == 1 ? IpcEditorLifecycleStateCodec.Starting : IpcEditorLifecycleStateCodec.Ready,
+                    canAcceptExecutionRequests: pingAttempt != 1),
+                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = new UnityOneshotIpcClient(
+            launcher,
+            new StubIpcEndpointResolver(endpoint),
+            transportClient,
+            new StubProjectLifecycleLockProvider());
+
+        var result = await client.SendAsync(
+            unityProject,
+            IpcMethodNames.OpsRead,
+            EmptyPayload(),
+            TimeSpan.FromSeconds(30),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, transportClient.CallCount);
+        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[0].Method);
+        Assert.Equal(IpcMethodNames.Ping, transportClient.Requests[1].Method);
+        Assert.Equal(IpcMethodNames.OpsRead, transportClient.Requests[2].Method);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendAsync_WhenLifecycleLockAcquisitionTimesOut_ReturnsIpcTimeoutWithoutLaunchingProcess ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "lock-timeout");
@@ -76,7 +118,7 @@ public sealed class UnityOneshotIpcClientTests
         var client = new UnityOneshotIpcClient(
             launcher,
             new StubIpcEndpointResolver(new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-oneshot.sock")),
-            new StubUnityIpcTransportClient(_ => CreateResponse("unused")),
+            new StubUnityIpcTransportClient(_ => CreateSuccessResponse("unused")),
             new StubProjectLifecycleLockProvider((_, _, _, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -108,7 +150,7 @@ public sealed class UnityOneshotIpcClientTests
         {
             return request.Method switch
             {
-                IpcMethodNames.Ping => CreateResponse(request.RequestId),
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
                 IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -146,13 +188,46 @@ public sealed class UnityOneshotIpcClientTests
         return JsonDocument.Parse("{}").RootElement.Clone();
     }
 
-    private static IpcResponse CreateResponse (string requestId)
+    private static IpcResponse CreateSuccessResponse (string requestId)
     {
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: requestId,
             Status: IpcProtocol.StatusOk,
             Payload: EmptyPayload(),
+            Errors: Array.Empty<IpcError>());
+    }
+
+    private static IpcResponse CreatePingResponse (
+        string requestId,
+        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
+        bool canAcceptExecutionRequests = true)
+    {
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingResponse(
+            ServerVersion: "1.0.0",
+            Runtime: IpcEditorRuntimeCodec.Batchmode,
+            UnityVersion: "2023.2.22f1",
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: lifecycleState,
+            BlockingReason: canAcceptExecutionRequests
+                ? null
+                : lifecycleState switch
+                {
+                    IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
+                    IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
+                    IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
+                    IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
+                    IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
+                    _ => null,
+                },
+            CompileGeneration: "0",
+            DomainReloadGeneration: "0",
+            CanAcceptExecutionRequests: canAcceptExecutionRequests));
+        return new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: requestId,
+            Status: IpcProtocol.StatusOk,
+            Payload: payload,
             Errors: Array.Empty<IpcError>());
     }
 

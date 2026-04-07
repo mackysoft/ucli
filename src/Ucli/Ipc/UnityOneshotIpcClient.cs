@@ -228,13 +228,24 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (!string.Equals(pingResponse.Status, IpcProtocol.StatusOk, StringComparison.Ordinal))
+                if (!DaemonPingResponseCodec.TryDecodePayload(pingResponse, out var payload, out var error))
                 {
                     return ExecutionError.InternalError(
-                        "Unity oneshot startup probe returned a non-success response.");
+                        $"Unity oneshot startup probe returned an invalid response. {error!.Message}");
                 }
 
-                return null;
+                if (payload!.CanAcceptExecutionRequests)
+                {
+                    return null;
+                }
+
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return ExecutionError.Timeout(
+                        $"Unity oneshot IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.");
+                }
+
+                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

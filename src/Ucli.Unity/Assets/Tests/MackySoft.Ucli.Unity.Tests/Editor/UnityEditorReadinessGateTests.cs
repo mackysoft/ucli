@@ -133,11 +133,6 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator CaptureSnapshot_WhenEditorIsIdle_ReturnsReadySnapshot () => UniTask.ToCoroutine(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                UniTask.WaitUntil(static () => !EditorApplication.isCompiling && !EditorApplication.isUpdating).AsTask(),
-                "Editor idle before readiness snapshot",
-                AsyncWaitTimeout);
-
             var gate = CreateGate(
                 compileGeneration: 5,
                 domainReloadGeneration: 12,
@@ -160,11 +155,6 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator EnsureExecutionReady_WhenFailFastIsDisabled_WaitsUntilEditorBecomesReady () => UniTask.ToCoroutine(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                UniTask.WaitUntil(static () => !EditorApplication.isCompiling && !EditorApplication.isUpdating).AsTask(),
-                "Editor idle before readiness wait",
-                AsyncWaitTimeout);
-
             var gate = CreateGate(
                 compileGeneration: 6,
                 domainReloadGeneration: 13,
@@ -195,11 +185,6 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator EnsureExecutionReady_WhenDomainReloading_ReturnsBlockedResultWithoutWaiting () => UniTask.ToCoroutine(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                UniTask.WaitUntil(static () => !EditorApplication.isCompiling && !EditorApplication.isUpdating).AsTask(),
-                "Editor idle before domain reload blocking",
-                AsyncWaitTimeout);
-
             var gate = CreateGate(
                 compileGeneration: 7,
                 domainReloadGeneration: 14,
@@ -225,11 +210,6 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator EnsureExecutionReady_WhenCanceled_PropagatesCancellation () => UniTask.ToCoroutine(async () =>
         {
-            await TestAwaiter.WaitAsync(
-                UniTask.WaitUntil(static () => !EditorApplication.isCompiling && !EditorApplication.isUpdating).AsTask(),
-                "Editor idle before readiness cancellation",
-                AsyncWaitTimeout);
-
             var gate = CreateGate(
                 compileGeneration: 8,
                 domainReloadGeneration: 15,
@@ -253,6 +233,70 @@ namespace MackySoft.Ucli.Unity.Tests
                     "Readiness gate cancellation",
                     AsyncWaitTimeout);
             }, "Readiness gate cancellation result", AsyncWaitTimeout);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenAssemblyReloadStartsDuringWait_ReturnsDomainReloadBlockedResult () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                compileGeneration: 9,
+                domainReloadGeneration: 16,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                isCompiling: false,
+                isUpdating: true,
+                out _,
+                out _,
+                out var waitSignalBus);
+
+            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            Assert.That(resultTask.IsCompleted, Is.False);
+
+            waitSignalBus.RaiseBeforeAssemblyReload();
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "Readiness gate assembly reload boundary",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.False);
+            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.DomainReloading));
+            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorDomainReloading));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenEditorQuitsDuringWait_ReturnsShuttingDownBlockedResult () => UniTask.ToCoroutine(async () =>
+        {
+            var gate = CreateGate(
+                compileGeneration: 10,
+                domainReloadGeneration: 17,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                isCompiling: false,
+                isUpdating: true,
+                out _,
+                out _,
+                out var waitSignalBus);
+
+            var resultTask = gate.EnsureExecutionReady(failFast: false);
+            Assert.That(resultTask.IsCompleted, Is.False);
+
+            waitSignalBus.RaiseQuitting();
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "Readiness gate shutdown boundary",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.False);
+            Assert.That(result.Snapshot.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.ShuttingDown));
+            Assert.That(result.Snapshot.CanAcceptExecutionRequests, Is.False);
+            Assert.That(result.Error, Is.Not.Null);
+            Assert.That(result.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorShuttingDown));
         });
 
         private static UnityEditorReadinessGate CreateGate (
@@ -286,12 +330,39 @@ namespace MackySoft.Ucli.Unity.Tests
             out UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
             out EditorActivityProbe activityProbe)
         {
+            return CreateGate(
+                compileGeneration,
+                domainReloadGeneration,
+                isDomainReloading,
+                isShuttingDown,
+                isStartupPending,
+                isCompiling,
+                isUpdating,
+                out lifecycleTelemetryState,
+                out activityProbe,
+                out _);
+        }
+
+        private static UnityEditorReadinessGate CreateGate (
+            int compileGeneration,
+            int domainReloadGeneration,
+            bool isDomainReloading,
+            bool isShuttingDown,
+            bool isStartupPending,
+            bool isCompiling,
+            bool isUpdating,
+            out UnityEditorLifecycleTelemetryState lifecycleTelemetryState,
+            out EditorActivityProbe activityProbe,
+            out WaitSignalBus waitSignalBus)
+        {
             var probe = new EditorActivityProbe
             {
                 IsCompiling = isCompiling,
                 IsUpdating = isUpdating,
             };
+            var signalBus = new WaitSignalBus();
             activityProbe = probe;
+            waitSignalBus = signalBus;
             lifecycleTelemetryState = new UnityEditorLifecycleTelemetryState(
                 compileGeneration,
                 domainReloadGeneration,
@@ -301,7 +372,11 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityEditorReadinessGate(
                 lifecycleTelemetryState,
                 () => probe.IsCompiling,
-                () => probe.IsUpdating);
+                () => probe.IsUpdating,
+                signalBus.SubscribeBeforeAssemblyReload,
+                signalBus.UnsubscribeBeforeAssemblyReload,
+                signalBus.SubscribeQuitting,
+                signalBus.UnsubscribeQuitting);
         }
 
         private sealed class EditorActivityProbe
@@ -309,6 +384,43 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool IsCompiling { get; set; }
 
             public bool IsUpdating { get; set; }
+        }
+
+        private sealed class WaitSignalBus
+        {
+            private event AssemblyReloadEvents.AssemblyReloadCallback BeforeAssemblyReload;
+
+            private event Action Quitting;
+
+            public void SubscribeBeforeAssemblyReload (AssemblyReloadEvents.AssemblyReloadCallback handler)
+            {
+                BeforeAssemblyReload += handler;
+            }
+
+            public void UnsubscribeBeforeAssemblyReload (AssemblyReloadEvents.AssemblyReloadCallback handler)
+            {
+                BeforeAssemblyReload -= handler;
+            }
+
+            public void SubscribeQuitting (Action handler)
+            {
+                Quitting += handler;
+            }
+
+            public void UnsubscribeQuitting (Action handler)
+            {
+                Quitting -= handler;
+            }
+
+            public void RaiseBeforeAssemblyReload ()
+            {
+                BeforeAssemblyReload?.Invoke();
+            }
+
+            public void RaiseQuitting ()
+            {
+                Quitting?.Invoke();
+            }
         }
     }
 }

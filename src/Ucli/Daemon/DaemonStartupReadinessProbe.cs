@@ -8,23 +8,23 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon startup readiness probing via repeated ping attempts. </summary>
 internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 {
-    private readonly IDaemonPingClient daemonPingClient;
+    private readonly IDaemonPingInfoClient daemonPingInfoClient;
 
     private readonly IUnityLogReader unityLogReader;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
-    /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
+    /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
-        IDaemonPingClient daemonPingClient,
+        IDaemonPingInfoClient daemonPingInfoClient,
         IUnityLogReader unityLogReader)
     {
-        this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
+        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
     }
 
-    /// <summary> Waits until daemon endpoint becomes reachable, or timeout expires. </summary>
+    /// <summary> Waits until daemon startup accepts execution requests, or timeout expires. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The startup readiness timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -75,12 +75,23 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
-                await daemonPingClient.Ping(
+                var pingResponse = await daemonPingInfoClient.PingAndRead(
                         unityProject,
                         attemptTimeout,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                return DaemonStartupReadinessProbeResult.Ready();
+                if (pingResponse.CanAcceptExecutionRequests)
+                {
+                    return DaemonStartupReadinessProbeResult.Ready();
+                }
+
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
+                        $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
+                }
+
+                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

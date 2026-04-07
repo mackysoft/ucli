@@ -160,13 +160,37 @@ internal sealed class DaemonStatusCommandService : IDaemonStatusCommandService
             }
             catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
             {
+                if (!deadline.TryGetRemainingTimeout(out var diagnosisTimeout))
+                {
+                    return DaemonStatusExecutionResult.Failure(ExecutionError.Timeout(
+                        "Timed out before stale daemon diagnosis could begin."));
+                }
+
+                using var diagnosisCancellationScope = TimeProviderCancellationScope.CreateLinked(
+                    cancellationToken,
+                    diagnosisTimeout,
+                    timeProvider);
+
                 daemonStatus = DaemonStatusStateCodec.Stale;
-                diagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
-                        executionContext.Context.UnityProject,
-                        statusResult.Session,
-                        persistedDiagnosis,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                try
+                {
+                    diagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
+                            executionContext.Context.UnityProject,
+                            statusResult.Session,
+                            persistedDiagnosis,
+                            diagnosisCancellationScope.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (OperationCanceledException) when (diagnosisCancellationScope.HasTimedOut
+                    && !cancellationToken.IsCancellationRequested)
+                {
+                    return DaemonStatusExecutionResult.Failure(ExecutionError.Timeout(
+                        "Timed out while resolving stale daemon diagnosis."));
+                }
             }
             catch (Exception exception)
             {

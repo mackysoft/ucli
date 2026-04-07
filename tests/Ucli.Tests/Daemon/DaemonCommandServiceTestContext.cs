@@ -281,6 +281,8 @@ internal static class DaemonCommandServiceTestContext
 
         public Exception? Exception { get; set; }
 
+        public Action? OnPingAndRead { get; set; }
+
         public int CallCount { get; private set; }
 
         public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
@@ -298,6 +300,7 @@ internal static class DaemonCommandServiceTestContext
             CancellationToken cancellationToken = default)
         {
             CallCount++;
+            OnPingAndRead?.Invoke();
             LastUnityProject = unityProject;
             LastTimeout = timeout;
             LastSessionToken = sessionToken;
@@ -330,6 +333,8 @@ internal static class DaemonCommandServiceTestContext
     {
         public DaemonDiagnosis? Diagnosis { get; set; }
 
+        public Func<ResolvedUnityProjectContext, DaemonSession, DaemonDiagnosis?, CancellationToken, ValueTask<DaemonDiagnosis?>>? Handler { get; set; }
+
         public int CallCount { get; private set; }
 
         public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
@@ -351,6 +356,11 @@ internal static class DaemonCommandServiceTestContext
             LastSession = session;
             LastPersistedDiagnosis = persistedDiagnosis;
             LastCancellationToken = cancellationToken;
+            if (Handler != null)
+            {
+                return Handler(unityProject, session, persistedDiagnosis, cancellationToken);
+            }
+
             return ValueTask.FromResult(Diagnosis);
         }
     }

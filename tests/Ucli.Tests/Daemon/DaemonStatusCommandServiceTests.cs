@@ -538,6 +538,99 @@ public sealed class DaemonStatusCommandServiceTests
         Assert.Equal(diagnosis, diagnosisMapper.LastDiagnosis);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenStaleFallbackBudgetIsAlreadyExpired_ReturnsTimeoutBeforeDiagnosisResolution ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 250);
+        var resolver = new DaemonCommandServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var session = DaemonCommandServiceTestContext.CreateSession();
+        var daemonStatusOperation = new DaemonCommandServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.Running(session),
+        };
+        var pingInfoClient = new DaemonCommandServiceTestContext.StubDaemonPingInfoClient
+        {
+            Exception = new InvalidOperationException("daemon exited"),
+            OnPingAndRead = () => timeProvider.Advance(TimeSpan.FromMilliseconds(250)),
+        };
+        var diagnosisResolver = new DaemonCommandServiceTestContext.StubDaemonSessionDiagnosisResolver();
+        var service = CreateService(
+            resolver,
+            daemonStatusOperation,
+            pingInfoClient,
+            new DaemonCommandServiceTestContext.StubDaemonReachabilityClassifier(static _ => true),
+            diagnosisResolver,
+            new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper(),
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper(),
+            timeProvider);
+
+        var result = await service.GetStatus(projectPath: null, timeout: "250", cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal("Timed out before stale daemon diagnosis could begin.", error.Message);
+        Assert.Equal(0, diagnosisResolver.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenStaleFallbackDiagnosisResolutionTimesOut_ReturnsTimeoutFailure ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 250);
+        var resolver = new DaemonCommandServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var session = DaemonCommandServiceTestContext.CreateSession();
+        var daemonStatusOperation = new DaemonCommandServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.Running(session),
+        };
+        var pingInfoClient = new DaemonCommandServiceTestContext.StubDaemonPingInfoClient
+        {
+            Exception = new InvalidOperationException("daemon exited"),
+        };
+        var diagnosisStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var diagnosisResolver = new DaemonCommandServiceTestContext.StubDaemonSessionDiagnosisResolver
+        {
+            Handler = async (_, _, _, cancellationToken) =>
+            {
+                diagnosisStarted.TrySetResult();
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                throw new System.Diagnostics.UnreachableException();
+            },
+        };
+        var service = CreateService(
+            resolver,
+            daemonStatusOperation,
+            pingInfoClient,
+            new DaemonCommandServiceTestContext.StubDaemonReachabilityClassifier(static _ => true),
+            diagnosisResolver,
+            new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper(),
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper(),
+            timeProvider);
+
+        var resultTask = service.GetStatus(projectPath: null, timeout: "250", cancellationToken: CancellationToken.None).AsTask();
+        await TestAwaiter.WaitAsync(diagnosisStarted.Task, "Daemon status stale diagnosis start", TimeSpan.FromSeconds(5));
+        timeProvider.Advance(TimeSpan.FromMilliseconds(250));
+
+        var result = await TestAwaiter.WaitAsync(
+            resultTask,
+            "Daemon status stale diagnosis timeout result",
+            TimeSpan.FromSeconds(5));
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal("Timed out while resolving stale daemon diagnosis.", error.Message);
+        Assert.Equal(1, diagnosisResolver.CallCount);
+    }
+
     private static DaemonStatusCommandService CreateService (
         IDaemonCommandExecutionContextResolver resolver,
         IDaemonStatusOperation daemonStatusOperation,
