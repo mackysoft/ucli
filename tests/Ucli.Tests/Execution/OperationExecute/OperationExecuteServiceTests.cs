@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
@@ -61,6 +62,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: "daemon",
             timeout: "120000",
+            failFast: true,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal(IpcProtocol.CurrentVersion, result.ProtocolVersion);
@@ -88,6 +90,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(JsonValueKind.Object, executeRequest.Arguments.ValueKind);
         Assert.Equal(IpcProtocol.CurrentVersion, executeRequest.Arguments.GetProperty("protocolVersion").GetInt32());
         Assert.Equal(result.RequestId, executeRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.True(executeRequest.FailFast);
         var step = Assert.Single(executeRequest.Arguments.GetProperty("steps").EnumerateArray());
         Assert.Equal("op", step.GetProperty("kind").GetString());
         Assert.Equal("refresh", step.GetProperty("id").GetString());
@@ -142,6 +145,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "120000",
+            failFast: true,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -154,6 +158,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(IpcPayloadReadError.None, planPayloadError);
         Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
         Assert.Null(planRequest.PlanToken);
+        Assert.True(planRequest.FailFast);
         Assert.Equal(result.RequestId, planRequest.Arguments.GetProperty("requestId").GetString());
 
         var callInvocation = ipcRequestExecutor.Invocations[1];
@@ -163,7 +168,127 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(IpcPayloadReadError.None, callPayloadError);
         Assert.Equal(UcliCommandIds.Call, callRequest.Command);
         Assert.Equal("plan-token-1", callRequest.PlanToken);
+        Assert.True(callRequest.FailFast);
         Assert.Equal(result.RequestId, callRequest.Arguments.GetProperty("requestId").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenPlanConsumesTimeoutBudget_PassesRemainingTimeoutToCall ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var config = UcliConfig.CreateDefault() with
+        {
+            PlanTokenMode = PlanTokenMode.Required,
+        };
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityIpcRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "refresh",
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Applied: false,
+                            Changed: false,
+                            Touched: []),
+                    ],
+                    errors: [],
+                    planToken: "plan-token-1")),
+            UnityIpcRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "refresh",
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Applied: true,
+                            Changed: false,
+                            Touched: []),
+                    ],
+                    errors: [])))
+        {
+            TimeProvider = timeProvider,
+            OnExecute = static context =>
+            {
+                if (context.Index == 1)
+                {
+                    context.TimeProvider!.Advance(TimeSpan.FromMilliseconds(200));
+                }
+            },
+        };
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, timeProvider);
+
+        var result = await service.Execute(
+            RefreshOperation,
+            projectPath: "/repo/UnityProject",
+            mode: "oneshot",
+            timeout: "1200",
+            failFast: true,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("1200", ipcRequestExecutor.Invocations[0].Timeout);
+        Assert.Equal("1000", ipcRequestExecutor.Invocations[1].Timeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenPlanConsumesEntireTimeoutBudget_ReturnsTimeoutBeforeCall ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var config = UcliConfig.CreateDefault() with
+        {
+            PlanTokenMode = PlanTokenMode.Required,
+        };
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+            CreateResponse(
+                status: IpcProtocol.StatusOk,
+                opResults:
+                [
+                    new IpcExecuteOperationResult(
+                        OpId: "refresh",
+                        Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        Phase: IpcExecuteOperationPhaseNames.Plan,
+                        Applied: false,
+                        Changed: false,
+                        Touched: []),
+                ],
+                errors: [],
+                planToken: "plan-token-1")))
+        {
+            TimeProvider = timeProvider,
+            OnExecute = static context =>
+            {
+                if (context.Index == 1)
+                {
+                    context.TimeProvider!.Advance(TimeSpan.FromMilliseconds(1200));
+                }
+            },
+        };
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, timeProvider);
+
+        var result = await service.Execute(
+            RefreshOperation,
+            projectPath: "/repo/UnityProject",
+            mode: "oneshot",
+            timeout: "1200",
+            failFast: true,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(1, ipcRequestExecutor.CallCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(CliErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal("Timed out before Unity IPC execute request could begin.", error.Message);
     }
 
     [Fact]
@@ -186,6 +311,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -217,6 +343,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -257,6 +384,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -287,6 +415,7 @@ public sealed class OperationExecuteServiceTests
             projectPath: "/repo/UnityProject",
             mode: null,
             timeout: null,
+            failFast: false,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -377,6 +506,10 @@ public sealed class OperationExecuteServiceTests
             this.results = new Queue<UnityIpcRequestExecutionResult>(results ?? throw new ArgumentNullException(nameof(results)));
         }
 
+        public Action<InvocationContext>? OnExecute { get; init; }
+
+        public ManualTimeProvider? TimeProvider { get; init; }
+
         public int CallCount { get; private set; }
 
         public IReadOnlyList<Invocation> Invocations => invocations;
@@ -405,7 +538,9 @@ public sealed class OperationExecuteServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            invocations.Add(new Invocation(command, mode, timeout, unityProject, method, payload));
+            var invocation = new Invocation(command, mode, timeout, unityProject, method, payload);
+            invocations.Add(invocation);
+            OnExecute?.Invoke(new InvocationContext(CallCount, invocation, TimeProvider));
             if (!results.TryDequeue(out var result))
             {
                 throw new InvalidOperationException("No queued Unity IPC execution result is available.");
@@ -421,5 +556,10 @@ public sealed class OperationExecuteServiceTests
             ResolvedUnityProjectContext UnityProject,
             string Method,
             JsonElement Payload);
+
+        public sealed record InvocationContext (
+            int Index,
+            Invocation Invocation,
+            ManualTimeProvider? TimeProvider);
     }
 }

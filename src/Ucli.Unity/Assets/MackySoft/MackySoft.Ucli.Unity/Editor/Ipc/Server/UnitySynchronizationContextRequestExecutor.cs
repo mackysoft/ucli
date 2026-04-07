@@ -2,17 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Executes IPC request handlers on Unity main-thread synchronization context. </summary>
+    /// <summary> Executes asynchronous work items on Unity main-thread synchronization context. </summary>
     internal sealed class UnitySynchronizationContextRequestExecutor : IUnityMainThreadRequestExecutor
     {
         private readonly object syncRoot = new object();
 
-        private readonly Queue<MainThreadInvocation> pendingInvocations = new Queue<MainThreadInvocation>();
+        private readonly Queue<IMainThreadInvocation> pendingInvocations = new Queue<IMainThreadInvocation>();
 
         private readonly SynchronizationContext? mainThreadSynchronizationContext;
 
@@ -47,28 +46,29 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Executes one request-handling delegate on Unity main thread. </summary>
-        /// <param name="requestHandler"> The request-handling delegate to execute. </param>
+        /// <summary> Executes one asynchronous work item on Unity main thread. </summary>
+        /// <typeparam name="T"> The work-item result type. </typeparam>
+        /// <param name="workItem"> The asynchronous work item to execute. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by connection handling. </param>
-        /// <returns> The handled IPC response. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestHandler" /> is <see langword="null" />. </exception>
+        /// <returns> The work-item result. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="workItem" /> is <see langword="null" />. </exception>
         /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled. </exception>
-        public Task<IpcResponse> Execute (
-            Func<Task<IpcResponse>> requestHandler,
+        public Task<T> Execute<T> (
+            Func<Task<T>> workItem,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (requestHandler == null)
+            if (workItem == null)
             {
-                throw new ArgumentNullException(nameof(requestHandler));
+                throw new ArgumentNullException(nameof(workItem));
             }
 
             if (Thread.CurrentThread.ManagedThreadId == mainThreadId)
             {
-                return requestHandler();
+                return workItem();
             }
 
-            var invocation = new MainThreadInvocation(requestHandler, cancellationToken);
+            var invocation = new MainThreadInvocation<T>(workItem, cancellationToken);
             var shouldScheduleProcessor = false;
             lock (syncRoot)
             {
@@ -130,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Processes queued main-thread invocations via Unity synchronization context. </summary>
         private void ProcessQueueOnMainThread ()
         {
-            MainThreadInvocation? invocation = null;
+            IMainThreadInvocation? invocation = null;
             lock (syncRoot)
             {
                 if (isRunningInvocation)
@@ -154,7 +154,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Runs one queued invocation and releases execution gate after completion. </summary>
         /// <param name="invocation"> The queued invocation payload. </param>
         /// <returns> A task that completes after one invocation run finishes. </returns>
-        private async Task RunInvocation (MainThreadInvocation invocation)
+        private async Task RunInvocation (IMainThreadInvocation invocation)
         {
             try
             {
@@ -187,12 +187,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="exception"> The scheduling exception propagated to queued invocations. </param>
         private void FailPendingInvocations (Exception exception)
         {
-            List<MainThreadInvocation>? failures = null;
+            List<IMainThreadInvocation>? failures = null;
             lock (syncRoot)
             {
                 if (pendingInvocations.Count > 0)
                 {
-                    failures = new List<MainThreadInvocation>(pendingInvocations.Count);
+                    failures = new List<IMainThreadInvocation>(pendingInvocations.Count);
                     while (pendingInvocations.Count > 0)
                     {
                         failures.Add(pendingInvocations.Dequeue());
@@ -216,40 +216,51 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Represents one posted main-thread invocation with completion tracking. </summary>
-        private sealed class MainThreadInvocation
+        /// <summary> Represents one queued main-thread invocation. </summary>
+        private interface IMainThreadInvocation
         {
-            private readonly Func<Task<IpcResponse>> requestHandler;
+            /// <summary> Runs queued work item on the Unity main thread. </summary>
+            Task Run ();
+
+            /// <summary> Completes the invocation as failed when main-thread scheduling cannot proceed. </summary>
+            /// <param name="exception"> The scheduling failure. </param>
+            void TrySetException (Exception exception);
+        }
+
+        /// <summary> Represents one posted main-thread invocation with completion tracking. </summary>
+        private sealed class MainThreadInvocation<T> : IMainThreadInvocation
+        {
+            private readonly Func<Task<T>> workItem;
 
             private readonly CancellationToken cancellationToken;
 
             private readonly CancellationTokenRegistration cancellationRegistration;
 
             /// <summary> Initializes a new instance of the <see cref="MainThreadInvocation" /> class. </summary>
-            /// <param name="requestHandler"> The request-handling delegate. </param>
+            /// <param name="workItem"> The work item delegate. </param>
             /// <param name="cancellationToken"> The cancellation token for invocation. </param>
             public MainThreadInvocation (
-                Func<Task<IpcResponse>> requestHandler,
+                Func<Task<T>> workItem,
                 CancellationToken cancellationToken)
             {
-                this.requestHandler = requestHandler;
+                this.workItem = workItem;
                 this.cancellationToken = cancellationToken;
-                CompletionSource = new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+                CompletionSource = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
                 if (cancellationToken.CanBeCanceled)
                 {
                     cancellationRegistration = cancellationToken.Register(static state =>
                     {
-                        var completionSource = (TaskCompletionSource<IpcResponse>)state!;
+                        var completionSource = (TaskCompletionSource<T>)state!;
                         completionSource.TrySetCanceled();
                     }, CompletionSource);
                 }
             }
 
             /// <summary> Gets the completion task for this invocation. </summary>
-            public Task<IpcResponse> Completion => CompletionSource.Task;
+            public Task<T> Completion => CompletionSource.Task;
 
             /// <summary> Gets the completion source used by this invocation. </summary>
-            private TaskCompletionSource<IpcResponse> CompletionSource { get; }
+            private TaskCompletionSource<T> CompletionSource { get; }
 
             /// <summary> Runs posted request delegate and completes invocation result. </summary>
             /// <returns> A task that completes after invocation result has been published. </returns>
@@ -258,8 +269,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 try
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var response = await requestHandler();
-                    CompletionSource.TrySetResult(response);
+                    var result = await workItem();
+                    CompletionSource.TrySetResult(result);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {

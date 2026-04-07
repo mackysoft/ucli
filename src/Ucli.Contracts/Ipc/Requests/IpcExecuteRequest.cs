@@ -10,6 +10,11 @@ public sealed record IpcExecuteRequest (
     string Command,
     JsonElement Arguments)
 {
+    /// <summary> Gets a value indicating whether execution should fail immediately instead of waiting for lifecycle readiness. </summary>
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool FailFast { get; init; }
+
     /// <summary> Gets the optional plan token used for call-time drift validation. </summary>
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

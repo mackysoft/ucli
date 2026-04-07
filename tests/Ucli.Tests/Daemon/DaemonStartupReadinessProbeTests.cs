@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
@@ -12,12 +13,12 @@ public sealed class DaemonStartupReadinessProbeTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenPingSucceeds_ReturnsReadyWithoutLogInspection ()
     {
-        var pingClient = new StubDaemonPingClient(static () => ValueTask.CompletedTask);
+        var pingClient = new StubDaemonPingInfoClient(static () => ValueTask.FromResult(CreatePingPayload(canAcceptExecutionRequests: true)));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-success"),
@@ -32,9 +33,99 @@ public sealed class DaemonStartupReadinessProbeTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenPingReportsStarting_RetriesUntilExecutionIsAccepted ()
+    {
+        var attempt = 0;
+        var pingClient = new StubDaemonPingInfoClient(() =>
+        {
+            attempt++;
+            return ValueTask.FromResult(CreatePingPayload(
+                lifecycleState: attempt == 1 ? IpcEditorLifecycleStateCodec.Starting : IpcEditorLifecycleStateCodec.Ready,
+                canAcceptExecutionRequests: attempt != 1));
+        });
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
+        };
+        var probe = CreateProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-starting"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsReady);
+        Assert.Null(result.Error);
+        Assert.Equal(2, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenPingReportsDomainReloading_RetriesUntilExecutionIsAccepted ()
+    {
+        var attempt = 0;
+        var pingClient = new StubDaemonPingInfoClient(() =>
+        {
+            attempt++;
+            return ValueTask.FromResult(CreatePingPayload(
+                lifecycleState: attempt == 1 ? IpcEditorLifecycleStateCodec.DomainReloading : IpcEditorLifecycleStateCodec.Ready,
+                canAcceptExecutionRequests: attempt != 1));
+        });
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
+        };
+        var probe = CreateProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext("fingerprint-readiness-domain-reloading"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsReady);
+        Assert.Null(result.Error);
+        Assert.Equal(2, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, "Exit Play Mode and retry after lifecycleState=ready.")]
+    [InlineData(IpcEditorLifecycleStateCodec.BlockedByModal, IpcEditorBlockingReasonCodec.ModalDialog, "Resolve the modal dialog and retry after lifecycleState=ready.")]
+    [InlineData(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode, "Resolve compiler errors and retry after lifecycleState=ready.")]
+    [InlineData(IpcEditorLifecycleStateCodec.ShuttingDown, IpcEditorBlockingReasonCodec.Shutdown, "Start a new daemon after shutdown finishes.")]
+    public async Task WaitUntilReady_WhenPingReportsNonWaitableLifecycleState_ReturnsInternalErrorImmediately (
+        string lifecycleState,
+        string blockingReason,
+        string expectedMessageSuffix)
+    {
+        var pingClient = new StubDaemonPingInfoClient(staticLifecycleState: lifecycleState, staticBlockingReason: blockingReason);
+        var logReader = new StubUnityLogReader
+        {
+            NextResult = UnityLogReadResult.Success(string.Empty, false, "/tmp/unity.log", 0),
+        };
+        var probe = CreateProbe(pingClient, logReader);
+
+        var result = await probe.WaitUntilReady(
+            CreateContext($"fingerprint-readiness-{lifecycleState}"),
+            TimeSpan.FromSeconds(5),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsReady);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains($"lifecycleState={lifecycleState}", error.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedMessageSuffix, error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, pingClient.CallCount);
+        Assert.Equal(0, logReader.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonLogContainsCompilerErrorMarker_ReturnsInternalErrorImmediately ()
     {
-        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -43,7 +134,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 128),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-compiler-marker"),
@@ -63,7 +154,7 @@ public sealed class DaemonStartupReadinessProbeTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonLogContainsCompilerErrorCode_ReturnsInternalErrorWithFirstErrorLine ()
     {
-        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -72,7 +163,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 64),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-compiler-cs"),
@@ -89,7 +180,7 @@ public sealed class DaemonStartupReadinessProbeTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonLogContainsPackageResolutionFailure_ReturnsInternalErrorImmediately ()
     {
-        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -102,7 +193,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 256),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-package-error"),
@@ -122,7 +213,7 @@ public sealed class DaemonStartupReadinessProbeTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenOnlyPreviousSessionHasPackageResolutionFailure_ReturnsTimeout ()
     {
-        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -142,7 +233,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 512),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-ignore-previous-session-errors"),
@@ -159,7 +250,7 @@ public sealed class DaemonStartupReadinessProbeTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonProcessExitedBeforeReady_ReturnsInternalErrorImmediately ()
     {
-        var pingClient = new StubDaemonPingClient(static () => ValueTask.CompletedTask);
+        var pingClient = new StubDaemonPingInfoClient(static () => ValueTask.FromResult(CreatePingPayload(canAcceptExecutionRequests: true)));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -168,7 +259,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-process-exited"),
@@ -189,7 +280,7 @@ public sealed class DaemonStartupReadinessProbeTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenNotRunningContinuesWithoutCompilerErrors_ReturnsTimeout ()
     {
-        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new SocketException((int)SocketError.ConnectionRefused)));
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -198,7 +289,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-timeout"),
@@ -215,7 +306,7 @@ public sealed class DaemonStartupReadinessProbeTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenPingTimesOutUntilDeadline_ReturnsTimeout ()
     {
-        var pingClient = new StubDaemonPingClient(() => ValueTask.FromException(new TimeoutException("probe timeout")));
+        var pingClient = new StubDaemonPingInfoClient(() => ValueTask.FromException<IpcPingResponse>(new TimeoutException("probe timeout")));
         var logReader = new StubUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -224,7 +315,7 @@ public sealed class DaemonStartupReadinessProbeTests
                 path: "/tmp/unity.log",
                 sizeBytes: 32),
         };
-        var probe = new DaemonStartupReadinessProbe(pingClient, logReader);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReady(
             CreateContext("fingerprint-readiness-timeout-exception"),
@@ -246,18 +337,67 @@ public sealed class DaemonStartupReadinessProbeTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private sealed class StubDaemonPingClient : IDaemonPingClient
+    private static DaemonStartupReadinessProbe CreateProbe (
+        StubDaemonPingInfoClient pingClient,
+        StubUnityLogReader logReader)
     {
-        private readonly Func<ValueTask> handler;
+        return new DaemonStartupReadinessProbe(pingClient, logReader);
+    }
 
-        public StubDaemonPingClient (Func<ValueTask> handler)
+    private static IpcPingResponse CreatePingPayload (
+        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
+        bool canAcceptExecutionRequests = true)
+    {
+        return new IpcPingResponse(
+            ServerVersion: "1.0.0",
+            Runtime: IpcEditorRuntimeCodec.Batchmode,
+            UnityVersion: "2023.2.22f1",
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: lifecycleState,
+            BlockingReason: canAcceptExecutionRequests
+                ? null
+                : lifecycleState switch
+                {
+                    IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
+                    IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
+                    IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
+                    IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
+                    IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
+                    _ => null,
+                },
+            CompileGeneration: "0",
+            DomainReloadGeneration: "0",
+            CanAcceptExecutionRequests: canAcceptExecutionRequests);
+    }
+
+    private sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient
+    {
+        private readonly Func<ValueTask<IpcPingResponse>> handler;
+
+        public StubDaemonPingInfoClient (Func<ValueTask<IpcPingResponse>> handler)
         {
             this.handler = handler;
         }
 
+        public StubDaemonPingInfoClient (
+            string staticLifecycleState,
+            string? staticBlockingReason)
+            : this(() => ValueTask.FromResult(new IpcPingResponse(
+                ServerVersion: "1.0.0",
+                Runtime: IpcEditorRuntimeCodec.Batchmode,
+                UnityVersion: "2023.2.22f1",
+                CompileState: IpcCompileStateCodec.Ready,
+                LifecycleState: staticLifecycleState,
+                BlockingReason: staticBlockingReason,
+                CompileGeneration: "0",
+                DomainReloadGeneration: "0",
+                CanAcceptExecutionRequests: false)))
+        {
+        }
+
         public int CallCount { get; private set; }
 
-        public ValueTask Ping (
+        public ValueTask<IpcPingResponse> PingAndRead (
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             string? sessionToken = null,

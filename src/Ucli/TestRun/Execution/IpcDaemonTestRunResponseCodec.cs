@@ -15,6 +15,7 @@ internal static class IpcDaemonTestRunResponseCodec
     public static bool TryDecode (
         IpcResponse response,
         out int exitCode,
+        out string? errorCode,
         out string? errorMessage)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -24,27 +25,32 @@ internal static class IpcDaemonTestRunResponseCodec
             if (firstError is not null)
             {
                 exitCode = default;
+                errorCode = firstError.Code;
                 errorMessage = $"Unity daemon test run failed with error code '{firstError.Code}'. {firstError.Message}";
                 return false;
             }
 
             exitCode = default;
+            errorCode = null;
             errorMessage = $"Unity daemon test run failed with status '{status}'.";
             return false;
         }
 
         if (!TryReadExitCode(response.Payload, out exitCode, out var readError))
         {
+            errorCode = null;
             errorMessage = $"Unity daemon test run payload is invalid. {readError}";
             return false;
         }
 
         if (exitCode != 0 && exitCode != 2)
         {
+            errorCode = null;
             errorMessage = $"Unity daemon test run returned unsupported exit code: {exitCode}.";
             return false;
         }
 
+        errorCode = null;
         errorMessage = null;
         return true;
     }

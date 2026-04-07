@@ -13,6 +13,7 @@ namespace MackySoft.Ucli.TestRun;
 /// <param name="AssemblyName"> Optional assembly names parsed from the CLI option. </param>
 /// <param name="TestSettingsPath"> Optional path to <c>TestSettings.json</c>. </param>
 /// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
+/// <param name="FailFast"> Whether daemon-backed execution should fail immediately instead of waiting for lifecycle readiness. </param>
 internal sealed record TestRunCommandInput (
     string? ProjectPath,
     string? ProfilePath,
@@ -25,4 +26,5 @@ internal sealed record TestRunCommandInput (
     string[]? TestCategory,
     string[]? AssemblyName,
     string? TestSettingsPath,
-    int? TimeoutMilliseconds);
+    int? TimeoutMilliseconds,
+    bool FailFast = false);

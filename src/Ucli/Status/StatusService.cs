@@ -60,7 +60,12 @@ internal sealed class StatusService : IStatusService
             DaemonStatus: daemonObservation.DaemonStatus,
             UnityVersion: executionContext.UnityVersion,
             ServerVersion: daemonObservation.ServerVersion,
+            LifecycleState: daemonObservation.LifecycleState,
+            BlockingReason: daemonObservation.BlockingReason,
             CompileState: daemonObservation.CompileState,
+            CompileGeneration: daemonObservation.CompileGeneration,
+            DomainReloadGeneration: daemonObservation.DomainReloadGeneration,
+            CanAcceptExecutionRequests: daemonObservation.CanAcceptExecutionRequests,
             Runtime: daemonObservation.Runtime,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds));
         return StatusExecutionResult.Success(output);

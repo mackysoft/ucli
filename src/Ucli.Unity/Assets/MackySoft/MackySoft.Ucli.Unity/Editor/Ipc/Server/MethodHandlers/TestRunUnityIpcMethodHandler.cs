@@ -41,8 +41,18 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var payload = await testRunService.Execute(testRunRequest!, cancellationToken);
-                return UnityIpcResponseFactory.CreateSuccessResponse(request, payload);
+                var result = await testRunService.Execute(testRunRequest!, cancellationToken);
+                if (!result.IsSuccess)
+                {
+                    var error = result.Error!;
+                    return UnityIpcResponseFactory.CreateErrorResponse(
+                        request,
+                        error.Code,
+                        error.Message,
+                        error.OpId);
+                }
+
+                return UnityIpcResponseFactory.CreateSuccessResponse(request, result.Payload!);
             }
             catch (OperationCanceledException)
             {

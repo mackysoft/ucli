@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"));
+            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate());
             var request = CreatePingRequest("req-ping-valid", new IpcPingRequest("client"));
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -29,13 +29,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors, Is.Empty);
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
             Assert.That(payload.ServerVersion, Is.EqualTo("1.2.3"));
+            Assert.That(payload.Runtime, Is.EqualTo("batchmode"));
+            Assert.That(payload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(payload.BlockingReason, Is.Null);
+            Assert.That(payload.CompileGeneration, Is.EqualTo("1"));
+            Assert.That(payload.DomainReloadGeneration, Is.EqualTo("1"));
+            Assert.That(payload.CanAcceptExecutionRequests, Is.True);
         });
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator PingHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"));
+            var handler = new PingUnityIpcMethodHandler(new StubServerVersionProvider("1.2.3"), new StubUnityEditorReadinessGate());
             var request = CreatePingRequest("req-ping-invalid", 123);
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -43,6 +49,69 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PingHandler_WhenStartupIsPending_DoesNotConsumeStarting () => UniTask.ToCoroutine(async () =>
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 0,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: true);
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new UnityEditorReadinessGate(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => false));
+
+            var firstResponse = await handler.Handle(CreatePingRequest("req-ping-starting-1", new IpcPingRequest("client")), CancellationToken.None);
+            var secondResponse = await handler.Handle(CreatePingRequest("req-ping-starting-2", new IpcPingRequest("client")), CancellationToken.None);
+
+            Assert.That(IpcPayloadCodec.TryDeserialize(firstResponse.Payload, out IpcPingResponse firstPayload, out _), Is.True);
+            Assert.That(IpcPayloadCodec.TryDeserialize(secondResponse.Payload, out IpcPingResponse secondPayload, out _), Is.True);
+            Assert.That(firstPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(secondPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+
+            telemetryState.ObserveEditorUpdate(
+                isPlaymodeActive: false,
+                isCompiling: false,
+                isUpdating: false);
+            var readyResponse = await handler.Handle(CreatePingRequest("req-ping-starting-3", new IpcPingRequest("client")), CancellationToken.None);
+
+            Assert.That(IpcPayloadCodec.TryDeserialize(readyResponse.Payload, out IpcPingResponse readyPayload, out _), Is.True);
+            Assert.That(readyPayload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(readyPayload.CanAcceptExecutionRequests, Is.True);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PingHandler_WhenPlaymodeIsActive_ReturnsPlaymodeSnapshot () => UniTask.ToCoroutine(async () =>
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 0,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var handler = new PingUnityIpcMethodHandler(
+                new StubServerVersionProvider("1.2.3"),
+                new UnityEditorReadinessGate(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => true));
+
+            var response = await handler.Handle(CreatePingRequest("req-ping-playmode", new IpcPingRequest("client")), CancellationToken.None);
+
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse payload, out _), Is.True);
+            Assert.That(payload.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(payload.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.PlayMode));
+            Assert.That(payload.CanAcceptExecutionRequests, Is.False);
         });
 
         [UnityTest]
@@ -90,18 +159,39 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator TestRunHandler_WhenServiceSucceeds_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
-            var service = new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(2)));
+            var service = new StubUnityTestRunService(request => Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(2))));
             var handler = new TestRunUnityIpcMethodHandler(service);
             var request = CreateTestRunRequest(
                 "req-test-run-success",
-                CreateValidTestRunPayload());
+                CreateValidTestRunPayload(failFast: true));
 
             var response = await handler.Handle(request, CancellationToken.None);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(service.CallCount, Is.EqualTo(1));
+            Assert.That(service.LastRequest, Is.Not.Null);
+            Assert.That(service.LastRequest.FailFast, Is.True);
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcTestRunResponse payload, out _), Is.True);
             Assert.That(payload.ExitCode, Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator TestRunHandler_WhenServiceReturnsLifecycleFailure_PreservesErrorCode () => UniTask.ToCoroutine(async () =>
+        {
+            var service = new StubUnityTestRunService(_ => Task.FromResult(UnityTestRunServiceResult.Failure(
+                new IpcError(IpcErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null))));
+            var handler = new TestRunUnityIpcMethodHandler(service);
+            var request = CreateTestRunRequest(
+                "req-test-run-lifecycle-error",
+                CreateValidTestRunPayload());
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Message, Is.EqualTo("Unity editor is busy with internal work."));
         });
 
         [UnityTest]
@@ -144,7 +234,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator TestRunHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var handler = new TestRunUnityIpcMethodHandler(
-                new StubUnityTestRunService(request => Task.FromResult(new IpcTestRunResponse(0))));
+                new StubUnityTestRunService(request => Task.FromResult(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)))));
             var request = CreateTestRunRequest("req-test-run-invalid-payload", 123);
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -508,7 +598,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Events[0].Message, Is.EqualTo("after"));
         });
 
-        private static object CreateValidTestRunPayload ()
+        private static object CreateValidTestRunPayload (bool failFast = false)
         {
             return new IpcTestRunRequest(
                 TestPlatform: IpcTestRunPlatformCodec.EditMode,
@@ -518,7 +608,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssemblyNames: Array.Empty<string>(),
                 TestSettingsPath: null,
                 ResultsXmlPath: "/tmp/results.xml",
-                EditorLogPath: "/tmp/editor.log");
+                EditorLogPath: "/tmp/editor.log",
+                FailFast: failFast);
         }
 
         private static IpcRequest CreatePingRequest (
@@ -637,21 +728,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubUnityTestRunService : IUnityTestRunService
         {
-            private readonly Func<IpcTestRunRequest, Task<IpcTestRunResponse>> execute;
+            private readonly Func<IpcTestRunRequest, Task<UnityTestRunServiceResult>> execute;
 
-            public StubUnityTestRunService (Func<IpcTestRunRequest, Task<IpcTestRunResponse>> execute)
+            public StubUnityTestRunService (Func<IpcTestRunRequest, Task<UnityTestRunServiceResult>> execute)
             {
                 this.execute = execute;
             }
 
             public int CallCount { get; private set; }
 
-            public Task<IpcTestRunResponse> Execute (
+            public IpcTestRunRequest LastRequest { get; private set; }
+
+            public Task<UnityTestRunServiceResult> Execute (
                 IpcTestRunRequest request,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
+                LastRequest = request;
                 return execute(request);
             }
         }

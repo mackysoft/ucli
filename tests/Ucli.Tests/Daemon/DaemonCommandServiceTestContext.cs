@@ -6,6 +6,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Daemon.Command;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.Supervisor;
 using MackySoft.Ucli.UnityProject;
@@ -241,6 +242,8 @@ internal static class DaemonCommandServiceTestContext
     {
         public DaemonStatusResult StatusResult { get; set; } = DaemonStatusResult.NotRunning();
 
+        public Action? OnGetStatus { get; set; }
+
         public int GetStatusCallCount { get; private set; }
 
         public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
@@ -255,10 +258,110 @@ internal static class DaemonCommandServiceTestContext
             CancellationToken cancellationToken = default)
         {
             GetStatusCallCount++;
+            OnGetStatus?.Invoke();
             LastUnityProject = unityProject;
             LastTimeout = timeout;
             LastCancellationToken = cancellationToken;
             return ValueTask.FromResult(StatusResult);
+        }
+    }
+
+    internal sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient
+    {
+        public IpcPingResponse Response { get; set; } = new(
+            ServerVersion: "0.0.1",
+            Runtime: "batchmode",
+            UnityVersion: "6000.1.4f1",
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+            BlockingReason: null,
+            CompileGeneration: "1",
+            DomainReloadGeneration: "1",
+            CanAcceptExecutionRequests: true);
+
+        public Exception? Exception { get; set; }
+
+        public Action? OnPingAndRead { get; set; }
+
+        public int CallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public TimeSpan LastTimeout { get; private set; }
+
+        public string? LastSessionToken { get; private set; }
+
+        public CancellationToken LastCancellationToken { get; private set; }
+
+        public ValueTask<IpcPingResponse> PingAndRead (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            string? sessionToken = null,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            OnPingAndRead?.Invoke();
+            LastUnityProject = unityProject;
+            LastTimeout = timeout;
+            LastSessionToken = sessionToken;
+            LastCancellationToken = cancellationToken;
+            if (Exception != null)
+            {
+                return ValueTask.FromException<IpcPingResponse>(Exception);
+            }
+
+            return ValueTask.FromResult(Response);
+        }
+    }
+
+    internal sealed class StubDaemonReachabilityClassifier : IDaemonReachabilityClassifier
+    {
+        private readonly Func<Exception, bool> isNotRunning;
+
+        public StubDaemonReachabilityClassifier (Func<Exception, bool> isNotRunning)
+        {
+            this.isNotRunning = isNotRunning;
+        }
+
+        public bool IsNotRunning (Exception exception)
+        {
+            return isNotRunning(exception);
+        }
+    }
+
+    internal sealed class StubDaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisResolver
+    {
+        public DaemonDiagnosis? Diagnosis { get; set; }
+
+        public Func<ResolvedUnityProjectContext, DaemonSession, DaemonDiagnosis?, CancellationToken, ValueTask<DaemonDiagnosis?>>? Handler { get; set; }
+
+        public int CallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public DaemonSession? LastSession { get; private set; }
+
+        public DaemonDiagnosis? LastPersistedDiagnosis { get; private set; }
+
+        public CancellationToken LastCancellationToken { get; private set; }
+
+        public ValueTask<DaemonDiagnosis?> ResolveForSession (
+            ResolvedUnityProjectContext unityProject,
+            DaemonSession session,
+            DaemonDiagnosis? persistedDiagnosis,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastUnityProject = unityProject;
+            LastSession = session;
+            LastPersistedDiagnosis = persistedDiagnosis;
+            LastCancellationToken = cancellationToken;
+            if (Handler != null)
+            {
+                return Handler(unityProject, session, persistedDiagnosis, cancellationToken);
+            }
+
+            return ValueTask.FromResult(Diagnosis);
         }
     }
 

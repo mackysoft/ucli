@@ -68,7 +68,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
             cancellationToken).ConfigureAwait(false);
         if (modeDecisionResult.HasContractError)
         {
-            return TestRunPreflightResult.FailureResult(TestRunServiceResult.InfraError(
+            return TestRunPreflightResult.FailureResult(TestRunServiceResult.ToolError(
                 modeDecisionResult.ContractError!.Message,
                 modeDecisionResult.ContractError.Code));
         }
@@ -82,7 +82,8 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         var context = new TestRunExecutionContext(
             Configuration: configuration,
             Target: modeDecisionResult.Decision!.Target,
-            Timeout: modeDecisionResult.Decision.Timeout);
+            Timeout: modeDecisionResult.Decision.Timeout,
+            FailFast: input.FailFast);
         return TestRunPreflightResult.Success(context);
     }
 

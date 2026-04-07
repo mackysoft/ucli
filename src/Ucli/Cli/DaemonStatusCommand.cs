@@ -53,6 +53,14 @@ internal sealed class DaemonStatusCommand
                 payload: new
                 {
                     daemonStatus = output.DaemonStatus,
+                    serverVersion = output.ServerVersion,
+                    runtime = output.Runtime,
+                    lifecycleState = output.LifecycleState,
+                    blockingReason = output.BlockingReason,
+                    compileState = output.CompileState,
+                    compileGeneration = output.CompileGeneration,
+                    domainReloadGeneration = output.DomainReloadGeneration,
+                    canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                     diagnosis = output.Diagnosis,

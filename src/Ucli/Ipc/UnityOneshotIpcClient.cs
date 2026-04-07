@@ -112,7 +112,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             var shouldTerminateProcess = true;
             try
             {
-                var startupProbeError = await WaitUntilReady(
+                var startupProbeError = await WaitUntilReachable(
                         unityProject,
                         sessionToken,
                         deadline,
@@ -189,7 +189,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             CliErrorCodes.IpcTimeout);
     }
 
-    private async ValueTask<ExecutionError?> WaitUntilReady (
+    private async ValueTask<ExecutionError?> WaitUntilReachable (
         ResolvedUnityProjectContext unityProject,
         string sessionToken,
         ExecutionDeadline deadline,
@@ -228,12 +228,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         attemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (!string.Equals(pingResponse.Status, IpcProtocol.StatusOk, StringComparison.Ordinal))
+                if (!DaemonPingResponseCodec.TryDecodePayload(pingResponse, out var payload, out var error))
                 {
                     return ExecutionError.InternalError(
-                        "Unity oneshot startup probe returned a non-success response.");
+                        $"Unity oneshot startup probe returned an invalid response. {error!.Message}");
                 }
 
+                _ = payload!;
                 return null;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

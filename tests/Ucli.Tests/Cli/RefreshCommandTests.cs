@@ -13,7 +13,7 @@ public sealed class RefreshCommandTests
     [Trait("Size", "Small")]
     public async Task Refresh_UsesRefreshServiceAndWritesCommandResult ()
     {
-        var service = new StubRefreshService((_, _, _) => ValueTask.FromResult(new OperationExecuteResult(
+        var service = new StubRefreshService((_, _, _, _) => ValueTask.FromResult(new OperationExecuteResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
@@ -41,6 +41,7 @@ public sealed class RefreshCommandTests
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
+            failFast: true,
             cancellationToken: cancellationTokenSource.Token));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
@@ -48,6 +49,7 @@ public sealed class RefreshCommandTests
         Assert.Equal("/repo/UnityProject", service.CapturedProjectPath);
         Assert.Equal("oneshot", service.CapturedMode);
         Assert.Equal("1234", service.CapturedTimeout);
+        Assert.True(service.CapturedFailFast);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
@@ -72,9 +74,9 @@ public sealed class RefreshCommandTests
 
     private sealed class StubRefreshService : IRefreshService
     {
-        private readonly Func<string?, string?, string?, ValueTask<OperationExecuteResult>> handler;
+        private readonly Func<string?, string?, string?, bool, ValueTask<OperationExecuteResult>> handler;
 
-        public StubRefreshService (Func<string?, string?, string?, ValueTask<OperationExecuteResult>> handler)
+        public StubRefreshService (Func<string?, string?, string?, bool, ValueTask<OperationExecuteResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
@@ -85,19 +87,23 @@ public sealed class RefreshCommandTests
 
         public string? CapturedTimeout { get; private set; }
 
+        public bool CapturedFailFast { get; private set; }
+
         public CancellationToken CapturedCancellationToken { get; private set; }
 
         public ValueTask<OperationExecuteResult> Execute (
             string? projectPath,
             string? mode,
             string? timeout,
+            bool failFast,
             CancellationToken cancellationToken = default)
         {
             CapturedProjectPath = projectPath;
             CapturedMode = mode;
             CapturedTimeout = timeout;
+            CapturedFailFast = failFast;
             CapturedCancellationToken = cancellationToken;
-            return handler(projectPath, mode, timeout);
+            return handler(projectPath, mode, timeout, failFast);
         }
     }
 }

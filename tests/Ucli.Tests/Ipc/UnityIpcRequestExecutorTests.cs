@@ -109,7 +109,7 @@ public sealed class UnityIpcRequestExecutorTests
         {
             return request.Method switch
             {
-                IpcMethodNames.Ping => CreateResponse(request.RequestId),
+                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
                 IpcMethodNames.OpsRead => response,
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -303,6 +303,26 @@ public sealed class UnityIpcRequestExecutorTests
             RequestId: requestId,
             Status: IpcProtocol.StatusOk,
             Payload: EmptyPayload(),
+            Errors: Array.Empty<IpcError>());
+    }
+
+    private static IpcResponse CreatePingResponse (string requestId)
+    {
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingResponse(
+            ServerVersion: "1.0.0",
+            Runtime: IpcEditorRuntimeCodec.Batchmode,
+            UnityVersion: "2023.2.22f1",
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+            BlockingReason: null,
+            CompileGeneration: "0",
+            DomainReloadGeneration: "0",
+            CanAcceptExecutionRequests: true));
+        return new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: requestId,
+            Status: IpcProtocol.StatusOk,
+            Payload: payload,
             Errors: Array.Empty<IpcError>());
     }
 

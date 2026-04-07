@@ -105,6 +105,29 @@ public sealed class UnityTestExecutorTests
         Assert.Equal(TimeSpan.FromMilliseconds(1), processRunner.LastRequest.Timeout);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenProcessTimesOut_ReturnsProcessTimedOutFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-test-executor", "process-timeout");
+        var configuration = CreateConfiguration(scope);
+        var artifactPaths = CreateArtifactPaths(scope);
+
+        var executor = new UnityTestExecutor(
+            new StubUnityCommandBuilder(["-batchmode"]),
+            new StubProcessRunner(ProcessRunResult.TimedOut("Unity process timed out.")));
+
+        var result = await executor.Execute(
+            configuration,
+            artifactPaths,
+            TimeSpan.FromMilliseconds(3000),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityTestExecutionFailureKind.ProcessTimedOut, result.FailureKind);
+        Assert.Contains("timed out", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static ResolvedTestRunConfiguration CreateConfiguration (TestDirectoryScope scope)
     {
         var projectPath = scope.GetPath("UnityProject");

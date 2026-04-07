@@ -8,6 +8,7 @@ internal interface IOperationExecuteService
     /// <param name="projectPath"> The optional <c>--projectPath</c> value. </param>
     /// <param name="mode"> The optional <c>--mode</c> value. </param>
     /// <param name="timeout"> The optional <c>--timeout</c> value in milliseconds. </param>
+    /// <param name="failFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the normalized operation execution result. </returns>
     ValueTask<OperationExecuteResult> Execute (
@@ -15,5 +16,6 @@ internal interface IOperationExecuteService
         string? projectPath,
         string? mode,
         string? timeout,
+        bool failFast,
         CancellationToken cancellationToken = default);
 }

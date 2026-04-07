@@ -405,6 +405,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 payload.CompileState == IpcCompileStateCodec.Ready
                 || payload.CompileState == IpcCompileStateCodec.Compiling,
                 Is.True);
+            Assert.That(string.IsNullOrWhiteSpace(payload.LifecycleState), Is.False);
+            Assert.That(IpcEditorLifecycleStateCodec.TryParse(payload.LifecycleState, out _), Is.True);
+            if (!string.IsNullOrWhiteSpace(payload.BlockingReason))
+            {
+                Assert.That(IpcEditorBlockingReasonCodec.TryParse(payload.BlockingReason, out _), Is.True);
+            }
+
+            Assert.That(string.IsNullOrWhiteSpace(payload.CompileGeneration), Is.False);
+            Assert.That(string.IsNullOrWhiteSpace(payload.DomainReloadGeneration), Is.False);
+            Assert.That(
+                payload.CanAcceptExecutionRequests,
+                Is.EqualTo(string.Equals(payload.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)));
         });
 
         [UnityTest]
@@ -458,7 +470,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubExecuteRequestDispatcher(),
                 testRunService,
                 new StubDaemonShutdownSignal());
-            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run");
+            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run", failFast: true);
 
             var response = await server.HandleRequest(request);
 
@@ -467,9 +479,32 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(testRunService.CallCount, Is.EqualTo(1));
             Assert.That(testRunService.LastRequest, Is.Not.Null);
             Assert.That(testRunService.LastRequest.TestPlatform, Is.EqualTo("editmode"));
+            Assert.That(testRunService.LastRequest.FailFast, Is.True);
             var payload = response.Payload.Deserialize<IpcTestRunResponse>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.ExitCode, Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator HandleRequest_WhenTestRunServiceReturnsLifecycleFailure_PreservesErrorCode () => UniTask.ToCoroutine(async () =>
+        {
+            var testRunService = new StubUnityTestRunService(UnityTestRunServiceResult.Failure(
+                new IpcError(IpcErrorCodes.EditorBusy, "Unity editor is busy with internal work.", null)));
+            var server = CreateServerForRequestHandling(
+                new StubSessionTokenValidator(accepted: true),
+                new StubExecuteRequestDispatcher(),
+                testRunService,
+                new StubDaemonShutdownSignal());
+            var request = CreateTestRunRequest(sessionToken: "valid-token", requestId: "req-test-run-lifecycle-error");
+
+            var response = await server.HandleRequest(request);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(response.Errors[0].Message, Is.EqualTo("Unity editor is busy with internal work."));
+            Assert.That(testRunService.CallCount, Is.EqualTo(1));
         });
 
         [UnityTest]
@@ -589,7 +624,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcRequest CreateTestRunRequest (
             string sessionToken,
-            string requestId)
+            string requestId,
+            bool failFast = false)
         {
             var payload = JsonSerializer.SerializeToElement(
                 new IpcTestRunRequest(
@@ -600,7 +636,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     AssemblyNames: Array.Empty<string>(),
                     TestSettingsPath: null,
                     ResultsXmlPath: "/tmp/results.xml",
-                    EditorLogPath: "/tmp/editor.log"),
+                    EditorLogPath: "/tmp/editor.log",
+                    FailFast: failFast),
                 SerializerOptions);
             return new IpcRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -701,7 +738,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var methodDispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
-                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider()),
+                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate()),
                     new ExecuteUnityIpcMethodHandler(executeRequestDispatcher),
                     new TestRunUnityIpcMethodHandler(testRunService),
                     new DaemonLogsReadUnityIpcMethodHandler(
@@ -838,17 +875,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class InlineMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
         {
-            public Task<IpcResponse> Execute (
-                Func<Task<IpcResponse>> requestHandler,
+            public Task<T> Execute<T> (
+                Func<Task<T>> workItem,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (requestHandler == null)
+                if (workItem == null)
                 {
-                    throw new ArgumentNullException(nameof(requestHandler));
+                    throw new ArgumentNullException(nameof(workItem));
                 }
 
-                return requestHandler();
+                return workItem();
             }
         }
 
@@ -916,14 +953,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubUnityTestRunService : IUnityTestRunService
         {
-            private readonly IpcTestRunResponse response;
+            private readonly UnityTestRunServiceResult response;
 
             public StubUnityTestRunService ()
-                : this(new IpcTestRunResponse(0))
+                : this(UnityTestRunServiceResult.Success(new IpcTestRunResponse(0)))
             {
             }
 
             public StubUnityTestRunService (IpcTestRunResponse response)
+                : this(UnityTestRunServiceResult.Success(response))
+            {
+            }
+
+            public StubUnityTestRunService (UnityTestRunServiceResult response)
             {
                 this.response = response ?? throw new ArgumentNullException(nameof(response));
             }
@@ -932,7 +974,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public IpcTestRunRequest LastRequest { get; private set; }
 
-            public Task<IpcTestRunResponse> Execute (
+            public Task<UnityTestRunServiceResult> Execute (
                 IpcTestRunRequest request,
                 CancellationToken cancellationToken = default)
             {

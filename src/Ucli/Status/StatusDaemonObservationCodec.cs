@@ -15,7 +15,12 @@ internal static class StatusDaemonObservationCodec
         return new StatusDaemonObservation(
             DaemonStatus: StatusDaemonStateCodec.ToValue(daemonStatus),
             ServerVersion: null,
+            LifecycleState: null,
+            BlockingReason: null,
             CompileState: null,
+            CompileGeneration: null,
+            DomainReloadGeneration: null,
+            CanAcceptExecutionRequests: false,
             Runtime: null);
     }
 
@@ -30,12 +35,30 @@ internal static class StatusDaemonObservationCodec
     {
         ArgumentNullException.ThrowIfNull(pingResponse);
 
+        var lifecycleState = IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var normalizedLifecycleState)
+            ? normalizedLifecycleState
+            : null;
+        var blockingReason = lifecycleState is null || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+            ? null
+            : IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
+                ? normalizedBlockingReason
+                : null;
+        var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+            && pingResponse.CanAcceptExecutionRequests;
+
         return new StatusDaemonObservation(
             DaemonStatus: StatusDaemonStateCodec.ToValue(daemonStatus),
             ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
+            LifecycleState: lifecycleState,
+            BlockingReason: blockingReason,
             CompileState: IpcCompileStateCodec.TryParse(pingResponse.CompileState, out var compileState)
                 ? compileState
                 : null,
-            Runtime: StringValueNormalizer.TrimToNull(pingResponse.Runtime));
+            CompileGeneration: StringValueNormalizer.TrimToNull(pingResponse.CompileGeneration),
+            DomainReloadGeneration: StringValueNormalizer.TrimToNull(pingResponse.DomainReloadGeneration),
+            CanAcceptExecutionRequests: canAcceptExecutionRequests,
+            Runtime: IpcEditorRuntimeCodec.TryParse(pingResponse.Runtime, out var runtime)
+                ? runtime
+                : null);
     }
 }

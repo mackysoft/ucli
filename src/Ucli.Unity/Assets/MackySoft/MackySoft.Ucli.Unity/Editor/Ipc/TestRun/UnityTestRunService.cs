@@ -19,6 +19,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IUnityEditorReadinessGate readinessGate;
 
+        private readonly IUnityMainThreadRequestExecutor mainThreadRequestExecutor;
+
         /// <summary> Initializes a new instance of the <see cref="UnityTestRunService" /> class. </summary>
         /// <param name="requestContextFactory"> The request-context factory dependency. </param>
         /// <param name="unityTestRunner"> The Unity test runner dependency. </param>
@@ -31,12 +33,38 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityTestResultsXmlWriter testResultsXmlWriter,
             IEditorLogRangeExporter editorLogRangeExporter,
             IUnityEditorReadinessGate readinessGate)
+            : this(
+                requestContextFactory,
+                unityTestRunner,
+                testResultsXmlWriter,
+                editorLogRangeExporter,
+                readinessGate,
+                new InlineUnityMainThreadRequestExecutor())
+        {
+        }
+
+        /// <summary> Initializes a new instance of the <see cref="UnityTestRunService" /> class. </summary>
+        /// <param name="requestContextFactory"> The request-context factory dependency. </param>
+        /// <param name="unityTestRunner"> The Unity test runner dependency. </param>
+        /// <param name="testResultsXmlWriter"> The test-results XML writer dependency. </param>
+        /// <param name="editorLogRangeExporter"> The editor-log range exporter dependency. </param>
+        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
+        /// <param name="mainThreadRequestExecutor"> The Unity main-thread executor dependency. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
+        public UnityTestRunService (
+            IUnityTestRunRequestContextFactory requestContextFactory,
+            IUnityTestRunner unityTestRunner,
+            IUnityTestResultsXmlWriter testResultsXmlWriter,
+            IEditorLogRangeExporter editorLogRangeExporter,
+            IUnityEditorReadinessGate readinessGate,
+            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
         {
             this.requestContextFactory = requestContextFactory ?? throw new ArgumentNullException(nameof(requestContextFactory));
             this.unityTestRunner = unityTestRunner ?? throw new ArgumentNullException(nameof(unityTestRunner));
             this.testResultsXmlWriter = testResultsXmlWriter ?? throw new ArgumentNullException(nameof(testResultsXmlWriter));
             this.editorLogRangeExporter = editorLogRangeExporter ?? throw new ArgumentNullException(nameof(editorLogRangeExporter));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            this.mainThreadRequestExecutor = mainThreadRequestExecutor ?? throw new ArgumentNullException(nameof(mainThreadRequestExecutor));
         }
 
         /// <summary> Executes one daemon <c>test.run</c> request and returns IPC response payload. </summary>
@@ -45,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The response payload. </returns>
         /// <exception cref="ArgumentException"> Thrown when request payload violates contract. </exception>
         /// <exception cref="InvalidOperationException"> Thrown when run artifacts cannot be produced. </exception>
-        public async Task<IpcTestRunResponse> Execute (
+        public async Task<UnityTestRunServiceResult> Execute (
             IpcTestRunRequest request,
             CancellationToken cancellationToken = default)
         {
@@ -56,10 +84,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestContext = requestContextFactory.Create(request);
-            await readinessGate.WaitUntilReady(cancellationToken).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReady(request.FailFast, cancellationToken).ConfigureAwait(false);
+            if (!readinessResult.IsReady)
+            {
+                return UnityTestRunServiceResult.Failure(readinessResult.Error!);
+            }
 
             var startOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
-            var testResult = await unityTestRunner.Run(requestContext, cancellationToken);
+            var testResult = await mainThreadRequestExecutor.Execute(
+                () => unityTestRunner.Run(requestContext, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             var endOffset = GetFileLengthOrZero(requestContext.ConsoleLogPath);
 
@@ -72,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 cancellationToken);
 
             var exitCode = testResult.FailCount > 0 ? 2 : 0;
-            return new IpcTestRunResponse(exitCode);
+            return UnityTestRunServiceResult.Success(new IpcTestRunResponse(exitCode));
         }
 
         /// <summary> Reads file length when file exists; otherwise returns zero. </summary>
@@ -81,6 +115,22 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static long GetFileLengthOrZero (string path)
         {
             return File.Exists(path) ? new FileInfo(path).Length : 0L;
+        }
+
+        private sealed class InlineUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
+        {
+            public Task<T> Execute<T> (
+                Func<Task<T>> workItem,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (workItem == null)
+                {
+                    throw new ArgumentNullException(nameof(workItem));
+                }
+
+                return workItem();
+            }
         }
     }
 }

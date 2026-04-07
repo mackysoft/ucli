@@ -33,6 +33,7 @@ public sealed class TestRunCommandTests
             assemblyName: "MyGame.Tests.EditMode,MyGame.Tests.PlayMode",
             testSettingsPath: "/repo/UnityProject/ProjectSettings/TestSettings.json",
             timeout: 120,
+            failFast: true,
             cancellationToken: cancellationTokenSource.Token));
 
         Assert.Equal(cancellationTokenSource.Token, service.CapturedCancellationToken);
@@ -52,6 +53,7 @@ public sealed class TestRunCommandTests
         Assert.Equal(["MyGame.Tests.EditMode", "MyGame.Tests.PlayMode"], assemblyNames);
         Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
         Assert.Equal(120, input.TimeoutMilliseconds);
+        Assert.True(input.FailFast);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Execution;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -8,23 +9,23 @@ namespace MackySoft.Ucli.Daemon;
 /// <summary> Implements daemon startup readiness probing via repeated ping attempts. </summary>
 internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 {
-    private readonly IDaemonPingClient daemonPingClient;
+    private readonly IDaemonPingInfoClient daemonPingInfoClient;
 
     private readonly IUnityLogReader unityLogReader;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
-    /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
+    /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
-        IDaemonPingClient daemonPingClient,
+        IDaemonPingInfoClient daemonPingInfoClient,
         IUnityLogReader unityLogReader)
     {
-        this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
+        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
     }
 
-    /// <summary> Waits until daemon endpoint becomes reachable, or timeout expires. </summary>
+    /// <summary> Waits until daemon startup accepts execution requests, or fails when timeout expires or startup reaches one non-waitable lifecycle state. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The startup readiness timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -51,7 +52,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             cancellationToken.ThrowIfCancellationRequested();
             if (daemonProcessId is int processId && !ProcessLivenessProbe.IsAlive(processId))
             {
-                var startupFailureError = await TryResolveStartupFailureFromDaemonLog(
+                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -75,12 +76,28 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
-                await daemonPingClient.Ping(
+                var pingResponse = await daemonPingInfoClient.PingAndRead(
                         unityProject,
                         attemptTimeout,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                return DaemonStartupReadinessProbeResult.Ready();
+                if (pingResponse.CanAcceptExecutionRequests)
+                {
+                    return DaemonStartupReadinessProbeResult.Ready();
+                }
+
+                if (TryResolveNonRetryableLifecycleFailure(pingResponse, out var startupLifecycleError))
+                {
+                    return DaemonStartupReadinessProbeResult.Failure(startupLifecycleError!);
+                }
+
+                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
+                        $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
+                }
+
+                await Task.Delay(GetRetryDelay(remainingTimeout), cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -98,7 +115,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                var startupFailureError = await TryResolveStartupFailureFromDaemonLog(
+                var startupFailureError = await TryClassifyStartupFailureFromLatestLogText(
                         unityProject,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -131,7 +148,73 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
     }
 
-    private async ValueTask<ExecutionError?> TryResolveStartupFailureFromDaemonLog (
+    private static bool TryResolveNonRetryableLifecycleFailure (
+        IpcPingResponse pingResponse,
+        out ExecutionError? error)
+    {
+        ArgumentNullException.ThrowIfNull(pingResponse);
+
+        if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
+        {
+            error = ExecutionError.InternalError(
+                $"Unity daemon startup probe returned unsupported lifecycleState '{pingResponse.LifecycleState}'.");
+            return true;
+        }
+
+        if (string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal))
+        {
+            error = ExecutionError.InternalError(
+                "Unity daemon startup probe returned lifecycleState=ready while canAcceptExecutionRequests=false.");
+            return true;
+        }
+
+        if (IsWaitableLifecycleState(lifecycleState!))
+        {
+            error = null;
+            return false;
+        }
+
+        var blockingReason = IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
+            ? normalizedBlockingReason
+            : null;
+        error = ExecutionError.InternalError(CreateNonWaitableLifecycleMessage(lifecycleState!, blockingReason));
+        return true;
+    }
+
+    private static string CreateNonWaitableLifecycleMessage (
+        string lifecycleState,
+        string? blockingReason)
+    {
+        var lifecycleDetails = blockingReason is null
+            ? $"lifecycleState={lifecycleState}"
+            : $"lifecycleState={lifecycleState}, blockingReason={blockingReason}";
+
+        return lifecycleState switch
+        {
+            IpcEditorLifecycleStateCodec.DomainReloading =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.Playmode =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Exit Play Mode and retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.BlockedByModal =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve the modal dialog and retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.SafeMode =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Resolve compiler errors and retry after lifecycleState=ready.",
+            IpcEditorLifecycleStateCodec.ShuttingDown =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}. Start a new daemon after shutdown finishes.",
+            _ =>
+                $"Unity daemon startup cannot continue while {lifecycleDetails}.",
+        };
+    }
+
+    private static bool IsWaitableLifecycleState (string lifecycleState)
+    {
+        return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal);
+    }
+
+    private async ValueTask<ExecutionError?> TryClassifyStartupFailureFromLatestLogText (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken)
     {
@@ -145,101 +228,9 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             return null;
         }
 
-        var latestStartupLogText = GetLatestStartupLogText(logReadResult.Text);
-        if (TryGetCompilerErrorSummary(latestStartupLogText, out var compilerErrorSummary))
-        {
-            return ExecutionError.InternalError(
-                $"Unity daemon startup failed because scripts have compiler errors. {compilerErrorSummary}");
-        }
-
-        if (TryGetPackageResolutionErrorSummary(latestStartupLogText, out var packageErrorSummary))
-        {
-            return ExecutionError.InternalError(
-                $"Unity daemon startup failed because package resolution failed. {packageErrorSummary}");
-        }
-
-        return null;
-    }
-
-    private static string GetLatestStartupLogText (string logText)
-    {
-        const string startupMarker = "COMMAND LINE ARGUMENTS:";
-        var markerIndex = logText.LastIndexOf(startupMarker, StringComparison.Ordinal);
-        return markerIndex >= 0
-            ? logText[markerIndex..]
-            : logText;
-    }
-
-    private static bool TryGetCompilerErrorSummary (
-        string logText,
-        out string summary)
-    {
-        const string compilerErrorsMarker = "Scripts have compiler errors";
-        summary = string.Empty;
-
-        var lines = logText.Split('\n');
-        foreach (var line in lines)
-        {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0)
-            {
-                continue;
-            }
-
-            if (trimmedLine.Contains("error CS", StringComparison.OrdinalIgnoreCase))
-            {
-                summary = $"FirstError={trimmedLine}";
-                return true;
-            }
-
-            if (trimmedLine.Contains(compilerErrorsMarker, StringComparison.OrdinalIgnoreCase))
-            {
-                summary = $"Marker={trimmedLine}";
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool TryGetPackageResolutionErrorSummary (
-        string logText,
-        out string summary)
-    {
-        const string packageFailureMarker = "An error occurred while resolving packages:";
-        summary = string.Empty;
-
-        var lines = logText.Split('\n');
-        var markerFound = false;
-        foreach (var line in lines)
-        {
-            var trimmedLine = line.Trim();
-            if (trimmedLine.Length == 0)
-            {
-                continue;
-            }
-
-            if (!markerFound)
-            {
-                if (trimmedLine.Contains(packageFailureMarker, StringComparison.OrdinalIgnoreCase))
-                {
-                    markerFound = true;
-                    summary = $"Marker={trimmedLine}";
-                }
-
-                continue;
-            }
-
-            if (trimmedLine.StartsWith("Project has invalid dependencies:", StringComparison.OrdinalIgnoreCase))
-            {
-                summary = $"Marker={trimmedLine}";
-                continue;
-            }
-
-            summary = $"FirstError={trimmedLine}";
-            return true;
-        }
-
-        return markerFound;
+        var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
+        return DaemonStartupFailureLogClassifier.TryClassify(latestStartupLogText, out var error)
+            ? error
+            : null;
     }
 }

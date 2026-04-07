@@ -35,8 +35,9 @@ internal sealed class RefreshService : IRefreshService
         string? projectPath,
         string? mode,
         string? timeout,
+        bool failFast,
         CancellationToken cancellationToken = default)
     {
-        return operationExecuteService.Execute(RefreshOperation, projectPath, mode, timeout, cancellationToken);
+        return operationExecuteService.Execute(RefreshOperation, projectPath, mode, timeout, failFast, cancellationToken);
     }
 }

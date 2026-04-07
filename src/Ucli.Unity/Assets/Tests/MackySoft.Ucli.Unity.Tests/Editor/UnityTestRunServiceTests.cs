@@ -22,24 +22,27 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Execute_WhenEditorIsWaitingForReadiness_DelaysRunnerUntilReady () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Execute_WhenFailFastIsDisabled_DelaysRunnerUntilReady () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var requestContext = CreateRequestContext();
             var runner = new StubUnityTestRunner((_, _) => Task.FromResult<ITestResultAdaptor>(new StubTestResultAdaptor(failCount: 0)));
             var resultsWriter = new SpyUnityTestResultsXmlWriter();
             var editorLogExporter = new SpyEditorLogRangeExporter();
+            var mainThreadRequestExecutor = new SpyUnityMainThreadRequestExecutor();
             var service = new UnityTestRunService(
                 new StubUnityTestRunRequestContextFactory(_ => requestContext),
                 runner,
                 resultsWriter,
                 editorLogExporter,
-                readinessGate);
+                readinessGate,
+                mainThreadRequestExecutor);
 
-            var responseTask = service.Execute(CreateRequest(), CancellationToken.None).AsUniTask();
+            var responseTask = service.Execute(CreateRequest(failFast: false), CancellationToken.None).AsUniTask();
             await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "Unity test run service readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastFailFast, Is.False);
             Assert.That(runner.CallCount, Is.EqualTo(0));
             Assert.That(resultsWriter.CallCount, Is.EqualTo(0));
             Assert.That(editorLogExporter.CallCount, Is.EqualTo(0));
@@ -47,10 +50,41 @@ namespace MackySoft.Ucli.Unity.Tests
             readinessGate.Release();
             var response = await TestAwaiter.WaitAsync(responseTask, "Unity test run service response", SignalWaitTimeout);
 
-            Assert.That(response.ExitCode, Is.EqualTo(0));
+            Assert.That(response.IsSuccess, Is.True);
+            Assert.That(response.Payload!.ExitCode, Is.EqualTo(0));
+            Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(1));
             Assert.That(runner.CallCount, Is.EqualTo(1));
             Assert.That(resultsWriter.CallCount, Is.EqualTo(1));
             Assert.That(editorLogExporter.CallCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenFailFastIsEnabled_ReturnsLifecycleFailureWithoutRunningTests () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var runner = new StubUnityTestRunner((_, _) => Task.FromResult<ITestResultAdaptor>(new StubTestResultAdaptor(failCount: 0)));
+            var resultsWriter = new SpyUnityTestResultsXmlWriter();
+            var editorLogExporter = new SpyEditorLogRangeExporter();
+            var mainThreadRequestExecutor = new SpyUnityMainThreadRequestExecutor();
+            var service = new UnityTestRunService(
+                new StubUnityTestRunRequestContextFactory(_ => CreateRequestContext()),
+                runner,
+                resultsWriter,
+                editorLogExporter,
+                readinessGate,
+                mainThreadRequestExecutor);
+
+            var response = await service.Execute(CreateRequest(failFast: true), CancellationToken.None).AsUniTask();
+
+            Assert.That(response.IsSuccess, Is.False);
+            Assert.That(response.Error!.Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastFailFast, Is.True);
+            Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(0));
+            Assert.That(runner.CallCount, Is.EqualTo(0));
+            Assert.That(resultsWriter.CallCount, Is.EqualTo(0));
+            Assert.That(editorLogExporter.CallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
@@ -61,12 +95,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var runner = new StubUnityTestRunner((_, _) => Task.FromResult<ITestResultAdaptor>(new StubTestResultAdaptor(failCount: 0)));
             var resultsWriter = new SpyUnityTestResultsXmlWriter();
             var editorLogExporter = new SpyEditorLogRangeExporter();
+            var mainThreadRequestExecutor = new SpyUnityMainThreadRequestExecutor();
             var service = new UnityTestRunService(
                 new StubUnityTestRunRequestContextFactory(_ => throw new ArgumentException("invalid")),
                 runner,
                 resultsWriter,
                 editorLogExporter,
-                readinessGate);
+                readinessGate,
+                mainThreadRequestExecutor);
 
             await AsyncExceptionCapture.CaptureAsync<ArgumentException>(async () =>
             {
@@ -74,12 +110,13 @@ namespace MackySoft.Ucli.Unity.Tests
             }, "Invalid Unity test run request without readiness wait", SignalWaitTimeout);
 
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
+            Assert.That(mainThreadRequestExecutor.CallCount, Is.EqualTo(0));
             Assert.That(runner.CallCount, Is.EqualTo(0));
             Assert.That(resultsWriter.CallCount, Is.EqualTo(0));
             Assert.That(editorLogExporter.CallCount, Is.EqualTo(0));
         });
 
-        private static IpcTestRunRequest CreateRequest ()
+        private static IpcTestRunRequest CreateRequest (bool failFast = false)
         {
             return new IpcTestRunRequest(
                 TestPlatform: IpcTestRunPlatformCodec.EditMode,
@@ -89,7 +126,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 AssemblyNames: Array.Empty<string>(),
                 TestSettingsPath: null,
                 ResultsXmlPath: "/tmp/results.xml",
-                EditorLogPath: "/tmp/editor.log");
+                EditorLogPath: "/tmp/editor.log",
+                FailFast: failFast);
         }
 
         private static UnityTestRunRequestContext CreateRequestContext ()
@@ -167,6 +205,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
                 return Task.CompletedTask;
+            }
+        }
+
+        private sealed class SpyUnityMainThreadRequestExecutor : IUnityMainThreadRequestExecutor
+        {
+            public int CallCount { get; private set; }
+
+            public Task<T> Execute<T> (
+                Func<Task<T>> workItem,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                CallCount++;
+                return workItem();
             }
         }
 
