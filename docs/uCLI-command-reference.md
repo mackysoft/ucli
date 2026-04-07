@@ -38,6 +38,7 @@
 - `domainReloading` は AppDomain reload を跨いで要求を再開しないため、既定でも待機せず `EDITOR_DOMAIN_RELOADING` を返す。
 - `--failFast` 指定時だけ `lifecycleState != ready` を即時エラーとして返す。
 - `blockedByModal`, `safeMode`, `playmode`, `shuttingDown` は待機中でも即時失敗する。
+- current batchmode daemon が実際に観測・返却する非 ready 状態は `starting`, `busy`, `compiling`, `domainReloading`, `playmode`, `shuttingDown`。`blockedByModal` と `safeMode` は reserved literal だが batchmode ではまだ返さない。
 - 待機は既存の `--timeout` budget を消費し、budget を使い切った場合は `IPC_TIMEOUT` を返す。
 - `ucli test run` では daemon-backed execution に対してのみ意味を持つ。`oneshot` と `auto -> oneshot` は従来どおり direct `-runTests` を使い、readiness wait を行わない。
 
