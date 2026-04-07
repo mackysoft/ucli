@@ -191,6 +191,11 @@ internal sealed class DaemonStatusCommandService : IDaemonStatusCommandService
                     return DaemonStatusExecutionResult.Failure(ExecutionError.Timeout(
                         "Timed out while resolving stale daemon diagnosis."));
                 }
+                catch (Exception diagnosisException)
+                {
+                    return DaemonStatusExecutionResult.Failure(ExecutionError.InternalError(
+                        $"Failed to resolve stale daemon diagnosis. {diagnosisException.Message}"));
+                }
             }
             catch (Exception exception)
             {

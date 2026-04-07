@@ -631,6 +631,45 @@ public sealed class DaemonStatusCommandServiceTests
         Assert.Equal(1, diagnosisResolver.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetStatus_WhenStaleFallbackDiagnosisResolutionThrowsUnexpectedException_ReturnsInternalError ()
+    {
+        var context = DaemonCommandServiceTestContext.CreateExecutionContext(timeoutMilliseconds: 250);
+        var resolver = new DaemonCommandServiceTestContext.StubDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var session = DaemonCommandServiceTestContext.CreateSession();
+        var daemonStatusOperation = new DaemonCommandServiceTestContext.StubDaemonStatusOperation
+        {
+            StatusResult = DaemonStatusResult.Running(session),
+        };
+        var pingInfoClient = new DaemonCommandServiceTestContext.StubDaemonPingInfoClient
+        {
+            Exception = new InvalidOperationException("daemon exited"),
+        };
+        var diagnosisResolver = new DaemonCommandServiceTestContext.StubDaemonSessionDiagnosisResolver
+        {
+            Handler = static (_, _, _, _) => ValueTask.FromException<DaemonDiagnosis?>(new InvalidOperationException("diagnosis store failed")),
+        };
+        var service = CreateService(
+            resolver,
+            daemonStatusOperation,
+            pingInfoClient,
+            new DaemonCommandServiceTestContext.StubDaemonReachabilityClassifier(static _ => true),
+            diagnosisResolver,
+            new DaemonCommandServiceTestContext.StubDaemonSessionOutputMapper(),
+            new DaemonCommandServiceTestContext.StubDaemonDiagnosisOutputMapper());
+
+        var result = await service.GetStatus(projectPath: null, timeout: "250", cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal("Failed to resolve stale daemon diagnosis. diagnosis store failed", error.Message);
+        Assert.Equal(1, diagnosisResolver.CallCount);
+    }
+
     private static DaemonStatusCommandService CreateService (
         IDaemonCommandExecutionContextResolver resolver,
         IDaemonStatusOperation daemonStatusOperation,
