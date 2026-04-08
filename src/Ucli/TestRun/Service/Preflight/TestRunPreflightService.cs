@@ -59,12 +59,20 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(configLoadResult.Error!));
         }
 
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
+            configuration.TimeoutMilliseconds?.ToString(CultureInfo.InvariantCulture),
+            UcliCommandIds.Test,
+            configLoadResult.Config!);
+        if (!timeoutResolutionResult.IsSuccess)
+        {
+            return TestRunPreflightResult.FailureResult(
+                TestRunServiceErrorMapper.MapExecutionError(timeoutResolutionResult.Error!));
+        }
+
         var modeDecisionResult = await modeDecisionService.Decide(
-            command: UcliCommandIds.Test,
             mode: configuration.Mode,
-            timeout: configuration.TimeoutMilliseconds?.ToString(CultureInfo.InvariantCulture),
-            config: configLoadResult.Config!,
             unityProject: configuration.UnityProject,
+            timeout: timeoutResolutionResult.Timeout!.Value,
             cancellationToken).ConfigureAwait(false);
         if (modeDecisionResult.HasContractError)
         {
@@ -82,7 +90,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         var context = new TestRunExecutionContext(
             Configuration: configuration,
             Target: modeDecisionResult.Decision!.Target,
-            Timeout: modeDecisionResult.Decision.Timeout,
+            Timeout: timeoutResolutionResult.Timeout!.Value,
             FailFast: input.FailFast);
         return TestRunPreflightResult.Success(context);
     }

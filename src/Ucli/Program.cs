@@ -70,6 +70,7 @@ internal static class Program
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
         app.Add<RefreshCommand>();
+        app.Add<ValidateCommand>();
         app.Add<DaemonStartCommand>("daemon");
         app.Add<DaemonStopCommand>("daemon");
         app.Add<DaemonCleanupCommand>("daemon");
@@ -120,6 +121,7 @@ internal static class Program
     {
         services.AddUcliCoreServices();
         services.AddUcliRefreshServices();
+        services.AddUcliValidateServices();
         services.AddUcliDaemonServices();
         services.AddUcliSupervisorServices();
         services.AddUcliTestRunServices();

@@ -69,32 +69,6 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
                 $"Operation catalog discovery failed. {catalogResult.Message}");
         }
 
-        var operations = catalogResult.Response!.Operations!;
-        var descriptors = new UcliOperationDescriptor[operations.Count];
-        for (var i = 0; i < operations.Count; i++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var operation = operations[i];
-            if (!UcliOperationKindCodec.TryParse(operation.Kind, out var kind))
-            {
-                throw new InvalidOperationException(
-                    $"Operation kind is invalid for '{operation.Name}'.");
-            }
-
-            if (!OperationPolicyCodec.TryParse(operation.Policy, out var policy))
-            {
-                throw new InvalidOperationException(
-                    $"Operation policy is invalid for '{operation.Name}'.");
-            }
-
-            descriptors[i] = new UcliOperationDescriptor(
-                Name: operation.Name!,
-                Kind: kind,
-                Policy: policy,
-                ArgsSchemaJson: operation.ArgsSchemaJson!);
-        }
-
-        return descriptors;
+        return OperationDescriptorMapper.Map(catalogResult.Response!.Operations!, cancellationToken);
     }
 }
