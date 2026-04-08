@@ -265,6 +265,51 @@ public sealed class UnityIpcRequestExecutorTests
         Assert.Equal(0, launcher.CallCount);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenModeDecisionConsumesSharedBudget_ReturnsTimeoutBeforeDispatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "mode-decision-budget");
+        var timeProvider = new ManualTimeProvider();
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var modeDecisionService = new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+            new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                true,
+                UnityExecutionTarget.Daemon,
+                TimeSpan.FromMilliseconds(100))))
+        {
+            TimeProvider = timeProvider,
+            OnDecide = static context =>
+            {
+                ((ManualTimeProvider)context.TimeProvider).Advance(TimeSpan.FromMilliseconds(120));
+            },
+        };
+        var executor = new UnityIpcRequestExecutor(
+            modeDecisionService,
+            new StubUnityUcliPluginLocator(),
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher),
+            timeProvider);
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            "auto",
+            "100",
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            IpcMethodNames.OpsRead,
+            EmptyPayload());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(TimeSpan.FromMilliseconds(100), modeDecisionService.LastTimeout);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
     private static IUnityIpcClient[] CreateClients (
         StubUnityIpcTransportClient daemonTransportClient,
         StubUnityIpcTransportClient oneshotTransportClient,
@@ -330,23 +375,41 @@ public sealed class UnityIpcRequestExecutorTests
     {
         private readonly UnityExecutionModeDecisionResult result;
 
+        public Action<ModeDecisionInvocationContext>? OnDecide { get; init; }
+
+        public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
+
+        public TimeSpan LastTimeout { get; private set; }
+
         public StubModeDecisionService (UnityExecutionModeDecisionResult result)
         {
             this.result = result;
         }
 
         public ValueTask<UnityExecutionModeDecisionResult> Decide (
-            UcliCommand command,
             string? mode,
-            string? timeout,
-            UcliConfig config,
             ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            LastTimeout = timeout;
+            OnDecide?.Invoke(new ModeDecisionInvocationContext(
+                mode,
+                unityProject,
+                timeout,
+                cancellationToken,
+                TimeProvider));
             return ValueTask.FromResult(result);
         }
     }
+
+    private sealed record ModeDecisionInvocationContext (
+        string? Mode,
+        ResolvedUnityProjectContext UnityProject,
+        TimeSpan Timeout,
+        CancellationToken CancellationToken,
+        TimeProvider TimeProvider);
 
     private sealed class StubUnityIpcTransportClient : IUnityIpcTransportClient
     {

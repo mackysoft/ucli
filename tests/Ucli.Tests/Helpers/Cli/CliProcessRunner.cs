@@ -9,19 +9,27 @@ internal static class CliProcessRunner
 
     public static Task<CommandExecutionResult> RunCommand (params string[] args)
     {
-        return RunCommandCore(args, null);
+        return RunCommandCore(args, null, null);
+    }
+
+    public static Task<CommandExecutionResult> RunCommandWithStandardInput (
+        string standardInput,
+        params string[] args)
+    {
+        return RunCommandCore(args, null, standardInput);
     }
 
     public static Task<CommandExecutionResult> RunCommandWithWorkingDirectory (
         string workingDirectory,
         params string[] args)
     {
-        return RunCommandCore(args, workingDirectory);
+        return RunCommandCore(args, workingDirectory, null);
     }
 
     private static async Task<CommandExecutionResult> RunCommandCore (
         string[] args,
-        string? workingDirectory)
+        string? workingDirectory,
+        string? standardInput)
     {
         // NOTE:
         // This helper executes the built CLI process to validate stdout/stderr and exit-code
@@ -35,6 +43,7 @@ internal static class CliProcessRunner
         startInfo.UseShellExecute = false;
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
+        startInfo.RedirectStandardInput = standardInput is not null;
         startInfo.CreateNoWindow = true;
         if (!string.IsNullOrWhiteSpace(workingDirectory))
         {
@@ -49,6 +58,13 @@ internal static class CliProcessRunner
 
         var started = process.Start();
         Assert.True(started, "Failed to start ucli process.");
+
+        if (standardInput is not null)
+        {
+            await process.StandardInput.WriteAsync(standardInput);
+            await process.StandardInput.FlushAsync();
+            process.StandardInput.Close();
+        }
 
         var stdOutTask = process.StandardOutput.ReadToEndAsync();
         var stdErrTask = process.StandardError.ReadToEndAsync();
