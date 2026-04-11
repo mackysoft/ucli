@@ -21,7 +21,7 @@ internal sealed class RefreshCommand
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (<c>auto|daemon|oneshot</c>).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    /// <param name="failFast">Fails immediately when Unity editor lifecycle is not yet <c>ready</c>.</param>
+    /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet <c>ready</c>.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Refresh)]

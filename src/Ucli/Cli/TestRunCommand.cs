@@ -30,7 +30,7 @@ internal sealed class TestRunCommand
     /// <param name="assemblyName"> -a|--assemblyName, comma-separated assembly names. </param>
     /// <param name="testSettingsPath"> -s|--testSettingsPath, path to <c>TestSettings.json</c>. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
-    /// <param name="failFast"> Fails immediately when daemon-backed execution is not yet <c>ready</c>. </param>
+    /// <param name="failFast"> --failFast, Fails immediately when daemon-backed execution is not yet <c>ready</c>. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]
