@@ -2,45 +2,33 @@ using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Operations;
 
 /// <summary> Performs static request validation for protocol, structure, and operation authorization. </summary>
 internal sealed class RequestStaticValidator : IRequestStaticValidator
 {
-    private readonly IOperationCatalog operationCatalog;
-
     private readonly IOperationAuthorizationService operationAuthorizationService;
 
     /// <summary> Initializes a new instance of the <see cref="RequestStaticValidator" /> class. </summary>
-    /// <param name="operationCatalog"> The operation catalog dependency. </param>
     /// <param name="operationAuthorizationService"> The operation authorization dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationCatalog" /> or <paramref name="operationAuthorizationService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="operationAuthorizationService" /> is <see langword="null" />. </exception>
     public RequestStaticValidator (
-        IOperationCatalog operationCatalog,
         IOperationAuthorizationService operationAuthorizationService)
     {
-        this.operationCatalog = operationCatalog ?? throw new ArgumentNullException(nameof(operationCatalog));
         this.operationAuthorizationService = operationAuthorizationService ?? throw new ArgumentNullException(nameof(operationAuthorizationService));
     }
 
-    /// <summary> Asynchronously validates one normalized request against structure and operation authorization constraints. </summary>
-    /// <param name="request"> The normalized request. </param>
-    /// <param name="unityProject"> The resolved Unity project context used to read project-scoped operation metadata. </param>
-    /// <param name="config"> The configuration values used for operation authorization checks. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> A task that resolves to the aggregated validation result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" />, <paramref name="unityProject" />, or <paramref name="config" /> is <see langword="null" />. </exception>
+    /// <inheritdoc />
     public async ValueTask<ValidationResult> Validate (
         ValidateRequest request,
-        ResolvedUnityProjectContext unityProject,
+        RequestStaticValidationCatalog catalog,
         UcliConfig config,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(config);
 
         var errors = new List<ValidationError>();
@@ -77,23 +65,16 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 : new ValidationResult(errors);
         }
 
-        IReadOnlyList<UcliOperationDescriptor> operations;
-        try
+        Dictionary<string, UcliOperationDescriptor>? operationsByName = null;
+        if (catalog.IsAvailable)
         {
-            operations = await operationCatalog.GetAll(unityProject, config, cancellationToken).ConfigureAwait(false);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return ValidationResult.Failure(ExecutionError.InternalError(
-                $"Static validation could not load operation metadata. {exception.Message}"));
-        }
-
-        var operationsByName = new Dictionary<string, UcliOperationDescriptor>(operations.Count, StringComparer.Ordinal);
-        for (var i = 0; i < operations.Count; i++)
-        {
-            var operationDescriptor = operations[i];
-            cancellationToken.ThrowIfCancellationRequested();
-            operationsByName[operationDescriptor.Name] = operationDescriptor;
+            operationsByName = new Dictionary<string, UcliOperationDescriptor>(catalog.Operations.Count, StringComparer.Ordinal);
+            for (var i = 0; i < catalog.Operations.Count; i++)
+            {
+                var operationDescriptor = catalog.Operations[i];
+                cancellationToken.ThrowIfCancellationRequested();
+                operationsByName[operationDescriptor.Name] = operationDescriptor;
+            }
         }
 
         var authorizationCache = new Dictionary<string, OperationAuthorizationResult>(StringComparer.Ordinal);
@@ -151,7 +132,8 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                         continue;
                     }
 
-                    if (operationsByName.TryGetValue(normalizedOperationName, out var operationDescriptor))
+                    if ((operationsByName != null)
+                        && operationsByName.TryGetValue(normalizedOperationName, out var operationDescriptor))
                     {
                         var argsValidationFailure = TryValidateOperationArgs(
                             step,
@@ -164,16 +146,19 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                         }
                     }
 
-                    await ValidateReferencedOperation(
-                            normalizedOperationName,
-                            normalizedStepId,
-                            isImplicitEditOperation: false,
-                            operationsByName,
-                            authorizationCache,
-                            config,
-                            errors,
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    if (operationsByName != null)
+                    {
+                        await ValidateReferencedOperation(
+                                normalizedOperationName,
+                                normalizedStepId,
+                                isImplicitEditOperation: false,
+                                operationsByName,
+                                authorizationCache,
+                                config,
+                                errors,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
                     break;
 
                 case Contracts.Ipc.Validation.IpcRequestStepKind.Edit:
@@ -187,6 +172,11 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                             Message: errorMessage,
                             OpId: normalizedStepId));
                         continue;
+                    }
+
+                    if (operationsByName == null)
+                    {
+                        break;
                     }
 
                     var uniqueOperationNames = new HashSet<string>(StringComparer.Ordinal);

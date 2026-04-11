@@ -21,19 +21,23 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
 
     private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="UnityIpcRequestExecutor" /> class. </summary>
     /// <param name="modeDecisionService"> The Unity execution-mode decision service dependency. </param>
     /// <param name="unityIpcClients"> The Unity IPC client implementations grouped by execution target. </param>
     public UnityIpcRequestExecutor (
         IUnityExecutionModeDecisionService modeDecisionService,
         IUnityUcliPluginLocator unityUcliPluginLocator,
-        IEnumerable<IUnityIpcClient> unityIpcClients)
+        IEnumerable<IUnityIpcClient> unityIpcClients,
+        TimeProvider? timeProvider = null)
     {
         this.modeDecisionService = modeDecisionService ?? throw new ArgumentNullException(nameof(modeDecisionService));
         this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
         ArgumentNullException.ThrowIfNull(unityIpcClients);
         daemonIpcClient = ResolveRequiredClient<UnityDaemonIpcClient>(unityIpcClients);
         oneshotIpcClient = ResolveRequiredClient<UnityOneshotIpcClient>(unityIpcClients);
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -57,12 +61,26 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, command, config);
+        if (!timeoutResolutionResult.IsSuccess)
+        {
+            return UnityIpcRequestExecutionResult.Failure(
+                timeoutResolutionResult.Error!.Message,
+                ExecutionErrorKindCodeMapper.ToCode(timeoutResolutionResult.Error.Kind));
+        }
+
+        var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
+        if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
+        {
+            return UnityIpcRequestExecutionResult.Failure(
+                "Timed out before Unity execution mode decision could begin.",
+                ExecutionErrorKindCodeMapper.ToCode(ExecutionErrorKind.Timeout));
+        }
+
         var modeDecisionResult = await modeDecisionService.Decide(
-                command,
                 mode,
-                timeout,
-                config,
                 unityProject,
+                modeDecisionTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (modeDecisionResult.HasContractError)
@@ -72,18 +90,9 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                     UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                     StringComparison.Ordinal))
             {
-                var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, command, config);
-                if (!timeoutResolutionResult.IsSuccess)
-                {
-                    return UnityIpcRequestExecutionResult.Failure(
-                        timeoutResolutionResult.Error!.Message,
-                        ExecutionErrorKindCodeMapper.ToCode(timeoutResolutionResult.Error.Kind));
-                }
-
-                var daemonModeDeadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value);
                 var daemonModePluginLocateResult = await VerifyUnityPluginWithinBudget(
                         unityProject.UnityProjectRoot,
-                        daemonModeDeadline,
+                        deadline,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (daemonModePluginLocateResult != null)
@@ -107,7 +116,6 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         }
 
         var decision = modeDecisionResult.Decision!;
-        var deadline = ExecutionDeadline.Start(decision.Timeout);
         if (decision.Target == UnityExecutionTarget.Oneshot)
         {
             var pluginLocateError = await VerifyUnityPluginWithinBudget(
