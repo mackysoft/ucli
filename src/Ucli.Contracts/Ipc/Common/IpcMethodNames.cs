@@ -15,6 +15,9 @@ public static class IpcMethodNames
     /// <summary> Gets the method name used for Unity ops-catalog read requests. </summary>
     public const string OpsRead = "ops.read";
 
+    /// <summary> Gets the method name used for Unity asset-index snapshot read requests. </summary>
+    public const string IndexAssetsRead = "index.assets.read";
+
     /// <summary> Gets the method name used for daemon shutdown requests. </summary>
     public const string Shutdown = "shutdown";
 

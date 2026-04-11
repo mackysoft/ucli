@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Assets;
+using MackySoft.Ucli.Assets.Access;
 using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
@@ -63,6 +65,11 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IIndexCatalogReader, FileIndexCatalogReader>();
         services.AddSingleton<IIndexInputFingerprintCalculator, FileSystemIndexInputFingerprintCalculator>();
         services.AddSingleton<IIndexFreshnessEvaluator, IndexFreshnessEvaluator>();
+        services.AddSingleton<IAssetLookupStore, FileAssetLookupStore>();
+        services.AddSingleton<IAssetLookupSnapshotReader, AssetLookupSnapshotReader>();
+        services.AddSingleton<IAssetLookupSourceRefreshService, AssetLookupSourceRefreshService>();
+        services.AddSingleton<IAssetSearchLookupAccessService, AssetSearchLookupAccessService>();
+        services.AddSingleton<IGuidPathLookupAccessService, GuidPathLookupAccessService>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();

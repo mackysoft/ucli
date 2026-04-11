@@ -4,7 +4,7 @@ using MackySoft.Ucli.Storage;
 
 namespace MackySoft.Ucli.Ops;
 
-/// <summary> Persists <c>ops.catalog.json</c> and <c>inputs/manifest.json</c> to the local read-index store. </summary>
+/// <summary> Persists <c>ops.catalog.json</c> and optional <c>inputs/manifest.json</c> to the local read-index store. </summary>
 internal sealed class FileOpsCatalogStore : IOpsCatalogStore
 {
     private const int SchemaVersion = 1;
@@ -15,43 +15,54 @@ internal sealed class FileOpsCatalogStore : IOpsCatalogStore
         string projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations,
-        IndexInputHashSnapshot inputSnapshot,
+        string sourceInputsHash,
+        IndexInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
         ArgumentNullException.ThrowIfNull(operations);
-        ArgumentNullException.ThrowIfNull(inputSnapshot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
         cancellationToken.ThrowIfCancellationRequested();
 
         var opsCatalogPath = UcliStoragePathResolver.ResolveOpsCatalogPath(storageRoot, projectFingerprint);
-        var inputsManifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, projectFingerprint);
         var opsCatalogDirectoryPath = Path.GetDirectoryName(opsCatalogPath)
             ?? throw new InvalidOperationException($"ops.catalog.json directory path could not be resolved: {opsCatalogPath}");
-        var inputsManifestDirectoryPath = Path.GetDirectoryName(inputsManifestPath)
-            ?? throw new InvalidOperationException($"inputs manifest directory path could not be resolved: {inputsManifestPath}");
         FileSystemAccessBoundary.EnsureSecureDirectory(opsCatalogDirectoryPath);
-        FileSystemAccessBoundary.EnsureSecureDirectory(inputsManifestDirectoryPath);
 
         var opsCatalog = new IndexOpsCatalogJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            SourceInputsHash: inputSnapshot.CombinedHash,
+            SourceInputsHash: sourceInputsHash,
             Entries: operations.ToArray());
-        var inputsManifest = new IndexInputsManifestJsonContract(
-            SchemaVersion: SchemaVersion,
-            GeneratedAtUtc: generatedAtUtc,
-            ScriptAssembliesHash: inputSnapshot.ScriptAssembliesHash,
-            PackagesManifestHash: inputSnapshot.PackagesManifestHash,
-            PackagesLockHash: inputSnapshot.PackagesLockHash,
-            AssemblyDefinitionHash: inputSnapshot.AssemblyDefinitionHash,
-            CombinedHash: inputSnapshot.CombinedHash);
 
         await FileUtilities.WriteAllTextAtomically(
                 opsCatalogPath,
                 IndexOpsCatalogJsonContractSerializer.Serialize(opsCatalog) + Environment.NewLine,
                 cancellationToken)
             .ConfigureAwait(false);
+
+        if (manifestInputSnapshot == null)
+        {
+            return;
+        }
+
+        var inputsManifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, projectFingerprint);
+        var inputsManifestDirectoryPath = Path.GetDirectoryName(inputsManifestPath)
+            ?? throw new InvalidOperationException($"inputs manifest directory path could not be resolved: {inputsManifestPath}");
+        FileSystemAccessBoundary.EnsureSecureDirectory(inputsManifestDirectoryPath);
+
+        var inputsManifest = new IndexInputsManifestJsonContract(
+            SchemaVersion: SchemaVersion,
+            GeneratedAtUtc: generatedAtUtc,
+            ScriptAssembliesHash: manifestInputSnapshot.ScriptAssembliesHash,
+            PackagesManifestHash: manifestInputSnapshot.PackagesManifestHash,
+            PackagesLockHash: manifestInputSnapshot.PackagesLockHash,
+            AssemblyDefinitionHash: manifestInputSnapshot.AssemblyDefinitionHash,
+            AssetsContentHash: manifestInputSnapshot.AssetsContentHash,
+            AssetSearchHash: manifestInputSnapshot.AssetSearchHash,
+            GuidPathHash: manifestInputSnapshot.GuidPathHash,
+            CombinedHash: manifestInputSnapshot.CombinedHash);
         await FileUtilities.WriteAllTextAtomically(
                 inputsManifestPath,
                 IndexInputsManifestJsonContractSerializer.Serialize(inputsManifest) + Environment.NewLine,

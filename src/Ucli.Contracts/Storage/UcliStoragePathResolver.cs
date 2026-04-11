@@ -244,6 +244,20 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.CatalogsDirectoryName);
     }
 
+    /// <summary> Resolves the absolute path to one read-index lookups directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/index/lookups</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index lookups directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveIndexLookupsDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.LookupsDirectoryName);
+    }
+
     /// <summary> Resolves the absolute path to one read-index types catalog file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
@@ -284,6 +298,34 @@ public static class UcliStoragePathResolver
         return Path.Combine(
             ResolveIndexCatalogsDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.OpsCatalogFileName);
+    }
+
+    /// <summary> Resolves the absolute path to one read-index asset-search lookup file. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index asset-search lookup file path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveAssetSearchLookupPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexLookupsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.AssetSearchLookupFileName);
+    }
+
+    /// <summary> Resolves the absolute path to one read-index GUID-path lookup file. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index GUID-path lookup file path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveGuidPathLookupPath (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexLookupsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.GuidPathLookupFileName);
     }
 
     /// <summary> Resolves the absolute path to one read-index inputs manifest file. </summary>

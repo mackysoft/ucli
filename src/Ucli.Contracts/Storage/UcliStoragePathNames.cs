@@ -30,6 +30,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the catalogs directory name under one read-index directory. </summary>
     public const string CatalogsDirectoryName = "catalogs";
 
+    /// <summary> Gets the lookups directory name under one read-index directory. </summary>
+    public const string LookupsDirectoryName = "lookups";
+
     /// <summary> Gets the read-index inputs directory name under one read-index directory. </summary>
     public const string IndexInputsDirectoryName = "inputs";
 
@@ -41,6 +44,12 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the read-index ops catalog file name. </summary>
     public const string OpsCatalogFileName = "ops.catalog.json";
+
+    /// <summary> Gets the read-index asset-search lookup file name. </summary>
+    public const string AssetSearchLookupFileName = "asset-search.lookup.json";
+
+    /// <summary> Gets the read-index GUID-path lookup file name. </summary>
+    public const string GuidPathLookupFileName = "guid-path.lookup.json";
 
     /// <summary> Gets the read-index inputs manifest file name. </summary>
     public const string IndexInputsManifestFileName = "manifest.json";

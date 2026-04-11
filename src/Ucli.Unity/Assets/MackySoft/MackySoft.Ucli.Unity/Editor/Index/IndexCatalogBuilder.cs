@@ -100,6 +100,9 @@ namespace MackySoft.Ucli.Unity.Index
                     PackagesManifestHash: inputSnapshot.PackagesManifestHash,
                     PackagesLockHash: inputSnapshot.PackagesLockHash,
                     AssemblyDefinitionHash: inputSnapshot.AssemblyDefinitionHash,
+                    AssetsContentHash: inputSnapshot.AssetsContentHash,
+                    AssetSearchHash: inputSnapshot.AssetSearchHash,
+                    GuidPathHash: inputSnapshot.GuidPathHash,
                     CombinedHash: inputSnapshot.CombinedHash);
 
                 return IndexCatalogBuildResult.Success(typesCatalog, schemasCatalog, inputsManifest);

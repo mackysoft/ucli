@@ -69,6 +69,46 @@ internal sealed class FileIndexCatalogReader : IIndexCatalogReader
             cancellationToken);
     }
 
+    /// <summary> Reads one <c>asset-search.lookup.json</c> contract. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to lookup-read result. </returns>
+    public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
+        string storageRoot,
+        string projectFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        return ReadContract(
+            storageRoot,
+            projectFingerprint,
+            UcliStoragePathResolver.ResolveAssetSearchLookupPath,
+            static json => IndexAssetSearchLookupJsonContractSerializer.Deserialize(json),
+            static contract => IndexCatalogContractValidator.IsValidAssetSearchLookup(contract),
+            "lookups/asset-search.lookup.json",
+            cancellationToken);
+    }
+
+    /// <summary> Reads one <c>guid-path.lookup.json</c> contract. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to lookup-read result. </returns>
+    public ValueTask<IndexAccessResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
+        string storageRoot,
+        string projectFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        return ReadContract(
+            storageRoot,
+            projectFingerprint,
+            UcliStoragePathResolver.ResolveGuidPathLookupPath,
+            static json => IndexGuidPathLookupJsonContractSerializer.Deserialize(json),
+            static contract => IndexCatalogContractValidator.IsValidGuidPathLookup(contract),
+            "lookups/guid-path.lookup.json",
+            cancellationToken);
+    }
+
     /// <summary> Reads one <c>inputs/manifest.json</c> contract. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
