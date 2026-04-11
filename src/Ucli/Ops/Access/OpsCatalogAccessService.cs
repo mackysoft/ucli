@@ -10,9 +10,9 @@ namespace MackySoft.Ucli.Ops.Access;
 /// <summary> Implements ops catalog access flow across read-index and source fallback paths. </summary>
 internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 {
-    private readonly IIndexCatalogReader indexCatalogReader;
+    private readonly IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader;
 
-    private readonly IIndexFreshnessEvaluator indexFreshnessEvaluator;
+    private readonly IIndexCatalogReader indexCatalogReader;
 
     private readonly IIndexInputFingerprintCalculator indexInputFingerprintCalculator;
 
@@ -21,20 +21,20 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     private readonly IOpsCatalogStore opsCatalogStore;
 
     /// <summary> Initializes a new instance of the <see cref="OpsCatalogAccessService" /> class. </summary>
-    /// <param name="indexCatalogReader"> The read-index catalog reader dependency. </param>
-    /// <param name="indexFreshnessEvaluator"> The read-index freshness evaluator dependency. </param>
+    /// <param name="persistedOpsCatalogSnapshotLoader"> The persisted snapshot loader dependency. </param>
+    /// <param name="indexCatalogReader"> The persisted index catalog reader dependency. </param>
     /// <param name="indexInputFingerprintCalculator"> The read-index input fingerprint calculator dependency. </param>
     /// <param name="opsCatalogReader"> The ops catalog reader dependency. </param>
     /// <param name="opsCatalogStore"> The ops catalog persistence dependency. </param>
     public OpsCatalogAccessService (
+        IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader,
         IIndexCatalogReader indexCatalogReader,
-        IIndexFreshnessEvaluator indexFreshnessEvaluator,
         IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
+        this.persistedOpsCatalogSnapshotLoader = persistedOpsCatalogSnapshotLoader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogSnapshotLoader));
         this.indexCatalogReader = indexCatalogReader ?? throw new ArgumentNullException(nameof(indexCatalogReader));
-        this.indexFreshnessEvaluator = indexFreshnessEvaluator ?? throw new ArgumentNullException(nameof(indexFreshnessEvaluator));
         this.indexInputFingerprintCalculator = indexInputFingerprintCalculator ?? throw new ArgumentNullException(nameof(indexInputFingerprintCalculator));
         this.opsCatalogReader = opsCatalogReader ?? throw new ArgumentNullException(nameof(opsCatalogReader));
         this.opsCatalogStore = opsCatalogStore ?? throw new ArgumentNullException(nameof(opsCatalogStore));
@@ -60,54 +60,40 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 .ConfigureAwait(false);
         }
 
-        var opsCatalogResult = await indexCatalogReader.ReadOpsCatalog(
-                context.Context.UnityProject.RepositoryRoot,
-                context.Context.UnityProject.ProjectFingerprint,
+        var persistedSnapshotResult = await persistedOpsCatalogSnapshotLoader.Load(
+                context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!opsCatalogResult.IsSuccess)
+        if (!persistedSnapshotResult.IsSuccess)
         {
-            if (string.Equals(opsCatalogResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (string.Equals(persistedSnapshotResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
             {
                 return OpsCatalogReadResult.Failure(
-                    opsCatalogResult.Error.Message,
+                    persistedSnapshotResult.Error.Message,
                     IpcErrorCodes.InvalidArgument);
             }
 
             return await ReadCatalogFromSource(
                     context,
                     input,
-                    opsCatalogResult.Error.Message,
+                    persistedSnapshotResult.Error.Message,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        var freshnessResult = await indexFreshnessEvaluator.Evaluate(
-                context.Context.UnityProject.UnityProjectRoot,
-                IndexFreshnessTarget.OpsCatalog,
-                opsCatalogResult.Value!.SourceInputsHash,
-                ReadIndexMode.AllowStale,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!freshnessResult.IsSuccess)
-        {
-            return OpsCatalogReadResult.Failure(
-                freshnessResult.Error!.Message,
-                freshnessResult.Error.Code);
-        }
+        var persistedSnapshot = persistedSnapshotResult.Snapshot!;
 
-        if (context.ReadIndexMode == ReadIndexMode.AllowStale || freshnessResult.Freshness == IndexFreshness.Fresh)
+        if (context.ReadIndexMode == ReadIndexMode.AllowStale || persistedSnapshot.Freshness == IndexFreshness.Fresh)
         {
             return OpsCatalogReadResult.Success(
                 new OpsCatalogReadOutput(
-                    Operations: opsCatalogResult.Value!.Entries!
-                        .ToArray(),
+                    Operations: persistedSnapshot.Entries.ToArray(),
                     AccessInfo: new OpsCatalogAccessInfo(
                         Used: true,
                         Hit: true,
                         Source: OpsCatalogSource.Index,
-                        Freshness: freshnessResult.Freshness,
-                        GeneratedAtUtc: opsCatalogResult.Value.GeneratedAtUtc,
+                        Freshness: persistedSnapshot.Freshness,
+                        GeneratedAtUtc: persistedSnapshot.GeneratedAtUtc,
                         FallbackReason: null)),
                 "Read-index ops catalog hit.");
         }
@@ -115,7 +101,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         return await ReadCatalogFromSource(
                 context,
                 input,
-                $"Existing ops index freshness is '{DescribeFreshness(freshnessResult.Freshness)}'.",
+                $"Existing ops index freshness is '{DescribeFreshness(persistedSnapshot.Freshness)}'.",
                 cancellationToken)
             .ConfigureAwait(false);
     }

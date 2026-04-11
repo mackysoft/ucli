@@ -7,6 +7,7 @@ using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Ops.Access;
 using MackySoft.Ucli.Ops.Preflight;
+using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests.Ops.Access;
@@ -18,13 +19,10 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenAllowStaleIndexExists_ReturnsIndexWithoutEvaluatingFallbackOptions ()
     {
         var context = CreateContext();
-        var indexReader = new StubIndexCatalogReader
+        var snapshotLoader = new StubPersistedOpsCatalogSnapshotLoader
         {
-            OpsCatalogResult = IndexAccessResult<IndexOpsCatalogJsonContract>.Success(
-                new IndexOpsCatalogJsonContract(
-                    SchemaVersion: 1,
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    SourceInputsHash: "source-hash",
+            Result = PersistedOpsCatalogSnapshotLoadResult.Success(
+                new PersistedOpsCatalogSnapshot(
                     Entries:
                     [
                         new IndexOpEntryJsonContract(
@@ -32,17 +30,15 @@ public sealed class OpsCatalogAccessServiceTests
                             Kind: "query",
                             Policy: "safe",
                             ArgsSchemaJson: """{"type":"object"}"""),
-                    ])),
-        };
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator
-        {
-            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
+                    ],
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                    Freshness: IndexFreshness.Probable)),
         };
         var catalogReader = new StubOpsCatalogReader();
         var store = new StubOpsCatalogStore();
         var service = CreateService(
-            indexReader,
-            freshnessEvaluator,
+            snapshotLoader,
+            new StubIndexCatalogReader(),
             new StubIndexInputFingerprintCalculator(),
             catalogReader,
             store);
@@ -51,8 +47,8 @@ public sealed class OpsCatalogAccessServiceTests
             new OpsPreflightContext(context, ReadIndexMode.AllowStale),
             new OpsCommandInput(
                 ProjectPath: null,
-                Mode: "unsupported",
-                Timeout: "abc",
+                Mode: null,
+                Timeout: null,
                 ReadIndexMode: ReadIndexModeValues.AllowStale));
 
         Assert.True(result.IsSuccess);
@@ -72,13 +68,10 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenRequireFreshIndexIsStale_FallsBackToSource ()
     {
         var context = CreateContext();
-        var indexReader = new StubIndexCatalogReader
+        var snapshotLoader = new StubPersistedOpsCatalogSnapshotLoader
         {
-            OpsCatalogResult = IndexAccessResult<IndexOpsCatalogJsonContract>.Success(
-                new IndexOpsCatalogJsonContract(
-                    SchemaVersion: 1,
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    SourceInputsHash: "stale-hash",
+            Result = PersistedOpsCatalogSnapshotLoadResult.Success(
+                new PersistedOpsCatalogSnapshot(
                     Entries:
                     [
                         new IndexOpEntryJsonContract(
@@ -86,11 +79,9 @@ public sealed class OpsCatalogAccessServiceTests
                             Kind: "query",
                             Policy: "safe",
                             ArgsSchemaJson: """{"type":"object"}"""),
-                    ])),
-        };
-        var freshnessEvaluator = new StubIndexFreshnessEvaluator
-        {
-            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Stale),
+                    ],
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                    Freshness: IndexFreshness.Stale)),
         };
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var catalogReader = new StubOpsCatalogReader
@@ -113,8 +104,8 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
-            indexReader,
-            freshnessEvaluator,
+            snapshotLoader,
+            new StubIndexCatalogReader(),
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -174,8 +165,8 @@ public sealed class OpsCatalogAccessServiceTests
             WriteException = new InvalidOperationException("disk full"),
         };
         var service = CreateService(
+            new StubPersistedOpsCatalogSnapshotLoader(),
             new StubIndexCatalogReader(),
-            new StubIndexFreshnessEvaluator(),
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -248,8 +239,8 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
+            new StubPersistedOpsCatalogSnapshotLoader(),
             indexReader,
-            new StubIndexFreshnessEvaluator(),
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -317,8 +308,8 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
+            new StubPersistedOpsCatalogSnapshotLoader(),
             indexReader,
-            new StubIndexFreshnessEvaluator(),
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -360,18 +351,36 @@ public sealed class OpsCatalogAccessServiceTests
     }
 
     private static OpsCatalogAccessService CreateService (
+        IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader,
         IIndexCatalogReader indexCatalogReader,
-        IIndexFreshnessEvaluator indexFreshnessEvaluator,
         IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
         return new OpsCatalogAccessService(
+            persistedOpsCatalogSnapshotLoader,
             indexCatalogReader,
-            indexFreshnessEvaluator,
             indexInputFingerprintCalculator,
             opsCatalogReader,
             opsCatalogStore);
+    }
+
+    private sealed class StubPersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSnapshotLoader
+    {
+        public PersistedOpsCatalogSnapshotLoadResult Result { get; set; }
+            = PersistedOpsCatalogSnapshotLoadResult.Failure(
+                new IndexServiceError(
+                    IpcErrorCodes.ReadIndexBootstrapFailed,
+                    "Index contract file was not found: ops.catalog.json."));
+
+        public ValueTask<PersistedOpsCatalogSnapshotLoadResult> Load (
+            ResolvedUnityProjectContext unityProject,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(unityProject);
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(Result);
+        }
     }
 
     private sealed class StubIndexCatalogReader : IIndexCatalogReader
@@ -449,23 +458,6 @@ public sealed class OpsCatalogAccessServiceTests
             cancellationToken.ThrowIfCancellationRequested();
             ReadInputsManifestCallCount++;
             return ValueTask.FromResult(ManifestResult);
-        }
-    }
-
-    private sealed class StubIndexFreshnessEvaluator : IIndexFreshnessEvaluator
-    {
-        public IndexFreshnessEvaluationResult Result { get; set; }
-            = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
-
-        public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            string projectRoot,
-            IndexFreshnessTarget target,
-            string? persistedSourceInputsHash,
-            ReadIndexMode mode,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(Result);
         }
     }
 

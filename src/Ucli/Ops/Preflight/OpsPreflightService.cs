@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.ReadIndex;
@@ -41,7 +42,22 @@ internal sealed class OpsPreflightService : IOpsPreflightService
             return FromExecutionError(readIndexModeResult.Error!);
         }
 
-        return OpsPreflightResult.Success(new OpsPreflightContext(context, readIndexModeResult.Mode!.Value));
+        if (!UnityExecutionModeParser.TryParse(input.Mode, out _))
+        {
+            return FromExecutionError(UnityExecutionModeDecisionResultFactory.InvalidMode().Error!);
+        }
+
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
+            input.Timeout,
+            UcliCommandIds.Ops,
+            context.Config);
+        if (!timeoutResolutionResult.IsSuccess)
+        {
+            return FromExecutionError(timeoutResolutionResult.Error!);
+        }
+
+        return OpsPreflightResult.Success(
+            new OpsPreflightContext(context, readIndexModeResult.Mode!.Value));
     }
 
     private static OpsPreflightResult FromExecutionError (ExecutionError error)

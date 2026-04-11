@@ -2,6 +2,7 @@ using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Ops.Access;
 using MackySoft.Ucli.Ops.Mapping;
 using MackySoft.Ucli.Ops.Preflight;
+using MackySoft.Ucli.ReadIndex;
 
 namespace MackySoft.Ucli.Tests.Ops;
 
@@ -64,7 +65,7 @@ public sealed class OpsServiceTests
                 [
                     new OpsOperationListItem(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced"),
                 ],
-                ReadIndex: new OpsReadIndexInfo(true, true, "index", "fresh", DateTimeOffset.UtcNow, null)),
+                ReadIndex: new ReadIndexInfo(true, true, "index", "fresh", DateTimeOffset.UtcNow, null)),
             "mapped");
         var listResultMapper = new StubOpsListResultMapper
         {

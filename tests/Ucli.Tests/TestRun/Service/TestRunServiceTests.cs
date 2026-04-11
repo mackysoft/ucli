@@ -713,11 +713,9 @@ public sealed class TestRunServiceTests
         }
 
         public ValueTask<UnityExecutionModeDecisionResult> Decide (
-            UcliCommand command,
             string? mode,
-            string? timeout,
-            UcliConfig config,
             ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(result);

@@ -107,4 +107,22 @@ public sealed class UcliCommandNamesTests
 
         Assert.True(result);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveResultCommandName_WhenValidateCommandSpecified_ReturnsValidate ()
+    {
+        var commandName = UcliCommandNames.ResolveResultCommandName([UcliCommandNames.Validate]);
+
+        Assert.Equal(UcliCommandNames.Validate, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenValidateCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Validate);
+
+        Assert.True(result);
+    }
 }

@@ -20,6 +20,7 @@ using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Ops.Access;
 using MackySoft.Ucli.Ops.Mapping;
 using MackySoft.Ucli.Ops.Preflight;
+using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.Refresh;
 using MackySoft.Ucli.Status;
 using MackySoft.Ucli.Supervisor;
@@ -34,6 +35,7 @@ using MackySoft.Ucli.TestRun.Service.Pipeline;
 using MackySoft.Ucli.TestRun.Service.Preflight;
 using MackySoft.Ucli.UnityProject;
 using MackySoft.Ucli.UnityProject.Resolution;
+using MackySoft.Ucli.Validate;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Composition;
@@ -70,7 +72,9 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IAssetLookupSourceRefreshService, AssetLookupSourceRefreshService>();
         services.AddSingleton<IAssetSearchLookupAccessService, AssetSearchLookupAccessService>();
         services.AddSingleton<IGuidPathLookupAccessService, GuidPathLookupAccessService>();
+        services.AddSingleton<IPersistedOpsCatalogSnapshotLoader, PersistedOpsCatalogSnapshotLoader>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
+        services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
         services.AddSingleton<IInitService, InitService>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
@@ -87,6 +91,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
         services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
         services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
+        services.AddSingleton<IRequestStaticValidationService, RequestStaticValidationService>();
         services.AddSingleton<IRequestInputReader, RequestInputReader>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
         services.AddSingleton<IPhaseExecutionPreflightService, PhaseExecutionPreflightService>();
@@ -103,6 +108,19 @@ internal static class UcliServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRefreshService, RefreshService>();
+        return services;
+    }
+
+    /// <summary> Registers <c>validate</c> command services. </summary>
+    /// <param name="services"> The target service collection. </param>
+    /// <returns> The updated service collection. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="services" /> is <see langword="null" />. </exception>
+    public static IServiceCollection AddUcliValidateServices (this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<IValidateMetadataResolver, ValidateMetadataResolver>();
+        services.AddSingleton<IValidateService, ValidateService>();
         return services;
     }
 

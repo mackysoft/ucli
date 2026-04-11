@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Cli.Requests;
-using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Operations;
 
 namespace MackySoft.Ucli.Execution;
@@ -7,27 +5,20 @@ namespace MackySoft.Ucli.Execution;
 /// <summary> Executes request preflight for phase-based command execution. </summary>
 internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightService
 {
-    private readonly IRequestInputReader requestInputReader;
-    private readonly IValidateRequestJsonParser requestJsonParser;
-    private readonly IProjectContextResolver projectContextResolver;
-    private readonly IRequestStaticValidator requestStaticValidator;
+    private readonly IRequestPreparationService requestPreparationService;
+
+    private readonly IRequestStaticValidationService requestStaticValidationService;
 
     /// <summary> Initializes a new instance of the <see cref="PhaseExecutionPreflightService" /> class. </summary>
-    /// <param name="requestInputReader"> The request-input reader dependency. </param>
-    /// <param name="requestJsonParser"> The request-json parser dependency. </param>
-    /// <param name="projectContextResolver"> The shared project-context resolver dependency. </param>
-    /// <param name="requestStaticValidator"> The request static-validator dependency. </param>
+    /// <param name="requestPreparationService"> The shared request-preparation dependency. </param>
+    /// <param name="requestStaticValidationService"> The authoritative static-validation dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
     public PhaseExecutionPreflightService (
-        IRequestInputReader requestInputReader,
-        IValidateRequestJsonParser requestJsonParser,
-        IProjectContextResolver projectContextResolver,
-        IRequestStaticValidator requestStaticValidator)
+        IRequestPreparationService requestPreparationService,
+        IRequestStaticValidationService requestStaticValidationService)
     {
-        this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
-        this.requestJsonParser = requestJsonParser ?? throw new ArgumentNullException(nameof(requestJsonParser));
-        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.requestStaticValidator = requestStaticValidator ?? throw new ArgumentNullException(nameof(requestStaticValidator));
+        this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
+        this.requestStaticValidationService = requestStaticValidationService ?? throw new ArgumentNullException(nameof(requestStaticValidationService));
     }
 
     /// <summary> Executes preflight and returns a prepared request or structured errors. </summary>
@@ -42,31 +33,20 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var inputReadResult = await requestInputReader.ReadAsync(requestPath, cancellationToken).ConfigureAwait(false);
-        if (!inputReadResult.IsSuccess)
+        var requestPreparationResult = await requestPreparationService.Prepare(
+                requestPath,
+                projectPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!requestPreparationResult.IsSuccess)
         {
-            return PhaseExecutionPreflightResult.Failure(inputReadResult.Error!);
+            return PhaseExecutionPreflightResult.Failure(requestPreparationResult.Error!);
         }
 
-        var requestJson = inputReadResult.Json!;
-        var parseResult = requestJsonParser.Parse(requestJson);
-        if (!parseResult.IsSuccess)
-        {
-            return PhaseExecutionPreflightResult.Failure(parseResult.Error!);
-        }
-
-        var projectContextResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
-        if (!projectContextResult.IsSuccess)
-        {
-            return PhaseExecutionPreflightResult.Failure(projectContextResult.Error!);
-        }
-
-        var projectContext = projectContextResult.Context!;
-        var request = parseResult.Request!;
-        var validationResult = await requestStaticValidator.Validate(
-                request,
-                projectContext.UnityProject,
-                projectContext.Config,
+        var preparedRequest = requestPreparationResult.PreparedRequest!;
+        var validationResult = await requestStaticValidationService.Validate(
+                preparedRequest.Request,
+                preparedRequest.ProjectContext,
                 cancellationToken)
             .ConfigureAwait(false);
         if (validationResult.Error != null)
@@ -79,13 +59,12 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
             return PhaseExecutionPreflightResult.ValidationFailure(validationResult.Errors);
         }
 
-        var preparedRequest = new PhaseExecutionPreparedRequest(
-            RequestJson: requestJson,
-            InputSource: inputReadResult.Source!.Value,
-            Request: request,
-            UnityProject: projectContext.UnityProject,
-            Config: projectContext.Config,
-            ConfigSource: projectContext.ConfigSource);
-        return PhaseExecutionPreflightResult.Success(preparedRequest);
+        return PhaseExecutionPreflightResult.Success(new PhaseExecutionPreparedRequest(
+            RequestJson: preparedRequest.RequestJson,
+            InputSource: preparedRequest.InputSource,
+            Request: preparedRequest.Request,
+            UnityProject: preparedRequest.ProjectContext.UnityProject,
+            Config: preparedRequest.ProjectContext.Config,
+            ConfigSource: preparedRequest.ProjectContext.ConfigSource));
     }
 }

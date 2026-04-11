@@ -223,9 +223,53 @@ public sealed class OpsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task OpsList_WhenIndexHit_IgnoresInvalidModeAndTimeoutOptions ()
+    public async Task OpsList_WhenIndexHitAndTimeoutIsInvalid_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-index-hit-ignores-live-options");
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-index-hit-invalid-timeout");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            new IndexOpsCatalogJsonContract(
+                SchemaVersion: 1,
+                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                SourceInputsHash: "source-hash",
+                Entries:
+                [
+                    new IndexOpEntryJsonContract(
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                        Kind: "query",
+                        Policy: "safe",
+                        ArgsSchemaJson: """{"type":"object"}"""),
+                ]));
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Ops,
+            UcliCommandNames.ListSubcommand,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale,
+            UcliContractConstants.CliOption.Timeout,
+            "abc");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.OpsList,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains("timeout", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task OpsList_WhenIndexHitAndModeIsInvalid_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-index-hit-invalid-mode");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         SeedOpsCatalog(
             unityProjectPath,
@@ -250,18 +294,19 @@ public sealed class OpsCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale,
             UcliContractConstants.CliOption.Mode,
-            "unsupported",
-            UcliContractConstants.CliOption.Timeout,
-            "abc");
+            "unsupported");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.OpsList,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        Assert.Contains("Mode must be auto, daemon, or oneshot.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]

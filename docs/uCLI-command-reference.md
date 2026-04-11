@@ -2,8 +2,8 @@
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
 >
-> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`daemon`、`logs`、`ops`、`test` のみである。
-> `validate` / `plan` / `call` / `resolve` / `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
+> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`validate`、`daemon`、`logs`、`ops`、`test` である。
+> `plan` / `call` / `resolve` / `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
 
 ## コマンド概要
 
@@ -11,6 +11,7 @@
 | --- | --- | --- |
 | `ucli init` | `.ucli` の設定雛形を生成する | Git repository root を優先する |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
+| `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
 | `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
 | `ucli logs` | Unity / daemon のログを取得する | 成功時はイベントストリームを返す |
@@ -21,10 +22,18 @@
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
   - `describe <opName>` は特定オペレーションの引数スキーマを返す。
+  - `--mode <auto|daemon|oneshot>` と `--timeout <int>` を受け付ける。
   - `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
+  - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。
 - `ucli status`
   - daemon と lifecycle の状態を JSON で返す。
   - `--timeout <int>` で daemon 状態確認タイムアウトを上書きする。
+- `ucli validate`
+  - `stdin` または `--requestPath` から JSON リクエストを読み、snapshot lint を返す。
+  - `--projectPath <string?>` と `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
+  - `--mode` / `--timeout` は受け付けず、Unity IPC に接続しない。
+  - 成功時 payload は `readIndex` のみを返す。
+  - `allowStale` では snapshot 欠落時に syntax-only へ縮退し、`requireFresh` では `READ_INDEX_BOOTSTRAP_FAILED` / `READ_INDEX_FORMAT_INVALID` / `READ_INDEX_FRESH_REQUIRED` を返す。
 
 ## 実行系コマンド共通規則
 

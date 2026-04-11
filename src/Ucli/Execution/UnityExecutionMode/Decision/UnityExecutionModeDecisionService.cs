@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Configuration;
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
@@ -19,30 +17,21 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
     }
 
     /// <summary> Resolves execution target and contract errors for one requested mode. </summary>
-    /// <param name="command"> The command that requested the mode decision. </param>
     /// <param name="mode"> The raw <c>--mode</c> option value. </param>
-    /// <param name="timeout"> The raw <c>--timeout</c> option value in milliseconds. </param>
-    /// <param name="config"> The loaded configuration values. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The remaining timeout budget available for daemon reachability probing. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The mode decision result. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="command" /> has an invalid name. </exception>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="config" /> or <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<UnityExecutionModeDecisionResult> Decide (
-        UcliCommand command,
         string? mode,
-        string? timeout,
-        UcliConfig config,
         ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        if (!command.IsValid)
-        {
-            throw new ArgumentException("Command name is invalid.", nameof(command));
-        }
-
-        ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (!UnityExecutionModeParser.TryParse(mode, out var requestedMode))
@@ -50,17 +39,9 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
             return UnityExecutionModeDecisionResultFactory.InvalidMode();
         }
 
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, command, config);
-        if (!timeoutResolutionResult.IsSuccess)
-        {
-            return UnityExecutionModeDecisionResultFactory.ProbeFailure(timeoutResolutionResult.Error!);
-        }
-
-        var timeoutValue = timeoutResolutionResult.Timeout!.Value;
-
         var reachabilityResult = await daemonReachabilityProbe.Probe(
                 unityProject,
-                timeoutValue,
+                timeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (reachabilityResult.HasError)
@@ -71,6 +52,6 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
         return UnityExecutionModeDecisionResultFactory.FromRequestedMode(
             requestedMode,
             reachabilityResult.IsRunning,
-            timeoutValue);
+            timeout);
     }
 }

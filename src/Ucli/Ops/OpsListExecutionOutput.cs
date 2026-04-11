@@ -1,3 +1,5 @@
+using MackySoft.Ucli.ReadIndex;
+
 namespace MackySoft.Ucli.Ops;
 
 /// <summary> Represents normalized output for <c>ops list</c>. </summary>
@@ -5,4 +7,4 @@ namespace MackySoft.Ucli.Ops;
 /// <param name="ReadIndex"> The read-index metadata. </param>
 internal sealed record OpsListExecutionOutput (
     IReadOnlyList<OpsOperationListItem> Operations,
-    OpsReadIndexInfo ReadIndex);
+    ReadIndexInfo ReadIndex);

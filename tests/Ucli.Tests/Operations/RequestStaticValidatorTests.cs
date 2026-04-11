@@ -2,6 +2,7 @@ namespace MackySoft.Ucli.Tests;
 
 using System.Text.Json;
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Validation;
@@ -69,6 +70,59 @@ public sealed class RequestStaticValidatorTests
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
         Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenOperationsAreNotProvided_SkipsMetadataDependentChecks ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-1", "ucli.unknown", new
+                {
+                }),
+            ]);
+
+        var result = await validator.Validate(
+            request,
+            RequestStaticValidationCatalog.Unavailable,
+            CreateConfig(OperationPolicy.Safe, "^ucli\\."),
+            CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Empty(result.Errors);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenOperationsAreNotProvided_StillValidatesEditLowering ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateEditStep(
+                    stepId: "edit-invalid",
+                    """
+                    {
+                      "kind": "edit",
+                      "id": "edit-invalid",
+                      "actions": []
+                    }
+                    """),
+            ]);
+
+        var result = await validator.Validate(
+            request,
+            RequestStaticValidationCatalog.Unavailable,
+            CreateConfig(OperationPolicy.Safe, "^ucli\\."),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, ValidationErrorCodes.EditStepInvalid);
     }
 
     [Fact]
@@ -883,59 +937,10 @@ public sealed class RequestStaticValidatorTests
         AssertContainsError(result, ValidationErrorCodes.EditStepInvalid);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Validate_WhenCatalogDiscoveryThrows_ReturnsFailureResult ()
-    {
-        var authorizationService = new OperationAuthorizationService();
-        var validator = new RequestStaticValidator(new ThrowingOperationCatalog(), authorizationService);
-
-        var result = await validator.Validate(
-            CreateRequest(),
-            CreateUnityProject(),
-            CreateConfig(OperationPolicy.Safe, "^ucli\\."),
-            CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        Assert.Empty(result.Errors);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains("operation metadata", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Validate_WhenOperationArgsSchemaIsInvalid_ReturnsFailureResult ()
-    {
-        var authorizationService = new OperationAuthorizationService();
-        var validator = new RequestStaticValidator(new InvalidSchemaOperationCatalog(), authorizationService);
-        var request = CreateRequest(
-            steps:
-            [
-                CreateOpStep("step-1", UcliPrimitiveOperationNames.SceneOpen, new
-                {
-                    path = "Assets/Scenes/Main.unity",
-                }),
-            ]);
-
-        var result = await validator.Validate(
-            request,
-            CreateUnityProject(),
-            CreateConfig(OperationPolicy.Safe, "^ucli\\."),
-            CancellationToken.None);
-
-        Assert.False(result.IsValid);
-        Assert.Empty(result.Errors);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains("could not validate args", error.Message, StringComparison.Ordinal);
-    }
-
     private static IRequestStaticValidator CreateValidator ()
     {
-        var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
         var authorizationService = new OperationAuthorizationService();
-        return new RequestStaticValidator(catalog, authorizationService);
+        return new RequestStaticValidator(authorizationService);
     }
 
     private static ValidateRequest CreateRequest (
@@ -1107,60 +1112,51 @@ public sealed class RequestStaticValidatorTests
             error => string.Equals(error.Code, errorCode, StringComparison.Ordinal));
     }
 
-    private sealed class ThrowingOperationCatalog : IOperationCatalog
+}
+
+internal static class RequestStaticValidatorTestExtensions
+{
+    public static ValueTask<ValidationResult> Validate (
+        this IRequestStaticValidator validator,
+        ValidateRequest request,
+        IReadOnlyList<UcliOperationDescriptor>? operations,
+        UcliConfig config,
+        CancellationToken cancellationToken = default)
     {
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
+        ArgumentNullException.ThrowIfNull(validator);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(config);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            throw new InvalidOperationException("catalog discovery failed");
-        }
+        return validator.Validate(
+            request,
+            operations is null
+                ? RequestStaticValidationCatalog.Unavailable
+                : RequestStaticValidationCatalog.Available(operations),
+            config,
+            cancellationToken);
     }
 
-    private sealed class InvalidSchemaOperationCatalog : IOperationCatalog
+    public static async ValueTask<ValidationResult> Validate (
+        this IRequestStaticValidator validator,
+        ValidateRequest request,
+        ResolvedUnityProjectContext unityProject,
+        UcliConfig config,
+        CancellationToken cancellationToken = default)
     {
-        private static readonly IReadOnlyList<UcliOperationDescriptor> Operations =
-        [
-            new UcliOperationDescriptor(
-                UcliPrimitiveOperationNames.SceneOpen,
-                UcliOperationKind.Query,
-                OperationPolicy.Safe,
-                "{ invalid-schema")
-        ];
+        ArgumentNullException.ThrowIfNull(validator);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(config);
 
-        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult<UcliOperationDescriptor?>(null);
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(Operations);
-        }
-
-        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
-            ResolvedUnityProjectContext unityProject,
-            UcliConfig config,
-            CancellationToken cancellationToken = default)
-        {
-            ArgumentNullException.ThrowIfNull(unityProject);
-            ArgumentNullException.ThrowIfNull(config);
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(Operations);
-        }
+        var operations = await new InMemoryOperationCatalogProvider()
+            .GetOperations(cancellationToken)
+            .ConfigureAwait(false);
+        return await validator.Validate(
+                request,
+                RequestStaticValidationCatalog.Available(operations),
+                config,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 }
