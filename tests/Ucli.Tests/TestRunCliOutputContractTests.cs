@@ -57,7 +57,31 @@ public sealed class TestRunCliOutputContractTests
                 .IsNull("summaryJsonPath"));
     }
 
-    private static Task<CommandExecutionResult> RunTestRun (string? projectPath = null)
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WithFailFastCamelCaseAlias_IsAcceptedByParser ()
+    {
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "test-run-fail-fast-camel-case");
+        var missingProjectPath = scope.GetPath("workspace/UnityProject");
+
+        var result = await RunTestRun(projectPath: missingProjectPath, failFast: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.DoesNotContain("Argument '--failFast' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.TestRun,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+    }
+
+    private static Task<CommandExecutionResult> RunTestRun (
+        string? projectPath = null,
+        bool failFast = false)
     {
         var args = new List<string>
         {
@@ -69,6 +93,11 @@ public sealed class TestRunCliOutputContractTests
         {
             args.Add(UcliContractConstants.CliOption.ProjectPath);
             args.Add(projectPath);
+        }
+
+        if (failFast)
+        {
+            args.Add(UcliContractConstants.CliOption.FailFast);
         }
 
         return CliProcessRunner.RunCommand(args.ToArray());

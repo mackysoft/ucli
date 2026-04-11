@@ -125,4 +125,22 @@ public sealed class UcliCommandNamesTests
 
         Assert.True(result);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveResultCommandName_WhenPlanCommandSpecified_ReturnsPlan ()
+    {
+        var commandName = UcliCommandNames.ResolveResultCommandName([UcliCommandNames.Plan]);
+
+        Assert.Equal(UcliCommandNames.Plan, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenPlanCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Plan);
+
+        Assert.True(result);
+    }
 }

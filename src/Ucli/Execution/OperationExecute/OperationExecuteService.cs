@@ -198,31 +198,25 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     ResolveExitCode(errorCode)));
         }
 
-        var response = executionResult.Response!;
-        if (!TryReadExecuteResponsePayload(requestId, response, out var payload, out var failureResult))
-        {
-            return (null, failureResult);
-        }
-
-        var normalizedErrors = NormalizeErrors(response.Status, response.Errors);
-        if (normalizedErrors.Count != 0)
+        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        if (!convertedResponse.IsSuccess)
         {
             return (
                 null,
                 CreateResult(
                     requestId,
-                    payload!.OpResults,
-                    normalizedErrors,
-                    ResolveExitCode(normalizedErrors)));
+                    convertedResponse.OpResults,
+                    convertedResponse.Errors,
+                    convertedResponse.ExitCode));
         }
 
-        if (string.IsNullOrWhiteSpace(payload!.PlanToken))
+        if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
         {
             return (
                 null,
                 CreateResult(
                     requestId,
-                    payload.OpResults,
+                    convertedResponse.OpResults,
                     [
                         new IpcError(
                             IpcErrorCodes.InternalError,
@@ -232,7 +226,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     (int)CliExitCode.ToolError));
         }
 
-        return (payload.PlanToken, null);
+        return (convertedResponse.PlanToken, null);
     }
 
     private static bool TryGetRemainingTimeoutOption (
@@ -282,11 +276,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             },
         });
 
-        return IpcPayloadCodec.SerializeToElement(new IpcExecuteRequest(command, executeArguments)
-        {
-            FailFast = failFast,
-            PlanToken = planToken,
-        });
+        return ExecuteRequestPayloadFactory.Create(command, executeArguments, failFast, planToken);
     }
 
     /// <summary> Creates one normalized result from one Unity IPC response. </summary>
@@ -300,69 +290,12 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(response);
 
-        if (!TryReadExecuteResponsePayload(requestId, response, out var payload, out var failureResult))
-        {
-            return failureResult!;
-        }
-
-        var normalizedErrors = NormalizeErrors(response.Status, response.Errors);
+        var convertedResponse = ExecuteResponseConverter.Convert(response);
         return CreateResult(
             requestId,
-            payload!.OpResults,
-            normalizedErrors,
-            ResolveExitCode(normalizedErrors));
-    }
-
-    /// <summary> Reads the execute response payload and converts payload-shape failures into normalized CLI results. </summary>
-    /// <param name="requestId"> The generated request identifier. </param>
-    /// <param name="response"> The Unity IPC response. </param>
-    /// <param name="payload"> The decoded execute payload when successful. </param>
-    /// <param name="failureResult"> The normalized failure result when decoding fails. </param>
-    /// <returns> <see langword="true" /> when the payload can be consumed; otherwise <see langword="false" />. </returns>
-    private static bool TryReadExecuteResponsePayload (
-        string requestId,
-        IpcResponse response,
-        out IpcExecuteResponse? payload,
-        out OperationExecuteResult? failureResult)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        ArgumentNullException.ThrowIfNull(response);
-
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcExecuteResponse? deserializedPayload, out var payloadError))
-        {
-            payload = null;
-            failureResult = CreateResult(
-                requestId,
-                [],
-                [
-                    new IpcError(
-                        IpcErrorCodes.InternalError,
-                        $"Execute response payload is invalid. {payloadError.Message}",
-                        null),
-                ],
-                (int)CliExitCode.ToolError);
-            return false;
-        }
-
-        if (deserializedPayload == null || deserializedPayload.OpResults is null)
-        {
-            payload = null;
-            failureResult = CreateResult(
-                requestId,
-                [],
-                [
-                    new IpcError(
-                        IpcErrorCodes.InternalError,
-                        "Execute response payload is invalid. The 'opResults' field is missing.",
-                        null),
-                ],
-                (int)CliExitCode.ToolError);
-            return false;
-        }
-
-        payload = deserializedPayload;
-        failureResult = null;
-        return true;
+            convertedResponse.OpResults,
+            convertedResponse.Errors,
+            convertedResponse.ExitCode);
     }
 
     /// <summary> Creates one failure result from one structured execution error. </summary>
@@ -437,36 +370,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             ExitCode: exitCode);
     }
 
-    /// <summary> Normalizes the response error collection so failed responses always expose at least one error. </summary>
-    /// <param name="status"> The protocol status returned from Unity. </param>
-    /// <param name="errors"> The Unity response errors. </param>
-    /// <returns> The normalized error collection. </returns>
-    private static IReadOnlyList<IpcError> NormalizeErrors (
-        string? status,
-        IReadOnlyList<IpcError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        if (string.Equals(status, IpcProtocol.StatusOk, StringComparison.Ordinal)
-            && errors.Count == 0)
-        {
-            return [];
-        }
-
-        if (errors.Count != 0)
-        {
-            return errors;
-        }
-
-        return
-        [
-            new IpcError(
-                IpcErrorCodes.InternalError,
-                $"Execute response failed with status '{status}'.",
-                null),
-        ];
-    }
-
     /// <summary> Resolves the machine-readable error code used for transport-level failures. </summary>
     /// <param name="errorCode"> The raw error code. </param>
     /// <returns> The normalized error code. </returns>
@@ -484,9 +387,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
 
-        return string.Equals(errorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal)
-            ? (int)CliExitCode.InvalidArgument
-            : (int)CliExitCode.ToolError;
+        return ExecuteResponseConverter.ResolveExitCode(errorCode);
     }
 
     /// <summary> Resolves the CLI exit code from one machine-readable error collection. </summary>
@@ -496,13 +397,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     {
         ArgumentNullException.ThrowIfNull(errors);
 
-        if (errors.Count == 0)
-        {
-            return (int)CliExitCode.Success;
-        }
-
-        return errors.All(static error => string.Equals(error.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
-            ? (int)CliExitCode.InvalidArgument
-            : (int)CliExitCode.ToolError;
+        return ExecuteResponseConverter.ResolveExitCode(errors);
     }
 }

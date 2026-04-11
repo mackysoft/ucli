@@ -76,6 +76,31 @@ public sealed class RefreshCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Refresh_WithFailFastCamelCaseAlias_IsAcceptedByParser ()
+    {
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "fail-fast-camel-case");
+        var invalidProjectPath = Path.Combine(scope.FullPath, "NotUnityProject");
+        Directory.CreateDirectory(invalidProjectPath);
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Refresh,
+            UcliContractConstants.CliOption.FailFast,
+            UcliContractConstants.CliOption.ProjectPath,
+            invalidProjectPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.DoesNotContain("Argument '--failFast' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Refresh_WithModeDaemonAndPluginMissing_ReturnsCommandResultInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "plugin-missing");
