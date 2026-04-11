@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.UnityProject;
 
@@ -40,10 +41,11 @@ internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSn
             return PersistedOpsCatalogSnapshotLoadResult.Failure(opsCatalogResult.Error!);
         }
 
+        var opsCatalog = opsCatalogResult.Value!;
         var freshnessResult = await indexFreshnessEvaluator.Evaluate(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
                 unityProject.UnityProjectRoot,
+                IndexFreshnessTarget.OpsCatalog,
+                opsCatalog.SourceInputsHash,
                 ReadIndexMode.AllowStale,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -52,7 +54,6 @@ internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSn
             return PersistedOpsCatalogSnapshotLoadResult.Failure(freshnessResult.Error!);
         }
 
-        var opsCatalog = opsCatalogResult.Value!;
         return PersistedOpsCatalogSnapshotLoadResult.Success(
             new PersistedOpsCatalogSnapshot(
                 Entries: opsCatalog.Entries!,

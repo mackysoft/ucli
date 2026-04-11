@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
@@ -299,6 +300,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 PackagesManifestHash: "manifest-hash",
                 PackagesLockHash: "lock-hash",
                 AssemblyDefinitionHash: "asm-hash",
+                AssetsContentHash: "assets-hash",
+                AssetSearchHash: "asset-search-hash",
+                GuidPathHash: "guid-path-hash",
                 CombinedHash: "combined-hash");
             var storageRootPath = Path.Combine(Path.GetTempPath(), $"ucli-index-writer-tests-{Guid.NewGuid():N}");
             const string projectFingerprint = "writer-fingerprint";
@@ -329,6 +333,51 @@ namespace MackySoft.Ucli.Unity.Tests
                     Directory.Delete(storageRootPath, recursive: true);
                 }
             }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator AssetLookupSnapshotBuilder_Build_SortsEntriesAndExcludesFoldersAndSubassets () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var token = Guid.NewGuid().ToString("N");
+            var firstPath = $"Assets/zzz_asset_lookup_{token}.asset";
+            var secondPath = $"Assets/aaa_asset_lookup_{token}.asset";
+            var folderPath = $"Assets/asset_lookup_folder_{token}";
+            scope.TrackAsset(firstPath)
+                .TrackAsset(secondPath)
+                .TrackAsset(folderPath);
+
+            AssetDatabase.CreateFolder("Assets", $"asset_lookup_folder_{token}");
+            var firstAsset = ScriptableObject.CreateInstance<IndexCatalogTestAsset>();
+            var secondAsset = ScriptableObject.CreateInstance<IndexCatalogTestAsset>();
+            var subAsset = ScriptableObject.CreateInstance<IndexCatalogTestAsset>();
+            AssetDatabase.CreateAsset(firstAsset, firstPath);
+            AssetDatabase.CreateAsset(secondAsset, secondPath);
+            AssetDatabase.AddObjectToAsset(subAsset, firstPath);
+            AssetDatabase.SaveAssets();
+
+            var builder = new AssetLookupSnapshotBuilder();
+            var response = await builder.Build(CancellationToken.None);
+            var assetSearchEntries = response.AssetSearchEntries!
+                .Where(entry => entry.AssetPath != null && entry.AssetPath.Contains(token, StringComparison.Ordinal))
+                .ToArray();
+            var guidPathEntries = response.GuidPathEntries!
+                .Where(entry => entry.AssetPath != null && entry.AssetPath.Contains(token, StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.That(assetSearchEntries.Length, Is.EqualTo(2));
+            Assert.That(guidPathEntries.Length, Is.EqualTo(2));
+            Assert.That(assetSearchEntries[0].AssetPath, Is.EqualTo(secondPath));
+            Assert.That(assetSearchEntries[1].AssetPath, Is.EqualTo(firstPath));
+            Assert.That(assetSearchEntries.Any(entry => entry.AssetPath == folderPath), Is.False);
+            Assert.That(guidPathEntries[0].AssetPath, Is.EqualTo(secondPath));
+            Assert.That(guidPathEntries[1].AssetPath, Is.EqualTo(firstPath));
+            Assert.That(assetSearchEntries[0].SearchTypeIds, Does.Contain(IndexTypeIdFormatter.Format(typeof(IndexCatalogTestAsset))));
+            Assert.That(assetSearchEntries[0].SearchTypeIds, Does.Contain(IndexTypeIdFormatter.Format(typeof(ScriptableObject))));
+            Assert.That(assetSearchEntries[0].SearchTypeIds!.Last(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(UnityEngine.Object))));
+            Assert.That(assetSearchEntries[0].AssetGuid, Is.EqualTo(guidPathEntries[0].AssetGuid));
+            Assert.That(assetSearchEntries[1].AssetGuid, Is.EqualTo(guidPathEntries[1].AssetGuid));
         });
 
         private static string ResolveProjectRootPath ()
@@ -437,6 +486,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SuccessIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
         {
+            public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+                string projectRootPath,
+                CancellationToken cancellationToken = default)
+            {
+                return new ValueTask<IndexCoreInputHashSnapshot?>(
+                    new IndexCoreInputHashSnapshot(
+                        ScriptAssembliesHash: "script-hash",
+                        PackagesManifestHash: "manifest-hash",
+                        PackagesLockHash: "lock-hash",
+                        AssemblyDefinitionHash: "asm-hash",
+                        CombinedHash: "combined-hash"));
+            }
+
             public ValueTask<IndexInputHashSnapshot?> TryCompute (
                 string projectRootPath,
                 CancellationToken cancellationToken = default)
@@ -447,6 +509,9 @@ namespace MackySoft.Ucli.Unity.Tests
                         PackagesManifestHash: "manifest-hash",
                         PackagesLockHash: "lock-hash",
                         AssemblyDefinitionHash: "asm-hash",
+                        AssetsContentHash: "assets-hash",
+                        AssetSearchHash: "asset-search-hash",
+                        GuidPathHash: "guid-path-hash",
                         CombinedHash: "combined-hash"));
             }
         }

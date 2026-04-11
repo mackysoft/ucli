@@ -65,9 +65,9 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
         Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.Snapshot.GeneratedAtUtc);
         Assert.Single(result.Snapshot.Entries);
         Assert.Equal(ReadIndexMode.AllowStale, freshnessEvaluator.LastMode);
-        Assert.Equal("/repo", freshnessEvaluator.LastStorageRoot);
-        Assert.Equal("project-fingerprint", freshnessEvaluator.LastProjectFingerprint);
         Assert.Equal("/repo/UnityProject", freshnessEvaluator.LastProjectRoot);
+        Assert.Equal(IndexFreshnessTarget.OpsCatalog, freshnessEvaluator.LastTarget);
+        Assert.Equal("source-hash", freshnessEvaluator.LastPersistedSourceInputsHash);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject ()
@@ -129,6 +129,22 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             throw new NotSupportedException();
         }
 
+        public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IndexAccessResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
         public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
             string storageRoot,
             string projectFingerprint,
@@ -147,24 +163,24 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public string? LastStorageRoot { get; private set; }
-
-        public string? LastProjectFingerprint { get; private set; }
-
         public string? LastProjectRoot { get; private set; }
+
+        public IndexFreshnessTarget LastTarget { get; private set; }
+
+        public string? LastPersistedSourceInputsHash { get; private set; }
 
         public ReadIndexMode LastMode { get; private set; }
 
         public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            string storageRoot,
-            string projectFingerprint,
             string projectRoot,
+            IndexFreshnessTarget target,
+            string? persistedSourceInputsHash,
             ReadIndexMode mode,
             CancellationToken cancellationToken = default)
         {
-            LastStorageRoot = storageRoot;
-            LastProjectFingerprint = projectFingerprint;
             LastProjectRoot = projectRoot;
+            LastTarget = target;
+            LastPersistedSourceInputsHash = persistedSourceInputsHash;
             LastMode = mode;
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);

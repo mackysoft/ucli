@@ -2,6 +2,7 @@ using System;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Index;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -35,6 +36,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             services.AddSingleton(static _ => UcliOperationCatalogSnapshotBuilder.Build());
+            services.AddSingleton<IAssetLookupSnapshotBuilder, AssetLookupSnapshotBuilder>();
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<IUnityEditorReadinessGate, UnityEditorReadinessGate>();
@@ -53,6 +55,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, IndexAssetsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();

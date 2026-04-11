@@ -112,6 +112,59 @@ public sealed class FileIndexCatalogReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ReadAssetSearchLookup_ReturnsContract_WhenLookupExists ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "asset-search-success");
+        var reader = new FileIndexCatalogReader();
+        const string fingerprint = "fingerprint";
+        var contract = new IndexAssetSearchLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "asset-search-hash",
+            Entries:
+            [
+                new IndexAssetSearchEntryJsonContract(
+                    AssetPath: "Assets/Data/Spawner.asset",
+                    AssetGuid: "11111111111111111111111111111111",
+                    Name: "Spawner",
+                    TypeId: "Game.Spawner, Assembly-CSharp",
+                    SearchTypeIds:
+                    [
+                        "Game.Spawner, Assembly-CSharp",
+                        "UnityEngine.ScriptableObject, UnityEngine.CoreModule",
+                        "UnityEngine.Object, UnityEngine.CoreModule",
+                    ]),
+            ]);
+        WriteText(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint), IndexAssetSearchLookupJsonContractSerializer.Serialize(contract));
+
+        var result = await reader.ReadAssetSearchLookup(scope.FullPath, fingerprint, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.NotNull(result.Value.Entries);
+        Assert.Single(result.Value.Entries);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadGuidPathLookup_ReturnsReadIndexFormatInvalid_WhenLookupJsonIsMalformed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "guid-path-malformed");
+        var reader = new FileIndexCatalogReader();
+        var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
+        WriteText(lookupPath, "{");
+
+        var result = await reader.ReadGuidPathLookup(scope.FullPath, "fingerprint", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.NotNull(result.Error);
+        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ReadInputsManifest_ReturnsReadIndexFormatInvalid_WhenContractIsIncomplete ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "inputs-incomplete-contract");
@@ -127,6 +180,9 @@ public sealed class FileIndexCatalogReaderTests
               "packagesManifestHash": null,
               "packagesLockHash": "hash",
               "assemblyDefinitionHash": "hash",
+              "assetsContentHash": "hash",
+              "assetSearchHash": "hash",
+              "guidPathHash": "hash",
               "combinedHash": "hash"
             }
             """);

@@ -163,6 +163,141 @@ internal static class IndexCatalogContractValidator
         return true;
     }
 
+    /// <summary> Validates one <c>asset-search.lookup.json</c> contract instance. </summary>
+    /// <param name="contract"> The contract instance. </param>
+    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
+    public static bool IsValidAssetSearchLookup (IndexAssetSearchLookupJsonContract contract)
+    {
+        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
+            || string.IsNullOrWhiteSpace(contract.SourceInputsHash))
+        {
+            return false;
+        }
+
+        return TryValidateAssetSearchEntries(contract.Entries, "entries", out _);
+    }
+
+    /// <summary> Validates one asset-search lookup entry collection shared by persisted and live payloads. </summary>
+    /// <param name="entries"> The entry collection. </param>
+    /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the entry collection is valid; otherwise <see langword="false" />. </returns>
+    public static bool TryValidateAssetSearchEntries (
+        IReadOnlyList<IndexAssetSearchEntryJsonContract>? entries,
+        string propertyName,
+        out string? error)
+    {
+        if (entries == null)
+        {
+            error = $"Required property '{propertyName}' is missing.";
+            return false;
+        }
+
+        var assetPaths = new HashSet<string>(StringComparer.Ordinal);
+        var assetGuids = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            if (entry == null
+                || string.IsNullOrWhiteSpace(entry.AssetPath)
+                || entry.AssetGuid == null
+                || (entry.AssetGuid.Length > 0 && string.IsNullOrWhiteSpace(entry.AssetGuid))
+                || string.IsNullOrWhiteSpace(entry.Name)
+                || string.IsNullOrWhiteSpace(entry.TypeId)
+                || entry.SearchTypeIds == null
+                || entry.SearchTypeIds.Count == 0)
+            {
+                error = $"Asset-search entry at index {i} is invalid.";
+                return false;
+            }
+
+            for (var searchTypeIndex = 0; searchTypeIndex < entry.SearchTypeIds.Count; searchTypeIndex++)
+            {
+                if (string.IsNullOrWhiteSpace(entry.SearchTypeIds[searchTypeIndex]))
+                {
+                    error = $"Asset-search entry at index {i} contains an invalid searchTypeIds value.";
+                    return false;
+                }
+            }
+
+            if (!assetPaths.Add(entry.AssetPath))
+            {
+                error = $"Asset-search entry '{entry.AssetPath}' is duplicated.";
+                return false;
+            }
+
+            if (entry.AssetGuid.Length > 0
+                && !assetGuids.Add(entry.AssetGuid))
+            {
+                error = $"Asset-search assetGuid '{entry.AssetGuid}' is duplicated.";
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
+    /// <summary> Validates one <c>guid-path.lookup.json</c> contract instance. </summary>
+    /// <param name="contract"> The contract instance. </param>
+    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
+    public static bool IsValidGuidPathLookup (IndexGuidPathLookupJsonContract contract)
+    {
+        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
+            || string.IsNullOrWhiteSpace(contract.SourceInputsHash))
+        {
+            return false;
+        }
+
+        return TryValidateGuidPathEntries(contract.Entries, "entries", out _);
+    }
+
+    /// <summary> Validates one GUID-path lookup entry collection shared by persisted and live payloads. </summary>
+    /// <param name="entries"> The entry collection. </param>
+    /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the entry collection is valid; otherwise <see langword="false" />. </returns>
+    public static bool TryValidateGuidPathEntries (
+        IReadOnlyList<IndexGuidPathEntryJsonContract>? entries,
+        string propertyName,
+        out string? error)
+    {
+        if (entries == null)
+        {
+            error = $"Required property '{propertyName}' is missing.";
+            return false;
+        }
+
+        var assetPaths = new HashSet<string>(StringComparer.Ordinal);
+        var assetGuids = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            if (entry == null
+                || string.IsNullOrWhiteSpace(entry.AssetGuid)
+                || string.IsNullOrWhiteSpace(entry.AssetPath))
+            {
+                error = $"Guid-path entry at index {i} is invalid.";
+                return false;
+            }
+
+            if (!assetGuids.Add(entry.AssetGuid))
+            {
+                error = $"Guid-path assetGuid '{entry.AssetGuid}' is duplicated.";
+                return false;
+            }
+
+            if (!assetPaths.Add(entry.AssetPath))
+            {
+                error = $"Guid-path entry '{entry.AssetPath}' is duplicated.";
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
     /// <summary> Validates one <c>inputs/manifest.json</c> contract instance. </summary>
     /// <param name="contract"> The contract instance. </param>
     /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
@@ -173,6 +308,9 @@ internal static class IndexCatalogContractValidator
             && !string.IsNullOrWhiteSpace(contract.PackagesManifestHash)
             && !string.IsNullOrWhiteSpace(contract.PackagesLockHash)
             && !string.IsNullOrWhiteSpace(contract.AssemblyDefinitionHash)
+            && !string.IsNullOrWhiteSpace(contract.AssetsContentHash)
+            && !string.IsNullOrWhiteSpace(contract.AssetSearchHash)
+            && !string.IsNullOrWhiteSpace(contract.GuidPathHash)
             && !string.IsNullOrWhiteSpace(contract.CombinedHash);
     }
 

@@ -7,6 +7,24 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <summary> Computes deterministic input fingerprints from filesystem sources. </summary>
 internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
 {
+    /// <summary> Tries to compute one core input fingerprint snapshot without asset lookup hashes. </summary>
+    /// <param name="projectRootPath"> The Unity project root path. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
+    /// <returns> The computed snapshot when successful; otherwise <see langword="null" />. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="projectRootPath" /> is <see langword="null" />, empty, or whitespace. </exception>
+    public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+        string projectRootPath,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(projectRootPath))
+        {
+            throw new ArgumentException("Project root path must not be empty.", nameof(projectRootPath));
+        }
+
+        return TryComputeCoreInternal(Path.GetFullPath(projectRootPath), cancellationToken);
+    }
+
     /// <summary> Tries to compute one input fingerprint snapshot from project files. </summary>
     /// <param name="projectRootPath"> The Unity project root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
@@ -23,6 +41,41 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         }
 
         var normalizedProjectRoot = Path.GetFullPath(projectRootPath);
+        var coreSnapshot = await TryComputeCoreInternal(normalizedProjectRoot, cancellationToken).ConfigureAwait(false);
+        if (coreSnapshot == null)
+        {
+            return null;
+        }
+
+        var assetsPath = Path.Combine(normalizedProjectRoot, "Assets");
+
+        var assetsContentHash = await TryHashDirectoryFiles(assetsPath, "*", SearchOption.AllDirectories, cancellationToken).ConfigureAwait(false);
+        if (assetsContentHash == null)
+        {
+            return null;
+        }
+
+        var assetSearchHash = ComputeUtf8Hash(string.Concat(
+            coreSnapshot.CombinedHash,
+            "\n",
+            assetsContentHash));
+        var guidPathHash = ComputeUtf8Hash(assetsContentHash);
+        return new IndexInputHashSnapshot(
+            ScriptAssembliesHash: coreSnapshot.ScriptAssembliesHash,
+            PackagesManifestHash: coreSnapshot.PackagesManifestHash,
+            PackagesLockHash: coreSnapshot.PackagesLockHash,
+            AssemblyDefinitionHash: coreSnapshot.AssemblyDefinitionHash,
+            AssetsContentHash: assetsContentHash,
+            AssetSearchHash: assetSearchHash,
+            GuidPathHash: guidPathHash,
+            CombinedHash: coreSnapshot.CombinedHash);
+    }
+
+    private static async ValueTask<IndexCoreInputHashSnapshot?> TryComputeCoreInternal (
+        string normalizedProjectRoot,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var scriptAssembliesPath = Path.Combine(normalizedProjectRoot, "Library", "ScriptAssemblies");
         var packagesManifestPath = Path.Combine(normalizedProjectRoot, "Packages", "manifest.json");
         var packagesLockPath = Path.Combine(normalizedProjectRoot, "Packages", "packages-lock.json");
@@ -61,7 +114,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             packagesLockHash,
             "\n",
             assemblyDefinitionHash));
-        return new IndexInputHashSnapshot(
+        return new IndexCoreInputHashSnapshot(
             ScriptAssembliesHash: scriptAssembliesHash,
             PackagesManifestHash: packagesManifestHash,
             PackagesLockHash: packagesLockHash,

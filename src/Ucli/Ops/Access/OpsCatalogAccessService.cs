@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Ops.Preflight;
 using MackySoft.Ucli.ReadIndex;
 
@@ -11,6 +12,8 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 {
     private readonly IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader;
 
+    private readonly IIndexCatalogReader indexCatalogReader;
+
     private readonly IIndexInputFingerprintCalculator indexInputFingerprintCalculator;
 
     private readonly IOpsCatalogReader opsCatalogReader;
@@ -19,16 +22,19 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
     /// <summary> Initializes a new instance of the <see cref="OpsCatalogAccessService" /> class. </summary>
     /// <param name="persistedOpsCatalogSnapshotLoader"> The persisted snapshot loader dependency. </param>
+    /// <param name="indexCatalogReader"> The persisted index catalog reader dependency. </param>
     /// <param name="indexInputFingerprintCalculator"> The read-index input fingerprint calculator dependency. </param>
     /// <param name="opsCatalogReader"> The ops catalog reader dependency. </param>
     /// <param name="opsCatalogStore"> The ops catalog persistence dependency. </param>
     public OpsCatalogAccessService (
         IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader,
+        IIndexCatalogReader indexCatalogReader,
         IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
         this.persistedOpsCatalogSnapshotLoader = persistedOpsCatalogSnapshotLoader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogSnapshotLoader));
+        this.indexCatalogReader = indexCatalogReader ?? throw new ArgumentNullException(nameof(indexCatalogReader));
         this.indexInputFingerprintCalculator = indexInputFingerprintCalculator ?? throw new ArgumentNullException(nameof(indexInputFingerprintCalculator));
         this.opsCatalogReader = opsCatalogReader ?? throw new ArgumentNullException(nameof(opsCatalogReader));
         this.opsCatalogStore = opsCatalogStore ?? throw new ArgumentNullException(nameof(opsCatalogStore));
@@ -150,11 +156,11 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var inputSnapshot = await indexInputFingerprintCalculator.TryCompute(
-                context.Context.UnityProject.UnityProjectRoot,
+        var persistenceInput = await TryCreatePersistenceInput(
+                context,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (inputSnapshot == null)
+        if (persistenceInput == null)
         {
             return "Failed to persist refreshed ops readIndex because input fingerprint could not be computed.";
         }
@@ -166,7 +172,8 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     context.Context.UnityProject.ProjectFingerprint,
                     generatedAtUtc,
                     operations,
-                    inputSnapshot,
+                    persistenceInput.SourceInputsHash,
+                    persistenceInput.ManifestInputSnapshot,
                     cancellationToken)
                 .ConfigureAwait(false);
             return null;
@@ -183,6 +190,99 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             return $"Failed to persist refreshed ops readIndex. {exception.Message}";
         }
     }
+
+    private async ValueTask<OpsCatalogPersistenceInput?> TryCreatePersistenceInput (
+        OpsPreflightContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var coreSnapshot = await indexInputFingerprintCalculator.TryComputeCore(
+                context.Context.UnityProject.UnityProjectRoot,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (coreSnapshot == null)
+        {
+            return null;
+        }
+
+        var manifestResult = await indexCatalogReader.ReadInputsManifest(
+                context.Context.UnityProject.RepositoryRoot,
+                context.Context.UnityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (manifestResult.IsSuccess)
+        {
+            // NOTE:
+            // Reuse the persisted asset lookup hashes to keep inputs/manifest.json aligned with existing
+            // lookup artifacts while avoiding an unnecessary Assets/ full scan on the common ops refresh path.
+            var manifest = manifestResult.Value!;
+            return new OpsCatalogPersistenceInput(
+                SourceInputsHash: coreSnapshot.CombinedHash,
+                ManifestInputSnapshot: new IndexInputHashSnapshot(
+                    ScriptAssembliesHash: coreSnapshot.ScriptAssembliesHash,
+                    PackagesManifestHash: coreSnapshot.PackagesManifestHash,
+                    PackagesLockHash: coreSnapshot.PackagesLockHash,
+                    AssemblyDefinitionHash: coreSnapshot.AssemblyDefinitionHash,
+                    AssetsContentHash: manifest.AssetsContentHash!,
+                    AssetSearchHash: manifest.AssetSearchHash!,
+                    GuidPathHash: manifest.GuidPathHash!,
+                    CombinedHash: coreSnapshot.CombinedHash));
+        }
+
+        if (await HasPersistedAssetLookupArtifacts(context, cancellationToken).ConfigureAwait(false))
+        {
+            // NOTE:
+            // Do not regenerate lookup hashes from the live filesystem when persisted lookup artifacts still exist.
+            // Persist ops.catalog.json only; the target artifact carries its own freshness hash.
+            return new OpsCatalogPersistenceInput(
+                SourceInputsHash: coreSnapshot.CombinedHash,
+                ManifestInputSnapshot: null);
+        }
+
+        var fullSnapshot = await indexInputFingerprintCalculator.TryCompute(
+                context.Context.UnityProject.UnityProjectRoot,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (fullSnapshot == null)
+        {
+            return new OpsCatalogPersistenceInput(
+                SourceInputsHash: coreSnapshot.CombinedHash,
+                ManifestInputSnapshot: null);
+        }
+
+        return new OpsCatalogPersistenceInput(
+            SourceInputsHash: coreSnapshot.CombinedHash,
+            ManifestInputSnapshot: fullSnapshot);
+    }
+
+    private async ValueTask<bool> HasPersistedAssetLookupArtifacts (
+        OpsPreflightContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var assetSearchLookupResult = await indexCatalogReader.ReadAssetSearchLookup(
+                context.Context.UnityProject.RepositoryRoot,
+                context.Context.UnityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (assetSearchLookupResult.IsSuccess)
+        {
+            return true;
+        }
+
+        var guidPathLookupResult = await indexCatalogReader.ReadGuidPathLookup(
+                context.Context.UnityProject.RepositoryRoot,
+                context.Context.UnityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return guidPathLookupResult.IsSuccess;
+    }
+
+    private sealed record OpsCatalogPersistenceInput (
+        string SourceInputsHash,
+        IndexInputHashSnapshot? ManifestInputSnapshot);
 
     private static string? CombineFallbackReasons (
         string? first,
