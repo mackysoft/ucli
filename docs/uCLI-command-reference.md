@@ -2,8 +2,8 @@
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
 >
-> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`validate`、`daemon`、`logs`、`ops`、`test` である。
-> `plan` / `call` / `resolve` / `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
+> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`validate`、`plan`、`daemon`、`logs`、`ops`、`test` である。
+> `call` / `resolve` / `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
 
 ## コマンド概要
 
@@ -12,6 +12,7 @@
 | `ucli init` | `.ucli` の設定雛形を生成する | Git repository root を優先する |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
 | `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
+| `ucli plan` | JSON リクエストの plan フェーズを実行する | static preflight 後に Unity IPC `plan` を実行する |
 | `ucli ops` | primitive operation の一覧・詳細を返す | `list` / `describe` を持つ |
 | `ucli status` | daemon と lifecycle の状態を返す | `ProjectVersion.txt` 由来の `unityVersion` を返す |
 | `ucli logs` | Unity / daemon のログを取得する | 成功時はイベントストリームを返す |
@@ -34,6 +35,11 @@
   - `--mode` / `--timeout` は受け付けず、Unity IPC に接続しない。
   - 成功時 payload は `readIndex` のみを返す。
   - `allowStale` では snapshot 欠落時に syntax-only へ縮退し、`requireFresh` では `READ_INDEX_BOOTSTRAP_FAILED` / `READ_INDEX_FORMAT_INVALID` / `READ_INDEX_FRESH_REQUIRED` を返す。
+- `ucli plan`
+  - `stdin` または `--requestPath` から JSON リクエストを読み、static preflight 後に Unity IPC `plan` を実行する。
+  - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
+  - 成功時 payload は `requestId`、`opResults`、`readIndex`、`planToken` を返す。
+  - `allowStale` では snapshot 欠落時に syntax-only へ縮退して継続し、`requireFresh` では snapshot 欠落・破損・非 fresh で失敗する。
 
 ## 実行系コマンド共通規則
 
@@ -190,6 +196,49 @@ Git root が判定できない環境では実行時 CWD を対象にする。
 
 ### `init` の出力
 - `payload` のフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
+
+## `ucli plan`
+`ucli plan` は最初の公開 request-driven execute コマンドである。  
+CLI は JSON リクエストを `stdin` または `--requestPath` から読み、static preflight を行ったうえで Unity IPC `execute(command=plan)` を 1 回だけ送る。
+
+### `plan` options
+| Option | Short | Description |
+| --- | --- | --- |
+| `--requestPath <string?>` | - | JSON リクエストファイルの path。未指定時は `stdin` を読む |
+| `--projectPath <string?>` | `-p` | 対象Unity project root path |
+| `--mode <string?>` | - | `auto` (default), `daemon`, or `oneshot` |
+| `--timeout <int?>` | - | IPC待機タイムアウト（ミリ秒）。`1..2147483647` |
+| `--readIndexMode <string?>` | - | `disabled`, `allowStale`, or `requireFresh` |
+| `--failFast` | - | `ready` になる前なら待機せず即失敗する |
+
+### `plan` 実行契約
+- `stdin` と `--requestPath` は同時指定できない。
+- `payload.readIndex` は Unity 実行経路ではなく、Unity IPC `plan` 実行前の static preflight で readIndex をどう再利用したかを表す。
+- `--readIndexMode=disabled` は validate と同じ syntax-only preflight に縮退し、`payload.readIndex` は `used=false`、`hit=false`、`source=index`、`freshness=probable`、`fallbackReason="readIndex disabled by mode."` を返す。
+- `--readIndexMode=allowStale` は snapshot 欠落時に syntax-only preflight へ縮退し、Unity IPC `plan` を継続する。
+- `--readIndexMode=requireFresh` は snapshot 欠落・破損・非 fresh なら Unity IPC 前に失敗する。
+- Unity へ送る execute request は `command=plan` とし、`IpcExecuteRequest.FailFast` に `--failFast` をそのまま写像する。request 側の `planToken` は常に送らない。
+- `--mode` / `--timeout` が不正な場合でも、request parse と static preflight が完了していれば失敗 payload に `requestId` と `readIndex` を残す。
+
+### `plan` のレスポンス契約
+- 出力は共通の `CommandResult` エンベロープを返す。
+- 成功時 payload は `requestId`、`opResults`、`readIndex`、`planToken` を返す。
+- request parse / project 解決より前で失敗した場合は空 payload を返す。
+- preflight 以降で失敗した場合は `payload.requestId` と `payload.readIndex` を返し、`payload.opResults` は `[]` または Unity 応答の部分結果を返す。
+- 失敗時は `planToken` field 自体を省略する。
+
+### `plan` の終了コード
+| Code | Meaning |
+| --- | --- |
+| `0` | 成功 |
+| `3` | 入力不正、static validation failure |
+| `4` | IPC timeout、lifecycle failure、daemon/tool/internal failure |
+
+### `plan` 実行例
+```bash
+ucli plan --projectPath ./UnityProject --readIndexMode allowStale < request.json
+ucli plan --requestPath ./request.json --projectPath ./UnityProject --mode daemon --failFast
+```
 
 ## `ucli refresh`
 `ucli refresh` は独立コマンドであり、未公開の request 系 CLI surface の別名ではない。  
