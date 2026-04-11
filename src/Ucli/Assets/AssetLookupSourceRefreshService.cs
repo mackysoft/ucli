@@ -11,6 +11,17 @@ namespace MackySoft.Ucli.Assets;
 /// <summary> Reads live asset lookup snapshots and refreshes persisted lookup artifacts on a best-effort basis. </summary>
 internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefreshService
 {
+    private const int MaxSnapshotStabilityAttempts = 2;
+
+    private const string InputFingerprintFailureMessage
+        = "Failed to persist refreshed asset lookup readIndex because input fingerprint could not be computed.";
+
+    private const string InputInstabilityFailureMessage
+        = "Failed to persist refreshed asset lookup readIndex because project inputs changed while the snapshot was being read.";
+
+    private const string RetrySnapshotReadFailurePrefix
+        = "Failed to persist refreshed asset lookup readIndex because retry snapshot read failed.";
+
     private readonly IAssetLookupSnapshotReader assetLookupSnapshotReader;
     private readonly IAssetLookupStore assetLookupStore;
     private readonly IIndexInputFingerprintCalculator indexInputFingerprintCalculator;
@@ -42,6 +53,60 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         ArgumentException.ThrowIfNullOrWhiteSpace(fallbackReason);
         cancellationToken.ThrowIfCancellationRequested();
 
+        IpcIndexAssetsReadResponse? response = null;
+        string? persistFailure = null;
+        for (var attempt = 0; attempt < MaxSnapshotStabilityAttempts; attempt++)
+        {
+            var attemptResult = await TryReadAndPersistLookupArtifacts(
+                    project,
+                    config,
+                    command,
+                    mode,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!attemptResult.FetchResult.IsSuccess)
+            {
+                if (response != null)
+                {
+                    persistFailure = AssetLookupAccessUtilities.CombineFallbackReasons(
+                        persistFailure,
+                        $"{RetrySnapshotReadFailurePrefix} {attemptResult.FetchResult.Message}");
+                    break;
+                }
+
+                return AssetLookupRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!);
+            }
+
+            response = attemptResult.FetchResult.Response!;
+            persistFailure = attemptResult.PersistFailure;
+            if (!attemptResult.ShouldRetry)
+            {
+                break;
+            }
+        }
+
+        var combinedFallbackReason = AssetLookupAccessUtilities.CombineFallbackReasons(
+            readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
+            persistFailure);
+        return AssetLookupRefreshResult.Success(response!, combinedFallbackReason);
+    }
+
+    private async ValueTask<(AssetLookupSnapshotFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistLookupArtifacts (
+        ResolvedUnityProjectContext project,
+        UcliConfig config,
+        UcliCommand command,
+        string? mode,
+        string? timeout,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var snapshotBeforeRead = await indexInputFingerprintCalculator.TryCompute(
+                project.UnityProjectRoot,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         var fetchResult = await assetLookupSnapshotReader.Read(
                 project,
                 config,
@@ -52,36 +117,28 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             .ConfigureAwait(false);
         if (!fetchResult.IsSuccess)
         {
-            return AssetLookupRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!);
+            return (fetchResult, null, false);
         }
 
-        var response = fetchResult.Response!;
-        var persistFailure = await TryPersistLookupArtifacts(
-                project,
-                response,
-                cancellationToken)
-            .ConfigureAwait(false);
+        if (snapshotBeforeRead == null)
+        {
+            return (fetchResult, InputFingerprintFailureMessage, false);
+        }
 
-        var combinedFallbackReason = AssetLookupAccessUtilities.CombineFallbackReasons(
-            readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
-            persistFailure);
-        return AssetLookupRefreshResult.Success(response, combinedFallbackReason);
-    }
-
-    private async ValueTask<string?> TryPersistLookupArtifacts (
-        ResolvedUnityProjectContext project,
-        IpcIndexAssetsReadResponse response,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var inputSnapshot = await indexInputFingerprintCalculator.TryCompute(
+        var snapshotAfterRead = await indexInputFingerprintCalculator.TryCompute(
                 project.UnityProjectRoot,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (inputSnapshot == null)
+        if (snapshotAfterRead == null)
         {
-            return "Failed to persist refreshed asset lookup readIndex because input fingerprint could not be computed.";
+            return (fetchResult, InputFingerprintFailureMessage, false);
+        }
+
+        // NOTE: Stamp sourceInputsHash only when the same input snapshot is observed
+        // before and after the live Unity read. Otherwise a stale lookup can be marked fresh.
+        if (!Equals(snapshotBeforeRead, snapshotAfterRead))
+        {
+            return (fetchResult, InputInstabilityFailureMessage, true);
         }
 
         try
@@ -89,13 +146,13 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             await assetLookupStore.Write(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
-                    response.GeneratedAtUtc,
-                    response.AssetSearchEntries!.ToArray(),
-                    response.GuidPathEntries!.ToArray(),
-                    inputSnapshot,
+                    fetchResult.Response!.GeneratedAtUtc,
+                    fetchResult.Response.AssetSearchEntries!.ToArray(),
+                    fetchResult.Response.GuidPathEntries!.ToArray(),
+                    snapshotAfterRead,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return null;
+            return (fetchResult, null, false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -103,7 +160,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         }
         catch (Exception exception)
         {
-            return $"Failed to persist refreshed asset lookup readIndex. {exception.Message}";
+            return (fetchResult, $"Failed to persist refreshed asset lookup readIndex. {exception.Message}", false);
         }
     }
 }
