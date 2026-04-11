@@ -149,6 +149,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("ping", IpcMethodNames.Ping);
         Assert.Equal("execute", IpcMethodNames.Execute);
         Assert.Equal("ops.read", IpcMethodNames.OpsRead);
+        Assert.Equal("index.assets.read", IpcMethodNames.IndexAssetsRead);
         Assert.Equal("test.run", IpcMethodNames.TestRun);
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
@@ -183,6 +184,53 @@ public sealed class IpcContractSerializationTests
                 .HasString("kind", "query")
                 .HasString("policy", "safe")
                 .HasString("argsSchemaJson", """{"type":"object"}"""));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcIndexAssetsReadContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcIndexAssetsReadRequest();
+        var responsePayload = new IpcIndexAssetsReadResponse(
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+            AssetSearchEntries:
+            [
+                new IndexAssetSearchEntryJsonContract(
+                    AssetPath: "Assets/Data/Spawner.asset",
+                    AssetGuid: "11111111111111111111111111111111",
+                    Name: "Spawner",
+                    TypeId: "Game.Spawner, Assembly-CSharp",
+                    SearchTypeIds:
+                    [
+                        "Game.Spawner, Assembly-CSharp",
+                        "UnityEngine.ScriptableObject, UnityEngine.CoreModule",
+                        "UnityEngine.Object, UnityEngine.CoreModule",
+                    ]),
+            ],
+            GuidPathEntries:
+            [
+                new IndexGuidPathEntryJsonContract(
+                    AssetGuid: "11111111111111111111111111111111",
+                    AssetPath: "Assets/Data/Spawner.asset"),
+            ]);
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        Assert.Equal(JsonValueKind.Object, requestDocument.RootElement.ValueKind);
+        JsonAssert.For(responseDocument.RootElement)
+            .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
+            .HasArrayLength("assetSearchEntries", 1)
+            .HasArrayLength("guidPathEntries", 1)
+            .HasProperty("assetSearchEntries", 0, entry => entry
+                .HasString("assetPath", "Assets/Data/Spawner.asset")
+                .HasString("assetGuid", "11111111111111111111111111111111")
+                .HasString("name", "Spawner")
+                .HasString("typeId", "Game.Spawner, Assembly-CSharp")
+                .HasArrayLength("searchTypeIds", 3))
+            .HasProperty("guidPathEntries", 0, entry => entry
+                .HasString("assetGuid", "11111111111111111111111111111111")
+                .HasString("assetPath", "Assets/Data/Spawner.asset"));
     }
 
     [Fact]

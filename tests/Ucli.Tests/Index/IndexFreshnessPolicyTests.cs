@@ -9,24 +9,44 @@ public sealed class IndexFreshnessPolicyTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void EvaluateFreshness_ReturnsFresh_WhenManifestMatchesSnapshot ()
+    public void EvaluateFreshness_ReturnsFresh_WhenPersistedHashMatchesSnapshot ()
     {
         var snapshot = CreateSnapshot();
-        var manifest = CreateManifest(snapshot);
 
-        var result = IndexFreshnessPolicy.EvaluateFreshness(manifest, snapshot);
+        var result = IndexFreshnessPolicy.EvaluateFreshness(snapshot.CombinedHash, snapshot, IndexFreshnessTarget.OpsCatalog);
 
         Assert.Equal(IndexFreshness.Fresh, result);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void EvaluateFreshness_ReturnsStale_WhenManifestDoesNotMatchSnapshot ()
+    public void EvaluateFreshness_ReturnsStale_WhenPersistedHashDoesNotMatchSnapshot ()
     {
         var snapshot = CreateSnapshot();
-        var manifest = CreateManifest(snapshot with { PackagesLockHash = "different-lock-hash" });
 
-        var result = IndexFreshnessPolicy.EvaluateFreshness(manifest, snapshot);
+        var result = IndexFreshnessPolicy.EvaluateFreshness("different-combined-hash", snapshot, IndexFreshnessTarget.OpsCatalog);
+
+        Assert.Equal(IndexFreshness.Stale, result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void EvaluateFreshness_ReturnsFresh_ForGuidPathLookup_WhenOnlyCombinedHashDiffers ()
+    {
+        var snapshot = CreateSnapshot();
+
+        var result = IndexFreshnessPolicy.EvaluateFreshness(snapshot.GuidPathHash, snapshot, IndexFreshnessTarget.GuidPathLookup);
+
+        Assert.Equal(IndexFreshness.Fresh, result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void EvaluateFreshness_ReturnsStale_ForAssetSearchLookup_WhenAssetSearchHashDiffers ()
+    {
+        var snapshot = CreateSnapshot();
+
+        var result = IndexFreshnessPolicy.EvaluateFreshness("different-asset-search-hash", snapshot, IndexFreshnessTarget.AssetSearchLookup);
 
         Assert.Equal(IndexFreshness.Stale, result);
     }
@@ -60,18 +80,9 @@ public sealed class IndexFreshnessPolicyTests
             PackagesManifestHash: "manifest-hash",
             PackagesLockHash: "lock-hash",
             AssemblyDefinitionHash: "asm-hash",
+            AssetsContentHash: "assets-hash",
+            AssetSearchHash: "asset-search-hash",
+            GuidPathHash: "guid-path-hash",
             CombinedHash: "combined-hash");
-    }
-
-    private static IndexInputsManifestJsonContract CreateManifest (IndexInputHashSnapshot snapshot)
-    {
-        return new IndexInputsManifestJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            ScriptAssembliesHash: snapshot.ScriptAssembliesHash,
-            PackagesManifestHash: snapshot.PackagesManifestHash,
-            PackagesLockHash: snapshot.PackagesLockHash,
-            AssemblyDefinitionHash: snapshot.AssemblyDefinitionHash,
-            CombinedHash: snapshot.CombinedHash);
     }
 }

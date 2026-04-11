@@ -109,7 +109,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
         {
-            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "combined"),
+            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "assets", "asset-search", "guid-path", "combined"),
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
@@ -140,6 +140,7 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Equal(1, catalogReader.CallCount);
         Assert.Null(catalogReader.LastMode);
         Assert.Null(catalogReader.LastTimeout);
+        Assert.Equal(1, inputFingerprintCalculator.FullCallCount);
         Assert.Equal(1, store.CallCount);
         Assert.Equal(context.UnityProject.RepositoryRoot, store.StorageRoot);
         Assert.Equal(context.UnityProject.ProjectFingerprint, store.ProjectFingerprint);
@@ -166,7 +167,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
         {
-            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "combined"),
+            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "assets", "asset-search", "guid-path", "combined"),
         };
         var store = new StubOpsCatalogStore
         {
@@ -193,6 +194,157 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Equal(OpsCatalogSource.Source, result.Output.AccessInfo.Source);
         Assert.Contains("readIndex disabled by mode.", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
         Assert.Contains("Failed to persist refreshed ops readIndex. disk full", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenManifestIsMissingButLookupExists_PersistsOpsCatalogWithoutRegeneratingLookupHashes ()
+    {
+        var context = CreateContext();
+        var indexReader = new StubIndexCatalogReader
+        {
+            AssetSearchLookupResult = IndexAccessResult<IndexAssetSearchLookupJsonContract>.Success(
+                new IndexAssetSearchLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                    SourceInputsHash: "stale-asset-search-hash",
+                    Entries:
+                    [
+                        new IndexAssetSearchEntryJsonContract(
+                            AssetPath: "Assets/Data/Stale.asset",
+                            AssetGuid: "11111111111111111111111111111111",
+                            Name: "Stale",
+                            TypeId: "Game.Stale, Assembly-CSharp",
+                            SearchTypeIds:
+                            [
+                                "Game.Stale, Assembly-CSharp",
+                                "UnityEngine.Object, UnityEngine.CoreModule",
+                            ]),
+                    ])),
+        };
+        var catalogReader = new StubOpsCatalogReader
+        {
+            Result = OpsCatalogFetchResult.Success(
+                new IpcOpsReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                    Operations:
+                    [
+                        new IndexOpEntryJsonContract(
+                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            Kind: "query",
+                            Policy: "safe",
+                            ArgsSchemaJson: """{"type":"object"}"""),
+                    ])),
+        };
+        var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
+        {
+            CoreSnapshot = new IndexCoreInputHashSnapshot(
+                ScriptAssembliesHash: "script",
+                PackagesManifestHash: "manifest",
+                PackagesLockHash: "lock",
+                AssemblyDefinitionHash: "asmdef",
+                CombinedHash: "combined"),
+            ThrowOnTryCompute = true,
+        };
+        var store = new StubOpsCatalogStore();
+        var service = CreateService(
+            indexReader,
+            new StubIndexFreshnessEvaluator(),
+            inputFingerprintCalculator,
+            catalogReader,
+            store);
+
+        var result = await service.Read(
+            new OpsPreflightContext(context, ReadIndexMode.Disabled),
+            new OpsCommandInput(
+                ProjectPath: null,
+                Mode: null,
+                Timeout: null,
+                ReadIndexMode: ReadIndexModeValues.Disabled));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, inputFingerprintCalculator.CoreCallCount);
+        Assert.Equal(0, inputFingerprintCalculator.FullCallCount);
+        Assert.Equal(1, store.CallCount);
+        Assert.Equal("combined", store.LastSourceInputsHash);
+        Assert.Null(store.LastManifestInputSnapshot);
+        Assert.Equal("readIndex disabled by mode.", result.Output!.AccessInfo.FallbackReason);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenPersistingSourceResult_ReusesManifestAssetHashesWithoutFullFingerprint ()
+    {
+        var context = CreateContext();
+        var indexReader = new StubIndexCatalogReader
+        {
+            ManifestResult = IndexAccessResult<IndexInputsManifestJsonContract>.Success(
+                new IndexInputsManifestJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                    ScriptAssembliesHash: "old-script",
+                    PackagesManifestHash: "old-manifest",
+                    PackagesLockHash: "old-lock",
+                    AssemblyDefinitionHash: "old-asm",
+                    AssetsContentHash: "existing-assets",
+                    AssetSearchHash: "existing-asset-search",
+                    GuidPathHash: "existing-guid-path",
+                    CombinedHash: "old-combined")),
+        };
+        var catalogReader = new StubOpsCatalogReader
+        {
+            Result = OpsCatalogFetchResult.Success(
+                new IpcOpsReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
+                    Operations:
+                    [
+                        new IndexOpEntryJsonContract(
+                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                            Kind: "query",
+                            Policy: "safe",
+                            ArgsSchemaJson: """{"type":"object"}"""),
+                    ])),
+        };
+        var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
+        {
+            CoreSnapshot = new IndexCoreInputHashSnapshot(
+                ScriptAssembliesHash: "script",
+                PackagesManifestHash: "manifest",
+                PackagesLockHash: "lock",
+                AssemblyDefinitionHash: "asmdef",
+                CombinedHash: "combined"),
+            ThrowOnTryCompute = true,
+        };
+        var store = new StubOpsCatalogStore();
+        var service = CreateService(
+            indexReader,
+            new StubIndexFreshnessEvaluator(),
+            inputFingerprintCalculator,
+            catalogReader,
+            store);
+
+        var result = await service.Read(
+            new OpsPreflightContext(context, ReadIndexMode.Disabled),
+            new OpsCommandInput(
+                ProjectPath: null,
+                Mode: null,
+                Timeout: null,
+                ReadIndexMode: ReadIndexModeValues.Disabled));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, inputFingerprintCalculator.CoreCallCount);
+        Assert.Equal(0, inputFingerprintCalculator.FullCallCount);
+        Assert.Equal(1, indexReader.ReadInputsManifestCallCount);
+        Assert.Equal("combined", store.LastSourceInputsHash);
+        Assert.NotNull(store.LastManifestInputSnapshot);
+        Assert.Equal("script", store.LastManifestInputSnapshot!.ScriptAssembliesHash);
+        Assert.Equal("manifest", store.LastManifestInputSnapshot.PackagesManifestHash);
+        Assert.Equal("lock", store.LastManifestInputSnapshot.PackagesLockHash);
+        Assert.Equal("asmdef", store.LastManifestInputSnapshot.AssemblyDefinitionHash);
+        Assert.Equal("existing-assets", store.LastManifestInputSnapshot.AssetsContentHash);
+        Assert.Equal("existing-asset-search", store.LastManifestInputSnapshot.AssetSearchHash);
+        Assert.Equal("existing-guid-path", store.LastManifestInputSnapshot.GuidPathHash);
+        Assert.Equal("combined", store.LastManifestInputSnapshot.CombinedHash);
     }
 
     private static ProjectContext CreateContext ()
@@ -229,6 +381,23 @@ public sealed class OpsCatalogAccessServiceTests
                 IpcErrorCodes.ReadIndexBootstrapFailed,
                 "Index contract file was not found: ops.catalog.json.");
 
+        public IndexAccessResult<IndexAssetSearchLookupJsonContract> AssetSearchLookupResult { get; set; }
+            = IndexAccessResult<IndexAssetSearchLookupJsonContract>.Failure(
+                IpcErrorCodes.ReadIndexBootstrapFailed,
+                "Index contract file was not found: lookups/asset-search.lookup.json.");
+
+        public IndexAccessResult<IndexGuidPathLookupJsonContract> GuidPathLookupResult { get; set; }
+            = IndexAccessResult<IndexGuidPathLookupJsonContract>.Failure(
+                IpcErrorCodes.ReadIndexBootstrapFailed,
+                "Index contract file was not found: lookups/guid-path.lookup.json.");
+
+        public int ReadInputsManifestCallCount { get; private set; }
+
+        public IndexAccessResult<IndexInputsManifestJsonContract> ManifestResult { get; set; }
+            = IndexAccessResult<IndexInputsManifestJsonContract>.Failure(
+                IpcErrorCodes.ReadIndexBootstrapFailed,
+                "Index contract file was not found: inputs/manifest.json.");
+
         public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
             string storageRoot,
             string projectFingerprint,
@@ -254,12 +423,32 @@ public sealed class OpsCatalogAccessServiceTests
             throw new NotSupportedException();
         }
 
+        public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(AssetSearchLookupResult);
+        }
+
+        public ValueTask<IndexAccessResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
+            string storageRoot,
+            string projectFingerprint,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(GuidPathLookupResult);
+        }
+
         public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
             string storageRoot,
             string projectFingerprint,
             CancellationToken cancellationToken = default)
         {
-            throw new NotSupportedException();
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadInputsManifestCallCount++;
+            return ValueTask.FromResult(ManifestResult);
         }
     }
 
@@ -269,9 +458,9 @@ public sealed class OpsCatalogAccessServiceTests
             = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
 
         public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            string storageRoot,
-            string projectFingerprint,
             string projectRoot,
+            IndexFreshnessTarget target,
+            string? persistedSourceInputsHash,
             ReadIndexMode mode,
             CancellationToken cancellationToken = default)
         {
@@ -282,13 +471,52 @@ public sealed class OpsCatalogAccessServiceTests
 
     private sealed class StubIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
     {
+        public int CoreCallCount { get; private set; }
+
+        public int FullCallCount { get; private set; }
+
+        public IndexCoreInputHashSnapshot? CoreSnapshot { get; set; }
+
         public IndexInputHashSnapshot? Snapshot { get; set; }
+
+        public bool ThrowOnTryCompute { get; set; }
+
+        public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+            string projectRootPath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CoreCallCount++;
+            if (CoreSnapshot != null)
+            {
+                return ValueTask.FromResult<IndexCoreInputHashSnapshot?>(CoreSnapshot);
+            }
+
+            if (Snapshot != null)
+            {
+                return ValueTask.FromResult<IndexCoreInputHashSnapshot?>(
+                    new IndexCoreInputHashSnapshot(
+                        ScriptAssembliesHash: Snapshot.ScriptAssembliesHash,
+                        PackagesManifestHash: Snapshot.PackagesManifestHash,
+                        PackagesLockHash: Snapshot.PackagesLockHash,
+                        AssemblyDefinitionHash: Snapshot.AssemblyDefinitionHash,
+                        CombinedHash: Snapshot.CombinedHash));
+            }
+
+            return ValueTask.FromResult<IndexCoreInputHashSnapshot?>(null);
+        }
 
         public ValueTask<IndexInputHashSnapshot?> TryCompute (
             string projectRootPath,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            FullCallCount++;
+            if (ThrowOnTryCompute)
+            {
+                throw new InvalidOperationException("full snapshot should not be computed");
+            }
+
             return ValueTask.FromResult(Snapshot);
         }
     }
@@ -327,6 +555,10 @@ public sealed class OpsCatalogAccessServiceTests
 
         public string? ProjectFingerprint { get; private set; }
 
+        public string? LastSourceInputsHash { get; private set; }
+
+        public IndexInputHashSnapshot? LastManifestInputSnapshot { get; private set; }
+
         public Exception? WriteException { get; set; }
 
         public ValueTask Write (
@@ -334,13 +566,16 @@ public sealed class OpsCatalogAccessServiceTests
             string projectFingerprint,
             DateTimeOffset generatedAtUtc,
             IReadOnlyList<IndexOpEntryJsonContract> operations,
-            IndexInputHashSnapshot inputSnapshot,
+            string sourceInputsHash,
+            IndexInputHashSnapshot? manifestInputSnapshot,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             StorageRoot = storageRoot;
             ProjectFingerprint = projectFingerprint;
+            LastSourceInputsHash = sourceInputsHash;
+            LastManifestInputSnapshot = manifestInputSnapshot;
 
             if (WriteException != null)
             {

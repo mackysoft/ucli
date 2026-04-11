@@ -96,6 +96,9 @@ public sealed class IndexCatalogJsonContractSerializerTests
             PackagesManifestHash: "manifest-hash",
             PackagesLockHash: "lock-hash",
             AssemblyDefinitionHash: "asm-hash",
+            AssetsContentHash: "assets-hash",
+            AssetSearchHash: "asset-search-hash",
+            GuidPathHash: "guid-path-hash",
             CombinedHash: "combined-hash");
 
         var json = IndexInputsManifestJsonContractSerializer.Serialize(contract);
@@ -107,7 +110,72 @@ public sealed class IndexCatalogJsonContractSerializerTests
         Assert.Equal(contract.PackagesManifestHash, deserialized.PackagesManifestHash);
         Assert.Equal(contract.PackagesLockHash, deserialized.PackagesLockHash);
         Assert.Equal(contract.AssemblyDefinitionHash, deserialized.AssemblyDefinitionHash);
+        Assert.Equal(contract.AssetsContentHash, deserialized.AssetsContentHash);
+        Assert.Equal(contract.AssetSearchHash, deserialized.AssetSearchHash);
+        Assert.Equal(contract.GuidPathHash, deserialized.GuidPathHash);
         Assert.Equal(contract.CombinedHash, deserialized.CombinedHash);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexAssetSearchLookupJsonContractSerializer_RoundTripsContract ()
+    {
+        var contract = new IndexAssetSearchLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "asset-search-hash",
+            Entries:
+            [
+                new IndexAssetSearchEntryJsonContract(
+                    AssetPath: "Assets/Data/Spawner.asset",
+                    AssetGuid: "11111111111111111111111111111111",
+                    Name: "Spawner",
+                    TypeId: "Game.Spawner, Assembly-CSharp",
+                    SearchTypeIds:
+                    [
+                        "Game.Spawner, Assembly-CSharp",
+                        "UnityEngine.ScriptableObject, UnityEngine.CoreModule",
+                        "UnityEngine.Object, UnityEngine.CoreModule",
+                    ]),
+            ]);
+
+        var json = IndexAssetSearchLookupJsonContractSerializer.Serialize(contract);
+        var deserialized = IndexAssetSearchLookupJsonContractSerializer.Deserialize(json);
+
+        Assert.NotNull(deserialized);
+        Assert.Equal(contract.SchemaVersion, deserialized.SchemaVersion);
+        Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
+        Assert.NotNull(deserialized.Entries);
+        Assert.Single(deserialized.Entries);
+        Assert.Equal("Assets/Data/Spawner.asset", deserialized.Entries[0].AssetPath);
+        Assert.NotNull(deserialized.Entries[0].SearchTypeIds);
+        Assert.Equal(3, deserialized.Entries[0].SearchTypeIds!.Count);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexGuidPathLookupJsonContractSerializer_RoundTripsContract ()
+    {
+        var contract = new IndexGuidPathLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "guid-path-hash",
+            Entries:
+            [
+                new IndexGuidPathEntryJsonContract(
+                    AssetGuid: "11111111111111111111111111111111",
+                    AssetPath: "Assets/Data/Spawner.asset"),
+            ]);
+
+        var json = IndexGuidPathLookupJsonContractSerializer.Serialize(contract);
+        var deserialized = IndexGuidPathLookupJsonContractSerializer.Deserialize(json);
+
+        Assert.NotNull(deserialized);
+        Assert.Equal(contract.SchemaVersion, deserialized.SchemaVersion);
+        Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
+        Assert.NotNull(deserialized.Entries);
+        Assert.Single(deserialized.Entries);
+        Assert.Equal("Assets/Data/Spawner.asset", deserialized.Entries[0].AssetPath);
     }
 
     [Fact]
@@ -164,12 +232,27 @@ public sealed class IndexCatalogJsonContractSerializerTests
             PackagesManifestHash: "b",
             PackagesLockHash: "c",
             AssemblyDefinitionHash: "d",
-            CombinedHash: "e"));
+            AssetsContentHash: "e",
+            AssetSearchHash: "f",
+            GuidPathHash: "g",
+            CombinedHash: "h"));
+        var assetSearchLookupJson = IndexAssetSearchLookupJsonContractSerializer.Serialize(new IndexAssetSearchLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "hash",
+            Entries: Array.Empty<IndexAssetSearchEntryJsonContract>()));
+        var guidPathLookupJson = IndexGuidPathLookupJsonContractSerializer.Serialize(new IndexGuidPathLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "hash",
+            Entries: Array.Empty<IndexGuidPathEntryJsonContract>()));
 
         using var typesDocument = JsonDocument.Parse(typesCatalogJson);
         using var schemasDocument = JsonDocument.Parse(schemasCatalogJson);
         using var opsDocument = JsonDocument.Parse(opsCatalogJson);
         using var inputsDocument = JsonDocument.Parse(inputsManifestJson);
+        using var assetSearchDocument = JsonDocument.Parse(assetSearchLookupJson);
+        using var guidPathDocument = JsonDocument.Parse(guidPathLookupJson);
 
         Assert.True(typesDocument.RootElement.TryGetProperty("schemaVersion", out _));
         Assert.True(typesDocument.RootElement.TryGetProperty("generatedAtUtc", out _));
@@ -190,6 +273,15 @@ public sealed class IndexCatalogJsonContractSerializerTests
         Assert.True(inputsDocument.RootElement.TryGetProperty("packagesManifestHash", out _));
         Assert.True(inputsDocument.RootElement.TryGetProperty("packagesLockHash", out _));
         Assert.True(inputsDocument.RootElement.TryGetProperty("assemblyDefinitionHash", out _));
+        Assert.True(inputsDocument.RootElement.TryGetProperty("assetsContentHash", out _));
+        Assert.True(inputsDocument.RootElement.TryGetProperty("assetSearchHash", out _));
+        Assert.True(inputsDocument.RootElement.TryGetProperty("guidPathHash", out _));
         Assert.True(inputsDocument.RootElement.TryGetProperty("combinedHash", out _));
+
+        Assert.True(assetSearchDocument.RootElement.TryGetProperty("sourceInputsHash", out _));
+        Assert.True(assetSearchDocument.RootElement.TryGetProperty("entries", out _));
+
+        Assert.True(guidPathDocument.RootElement.TryGetProperty("sourceInputsHash", out _));
+        Assert.True(guidPathDocument.RootElement.TryGetProperty("entries", out _));
     }
 }

@@ -246,6 +246,61 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator IndexAssetsReadHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new IndexAssetsReadUnityIpcMethodHandler(new StubAssetLookupSnapshotBuilder(
+                () => new IpcIndexAssetsReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+                    AssetSearchEntries: new[]
+                    {
+                        new MackySoft.Ucli.Contracts.Index.IndexAssetSearchEntryJsonContract(
+                            AssetPath: "Assets/Data/Spawner.asset",
+                            AssetGuid: "11111111111111111111111111111111",
+                            Name: "Spawner",
+                            TypeId: "Game.Spawner, Assembly-CSharp",
+                            SearchTypeIds: new[]
+                            {
+                                "Game.Spawner, Assembly-CSharp",
+                                "UnityEngine.Object, UnityEngine.CoreModule",
+                            }),
+                    },
+                    GuidPathEntries: new[]
+                    {
+                        new MackySoft.Ucli.Contracts.Index.IndexGuidPathEntryJsonContract(
+                            AssetGuid: "11111111111111111111111111111111",
+                            AssetPath: "Assets/Data/Spawner.asset"),
+                    })));
+            var request = CreateIndexAssetsReadRequest("req-index-assets-valid", new IpcIndexAssetsReadRequest());
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcIndexAssetsReadResponse payload, out _), Is.True);
+            Assert.That(payload.AssetSearchEntries, Has.Count.EqualTo(1));
+            Assert.That(payload.GuidPathEntries, Has.Count.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator IndexAssetsReadHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new IndexAssetsReadUnityIpcMethodHandler(new StubAssetLookupSnapshotBuilder(
+                () => new IpcIndexAssetsReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.UtcNow,
+                    AssetSearchEntries: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexAssetSearchEntryJsonContract>(),
+                    GuidPathEntries: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexGuidPathEntryJsonContract>())));
+            var request = CreateIndexAssetsReadRequest("req-index-assets-invalid", 123);
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator ShutdownHandler_WhenPayloadIsValid_ReturnsAcceptedResponse () => UniTask.ToCoroutine(async () =>
         {
             var handler = new ShutdownUnityIpcMethodHandler();
@@ -633,6 +688,13 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateRequest(requestId, IpcMethodNames.TestRun, payload);
         }
 
+        private static IpcRequest CreateIndexAssetsReadRequest (
+            string requestId,
+            object payload)
+        {
+            return CreateRequest(requestId, IpcMethodNames.IndexAssetsRead, payload);
+        }
+
         private static IpcRequest CreateShutdownRequest (
             string requestId,
             object payload)
@@ -697,6 +759,22 @@ namespace MackySoft.Ucli.Unity.Tests
             public string GetVersion ()
             {
                 return version;
+            }
+        }
+
+        private sealed class StubAssetLookupSnapshotBuilder : MackySoft.Ucli.Unity.Index.IAssetLookupSnapshotBuilder
+        {
+            private readonly Func<IpcIndexAssetsReadResponse> build;
+
+            public StubAssetLookupSnapshotBuilder (Func<IpcIndexAssetsReadResponse> build)
+            {
+                this.build = build;
+            }
+
+            public ValueTask<IpcIndexAssetsReadResponse> Build (CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<IpcIndexAssetsReadResponse>(build());
             }
         }
 
