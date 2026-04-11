@@ -120,6 +120,44 @@ public sealed class ValidateCliOutputContractTests
                     .HasString("code", "OPERATION_ARGS_INVALID")));
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Validate_WithExplicitDisabledModeOutsideUnityProject_ReturnsSyntaxOnlySuccess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("validate-cli-output-contract", "disabled-syntax-only");
+        var requestJson = """
+            {
+              "protocolVersion": 1,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "steps": []
+            }
+            """;
+
+        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAndStandardInput(
+            scope.FullPath,
+            requestJson,
+            UcliCommandNames.Validate,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeDisabled);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.Validate,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        CommandResultAssert.HasNoErrors(outputJson.RootElement);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasBoolean("used", false)
+                    .HasBoolean("hit", false)
+                    .HasString("source", "index")
+                    .HasString("freshness", "probable")
+                    .HasString("fallbackReason", "readIndex disabled by mode.")));
+    }
+
     private static IndexOpsCatalogJsonContract CreateOpsCatalog (params IndexOpEntryJsonContract[] entries)
     {
         return new IndexOpsCatalogJsonContract(

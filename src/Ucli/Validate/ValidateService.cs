@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.ReadIndex;
@@ -34,6 +36,60 @@ internal sealed class ValidateService : IValidateService
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
+
+        if (input.ReadIndexMode is not null)
+        {
+            var explicitReadIndexModeResult = ReadIndexModeResolver.Resolve(input.ReadIndexMode, UcliConfig.CreateDefault());
+            if (!explicitReadIndexModeResult.IsSuccess)
+            {
+                var error = explicitReadIndexModeResult.Error!;
+                return ValidateServiceResult.Failure(
+                    error.Message,
+                    ExecutionErrorKindCodeMapper.ToCode(error.Kind),
+                    output: null);
+            }
+
+            if (explicitReadIndexModeResult.Mode == ReadIndexMode.Disabled)
+            {
+                var parsedRequestResult = await requestPreparationService.ReadAndParse(
+                        input.RequestPath,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!parsedRequestResult.IsSuccess)
+                {
+                    var error = parsedRequestResult.Error!;
+                    return ValidateServiceResult.Failure(
+                        error.Message,
+                        ExecutionErrorKindCodeMapper.ToCode(error.Kind),
+                        output: null);
+                }
+
+                var disabledOutput = new ValidateExecutionOutput(CreateReadIndexDisabledOutput());
+                var disabledValidationResult = await requestStaticValidator.Validate(
+                        parsedRequestResult.ParsedRequest!.Request,
+                        RequestStaticValidationCatalog.Unavailable,
+                        UcliConfig.CreateDefault(),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (disabledValidationResult.Error != null)
+                {
+                    return ValidateServiceResult.Failure(
+                        disabledValidationResult.Error.Message,
+                        ExecutionErrorKindCodeMapper.ToCode(disabledValidationResult.Error.Kind),
+                        disabledOutput);
+                }
+
+                if (!disabledValidationResult.IsValid)
+                {
+                    return ValidateServiceResult.ValidationFailure(
+                        disabledOutput,
+                        "Static validation failed.",
+                        disabledValidationResult.Errors);
+                }
+
+                return ValidateServiceResult.Success(disabledOutput, "Static validation passed.");
+            }
+        }
 
         var requestPreparationResult = await requestPreparationService.Prepare(
                 input.RequestPath,
@@ -97,5 +153,16 @@ internal sealed class ValidateService : IValidateService
         }
 
         return ValidateServiceResult.Success(output, "Static validation passed.");
+    }
+
+    private static ReadIndexInfo CreateReadIndexDisabledOutput ()
+    {
+        return new ReadIndexInfo(
+            Used: false,
+            Hit: false,
+            Source: ReadIndexInfoTextCodec.SourceIndex,
+            Freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            GeneratedAtUtc: null,
+            FallbackReason: "readIndex disabled by mode.");
     }
 }

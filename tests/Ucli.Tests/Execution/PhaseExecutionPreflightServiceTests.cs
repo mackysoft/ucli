@@ -178,6 +178,14 @@ public sealed class PhaseExecutionPreflightServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
+        public ValueTask<ParsedRequestResult> ReadAndParse (
+            string? requestPath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(CreateParsedRequestResult(result));
+        }
+
         public ValueTask<RequestPreparationResult> Prepare (
             string? requestPath,
             string? projectPath,
@@ -199,6 +207,14 @@ public sealed class PhaseExecutionPreflightServiceTests
 
         public CancellationToken ReceivedToken { get; private set; }
 
+        public ValueTask<ParsedRequestResult> ReadAndParse (
+            string? requestPath,
+            CancellationToken cancellationToken = default)
+        {
+            ReceivedToken = cancellationToken;
+            return ValueTask.FromResult(CreateParsedRequestResult(result));
+        }
+
         public ValueTask<RequestPreparationResult> Prepare (
             string? requestPath,
             string? projectPath,
@@ -207,6 +223,22 @@ public sealed class PhaseExecutionPreflightServiceTests
             ReceivedToken = cancellationToken;
             return ValueTask.FromResult(result);
         }
+    }
+
+    private static ParsedRequestResult CreateParsedRequestResult (RequestPreparationResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (!result.IsSuccess)
+        {
+            return ParsedRequestResult.Failure(result.Error!);
+        }
+
+        var preparedRequest = result.PreparedRequest!;
+        return ParsedRequestResult.Success(new ParsedRequestContext(
+            preparedRequest.RequestJson,
+            preparedRequest.InputSource,
+            preparedRequest.Request));
     }
 
     private sealed class StubRequestStaticValidationService : IRequestStaticValidationService

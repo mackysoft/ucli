@@ -27,9 +27,8 @@ internal sealed class RequestPreparationService : IRequestPreparationService
     }
 
     /// <inheritdoc />
-    public async ValueTask<RequestPreparationResult> Prepare (
+    public async ValueTask<ParsedRequestResult> ReadAndParse (
         string? requestPath,
-        string? projectPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -37,14 +36,34 @@ internal sealed class RequestPreparationService : IRequestPreparationService
         var inputReadResult = await requestInputReader.ReadAsync(requestPath, cancellationToken).ConfigureAwait(false);
         if (!inputReadResult.IsSuccess)
         {
-            return RequestPreparationResult.Failure(inputReadResult.Error!);
+            return ParsedRequestResult.Failure(inputReadResult.Error!);
         }
 
         var requestJson = inputReadResult.Json!;
         var parseResult = requestJsonParser.Parse(requestJson);
         if (!parseResult.IsSuccess)
         {
-            return RequestPreparationResult.Failure(parseResult.Error!);
+            return ParsedRequestResult.Failure(parseResult.Error!);
+        }
+
+        return ParsedRequestResult.Success(new ParsedRequestContext(
+            RequestJson: requestJson,
+            InputSource: inputReadResult.Source!.Value,
+            Request: parseResult.Request!));
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<RequestPreparationResult> Prepare (
+        string? requestPath,
+        string? projectPath,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var parseRequestResult = await ReadAndParse(requestPath, cancellationToken).ConfigureAwait(false);
+        if (!parseRequestResult.IsSuccess)
+        {
+            return RequestPreparationResult.Failure(parseRequestResult.Error!);
         }
 
         var projectContextResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
@@ -53,10 +72,11 @@ internal sealed class RequestPreparationService : IRequestPreparationService
             return RequestPreparationResult.Failure(projectContextResult.Error!);
         }
 
+        var parsedRequest = parseRequestResult.ParsedRequest!;
         return RequestPreparationResult.Success(new PreparedRequestContext(
-            RequestJson: requestJson,
-            InputSource: inputReadResult.Source!.Value,
-            Request: parseResult.Request!,
+            RequestJson: parsedRequest.RequestJson,
+            InputSource: parsedRequest.InputSource,
+            Request: parsedRequest.Request,
             ProjectContext: projectContextResult.Context!));
     }
 }

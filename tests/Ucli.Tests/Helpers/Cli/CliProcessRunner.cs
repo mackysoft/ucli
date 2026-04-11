@@ -26,6 +26,14 @@ internal static class CliProcessRunner
         return RunCommandCore(args, workingDirectory, null);
     }
 
+    public static Task<CommandExecutionResult> RunCommandWithWorkingDirectoryAndStandardInput (
+        string workingDirectory,
+        string standardInput,
+        params string[] args)
+    {
+        return RunCommandCore(args, workingDirectory, standardInput);
+    }
+
     private static async Task<CommandExecutionResult> RunCommandCore (
         string[] args,
         string? workingDirectory,

@@ -14,6 +14,33 @@ public sealed class RequestPreparationServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ReadAndParse_WhenDependenciesSucceed_ReturnsParsedRequestWithoutResolvingProject ()
+    {
+        const string requestJson = """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""";
+        var parsedRequest = CreateRequest();
+        var inputReader = new StubRequestInputReader(
+            RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput));
+        var parser = new SpyValidateRequestJsonParser(
+            ValidateRequestJsonParseResult.Success(parsedRequest));
+        var projectContextResolver = new SpyProjectContextResolver(
+            ProjectContextResolutionResult.Success(CreateProjectContext()));
+        var service = new RequestPreparationService(inputReader, parser, projectContextResolver);
+
+        var result = await service.ReadAndParse(
+            requestPath: "request.json",
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.ParsedRequest);
+        Assert.Equal(requestJson, result.ParsedRequest!.RequestJson);
+        Assert.Equal(RequestInputSource.StandardInput, result.ParsedRequest.InputSource);
+        Assert.Same(parsedRequest, result.ParsedRequest.Request);
+        Assert.Equal(requestJson, parser.ReceivedRequestJson);
+        Assert.Equal(0, projectContextResolver.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Prepare_WhenDependenciesSucceed_ReturnsPreparedRequest ()
     {
         const string requestJson = """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""";
@@ -210,11 +237,14 @@ public sealed class RequestPreparationServiceTests
 
         public CancellationToken ReceivedToken { get; private set; }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<ProjectContextResolutionResult> Resolve (
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
             ReceivedToken = cancellationToken;
+            CallCount++;
             return ValueTask.FromResult(result);
         }
     }

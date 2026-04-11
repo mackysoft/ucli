@@ -37,7 +37,8 @@ public sealed class ValidateServiceTests
     public async Task Execute_WhenReadIndexModeIsInvalid_ReturnsFailureWithoutOutput ()
     {
         var service = new ValidateService(
-            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestPreparationService(
+                RequestPreparationResult.Success(CreatePreparedRequestContext())),
             new StubRequestStaticValidator(ValidationResult.Success()),
             new StubValidateMetadataResolver(CreateMetadataSuccessResult()));
 
@@ -104,10 +105,11 @@ public sealed class ValidateServiceTests
     public async Task Execute_WhenValidationSucceeds_ReturnsSuccess ()
     {
         var validator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var metadataResolver = new StubValidateMetadataResolver(CreateMetadataSuccessResult());
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
             validator,
-            new StubValidateMetadataResolver(CreateMetadataSuccessResult()));
+            metadataResolver);
 
         var result = await service.Execute(new ValidateCommandInput(null, "/tmp/project", null), CancellationToken.None);
 
@@ -117,6 +119,48 @@ public sealed class ValidateServiceTests
         Assert.True(result.Output!.ReadIndex.Used);
         Assert.True(validator.LastCatalog!.IsAvailable);
         Assert.Single(validator.LastCatalog.Operations);
+        Assert.Equal(1, metadataResolver.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenExplicitReadIndexModeIsDisabled_SkipsProjectPreparationAndMetadataResolution ()
+    {
+        var parsedRequest = CreateParsedRequestContext();
+        var requestPreparationService = new StubRequestPreparationService(
+            RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project is invalid.")),
+            ParsedRequestResult.Success(parsedRequest));
+        var validator = new SpyRequestStaticValidator(ValidationResult.Success());
+        var metadataResolver = new StubValidateMetadataResolver(CreateMetadataSuccessResult());
+        var service = new ValidateService(
+            requestPreparationService,
+            validator,
+            metadataResolver);
+
+        var result = await service.Execute(
+            new ValidateCommandInput(null, null, ReadIndexModeValues.Disabled),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Output);
+        Assert.False(result.Output!.ReadIndex.Used);
+        Assert.False(result.Output.ReadIndex.Hit);
+        Assert.Equal("readIndex disabled by mode.", result.Output.ReadIndex.FallbackReason);
+        Assert.False(validator.LastCatalog!.IsAvailable);
+        Assert.Equal(0, metadataResolver.CallCount);
+        Assert.Equal(1, requestPreparationService.ReadAndParseCallCount);
+        Assert.Equal(0, requestPreparationService.PrepareCallCount);
+    }
+
+    private static ParsedRequestContext CreateParsedRequestContext ()
+    {
+        return new ParsedRequestContext(
+            RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""",
+            InputSource: RequestInputSource.StandardInput,
+            Request: new ValidateRequest(
+                ProtocolVersion: 1,
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                Steps: Array.Empty<ValidateRequestStep?>()));
     }
 
     private static PreparedRequestContext CreatePreparedRequestContext ()
@@ -171,11 +215,34 @@ public sealed class ValidateServiceTests
 
     private sealed class StubRequestPreparationService : IRequestPreparationService
     {
-        private readonly RequestPreparationResult result;
+        private readonly RequestPreparationResult prepareResult;
 
-        public StubRequestPreparationService (RequestPreparationResult result)
+        private readonly ParsedRequestResult readAndParseResult;
+
+        public StubRequestPreparationService (RequestPreparationResult prepareResult)
+            : this(prepareResult, CreateParsedRequestResult(prepareResult))
         {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
+        }
+
+        public StubRequestPreparationService (
+            RequestPreparationResult prepareResult,
+            ParsedRequestResult readAndParseResult)
+        {
+            this.prepareResult = prepareResult ?? throw new ArgumentNullException(nameof(prepareResult));
+            this.readAndParseResult = readAndParseResult ?? throw new ArgumentNullException(nameof(readAndParseResult));
+        }
+
+        public int ReadAndParseCallCount { get; private set; }
+
+        public int PrepareCallCount { get; private set; }
+
+        public ValueTask<ParsedRequestResult> ReadAndParse (
+            string? requestPath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadAndParseCallCount++;
+            return ValueTask.FromResult(readAndParseResult);
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
@@ -184,7 +251,24 @@ public sealed class ValidateServiceTests
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
+            PrepareCallCount++;
+            return ValueTask.FromResult(prepareResult);
+        }
+
+        private static ParsedRequestResult CreateParsedRequestResult (RequestPreparationResult prepareResult)
+        {
+            ArgumentNullException.ThrowIfNull(prepareResult);
+
+            if (!prepareResult.IsSuccess)
+            {
+                return ParsedRequestResult.Failure(prepareResult.Error!);
+            }
+
+            var preparedRequest = prepareResult.PreparedRequest!;
+            return ParsedRequestResult.Success(new ParsedRequestContext(
+                preparedRequest.RequestJson,
+                preparedRequest.InputSource,
+                preparedRequest.Request));
         }
     }
 
@@ -197,12 +281,15 @@ public sealed class ValidateServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
+        public int CallCount { get; private set; }
+
         public ValueTask<ValidateMetadataResolutionResult> Resolve (
             ResolvedUnityProjectContext unityProject,
             ReadIndexMode readIndexMode,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
             return ValueTask.FromResult(result);
         }
     }
