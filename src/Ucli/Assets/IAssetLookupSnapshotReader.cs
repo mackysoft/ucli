@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Assets;
@@ -12,7 +13,7 @@ internal interface IAssetLookupSnapshotReader
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

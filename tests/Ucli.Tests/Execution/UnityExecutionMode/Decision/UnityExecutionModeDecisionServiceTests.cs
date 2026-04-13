@@ -19,7 +19,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.Decide("daemon", CreateContext(), DefaultTimeout, CancellationToken.None);
+        var result = await service.Decide(UnityExecutionMode.Daemon, CreateContext(), DefaultTimeout, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -39,7 +39,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.NotRunning());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.Decide("auto", CreateContext(), DefaultTimeout, CancellationToken.None);
+        var result = await service.Decide(UnityExecutionMode.Auto, CreateContext(), DefaultTimeout, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var decision = Assert.IsType<UnityExecutionModeDecision>(result.Decision);
@@ -57,7 +57,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.Decide("oneshot", CreateContext(), DefaultTimeout, CancellationToken.None);
+        var result = await service.Decide(UnityExecutionMode.Oneshot, CreateContext(), DefaultTimeout, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasContractError);
@@ -75,21 +75,15 @@ public sealed class UnityExecutionModeDecisionServiceTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("\t")]
-    public async Task Decide_WithInvalidMode_ReturnsInvalidArgumentError (string mode)
+    public void Resolve_WithInvalidMode_ReturnsInvalidArgumentError (string mode)
     {
-        var probe = new StubDaemonReachabilityProbe(DaemonReachabilityProbeResult.Running());
-        var service = new UnityExecutionModeDecisionService(probe);
-
-        var result = await service.Decide(mode, CreateContext(), DefaultTimeout, CancellationToken.None);
+        var result = UnityExecutionModeResolver.Resolve(mode);
 
         Assert.False(result.IsSuccess);
-        Assert.False(result.HasContractError);
-        Assert.Null(result.Decision);
-        Assert.Null(result.ContractError);
+        Assert.Null(result.Mode);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Equal("Mode must be auto, daemon, or oneshot.", error.Message);
-        Assert.False(probe.WasCalled);
     }
 
     [Fact]
@@ -100,7 +94,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
             ExecutionError.InternalError("probe failed")));
         var service = new UnityExecutionModeDecisionService(probe);
 
-        var result = await service.Decide("auto", CreateContext(), DefaultTimeout, CancellationToken.None);
+        var result = await service.Decide(UnityExecutionMode.Auto, CreateContext(), DefaultTimeout, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasContractError);
@@ -124,7 +118,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                service.Decide("auto", CreateContext(), DefaultTimeout, cancellationTokenSource.Token).AsTask(),
+                service.Decide(UnityExecutionMode.Auto, CreateContext(), DefaultTimeout, cancellationTokenSource.Token).AsTask(),
                 "Canceled unity execution mode decision",
                 AsyncWaitTimeout);
         });
@@ -143,7 +137,7 @@ public sealed class UnityExecutionModeDecisionServiceTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await TestAwaiter.WaitAsync(
-                service.Decide("auto", CreateContext(), TimeSpan.FromMilliseconds(timeoutMilliseconds), CancellationToken.None).AsTask(),
+                service.Decide(UnityExecutionMode.Auto, CreateContext(), TimeSpan.FromMilliseconds(timeoutMilliseconds), CancellationToken.None).AsTask(),
                 "Invalid timeout unity execution mode decision",
                 AsyncWaitTimeout);
         });

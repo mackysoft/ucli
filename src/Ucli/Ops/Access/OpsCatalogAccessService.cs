@@ -43,18 +43,15 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     /// <inheritdoc />
     public async ValueTask<OpsCatalogReadResult> Read (
         OpsPreflightContext context,
-        OpsCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(input);
 
         if (context.ReadIndexMode == ReadIndexMode.Disabled)
         {
             return await ReadCatalogFromSource(
                     context,
-                    input,
                     "readIndex disabled by mode.",
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -75,7 +72,6 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
             return await ReadCatalogFromSource(
                     context,
-                    input,
                     persistedSnapshotResult.Error.Message,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -100,7 +96,6 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         return await ReadCatalogFromSource(
                 context,
-                input,
                 $"Existing ops index freshness is '{DescribeFreshness(persistedSnapshot.Freshness)}'.",
                 cancellationToken)
             .ConfigureAwait(false);
@@ -108,15 +103,14 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
     private async ValueTask<OpsCatalogReadResult> ReadCatalogFromSource (
         OpsPreflightContext context,
-        OpsCommandInput input,
         string fallbackReason,
         CancellationToken cancellationToken)
     {
         var fetchResult = await opsCatalogReader.Read(
                 context.Context.UnityProject,
                 context.Context.Config,
-                input.Mode,
-                input.Timeout,
+                context.Mode,
+                context.Timeout,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!fetchResult.IsSuccess)

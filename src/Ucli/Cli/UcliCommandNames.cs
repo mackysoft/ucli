@@ -24,6 +24,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for plan. </summary>
     public const string Plan = "plan";
 
+    /// <summary> Gets the command name for call. </summary>
+    public const string Call = "call";
+
     /// <summary> Gets the top-level command name for daemon. </summary>
     public const string Daemon = "daemon";
 
@@ -103,6 +106,7 @@ internal static class UcliCommandNames
         Refresh,
         Validate,
         Plan,
+        Call,
         Daemon,
         Logs,
         Ops,

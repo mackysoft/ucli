@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Assets;
 using MackySoft.Ucli.Assets.Access;
+using MackySoft.Ucli.Call;
 using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
@@ -88,6 +89,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddSingleton<IGitCommandClient, GitCommandClient>();
         services.AddSingleton<IGitWorktreeListPorcelainParser, GitWorktreeListPorcelainParser>();
         services.AddSingleton<IGitWorktreeQueryService, GitWorktreeQueryService>();
+        services.AddSingleton<IOperationCatalogDiscoveryService, OperationCatalogDiscoveryService>();
         services.AddSingleton<IOperationCatalogProvider, OperationCatalogProvider>();
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
         services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
@@ -134,6 +136,20 @@ internal static class UcliServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IPlanService, PlanService>();
+        return services;
+    }
+
+    /// <summary> Registers <c>call</c> command services. </summary>
+    /// <param name="services"> The target service collection. </param>
+    /// <returns> The updated service collection. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="services" /> is <see langword="null" />. </exception>
+    public static IServiceCollection AddUcliCallServices (this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton<ICallDangerousOperationGuard, CallDangerousOperationGuard>();
+        services.AddSingleton<ICallUnityExecutionService, CallUnityExecutionService>();
+        services.AddSingleton<ICallService, CallService>();
         return services;
     }
 

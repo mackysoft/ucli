@@ -5,6 +5,7 @@ using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
 
@@ -43,7 +44,7 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, null, null);
+        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
@@ -83,7 +84,7 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, null, null);
+        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
@@ -130,7 +131,7 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, null, null);
+        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
@@ -171,8 +172,8 @@ public sealed class AssetLookupSnapshotReaderTests
 
         public ValueTask<UnityIpcRequestExecutionResult> Execute (
             UcliCommand command,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
             string method,

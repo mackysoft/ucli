@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Ipc;
@@ -10,8 +11,8 @@ internal interface IUnityIpcRequestExecutor
 {
     /// <summary> Executes one Unity IPC request through the configured execution mode policy. </summary>
     /// <param name="command"> The command that owns the request execution. </param>
-    /// <param name="mode"> The optional raw <c>--mode</c> option value. </param>
-    /// <param name="timeout"> The optional raw <c>--timeout</c> option value in milliseconds. </param>
+    /// <param name="mode"> The normalized requested Unity execution mode. </param>
+    /// <param name="timeout"> The resolved timeout budget for this IPC request. </param>
     /// <param name="config"> The loaded uCLI configuration. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="method"> The IPC method name. </param>
@@ -20,8 +21,8 @@ internal interface IUnityIpcRequestExecutor
     /// <returns> The IPC execution result. </returns>
     ValueTask<UnityIpcRequestExecutionResult> Execute (
         UcliCommand command,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
         string method,

@@ -88,10 +88,16 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 ]);
         }
 
+        var executionModeResult = UnityExecutionModeResolver.Resolve(mode);
+        if (!executionModeResult.IsSuccess)
+        {
+            return CreateFailureFromExecutionError(requestId, executionModeResult.Error!);
+        }
+
         string? planToken = null;
         if (config.PlanTokenMode == PlanTokenMode.Required)
         {
-            if (!TryGetRemainingTimeoutOption(deadline, out var planTimeoutOption))
+            if (!deadline.TryGetRemainingTimeout(out var planTimeout))
             {
                 return CreateFailureFromExecutionError(
                     requestId,
@@ -101,8 +107,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             var planTokenResult = await IssuePlanToken(
                     definition,
                     requestId,
-                    mode,
-                    planTimeoutOption,
+                    executionModeResult.Mode!.Value,
+                    planTimeout,
                     failFast,
                     config,
                     projectContext.UnityProject,
@@ -116,7 +122,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             planToken = planTokenResult.PlanToken;
         }
 
-        if (!TryGetRemainingTimeoutOption(deadline, out var executeTimeoutOption))
+        if (!deadline.TryGetRemainingTimeout(out var executeTimeout))
         {
             return CreateFailureFromExecutionError(
                 requestId,
@@ -125,8 +131,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         var executionResult = await unityIpcRequestExecutor.Execute(
                 definition.Command,
-                mode,
-                executeTimeoutOption,
+                executionModeResult.Mode!.Value,
+                executeTimeout,
                 config,
                 projectContext.UnityProject,
                 IpcMethodNames.Execute,
@@ -151,8 +157,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>
     /// <param name="definition"> The fixed operation definition. </param>
     /// <param name="requestId"> The generated request identifier. </param>
-    /// <param name="mode"> The optional Unity execution mode. </param>
-    /// <param name="timeout"> The optional timeout in milliseconds. </param>
+    /// <param name="mode"> The normalized Unity execution mode. </param>
+    /// <param name="timeout"> The remaining timeout budget for this internal plan pass. </param>
     /// <param name="failFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="config"> The resolved CLI configuration. </param>
     /// <param name="unityProject"> The resolved Unity project. </param>
@@ -161,8 +167,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     private async ValueTask<(string? PlanToken, OperationExecuteResult? FailureResult)> IssuePlanToken (
         OperationExecuteDefinition definition,
         string requestId,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         bool failFast,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
@@ -227,20 +233,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         }
 
         return (convertedResponse.PlanToken, null);
-    }
-
-    private static bool TryGetRemainingTimeoutOption (
-        ExecutionDeadline deadline,
-        out string? timeout)
-    {
-        if (!deadline.TryGetRemainingWaitMilliseconds(out var remainingMilliseconds))
-        {
-            timeout = null;
-            return false;
-        }
-
-        timeout = remainingMilliseconds.ToString(CultureInfo.InvariantCulture);
-        return true;
     }
 
     /// <summary> Creates the execute payload for one fixed operation execution. </summary>

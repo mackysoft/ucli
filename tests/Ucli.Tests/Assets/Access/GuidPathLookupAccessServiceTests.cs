@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.UnityProject;
 
@@ -38,8 +39,8 @@ public sealed class GuidPathLookupAccessServiceTests
         var result = await service.TryResolveAssetGuid(
             CreateProject(),
             UcliConfig.CreateDefault(),
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.AllowStale,
             assetGuid: "11111111111111111111111111111111");
 
@@ -99,8 +100,8 @@ public sealed class GuidPathLookupAccessServiceTests
         var result = await service.TryResolveAssetPath(
             CreateProject(),
             UcliConfig.CreateDefault(),
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.RequireFresh,
             assetPath: "Assets/Data/Fresh.asset");
 
@@ -124,8 +125,8 @@ public sealed class GuidPathLookupAccessServiceTests
         var result = await service.TryResolveAssetPath(
             CreateProject(),
             UcliConfig.CreateDefault(),
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.AllowStale,
             assetPath: "Packages/com.example/Test.asset");
 
@@ -193,8 +194,8 @@ public sealed class GuidPathLookupAccessServiceTests
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
             ReadIndexMode readIndexMode,
             string fallbackReason,
             CancellationToken cancellationToken = default)

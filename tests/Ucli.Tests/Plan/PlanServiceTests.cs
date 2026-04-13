@@ -69,8 +69,8 @@ public sealed class PlanServiceTests
         Assert.Equal(0, metadataResolver.CallCount);
         Assert.Equal(1, unityIpcRequestExecutor.CallCount);
         Assert.Equal(UcliCommandIds.Plan, unityIpcRequestExecutor.CapturedCommand);
-        Assert.Equal("oneshot", unityIpcRequestExecutor.CapturedMode);
-        Assert.Equal("1234", unityIpcRequestExecutor.CapturedTimeout);
+        Assert.Equal(UnityExecutionMode.Oneshot, unityIpcRequestExecutor.CapturedMode);
+        Assert.Equal(TimeSpan.FromMilliseconds(1234), unityIpcRequestExecutor.CapturedTimeout);
         Assert.Equal(IpcMethodNames.Execute, unityIpcRequestExecutor.CapturedMethod);
 
         Assert.True(IpcPayloadCodec.TryDeserialize(
@@ -477,9 +477,9 @@ public sealed class PlanServiceTests
 
         public UcliCommand CapturedCommand => invocations[^1].Command;
 
-        public string? CapturedMode => invocations[^1].Mode;
+        public UnityExecutionMode CapturedMode => invocations[^1].Mode;
 
-        public string? CapturedTimeout => invocations[^1].Timeout;
+        public TimeSpan CapturedTimeout => invocations[^1].Timeout;
 
         public string? CapturedMethod => invocations[^1].Method;
 
@@ -487,8 +487,8 @@ public sealed class PlanServiceTests
 
         public ValueTask<UnityIpcRequestExecutionResult> Execute (
             UcliCommand command,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
             string method,
@@ -508,8 +508,8 @@ public sealed class PlanServiceTests
 
         public sealed record Invocation (
             UcliCommand Command,
-            string? Mode,
-            string? Timeout,
+            UnityExecutionMode Mode,
+            TimeSpan Timeout,
             string Method,
             JsonElement Payload);
     }

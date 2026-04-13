@@ -20,6 +20,12 @@ internal static class UcliContractConstants
 
         public const string ReadIndexMode = "--readIndexMode";
 
+        public const string PlanToken = "--planToken";
+
+        public const string WithPlan = "--withPlan";
+
+        public const string AllowDangerous = "--allowDangerous";
+
         public const string Unknown = "--unknown";
     }
 

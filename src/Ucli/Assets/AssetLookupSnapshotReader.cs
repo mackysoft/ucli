@@ -2,6 +2,7 @@ using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Ipc;
 using MackySoft.Ucli.UnityProject;
@@ -24,12 +25,13 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(config);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
         var executionResult = await ipcRequestExecutor.Execute(

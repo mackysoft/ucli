@@ -50,7 +50,6 @@ internal sealed class OpsService : IOpsService
 
         var catalogResult = await catalogAccessService.Read(
                 preflightResult.Context!,
-                input,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!catalogResult.IsSuccess)
@@ -88,11 +87,6 @@ internal sealed class OpsService : IOpsService
 
         var catalogResult = await catalogAccessService.Read(
                 preflightResult.Context!,
-                new OpsCommandInput(
-                    ProjectPath: input.ProjectPath,
-                    Mode: input.Mode,
-                    Timeout: input.Timeout,
-                    ReadIndexMode: input.ReadIndexMode),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!catalogResult.IsSuccess)

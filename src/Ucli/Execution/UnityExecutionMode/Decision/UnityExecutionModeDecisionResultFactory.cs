@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Execution;
 /// <summary> Creates mode decision results from parsed mode input and daemon state. </summary>
 internal static class UnityExecutionModeDecisionResultFactory
 {
-    private const string InvalidModeMessage = "Mode must be auto, daemon, or oneshot.";
+    internal const string InvalidModeMessage = "Mode must be auto, daemon, or oneshot.";
 
     private const string DaemonNotRunningMessage = "Daemon is not running for mode=daemon.";
 
@@ -16,7 +16,14 @@ internal static class UnityExecutionModeDecisionResultFactory
     /// <returns> The mode decision result that contains an invalid-argument error. </returns>
     public static UnityExecutionModeDecisionResult InvalidMode ()
     {
-        return UnityExecutionModeDecisionResult.Failure(ExecutionError.InvalidArgument(InvalidModeMessage));
+        return UnityExecutionModeDecisionResult.Failure(CreateInvalidModeError());
+    }
+
+    /// <summary> Creates an invalid-argument error for unsupported mode input. </summary>
+    /// <returns> The invalid-mode error. </returns>
+    public static ExecutionError CreateInvalidModeError ()
+    {
+        return ExecutionError.InvalidArgument(InvalidModeMessage);
     }
 
     /// <summary> Creates an infrastructure-failure result from probe errors. </summary>

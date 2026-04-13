@@ -1,8 +1,10 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Ops.Access;
@@ -44,12 +46,11 @@ public sealed class OpsCatalogAccessServiceTests
             store);
 
         var result = await service.Read(
-            new OpsPreflightContext(context, ReadIndexMode.AllowStale),
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.AllowStale));
+            new OpsPreflightContext(
+                context,
+                ReadIndexMode.AllowStale,
+                UnityExecutionMode.Auto,
+                TimeSpan.FromMilliseconds(1200)));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
@@ -111,12 +112,11 @@ public sealed class OpsCatalogAccessServiceTests
             store);
 
         var result = await service.Read(
-            new OpsPreflightContext(context, ReadIndexMode.RequireFresh),
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.RequireFresh));
+            new OpsPreflightContext(
+                context,
+                ReadIndexMode.RequireFresh,
+                UnityExecutionMode.Auto,
+                TimeSpan.FromMilliseconds(1200)));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
@@ -129,8 +129,8 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Equal(generatedAtUtc, result.Output.AccessInfo.GeneratedAtUtc);
         Assert.Contains("Existing ops index freshness is 'stale'.", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
         Assert.Equal(1, catalogReader.CallCount);
-        Assert.Null(catalogReader.LastMode);
-        Assert.Null(catalogReader.LastTimeout);
+        Assert.Equal(UnityExecutionMode.Auto, catalogReader.LastMode);
+        Assert.Equal(TimeSpan.FromMilliseconds(1200), catalogReader.LastTimeout);
         Assert.Equal(1, inputFingerprintCalculator.FullCallCount);
         Assert.Equal(1, store.CallCount);
         Assert.Equal(context.UnityProject.RepositoryRoot, store.StorageRoot);
@@ -172,12 +172,11 @@ public sealed class OpsCatalogAccessServiceTests
             store);
 
         var result = await service.Read(
-            new OpsPreflightContext(context, ReadIndexMode.Disabled),
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.Disabled));
+            new OpsPreflightContext(
+                context,
+                ReadIndexMode.Disabled,
+                UnityExecutionMode.Auto,
+                TimeSpan.FromMilliseconds(1200)));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
@@ -246,12 +245,11 @@ public sealed class OpsCatalogAccessServiceTests
             store);
 
         var result = await service.Read(
-            new OpsPreflightContext(context, ReadIndexMode.Disabled),
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.Disabled));
+            new OpsPreflightContext(
+                context,
+                ReadIndexMode.Disabled,
+                UnityExecutionMode.Auto,
+                TimeSpan.FromMilliseconds(1200)));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, inputFingerprintCalculator.CoreCallCount);
@@ -315,12 +313,11 @@ public sealed class OpsCatalogAccessServiceTests
             store);
 
         var result = await service.Read(
-            new OpsPreflightContext(context, ReadIndexMode.Disabled),
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.Disabled));
+            new OpsPreflightContext(
+                context,
+                ReadIndexMode.Disabled,
+                UnityExecutionMode.Auto,
+                TimeSpan.FromMilliseconds(1200)));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, inputFingerprintCalculator.CoreCallCount);
@@ -517,9 +514,9 @@ public sealed class OpsCatalogAccessServiceTests
     {
         public int CallCount { get; private set; }
 
-        public string? LastMode { get; private set; }
+        public UnityExecutionMode LastMode { get; private set; }
 
-        public string? LastTimeout { get; private set; }
+        public TimeSpan? LastTimeout { get; private set; }
 
         public OpsCatalogFetchResult Result { get; set; }
             = OpsCatalogFetchResult.Failure("not configured", IpcErrorCodes.InternalError);
@@ -527,8 +524,8 @@ public sealed class OpsCatalogAccessServiceTests
         public ValueTask<OpsCatalogFetchResult> Read (
             ResolvedUnityProjectContext project,
             UcliConfig config,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

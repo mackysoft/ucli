@@ -143,4 +143,22 @@ public sealed class UcliCommandNamesTests
 
         Assert.True(result);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveResultCommandName_WhenCallCommandSpecified_ReturnsCall ()
+    {
+        var commandName = UcliCommandNames.ResolveResultCommandName([UcliCommandNames.Call]);
+
+        Assert.Equal(UcliCommandNames.Call, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenCallCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Call);
+
+        Assert.True(result);
+    }
 }

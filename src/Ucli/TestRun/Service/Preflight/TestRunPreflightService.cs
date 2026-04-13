@@ -69,8 +69,15 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(timeoutResolutionResult.Error!));
         }
 
+        var executionModeResult = UnityExecutionModeResolver.Resolve(configuration.Mode);
+        if (!executionModeResult.IsSuccess)
+        {
+            return TestRunPreflightResult.FailureResult(
+                TestRunServiceErrorMapper.MapExecutionError(executionModeResult.Error!));
+        }
+
         var modeDecisionResult = await modeDecisionService.Decide(
-            mode: configuration.Mode,
+            mode: executionModeResult.Mode!.Value,
             unityProject: configuration.UnityProject,
             timeout: timeoutResolutionResult.Timeout!.Value,
             cancellationToken).ConfigureAwait(false);

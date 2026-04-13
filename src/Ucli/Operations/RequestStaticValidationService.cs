@@ -37,8 +37,12 @@ internal sealed class RequestStaticValidationService : IRequestStaticValidationS
             operations = await operationCatalog.GetAll(
                     projectContext.UnityProject,
                     projectContext.Config,
-                    cancellationToken)
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
+        }
+        catch (OperationCatalogLoadException exception)
+        {
+            return ValidationResult.Failure(exception.CreatePrefixedError("Static validation could not load operation metadata."));
         }
         catch (InvalidOperationException exception)
         {

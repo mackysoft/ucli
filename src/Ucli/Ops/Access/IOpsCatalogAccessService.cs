@@ -12,6 +12,5 @@ internal interface IOpsCatalogAccessService
     /// <returns> A task that resolves to the catalog read result. </returns>
     ValueTask<OpsCatalogReadResult> Read (
         OpsPreflightContext context,
-        OpsCommandInput input,
         CancellationToken cancellationToken = default);
 }

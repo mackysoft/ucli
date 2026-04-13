@@ -37,8 +37,8 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
-            "daemon",
-            null,
+            UnityExecutionMode.Daemon,
+            DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
             IpcMethodNames.OpsRead,
@@ -81,8 +81,8 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
-            null,
-            null,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
             IpcMethodNames.OpsRead,
@@ -127,8 +127,8 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
-            null,
-            null,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
             IpcMethodNames.OpsRead,
@@ -166,8 +166,8 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
-            "oneshot",
-            null,
+            UnityExecutionMode.Oneshot,
+            DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
             IpcMethodNames.OpsRead,
@@ -205,8 +205,8 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
-            "daemon",
-            null,
+            UnityExecutionMode.Daemon,
+            DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
             IpcMethodNames.OpsRead,
@@ -250,8 +250,8 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
-            "oneshot",
-            "120",
+            UnityExecutionMode.Oneshot,
+            TimeSpan.FromMilliseconds(120),
             UcliConfig.CreateDefault(),
             CreateContext(scope),
             IpcMethodNames.OpsRead,
@@ -295,8 +295,8 @@ public sealed class UnityIpcRequestExecutorTests
 
         var result = await executor.Execute(
             UcliCommandIds.Ops,
-            "auto",
-            "100",
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(100),
             UcliConfig.CreateDefault(),
             CreateContext(scope),
             IpcMethodNames.OpsRead,
@@ -387,7 +387,7 @@ public sealed class UnityIpcRequestExecutorTests
         }
 
         public ValueTask<UnityExecutionModeDecisionResult> Decide (
-            string? mode,
+            UnityExecutionMode mode,
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
@@ -405,7 +405,7 @@ public sealed class UnityIpcRequestExecutorTests
     }
 
     private sealed record ModeDecisionInvocationContext (
-        string? Mode,
+        UnityExecutionMode Mode,
         ResolvedUnityProjectContext UnityProject,
         TimeSpan Timeout,
         CancellationToken CancellationToken,

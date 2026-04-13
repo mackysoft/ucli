@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Ops.Access;
 using MackySoft.Ucli.Ops.Mapping;
@@ -34,7 +35,7 @@ public sealed class OpsServiceTests
     [Trait("Size", "Small")]
     public async Task GetAll_WhenCatalogReadSucceeds_UsesListResultMapper ()
     {
-        var preflightContext = new OpsPreflightContext(default!, default);
+        var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
         var preflightService = new StubOpsPreflightService
         {
             Result = OpsPreflightResult.Success(preflightContext),
@@ -86,7 +87,7 @@ public sealed class OpsServiceTests
     [Trait("Size", "Small")]
     public async Task Describe_WhenCatalogReadSucceeds_UsesDescribeResultMapper ()
     {
-        var preflightContext = new OpsPreflightContext(default!, default);
+        var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
         var preflightService = new StubOpsPreflightService
         {
             Result = OpsPreflightResult.Success(preflightContext),
@@ -147,7 +148,6 @@ public sealed class OpsServiceTests
 
         public ValueTask<OpsCatalogReadResult> Read (
             OpsPreflightContext context,
-            OpsCommandInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
