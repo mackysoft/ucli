@@ -11,18 +11,24 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly UcliOperationCatalogSnapshot operationCatalogSnapshot;
 
+        private readonly IUnityEditorReadinessGate readinessGate;
+
         /// <summary> Initializes a new instance of the <see cref="OpsReadUnityIpcMethodHandler" /> class. </summary>
         /// <param name="operationCatalogSnapshot"> The shared discovered operation snapshot. </param>
-        public OpsReadUnityIpcMethodHandler (UcliOperationCatalogSnapshot operationCatalogSnapshot)
+        /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
+        public OpsReadUnityIpcMethodHandler (
+            UcliOperationCatalogSnapshot operationCatalogSnapshot,
+            IUnityEditorReadinessGate readinessGate)
         {
             this.operationCatalogSnapshot = operationCatalogSnapshot ?? throw new ArgumentNullException(nameof(operationCatalogSnapshot));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
         }
 
         /// <inheritdoc />
         public string Method => IpcMethodNames.OpsRead;
 
         /// <inheritdoc />
-        public ValueTask<IpcResponse> Handle (
+        public async ValueTask<IpcResponse> Handle (
             IpcRequest request,
             CancellationToken cancellationToken)
         {
@@ -34,13 +40,22 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!UnityIpcRequestCodec.TryDecodeOpsReadRequest(
                     request,
-                    out IpcOpsReadRequest? _,
+                    out IpcOpsReadRequest? payload,
                     out var errorResponse))
             {
-                return new ValueTask<IpcResponse>(errorResponse!);
+                return errorResponse!;
             }
 
-            return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, operationCatalogSnapshot.Catalog));
+            if (payload!.RequireReadinessGate)
+            {
+                var readinessResult = await readinessGate.EnsureExecutionReady(payload.FailFast, cancellationToken).ConfigureAwait(false);
+                if (!readinessResult.IsReady)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(request, readinessResult.Error!);
+                }
+            }
+
+            return UnityIpcResponseFactory.CreateSuccessResponse(request, operationCatalogSnapshot.Catalog);
         }
     }
 }

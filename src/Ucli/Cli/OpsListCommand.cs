@@ -21,6 +21,7 @@ internal sealed class OpsListCommand
     /// <param name="mode">Unity execution mode (<c>auto|daemon|oneshot</c>).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (<c>disabled|allowStale|requireFresh</c>).</param>
+    /// <param name="failFast">--failFast, Fails immediately when live fallback hits a non-ready Unity editor lifecycle.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.ListSubcommand)]
@@ -29,6 +30,7 @@ internal sealed class OpsListCommand
         string? mode = null,
         string? timeout = null,
         string? readIndexMode = null,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -39,7 +41,8 @@ internal sealed class OpsListCommand
                     ProjectPath: projectPath,
                     Mode: mode,
                     Timeout: timeout,
-                    ReadIndexMode: readIndexMode),
+                    ReadIndexMode: readIndexMode,
+                    FailFast: failFast),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = OpsCommandResultFactory.CreateList(serviceResult);

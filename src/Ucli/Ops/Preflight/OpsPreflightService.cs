@@ -63,7 +63,8 @@ internal sealed class OpsPreflightService : IOpsPreflightService
                 context,
                 readIndexModeResult.Mode!.Value,
                 executionModeResult.Mode!.Value,
-                timeoutResolutionResult.Timeout!.Value));
+                timeoutResolutionResult.Timeout!.Value,
+                input.FailFast));
     }
 
     private static OpsPreflightResult FromExecutionError (ExecutionError error)

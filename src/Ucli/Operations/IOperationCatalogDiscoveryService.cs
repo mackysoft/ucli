@@ -12,6 +12,7 @@ internal interface IOperationCatalogDiscoveryService
     /// <param name="config"> The loaded configuration used to execute catalog discovery. </param>
     /// <param name="mode"> The optional Unity execution mode for discovery. </param>
     /// <param name="timeout"> The optional discovery timeout budget. When <see langword="null" />, the default <c>ops</c> timeout is used. </param>
+    /// <param name="failFast"> Whether live catalog discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The discovered operation descriptors. </returns>
     ValueTask<IReadOnlyList<UcliOperationDescriptor>> Discover (
@@ -19,5 +20,6 @@ internal interface IOperationCatalogDiscoveryService
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
         TimeSpan? timeout = null,
+        bool failFast = false,
         CancellationToken cancellationToken = default);
 }

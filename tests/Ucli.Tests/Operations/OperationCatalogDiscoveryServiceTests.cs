@@ -31,7 +31,26 @@ public sealed class OperationCatalogDiscoveryServiceTests
         Assert.Equal(
             TimeSpan.FromMilliseconds(config.IpcTimeoutMillisecondsByCommand[UcliCommandIds.Ops.Name]!.Value),
             reader.ReceivedTimeout);
+        Assert.False(reader.ReceivedFailFast);
+        Assert.False(reader.ReceivedRequireReadinessGate);
         Assert.Single(operations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Discover_WhenFailFastIsSpecified_PropagatesToReader ()
+    {
+        var reader = new SpyOpsCatalogReader();
+        var service = new OperationCatalogDiscoveryService(reader);
+
+        _ = await service.Discover(
+            CreateUnityProject(),
+            UcliConfig.CreateDefault(),
+            failFast: true,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(reader.ReceivedFailFast);
+        Assert.False(reader.ReceivedRequireReadinessGate);
     }
 
     [Fact]
@@ -112,15 +131,23 @@ public sealed class OperationCatalogDiscoveryServiceTests
     {
         public TimeSpan ReceivedTimeout { get; private set; }
 
+        public bool ReceivedFailFast { get; private set; }
+
+        public bool ReceivedRequireReadinessGate { get; private set; }
+
         public ValueTask<OpsCatalogFetchResult> Read (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,
             TimeSpan timeout,
+            bool failFast,
+            bool requireReadinessGate,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ReceivedTimeout = timeout;
+            ReceivedFailFast = failFast;
+            ReceivedRequireReadinessGate = requireReadinessGate;
 
             return ValueTask.FromResult(OpsCatalogFetchResult.Success(new IpcOpsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.UtcNow,
@@ -153,6 +180,8 @@ public sealed class OperationCatalogDiscoveryServiceTests
             UcliConfig config,
             UnityExecutionMode mode,
             TimeSpan timeout,
+            bool failFast,
+            bool requireReadinessGate,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
