@@ -43,8 +43,8 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
     /// <inheritdoc />
     public async ValueTask<UnityIpcRequestExecutionResult> Execute (
         UcliCommand command,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
         string method,
@@ -59,17 +59,10 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, command, config);
-        if (!timeoutResolutionResult.IsSuccess)
-        {
-            return UnityIpcRequestExecutionResult.Failure(
-                timeoutResolutionResult.Error!.Message,
-                ExecutionErrorKindCodeMapper.ToCode(timeoutResolutionResult.Error.Kind));
-        }
-
-        var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
         {
             return UnityIpcRequestExecutionResult.Failure(

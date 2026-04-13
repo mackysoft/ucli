@@ -186,10 +186,39 @@ internal sealed class PlanService : IPlanService
                 baseOutput);
         }
 
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
+            input.Timeout,
+            UcliCommandIds.Plan,
+            projectContext.Config);
+        if (!timeoutResolutionResult.IsSuccess)
+        {
+            var error = timeoutResolutionResult.Error!;
+            return CreateFailure(
+                error.Message,
+                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
+                error.Kind == ExecutionErrorKind.InvalidArgument
+                    ? (int)CliExitCode.InvalidArgument
+                    : (int)CliExitCode.ToolError,
+                baseOutput);
+        }
+
+        var executionModeResult = UnityExecutionModeResolver.Resolve(input.Mode);
+        if (!executionModeResult.IsSuccess)
+        {
+            var error = executionModeResult.Error!;
+            return CreateFailure(
+                error.Message,
+                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
+                error.Kind == ExecutionErrorKind.InvalidArgument
+                    ? (int)CliExitCode.InvalidArgument
+                    : (int)CliExitCode.ToolError,
+                baseOutput);
+        }
+
         var executionResult = await unityIpcRequestExecutor.Execute(
                 UcliCommandIds.Plan,
-                input.Mode,
-                input.Timeout,
+                executionModeResult.Mode!.Value,
+                timeoutResolutionResult.Timeout!.Value,
                 projectContext.Config,
                 projectContext.UnityProject,
                 IpcMethodNames.Execute,

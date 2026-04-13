@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.ReadIndex;
@@ -59,6 +60,27 @@ public sealed class RequestStaticValidationServiceTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("operation metadata", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenCatalogLoadThrowsTypedFailure_PreservesErrorKind ()
+    {
+        var service = new RequestStaticValidationService(
+            new TypedFailingOperationCatalog(new OperationCatalogLoadException(
+                ExecutionError.Timeout("Timed out before operation metadata discovery could begin."))),
+            new SpyRequestStaticValidator(ValidationResult.Success()));
+
+        var result = await service.Validate(
+            CreateRequest(),
+            CreateProjectContext(),
+            CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Empty(result.Errors);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Contains("Static validation could not load operation metadata.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -130,6 +152,8 @@ public sealed class RequestStaticValidationServiceTests
         public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(unityProject);
@@ -154,10 +178,43 @@ public sealed class RequestStaticValidationServiceTests
         public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw new InvalidOperationException("catalog discovery failed");
+        }
+    }
+
+    private sealed class TypedFailingOperationCatalog : IOperationCatalog
+    {
+        private readonly Exception exception;
+
+        public TypedFailingOperationCatalog (Exception exception)
+        {
+            this.exception = exception ?? throw new ArgumentNullException(nameof(exception));
+        }
+
+        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+            ResolvedUnityProjectContext unityProject,
+            UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw exception;
         }
     }
 

@@ -1,3 +1,4 @@
+using MackySoft.Tests;
 using MackySoft.Ucli.Cli.Requests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
@@ -5,7 +6,6 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Operations;
-using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests;
@@ -14,16 +14,21 @@ public sealed class PhaseExecutionPreflightServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Prepare_WhenPreparationAndValidationSucceed_ReturnsPreparedRequest ()
+    public async Task Prepare_WhenValidationSucceeds_ReturnsPreparedRequest ()
     {
         var preparedRequest = CreatePreparedRequestContext();
+        UcliOperationDescriptor[] operations =
+        [
+            CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe),
+        ];
         var service = new PhaseExecutionPreflightService(
-            new StubRequestPreparationService(RequestPreparationResult.Success(preparedRequest)),
-            new StubRequestStaticValidationService(ValidationResult.Success()));
+            new StubOperationCatalog(operations),
+            new StubRequestStaticValidator(ValidationResult.Success()));
 
         var result = await service.Prepare(
-            requestPath: "request.json",
-            projectPath: "/tmp/project",
+            preparedRequest,
+            mode: UnityExecutionMode.Auto,
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -35,36 +40,17 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.Same(preparedRequest.ProjectContext.UnityProject, result.PreparedRequest.UnityProject);
         Assert.Same(preparedRequest.ProjectContext.Config, result.PreparedRequest.Config);
         Assert.Equal(preparedRequest.ProjectContext.ConfigSource, result.PreparedRequest.ConfigSource);
+        Assert.True(result.PreparedRequest.OperationsByName.ContainsKey(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
         Assert.Null(result.Error);
         Assert.Empty(result.ValidationErrors);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Prepare_WhenRequestPreparationFails_ReturnsFailureWithoutValidation ()
-    {
-        var error = ExecutionError.InvalidArgument("request is invalid.");
-        var requestPreparationService = new StubRequestPreparationService(RequestPreparationResult.Failure(error));
-        var validationService = new SpyRequestStaticValidationService();
-        var service = new PhaseExecutionPreflightService(requestPreparationService, validationService);
-
-        var result = await service.Prepare(
-            requestPath: "request.json",
-            projectPath: "/tmp/project",
-            cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.False(result.HasValidationErrors);
-        Assert.Same(error, result.Error);
-        Assert.Null(result.PreparedRequest);
-        Assert.Equal(0, validationService.CallCount);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Prepare_WhenStaticValidationReturnsValidationErrors_ReturnsValidationFailure ()
+    public async Task Prepare_WhenStaticValidationReturnsValidationErrors_RetainsPreparedRequest ()
     {
         var preparedRequest = CreatePreparedRequestContext();
+        var operation = CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe);
         ValidationError[] validationErrors =
         [
             new ValidationError(
@@ -73,18 +59,20 @@ public sealed class PhaseExecutionPreflightServiceTests
                 "step-1"),
         ];
         var service = new PhaseExecutionPreflightService(
-            new StubRequestPreparationService(RequestPreparationResult.Success(preparedRequest)),
-            new StubRequestStaticValidationService(new ValidationResult(validationErrors)));
+            new StubOperationCatalog([operation]),
+            new StubRequestStaticValidator(new ValidationResult(validationErrors)));
 
         var result = await service.Prepare(
-            requestPath: null,
-            projectPath: "/tmp/project",
+            preparedRequest,
+            mode: UnityExecutionMode.Auto,
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasValidationErrors);
         Assert.Null(result.Error);
-        Assert.Null(result.PreparedRequest);
+        Assert.NotNull(result.PreparedRequest);
+        Assert.True(result.PreparedRequest!.OperationsByName.ContainsKey(operation.Name));
         Assert.Single(result.ValidationErrors);
         Assert.Equal(ValidationErrorCodes.OperationArgsInvalid, result.ValidationErrors[0].Code);
     }
@@ -96,42 +84,151 @@ public sealed class PhaseExecutionPreflightServiceTests
         var preparedRequest = CreatePreparedRequestContext();
         var error = ExecutionError.InternalError("operation metadata could not be loaded.");
         var service = new PhaseExecutionPreflightService(
-            new StubRequestPreparationService(RequestPreparationResult.Success(preparedRequest)),
-            new StubRequestStaticValidationService(ValidationResult.Failure(error)));
+            new StubOperationCatalog([CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)]),
+            new StubRequestStaticValidator(ValidationResult.Failure(error)));
 
         var result = await service.Prepare(
-            requestPath: null,
-            projectPath: "/tmp/project",
+            preparedRequest,
+            mode: UnityExecutionMode.Auto,
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
         Assert.Same(error, result.Error);
-        Assert.Null(result.PreparedRequest);
+        Assert.NotNull(result.PreparedRequest);
+        Assert.True(result.PreparedRequest!.OperationsByName.ContainsKey(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
         Assert.Empty(result.ValidationErrors);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Prepare_PropagatesCancellationTokenToDependencies ()
+    public async Task Prepare_WhenOperationCatalogFails_ReturnsFailure ()
     {
-        var token = new CancellationTokenSource().Token;
         var preparedRequest = CreatePreparedRequestContext();
-        var requestPreparationService = new SpyRequestPreparationService(
-            RequestPreparationResult.Success(preparedRequest));
-        var validationService = new SpyRequestStaticValidationService(ValidationResult.Success());
-        var service = new PhaseExecutionPreflightService(requestPreparationService, validationService);
+        var service = new PhaseExecutionPreflightService(
+            new ThrowingOperationCatalog(),
+            new SpyRequestStaticValidator());
 
         var result = await service.Prepare(
-            requestPath: "request.json",
-            projectPath: "/tmp/project",
+            preparedRequest,
+            mode: UnityExecutionMode.Auto,
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(result.HasValidationErrors);
+        Assert.NotNull(result.Error);
+        Assert.NotNull(result.PreparedRequest);
+        Assert.Empty(result.PreparedRequest!.OperationsByName);
+        Assert.Contains("Static validation could not load operation metadata.", result.Error!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_WhenOperationCatalogLoadFailureHasInvalidArgument_PreservesErrorKind ()
+    {
+        var preparedRequest = CreatePreparedRequestContext();
+        var service = new PhaseExecutionPreflightService(
+            new TypedFailingOperationCatalog(new OperationCatalogLoadException(
+                ExecutionError.InvalidArgument("Mode must be auto, daemon, or oneshot."))),
+            new SpyRequestStaticValidator());
+
+        var result = await service.Prepare(
+            preparedRequest,
+            mode: (UnityExecutionMode)999,
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
+        Assert.Contains("Static validation could not load operation metadata.", result.Error.Message, StringComparison.Ordinal);
+        Assert.NotNull(result.PreparedRequest);
+        Assert.Empty(result.PreparedRequest!.OperationsByName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_WhenOperationCatalogLoadFailureHasCustomErrorCode_PreservesOriginalErrorCode ()
+    {
+        var preparedRequest = CreatePreparedRequestContext();
+        var service = new PhaseExecutionPreflightService(
+            new TypedFailingOperationCatalog(new OperationCatalogLoadException(
+                ExecutionError.InternalError("Daemon is not running for mode=daemon."),
+                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)),
+            new SpyRequestStaticValidator());
+
+        var result = await service.Prepare(
+            preparedRequest,
+            mode: UnityExecutionMode.Daemon,
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), TimeProvider.System),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
+        Assert.Contains("Static validation could not load operation metadata.", result.Error.Message, StringComparison.Ordinal);
+        Assert.NotNull(result.PreparedRequest);
+        Assert.Empty(result.PreparedRequest!.OperationsByName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_WhenDeadlineIsAlreadyExpired_ReturnsTimeoutWithoutLoadingCatalog ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), timeProvider);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+
+        var preparedRequest = CreatePreparedRequestContext();
+        var operationCatalog = new SpyOperationCatalog();
+        var validationService = new SpyRequestStaticValidator();
+        var service = new PhaseExecutionPreflightService(operationCatalog, validationService);
+
+        var result = await service.Prepare(
+            preparedRequest,
+            mode: UnityExecutionMode.Auto,
+            deadline: deadline,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        Assert.NotNull(result.PreparedRequest);
+        Assert.Empty(result.PreparedRequest!.OperationsByName);
+        Assert.Equal(0, operationCatalog.CallCount);
+        Assert.Equal(0, validationService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_PropagatesCancellationTokenModeAndRemainingTimeoutToDependencies ()
+    {
+        var token = new CancellationTokenSource().Token;
+        var timeProvider = new ManualTimeProvider();
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(30000), timeProvider);
+        var preparedRequest = CreatePreparedRequestContext();
+        var operationCatalog = new SpyOperationCatalog(
+            [CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)]);
+        var validationService = new SpyRequestStaticValidator(ValidationResult.Success());
+        var service = new PhaseExecutionPreflightService(operationCatalog, validationService);
+
+        var result = await service.Prepare(
+            preparedRequest,
+            mode: UnityExecutionMode.Daemon,
+            deadline: deadline,
             cancellationToken: token);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(token, requestPreparationService.ReceivedToken);
+        Assert.Equal(token, operationCatalog.ReceivedToken);
+        Assert.Equal(UnityExecutionMode.Daemon, operationCatalog.ReceivedMode);
+        Assert.Equal(TimeSpan.FromMilliseconds(30000), operationCatalog.ReceivedTimeout);
         Assert.Equal(token, validationService.ReceivedToken);
         Assert.Same(preparedRequest.Request, validationService.ReceivedRequest);
-        Assert.Same(preparedRequest.ProjectContext, validationService.ReceivedProjectContext);
+        Assert.True(validationService.ReceivedCatalog!.IsAvailable);
+        Assert.Single(validationService.ReceivedCatalog.Operations);
     }
 
     private static PreparedRequestContext CreatePreparedRequestContext ()
@@ -169,90 +266,171 @@ public sealed class PhaseExecutionPreflightServiceTests
                 ConfigSource.Default));
     }
 
-    private sealed class StubRequestPreparationService : IRequestPreparationService
+    private static UcliOperationDescriptor CreateOperationDescriptor (
+        string name,
+        OperationPolicy policy)
     {
-        private readonly RequestPreparationResult result;
+        return new UcliOperationDescriptor(
+            name,
+            UcliOperationKind.Query,
+            policy,
+            """{"type":"object","additionalProperties":false}""");
+    }
 
-        public StubRequestPreparationService (RequestPreparationResult result)
+    private sealed class StubOperationCatalog : IOperationCatalog
+    {
+        private readonly IReadOnlyList<UcliOperationDescriptor> operations;
+
+        public StubOperationCatalog (IReadOnlyList<UcliOperationDescriptor> operations)
         {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
+            this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
         }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (
-            string? requestPath,
+        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(operations.FirstOrDefault(operation => string.Equals(operation.Name, name, StringComparison.Ordinal)));
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(operations);
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+            ResolvedUnityProjectContext unityProject,
+            UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(CreateParsedRequestResult(result));
-        }
-
-        public ValueTask<RequestPreparationResult> Prepare (
-            string? requestPath,
-            string? projectPath,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
+            return ValueTask.FromResult(operations);
         }
     }
 
-    private sealed class SpyRequestPreparationService : IRequestPreparationService
+    private sealed class SpyOperationCatalog : IOperationCatalog
     {
-        private readonly RequestPreparationResult result;
+        private readonly IReadOnlyList<UcliOperationDescriptor> operations;
 
-        public SpyRequestPreparationService (RequestPreparationResult result)
+        public SpyOperationCatalog ()
+            : this([])
         {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
+
+        public SpyOperationCatalog (IReadOnlyList<UcliOperationDescriptor> operations)
+        {
+            this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
+        }
+
+        public int CallCount { get; private set; }
 
         public CancellationToken ReceivedToken { get; private set; }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public UnityExecutionMode ReceivedMode { get; private set; }
+
+        public TimeSpan? ReceivedTimeout { get; private set; }
+
+        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
         {
-            ReceivedToken = cancellationToken;
-            return ValueTask.FromResult(CreateParsedRequestResult(result));
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(operations.FirstOrDefault(operation => string.Equals(operation.Name, name, StringComparison.Ordinal)));
         }
 
-        public ValueTask<RequestPreparationResult> Prepare (
-            string? requestPath,
-            string? projectPath,
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(operations);
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+            ResolvedUnityProjectContext unityProject,
+            UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
             CancellationToken cancellationToken = default)
         {
+            CallCount++;
+            ReceivedMode = mode;
+            ReceivedTimeout = timeout;
             ReceivedToken = cancellationToken;
-            return ValueTask.FromResult(result);
+            return ValueTask.FromResult(operations);
         }
     }
 
-    private static ParsedRequestResult CreateParsedRequestResult (RequestPreparationResult result)
+    private sealed class ThrowingOperationCatalog : IOperationCatalog
     {
-        ArgumentNullException.ThrowIfNull(result);
-
-        if (!result.IsSuccess)
+        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
         {
-            return ParsedRequestResult.Failure(result.Error!);
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new InvalidOperationException("catalog load failed.");
         }
 
-        var preparedRequest = result.PreparedRequest!;
-        return ParsedRequestResult.Success(new ParsedRequestContext(
-            preparedRequest.RequestJson,
-            preparedRequest.InputSource,
-            preparedRequest.Request));
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new InvalidOperationException("catalog load failed.");
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+            ResolvedUnityProjectContext unityProject,
+            UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new InvalidOperationException("catalog load failed.");
+        }
     }
 
-    private sealed class StubRequestStaticValidationService : IRequestStaticValidationService
+    private sealed class TypedFailingOperationCatalog : IOperationCatalog
+    {
+        private readonly Exception exception;
+
+        public TypedFailingOperationCatalog (Exception exception)
+        {
+            this.exception = exception ?? throw new ArgumentNullException(nameof(exception));
+        }
+
+        public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw exception;
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw exception;
+        }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
+            ResolvedUnityProjectContext unityProject,
+            UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw exception;
+        }
+    }
+
+    private sealed class StubRequestStaticValidator : IRequestStaticValidator
     {
         private readonly ValidationResult result;
 
-        public StubRequestStaticValidationService (ValidationResult result)
+        public StubRequestStaticValidator (ValidationResult result)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
         public ValueTask<ValidationResult> Validate (
             ValidateRequest request,
-            ProjectContext projectContext,
+            RequestStaticValidationCatalog catalog,
+            UcliConfig config,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -260,16 +438,16 @@ public sealed class PhaseExecutionPreflightServiceTests
         }
     }
 
-    private sealed class SpyRequestStaticValidationService : IRequestStaticValidationService
+    private sealed class SpyRequestStaticValidator : IRequestStaticValidator
     {
         private readonly ValidationResult result;
 
-        public SpyRequestStaticValidationService ()
+        public SpyRequestStaticValidator ()
             : this(ValidationResult.Success())
         {
         }
 
-        public SpyRequestStaticValidationService (ValidationResult result)
+        public SpyRequestStaticValidator (ValidationResult result)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
@@ -280,17 +458,18 @@ public sealed class PhaseExecutionPreflightServiceTests
 
         public ValidateRequest? ReceivedRequest { get; private set; }
 
-        public ProjectContext? ReceivedProjectContext { get; private set; }
+        public RequestStaticValidationCatalog? ReceivedCatalog { get; private set; }
 
         public ValueTask<ValidationResult> Validate (
             ValidateRequest request,
-            ProjectContext projectContext,
+            RequestStaticValidationCatalog catalog,
+            UcliConfig config,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             ReceivedToken = cancellationToken;
             ReceivedRequest = request;
-            ReceivedProjectContext = projectContext;
+            ReceivedCatalog = catalog;
             return ValueTask.FromResult(result);
         }
     }

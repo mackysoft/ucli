@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.UnityProject;
 
@@ -30,8 +31,8 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     public ValueTask<GuidPathLookupReadResult> TryResolveAssetGuid (
         ResolvedUnityProjectContext project,
         UcliConfig config,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string assetGuid,
         CancellationToken cancellationToken = default)
@@ -57,8 +58,8 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     public ValueTask<GuidPathLookupReadResult> TryResolveAssetPath (
         ResolvedUnityProjectContext project,
         UcliConfig config,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string assetPath,
         CancellationToken cancellationToken = default)
@@ -83,8 +84,8 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     private async ValueTask<GuidPathLookupReadResult> ReadCore (
         ResolvedUnityProjectContext project,
         UcliConfig config,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string? fallbackReason,
         Func<IReadOnlyList<IndexGuidPathEntryJsonContract>, string, IndexGuidPathEntryJsonContract?> resolver,
@@ -184,8 +185,8 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
     private async ValueTask<GuidPathLookupReadResult> ReadFromSource (
         ResolvedUnityProjectContext project,
         UcliConfig config,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string fallbackReason,
         Func<IReadOnlyList<IndexGuidPathEntryJsonContract>, string, IndexGuidPathEntryJsonContract?> resolver,

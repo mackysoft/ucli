@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.UnityProject;
 
@@ -30,8 +31,8 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
     public async ValueTask<AssetSearchLookupReadResult> Search (
         ResolvedUnityProjectContext project,
         UcliConfig config,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         AssetSearchLookupQuery query,
         CancellationToken cancellationToken = default)
@@ -130,8 +131,8 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
     private async ValueTask<AssetSearchLookupReadResult> SearchFromSource (
         ResolvedUnityProjectContext project,
         UcliConfig config,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         AssetSearchLookupQuery normalizedQuery,
         string fallbackReason,

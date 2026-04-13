@@ -1,4 +1,5 @@
 using ConsoleAppFramework;
+using MackySoft.Ucli.Call;
 using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Composition;
 using MackySoft.Ucli.Execution;
@@ -72,6 +73,7 @@ internal static class Program
         app.Add<RefreshCommand>();
         app.Add<ValidateCommand>();
         app.Add<PlanCommand>();
+        app.Add<CallCommand>();
         app.Add<DaemonStartCommand>("daemon");
         app.Add<DaemonStopCommand>("daemon");
         app.Add<DaemonCleanupCommand>("daemon");
@@ -124,6 +126,7 @@ internal static class Program
         services.AddUcliRefreshServices();
         services.AddUcliValidateServices();
         services.AddUcliPlanServices();
+        services.AddUcliCallServices();
         services.AddUcliDaemonServices();
         services.AddUcliSupervisorServices();
         services.AddUcliTestRunServices();

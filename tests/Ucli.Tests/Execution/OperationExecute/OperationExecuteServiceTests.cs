@@ -34,6 +34,7 @@ public sealed class OperationExecuteServiceTests
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
+        var timeProvider = new ManualTimeProvider();
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
             UnityIpcRequestExecutionResult.Success(
                 CreateResponse(
@@ -55,7 +56,7 @@ public sealed class OperationExecuteServiceTests
                             ]),
                     ],
                     errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, timeProvider);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -76,8 +77,8 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(OperationPolicy.Advanced, authorizationService.CapturedOperation.Policy);
 
         Assert.Equal(UcliCommandIds.Refresh, ipcRequestExecutor.CapturedCommand);
-        Assert.Equal("daemon", ipcRequestExecutor.CapturedMode);
-        Assert.Equal("120000", ipcRequestExecutor.CapturedTimeout);
+        Assert.Equal(UnityExecutionMode.Daemon, ipcRequestExecutor.CapturedMode);
+        Assert.Equal(TimeSpan.FromMilliseconds(120000), ipcRequestExecutor.CapturedTimeout);
         Assert.Equal(IpcMethodNames.Execute, ipcRequestExecutor.CapturedMethod);
         Assert.Equal("/repo", ipcRequestExecutor.CapturedProject!.RepositoryRoot);
 
@@ -234,8 +235,8 @@ public sealed class OperationExecuteServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal("1200", ipcRequestExecutor.Invocations[0].Timeout);
-        Assert.Equal("1000", ipcRequestExecutor.Invocations[1].Timeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(1200), ipcRequestExecutor.Invocations[0].Timeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(1000), ipcRequestExecutor.Invocations[1].Timeout);
     }
 
     [Fact]
@@ -516,9 +517,9 @@ public sealed class OperationExecuteServiceTests
 
         public UcliCommand CapturedCommand => invocations[^1].Command;
 
-        public string? CapturedMode => invocations[^1].Mode;
+        public UnityExecutionMode CapturedMode => invocations[^1].Mode;
 
-        public string? CapturedTimeout => invocations[^1].Timeout;
+        public TimeSpan CapturedTimeout => invocations[^1].Timeout;
 
         public ResolvedUnityProjectContext? CapturedProject => invocations[^1].UnityProject;
 
@@ -528,8 +529,8 @@ public sealed class OperationExecuteServiceTests
 
         public ValueTask<UnityIpcRequestExecutionResult> Execute (
             UcliCommand command,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
             string method,
@@ -551,8 +552,8 @@ public sealed class OperationExecuteServiceTests
 
         public sealed record Invocation (
             UcliCommand Command,
-            string? Mode,
-            string? Timeout,
+            UnityExecutionMode Mode,
+            TimeSpan Timeout,
             ResolvedUnityProjectContext UnityProject,
             string Method,
             JsonElement Payload);

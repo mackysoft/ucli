@@ -4,6 +4,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Operations;
 using MackySoft.Ucli.UnityProject;
 
@@ -366,6 +367,8 @@ public sealed class OperationCatalogTests
         public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(unityProject);

@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests.Assets;
@@ -28,8 +29,8 @@ public sealed class AssetLookupSourceRefreshServiceTests
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1000),
             readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
@@ -66,8 +67,8 @@ public sealed class AssetLookupSourceRefreshServiceTests
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1000),
             readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
@@ -103,8 +104,8 @@ public sealed class AssetLookupSourceRefreshServiceTests
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1000),
             readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
@@ -143,8 +144,8 @@ public sealed class AssetLookupSourceRefreshServiceTests
             CreateProjectContext(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1000),
             readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
@@ -226,8 +227,8 @@ public sealed class AssetLookupSourceRefreshServiceTests
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

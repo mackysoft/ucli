@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.UnityProject;
 
@@ -39,8 +40,8 @@ public sealed class AssetSearchLookupAccessServiceTests
         var result = await service.Search(
             CreateProject(),
             UcliConfig.CreateDefault(),
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.AllowStale,
             query: new AssetSearchLookupQuery(
                 TypeId: "UnityEngine.Object, UnityEngine.CoreModule",
@@ -96,8 +97,8 @@ public sealed class AssetSearchLookupAccessServiceTests
         var result = await service.Search(
             CreateProject(),
             UcliConfig.CreateDefault(),
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.RequireFresh,
             query: new AssetSearchLookupQuery(TypeId: null, PathPrefix: "Assets/Data", NameContains: "Fresh"));
 
@@ -122,8 +123,8 @@ public sealed class AssetSearchLookupAccessServiceTests
         var result = await service.Search(
             CreateProject(),
             UcliConfig.CreateDefault(),
-            mode: null,
-            timeout: null,
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.AllowStale,
             query: new AssetSearchLookupQuery(null, null, null));
 
@@ -209,8 +210,8 @@ public sealed class AssetSearchLookupAccessServiceTests
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode,
+            TimeSpan timeout,
             ReadIndexMode readIndexMode,
             string fallbackReason,
             CancellationToken cancellationToken = default)

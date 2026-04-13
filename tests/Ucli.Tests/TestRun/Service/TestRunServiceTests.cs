@@ -713,7 +713,7 @@ public sealed class TestRunServiceTests
         }
 
         public ValueTask<UnityExecutionModeDecisionResult> Decide (
-            string? mode,
+            UnityExecutionMode mode,
             ResolvedUnityProjectContext unityProject,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)

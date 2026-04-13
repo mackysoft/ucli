@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Configuration;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Operations;
@@ -28,5 +29,7 @@ internal interface IOperationCatalog
     ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
+        UnityExecutionMode mode = UnityExecutionMode.Auto,
+        TimeSpan? timeout = null,
         CancellationToken cancellationToken = default);
 }

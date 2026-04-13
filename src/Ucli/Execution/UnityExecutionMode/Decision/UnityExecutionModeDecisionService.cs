@@ -17,7 +17,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
     }
 
     /// <summary> Resolves execution target and contract errors for one requested mode. </summary>
-    /// <param name="mode"> The raw <c>--mode</c> option value. </param>
+    /// <param name="mode"> The normalized requested execution mode. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="timeout"> The remaining timeout budget available for daemon reachability probing. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -25,7 +25,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<UnityExecutionModeDecisionResult> Decide (
-        string? mode,
+        UnityExecutionMode mode,
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -33,11 +33,6 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
-
-        if (!UnityExecutionModeParser.TryParse(mode, out var requestedMode))
-        {
-            return UnityExecutionModeDecisionResultFactory.InvalidMode();
-        }
 
         var reachabilityResult = await daemonReachabilityProbe.Probe(
                 unityProject,
@@ -50,7 +45,7 @@ internal sealed class UnityExecutionModeDecisionService : IUnityExecutionModeDec
         }
 
         return UnityExecutionModeDecisionResultFactory.FromRequestedMode(
-            requestedMode,
+            mode,
             reachabilityResult.IsRunning,
             timeout);
     }

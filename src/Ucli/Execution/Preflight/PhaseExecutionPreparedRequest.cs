@@ -6,16 +6,27 @@ using MackySoft.Ucli.UnityProject;
 namespace MackySoft.Ucli.Execution;
 
 /// <summary> Represents one preflight-prepared request ready for phase execution. </summary>
-/// <param name="RequestJson"> The raw request JSON string. </param>
-/// <param name="InputSource"> The input source where request JSON was read. </param>
-/// <param name="Request"> The parsed request model used for static validation. </param>
-/// <param name="UnityProject"> The resolved Unity project context. </param>
-/// <param name="Config"> The loaded configuration values. </param>
-/// <param name="ConfigSource"> The config source where <paramref name="Config" /> was resolved. </param>
+/// <param name="PreparedRequest"> The request that has been read, parsed, and bound to project context. </param>
+/// <param name="OperationsByName"> The authoritative operation metadata keyed by operation name. </param>
 internal sealed record PhaseExecutionPreparedRequest (
-    string RequestJson,
-    RequestInputSource InputSource,
-    ValidateRequest Request,
-    ResolvedUnityProjectContext UnityProject,
-    UcliConfig Config,
-    ConfigSource ConfigSource);
+    PreparedRequestContext PreparedRequest,
+    IReadOnlyDictionary<string, UcliOperationDescriptor> OperationsByName)
+{
+    /// <summary> Gets the raw request JSON string. </summary>
+    public string RequestJson => PreparedRequest.RequestJson;
+
+    /// <summary> Gets the request input source. </summary>
+    public RequestInputSource InputSource => PreparedRequest.InputSource;
+
+    /// <summary> Gets the parsed request model used for static validation. </summary>
+    public ValidateRequest Request => PreparedRequest.Request;
+
+    /// <summary> Gets the resolved Unity project context. </summary>
+    public ResolvedUnityProjectContext UnityProject => PreparedRequest.ProjectContext.UnityProject;
+
+    /// <summary> Gets the loaded configuration values. </summary>
+    public UcliConfig Config => PreparedRequest.ProjectContext.Config;
+
+    /// <summary> Gets the configuration source. </summary>
+    public ConfigSource ConfigSource => PreparedRequest.ProjectContext.ConfigSource;
+}

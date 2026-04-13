@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Ops;
 using MackySoft.Ucli.Ops.Preflight;
 using MackySoft.Ucli.ReadIndex;
@@ -67,6 +68,8 @@ public sealed class OpsPreflightServiceTests
         Assert.NotNull(result.Context);
         Assert.Same(context, result.Context.Context);
         Assert.Equal(ReadIndexMode.AllowStale, result.Context.ReadIndexMode);
+        Assert.Equal(UnityExecutionMode.Daemon, result.Context.Mode);
+        Assert.Equal(TimeSpan.FromMilliseconds(1200), result.Context.Timeout);
     }
 
     private static ProjectContext CreateContext ()

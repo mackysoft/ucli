@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Assets;
@@ -42,8 +43,8 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string fallbackReason,
         CancellationToken cancellationToken = default)
@@ -51,6 +52,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(config);
         ArgumentException.ThrowIfNullOrWhiteSpace(fallbackReason);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
         IpcIndexAssetsReadResponse? response = null;
@@ -96,8 +98,8 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

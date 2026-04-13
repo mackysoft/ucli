@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Assets.Access;
@@ -11,8 +12,8 @@ internal interface IAssetSearchLookupAccessService
     ValueTask<AssetSearchLookupReadResult> Search (
         ResolvedUnityProjectContext project,
         UcliConfig config,
-        string? mode,
-        string? timeout,
+        UnityExecutionMode mode,
+        TimeSpan timeout,
         ReadIndexMode readIndexMode,
         AssetSearchLookupQuery query,
         CancellationToken cancellationToken = default);

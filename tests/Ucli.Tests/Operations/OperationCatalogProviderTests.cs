@@ -1,13 +1,9 @@
-using System.Text.Json;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.Operations;
-using MackySoft.Ucli.Ops;
-using MackySoft.Ucli.ReadIndex;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Tests;
@@ -23,23 +19,75 @@ public sealed class OperationCatalogProviderTests
             RepositoryRoot: "/tmp/repository",
             ProjectFingerprint: "project-fingerprint",
             PathSource: UnityProjectPathSource.CommandOption);
-        var config = new UcliConfig(
-            SchemaVersion: UcliContractConstants.Config.SchemaVersion,
-            OperationPolicy: OperationPolicy.Safe,
-            PlanTokenMode: PlanTokenMode.Optional,
-            ReadIndexDefaultMode: ReadIndexMode.RequireFresh,
-            OperationAllowlist: Array.Empty<string>());
+        var config = UcliConfig.CreateDefault();
+        UcliOperationDescriptor[] operations =
+        [
+            new UcliOperationDescriptor(
+                Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
+                Kind: UcliOperationKind.Query,
+                Policy: OperationPolicy.Safe,
+                ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
+        ];
         var contextResolver = new SpyProjectContextResolver();
-        var catalogReader = new SpyOpsCatalogReader();
-        var provider = new OperationCatalogProvider(contextResolver, catalogReader);
+        var discoveryService = new SpyOperationCatalogDiscoveryService(operations);
+        var provider = new OperationCatalogProvider(contextResolver, discoveryService);
 
-        var operations = await provider.GetOperations(unityProject, config, CancellationToken.None);
+        var result = await provider.GetOperations(unityProject, config, cancellationToken: CancellationToken.None);
 
         Assert.False(contextResolver.WasCalled);
-        Assert.Same(unityProject, catalogReader.ReceivedProject);
-        Assert.Same(config, catalogReader.ReceivedConfig);
-        Assert.Single(operations);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, operations[0].Name);
+        Assert.Same(unityProject, discoveryService.ReceivedProject);
+        Assert.Same(config, discoveryService.ReceivedConfig);
+        Assert.Equal(UnityExecutionMode.Auto, discoveryService.ReceivedMode);
+        Assert.Null(discoveryService.ReceivedTimeout);
+        Assert.Single(result);
+        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, result[0].Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetOperations_WithoutExplicitUnityProject_ResolvesCurrentDirectoryThenDelegatesToDiscovery ()
+    {
+        var unityProject = new ResolvedUnityProjectContext(
+            UnityProjectRoot: "/tmp/project",
+            RepositoryRoot: "/tmp/repository",
+            ProjectFingerprint: "project-fingerprint",
+            PathSource: UnityProjectPathSource.CommandOption);
+        var config = UcliConfig.CreateDefault();
+        var contextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(
+            new ProjectContext(unityProject, config, ConfigSource.Default)));
+        var discoveryService = new SpyOperationCatalogDiscoveryService(
+        [
+            new UcliOperationDescriptor(
+                Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
+                Kind: UcliOperationKind.Query,
+                Policy: OperationPolicy.Safe,
+                ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
+        ]);
+        var provider = new OperationCatalogProvider(contextResolver, discoveryService);
+
+        var result = await provider.GetOperations(CancellationToken.None);
+
+        Assert.True(contextResolver.WasCalled);
+        Assert.Null(contextResolver.ReceivedProjectPath);
+        Assert.Same(unityProject, discoveryService.ReceivedProject);
+        Assert.Same(config, discoveryService.ReceivedConfig);
+        Assert.Single(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task GetOperations_WhenCurrentDirectoryContextCannotBeResolved_ThrowsTypedLoadException ()
+    {
+        var provider = new OperationCatalogProvider(
+            new StubProjectContextResolver(ProjectContextResolutionResult.Failure(
+                ExecutionError.InvalidArgument("UnityProject is invalid."))),
+            new SpyOperationCatalogDiscoveryService([]));
+
+        var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
+            await provider.GetOperations(CancellationToken.None));
+
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, exception.Error.Kind);
+        Assert.Contains("Operation catalog context could not be resolved.", exception.Error.Message, StringComparison.Ordinal);
     }
 
     private sealed class SpyProjectContextResolver : IProjectContextResolver
@@ -57,39 +105,60 @@ public sealed class OperationCatalogProviderTests
         }
     }
 
-    private sealed class SpyOpsCatalogReader : IOpsCatalogReader
+    private sealed class StubProjectContextResolver : IProjectContextResolver
     {
+        private readonly ProjectContextResolutionResult result;
+
+        public StubProjectContextResolver (ProjectContextResolutionResult result)
+        {
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
+        }
+
+        public bool WasCalled { get; private set; }
+
+        public string? ReceivedProjectPath { get; private set; }
+
+        public ValueTask<ProjectContextResolutionResult> Resolve (
+            string? projectPath,
+            CancellationToken cancellationToken = default)
+        {
+            WasCalled = true;
+            ReceivedProjectPath = projectPath;
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class SpyOperationCatalogDiscoveryService : IOperationCatalogDiscoveryService
+    {
+        private readonly IReadOnlyList<UcliOperationDescriptor> operations;
+
+        public SpyOperationCatalogDiscoveryService (IReadOnlyList<UcliOperationDescriptor> operations)
+        {
+            this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
+        }
+
         public ResolvedUnityProjectContext? ReceivedProject { get; private set; }
 
         public UcliConfig? ReceivedConfig { get; private set; }
 
-        public ValueTask<OpsCatalogFetchResult> Read (
-            ResolvedUnityProjectContext project,
+        public UnityExecutionMode ReceivedMode { get; private set; }
+
+        public TimeSpan? ReceivedTimeout { get; private set; }
+
+        public ValueTask<IReadOnlyList<UcliOperationDescriptor>> Discover (
+            ResolvedUnityProjectContext unityProject,
             UcliConfig config,
-            string? mode,
-            string? timeout,
+            UnityExecutionMode mode = UnityExecutionMode.Auto,
+            TimeSpan? timeout = null,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ReceivedProject = project;
+            ReceivedProject = unityProject;
             ReceivedConfig = config;
-            Assert.Null(mode);
-            Assert.Null(timeout);
-
-            return ValueTask.FromResult(OpsCatalogFetchResult.Success(new IpcOpsReadResponse(
-                GeneratedAtUtc: DateTimeOffset.UtcNow,
-                Operations:
-                [
-                    new IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: JsonSerializer.Serialize(new
-                        {
-                            type = "object",
-                            additionalProperties = false,
-                        })),
-                ])));
+            ReceivedMode = mode;
+            ReceivedTimeout = timeout;
+            return ValueTask.FromResult(operations);
         }
     }
 }

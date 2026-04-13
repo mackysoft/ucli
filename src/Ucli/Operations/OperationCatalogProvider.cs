@@ -1,7 +1,8 @@
+using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Context;
-using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Ops;
+using MackySoft.Ucli.Execution;
+using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Operations;
@@ -11,17 +12,17 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
 {
     private readonly IProjectContextResolver projectContextResolver;
 
-    private readonly IOpsCatalogReader opsCatalogReader;
+    private readonly IOperationCatalogDiscoveryService operationCatalogDiscoveryService;
 
     /// <summary> Initializes a new instance of the <see cref="OperationCatalogProvider" /> class. </summary>
     /// <param name="projectContextResolver"> The shared context resolver dependency. </param>
-    /// <param name="opsCatalogReader"> The ops catalog reader dependency. </param>
+    /// <param name="operationCatalogDiscoveryService"> The operation-catalog discovery dependency. </param>
     public OperationCatalogProvider (
         IProjectContextResolver projectContextResolver,
-        IOpsCatalogReader opsCatalogReader)
+        IOperationCatalogDiscoveryService operationCatalogDiscoveryService)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.opsCatalogReader = opsCatalogReader ?? throw new ArgumentNullException(nameof(opsCatalogReader));
+        this.operationCatalogDiscoveryService = operationCatalogDiscoveryService ?? throw new ArgumentNullException(nameof(operationCatalogDiscoveryService));
     }
 
     /// <inheritdoc />
@@ -35,14 +36,17 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
             .ConfigureAwait(false);
         if (!contextResult.IsSuccess)
         {
-            throw new InvalidOperationException(
-                $"Operation catalog context could not be resolved. {contextResult.Error!.Message}");
+            throw new OperationCatalogLoadException(CreatePrefixedError(
+                contextResult.Error!,
+                "Operation catalog context could not be resolved."));
         }
 
-        return await GetOperations(
+        return await operationCatalogDiscoveryService.Discover(
                 contextResult.Context!.UnityProject,
                 contextResult.Context.Config,
-                cancellationToken)
+                mode: UnityExecutionMode.Auto,
+                timeout: null,
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -50,25 +54,37 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
     public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (
         ResolvedUnityProjectContext unityProject,
         UcliConfig config,
+        UnityExecutionMode mode = UnityExecutionMode.Auto,
+        TimeSpan? timeout = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(config);
 
-        var catalogResult = await opsCatalogReader.Read(
+        return await operationCatalogDiscoveryService.Discover(
                 unityProject,
                 config,
-                mode: null,
-                timeout: null,
+                mode,
+                timeout,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!catalogResult.IsSuccess)
-        {
-            throw new InvalidOperationException(
-                $"Operation catalog discovery failed. {catalogResult.Message}");
-        }
-
-        return OperationDescriptorMapper.Map(catalogResult.Response!.Operations!, cancellationToken);
     }
+
+    private static ExecutionError CreatePrefixedError (
+        ExecutionError error,
+        string messagePrefix)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        ArgumentException.ThrowIfNullOrWhiteSpace(messagePrefix);
+
+        var message = $"{messagePrefix} {error.Message}";
+        return error.Kind switch
+        {
+            ExecutionErrorKind.InvalidArgument => ExecutionError.InvalidArgument(message),
+            ExecutionErrorKind.Timeout => ExecutionError.Timeout(message),
+            _ => ExecutionError.InternalError(message),
+        };
+    }
+
 }
