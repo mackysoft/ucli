@@ -111,6 +111,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 context.Context.Config,
                 context.Mode,
                 context.Timeout,
+                context.FailFast,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!fetchResult.IsSuccess)

@@ -12,6 +12,7 @@ internal interface IOpsCatalogReader
     /// <param name="config"> The loaded uCLI configuration. </param>
     /// <param name="mode"> The normalized Unity execution mode. </param>
     /// <param name="timeout"> The resolved timeout budget for this catalog read. </param>
+    /// <param name="failFast"> Whether the Unity-side lifecycle gate should fail immediately instead of waiting. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the read result. </returns>
     ValueTask<OpsCatalogFetchResult> Read (
@@ -19,5 +20,6 @@ internal interface IOpsCatalogReader
         UcliConfig config,
         UnityExecutionMode mode,
         TimeSpan timeout,
+        bool failFast,
         CancellationToken cancellationToken = default);
 }

@@ -75,7 +75,8 @@ internal sealed class OpsService : IOpsService
                     ProjectPath: input.ProjectPath,
                     Mode: input.Mode,
                     Timeout: input.Timeout,
-                    ReadIndexMode: input.ReadIndexMode),
+                    ReadIndexMode: input.ReadIndexMode,
+                    FailFast: input.FailFast),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!preflightResult.IsSuccess)

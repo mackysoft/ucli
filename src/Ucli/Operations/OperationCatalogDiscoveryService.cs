@@ -58,7 +58,8 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
                 config,
                 mode,
                 resolvedTimeout,
-                cancellationToken)
+                failFast: true,
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (!catalogResult.IsSuccess)
         {
