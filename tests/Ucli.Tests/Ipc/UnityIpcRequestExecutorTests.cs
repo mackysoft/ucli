@@ -102,7 +102,7 @@ public sealed class UnityIpcRequestExecutorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonOpsReadRequiresReadinessGate_StripsServerGateAfterReadinessSucceeds ()
+    public async Task Execute_WhenDaemonOpsReadRequiresReadinessGate_ConvertsDispatchToFailFastGate ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-ops-readiness");
         var response = CreateResponse("req-daemon-readiness");
@@ -146,10 +146,72 @@ public sealed class UnityIpcRequestExecutorTests
             daemonTransportClient.Requests[0].Payload,
             out IpcOpsReadRequest payload,
             out _));
-        Assert.False(payload.RequireReadinessGate);
-        Assert.False(payload.FailFast);
+        Assert.True(payload.RequireReadinessGate);
+        Assert.True(payload.FailFast);
         Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenDaemonOpsReadLateBusyRegressionOccurs_RewaitsAndRedispatches ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-ops-late-busy");
+        var responses = new Queue<IpcResponse>(new[]
+        {
+            CreateErrorResponse(
+                "req-daemon-busy",
+                IpcErrorCodes.EditorBusy,
+                "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
+            CreateResponse("req-daemon-ready"),
+        });
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => responses.Dequeue());
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        {
+            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+        };
+        var readinessProbe = new StubDaemonPingInfoClient(
+            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true),
+            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var executor = new UnityIpcRequestExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Auto,
+                    true,
+                    UnityExecutionTarget.Daemon,
+                    DefaultTimeout))),
+            readinessProbe,
+            new StubUnityUcliPluginLocator(),
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            IpcMethodNames.OpsRead,
+            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                FailFast: false,
+                RequireReadinessGate: true)));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, readinessProbe.CallCount);
+        Assert.Equal(2, daemonTransportClient.CallCount);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            daemonTransportClient.Requests[0].Payload,
+            out IpcOpsReadRequest firstPayload,
+            out _));
+        Assert.True(firstPayload.RequireReadinessGate);
+        Assert.True(firstPayload.FailFast);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            daemonTransportClient.Requests[1].Payload,
+            out IpcOpsReadRequest secondPayload,
+            out _));
+        Assert.True(secondPayload.RequireReadinessGate);
+        Assert.True(secondPayload.FailFast);
     }
 
     [Fact]
@@ -449,6 +511,22 @@ public sealed class UnityIpcRequestExecutorTests
             Status: IpcProtocol.StatusOk,
             Payload: EmptyPayload(),
             Errors: Array.Empty<IpcError>());
+    }
+
+    private static IpcResponse CreateErrorResponse (
+        string requestId,
+        string errorCode,
+        string message)
+    {
+        return new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: requestId,
+            Status: IpcProtocol.StatusError,
+            Payload: EmptyPayload(),
+            Errors:
+            [
+                new IpcError(errorCode, message, null),
+            ]);
     }
 
     private static IpcResponse CreatePingResponse (string requestId)

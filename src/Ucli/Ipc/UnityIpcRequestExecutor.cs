@@ -133,25 +133,13 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         if (decision.Target == UnityExecutionTarget.Daemon
             && opsReadRequest is { RequireReadinessGate: true })
         {
-            var readinessResult = await WaitUntilDaemonReadiness(
+            return await ExecuteDaemonOpsReadWithReadinessGate(
                     unityProject,
-                    opsReadRequest.FailFast,
-                    deadline,
                     timeout,
+                    deadline,
+                    opsReadRequest,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (readinessResult != null)
-            {
-                return readinessResult;
-            }
-
-            // NOTE:
-            // Daemon-side ops.read readiness waits must not hold the shared IPC request loop open,
-            // otherwise status/log/shutdown requests can be starved behind one long-lived wait.
-            payload = IpcPayloadCodec.SerializeToElement(opsReadRequest with
-            {
-                RequireReadinessGate = false,
-            });
         }
 
         if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
@@ -175,6 +163,61 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                 requestTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private async ValueTask<UnityIpcRequestExecutionResult> ExecuteDaemonOpsReadWithReadinessGate (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        ExecutionDeadline deadline,
+        IpcOpsReadRequest opsReadRequest,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(unityProject);
+
+        while (true)
+        {
+            var readinessResult = await WaitUntilDaemonReadiness(
+                    unityProject,
+                    opsReadRequest.FailFast,
+                    deadline,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (readinessResult != null)
+            {
+                return readinessResult;
+            }
+
+            // NOTE:
+            // Daemon-side ops.read readiness waits must not hold the shared IPC request loop open,
+            // otherwise status/log/shutdown requests can be starved behind one long-lived wait.
+            // Keep one final fail-fast gate on the dispatched request so the handler still rejects
+            // lifecycle regressions that happen after the last client-side readiness probe.
+            var payload = IpcPayloadCodec.SerializeToElement(opsReadRequest with
+            {
+                FailFast = true,
+            });
+
+            if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
+            {
+                return UnityIpcRequestExecutionResult.Failure(
+                    "Timed out before Unity IPC request dispatch could begin.",
+                    ExecutionErrorKindCodeMapper.ToCode(ExecutionErrorKind.Timeout));
+            }
+
+            var dispatchResult = await daemonIpcClient.SendAsync(
+                    unityProject,
+                    IpcMethodNames.OpsRead,
+                    payload,
+                    requestTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!ShouldRetryDaemonOpsReadAfterLateWaitableRegression(dispatchResult, opsReadRequest.FailFast))
+            {
+                return dispatchResult;
+            }
+        }
     }
 
     private static IpcOpsReadRequest? TryParseOpsReadRequest (
@@ -343,6 +386,28 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
             || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal);
+    }
+
+    private static bool ShouldRetryDaemonOpsReadAfterLateWaitableRegression (
+        UnityIpcRequestExecutionResult dispatchResult,
+        bool failFast)
+    {
+        ArgumentNullException.ThrowIfNull(dispatchResult);
+
+        if (failFast || !dispatchResult.IsSuccess)
+        {
+            return false;
+        }
+
+        if (!IpcResponseFailureReader.TryRead(dispatchResult.Response!, out var firstError, out _)
+            || firstError == null)
+        {
+            return false;
+        }
+
+        return string.Equals(firstError.Code, IpcErrorCodes.EditorStarting, StringComparison.Ordinal)
+            || string.Equals(firstError.Code, IpcErrorCodes.EditorBusy, StringComparison.Ordinal)
+            || string.Equals(firstError.Code, IpcErrorCodes.EditorCompiling, StringComparison.Ordinal);
     }
 
     private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (
