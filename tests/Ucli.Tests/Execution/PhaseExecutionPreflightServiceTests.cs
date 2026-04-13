@@ -219,12 +219,14 @@ public sealed class PhaseExecutionPreflightServiceTests
             preparedRequest,
             mode: UnityExecutionMode.Daemon,
             deadline: deadline,
+            failFast: true,
             cancellationToken: token);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(token, operationCatalog.ReceivedToken);
         Assert.Equal(UnityExecutionMode.Daemon, operationCatalog.ReceivedMode);
         Assert.Equal(TimeSpan.FromMilliseconds(30000), operationCatalog.ReceivedTimeout);
+        Assert.True(operationCatalog.ReceivedFailFast);
         Assert.Equal(token, validationService.ReceivedToken);
         Assert.Same(preparedRequest.Request, validationService.ReceivedRequest);
         Assert.True(validationService.ReceivedCatalog!.IsAvailable);
@@ -303,6 +305,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -332,6 +335,8 @@ public sealed class PhaseExecutionPreflightServiceTests
 
         public TimeSpan? ReceivedTimeout { get; private set; }
 
+        public bool ReceivedFailFast { get; private set; }
+
         public ValueTask<UcliOperationDescriptor?> Get (string name, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -349,11 +354,13 @@ public sealed class PhaseExecutionPreflightServiceTests
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             ReceivedMode = mode;
             ReceivedTimeout = timeout;
+            ReceivedFailFast = failFast;
             ReceivedToken = cancellationToken;
             return ValueTask.FromResult(operations);
         }
@@ -378,6 +385,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -411,6 +419,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -154,6 +154,7 @@ public sealed class RequestStaticValidationServiceTests
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(unityProject);
@@ -180,6 +181,7 @@ public sealed class RequestStaticValidationServiceTests
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -211,6 +213,7 @@ public sealed class RequestStaticValidationServiceTests
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

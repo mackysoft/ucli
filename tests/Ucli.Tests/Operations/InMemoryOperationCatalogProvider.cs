@@ -403,6 +403,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
         TimeSpan? timeout = null,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);

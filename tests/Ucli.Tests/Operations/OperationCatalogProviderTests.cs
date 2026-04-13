@@ -32,13 +32,14 @@ public sealed class OperationCatalogProviderTests
         var discoveryService = new SpyOperationCatalogDiscoveryService(operations);
         var provider = new OperationCatalogProvider(contextResolver, discoveryService);
 
-        var result = await provider.GetOperations(unityProject, config, cancellationToken: CancellationToken.None);
+        var result = await provider.GetOperations(unityProject, config, failFast: true, cancellationToken: CancellationToken.None);
 
         Assert.False(contextResolver.WasCalled);
         Assert.Same(unityProject, discoveryService.ReceivedProject);
         Assert.Same(config, discoveryService.ReceivedConfig);
         Assert.Equal(UnityExecutionMode.Auto, discoveryService.ReceivedMode);
         Assert.Null(discoveryService.ReceivedTimeout);
+        Assert.True(discoveryService.ReceivedFailFast);
         Assert.Single(result);
         Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, result[0].Name);
     }
@@ -71,6 +72,7 @@ public sealed class OperationCatalogProviderTests
         Assert.Null(contextResolver.ReceivedProjectPath);
         Assert.Same(unityProject, discoveryService.ReceivedProject);
         Assert.Same(config, discoveryService.ReceivedConfig);
+        Assert.False(discoveryService.ReceivedFailFast);
         Assert.Single(result);
     }
 
@@ -146,11 +148,14 @@ public sealed class OperationCatalogProviderTests
 
         public TimeSpan? ReceivedTimeout { get; private set; }
 
+        public bool ReceivedFailFast { get; private set; }
+
         public ValueTask<IReadOnlyList<UcliOperationDescriptor>> Discover (
             ResolvedUnityProjectContext unityProject,
             UcliConfig config,
             UnityExecutionMode mode = UnityExecutionMode.Auto,
             TimeSpan? timeout = null,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -158,6 +163,7 @@ public sealed class OperationCatalogProviderTests
             ReceivedConfig = config;
             ReceivedMode = mode;
             ReceivedTimeout = timeout;
+            ReceivedFailFast = failFast;
             return ValueTask.FromResult(operations);
         }
     }

@@ -31,8 +31,24 @@ public sealed class OperationCatalogDiscoveryServiceTests
         Assert.Equal(
             TimeSpan.FromMilliseconds(config.IpcTimeoutMillisecondsByCommand[UcliCommandIds.Ops.Name]!.Value),
             reader.ReceivedTimeout);
-        Assert.True(reader.ReceivedFailFast);
+        Assert.False(reader.ReceivedFailFast);
         Assert.Single(operations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Discover_WhenFailFastIsSpecified_PropagatesToReader ()
+    {
+        var reader = new SpyOpsCatalogReader();
+        var service = new OperationCatalogDiscoveryService(reader);
+
+        _ = await service.Discover(
+            CreateUnityProject(),
+            UcliConfig.CreateDefault(),
+            failFast: true,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(reader.ReceivedFailFast);
     }
 
     [Fact]
