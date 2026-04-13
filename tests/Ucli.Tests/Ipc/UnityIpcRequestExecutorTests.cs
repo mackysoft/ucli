@@ -32,6 +32,7 @@ public sealed class UnityIpcRequestExecutorTests
                     new UnityExecutionModeDecisionContractError(
                         UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                         "Daemon is not running for mode=daemon."))),
+            new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
@@ -76,6 +77,7 @@ public sealed class UnityIpcRequestExecutorTests
                     true,
                     UnityExecutionTarget.Daemon,
                     DefaultTimeout))),
+            new StubDaemonPingInfoClient(),
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
 
@@ -95,6 +97,99 @@ public sealed class UnityIpcRequestExecutorTests
         Assert.Equal(1, sessionTokenProvider.CallCount);
         Assert.Equal("daemon-token", daemonTransportClient.Requests[0].SessionToken);
         Assert.Equal(0, pluginLocator.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenDaemonOpsReadRequiresReadinessGate_StripsServerGateAfterReadinessSucceeds ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-ops-readiness");
+        var response = CreateResponse("req-daemon-readiness");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => response);
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var sessionTokenProvider = new StubDaemonSessionTokenProvider
+        {
+            Result = DaemonSessionTokenResolutionResult.Success("daemon-token"),
+        };
+        var readinessProbe = new StubDaemonPingInfoClient(
+            CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false),
+            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var executor = new UnityIpcRequestExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Auto,
+                    true,
+                    UnityExecutionTarget.Daemon,
+                    DefaultTimeout))),
+            readinessProbe,
+            new StubUnityUcliPluginLocator(),
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionTokenProvider, launcher));
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            IpcMethodNames.OpsRead,
+            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                FailFast: false,
+                RequireReadinessGate: true)));
+
+        Assert.True(result.IsSuccess);
+        Assert.Same(response, result.Response);
+        Assert.Equal(2, readinessProbe.CallCount);
+        Assert.Equal(1, daemonTransportClient.CallCount);
+        Assert.True(IpcPayloadCodec.TryDeserialize(
+            daemonTransportClient.Requests[0].Payload,
+            out IpcOpsReadRequest payload,
+            out _));
+        Assert.False(payload.RequireReadinessGate);
+        Assert.False(payload.FailFast);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
+        Assert.Equal(0, launcher.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenDaemonOpsReadFailFastHitsBusyState_ReturnsLifecycleFailureWithoutDispatch ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-ops-fail-fast");
+        var daemonTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
+        var oneshotTransportClient = new StubUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
+        var readinessProbe = new StubDaemonPingInfoClient(
+            CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false));
+        var launcher = new StubUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var executor = new UnityIpcRequestExecutor(
+            new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+                new UnityExecutionModeDecision(
+                    UnityExecutionMode.Auto,
+                    true,
+                    UnityExecutionTarget.Daemon,
+                    DefaultTimeout))),
+            readinessProbe,
+            new StubUnityUcliPluginLocator(),
+            CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
+
+        var result = await executor.Execute(
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
+            UcliConfig.CreateDefault(),
+            CreateContext(scope),
+            IpcMethodNames.OpsRead,
+            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                FailFast: true,
+                RequireReadinessGate: true)));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
+        Assert.Contains("Unity editor is busy with internal work.", result.Message, StringComparison.Ordinal);
+        Assert.Equal(1, readinessProbe.CallCount);
+        Assert.Equal(0, daemonTransportClient.CallCount);
+        Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(0, launcher.CallCount);
     }
 
@@ -122,6 +217,7 @@ public sealed class UnityIpcRequestExecutorTests
                     false,
                     UnityExecutionTarget.Oneshot,
                     DefaultTimeout))),
+            new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
@@ -161,6 +257,7 @@ public sealed class UnityIpcRequestExecutorTests
                     false,
                     UnityExecutionTarget.Oneshot,
                     DefaultTimeout))),
+            new StubDaemonPingInfoClient(),
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
@@ -200,6 +297,7 @@ public sealed class UnityIpcRequestExecutorTests
                     new UnityExecutionModeDecisionContractError(
                         UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                         "Daemon is not running for mode=daemon."))),
+            new StubDaemonPingInfoClient(),
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
@@ -245,6 +343,7 @@ public sealed class UnityIpcRequestExecutorTests
                     false,
                     UnityExecutionTarget.Oneshot,
                     TimeSpan.FromMilliseconds(120)))),
+            new StubDaemonPingInfoClient(),
             pluginLocator,
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher));
 
@@ -289,6 +388,7 @@ public sealed class UnityIpcRequestExecutorTests
         };
         var executor = new UnityIpcRequestExecutor(
             modeDecisionService,
+            new StubDaemonPingInfoClient(),
             new StubUnityUcliPluginLocator(),
             CreateClients(daemonTransportClient, oneshotTransportClient, new StubDaemonSessionTokenProvider(), launcher),
             timeProvider);
@@ -353,22 +453,44 @@ public sealed class UnityIpcRequestExecutorTests
 
     private static IpcResponse CreatePingResponse (string requestId)
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcPingResponse(
-            ServerVersion: "1.0.0",
-            Runtime: IpcEditorRuntimeCodec.Batchmode,
-            UnityVersion: "2023.2.22f1",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-            BlockingReason: null,
-            CompileGeneration: "0",
-            DomainReloadGeneration: "0",
-            CanAcceptExecutionRequests: true));
+        var payload = IpcPayloadCodec.SerializeToElement(CreatePingPayload(
+            IpcEditorLifecycleStateCodec.Ready,
+            true));
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: requestId,
             Status: IpcProtocol.StatusOk,
             Payload: payload,
             Errors: Array.Empty<IpcError>());
+    }
+
+    private static IpcPingResponse CreatePingPayload (
+        string lifecycleState,
+        bool canAcceptExecutionRequests)
+    {
+        return new IpcPingResponse(
+            ServerVersion: "1.0.0",
+            Runtime: IpcEditorRuntimeCodec.Batchmode,
+            UnityVersion: "2023.2.22f1",
+            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: lifecycleState,
+            BlockingReason: canAcceptExecutionRequests
+                ? null
+                : lifecycleState switch
+                {
+                    IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
+                    IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
+                    IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
+                    IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
+                    IpcEditorLifecycleStateCodec.Playmode => IpcEditorBlockingReasonCodec.PlayMode,
+                    IpcEditorLifecycleStateCodec.BlockedByModal => IpcEditorBlockingReasonCodec.ModalDialog,
+                    IpcEditorLifecycleStateCodec.SafeMode => IpcEditorBlockingReasonCodec.SafeMode,
+                    IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
+                    _ => null,
+                },
+            CompileGeneration: "0",
+            DomainReloadGeneration: "0",
+            CanAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
     private sealed class StubModeDecisionService : IUnityExecutionModeDecisionService
@@ -452,6 +574,37 @@ public sealed class UnityIpcRequestExecutorTests
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient
+    {
+        private readonly Queue<IpcPingResponse> responses = new Queue<IpcPingResponse>();
+
+        public StubDaemonPingInfoClient (params IpcPingResponse[] responses)
+        {
+            foreach (var response in responses)
+            {
+                this.responses.Enqueue(response);
+            }
+        }
+
+        public int CallCount { get; private set; }
+
+        public ValueTask<IpcPingResponse> PingAndRead (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            string? sessionToken = null,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            if (responses.Count == 0)
+            {
+                throw new Xunit.Sdk.XunitException("No daemon ping response was configured.");
+            }
+
+            return ValueTask.FromResult(responses.Dequeue());
         }
     }
 

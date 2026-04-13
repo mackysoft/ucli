@@ -4,6 +4,7 @@ using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Daemon;
 using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Foundation;
 using MackySoft.Ucli.UnityProject;
@@ -19,6 +20,8 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
 
     private readonly IUnityIpcClient oneshotIpcClient;
 
+    private readonly IDaemonPingInfoClient daemonPingInfoClient;
+
     private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
 
     private readonly TimeProvider timeProvider;
@@ -28,11 +31,13 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
     /// <param name="unityIpcClients"> The Unity IPC client implementations grouped by execution target. </param>
     public UnityIpcRequestExecutor (
         IUnityExecutionModeDecisionService modeDecisionService,
+        IDaemonPingInfoClient daemonPingInfoClient,
         IUnityUcliPluginLocator unityUcliPluginLocator,
         IEnumerable<IUnityIpcClient> unityIpcClients,
         TimeProvider? timeProvider = null)
     {
         this.modeDecisionService = modeDecisionService ?? throw new ArgumentNullException(nameof(modeDecisionService));
+        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
         ArgumentNullException.ThrowIfNull(unityIpcClients);
         daemonIpcClient = ResolveRequiredClient<UnityDaemonIpcClient>(unityIpcClients);
@@ -109,6 +114,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         }
 
         var decision = modeDecisionResult.Decision!;
+        var opsReadRequest = TryParseOpsReadRequest(method, payload);
         if (decision.Target == UnityExecutionTarget.Oneshot)
         {
             var pluginLocateError = await VerifyUnityPluginWithinBudget(
@@ -122,6 +128,30 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                     pluginLocateError.Message,
                     ExecutionErrorKindCodeMapper.ToCode(pluginLocateError.Kind));
             }
+        }
+
+        if (decision.Target == UnityExecutionTarget.Daemon
+            && opsReadRequest is { RequireReadinessGate: true })
+        {
+            var readinessResult = await WaitUntilDaemonReadiness(
+                    unityProject,
+                    opsReadRequest.FailFast,
+                    deadline,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (readinessResult != null)
+            {
+                return readinessResult;
+            }
+
+            // NOTE:
+            // Daemon-side ops.read readiness waits must not hold the shared IPC request loop open,
+            // otherwise status/log/shutdown requests can be starved behind one long-lived wait.
+            payload = IpcPayloadCodec.SerializeToElement(opsReadRequest with
+            {
+                RequireReadinessGate = false,
+            });
         }
 
         if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
@@ -145,6 +175,174 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                 requestTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static IpcOpsReadRequest? TryParseOpsReadRequest (
+        string method,
+        JsonElement payload)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+
+        if (!string.Equals(method, IpcMethodNames.OpsRead, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcOpsReadRequest parsedPayload, out _))
+        {
+            throw new InvalidOperationException("ops.read payload must be valid before Unity IPC request execution begins.");
+        }
+
+        return parsedPayload;
+    }
+
+    private async ValueTask<UnityIpcRequestExecutionResult?> WaitUntilDaemonReadiness (
+        ResolvedUnityProjectContext unityProject,
+        bool failFast,
+        ExecutionDeadline deadline,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+            {
+                return CreateDaemonTimeoutFailure(timeout);
+            }
+
+            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
+                ? remainingTimeout
+                : DaemonTimeouts.ProbeAttemptTimeoutCap;
+            try
+            {
+                var pingResponse = await daemonPingInfoClient.PingAndRead(
+                        unityProject,
+                        attemptTimeout,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                var readinessDecision = EvaluateDaemonReadiness(pingResponse, failFast);
+                if (readinessDecision.IsReady)
+                {
+                    return null;
+                }
+
+                if (readinessDecision.IsFailure)
+                {
+                    return UnityIpcRequestExecutionResult.Failure(
+                        readinessDecision.ErrorMessage!,
+                        readinessDecision.ErrorCode!);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (TimeoutException)
+            {
+            }
+            catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
+            {
+                return UnityIpcRequestExecutionResult.Failure(
+                    $"Unity daemon is not running. {exception.Message}",
+                    UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
+            }
+            catch (Exception exception)
+            {
+                return UnityIpcRequestExecutionResult.Failure(
+                    $"Failed while waiting for Unity daemon readiness. {exception.Message}",
+                    IpcErrorCodes.InternalError);
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+            {
+                return CreateDaemonTimeoutFailure(timeout);
+            }
+
+            await TimeProviderDelay.Delay(
+                    GetReadinessRetryDelay(remainingTimeout),
+                    timeProvider,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static UnityIpcRequestExecutionResult CreateDaemonTimeoutFailure (TimeSpan timeout)
+    {
+        return UnityIpcRequestExecutionResult.Failure(
+            $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
+            CliErrorCodes.IpcTimeout);
+    }
+
+    private static TimeSpan GetReadinessRetryDelay (TimeSpan remainingTimeout)
+    {
+        var retryDelayMilliseconds = Math.Min(
+            DaemonTimeouts.StartupProbeRetryDelayMilliseconds,
+            Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
+        return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
+    }
+
+    private static DaemonReadinessDecision EvaluateDaemonReadiness (
+        IpcPingResponse pingResponse,
+        bool failFast)
+    {
+        ArgumentNullException.ThrowIfNull(pingResponse);
+
+        if (pingResponse.CanAcceptExecutionRequests)
+        {
+            return DaemonReadinessDecision.Ready();
+        }
+
+        if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
+        {
+            return DaemonReadinessDecision.Failure(
+                IpcErrorCodes.InternalError,
+                $"Unity editor lifecycle gate returned unsupported state '{pingResponse.LifecycleState}'.");
+        }
+
+        if (!failFast && IsWaitableLifecycleState(lifecycleState!))
+        {
+            return DaemonReadinessDecision.Wait();
+        }
+
+        return lifecycleState switch
+        {
+            IpcEditorLifecycleStateCodec.Starting => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorStarting,
+                "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request."),
+            IpcEditorLifecycleStateCodec.Busy => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorBusy,
+                "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
+            IpcEditorLifecycleStateCodec.Compiling => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorCompiling,
+                "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request."),
+            IpcEditorLifecycleStateCodec.DomainReloading => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorDomainReloading,
+                "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request."),
+            IpcEditorLifecycleStateCodec.Playmode => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorPlaymode,
+                "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request."),
+            IpcEditorLifecycleStateCodec.BlockedByModal => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorModalBlocked,
+                "Unity editor is blocked by a modal dialog. Resolve the dialog and wait until lifecycleState=ready before executing request."),
+            IpcEditorLifecycleStateCodec.SafeMode => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorSafeMode,
+                "Unity editor is in Safe Mode. Resolve compiler errors and wait until lifecycleState=ready before executing request."),
+            IpcEditorLifecycleStateCodec.ShuttingDown => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.EditorShuttingDown,
+                "Unity editor is shutting down and cannot accept execution requests."),
+            _ => DaemonReadinessDecision.Failure(
+                IpcErrorCodes.InternalError,
+                $"Unity editor lifecycle gate returned unsupported state '{lifecycleState}'."),
+        };
+    }
+
+    private static bool IsWaitableLifecycleState (string lifecycleState)
+    {
+        return string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
+            || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal);
     }
 
     private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (
@@ -201,5 +399,43 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         }
 
         return resolvedClient;
+    }
+
+    private readonly record struct DaemonReadinessDecision (
+        bool IsReady,
+        bool IsFailure,
+        string? ErrorCode,
+        string? ErrorMessage)
+    {
+        public static DaemonReadinessDecision Ready ()
+        {
+            return new DaemonReadinessDecision(
+                IsReady: true,
+                IsFailure: false,
+                ErrorCode: null,
+                ErrorMessage: null);
+        }
+
+        public static DaemonReadinessDecision Wait ()
+        {
+            return new DaemonReadinessDecision(
+                IsReady: false,
+                IsFailure: false,
+                ErrorCode: null,
+                ErrorMessage: null);
+        }
+
+        public static DaemonReadinessDecision Failure (
+            string errorCode,
+            string errorMessage)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+            ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+            return new DaemonReadinessDecision(
+                IsReady: false,
+                IsFailure: true,
+                ErrorCode: errorCode,
+                ErrorMessage: errorMessage);
+        }
     }
 }
