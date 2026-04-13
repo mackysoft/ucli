@@ -24,8 +24,8 @@
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
   - `describe <opName>` は特定オペレーションの引数スキーマを返す。
-  - `--mode <auto|daemon|oneshot>` と `--timeout <int>` を受け付ける。
-  - `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
+  - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
+  - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
   - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。
 - `ucli status`
   - daemon と lifecycle の状態を JSON で返す。
@@ -61,6 +61,7 @@
 - `blockedByModal`, `safeMode`, `playmode`, `shuttingDown` は待機中でも即時失敗する。
 - current batchmode daemon が実際に観測・返却する非 ready 状態は `starting`, `busy`, `compiling`, `domainReloading`, `playmode`, `shuttingDown`。`blockedByModal` と `safeMode` は reserved literal だが batchmode ではまだ返さない。
 - 待機は既存の `--timeout` budget を消費し、budget を使い切った場合は `IPC_TIMEOUT` を返す。
+- `ucli ops list` / `ucli ops describe` では live source fallback に対してのみ意味を持つ。readIndex hit では readiness wait を行わない。
 - `ucli test run` では daemon-backed execution に対してのみ意味を持つ。`oneshot` と `auto -> oneshot` は従来どおり direct `-runTests` を使い、readiness wait を行わない。
 
 ### 共通エラー契約
