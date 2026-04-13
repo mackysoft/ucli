@@ -50,7 +50,8 @@ public sealed class OpsCatalogAccessServiceTests
                 context,
                 ReadIndexMode.AllowStale,
                 UnityExecutionMode.Auto,
-                TimeSpan.FromMilliseconds(1200)));
+                TimeSpan.FromMilliseconds(1200),
+                true));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
@@ -116,7 +117,8 @@ public sealed class OpsCatalogAccessServiceTests
                 context,
                 ReadIndexMode.RequireFresh,
                 UnityExecutionMode.Auto,
-                TimeSpan.FromMilliseconds(1200)));
+                TimeSpan.FromMilliseconds(1200),
+                true));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
@@ -131,6 +133,7 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Equal(1, catalogReader.CallCount);
         Assert.Equal(UnityExecutionMode.Auto, catalogReader.LastMode);
         Assert.Equal(TimeSpan.FromMilliseconds(1200), catalogReader.LastTimeout);
+        Assert.True(catalogReader.LastFailFast);
         Assert.Equal(1, inputFingerprintCalculator.FullCallCount);
         Assert.Equal(1, store.CallCount);
         Assert.Equal(context.UnityProject.RepositoryRoot, store.StorageRoot);
@@ -176,7 +179,8 @@ public sealed class OpsCatalogAccessServiceTests
                 context,
                 ReadIndexMode.Disabled,
                 UnityExecutionMode.Auto,
-                TimeSpan.FromMilliseconds(1200)));
+                TimeSpan.FromMilliseconds(1200),
+                false));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
@@ -249,7 +253,8 @@ public sealed class OpsCatalogAccessServiceTests
                 context,
                 ReadIndexMode.Disabled,
                 UnityExecutionMode.Auto,
-                TimeSpan.FromMilliseconds(1200)));
+                TimeSpan.FromMilliseconds(1200),
+                false));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, inputFingerprintCalculator.CoreCallCount);
@@ -317,7 +322,8 @@ public sealed class OpsCatalogAccessServiceTests
                 context,
                 ReadIndexMode.Disabled,
                 UnityExecutionMode.Auto,
-                TimeSpan.FromMilliseconds(1200)));
+                TimeSpan.FromMilliseconds(1200),
+                false));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, inputFingerprintCalculator.CoreCallCount);
@@ -518,6 +524,8 @@ public sealed class OpsCatalogAccessServiceTests
 
         public TimeSpan? LastTimeout { get; private set; }
 
+        public bool LastFailFast { get; private set; }
+
         public OpsCatalogFetchResult Result { get; set; }
             = OpsCatalogFetchResult.Failure("not configured", IpcErrorCodes.InternalError);
 
@@ -526,12 +534,14 @@ public sealed class OpsCatalogAccessServiceTests
             UcliConfig config,
             UnityExecutionMode mode,
             TimeSpan timeout,
+            bool failFast,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastMode = mode;
             LastTimeout = timeout;
+            LastFailFast = failFast;
             return ValueTask.FromResult(Result);
         }
     }

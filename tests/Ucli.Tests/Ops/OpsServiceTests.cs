@@ -35,7 +35,7 @@ public sealed class OpsServiceTests
     [Trait("Size", "Small")]
     public async Task GetAll_WhenCatalogReadSucceeds_UsesListResultMapper ()
     {
-        var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
+        var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000), false);
         var preflightService = new StubOpsPreflightService
         {
             Result = OpsPreflightResult.Success(preflightContext),
@@ -75,9 +75,11 @@ public sealed class OpsServiceTests
         var describeResultMapper = new StubOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAll(new OpsCommandInput("/repo", "auto", "1000", "allowStale"));
+        var result = await service.GetAll(new OpsCommandInput("/repo", "auto", "1000", "allowStale", true));
 
         Assert.Same(expectedResult, result);
+        Assert.NotNull(preflightService.LastInput);
+        Assert.True(preflightService.LastInput!.FailFast);
         Assert.Equal(1, catalogAccessService.CallCount);
         Assert.Equal(1, listResultMapper.CallCount);
         Assert.Same(catalogOutput, listResultMapper.LastOutput);
@@ -87,7 +89,7 @@ public sealed class OpsServiceTests
     [Trait("Size", "Small")]
     public async Task Describe_WhenCatalogReadSucceeds_UsesDescribeResultMapper ()
     {
-        var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
+        var preflightContext = new OpsPreflightContext(default!, default, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000), false);
         var preflightService = new StubOpsPreflightService
         {
             Result = OpsPreflightResult.Success(preflightContext),
@@ -119,9 +121,12 @@ public sealed class OpsServiceTests
                 ProjectPath: "/repo",
                 Mode: "auto",
                 Timeout: "1000",
-                ReadIndexMode: "allowStale"));
+                ReadIndexMode: "allowStale",
+                FailFast: true));
 
         Assert.Same(expectedResult, result);
+        Assert.NotNull(preflightService.LastInput);
+        Assert.True(preflightService.LastInput!.FailFast);
         Assert.Equal(1, describeResultMapper.CallCount);
         Assert.Same(catalogOutput, describeResultMapper.LastOutput);
         Assert.Equal("ucli.unknown", describeResultMapper.LastOperationName);
@@ -131,11 +136,14 @@ public sealed class OpsServiceTests
     {
         public OpsPreflightResult Result { get; set; } = OpsPreflightResult.Failure("not configured", "INTERNAL_ERROR");
 
+        public OpsCommandInput? LastInput { get; private set; }
+
         public ValueTask<OpsPreflightResult> Execute (
             OpsCommandInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            LastInput = input;
             return ValueTask.FromResult(Result);
         }
     }

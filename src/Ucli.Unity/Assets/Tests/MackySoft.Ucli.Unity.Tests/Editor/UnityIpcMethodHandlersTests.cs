@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -153,6 +154,58 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator OpsReadHandler_WhenReady_ReturnsCatalogResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = CreateOpsReadHandler(new StubUnityEditorReadinessGate());
+            var request = CreateOpsReadRequest("req-ops-read-ready", new IpcOpsReadRequest());
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out _), Is.True);
+            Assert.That(payload.Operations.Length, Is.EqualTo(1));
+            Assert.That(payload.Operations[0].Name, Is.EqualTo(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator OpsReadHandler_WhenFailFastIsDisabled_DelaysResponseUntilReady () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var handler = CreateOpsReadHandler(readinessGate);
+            var responseTask = handler.Handle(
+                CreateOpsReadRequest("req-ops-read-wait", new IpcOpsReadRequest(FailFast: false)),
+                CancellationToken.None).AsTask();
+
+            await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "ops.read readiness wait", SignalWaitTimeout);
+
+            Assert.That(readinessGate.LastFailFast, Is.False);
+
+            readinessGate.Release();
+
+            var response = await TestAwaiter.WaitAsync(responseTask, "ops.read response after readiness", SignalWaitTimeout);
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator OpsReadHandler_WhenFailFastIsEnabled_ReturnsLifecycleFailure () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var handler = CreateOpsReadHandler(readinessGate);
+            var request = CreateOpsReadRequest("req-ops-read-fail-fast", new IpcOpsReadRequest(FailFast: true));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(readinessGate.LastFailFast, Is.True);
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
         });
 
         [UnityTest]
@@ -681,6 +734,13 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateRequest(requestId, IpcMethodNames.Execute, payload);
         }
 
+        private static IpcRequest CreateOpsReadRequest (
+            string requestId,
+            object payload)
+        {
+            return CreateRequest(requestId, IpcMethodNames.OpsRead, payload);
+        }
+
         private static IpcRequest CreateTestRunRequest (
             string requestId,
             object payload)
@@ -723,6 +783,24 @@ namespace MackySoft.Ucli.Unity.Tests
                 new DaemonLogsReadRequestValidator(),
                 new DaemonLogsReadQueryEngine(),
                 new DaemonLogsReadResponseFactory());
+        }
+
+        private static OpsReadUnityIpcMethodHandler CreateOpsReadHandler (IUnityEditorReadinessGate readinessGate)
+        {
+            return new OpsReadUnityIpcMethodHandler(
+                new UcliOperationCatalogSnapshot(
+                    Registrations: Array.Empty<UcliOperationRegistration>(),
+                    Catalog: new IpcOpsReadResponse(
+                        GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+                        Operations:
+                        [
+                            new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
+                                Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                                Kind: "query",
+                                Policy: "safe",
+                                ArgsSchemaJson: """{"type":"object"}"""),
+                        ])),
+                readinessGate);
         }
 
         private static UnityLogsReadUnityIpcMethodHandler CreateUnityLogsReadHandler (IUnityLogStream stream)

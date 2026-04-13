@@ -62,7 +62,8 @@ public sealed class OpsPreflightServiceTests
                 ProjectPath: null,
                 Mode: "daemon",
                 Timeout: "1200",
-                ReadIndexMode: ReadIndexModeValues.AllowStale));
+                ReadIndexMode: ReadIndexModeValues.AllowStale,
+                FailFast: true));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Context);
@@ -70,6 +71,7 @@ public sealed class OpsPreflightServiceTests
         Assert.Equal(ReadIndexMode.AllowStale, result.Context.ReadIndexMode);
         Assert.Equal(UnityExecutionMode.Daemon, result.Context.Mode);
         Assert.Equal(TimeSpan.FromMilliseconds(1200), result.Context.Timeout);
+        Assert.True(result.Context.FailFast);
     }
 
     private static ProjectContext CreateContext ()

@@ -31,6 +31,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
         Assert.Equal(
             TimeSpan.FromMilliseconds(config.IpcTimeoutMillisecondsByCommand[UcliCommandIds.Ops.Name]!.Value),
             reader.ReceivedTimeout);
+        Assert.True(reader.ReceivedFailFast);
         Assert.Single(operations);
     }
 
@@ -112,15 +113,19 @@ public sealed class OperationCatalogDiscoveryServiceTests
     {
         public TimeSpan ReceivedTimeout { get; private set; }
 
+        public bool ReceivedFailFast { get; private set; }
+
         public ValueTask<OpsCatalogFetchResult> Read (
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UnityExecutionMode mode,
             TimeSpan timeout,
+            bool failFast,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ReceivedTimeout = timeout;
+            ReceivedFailFast = failFast;
 
             return ValueTask.FromResult(OpsCatalogFetchResult.Success(new IpcOpsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.UtcNow,
@@ -153,6 +158,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
             UcliConfig config,
             UnityExecutionMode mode,
             TimeSpan timeout,
+            bool failFast,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
