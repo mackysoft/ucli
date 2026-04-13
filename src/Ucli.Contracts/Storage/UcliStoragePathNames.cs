@@ -51,6 +51,12 @@ public static class UcliStoragePathNames
     /// <summary> Gets the read-index GUID-path lookup file name. </summary>
     public const string GuidPathLookupFileName = "guid-path.lookup.json";
 
+    /// <summary> Gets the read-index scene-tree-lite lookup directory name. </summary>
+    public const string SceneTreeLiteLookupDirectoryName = "scene-tree-lite";
+
+    /// <summary> Gets the read-index scene-tree-lite lookup file extension. </summary>
+    public const string SceneTreeLiteLookupFileExtension = ".lookup.json";
+
     /// <summary> Gets the read-index inputs manifest file name. </summary>
     public const string IndexInputsManifestFileName = "manifest.json";
 

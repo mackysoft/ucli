@@ -165,6 +165,68 @@ public sealed class FileIndexCatalogReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ReadSceneTreeLiteLookup_ReturnsContract_WhenLookupExists ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-success");
+        var reader = new FileIndexCatalogReader();
+        const string fingerprint = "fingerprint";
+        const string scenePath = "Assets/Scenes/Sample.unity";
+        var contract = new IndexSceneTreeLiteLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            ScenePath: scenePath,
+            SourceInputsHash: "scene-hash",
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(
+                    Name: "Root",
+                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+            ]);
+        WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath), IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(contract));
+
+        var result = await reader.ReadSceneTreeLiteLookup(scope.FullPath, fingerprint, scenePath, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(scenePath, result.Value.ScenePath);
+        Assert.NotNull(result.Value.Roots);
+        Assert.Single(result.Value.Roots);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ReadSceneTreeLiteLookup_ReturnsReadIndexFormatInvalid_WhenScenePathDoesNotMatchRequestedScene ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-mismatch");
+        var reader = new FileIndexCatalogReader();
+        const string fingerprint = "fingerprint";
+        const string requestedScenePath = "Assets/Scenes/Sample.unity";
+        var contract = new IndexSceneTreeLiteLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            ScenePath: "Assets/Scenes/Other.unity",
+            SourceInputsHash: "scene-hash",
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(
+                    Name: "Root",
+                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+            ]);
+        WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath), IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(contract));
+
+        var result = await reader.ReadSceneTreeLiteLookup(scope.FullPath, fingerprint, requestedScenePath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.NotNull(result.Error);
+        Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.Error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ReadInputsManifest_ReturnsReadIndexFormatInvalid_WhenContractIsIncomplete ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "inputs-incomplete-contract");

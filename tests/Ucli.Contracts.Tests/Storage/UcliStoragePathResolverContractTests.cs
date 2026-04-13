@@ -1,4 +1,6 @@
+using System.Text;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
@@ -287,6 +289,51 @@ public sealed class UcliStoragePathResolverContractTests
                 UcliStoragePathNames.IndexDirectoryName,
                 UcliStoragePathNames.LookupsDirectoryName,
                 UcliStoragePathNames.GuidPathLookupFileName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveSceneTreeLiteLookupDirectory_ReturnsFingerprintScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+
+        var resolvedPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupDirectory(storageRoot, "abc123");
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.LookupsDirectoryName,
+                UcliStoragePathNames.SceneTreeLiteLookupDirectoryName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveSceneTreeLiteLookupPath_ReturnsHashedSceneScopedPath ()
+    {
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        const string scenePath = @"Assets\Scenes\Sample.unity";
+        var expectedSceneKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes("Assets/Scenes/Sample.unity"));
+
+        var resolvedPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, "abc123", scenePath);
+
+        Assert.Equal(
+            Path.Combine(
+                Path.GetFullPath(storageRoot),
+                UcliStoragePathNames.UcliDirectoryName,
+                UcliStoragePathNames.LocalDirectoryName,
+                UcliStoragePathNames.FingerprintsDirectoryName,
+                "abc123",
+                UcliStoragePathNames.IndexDirectoryName,
+                UcliStoragePathNames.LookupsDirectoryName,
+                UcliStoragePathNames.SceneTreeLiteLookupDirectoryName,
+                expectedSceneKey + UcliStoragePathNames.SceneTreeLiteLookupFileExtension),
             resolvedPath);
     }
 

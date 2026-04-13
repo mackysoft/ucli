@@ -180,6 +180,42 @@ public sealed class IndexCatalogJsonContractSerializerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IndexSceneTreeLiteLookupJsonContractSerializer_RoundTripsContract ()
+    {
+        var contract = new IndexSceneTreeLiteLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            ScenePath: "Assets/Scenes/Sample.unity",
+            SourceInputsHash: "scene-tree-lite-hash",
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(
+                    Name: "Root",
+                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    Children:
+                    [
+                        new IndexSceneTreeLiteNodeJsonContract(
+                            Name: "Child",
+                            GlobalObjectId: string.Empty,
+                            Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    ]),
+            ]);
+
+        var json = IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(contract);
+        var deserialized = IndexSceneTreeLiteLookupJsonContractSerializer.Deserialize(json);
+
+        Assert.NotNull(deserialized);
+        Assert.Equal(contract.SchemaVersion, deserialized.SchemaVersion);
+        Assert.Equal(contract.ScenePath, deserialized.ScenePath);
+        Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
+        Assert.NotNull(deserialized.Roots);
+        Assert.Single(deserialized.Roots);
+        Assert.Equal("Root", deserialized.Roots[0].Name);
+        Assert.Single(deserialized.Roots[0].Children!);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IndexOpsCatalogJsonContractSerializer_RoundTripsContract ()
     {
         var contract = new IndexOpsCatalogJsonContract(
@@ -246,6 +282,12 @@ public sealed class IndexCatalogJsonContractSerializerTests
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
             SourceInputsHash: "hash",
             Entries: Array.Empty<IndexGuidPathEntryJsonContract>()));
+        var sceneTreeLiteLookupJson = IndexSceneTreeLiteLookupJsonContractSerializer.Serialize(new IndexSceneTreeLiteLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            ScenePath: "Assets/Scenes/Sample.unity",
+            SourceInputsHash: "hash",
+            Roots: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()));
 
         using var typesDocument = JsonDocument.Parse(typesCatalogJson);
         using var schemasDocument = JsonDocument.Parse(schemasCatalogJson);
@@ -253,6 +295,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
         using var inputsDocument = JsonDocument.Parse(inputsManifestJson);
         using var assetSearchDocument = JsonDocument.Parse(assetSearchLookupJson);
         using var guidPathDocument = JsonDocument.Parse(guidPathLookupJson);
+        using var sceneTreeLiteDocument = JsonDocument.Parse(sceneTreeLiteLookupJson);
 
         Assert.True(typesDocument.RootElement.TryGetProperty("schemaVersion", out _));
         Assert.True(typesDocument.RootElement.TryGetProperty("generatedAtUtc", out _));
@@ -283,5 +326,9 @@ public sealed class IndexCatalogJsonContractSerializerTests
 
         Assert.True(guidPathDocument.RootElement.TryGetProperty("sourceInputsHash", out _));
         Assert.True(guidPathDocument.RootElement.TryGetProperty("entries", out _));
+
+        Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("scenePath", out _));
+        Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("sourceInputsHash", out _));
+        Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("roots", out _));
     }
 }

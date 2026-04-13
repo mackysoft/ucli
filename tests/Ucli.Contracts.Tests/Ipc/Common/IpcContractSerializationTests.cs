@@ -150,6 +150,7 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("execute", IpcMethodNames.Execute);
         Assert.Equal("ops.read", IpcMethodNames.OpsRead);
         Assert.Equal("index.assets.read", IpcMethodNames.IndexAssetsRead);
+        Assert.Equal("index.scene-tree-lite.read", IpcMethodNames.IndexSceneTreeLiteRead);
         Assert.Equal("test.run", IpcMethodNames.TestRun);
         Assert.Equal("shutdown", IpcMethodNames.Shutdown);
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
@@ -231,6 +232,43 @@ public sealed class IpcContractSerializationTests
             .HasProperty("guidPathEntries", 0, entry => entry
                 .HasString("assetGuid", "11111111111111111111111111111111")
                 .HasString("assetPath", "Assets/Data/Spawner.asset"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcIndexSceneTreeLiteReadContracts_SerializeWithCamelCaseFields ()
+    {
+        var requestPayload = new IpcIndexSceneTreeLiteReadRequest(ScenePath: "Assets/Scenes/Sample.unity");
+        var responsePayload = new IpcIndexSceneTreeLiteReadResponse(
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+            ScenePath: "Assets/Scenes/Sample.unity",
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(
+                    Name: "Root",
+                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    Children:
+                    [
+                        new IndexSceneTreeLiteNodeJsonContract(
+                            Name: "Child",
+                            GlobalObjectId: string.Empty,
+                            Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    ]),
+            ]);
+
+        using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
+        using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
+
+        JsonAssert.For(requestDocument.RootElement)
+            .HasString("scenePath", "Assets/Scenes/Sample.unity");
+        JsonAssert.For(responseDocument.RootElement)
+            .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
+            .HasString("scenePath", "Assets/Scenes/Sample.unity")
+            .HasArrayLength("roots", 1)
+            .HasProperty("roots", 0, node => node
+                .HasString("name", "Root")
+                .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6")
+                .HasArrayLength("children", 1));
     }
 
     [Fact]
