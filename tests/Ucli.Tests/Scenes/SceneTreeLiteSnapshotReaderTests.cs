@@ -47,6 +47,35 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_AcceptsWhitespaceOnlyNodeName_WhenPayloadIsOtherwiseValid ()
+    {
+        var executor = new StubUnityIpcRequestExecutor
+        {
+            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(
+                new IpcIndexSceneTreeLiteReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    Roots:
+                    [
+                        new IndexSceneTreeLiteNodeJsonContract(" ", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    ]))),
+        };
+        var reader = new SceneTreeLiteSnapshotReader(executor);
+
+        var result = await reader.Read(
+            CreateProject(),
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            TimeSpan.FromSeconds(1),
+            "Assets/Scenes/Main.unity",
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(" ", result.Response!.Roots![0].Name);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenResponseScenePathDoesNotMatch_ReturnsInternalError ()
     {
         var executor = new StubUnityIpcRequestExecutor

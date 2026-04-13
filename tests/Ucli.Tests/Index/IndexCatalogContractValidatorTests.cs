@@ -240,6 +240,28 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsValidSceneTreeLiteLookup_ReturnsTrue_WhenNodeNameIsWhitespace ()
+    {
+        var contract = new IndexSceneTreeLiteLookupJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            ScenePath: "Assets/Scenes/Sample.unity",
+            SourceInputsHash: "scene-hash",
+            Roots:
+            [
+                new IndexSceneTreeLiteNodeJsonContract(
+                    Name: " ",
+                    GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6",
+                    Children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidSceneTreeLiteLookup(contract);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidSceneTreeLiteLookup_ReturnsFalse_WhenChildCollectionIsMissing ()
     {
         var contract = new IndexSceneTreeLiteLookupJsonContract(

@@ -368,7 +368,7 @@ internal static class IndexCatalogContractValidator
         out string? error)
     {
         if (node == null
-            || string.IsNullOrWhiteSpace(node.Name)
+            || node.Name == null
             || node.GlobalObjectId == null
             || (node.GlobalObjectId.Length > 0 && string.IsNullOrWhiteSpace(node.GlobalObjectId))
             || node.Children == null)
