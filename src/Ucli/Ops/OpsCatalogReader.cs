@@ -28,6 +28,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         UnityExecutionMode mode,
         TimeSpan timeout,
         bool failFast,
+        bool requireReadinessGate,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -42,7 +43,9 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 config,
                 project,
                 IpcMethodNames.OpsRead,
-                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(FailFast: failFast)),
+                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                    FailFast: failFast,
+                    RequireReadinessGate: requireReadinessGate)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

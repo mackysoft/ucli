@@ -160,13 +160,15 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator OpsReadHandler_WhenReady_ReturnsCatalogResponse () => UniTask.ToCoroutine(async () =>
         {
-            var handler = CreateOpsReadHandler(new StubUnityEditorReadinessGate());
+            var readinessGate = new StubUnityEditorReadinessGate();
+            var handler = CreateOpsReadHandler(readinessGate);
             var request = CreateOpsReadRequest("req-ops-read-ready", new IpcOpsReadRequest());
 
             var response = await handler.Handle(request, CancellationToken.None);
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
+            Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out _), Is.True);
             Assert.That(payload.Operations.Length, Is.EqualTo(1));
             Assert.That(payload.Operations[0].Name, Is.EqualTo(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
@@ -179,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var handler = CreateOpsReadHandler(readinessGate);
             var responseTask = handler.Handle(
-                CreateOpsReadRequest("req-ops-read-wait", new IpcOpsReadRequest(FailFast: false)),
+                CreateOpsReadRequest("req-ops-read-wait", new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true)),
                 CancellationToken.None).AsTask();
 
             await TestAwaiter.WaitAsync(readinessGate.WaitObserved, "ops.read readiness wait", SignalWaitTimeout);
@@ -198,7 +200,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var handler = CreateOpsReadHandler(readinessGate);
-            var request = CreateOpsReadRequest("req-ops-read-fail-fast", new IpcOpsReadRequest(FailFast: true));
+            var request = CreateOpsReadRequest("req-ops-read-fail-fast", new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true));
 
             var response = await handler.Handle(request, CancellationToken.None);
 

@@ -134,6 +134,7 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.Equal(UnityExecutionMode.Auto, catalogReader.LastMode);
         Assert.Equal(TimeSpan.FromMilliseconds(1200), catalogReader.LastTimeout);
         Assert.True(catalogReader.LastFailFast);
+        Assert.True(catalogReader.LastRequireReadinessGate);
         Assert.Equal(1, inputFingerprintCalculator.FullCallCount);
         Assert.Equal(1, store.CallCount);
         Assert.Equal(context.UnityProject.RepositoryRoot, store.StorageRoot);
@@ -526,6 +527,8 @@ public sealed class OpsCatalogAccessServiceTests
 
         public bool LastFailFast { get; private set; }
 
+        public bool LastRequireReadinessGate { get; private set; }
+
         public OpsCatalogFetchResult Result { get; set; }
             = OpsCatalogFetchResult.Failure("not configured", IpcErrorCodes.InternalError);
 
@@ -535,6 +538,7 @@ public sealed class OpsCatalogAccessServiceTests
             UnityExecutionMode mode,
             TimeSpan timeout,
             bool failFast,
+            bool requireReadinessGate,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -542,6 +546,7 @@ public sealed class OpsCatalogAccessServiceTests
             LastMode = mode;
             LastTimeout = timeout;
             LastFailFast = failFast;
+            LastRequireReadinessGate = requireReadinessGate;
             return ValueTask.FromResult(Result);
         }
     }

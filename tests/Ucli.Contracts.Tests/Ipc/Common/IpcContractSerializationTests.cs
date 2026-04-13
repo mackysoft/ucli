@@ -160,7 +160,7 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcOpsReadContracts_SerializeWithCamelCaseFields ()
     {
-        var requestPayload = new IpcOpsReadRequest(FailFast: true);
+        var requestPayload = new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true);
         var responsePayload = new IpcOpsReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             Operations:
@@ -176,7 +176,8 @@ public sealed class IpcContractSerializationTests
         using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
 
         JsonAssert.For(requestDocument.RootElement)
-            .HasBoolean("failFast", true);
+            .HasBoolean("failFast", true)
+            .HasBoolean("requireReadinessGate", true);
         JsonAssert.For(responseDocument.RootElement)
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasArrayLength("operations", 1)

@@ -46,10 +46,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReady(payload!.FailFast, cancellationToken).ConfigureAwait(false);
-            if (!readinessResult.IsReady)
+            if (payload!.RequireReadinessGate)
             {
-                return UnityIpcResponseFactory.CreateErrorResponse(request, readinessResult.Error!);
+                var readinessResult = await readinessGate.EnsureExecutionReady(payload.FailFast, cancellationToken).ConfigureAwait(false);
+                if (!readinessResult.IsReady)
+                {
+                    return UnityIpcResponseFactory.CreateErrorResponse(request, readinessResult.Error!);
+                }
             }
 
             return UnityIpcResponseFactory.CreateSuccessResponse(request, operationCatalogSnapshot.Catalog);
