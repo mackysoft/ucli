@@ -1,13 +1,20 @@
 using System.Net.Sockets;
-using MackySoft.Ucli.Configuration;
-using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Daemon;
-using MackySoft.Ucli.Execution;
-using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.Status;
-using MackySoft.Ucli.UnityProject;
-using MackySoft.Ucli.UnityProject.Resolution;
+using MackySoft.Ucli.Features.Daemon.Runtime;
+using MackySoft.Ucli.Features.Requests.Shared.Execution;
+using MackySoft.Ucli.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Features.Status;
+using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Context;
+using MackySoft.Ucli.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.Timeout;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.Tests.Status;
 

@@ -1,5 +1,5 @@
-using MackySoft.Ucli.Daemon;
-using MackySoft.Ucli.Status;
+using MackySoft.Ucli.Features.Daemon.Runtime;
+using MackySoft.Ucli.Features.Status;
 
 namespace MackySoft.Ucli.Tests.Status;
 

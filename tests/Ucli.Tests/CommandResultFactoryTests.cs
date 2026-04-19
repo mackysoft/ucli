@@ -1,5 +1,5 @@
-using MackySoft.Ucli.Cli;
-using MackySoft.Ucli.Foundation;
+using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;
 

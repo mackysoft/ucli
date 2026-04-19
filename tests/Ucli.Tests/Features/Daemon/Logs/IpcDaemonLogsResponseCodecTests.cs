@@ -1,0 +1,93 @@
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Features.Daemon.Logs;
+using MackySoft.Ucli.Shared.Foundation;
+
+namespace MackySoft.Ucli.Tests.Logs;
+
+public sealed class IpcDaemonLogsResponseCodecTests
+{
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecode_WhenResponseIsSuccessful_ReturnsDecodedPayload ()
+    {
+        var response = CreateResponse(
+            status: IpcProtocol.StatusOk,
+            errors: Array.Empty<IpcError>(),
+            payload: new IpcDaemonLogsReadResponse(
+                Events:
+                [
+                    new IpcDaemonLogEvent(
+                        Timestamp: "2026-03-05T10:30:00+09:00",
+                        Level: "info",
+                        Category: "ipc",
+                        Message: "Server started.",
+                        Raw: null,
+                        Cursor: "stream-1:10"),
+                ],
+                NextCursor: "stream-1:11"));
+
+        var result = IpcDaemonLogsResponseCodec.TryDecode(response, out var payload, out var error);
+
+        Assert.True(result);
+        Assert.Null(error);
+        var decodedPayload = Assert.IsType<IpcDaemonLogsReadResponse>(payload);
+        Assert.Single(decodedPayload.Events);
+        Assert.Equal("stream-1:11", decodedPayload.NextCursor);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecode_WhenResponseContainsInvalidArgumentError_ReturnsInvalidArgument ()
+    {
+        var response = CreateResponse(
+            status: IpcProtocol.StatusError,
+            errors:
+            [
+                new IpcError(IpcErrorCodes.InvalidArgument, "queryTarget stack is not supported.", null),
+            ],
+            payload: new { });
+
+        var result = IpcDaemonLogsResponseCodec.TryDecode(response, out var payload, out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        var executionError = Assert.IsType<ExecutionError>(error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, executionError.Kind);
+        Assert.Contains("INVALID_ARGUMENT", executionError.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDecode_WhenPayloadIsInvalid_ReturnsInternalError ()
+    {
+        var response = CreateResponse(
+            status: IpcProtocol.StatusOk,
+            errors: Array.Empty<IpcError>(),
+            payload: new
+            {
+                events = Array.Empty<object>(),
+                nextCursor = "",
+            });
+
+        var result = IpcDaemonLogsResponseCodec.TryDecode(response, out var payload, out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        var executionError = Assert.IsType<ExecutionError>(error);
+        Assert.Equal(ExecutionErrorKind.InternalError, executionError.Kind);
+        Assert.Contains("nextCursor", executionError.Message, StringComparison.Ordinal);
+    }
+
+    private static IpcResponse CreateResponse (
+        string status,
+        IReadOnlyList<IpcError> errors,
+        object payload)
+    {
+        return new IpcResponse(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: "req-daemon-logs",
+            Status: status,
+            Payload: IpcPayloadCodec.SerializeToElement(payload),
+            Errors: errors);
+    }
+}

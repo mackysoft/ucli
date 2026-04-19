@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.TestProfile;
+using MackySoft.Ucli.Features.Testing.Profiles;
+using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;
 
