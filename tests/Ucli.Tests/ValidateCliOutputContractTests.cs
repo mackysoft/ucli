@@ -1,8 +1,8 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Hosting.Cli;
 
 namespace MackySoft.Ucli.Tests;
 

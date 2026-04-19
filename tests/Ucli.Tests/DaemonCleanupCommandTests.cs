@@ -1,6 +1,6 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Cli;
-using MackySoft.Ucli.Daemon.Command;
+using MackySoft.Ucli.Features.Daemon.Services;
+using MackySoft.Ucli.Hosting.Cli;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -10,7 +10,7 @@ public sealed class DaemonCleanupCommandTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WritesSkipReasonPayload ()
     {
-        var service = new StubDaemonCleanupCommandService(
+        var service = new StubDaemonCleanupService(
             DaemonCleanupExecutionResult.Success(new DaemonCleanupExecutionOutput(
                 CleanupStatus: "skipped",
                 SkipReason: "unsafeInvalidSession",
@@ -38,11 +38,11 @@ public sealed class DaemonCleanupCommandTests
                 .HasInt32("timeoutMilliseconds", 3000));
     }
 
-    private sealed class StubDaemonCleanupCommandService : IDaemonCleanupCommandService
+    private sealed class StubDaemonCleanupService : IDaemonCleanupService
     {
         private readonly DaemonCleanupExecutionResult result;
 
-        public StubDaemonCleanupCommandService (DaemonCleanupExecutionResult result)
+        public StubDaemonCleanupService (DaemonCleanupExecutionResult result)
         {
             this.result = result;
         }

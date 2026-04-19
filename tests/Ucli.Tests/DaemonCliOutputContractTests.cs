@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Cli;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Daemon;
+using MackySoft.Ucli.Features.Daemon.Runtime;
+using MackySoft.Ucli.Hosting.Cli;
 
 namespace MackySoft.Ucli.Tests;
 

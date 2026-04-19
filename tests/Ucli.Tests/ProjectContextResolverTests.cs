@@ -1,13 +1,13 @@
 namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Tests;
-using MackySoft.Ucli.Configuration;
-using MackySoft.Ucli.Context;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.EnvironmentVariables;
-using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.ReadIndex;
-using MackySoft.Ucli.UnityProject;
+using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Context;
+using MackySoft.Ucli.Shared.EnvironmentVariables;
+using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
+using MackySoft.Ucli.UnityIntegration.Project;
 
 public sealed class ProjectContextResolverTests
 {

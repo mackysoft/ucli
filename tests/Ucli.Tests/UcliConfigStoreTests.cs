@@ -2,10 +2,10 @@ namespace MackySoft.Ucli.Tests;
 
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Foundation;
-using MackySoft.Ucli.ReadIndex;
+using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 public sealed class UcliConfigStoreTests
 {
