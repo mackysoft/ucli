@@ -1,16 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Daemon.Supervisor;
-using MackySoft.Ucli.Features.Requests.Call;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Hosting.Composition;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli;
@@ -74,24 +65,8 @@ internal static class Program
         }
 
         var app = ConsoleApp.Create()
-            .ConfigureServices(ConfigureServices);
-        app.Add<InitCommand>();
-        app.Add<StatusCommand>();
-        app.Add<RefreshCommand>();
-        app.Add<ValidateCommand>();
-        app.Add<PlanCommand>();
-        app.Add<CallCommand>();
-        app.Add<DaemonStartCommand>("daemon");
-        app.Add<DaemonStopCommand>("daemon");
-        app.Add<DaemonCleanupCommand>("daemon");
-        app.Add<DaemonStatusCommand>("daemon");
-        app.Add<DaemonListCommand>("daemon");
-        app.Add<LogsDaemonCommand>("logs");
-        app.Add<LogsUnityCommand>("logs");
-        app.Add<OpsListCommand>("ops");
-        app.Add<OpsDescribeCommand>("ops");
-        app.Add<TestRunCommand>("test");
-        app.Add<TestProfileInitCommand>("test profile");
+            .ConfigureServices(static services => services.AddUcliServices())
+            .RegisterUcliCommands();
 
         try
         {
@@ -127,20 +102,6 @@ internal static class Program
         return Environment.ExitCode;
     }
 
-    private static void ConfigureServices (IServiceCollection services)
-    {
-        services.AddUcliCoreServices();
-        services.AddUcliRefreshServices();
-        services.AddUcliValidateServices();
-        services.AddUcliPlanServices();
-        services.AddUcliCallServices();
-        services.AddUcliDaemonServices();
-        services.AddUcliSupervisorServices();
-        services.AddUcliTestRunServices();
-        services.AddUcliOpsServices();
-        services.AddUcliStatusServices();
-    }
-
     private static bool TryHandleInternalSupervisorServe (
         string[] args,
         out string repositoryRoot)
@@ -173,7 +134,7 @@ internal static class Program
         }
 
         var services = new ServiceCollection();
-        ConfigureServices(services);
+        services.AddUcliServices();
 
         await using var serviceProvider = services.BuildServiceProvider();
         var supervisorHost = serviceProvider.GetRequiredService<SupervisorHost>();
