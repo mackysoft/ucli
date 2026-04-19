@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -170,8 +171,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Errors, Is.Empty);
             Assert.That(readinessGate.CallCount, Is.EqualTo(0));
             Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out _), Is.True);
-            Assert.That(payload.Operations.Length, Is.EqualTo(1));
-            Assert.That(payload.Operations[0].Name, Is.EqualTo(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe));
+            Assert.That(payload.Operations.Count, Is.EqualTo(1));
+            Assert.That(payload.Operations[0].Name, Is.EqualTo(UcliPrimitiveOperationNames.GoDescribe));
         });
 
         [UnityTest]
@@ -200,7 +201,9 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var handler = CreateOpsReadHandler(readinessGate);
-            var request = CreateOpsReadRequest("req-ops-read-fail-fast", new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true));
+            var request = CreateOpsReadRequest(
+                "req-ops-read-fail-fast",
+                new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true));
 
             var response = await handler.Handle(request, CancellationToken.None);
 
@@ -352,6 +355,67 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator IndexSceneTreeLiteReadHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new IndexSceneTreeLiteReadUnityIpcMethodHandler(new StubSceneTreeLiteSnapshotBuilder(
+                scenePath => new IpcIndexSceneTreeLiteReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                    ScenePath: scenePath,
+                    Roots: new[]
+                    {
+                        new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    })));
+            var request = CreateIndexSceneTreeLiteReadRequest(
+                "req-index-scene-tree-lite-valid",
+                new IpcIndexSceneTreeLiteReadRequest("Assets/Scenes/Main.unity"));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Errors, Is.Empty);
+            Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcIndexSceneTreeLiteReadResponse payload, out _), Is.True);
+            Assert.That(payload.ScenePath, Is.EqualTo("Assets/Scenes/Main.unity"));
+            Assert.That(payload.Roots, Has.Count.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator IndexSceneTreeLiteReadHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new IndexSceneTreeLiteReadUnityIpcMethodHandler(new StubSceneTreeLiteSnapshotBuilder(
+                scenePath => new IpcIndexSceneTreeLiteReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.UtcNow,
+                    ScenePath: scenePath,
+                    Roots: Array.Empty<IndexSceneTreeLiteNodeJsonContract>())));
+            var request = CreateIndexSceneTreeLiteReadRequest("req-index-scene-tree-lite-invalid", 123);
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator IndexSceneTreeLiteReadHandler_WhenBuilderThrows_ReturnsInternalError () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new IndexSceneTreeLiteReadUnityIpcMethodHandler(new StubSceneTreeLiteSnapshotBuilder(
+                scenePath => throw new InvalidOperationException("scene-tree-lite-failed")));
+            var request = CreateIndexSceneTreeLiteReadRequest(
+                "req-index-scene-tree-lite-error",
+                new IpcIndexSceneTreeLiteReadRequest("Assets/Scenes/Main.unity"));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.InternalError));
+            Assert.That(response.Errors[0].Message, Does.Contain("scene-tree-lite-failed"));
         });
 
         [UnityTest]
@@ -757,6 +821,13 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateRequest(requestId, IpcMethodNames.IndexAssetsRead, payload);
         }
 
+        private static IpcRequest CreateIndexSceneTreeLiteReadRequest (
+            string requestId,
+            object payload)
+        {
+            return CreateRequest(requestId, IpcMethodNames.IndexSceneTreeLiteRead, payload);
+        }
+
         private static IpcRequest CreateShutdownRequest (
             string requestId,
             object payload)
@@ -791,17 +862,17 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new OpsReadUnityIpcMethodHandler(
                 new UcliOperationCatalogSnapshot(
-                    Registrations: Array.Empty<UcliOperationRegistration>(),
-                    Catalog: new IpcOpsReadResponse(
+                    Array.Empty<UcliOperationRegistration>(),
+                    new IpcOpsReadResponse(
                         GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-                        Operations:
-                        [
-                            new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                                Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                        Operations: new[]
+                        {
+                            new IndexOpEntryJsonContract(
+                                Name: UcliPrimitiveOperationNames.GoDescribe,
                                 Kind: "query",
                                 Policy: "safe",
-                                ArgsSchemaJson: """{"type":"object"}"""),
-                        ])),
+                                ArgsSchemaJson: "{\"type\":\"object\"}"),
+                        })),
                 readinessGate);
         }
 
@@ -855,6 +926,24 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return new ValueTask<IpcIndexAssetsReadResponse>(build());
+            }
+        }
+
+        private sealed class StubSceneTreeLiteSnapshotBuilder : MackySoft.Ucli.Unity.Index.ISceneTreeLiteSnapshotBuilder
+        {
+            private readonly Func<string, IpcIndexSceneTreeLiteReadResponse> build;
+
+            public StubSceneTreeLiteSnapshotBuilder (Func<string, IpcIndexSceneTreeLiteReadResponse> build)
+            {
+                this.build = build;
+            }
+
+            public ValueTask<IpcIndexSceneTreeLiteReadResponse> Build (
+                string scenePath,
+                CancellationToken cancellationToken = default)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ValueTask<IpcIndexSceneTreeLiteReadResponse>(build(scenePath));
             }
         }
 

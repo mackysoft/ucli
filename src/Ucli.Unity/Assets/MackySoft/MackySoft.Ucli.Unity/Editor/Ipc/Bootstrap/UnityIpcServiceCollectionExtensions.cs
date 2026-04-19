@@ -37,6 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             services.AddSingleton(static _ => UcliOperationCatalogSnapshotBuilder.Build());
             services.AddSingleton<IAssetLookupSnapshotBuilder, AssetLookupSnapshotBuilder>();
+            services.AddSingleton<ISceneTreeLiteSnapshotBuilder, SceneTreeLiteSnapshotBuilder>();
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<IUnityEditorReadinessGate, UnityEditorReadinessGate>();
@@ -56,6 +57,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcMethodHandler, TestRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, OpsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, IndexAssetsReadUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, IndexSceneTreeLiteReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodDispatcher, UnityIpcMethodDispatcher>();
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();

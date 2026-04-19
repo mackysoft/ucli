@@ -436,6 +436,15 @@ public sealed class OpsCatalogAccessServiceTests
             throw new NotSupportedException();
         }
 
+        public ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
+            string storageRoot,
+            string projectFingerprint,
+            string scenePath,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
         public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
             string storageRoot,
             string projectFingerprint,

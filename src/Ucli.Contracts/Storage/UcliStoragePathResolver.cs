@@ -1,3 +1,6 @@
+using System.Text;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Storage;
@@ -326,6 +329,43 @@ public static class UcliStoragePathResolver
         return Path.Combine(
             ResolveIndexLookupsDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.GuidPathLookupFileName);
+    }
+
+    /// <summary> Resolves the absolute path to one read-index scene-tree-lite lookup directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index scene-tree-lite lookup directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveSceneTreeLiteLookupDirectory (
+        string storageRoot,
+        string projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexLookupsDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.SceneTreeLiteLookupDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path to one read-index scene-tree-lite lookup file. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="scenePath"> The project-relative scene path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <returns> The absolute read-index scene-tree-lite lookup file path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
+    public static string ResolveSceneTreeLiteLookupPath (
+        string storageRoot,
+        string projectFingerprint,
+        string scenePath)
+    {
+        if (string.IsNullOrWhiteSpace(scenePath))
+        {
+            throw new ArgumentException("Scene path must not be empty.", nameof(scenePath));
+        }
+
+        var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
+        var sceneKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(normalizedScenePath));
+        return Path.Combine(
+            ResolveSceneTreeLiteLookupDirectory(storageRoot, projectFingerprint),
+            sceneKey + UcliStoragePathNames.SceneTreeLiteLookupFileExtension);
     }
 
     /// <summary> Resolves the absolute path to one read-index inputs manifest file. </summary>

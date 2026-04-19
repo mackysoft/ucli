@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
-using UnityEngine;
 using UnityEngine.SceneManagement;
 
 #nullable enable
@@ -94,7 +94,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var tree = BuildSceneTree(validationState.ScenePath, validationState.Scene, validationState.Depth, executionContext);
+            var tree = new SceneTreeDescription(
+                validationState.ScenePath,
+                SceneTreeNodeSnapshotBuilder.BuildRoots(validationState.Scene, validationState.Depth, executionContext));
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
@@ -142,84 +144,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        /// <summary> Builds one deterministic scene-tree payload. </summary>
-        /// <param name="scenePath"> The loaded scene path. </param>
-        /// <param name="scene"> The loaded scene. </param>
-        /// <param name="depth"> The requested depth limit. <see langword="null" /> means unlimited. </param>
-        /// <returns> The scene-tree payload. </returns>
-        private static SceneTreeDescription BuildSceneTree (
-            string scenePath,
-            Scene scene,
-            int? depth,
-            OperationExecutionContext executionContext)
-        {
-            var maxDepth = depth ?? int.MaxValue;
-            var roots = scene.GetRootGameObjects();
-            var rootDescriptions = new SceneTreeNodeDescription[roots.Length];
-            for (var rootIndex = 0; rootIndex < roots.Length; rootIndex++)
-            {
-                rootDescriptions[rootIndex] = BuildNode(roots[rootIndex], currentDepth: 0, maxDepth, executionContext);
-            }
-
-            return new SceneTreeDescription(scenePath, rootDescriptions);
-        }
-
-        /// <summary> Builds one tree node and its children. </summary>
-        /// <param name="gameObject"> The source GameObject. </param>
-        /// <param name="currentDepth"> The current depth from the scene root. </param>
-        /// <param name="maxDepth"> The maximum depth to include. </param>
-        /// <returns> The built tree node. </returns>
-        private static SceneTreeNodeDescription BuildNode (
-            GameObject gameObject,
-            int currentDepth,
-            int maxDepth,
-            OperationExecutionContext executionContext)
-        {
-            var children = currentDepth >= maxDepth
-                ? System.Array.Empty<SceneTreeNodeDescription>()
-                : BuildChildren(gameObject.transform, currentDepth + 1, maxDepth, executionContext);
-            var globalObjectId = ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
-                ? resolvedReference!.GlobalObjectId
-                : string.Empty;
-            return new SceneTreeNodeDescription(
-                Name: gameObject.name,
-                GlobalObjectId: globalObjectId,
-                Children: children);
-        }
-
-        /// <summary> Builds child nodes for one transform. </summary>
-        /// <param name="transform"> The parent transform. </param>
-        /// <param name="childDepth"> The child depth. </param>
-        /// <param name="maxDepth"> The maximum depth to include. </param>
-        /// <returns> The child node list. </returns>
-        private static IReadOnlyList<SceneTreeNodeDescription> BuildChildren (
-            Transform transform,
-            int childDepth,
-            int maxDepth,
-            OperationExecutionContext executionContext)
-        {
-            if (transform.childCount == 0)
-            {
-                return System.Array.Empty<SceneTreeNodeDescription>();
-            }
-
-            var children = new SceneTreeNodeDescription[transform.childCount];
-            for (var childIndex = 0; childIndex < transform.childCount; childIndex++)
-            {
-                children[childIndex] = BuildNode(transform.GetChild(childIndex).gameObject, childDepth, maxDepth, executionContext);
-            }
-
-            return children;
-        }
-
         private sealed record SceneTreeDescription (
             string Path,
-            IReadOnlyList<SceneTreeNodeDescription> Roots);
-
-        private sealed record SceneTreeNodeDescription (
-            string Name,
-            string GlobalObjectId,
-            IReadOnlyList<SceneTreeNodeDescription> Children);
+            IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots);
 
         private readonly struct ValidationState
         {

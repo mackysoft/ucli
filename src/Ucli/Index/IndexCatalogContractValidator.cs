@@ -298,6 +298,49 @@ internal static class IndexCatalogContractValidator
         return true;
     }
 
+    /// <summary> Validates one <c>scene-tree-lite/&lt;sceneKey&gt;.lookup.json</c> contract instance. </summary>
+    /// <param name="contract"> The contract instance. </param>
+    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
+    public static bool IsValidSceneTreeLiteLookup (IndexSceneTreeLiteLookupJsonContract contract)
+    {
+        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
+            || string.IsNullOrWhiteSpace(contract.ScenePath)
+            || string.IsNullOrWhiteSpace(contract.SourceInputsHash))
+        {
+            return false;
+        }
+
+        return TryValidateSceneTreeLiteNodes(contract.Roots, "roots", out _);
+    }
+
+    /// <summary> Validates one scene-tree-lite node collection shared by persisted and live payloads. </summary>
+    /// <param name="nodes"> The node collection. </param>
+    /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the node collection is valid; otherwise <see langword="false" />. </returns>
+    public static bool TryValidateSceneTreeLiteNodes (
+        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? nodes,
+        string propertyName,
+        out string? error)
+    {
+        if (nodes == null)
+        {
+            error = $"Required property '{propertyName}' is missing.";
+            return false;
+        }
+
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            if (!TryValidateSceneTreeLiteNode(nodes[i], $"{propertyName}[{i}]", out error))
+            {
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
     /// <summary> Validates one <c>inputs/manifest.json</c> contract instance. </summary>
     /// <param name="contract"> The contract instance. </param>
     /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
@@ -317,6 +360,33 @@ internal static class IndexCatalogContractValidator
     private static bool IsSupportedSchemaVersion (int schemaVersion)
     {
         return schemaVersion == SupportedSchemaVersion;
+    }
+
+    private static bool TryValidateSceneTreeLiteNode (
+        IndexSceneTreeLiteNodeJsonContract? node,
+        string propertyName,
+        out string? error)
+    {
+        if (node == null
+            || node.Name == null
+            || node.GlobalObjectId == null
+            || (node.GlobalObjectId.Length > 0 && string.IsNullOrWhiteSpace(node.GlobalObjectId))
+            || node.Children == null)
+        {
+            error = $"Scene-tree-lite node '{propertyName}' is invalid.";
+            return false;
+        }
+
+        for (var i = 0; i < node.Children.Count; i++)
+        {
+            if (!TryValidateSceneTreeLiteNode(node.Children[i], $"{propertyName}.children[{i}]", out error))
+            {
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
     }
 
     private static bool IsValidSchemaObject (string? json)

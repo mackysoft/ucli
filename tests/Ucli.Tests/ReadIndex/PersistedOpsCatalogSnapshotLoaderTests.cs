@@ -145,6 +145,15 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             throw new NotSupportedException();
         }
 
+        public ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
+            string storageRoot,
+            string projectFingerprint,
+            string scenePath,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
         public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
             string storageRoot,
             string projectFingerprint,

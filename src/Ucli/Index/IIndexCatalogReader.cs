@@ -55,6 +55,18 @@ internal interface IIndexCatalogReader
         string projectFingerprint,
         CancellationToken cancellationToken = default);
 
+    /// <summary> Reads one scene-tree-lite lookup contract for the specified scene path. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="scenePath"> The project-relative scene path represented by the lookup. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to lookup-read result. </returns>
+    ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
+        string storageRoot,
+        string projectFingerprint,
+        string scenePath,
+        CancellationToken cancellationToken = default);
+
     /// <summary> Reads one <c>inputs/manifest.json</c> contract. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>

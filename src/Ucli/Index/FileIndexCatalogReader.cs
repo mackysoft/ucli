@@ -109,6 +109,66 @@ internal sealed class FileIndexCatalogReader : IIndexCatalogReader
             cancellationToken);
     }
 
+    /// <summary> Reads one scene-tree-lite lookup contract for the specified scene path. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="scenePath"> The project-relative scene path represented by the lookup. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> A task that resolves to lookup-read result. </returns>
+    public async ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
+        string storageRoot,
+        string projectFingerprint,
+        string scenePath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(scenePath))
+        {
+            return IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+                IpcErrorCodes.InvalidArgument,
+                "Scene path must not be empty.");
+        }
+
+        string contractPath;
+        try
+        {
+            contractPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, scenePath);
+        }
+        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
+        {
+            return IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+                IpcErrorCodes.InvalidArgument,
+                $"Index path is invalid. {ex.Message}");
+        }
+        catch (ArgumentException ex)
+        {
+            return IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+                IpcErrorCodes.InvalidArgument,
+                ex.Message);
+        }
+
+        var result = await ReadContract(
+                contractPath,
+                static json => IndexSceneTreeLiteLookupJsonContractSerializer.Deserialize(json),
+                static contract => IndexCatalogContractValidator.IsValidSceneTreeLiteLookup(contract),
+                "lookups/scene-tree-lite/*.lookup.json",
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
+        if (!string.Equals(result.Value!.ScenePath, normalizedScenePath, StringComparison.Ordinal))
+        {
+            return IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+                IpcErrorCodes.ReadIndexFormatInvalid,
+                "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed. scenePath does not match the requested scene path.");
+        }
+
+        return result;
+    }
+
     /// <summary> Reads one <c>inputs/manifest.json</c> contract. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
@@ -166,6 +226,25 @@ internal sealed class FileIndexCatalogReader : IIndexCatalogReader
                 IpcErrorCodes.InvalidArgument,
                 $"Index path is invalid. {ex.Message}");
         }
+
+        return await ReadContract(
+                contractPath,
+                deserialize,
+                validator,
+                contractName,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async ValueTask<IndexAccessResult<TContract>> ReadContract<TContract> (
+        string contractPath,
+        Func<string, TContract?> deserialize,
+        Func<TContract, bool> validator,
+        string contractName,
+        CancellationToken cancellationToken)
+        where TContract : class
+    {
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!File.Exists(contractPath))
         {

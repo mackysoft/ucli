@@ -71,6 +71,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             return TryDecodePayload(request, "IndexAssetsRead", out payload, out errorResponse);
         }
 
+        /// <summary> Tries to decode one index-scene-tree-lite-read request payload. </summary>
+        /// <param name="request"> The incoming request envelope. </param>
+        /// <param name="payload"> The decoded payload when successful. </param>
+        /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
+        /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
+        public static bool TryDecodeIndexSceneTreeLiteReadRequest (
+            IpcRequest request,
+            out IpcIndexSceneTreeLiteReadRequest? payload,
+            out IpcResponse? errorResponse)
+        {
+            return TryDecodePayload(request, "IndexSceneTreeLiteRead", out payload, out errorResponse);
+        }
+
         /// <summary> Tries to decode one shutdown request payload. </summary>
         /// <param name="request"> The incoming request envelope. </param>
         /// <param name="payload"> The decoded payload when successful. </param>

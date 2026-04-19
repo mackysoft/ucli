@@ -13,7 +13,9 @@ using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 #nullable enable
@@ -378,6 +380,49 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(assetSearchEntries[0].SearchTypeIds!.Last(), Is.EqualTo(IndexTypeIdFormatter.Format(typeof(UnityEngine.Object))));
             Assert.That(assetSearchEntries[0].AssetGuid, Is.EqualTo(guidPathEntries[0].AssetGuid));
             Assert.That(assetSearchEntries[1].AssetGuid, Is.EqualTo(guidPathEntries[1].AssetGuid));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator SceneTreeLiteSnapshotBuilder_Build_ReturnsDeterministicTree () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(IndexCatalogBuilderTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            var secondRoot = new GameObject("SecondRoot");
+            Assert.That(EditorSceneManager.SaveScene(scene, scenePath), Is.True);
+            var rootGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
+            var childGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(child).ToString();
+            var secondRootGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(secondRoot).ToString();
+            var activeSceneBeforeBuild = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var activeSceneHandleBeforeBuild = activeSceneBeforeBuild.handle;
+            var loadedSceneCountBeforeBuild = SceneManager.sceneCount;
+
+            var builder = new SceneTreeLiteSnapshotBuilder();
+            var response = await builder.Build(scenePath, CancellationToken.None);
+            var roots = response.Roots;
+            var activeSceneAfterBuild = SceneManager.GetActiveScene();
+            var resolvedSceneAfterBuild = SceneManager.GetSceneByPath(scenePath);
+
+            Assert.That(response.ScenePath, Is.EqualTo(scenePath));
+            Assert.That(roots, Is.Not.Null);
+            var nonNullRoots = roots!;
+            Assert.That(SceneManager.sceneCount, Is.EqualTo(loadedSceneCountBeforeBuild));
+            Assert.That(activeSceneAfterBuild.handle, Is.EqualTo(activeSceneHandleBeforeBuild));
+            Assert.That(resolvedSceneAfterBuild.IsValid(), Is.False);
+            Assert.That(nonNullRoots.Count, Is.EqualTo(2));
+            Assert.That(nonNullRoots[0].Name, Is.EqualTo("Root"));
+            Assert.That(nonNullRoots[0].GlobalObjectId, Is.EqualTo(rootGlobalObjectId));
+            Assert.That(nonNullRoots[0].Children, Is.Not.Null);
+            var firstRootChildren = nonNullRoots[0].Children!;
+            Assert.That(firstRootChildren.Count, Is.EqualTo(1));
+            Assert.That(firstRootChildren[0].Name, Is.EqualTo("Child"));
+            Assert.That(firstRootChildren[0].GlobalObjectId, Is.EqualTo(childGlobalObjectId));
+            Assert.That(nonNullRoots[1].Name, Is.EqualTo("SecondRoot"));
+            Assert.That(nonNullRoots[1].GlobalObjectId, Is.EqualTo(secondRootGlobalObjectId));
         });
 
         private static string ResolveProjectRootPath ()
