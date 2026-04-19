@@ -15,6 +15,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 #nullable enable
@@ -396,15 +397,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var rootGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
             var childGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(child).ToString();
             var secondRootGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(secondRoot).ToString();
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var activeSceneBeforeBuild = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var activeSceneHandleBeforeBuild = activeSceneBeforeBuild.handle;
+            var loadedSceneCountBeforeBuild = SceneManager.sceneCount;
 
             var builder = new SceneTreeLiteSnapshotBuilder();
             var response = await builder.Build(scenePath, CancellationToken.None);
             var roots = response.Roots;
+            var activeSceneAfterBuild = SceneManager.GetActiveScene();
+            var resolvedSceneAfterBuild = SceneManager.GetSceneByPath(scenePath);
 
             Assert.That(response.ScenePath, Is.EqualTo(scenePath));
             Assert.That(roots, Is.Not.Null);
             var nonNullRoots = roots!;
+            Assert.That(SceneManager.sceneCount, Is.EqualTo(loadedSceneCountBeforeBuild));
+            Assert.That(activeSceneAfterBuild.handle, Is.EqualTo(activeSceneHandleBeforeBuild));
+            Assert.That(resolvedSceneAfterBuild.IsValid(), Is.False);
             Assert.That(nonNullRoots.Count, Is.EqualTo(2));
             Assert.That(nonNullRoots[0].Name, Is.EqualTo("Root"));
             Assert.That(nonNullRoots[0].GlobalObjectId, Is.EqualTo(rootGlobalObjectId));

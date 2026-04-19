@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.Scenes;
 using MackySoft.Ucli.Scenes.Access;
@@ -41,6 +42,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
@@ -84,6 +86,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
             "Assets/Scenes/Main.unity",
@@ -121,6 +124,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
             "Assets/Scenes/Main.unity",
@@ -173,6 +177,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
             "Assets/Scenes/Main.unity",
@@ -183,6 +188,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Equal(SceneTreeLiteSource.Source, result.Output!.AccessInfo.Source);
         Assert.Contains("stale", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
         Assert.Equal(1, refreshService.CallCount);
+        Assert.Equal(UnityExecutionMode.Auto, refreshService.LastMode);
     }
 
     [Fact]
@@ -208,6 +214,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.Disabled,
             "Assets/Scenes/Main.unity",
@@ -218,6 +225,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Equal(SceneTreeLiteSource.Source, result.Output!.AccessInfo.Source);
         Assert.Equal("readIndex disabled by mode.", result.Output.AccessInfo.FallbackReason);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+        Assert.Equal(UnityExecutionMode.Auto, refreshService.LastMode);
     }
 
     [Fact]
@@ -242,6 +250,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
             "Packages/com.example/Scenes/Main.unity",
@@ -252,6 +261,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Equal(SceneTreeLiteSource.Source, result.Output!.AccessInfo.Source);
         Assert.Contains("non-Assets", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+        Assert.Equal(UnityExecutionMode.Auto, refreshService.LastMode);
     }
 
     [Fact]
@@ -276,6 +286,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
@@ -286,6 +297,47 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Contains("Scene path could not be resolved", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenLookupIsMissing_FallsBackToSourceWithRequestedMode ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "missing-lookup");
+        var project = CreateProject(scope);
+        WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
+        var indexReader = new StubIndexCatalogReader
+        {
+            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+                IpcErrorCodes.ReadIndexBootstrapFailed,
+                "scene-tree-lite lookup is missing."),
+        };
+        var refreshService = new StubSceneTreeLiteSourceRefreshService
+        {
+            Result = SceneTreeLiteRefreshResult.Success(
+                new IpcIndexSceneTreeLiteReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    Roots: CreateTree()),
+                "scene-tree-lite lookup is missing."),
+        };
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), refreshService);
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            "Assets/Scenes/Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SceneTreeLiteSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Equal(UnityExecutionMode.Auto, refreshService.LastMode);
+        Assert.Contains("missing", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -316,6 +368,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             project,
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
@@ -325,6 +378,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.True(result.IsSuccess);
         Assert.Contains("malformed", result.Output!.AccessInfo.FallbackReason, StringComparison.Ordinal);
         Assert.Equal(SceneTreeLiteSource.Source, result.Output.AccessInfo.Source);
+        Assert.Equal(UnityExecutionMode.Auto, refreshService.LastMode);
     }
 
     private static ResolvedUnityProjectContext CreateProject (TestDirectoryScope scope)
@@ -416,6 +470,8 @@ public sealed class SceneTreeLiteAccessServiceTests
     {
         public int CallCount { get; private set; }
 
+        public UnityExecutionMode LastMode { get; private set; }
+
         public SceneTreeLiteRefreshResult Result { get; set; }
             = SceneTreeLiteRefreshResult.Failure("not configured", IpcErrorCodes.InternalError);
 
@@ -423,6 +479,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,
+            UnityExecutionMode mode,
             TimeSpan timeout,
             ReadIndexMode readIndexMode,
             string scenePath,
@@ -431,6 +488,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
+            LastMode = mode;
             return ValueTask.FromResult(Result);
         }
     }

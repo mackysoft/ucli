@@ -2,12 +2,13 @@ using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Scenes.Access;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Scenes;
 
-/// <summary> Reads live scene-tree-lite snapshots and refreshes persisted lookup artifacts on a best-effort basis. </summary>
+/// <summary> Reads persisted-preview scene-tree-lite snapshots and refreshes persisted lookup artifacts on a best-effort basis. </summary>
 internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRefreshService
 {
     private const int MaxSnapshotStabilityAttempts = 2;
@@ -41,6 +42,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
+        UnityExecutionMode mode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string scenePath,
@@ -56,7 +58,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
 
         if (!SceneTreeLiteAccessUtilities.IsLookupEligibleScenePath(scenePath))
         {
-            var fetchResult = await snapshotReader.Read(project, config, command, timeout, scenePath, cancellationToken).ConfigureAwait(false);
+            var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, cancellationToken).ConfigureAwait(false);
             if (!fetchResult.IsSuccess)
             {
                 return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!);
@@ -76,6 +78,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     project,
                     config,
                     command,
+                    mode,
                     timeout,
                     scenePath,
                     cancellationToken)
@@ -111,6 +114,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
+        UnityExecutionMode mode,
         TimeSpan timeout,
         string scenePath,
         CancellationToken cancellationToken)
@@ -118,7 +122,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         cancellationToken.ThrowIfCancellationRequested();
 
         var sourceHashBeforeRead = await sourceHashCalculator.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
-        var fetchResult = await snapshotReader.Read(project, config, command, timeout, scenePath, cancellationToken).ConfigureAwait(false);
+        var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, cancellationToken).ConfigureAwait(false);
         if (!fetchResult.IsSuccess)
         {
             return (fetchResult, null, false);

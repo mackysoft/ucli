@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Configuration;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Scenes.Access;
@@ -13,6 +14,7 @@ internal interface ISceneTreeLiteAccessService
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
+        UnityExecutionMode mode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string scenePath,

@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Scenes;
 using MackySoft.Ucli.UnityProject;
 
@@ -27,6 +28,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
@@ -37,6 +39,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         Assert.Same(response, result.Response);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         Assert.Equal(1, reader.CallCount);
+        Assert.Equal(UnityExecutionMode.Auto, reader.LastMode);
         Assert.Equal(2, calculator.CallCount);
         Assert.Equal(1, store.CallCount);
         Assert.Equal("hash-1", store.SourceInputsHash);
@@ -61,6 +64,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
@@ -70,6 +74,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         Assert.True(result.IsSuccess);
         Assert.Same(firstResponse, result.Response);
         Assert.Equal(2, reader.CallCount);
+        Assert.Equal(UnityExecutionMode.Auto, reader.LastMode);
         Assert.Equal(3, calculator.CallCount);
         Assert.Equal(0, store.CallCount);
         Assert.NotNull(result.FallbackReason);
@@ -93,6 +98,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
             "Packages/com.example/Scenes/Main.unity",
@@ -102,6 +108,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         Assert.True(result.IsSuccess);
         Assert.Same(response, result.Response);
         Assert.Equal(1, reader.CallCount);
+        Assert.Equal(UnityExecutionMode.Auto, reader.LastMode);
         Assert.Equal(0, calculator.CallCount);
         Assert.Equal(0, store.CallCount);
     }
@@ -134,6 +141,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
 
         public int CallCount { get; private set; }
 
+        public UnityExecutionMode LastMode { get; private set; }
+
         public void Enqueue (SceneTreeLiteSnapshotFetchResult result)
         {
             results.Enqueue(result);
@@ -143,12 +152,14 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             ResolvedUnityProjectContext project,
             UcliConfig config,
             UcliCommand command,
+            UnityExecutionMode mode,
             TimeSpan timeout,
             string scenePath,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
+            LastMode = mode;
             if (!results.TryDequeue(out var result))
             {
                 throw new InvalidOperationException("Scene snapshot result is not configured.");

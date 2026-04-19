@@ -2,7 +2,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Scenes;
 
-/// <summary> Represents one live scene-tree-lite snapshot fetch result. </summary>
+/// <summary> Represents one persisted-preview scene-tree-lite snapshot fetch result. </summary>
 internal sealed record SceneTreeLiteSnapshotFetchResult (
     IpcIndexSceneTreeLiteReadResponse? Response,
     string Message,

@@ -14,7 +14,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Read_UsesOneshotMethodAndReturnsValidatedPayload ()
+    public async Task Read_ForwardsRequestedModeAndReturnsValidatedPayload ()
     {
         var executor = new StubUnityIpcRequestExecutor
         {
@@ -33,12 +33,13 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(UnityExecutionMode.Oneshot, executor.LastMode);
+        Assert.Equal(UnityExecutionMode.Auto, executor.LastMode);
         Assert.Equal(IpcMethodNames.IndexSceneTreeLiteRead, executor.LastMethod);
         Assert.True(IpcPayloadCodec.TryDeserialize(executor.LastPayload, out IpcIndexSceneTreeLiteReadRequest payload, out _));
         Assert.Equal("Assets/Scenes/Main.unity", payload.ScenePath);
@@ -66,6 +67,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Daemon,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
             CancellationToken.None);
@@ -95,6 +97,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Oneshot,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
             CancellationToken.None);
@@ -125,6 +128,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             CreateProject(),
             UcliConfig.CreateDefault(),
             UcliCommandIds.Query,
+            UnityExecutionMode.Oneshot,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
             CancellationToken.None);

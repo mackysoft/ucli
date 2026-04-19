@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Execution;
 using MackySoft.Ucli.Index;
 using MackySoft.Ucli.UnityProject;
 
@@ -31,6 +32,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
+        UnityExecutionMode mode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string scenePath,
@@ -65,6 +67,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     project,
                     config,
                     command,
+                    mode,
                     timeout,
                     readIndexMode,
                     normalizedScenePath,
@@ -80,6 +83,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     project,
                     config,
                     command,
+                    mode,
                     timeout,
                     readIndexMode,
                     normalizedScenePath,
@@ -106,6 +110,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     project,
                     config,
                     command,
+                    mode,
                     timeout,
                     readIndexMode,
                     normalizedScenePath,
@@ -147,6 +152,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 project,
                 config,
                 command,
+                mode,
                 timeout,
                 readIndexMode,
                 normalizedScenePath,
@@ -160,6 +166,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
+        UnityExecutionMode mode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string normalizedScenePath,
@@ -171,6 +178,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 project,
                 config,
                 command,
+                mode,
                 timeout,
                 readIndexMode,
                 normalizedScenePath,

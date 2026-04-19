@@ -9,7 +9,7 @@ using MackySoft.Ucli.UnityProject;
 
 namespace MackySoft.Ucli.Scenes;
 
-/// <summary> Reads one live scene-tree-lite snapshot through oneshot Unity IPC. </summary>
+/// <summary> Reads one persisted-preview scene-tree-lite snapshot through the shared Unity IPC execution path. </summary>
 internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
 {
     private readonly IUnityIpcRequestExecutor ipcRequestExecutor;
@@ -25,6 +25,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         ResolvedUnityProjectContext project,
         UcliConfig config,
         UcliCommand command,
+        UnityExecutionMode mode,
         TimeSpan timeout,
         string scenePath,
         CancellationToken cancellationToken = default)
@@ -37,7 +38,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
 
         var executionResult = await ipcRequestExecutor.Execute(
                 command,
-                UnityExecutionMode.Oneshot,
+                mode,
                 timeout,
                 config,
                 project,
