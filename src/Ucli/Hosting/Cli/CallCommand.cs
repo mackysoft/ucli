@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Requests.Call;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -41,12 +42,32 @@ internal sealed class CallCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
+        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
+        if (!normalizedModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Call,
+                normalizedModeResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Call,
+                normalizedTimeoutResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var serviceResult = await callService.Execute(
                 new CallCommandInput(
                     RequestPath: requestPath,
                     ProjectPath: projectPath,
-                    Mode: mode,
-                    Timeout: timeout,
+                    Mode: normalizedModeResult.Mode,
+                    TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
                     PlanToken: planToken,
                     WithPlan: withPlan,
                     AllowDangerous: allowDangerous,

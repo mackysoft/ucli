@@ -50,14 +50,8 @@ internal sealed class OpsPreflightService : IOpsPreflightService
             return FromExecutionError(readIndexModeResult.Error!);
         }
 
-        var executionModeResult = UnityExecutionModeResolver.Resolve(input.Mode);
-        if (!executionModeResult.IsSuccess)
-        {
-            return FromExecutionError(executionModeResult.Error!);
-        }
-
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
-            input.Timeout,
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
             UcliCommandIds.Ops,
             context.Config);
         if (!timeoutResolutionResult.IsSuccess)
@@ -69,7 +63,7 @@ internal sealed class OpsPreflightService : IOpsPreflightService
             new OpsPreflightContext(
                 context,
                 readIndexModeResult.Mode!.Value,
-                executionModeResult.Mode!.Value,
+                input.Mode ?? UnityExecutionMode.Auto,
                 timeoutResolutionResult.Timeout!.Value,
                 input.FailFast));
     }

@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Requests.Plan;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -37,13 +38,43 @@ internal sealed class PlanCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
+        var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
+        if (!normalizedReadIndexModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Plan,
+                normalizedReadIndexModeResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
+        if (!normalizedModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Plan,
+                normalizedModeResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Plan,
+                normalizedTimeoutResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var serviceResult = await planService.Execute(
                 new PlanCommandInput(
                     RequestPath: requestPath,
                     ProjectPath: projectPath,
-                    Mode: mode,
-                    Timeout: timeout,
-                    ReadIndexMode: readIndexMode,
+                    Mode: normalizedModeResult.Mode,
+                    TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
+                    ReadIndexMode: normalizedReadIndexModeResult.Mode,
                     FailFast: failFast),
                 cancellationToken)
             .ConfigureAwait(false);

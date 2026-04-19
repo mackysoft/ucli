@@ -73,25 +73,20 @@ internal sealed class CallService : ICallService
         {
             throw new InvalidOperationException("Prepared request must be available when request preparation succeeds.");
         }
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
-            input.Timeout,
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
             UcliCommandIds.Call,
             preparedRequestContext.ProjectContext.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {
             return CreateFailureFromExecutionError(timeoutResolutionResult.Error!, baseOutput);
         }
-
-        var executionModeResult = UnityExecutionModeResolver.Resolve(input.Mode);
-        if (!executionModeResult.IsSuccess)
-        {
-            return CreateFailureFromExecutionError(executionModeResult.Error!, baseOutput);
-        }
+        var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
         var preflightResult = await phaseExecutionPreflightService.Prepare(
                 preparedRequestContext,
-                executionModeResult.Mode!.Value,
+                executionMode,
                 deadline,
                 input.FailFast,
                 cancellationToken)
@@ -136,7 +131,7 @@ internal sealed class CallService : ICallService
 
         return await callUnityExecutionService.Execute(
                 preparedRequest,
-                executionModeResult.Mode!.Value,
+                executionMode,
                 input,
                 deadline,
                 cancellationToken)

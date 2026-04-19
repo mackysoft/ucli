@@ -4,6 +4,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Features.Requests.Refresh;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests.Refresh;
 
@@ -17,10 +18,11 @@ public sealed class RefreshServiceTests
         var service = new RefreshService(operationExecuteService);
 
         var result = await service.Execute(
-            projectPath: "/repo/UnityProject",
-            mode: "oneshot",
-            timeout: "1234",
-            failFast: true,
+            new RefreshCommandInput(
+                ProjectPath: "/repo/UnityProject",
+                Mode: UnityExecutionMode.Oneshot,
+                TimeoutMilliseconds: 1234,
+                FailFast: true),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -30,10 +32,11 @@ public sealed class RefreshServiceTests
         Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh, operationExecuteService.CapturedDefinition.Descriptor.Name);
         Assert.Equal(OperationPolicy.Advanced, operationExecuteService.CapturedDefinition.Descriptor.Policy);
         Assert.Equal(JsonValueKind.Object, operationExecuteService.CapturedDefinition.Args.ValueKind);
-        Assert.Equal("/repo/UnityProject", operationExecuteService.CapturedProjectPath);
-        Assert.Equal("oneshot", operationExecuteService.CapturedMode);
-        Assert.Equal("1234", operationExecuteService.CapturedTimeout);
-        Assert.True(operationExecuteService.CapturedFailFast);
+        Assert.NotNull(operationExecuteService.CapturedInput);
+        Assert.Equal("/repo/UnityProject", operationExecuteService.CapturedInput!.ProjectPath);
+        Assert.Equal(UnityExecutionMode.Oneshot, operationExecuteService.CapturedInput.Mode);
+        Assert.Equal(1234, operationExecuteService.CapturedInput.TimeoutMilliseconds);
+        Assert.True(operationExecuteService.CapturedInput.FailFast);
     }
 
     private sealed class SpyOperationExecuteService : IOperationExecuteService
@@ -47,28 +50,16 @@ public sealed class RefreshServiceTests
 
         public OperationExecuteDefinition? CapturedDefinition { get; private set; }
 
-        public string? CapturedProjectPath { get; private set; }
-
-        public string? CapturedMode { get; private set; }
-
-        public string? CapturedTimeout { get; private set; }
-
-        public bool CapturedFailFast { get; private set; }
+        public OperationExecuteInput? CapturedInput { get; private set; }
 
         public ValueTask<OperationExecuteResult> Execute (
             OperationExecuteDefinition definition,
-            string? projectPath,
-            string? mode,
-            string? timeout,
-            bool failFast,
+            OperationExecuteInput input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CapturedDefinition = definition;
-            CapturedProjectPath = projectPath;
-            CapturedMode = mode;
-            CapturedTimeout = timeout;
-            CapturedFailFast = failFast;
+            CapturedInput = input;
             return ValueTask.FromResult(result);
         }
     }

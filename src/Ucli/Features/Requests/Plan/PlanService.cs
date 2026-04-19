@@ -1,59 +1,38 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Features.Requests.Validate;
 using MackySoft.Ucli.Hosting.Cli;
-using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 
 namespace MackySoft.Ucli.Features.Requests.Plan;
 
-/// <summary> Implements the <c>plan</c> workflow by combining static preflight and Unity IPC plan execution. </summary>
+/// <summary> Implements the <c>plan</c> workflow by combining static-validation preflight and Unity IPC plan execution. </summary>
 internal sealed class PlanService : IPlanService
 {
-    private const string ReadIndexDisabledReason = "readIndex disabled by mode.";
-
     private readonly IRequestPreparationService requestPreparationService;
 
-    private readonly IProjectContextResolver projectContextResolver;
-
-    private readonly IValidateMetadataResolver validateMetadataResolver;
-
-    private readonly IRequestStaticValidator requestStaticValidator;
+    private readonly IRequestStaticValidationPreflightService requestStaticValidationPreflightService;
 
     private readonly IUnityIpcRequestExecutor unityIpcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="PlanService" /> class. </summary>
-    /// <param name="requestPreparationService"> The request-preparation dependency. </param>
-    /// <param name="projectContextResolver"> The project-context resolver dependency. </param>
-    /// <param name="validateMetadataResolver"> The validate metadata resolver dependency. </param>
-    /// <param name="requestStaticValidator"> The static-validator dependency. </param>
+    /// <param name="requestPreparationService"> The shared request-preparation dependency. </param>
+    /// <param name="requestStaticValidationPreflightService"> The shared static-validation preflight dependency. </param>
     /// <param name="unityIpcRequestExecutor"> The Unity IPC request executor dependency. </param>
     public PlanService (
         IRequestPreparationService requestPreparationService,
-        IProjectContextResolver projectContextResolver,
-        IValidateMetadataResolver validateMetadataResolver,
-        IRequestStaticValidator requestStaticValidator,
+        IRequestStaticValidationPreflightService requestStaticValidationPreflightService,
         IUnityIpcRequestExecutor unityIpcRequestExecutor)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
-        this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
-        this.validateMetadataResolver = validateMetadataResolver ?? throw new ArgumentNullException(nameof(validateMetadataResolver));
-        this.requestStaticValidator = requestStaticValidator ?? throw new ArgumentNullException(nameof(requestStaticValidator));
+        this.requestStaticValidationPreflightService = requestStaticValidationPreflightService ?? throw new ArgumentNullException(nameof(requestStaticValidationPreflightService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
     }
 
@@ -65,52 +44,14 @@ internal sealed class PlanService : IPlanService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        if (input.ReadIndexMode is not null)
-        {
-            var explicitReadIndexModeResult = ReadIndexModeResolver.Resolve(input.ReadIndexMode, UcliConfig.CreateDefault());
-            if (!explicitReadIndexModeResult.IsSuccess)
-            {
-                return CreateFailure(
-                    explicitReadIndexModeResult.Error!.Message,
-                    ExecutionErrorKindCodeMapper.ToCode(explicitReadIndexModeResult.Error.Kind),
-                    exitCode: explicitReadIndexModeResult.Error.Kind == ExecutionErrorKind.InvalidArgument
-                        ? (int)CliExitCode.InvalidArgument
-                        : (int)CliExitCode.ToolError);
-            }
-        }
-
-        var parsedRequestResult = await requestPreparationService.ReadAndParse(
+        var requestPreparationResult = await requestPreparationService.Prepare(
                 input.RequestPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!parsedRequestResult.IsSuccess)
-        {
-            var error = parsedRequestResult.Error!;
-            return CreateFailure(
-                error.Message,
-                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
-                error.Kind == ExecutionErrorKind.InvalidArgument
-                    ? (int)CliExitCode.InvalidArgument
-                    : (int)CliExitCode.ToolError);
-        }
-
-        var parsedRequest = parsedRequestResult.ParsedRequest!;
-        if (string.IsNullOrWhiteSpace(parsedRequest.Request.RequestId))
-        {
-            return CreateFailure(
-                "Request payload is invalid. The 'requestId' field is missing.",
-                IpcErrorCodes.InvalidArgument,
-                (int)CliExitCode.InvalidArgument);
-        }
-
-        var requestId = parsedRequest.Request.RequestId;
-        var projectContextResult = await projectContextResolver.Resolve(
                 input.ProjectPath,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!projectContextResult.IsSuccess)
+        if (!requestPreparationResult.IsSuccess)
         {
-            var error = projectContextResult.Error!;
+            var error = requestPreparationResult.Error!;
             return CreateFailure(
                 error.Message,
                 ExecutionErrorKindCodeMapper.ToCode(error.Kind),
@@ -119,84 +60,45 @@ internal sealed class PlanService : IPlanService
                     : (int)CliExitCode.ToolError);
         }
 
-        var projectContext = projectContextResult.Context!;
-        var readIndexModeResult = ReadIndexModeResolver.Resolve(input.ReadIndexMode, projectContext.Config);
-        if (!readIndexModeResult.IsSuccess)
-        {
-            var error = readIndexModeResult.Error!;
-            return CreateFailure(
-                error.Message,
-                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
-                error.Kind == ExecutionErrorKind.InvalidArgument
-                    ? (int)CliExitCode.InvalidArgument
-                    : (int)CliExitCode.ToolError);
-        }
-
-        var effectiveReadIndexMode = readIndexModeResult.Mode!.Value;
-        var readIndex = effectiveReadIndexMode == ReadIndexMode.Disabled
-            ? CreateReadIndexDisabledOutput()
-            : default!;
-        var staticValidationCatalog = RequestStaticValidationCatalog.Unavailable;
-        if (effectiveReadIndexMode != ReadIndexMode.Disabled)
-        {
-            var metadataResult = await validateMetadataResolver.Resolve(
-                    projectContext.UnityProject,
-                    effectiveReadIndexMode,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            readIndex = metadataResult.ReadIndex;
-            if (!metadataResult.IsSuccess)
-            {
-                return CreateFailure(
-                    metadataResult.ErrorMessage!,
-                    metadataResult.ErrorCode!,
-                    ExecuteResponseConverter.ResolveExitCode(metadataResult.ErrorCode!),
-                    new PlanExecutionOutput(
-                        RequestId: requestId,
-                        OpResults: [],
-                        ReadIndex: readIndex,
-                        PlanToken: null));
-            }
-
-            staticValidationCatalog = metadataResult.Catalog;
-        }
-
-        var validationResult = await requestStaticValidator.Validate(
-                parsedRequest.Request,
-                staticValidationCatalog,
-                projectContext.Config,
+        var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.Prepare(
+                requestPreparationResult.PreparedRequest!,
+                input.ReadIndexMode,
                 cancellationToken)
             .ConfigureAwait(false);
-        var baseOutput = new PlanExecutionOutput(
-            RequestId: requestId,
-            OpResults: [],
-            ReadIndex: readIndex,
-            PlanToken: null);
-        if (validationResult.Error != null)
+
+        var preparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
+        var baseOutput = TryCreateBaseOutput(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+        if (requestStaticValidationPreflightResult.Error != null)
         {
-            var error = validationResult.Error;
             return CreateFailure(
-                error.Message,
-                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
-                error.Kind == ExecutionErrorKind.InvalidArgument
-                    ? (int)CliExitCode.InvalidArgument
-                    : (int)CliExitCode.ToolError,
+                requestStaticValidationPreflightResult.Error.Message,
+                requestStaticValidationPreflightResult.ErrorCode!,
+                ExecuteResponseConverter.ResolveExitCode(requestStaticValidationPreflightResult.ErrorCode!),
                 baseOutput);
         }
 
-        if (!validationResult.IsValid)
+        if (requestStaticValidationPreflightResult.HasValidationErrors)
         {
             return PlanServiceResult.Failure(
                 "Static validation failed.",
-                ConvertValidationErrors(validationResult.Errors),
+                ConvertValidationErrors(requestStaticValidationPreflightResult.ValidationErrors),
                 (int)CliExitCode.InvalidArgument,
                 baseOutput);
         }
 
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
-            input.Timeout,
+        if (preparedRequest == null)
+        {
+            throw new InvalidOperationException("Prepared request must be available when static-validation preflight succeeds.");
+        }
+        if (baseOutput == null)
+        {
+            throw new InvalidOperationException("Plan output must be available when static-validation preflight succeeds.");
+        }
+
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
             UcliCommandIds.Plan,
-            projectContext.Config);
+            preparedRequest.ProjectContext.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {
             var error = timeoutResolutionResult.Error!;
@@ -209,27 +111,16 @@ internal sealed class PlanService : IPlanService
                 baseOutput);
         }
 
-        var executionModeResult = UnityExecutionModeResolver.Resolve(input.Mode);
-        if (!executionModeResult.IsSuccess)
-        {
-            var error = executionModeResult.Error!;
-            return CreateFailure(
-                error.Message,
-                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
-                error.Kind == ExecutionErrorKind.InvalidArgument
-                    ? (int)CliExitCode.InvalidArgument
-                    : (int)CliExitCode.ToolError,
-                baseOutput);
-        }
+        var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
         var executionResult = await unityIpcRequestExecutor.Execute(
                 UcliCommandIds.Plan,
-                executionModeResult.Mode!.Value,
+                executionMode,
                 timeoutResolutionResult.Timeout!.Value,
-                projectContext.Config,
-                projectContext.UnityProject,
+                preparedRequest.ProjectContext.Config,
+                preparedRequest.ProjectContext.UnityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(parsedRequest.RequestJson, input.FailFast),
+                CreateExecuteRequestPayload(preparedRequest.RequestJson, input.FailFast),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -271,6 +162,24 @@ internal sealed class PlanService : IPlanService
                 PlanToken = convertedResponse.PlanToken,
             },
             "uCLI plan completed.");
+    }
+
+    private static PlanExecutionOutput? TryCreateBaseOutput (
+        PreparedRequestContext? preparedRequest,
+        ReadIndexInfo? readIndex)
+    {
+        if (preparedRequest == null
+            || readIndex == null
+            || string.IsNullOrWhiteSpace(preparedRequest.Request.RequestId))
+        {
+            return null;
+        }
+
+        return new PlanExecutionOutput(
+            RequestId: preparedRequest.Request.RequestId,
+            OpResults: [],
+            ReadIndex: readIndex,
+            PlanToken: null);
     }
 
     private static JsonElement CreateExecuteRequestPayload (
@@ -315,17 +224,6 @@ internal sealed class PlanService : IPlanService
         }
 
         return errors;
-    }
-
-    private static ReadIndexInfo CreateReadIndexDisabledOutput ()
-    {
-        return new ReadIndexInfo(
-            Used: false,
-            Hit: false,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
-            Freshness: ReadIndexInfoTextCodec.FreshnessProbable,
-            GeneratedAtUtc: null,
-            FallbackReason: ReadIndexDisabledReason);
     }
 
     private static string ResolveErrorCode (string? errorCode)

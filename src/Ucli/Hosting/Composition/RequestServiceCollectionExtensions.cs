@@ -23,6 +23,7 @@ internal static class RequestServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
+        services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
         services.AddSingleton<IPhaseExecutionPreflightService, PhaseExecutionPreflightService>();
         services.AddSingleton<IOperationExecuteService, OperationExecuteService>();
@@ -30,10 +31,10 @@ internal static class RequestServiceCollectionExtensions
         services.AddSingleton<IOperationCatalogProvider, OperationCatalogProvider>();
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
         services.AddSingleton<IOperationAuthorizationService, OperationAuthorizationService>();
+        services.AddSingleton<IReadIndexValidationCatalogResolver, ReadIndexValidationCatalogResolver>();
         services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
         services.AddSingleton<IRequestStaticValidationService, RequestStaticValidationService>();
         services.AddSingleton<IRefreshService, RefreshService>();
-        services.AddSingleton<IValidateMetadataResolver, ValidateMetadataResolver>();
         services.AddSingleton<IValidateService, ValidateService>();
         services.AddSingleton<IPlanService, PlanService>();
         services.AddSingleton<ICallDangerousOperationGuard, CallDangerousOperationGuard>();

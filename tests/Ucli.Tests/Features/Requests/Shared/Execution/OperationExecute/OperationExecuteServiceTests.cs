@@ -67,10 +67,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: "daemon",
-            timeout: "120000",
-            failFast: true,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: UnityExecutionMode.Daemon,
+                timeoutMilliseconds: 120000,
+                failFast: true),
             cancellationToken: CancellationToken.None);
 
         Assert.Equal(IpcProtocol.CurrentVersion, result.ProtocolVersion);
@@ -150,10 +151,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: "oneshot",
-            timeout: "120000",
-            failFast: true,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: UnityExecutionMode.Oneshot,
+                timeoutMilliseconds: 120000,
+                failFast: true),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -235,10 +237,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: "oneshot",
-            timeout: "1200",
-            failFast: true,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: UnityExecutionMode.Oneshot,
+                timeoutMilliseconds: 1200,
+                failFast: true),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -286,10 +289,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: "oneshot",
-            timeout: "1200",
-            failFast: true,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: UnityExecutionMode.Oneshot,
+                timeoutMilliseconds: 1200,
+                failFast: true),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -316,10 +320,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: null,
-            timeout: null,
-            failFast: false,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: null,
+                timeoutMilliseconds: null,
+                failFast: false),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -348,10 +353,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: null,
-            timeout: null,
-            failFast: false,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: null,
+                timeoutMilliseconds: null,
+                failFast: false),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -389,10 +395,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: null,
-            timeout: null,
-            failFast: false,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: null,
+                timeoutMilliseconds: null,
+                failFast: false),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -420,10 +427,11 @@ public sealed class OperationExecuteServiceTests
 
         var result = await service.Execute(
             RefreshOperation,
-            projectPath: "/repo/UnityProject",
-            mode: null,
-            timeout: null,
-            failFast: false,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: null,
+                timeoutMilliseconds: null,
+                failFast: false),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -444,6 +452,19 @@ public sealed class OperationExecuteServiceTests
                 PathSource: UnityProjectPathSource.CommandOption),
             Config: config ?? UcliConfig.CreateDefault(),
             ConfigSource: ConfigSource.Default);
+    }
+
+    private static OperationExecuteInput CreateInput (
+        string? projectPath,
+        UnityExecutionMode? mode,
+        int? timeoutMilliseconds,
+        bool failFast)
+    {
+        return new OperationExecuteInput(
+            ProjectPath: projectPath,
+            Mode: mode,
+            TimeoutMilliseconds: timeoutMilliseconds,
+            FailFast: failFast);
     }
 
     private static IpcResponse CreateResponse (

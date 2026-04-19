@@ -284,7 +284,7 @@ public sealed class OpsCliOutputContractTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            command: UcliCommandNames.OpsList,
+            command: UcliCommandNames.ListSubcommand,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
@@ -328,7 +328,7 @@ public sealed class OpsCliOutputContractTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            command: UcliCommandNames.OpsList,
+            command: UcliCommandNames.ListSubcommand,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
@@ -358,7 +358,7 @@ public sealed class OpsCliOutputContractTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            command: UcliCommandNames.OpsList,
+            command: UcliCommandNames.ListSubcommand,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(

@@ -311,7 +311,7 @@ public sealed class IpcDaemonTestRunClientTests
                 RepositoryRoot: scope.FullPath,
                 ProjectFingerprint: "fingerprint",
                 PathSource: UnityProjectPathSource.CommandOption),
-            Mode: "daemon",
+            Mode: UnityExecutionMode.Daemon,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
             TestPlatform: IpcTestRunPlatform.EditMode,

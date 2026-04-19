@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Requests.Refresh;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -36,11 +37,32 @@ internal sealed class RefreshCommand
 
         CommandExecutionState.MarkStarted();
 
+        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
+        if (!normalizedModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Refresh,
+                normalizedModeResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Refresh,
+                normalizedTimeoutResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var executionResult = await refreshService.Execute(
-                projectPath,
-                mode,
-                timeout,
-                failFast,
+                new RefreshCommandInput(
+                    ProjectPath: projectPath,
+                    Mode: normalizedModeResult.Mode,
+                    TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
+                    FailFast: failFast),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);

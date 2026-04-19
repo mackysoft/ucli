@@ -2,14 +2,13 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Features.Requests.Validate;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Tests;
 
-public sealed class ValidateMetadataResolverTests
+public sealed class ReadIndexValidationCatalogResolverTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -17,7 +16,7 @@ public sealed class ValidateMetadataResolverTests
     {
         var loader = new SpyPersistedOpsCatalogSnapshotLoader(
             PersistedOpsCatalogSnapshotLoadResult.Success(CreateSnapshot(IndexFreshness.Fresh)));
-        var resolver = new ValidateMetadataResolver(loader);
+        var resolver = new ReadIndexValidationCatalogResolver(loader);
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -38,7 +37,7 @@ public sealed class ValidateMetadataResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenAllowStaleAndSnapshotIsMissing_ReturnsSyntaxOnlySuccess ()
     {
-        var resolver = new ValidateMetadataResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
             PersistedOpsCatalogSnapshotLoadResult.Failure(
                 new IndexServiceError(
                     IpcErrorCodes.ReadIndexBootstrapFailed,
@@ -60,7 +59,7 @@ public sealed class ValidateMetadataResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenRequireFreshAndSnapshotIsStale_ReturnsFailureWithReadIndexHit ()
     {
-        var resolver = new ValidateMetadataResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
             PersistedOpsCatalogSnapshotLoadResult.Success(CreateSnapshot(IndexFreshness.Stale))));
 
         var result = await resolver.Resolve(
@@ -83,7 +82,7 @@ public sealed class ValidateMetadataResolverTests
         var malformedSnapshot = new PersistedOpsCatalogSnapshot(
             Entries:
             [
-                new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
+                new IndexOpEntryJsonContract(
                     Name: "ucli.invalid",
                     Kind: "unsupported-kind",
                     Policy: "safe",
@@ -91,7 +90,7 @@ public sealed class ValidateMetadataResolverTests
             ],
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             Freshness: IndexFreshness.Fresh);
-        var resolver = new ValidateMetadataResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
             PersistedOpsCatalogSnapshotLoadResult.Success(malformedSnapshot)));
 
         var result = await resolver.Resolve(
@@ -110,7 +109,7 @@ public sealed class ValidateMetadataResolverTests
     [Trait("Size", "Small")]
     public async Task Resolve_WhenSnapshotIsUsable_ReturnsMetadataBackedSuccess ()
     {
-        var resolver = new ValidateMetadataResolver(new SpyPersistedOpsCatalogSnapshotLoader(
+        var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
             PersistedOpsCatalogSnapshotLoadResult.Success(CreateSnapshot(IndexFreshness.Probable))));
 
         var result = await resolver.Resolve(
@@ -141,7 +140,7 @@ public sealed class ValidateMetadataResolverTests
         return new PersistedOpsCatalogSnapshot(
             Entries:
             [
-                new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
+                new IndexOpEntryJsonContract(
                     Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",

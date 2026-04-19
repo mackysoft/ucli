@@ -3,9 +3,11 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Testing.Run;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Project;
 using MackySoft.Ucli.UnityIntegration.Resolution;
+using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -49,10 +51,10 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunCommandInput(
             ProjectPath: unityProject.UnityProjectRoot,
             ProfilePath: scope.GetPath("test.profile.json"),
-            Mode: "oneshot",
+            Mode: NormalizeMode("oneshot"),
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: "editmode",
+            TestPlatform: NormalizeTestPlatform("editmode"),
             BuildTarget: null,
             TestFilter: "Name~Smoke",
             TestCategory: ["smoke,quick"],
@@ -64,7 +66,7 @@ public sealed class TestRunConfigurationResolverTests
 
         Assert.True(result.IsSuccess);
         var configuration = Assert.IsType<ResolvedTestRunConfiguration>(result.Configuration);
-        Assert.Equal("oneshot", configuration.Mode);
+        Assert.Equal(UnityExecutionMode.Oneshot, configuration.Mode);
         Assert.Equal(IpcTestRunPlatform.EditMode, configuration.TestPlatform);
         Assert.Equal("editmode", configuration.RawTestPlatform);
         Assert.Null(configuration.BuildTarget);
@@ -111,10 +113,10 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunCommandInput(
             ProjectPath: null,
             ProfilePath: scope.GetPath("test.profile.json"),
-            Mode: "auto",
+            Mode: NormalizeMode("auto"),
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: "editmode",
+            TestPlatform: NormalizeTestPlatform("editmode"),
             BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
@@ -163,10 +165,10 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunCommandInput(
             ProjectPath: commandProjectPath,
             ProfilePath: scope.GetPath("test.profile.json"),
-            Mode: "auto",
+            Mode: NormalizeMode("auto"),
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: "editmode",
+            TestPlatform: NormalizeTestPlatform("editmode"),
             BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
@@ -182,35 +184,6 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WithInvalidTestPlatform_ReturnsInvalidArgument ()
-    {
-        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "invalid-platform");
-
-        var resolver = CreateResolverWithSuccessfulDependencies(scope);
-        var input = new TestRunCommandInput(
-            ProjectPath: scope.GetPath("Unity"),
-            ProfilePath: null,
-            Mode: "auto",
-            UnityVersion: null,
-            UnityEditorPath: null,
-            TestPlatform: "unknown",
-            BuildTarget: null,
-            TestFilter: null,
-            TestCategory: null,
-            AssemblyName: null,
-            TestSettingsPath: null,
-            TimeoutMilliseconds: 30);
-
-        var result = await resolver.Resolve(input, CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("testPlatform", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Resolve_WithEditModeAndBuildTarget_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "editmode-buildtarget");
@@ -219,10 +192,10 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunCommandInput(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
-            Mode: "auto",
+            Mode: NormalizeMode("auto"),
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: "editmode",
+            TestPlatform: NormalizeTestPlatform("editmode"),
             BuildTarget: "Android",
             TestFilter: null,
             TestCategory: null,
@@ -250,10 +223,10 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunCommandInput(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
-            Mode: "auto",
+            Mode: NormalizeMode("auto"),
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: "editmode",
+            TestPlatform: NormalizeTestPlatform("editmode"),
             BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
@@ -279,10 +252,10 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunCommandInput(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
-            Mode: "auto",
+            Mode: NormalizeMode("auto"),
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: "editmode",
+            TestPlatform: NormalizeTestPlatform("editmode"),
             BuildTarget: null,
             TestFilter: null,
             TestCategory: null,

@@ -32,12 +32,18 @@ internal sealed class RefreshService : IRefreshService
 
     /// <inheritdoc />
     public ValueTask<OperationExecuteResult> Execute (
-        string? projectPath,
-        string? mode,
-        string? timeout,
-        bool failFast,
+        RefreshCommandInput input,
         CancellationToken cancellationToken = default)
     {
-        return operationExecuteService.Execute(RefreshOperation, projectPath, mode, timeout, failFast, cancellationToken);
+        ArgumentNullException.ThrowIfNull(input);
+
+        return operationExecuteService.Execute(
+            RefreshOperation,
+            new OperationExecuteInput(
+                ProjectPath: input.ProjectPath,
+                Mode: input.Mode,
+                TimeoutMilliseconds: input.TimeoutMilliseconds,
+                FailFast: input.FailFast),
+            cancellationToken);
     }
 }

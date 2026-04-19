@@ -24,7 +24,7 @@ public sealed class IpcCommandTimeoutResolverTests
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3200);
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
+        var result = IpcCommandTimeoutResolver.Resolve((string?)null, Command, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3200), result.Timeout);
@@ -55,7 +55,7 @@ public sealed class IpcCommandTimeoutResolverTests
                 [Command.Name] = 6200,
             });
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
+        var result = IpcCommandTimeoutResolver.Resolve((string?)null, Command, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(6200), result.Timeout);
@@ -73,7 +73,7 @@ public sealed class IpcCommandTimeoutResolverTests
                 [Command.Name] = null,
             });
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
+        var result = IpcCommandTimeoutResolver.Resolve((string?)null, Command, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TimeSpan.FromMilliseconds(3000), result.Timeout);
@@ -106,7 +106,7 @@ public sealed class IpcCommandTimeoutResolverTests
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 0);
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
+        var result = IpcCommandTimeoutResolver.Resolve((string?)null, Command, config);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Timeout);
@@ -126,7 +126,7 @@ public sealed class IpcCommandTimeoutResolverTests
                 [Command.Name] = 0,
             });
 
-        var result = IpcCommandTimeoutResolver.Resolve(null, Command, config);
+        var result = IpcCommandTimeoutResolver.Resolve((string?)null, Command, config);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Timeout);
@@ -143,7 +143,7 @@ public sealed class IpcCommandTimeoutResolverTests
 
         Assert.Throws<ArgumentException>(() =>
         {
-            _ = IpcCommandTimeoutResolver.Resolve(null, default, config);
+            _ = IpcCommandTimeoutResolver.Resolve((string?)null, default, config);
         });
     }
 

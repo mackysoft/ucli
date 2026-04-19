@@ -1,9 +1,11 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Plan;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests;
@@ -50,9 +52,9 @@ public sealed class PlanCommandTests
         Assert.NotNull(service.CapturedInput);
         Assert.Equal("/repo/request.json", service.CapturedInput!.RequestPath);
         Assert.Equal("/repo/UnityProject", service.CapturedInput.ProjectPath);
-        Assert.Equal("oneshot", service.CapturedInput.Mode);
-        Assert.Equal("1234", service.CapturedInput.Timeout);
-        Assert.Equal("disabled", service.CapturedInput.ReadIndexMode);
+        Assert.Equal(UnityExecutionMode.Oneshot, service.CapturedInput.Mode);
+        Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
+        Assert.Equal(ReadIndexMode.Disabled, service.CapturedInput.ReadIndexMode);
         Assert.True(service.CapturedInput.FailFast);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
@@ -111,6 +113,50 @@ public sealed class PlanCommandTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Plan_WhenReadIndexModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubPlanService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new PlanCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
+            readIndexMode: "unsupported",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Plan,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Plan_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubPlanService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new PlanCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
+            timeout: "abc",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Plan,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
     }
 
     private static ReadIndexInfo CreateReadIndexInfo (

@@ -4,36 +4,39 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Refresh;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class RefreshCommandTests
 {
+    private static readonly OperationExecuteResult SuccessResult = new(
+        ProtocolVersion: IpcProtocol.CurrentVersion,
+        RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+        OpResults:
+        [
+            new IpcExecuteOperationResult(
+                OpId: "refresh",
+                Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                Phase: IpcExecuteOperationPhaseNames.Call,
+                Applied: true,
+                Changed: true,
+                Touched:
+                [
+                    new IpcExecuteTouchedResource(
+                        Kind: IpcExecuteTouchedResourceKindNames.Asset,
+                        Path: "Assets/Example.txt",
+                        Guid: null),
+                ]),
+        ],
+        Errors: [],
+        ExitCode: (int)CliExitCode.Success);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Refresh_UsesRefreshServiceAndWritesCommandResult ()
     {
-        var service = new StubRefreshService((_, _, _, _) => ValueTask.FromResult(new OperationExecuteResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            OpResults:
-            [
-                new IpcExecuteOperationResult(
-                    OpId: "refresh",
-                    Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
-                    Phase: IpcExecuteOperationPhaseNames.Call,
-                    Applied: true,
-                    Changed: true,
-                    Touched:
-                    [
-                        new IpcExecuteTouchedResource(
-                            Kind: IpcExecuteTouchedResourceKindNames.Asset,
-                            Path: "Assets/Example.txt",
-                            Guid: null),
-                    ]),
-            ],
-            Errors: [],
-            ExitCode: (int)CliExitCode.Success)));
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(SuccessResult));
         var command = new RefreshCommand(service);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -46,10 +49,11 @@ public sealed class RefreshCommandTests
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(cancellationTokenSource.Token, service.CapturedCancellationToken);
-        Assert.Equal("/repo/UnityProject", service.CapturedProjectPath);
-        Assert.Equal("oneshot", service.CapturedMode);
-        Assert.Equal("1234", service.CapturedTimeout);
-        Assert.True(service.CapturedFailFast);
+        Assert.NotNull(service.CapturedInput);
+        Assert.Equal("/repo/UnityProject", service.CapturedInput!.ProjectPath);
+        Assert.Equal(UnityExecutionMode.Oneshot, service.CapturedInput.Mode);
+        Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
+        Assert.True(service.CapturedInput.FailFast);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
@@ -72,38 +76,48 @@ public sealed class RefreshCommandTests
                     .HasArrayLength("touched", 1)));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Refresh_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubRefreshService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new RefreshCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+            timeout: "abc",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+    }
+
     private sealed class StubRefreshService : IRefreshService
     {
-        private readonly Func<string?, string?, string?, bool, ValueTask<OperationExecuteResult>> handler;
+        private readonly Func<RefreshCommandInput, CancellationToken, ValueTask<OperationExecuteResult>> handler;
 
-        public StubRefreshService (Func<string?, string?, string?, bool, ValueTask<OperationExecuteResult>> handler)
+        public StubRefreshService (Func<RefreshCommandInput, CancellationToken, ValueTask<OperationExecuteResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
 
-        public string? CapturedProjectPath { get; private set; }
-
-        public string? CapturedMode { get; private set; }
-
-        public string? CapturedTimeout { get; private set; }
-
-        public bool CapturedFailFast { get; private set; }
+        public RefreshCommandInput? CapturedInput { get; private set; }
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
         public ValueTask<OperationExecuteResult> Execute (
-            string? projectPath,
-            string? mode,
-            string? timeout,
-            bool failFast,
+            RefreshCommandInput input,
             CancellationToken cancellationToken = default)
         {
-            CapturedProjectPath = projectPath;
-            CapturedMode = mode;
-            CapturedTimeout = timeout;
-            CapturedFailFast = failFast;
+            CapturedInput = input;
             CapturedCancellationToken = cancellationToken;
-            return handler(projectPath, mode, timeout, failFast);
+            return handler(input, cancellationToken);
         }
     }
 }

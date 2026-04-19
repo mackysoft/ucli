@@ -42,7 +42,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     }
 
     /// <summary> Resolves one test-run configuration from command input and optional profile values. </summary>
-    /// <param name="input"> The raw command input values. </param>
+    /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the configuration resolution result. </returns>
     public async ValueTask<TestRunConfigurationResolutionResult> Resolve (
@@ -128,7 +128,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     }
 
     /// <summary> Resolves the effective project-path input using command, environment, profile, and default precedence. </summary>
-    /// <param name="input"> The raw command input values. </param>
+    /// <param name="input"> The interpreted command input values. </param>
     /// <param name="profile"> The optional loaded profile values. </param>
     /// <returns> The resolved project-path candidate. </returns>
     private string ResolveProjectPath (

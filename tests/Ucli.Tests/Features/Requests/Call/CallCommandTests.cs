@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Call;
 using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -57,8 +58,8 @@ public sealed class CallCommandTests
         Assert.NotNull(service.CapturedInput);
         Assert.Equal("/repo/request.json", service.CapturedInput!.RequestPath);
         Assert.Equal("/repo/UnityProject", service.CapturedInput.ProjectPath);
-        Assert.Equal("oneshot", service.CapturedInput.Mode);
-        Assert.Equal("1234", service.CapturedInput.Timeout);
+        Assert.Equal(UnityExecutionMode.Oneshot, service.CapturedInput.Mode);
+        Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
         Assert.Equal("user-token", service.CapturedInput.PlanToken);
         Assert.True(service.CapturedInput.WithPlan);
         Assert.True(service.CapturedInput.AllowDangerous);
@@ -80,6 +81,28 @@ public sealed class CallCommandTests
                     .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                     .HasArrayLength("opResults", 1)
                     .HasString("planToken", "plan-token-1")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Call_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubCallService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new CallCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
+            mode: "unsupported",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Call,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
     }
 
     private sealed class StubCallService : ICallService

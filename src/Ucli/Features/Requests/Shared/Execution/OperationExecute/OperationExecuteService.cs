@@ -44,18 +44,16 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <inheritdoc />
     public async ValueTask<OperationExecuteResult> Execute (
         OperationExecuteDefinition definition,
-        string? projectPath,
-        string? mode,
-        string? timeout,
-        bool failFast,
+        OperationExecuteInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(input);
 
         var requestId = Guid.NewGuid().ToString("D");
 
-        var projectContextResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
+        var projectContextResult = await projectContextResolver.Resolve(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
             return CreateFailureFromExecutionError(requestId, projectContextResult.Error!);
@@ -63,13 +61,17 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         var projectContext = projectContextResult.Context!;
         var config = projectContext.Config;
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, definition.Command, config);
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
+            definition.Command,
+            config);
         if (!timeoutResolutionResult.IsSuccess)
         {
             return CreateFailureFromExecutionError(requestId, timeoutResolutionResult.Error!);
         }
 
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
+        var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
         var authorizationResult = await operationAuthorizationService.Authorize(
                 definition.Descriptor,
@@ -88,12 +90,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 ]);
         }
 
-        var executionModeResult = UnityExecutionModeResolver.Resolve(mode);
-        if (!executionModeResult.IsSuccess)
-        {
-            return CreateFailureFromExecutionError(requestId, executionModeResult.Error!);
-        }
-
         string? planToken = null;
         if (config.PlanTokenMode == PlanTokenMode.Required)
         {
@@ -107,9 +103,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             var planTokenResult = await IssuePlanToken(
                     definition,
                     requestId,
-                    executionModeResult.Mode!.Value,
+                    executionMode,
                     planTimeout,
-                    failFast,
+                    input.FailFast,
                     config,
                     projectContext.UnityProject,
                     cancellationToken)
@@ -131,12 +127,12 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         var executionResult = await unityIpcRequestExecutor.Execute(
                 definition.Command,
-                executionModeResult.Mode!.Value,
+                executionMode,
                 executeTimeout,
                 config,
                 projectContext.UnityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, failFast, planToken),
+                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, input.FailFast, planToken),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

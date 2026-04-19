@@ -1,6 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Testing.Run;
 using MackySoft.Ucli.Features.Testing.Run.Service;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -54,14 +55,34 @@ internal sealed class TestRunCommand
 
         CommandExecutionState.MarkStarted();
 
+        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(executionMode);
+        if (!normalizedModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.RunSubcommand,
+                normalizedModeResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedTestPlatformResult = TestRunPlatformOptionNormalizer.Normalize(testPlatform);
+        if (!normalizedTestPlatformResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.RunSubcommand,
+                normalizedTestPlatformResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var serviceResult = await testRunService.Execute(
             new TestRunCommandInput(
                 ProjectPath: projectPath,
                 ProfilePath: profilePath,
-                Mode: executionMode,
+                Mode: normalizedModeResult.Mode,
                 UnityVersion: unityVersion,
                 UnityEditorPath: unityEditorPath,
-                TestPlatform: testPlatform,
+                TestPlatform: normalizedTestPlatformResult.TestPlatform,
                 BuildTarget: buildTarget,
                 TestFilter: testFilter,
                 TestCategory: SplitCommaSeparatedValues(testCategory),

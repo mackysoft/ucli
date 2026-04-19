@@ -22,6 +22,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Project;
+using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -626,10 +627,10 @@ public sealed class TestRunServiceTests
         return new TestRunCommandInput(
             ProjectPath: null,
             ProfilePath: null,
-            Mode: null,
+            Mode: NormalizeMode(null),
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: null,
+            TestPlatform: NormalizeTestPlatform(null),
             BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
@@ -638,7 +639,7 @@ public sealed class TestRunServiceTests
             TimeoutMilliseconds: null);
     }
 
-    private static ResolvedTestRunConfiguration CreateResolvedConfiguration (string mode = "auto")
+    private static ResolvedTestRunConfiguration CreateResolvedConfiguration (UnityExecutionMode mode = UnityExecutionMode.Auto)
     {
         var projectPath = Path.GetFullPath("./sandbox/Unity");
         return new ResolvedTestRunConfiguration(

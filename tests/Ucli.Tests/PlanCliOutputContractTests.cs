@@ -127,7 +127,7 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithInvalidTimeoutOption_ReturnsInvalidArgumentAndPreservesPreflightPayload ()
+    public async Task Plan_WithInvalidTimeoutOption_ReturnsInvalidArgumentWithoutPayload ()
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-timeout");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -149,23 +149,13 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
-                .HasArrayLength("opResults", 0)
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", false)
-                    .HasBoolean("hit", false)
-                    .HasString("fallbackReason", "readIndex disabled by mode.")));
-        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("errors", 0, error => error
-                .HasString("code", IpcErrorCodes.InvalidArgument));
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithInvalidModeOption_ReturnsInvalidArgumentAndPreservesPreflightPayload ()
+    public async Task Plan_WithInvalidModeOption_ReturnsInvalidArgumentWithoutPayload ()
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-mode");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -187,16 +177,8 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
-                .HasArrayLength("opResults", 0)
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", false)
-                    .HasBoolean("hit", false)))
-            .HasProperty("errors", 0, error => error
-                .HasString("code", IpcErrorCodes.InvalidArgument));
-        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
     }
 
     [Fact]

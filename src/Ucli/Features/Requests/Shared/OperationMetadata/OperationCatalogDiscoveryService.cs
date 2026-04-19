@@ -45,7 +45,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
         if (!effectiveTimeout.HasValue)
         {
             var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
-                optionValue: null,
+                optionValue: (string?)null,
                 UcliCommandIds.Ops,
                 config);
             if (!timeoutResolutionResult.IsSuccess)
