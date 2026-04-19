@@ -56,6 +56,7 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
         TimeSpan? timeout = null,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -67,6 +68,7 @@ internal sealed class OperationCatalogProvider : IOperationCatalogProvider
                 config,
                 mode,
                 timeout,
+                failFast,
                 cancellationToken)
             .ConfigureAwait(false);
     }

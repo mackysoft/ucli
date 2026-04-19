@@ -43,11 +43,13 @@ public sealed class CallServiceTests
                     ],
                     errors: [],
                     planToken: null)));
+        var preflightService = new StubPhaseExecutionPreflightService(PhaseExecutionPreflightResult.Success(preparedRequest));
         var timeProvider = new ManualTimeProvider();
         var service = CreateService(
             PhaseExecutionPreflightResult.Success(preparedRequest),
             ipcRequestExecutor,
-            timeProvider);
+            timeProvider,
+            preflightService: preflightService);
 
         var result = await service.Execute(
             new CallCommandInput(
@@ -78,6 +80,7 @@ public sealed class CallServiceTests
         Assert.Equal(UcliCommandIds.Call, executeRequest!.Command);
         Assert.Equal("plan-token-1", executeRequest.PlanToken);
         Assert.True(executeRequest.FailFast);
+        Assert.True(preflightService.ReceivedFailFast);
         Assert.Equal(UnityExecutionMode.Oneshot, ipcRequestExecutor.Invocations[0].Mode);
         Assert.Equal(TimeSpan.FromMilliseconds(1234), ipcRequestExecutor.Invocations[0].Timeout);
     }
@@ -688,6 +691,7 @@ public sealed class CallServiceTests
         Assert.True(result.IsSuccess);
         Assert.Single(ipcRequestExecutor.Invocations);
         Assert.Equal(TimeSpan.FromMilliseconds(1000), ipcRequestExecutor.Invocations[0].Timeout);
+        Assert.False(preflightService.ReceivedFailFast);
     }
 
     private static PhaseExecutionPreparedRequest CreatePreparedRequest (
@@ -907,14 +911,18 @@ public sealed class CallServiceTests
 
         public Action<PreflightInvocationContext>? OnPrepare { get; init; }
 
+        public bool ReceivedFailFast { get; private set; }
+
         public ValueTask<PhaseExecutionPreflightResult> Prepare (
             PreparedRequestContext preparedRequest,
             UnityExecutionMode mode,
             ExecutionDeadline deadline,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(preparedRequest);
+            ReceivedFailFast = failFast;
             OnPrepare?.Invoke(new PreflightInvocationContext(deadline, TimeProvider));
             return ValueTask.FromResult(result);
         }

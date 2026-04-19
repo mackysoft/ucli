@@ -60,6 +60,7 @@ internal sealed class OperationCatalog : IOperationCatalog
     /// <summary> Asynchronously gets all registered operation descriptors for the specified resolved Unity project. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="config"> The loaded configuration used to execute catalog discovery. </param>
+    /// <param name="failFast"> Whether live catalog discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the descriptor list ordered by operation name. </returns>
     public async ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetAll (
@@ -67,13 +68,14 @@ internal sealed class OperationCatalog : IOperationCatalog
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
         TimeSpan? timeout = null,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(config);
 
-        var loadedOperations = await provider.GetOperations(unityProject, config, mode, timeout, cancellationToken).ConfigureAwait(false);
+        var loadedOperations = await provider.GetOperations(unityProject, config, mode, timeout, failFast, cancellationToken).ConfigureAwait(false);
         var snapshot = CreateSnapshot(loadedOperations, cancellationToken);
         return snapshot.SortedOperations;
     }

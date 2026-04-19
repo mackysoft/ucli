@@ -10,8 +10,10 @@ namespace MackySoft.Ucli.Ops.Preflight;
 /// <param name="ReadIndexMode"> The resolved read-index mode. </param>
 /// <param name="Mode"> The normalized Unity execution mode. </param>
 /// <param name="Timeout"> The resolved command timeout for ops catalog access. </param>
+/// <param name="FailFast"> Whether live source fallback should fail immediately instead of waiting for Unity readiness. </param>
 internal sealed record OpsPreflightContext (
     ProjectContext Context,
     ReadIndexMode ReadIndexMode,
     UnityExecutionMode Mode,
-    TimeSpan Timeout);
+    TimeSpan Timeout,
+    bool FailFast);

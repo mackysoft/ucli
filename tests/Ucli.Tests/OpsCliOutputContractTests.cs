@@ -71,6 +71,34 @@ public sealed class OpsCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task OpsList_WithFailFastCamelCaseAlias_IsAcceptedByParser ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-fail-fast-camel-case");
+        var invalidProjectPath = Path.Combine(scope.FullPath, "NotUnityProject");
+        Directory.CreateDirectory(invalidProjectPath);
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Ops,
+            UcliCommandNames.ListSubcommand,
+            UcliContractConstants.CliOption.FailFast,
+            UcliContractConstants.CliOption.ProjectPath,
+            invalidProjectPath);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.DoesNotContain("Argument '--failFast' is not recognized.", result.StdErr, StringComparison.Ordinal);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.OpsList,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task OpsList_WithPreseededReadIndex_ReturnsJsonEnvelopeSuccess ()
     {
         using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "list-success");

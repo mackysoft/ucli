@@ -27,6 +27,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
         UcliConfig config,
         UnityExecutionMode mode = UnityExecutionMode.Auto,
         TimeSpan? timeout = null,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -58,7 +59,9 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
                 config,
                 mode,
                 resolvedTimeout,
-                cancellationToken)
+                failFast,
+                requireReadinessGate: false,
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (!catalogResult.IsSuccess)
         {

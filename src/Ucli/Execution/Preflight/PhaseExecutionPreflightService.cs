@@ -29,12 +29,14 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
     /// <param name="preparedRequest"> The request that has already been read, parsed, and bound to project context. </param>
     /// <param name="mode"> The optional Unity execution mode from the outer command. </param>
     /// <param name="deadline"> The shared timeout budget for the surrounding command execution. </param>
+    /// <param name="failFast"> Whether operation metadata discovery should fail immediately instead of waiting for Unity readiness. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The preflight result. </returns>
     public async ValueTask<PhaseExecutionPreflightResult> Prepare (
         PreparedRequestContext preparedRequest,
         UnityExecutionMode mode,
         ExecutionDeadline deadline,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -55,6 +57,7 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
                     preparedRequest.ProjectContext.Config,
                     mode,
                     operationCatalogTimeout,
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }

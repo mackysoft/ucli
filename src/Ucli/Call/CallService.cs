@@ -86,6 +86,7 @@ internal sealed class CallService : ICallService
                 preparedRequestContext,
                 executionModeResult.Mode!.Value,
                 deadline,
+                input.FailFast,
                 cancellationToken)
             .ConfigureAwait(false);
 
