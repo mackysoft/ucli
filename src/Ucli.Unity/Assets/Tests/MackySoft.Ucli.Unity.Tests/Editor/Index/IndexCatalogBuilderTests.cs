@@ -405,11 +405,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(response.ScenePath, Is.EqualTo(scenePath));
             Assert.That(roots, Is.Not.Null);
             var nonNullRoots = roots!;
-            Assert.That(nonNullRoots, Has.Count.EqualTo(2));
+            Assert.That(nonNullRoots.Count, Is.EqualTo(2));
             Assert.That(nonNullRoots[0].Name, Is.EqualTo("Root"));
             Assert.That(nonNullRoots[0].GlobalObjectId, Is.EqualTo(rootGlobalObjectId));
-            Assert.That(nonNullRoots[0].Children, Has.Count.EqualTo(1));
+            Assert.That(nonNullRoots[0].Children, Is.Not.Null);
             var firstRootChildren = nonNullRoots[0].Children!;
+            Assert.That(firstRootChildren.Count, Is.EqualTo(1));
             Assert.That(firstRootChildren[0].Name, Is.EqualTo("Child"));
             Assert.That(firstRootChildren[0].GlobalObjectId, Is.EqualTo(childGlobalObjectId));
             Assert.That(nonNullRoots[1].Name, Is.EqualTo("SecondRoot"));
