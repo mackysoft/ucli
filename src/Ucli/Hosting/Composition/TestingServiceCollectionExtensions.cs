@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Features.Testing.Profiles;
+using MackySoft.Ucli.Features.Testing.Profiles.UseCases.ProfileInit;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;

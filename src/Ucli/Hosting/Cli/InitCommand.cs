@@ -1,5 +1,5 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Init;
+using MackySoft.Ucli.Features.Init.UseCases.Init;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -29,33 +29,10 @@ internal sealed class InitCommand
 
         CommandExecutionState.MarkStarted();
 
-        var executionResult = await initService.Execute(force, cancellationToken).ConfigureAwait(false);
-        var result = CreateCommandResult(executionResult);
+        var input = new InitCommandInput(force);
+        var executionResult = await initService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var result = InitCommandResultFactory.Create(executionResult);
         CommandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;
-    }
-
-    /// <summary> Creates the command-level JSON result from an init service execution result. </summary>
-    /// <param name="executionResult"> The init service execution result. </param>
-    /// <returns> The command result serialized to stdout. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
-    private static CommandResult CreateCommandResult (InitExecutionResult executionResult)
-    {
-        ArgumentNullException.ThrowIfNull(executionResult);
-
-        if (executionResult.IsSuccess)
-        {
-            var output = executionResult.Output!;
-            return CommandResult.Success(
-                command: UcliCommandNames.Init,
-                message: "uCLI config template generation completed.",
-                payload: new
-                {
-                    configPath = output.ConfigPath,
-                    gitignorePath = output.GitIgnorePath,
-                });
-        }
-
-        return CommandResultFactory.FromExecutionError(UcliCommandNames.Init, executionResult.Error!);
     }
 }

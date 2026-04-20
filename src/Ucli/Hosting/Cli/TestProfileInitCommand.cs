@@ -1,5 +1,5 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Testing.Profiles;
+using MackySoft.Ucli.Features.Testing.Profiles.UseCases.ProfileInit;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -31,34 +31,12 @@ internal sealed class TestProfileInitCommand
 
         CommandExecutionState.MarkStarted();
 
-        var executionResult = await testProfileInitService.Execute(outputPath, force, cancellationToken).ConfigureAwait(false);
-        var result = CreateCommandResult(executionResult);
+        var input = new TestProfileInitCommandInput(
+            OutputPath: outputPath,
+            Force: force);
+        var executionResult = await testProfileInitService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var result = TestProfileInitCommandResultFactory.Create(executionResult);
         CommandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;
-    }
-
-    /// <summary> Creates the command-level JSON result from a test-profile init service execution result. </summary>
-    /// <param name="executionResult"> The test-profile init service execution result. </param>
-    /// <returns> The command result serialized to stdout. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
-    private static CommandResult CreateCommandResult (TestProfileInitExecutionResult executionResult)
-    {
-        ArgumentNullException.ThrowIfNull(executionResult);
-
-        if (executionResult.IsSuccess)
-        {
-            var output = executionResult.Output!;
-            return CommandResult.Success(
-                command: UcliCommandNames.TestProfileInit,
-                message: "Test profile template initialization completed.",
-                payload: new
-                {
-                    profilePath = output.ProfilePath,
-                });
-        }
-
-        return CommandResultFactory.FromExecutionError(
-            UcliCommandNames.TestProfileInit,
-            executionResult.Error!);
     }
 }
