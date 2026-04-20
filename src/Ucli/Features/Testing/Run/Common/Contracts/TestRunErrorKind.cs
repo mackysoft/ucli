@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Features.Testing.Run;
+namespace MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Represents normalized test-run error kinds. </summary>
 internal enum TestRunErrorKind

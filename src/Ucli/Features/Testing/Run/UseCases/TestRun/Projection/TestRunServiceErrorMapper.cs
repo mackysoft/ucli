@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Mapping;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 
 /// <summary> Maps shared execution error contracts into command-facing test-run service results. </summary>
 internal static class TestRunServiceErrorMapper

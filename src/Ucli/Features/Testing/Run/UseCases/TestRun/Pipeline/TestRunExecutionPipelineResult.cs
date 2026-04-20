@@ -3,7 +3,7 @@ using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
 
 /// <summary> Represents one execution pipeline outcome. </summary>
 /// <param name="Session"> The run artifacts session when prepared; otherwise <see langword="null" />. </param>

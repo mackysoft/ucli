@@ -5,15 +5,15 @@ using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Features.Testing.Run;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
-using MackySoft.Ucli.Features.Testing.Run.Service;
-using MackySoft.Ucli.Features.Testing.Run.Service.Mapping;
-using MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
-using MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
@@ -678,7 +678,7 @@ public sealed class TestRunServiceTests
         }
 
         public ValueTask<TestRunConfigurationResolutionResult> Resolve (
-            TestRunCommandInput input,
+            TestRunConfigurationRequest input,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

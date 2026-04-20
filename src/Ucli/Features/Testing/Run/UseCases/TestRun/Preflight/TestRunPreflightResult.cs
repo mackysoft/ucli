@@ -1,4 +1,6 @@
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
+
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
 
 /// <summary> Represents one preflight outcome for test-run execution. </summary>
 /// <param name="Context"> The resolved execution context when preflight succeeds; otherwise <see langword="null" />. </param>

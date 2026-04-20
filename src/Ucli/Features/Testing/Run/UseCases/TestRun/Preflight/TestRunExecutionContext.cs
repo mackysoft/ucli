@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
 
 /// <summary> Represents preflight-resolved execution context for test-run pipeline. </summary>
 /// <param name="Configuration"> The resolved test-run configuration. </param>

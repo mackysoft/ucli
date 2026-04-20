@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Features.Testing.Run;
+namespace MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Defines machine-readable error codes used by test-run service results. </summary>
 internal static class TestRunErrorCodes

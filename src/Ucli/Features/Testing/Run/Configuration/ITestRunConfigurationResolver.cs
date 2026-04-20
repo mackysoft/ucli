@@ -8,6 +8,6 @@ internal interface ITestRunConfigurationResolver
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the configuration resolution result. </returns>
     ValueTask<TestRunConfigurationResolutionResult> Resolve (
-        TestRunCommandInput input,
+        TestRunConfigurationRequest input,
         CancellationToken cancellationToken = default);
 }

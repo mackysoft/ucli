@@ -1,8 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Features.Testing.Run;
-using MackySoft.Ucli.Features.Testing.Run.Service;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 

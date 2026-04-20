@@ -1,6 +1,7 @@
-using MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Mapping;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 
 /// <summary> Maps pipeline outcomes into command-facing test-run service results. </summary>
 internal interface ITestRunResultMapper

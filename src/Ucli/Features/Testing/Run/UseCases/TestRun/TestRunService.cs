@@ -1,8 +1,9 @@
-using MackySoft.Ucli.Features.Testing.Run.Service.Mapping;
-using MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
-using MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun;
 
 /// <summary> Implements the core test-run orchestration flow. </summary>
 internal sealed class TestRunService : ITestRunService

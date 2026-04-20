@@ -1,11 +1,11 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
-using MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Mapping;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 
 /// <summary> Implements mapping from pipeline outcomes to command-facing test-run results. </summary>
 internal sealed class TestRunResultMapper : ITestRunResultMapper
