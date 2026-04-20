@@ -1,5 +1,9 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Daemon.Supervisor;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Hosting.Composition;
 using Microsoft.Extensions.DependencyInjection;

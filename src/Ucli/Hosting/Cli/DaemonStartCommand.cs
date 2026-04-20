@@ -1,5 +1,10 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Daemon.Services;
+using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
+using MackySoft.Ucli.Features.Daemon.UseCases.Common;
+using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Features.Daemon.UseCases.Status;
+using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
