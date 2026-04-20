@@ -3,7 +3,6 @@ using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;

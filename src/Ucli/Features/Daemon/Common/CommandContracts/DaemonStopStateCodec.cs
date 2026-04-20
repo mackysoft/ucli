@@ -9,7 +9,6 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
