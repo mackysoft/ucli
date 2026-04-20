@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Hosting.Cli.Options;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
@@ -40,7 +40,7 @@ internal static class CommandOptionNormalizationTestHelper
         return result.Mode;
     }
 
-    public static IpcTestRunPlatform? NormalizeTestPlatform (string? value)
+    public static TestRunPlatform? NormalizeTestPlatform (string? value)
     {
         var result = TestRunPlatformOptionNormalizer.Normalize(value);
         if (!result.IsSuccess)

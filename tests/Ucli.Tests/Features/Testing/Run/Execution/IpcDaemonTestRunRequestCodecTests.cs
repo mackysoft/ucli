@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
@@ -28,8 +29,7 @@ public sealed class IpcDaemonTestRunRequestCodecTests
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
         Assert.Equal("session-token", request.SessionToken);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest payload, out _));
-        Assert.Equal(IpcTestRunPlatformCodec.PlayMode, payload.TestPlatform);
-        Assert.Equal(configuration.BuildTarget, payload.BuildTarget);
+        Assert.Equal("StandaloneWindows64", payload.TestPlatform);
         Assert.Equal(configuration.TestFilter, payload.TestFilter);
         Assert.Equal(configuration.TestCategories, payload.TestCategories);
         Assert.Equal(configuration.AssemblyNames, payload.AssemblyNames);
@@ -51,9 +51,7 @@ public sealed class IpcDaemonTestRunRequestCodecTests
             Mode: UnityExecutionMode.Daemon,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: IpcTestRunPlatform.PlayMode,
-            RawTestPlatform: IpcTestRunPlatformCodec.PlayMode,
-            BuildTarget: "StandaloneWindows64",
+            TestPlatform: TestRunPlatform.Player("StandaloneWindows64"),
             TestFilter: "Category=Smoke",
             TestCategories: ["smoke", "quick"],
             AssemblyNames: ["Game.Tests"],

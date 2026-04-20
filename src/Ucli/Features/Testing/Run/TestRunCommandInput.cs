@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Features.Testing.Run;
@@ -10,7 +10,6 @@ namespace MackySoft.Ucli.Features.Testing.Run;
 /// <param name="UnityVersion"> Optional Unity version override. </param>
 /// <param name="UnityEditorPath"> Optional Unity editor executable path override. </param>
 /// <param name="TestPlatform"> Optional test-platform value. </param>
-/// <param name="BuildTarget"> Optional Unity build target for PlayMode tests. </param>
 /// <param name="TestFilter"> Optional Unity test filter pattern. </param>
 /// <param name="TestCategory"> Optional test categories parsed from the CLI option. </param>
 /// <param name="AssemblyName"> Optional assembly names parsed from the CLI option. </param>
@@ -23,8 +22,7 @@ internal sealed record TestRunCommandInput (
     UnityExecutionMode? Mode,
     string? UnityVersion,
     string? UnityEditorPath,
-    IpcTestRunPlatform? TestPlatform,
-    string? BuildTarget,
+    TestRunPlatform? TestPlatform,
     string? TestFilter,
     string[]? TestCategory,
     string[]? AssemblyName,

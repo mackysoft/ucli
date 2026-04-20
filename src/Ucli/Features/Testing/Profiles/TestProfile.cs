@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Features.Testing.Profiles;
 
@@ -8,7 +8,6 @@ namespace MackySoft.Ucli.Features.Testing.Profiles;
 /// <param name="UnityVersion"> The optional Unity version. </param>
 /// <param name="UnityEditorPath"> The optional Unity editor executable path. </param>
 /// <param name="TestPlatform"> The default test platform value. </param>
-/// <param name="BuildTarget"> The optional build target value. </param>
 /// <param name="TestFilter"> The optional test filter value. </param>
 /// <param name="TestCategories"> The test-category list. </param>
 /// <param name="AssemblyNames"> The assembly-name list. </param>
@@ -20,7 +19,6 @@ internal sealed record TestProfile (
     string? UnityVersion,
     string? UnityEditorPath,
     string TestPlatform,
-    string? BuildTarget,
     string? TestFilter,
     string[] TestCategories,
     string[] AssemblyNames,
@@ -40,8 +38,7 @@ internal sealed record TestProfile (
             ProjectPath: DefaultProjectPath,
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: IpcTestRunPlatformCodec.EditMode,
-            BuildTarget: null,
+            TestPlatform: TestRunPlatformCodec.EditMode,
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],

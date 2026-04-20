@@ -75,9 +75,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
 #pragma warning disable CS0618
-            if (requestContext.BuildTarget.HasValue)
+            if (requestContext.TargetPlatform.HasValue)
             {
-                filter.targetPlatform = requestContext.BuildTarget.Value;
+                filter.targetPlatform = requestContext.TargetPlatform.Value;
             }
 #pragma warning restore CS0618
 

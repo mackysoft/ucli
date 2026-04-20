@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;
@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Options;
 /// <summary> Represents one normalization result for the <c>--testPlatform</c> option. </summary>
 internal sealed record TestRunPlatformOptionNormalizationResult (
     bool IsSpecified,
-    IpcTestRunPlatform? TestPlatform,
+    TestRunPlatform? TestPlatform,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether the option was normalized successfully. </summary>
@@ -25,7 +25,7 @@ internal sealed record TestRunPlatformOptionNormalizationResult (
     /// <summary> Creates a successful normalization result. </summary>
     /// <param name="testPlatform"> The normalized test-platform override. </param>
     /// <returns> The successful result. </returns>
-    public static TestRunPlatformOptionNormalizationResult Success (IpcTestRunPlatform testPlatform)
+    public static TestRunPlatformOptionNormalizationResult Success (TestRunPlatform testPlatform)
     {
         return new TestRunPlatformOptionNormalizationResult(
             IsSpecified: true,

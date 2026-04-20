@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -572,63 +573,68 @@ public sealed class IpcCommonContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcTestRunPlatformCodec_HasStableStringValues ()
+    public void TestRunPlatformCodec_HasStableStringValues ()
     {
-        Assert.Equal("editmode", IpcTestRunPlatformCodec.EditMode);
-        Assert.Equal("playmode", IpcTestRunPlatformCodec.PlayMode);
+        Assert.Equal("editmode", TestRunPlatformCodec.EditMode);
+        Assert.Equal("playmode", TestRunPlatformCodec.PlayMode);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcTestRunPlatformCodec_HasStableUnityStringValues ()
+    public void TestRunPlatformCodec_HasStableUnityStringValues ()
     {
-        Assert.Equal("EditMode", IpcTestRunPlatformCodec.UnityEditMode);
-        Assert.Equal("PlayMode", IpcTestRunPlatformCodec.UnityPlayMode);
+        Assert.Equal("EditMode", TestRunPlatformCodec.UnityEditMode);
+        Assert.Equal("PlayMode", TestRunPlatformCodec.UnityPlayMode);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcTestRunPlatform_HasStableEnumValues ()
+    public void TestRunPlatformKind_HasStableEnumValues ()
     {
-        Assert.Equal(0, (int)IpcTestRunPlatform.EditMode);
-        Assert.Equal(1, (int)IpcTestRunPlatform.PlayMode);
+        Assert.Equal(0, (int)TestRunPlatformKind.EditMode);
+        Assert.Equal(1, (int)TestRunPlatformKind.PlayMode);
+        Assert.Equal(2, (int)TestRunPlatformKind.Player);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcTestRunPlatformCodec_ToValue_ReturnsExpectedLiterals ()
+    public void TestRunPlatformCodec_ToValue_ReturnsExpectedLiterals ()
     {
-        Assert.Equal("editmode", IpcTestRunPlatformCodec.ToValue(IpcTestRunPlatform.EditMode));
-        Assert.Equal("playmode", IpcTestRunPlatformCodec.ToValue(IpcTestRunPlatform.PlayMode));
+        Assert.Equal("editmode", TestRunPlatformCodec.ToValue(TestRunPlatform.EditMode));
+        Assert.Equal("playmode", TestRunPlatformCodec.ToValue(TestRunPlatform.PlayMode));
+        Assert.Equal("Android", TestRunPlatformCodec.ToValue(TestRunPlatform.Player("Android")));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcTestRunPlatformCodec_ToUnityValue_ReturnsExpectedLiterals ()
+    public void TestRunPlatformCodec_ToUnityValue_ReturnsExpectedLiterals ()
     {
-        Assert.Equal("EditMode", IpcTestRunPlatformCodec.ToUnityValue(IpcTestRunPlatform.EditMode));
-        Assert.Equal("PlayMode", IpcTestRunPlatformCodec.ToUnityValue(IpcTestRunPlatform.PlayMode));
+        Assert.Equal("EditMode", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.EditMode));
+        Assert.Equal("PlayMode", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.PlayMode));
+        Assert.Equal("Android", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.Player("Android")));
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("editmode", true, IpcTestRunPlatform.EditMode)]
-    [InlineData(" PLAYMODE ", true, IpcTestRunPlatform.PlayMode)]
-    [InlineData("unsupported", false, null)]
-    [InlineData("", false, null)]
-    [InlineData(" ", false, null)]
-    [InlineData(null, false, null)]
-    public void IpcTestRunPlatformCodec_TryParse_ReturnsExpectedResult (
+    [InlineData("editmode", true, TestRunPlatformKind.EditMode, null)]
+    [InlineData(" PLAYMODE ", true, TestRunPlatformKind.PlayMode, null)]
+    [InlineData("Android", true, TestRunPlatformKind.Player, "Android")]
+    [InlineData("", false, null, null)]
+    [InlineData(" ", false, null, null)]
+    [InlineData(null, false, null, null)]
+    public void TestRunPlatformCodec_TryParse_ReturnsExpectedResult (
         string? value,
         bool expectedResult,
-        IpcTestRunPlatform? expectedValue)
+        TestRunPlatformKind? expectedKind,
+        string? expectedPlayerLiteral)
     {
-        var result = IpcTestRunPlatformCodec.TryParse(value, out var testPlatform);
+        var result = TestRunPlatformCodec.TryParse(value, out var testPlatform);
 
         Assert.Equal(expectedResult, result);
-        if (expectedValue.HasValue)
+        if (expectedKind.HasValue)
         {
-            Assert.Equal(expectedValue.Value, testPlatform);
+            Assert.Equal(expectedKind.Value, testPlatform.Kind);
+            Assert.Equal(expectedPlayerLiteral, testPlatform.PlayerBuildTargetLiteral);
         }
     }
 }

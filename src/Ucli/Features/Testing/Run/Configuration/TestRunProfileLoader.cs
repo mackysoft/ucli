@@ -15,7 +15,6 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         "unityVersion",
         "unityEditorPath",
         "testPlatform",
-        "buildTarget",
         "testFilter",
         "testCategories",
         "assemblyNames",
@@ -181,18 +180,6 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
 
         if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
             root,
-            "buildTarget",
-            CreateMissingRequiredPropertyError,
-            CreateNullableStringTypeMismatchError,
-            noError: null,
-            out var buildTarget,
-            out errorMessage))
-        {
-            return false;
-        }
-
-        if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
-            root,
             "testFilter",
             CreateMissingRequiredPropertyError,
             CreateNullableStringTypeMismatchError,
@@ -253,7 +240,6 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             UnityVersion = unityVersion,
             UnityEditorPath = unityEditorPath,
             TestPlatform = testPlatform,
-            BuildTarget = buildTarget,
             TestFilter = testFilter,
             TestCategories = testCategories,
             AssemblyNames = assemblyNames,

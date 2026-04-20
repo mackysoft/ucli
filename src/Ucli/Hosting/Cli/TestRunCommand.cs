@@ -25,8 +25,7 @@ internal sealed class TestRunCommand
     /// <param name="executionMode"> --mode, Unity execution mode (<c>auto|daemon|oneshot</c>). </param>
     /// <param name="unityVersion"> -u|--unityVersion, Unity editor version. </param>
     /// <param name="unityEditorPath"> --unityEditorPath, Unity editor executable path or editor directory path. </param>
-    /// <param name="testPlatform"> --testPlatform, Unity test platform (<c>editmode|playmode</c>). </param>
-    /// <param name="buildTarget"> -t|--buildTarget, Unity build target used by PlayMode tests. </param>
+    /// <param name="testPlatform"> --testPlatform, Unity test platform (<c>editmode|playmode|&lt;BuildTarget&gt;</c>). </param>
     /// <param name="testFilter"> -f|--testFilter, test name filter pattern. </param>
     /// <param name="testCategory"> --testCategory, comma-separated test categories. </param>
     /// <param name="assemblyName"> -a|--assemblyName, comma-separated assembly names. </param>
@@ -43,7 +42,6 @@ internal sealed class TestRunCommand
         string? unityVersion = null,
         string? unityEditorPath = null,
         string? testPlatform = null,
-        string? buildTarget = null,
         string? testFilter = null,
         string? testCategory = null,
         string? assemblyName = null,
@@ -84,7 +82,6 @@ internal sealed class TestRunCommand
                 UnityVersion: unityVersion,
                 UnityEditorPath: unityEditorPath,
                 TestPlatform: normalizedTestPlatformResult.TestPlatform,
-                BuildTarget: buildTarget,
                 TestFilter: testFilter,
                 TestCategory: SplitCommaSeparatedValues(testCategory),
                 AssemblyName: SplitCommaSeparatedValues(assemblyName),

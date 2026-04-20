@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Daemon.Runtime;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
@@ -314,9 +315,7 @@ public sealed class IpcDaemonTestRunClientTests
             Mode: UnityExecutionMode.Daemon,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: IpcTestRunPlatform.EditMode,
-            RawTestPlatform: "editmode",
-            BuildTarget: null,
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],

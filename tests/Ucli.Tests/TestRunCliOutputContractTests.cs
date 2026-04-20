@@ -110,13 +110,13 @@ public sealed class TestRunCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task WithInvalidTestPlatform_ReturnsTestRunInvalidInputEnvelope ()
+    public async Task WithWhitespaceTestPlatform_ReturnsTestRunInvalidInputEnvelope ()
     {
         var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Test,
             UcliCommandNames.RunSubcommand,
             UcliContractConstants.CliOption.TestPlatform,
-            "unsupported");
+            " ");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);

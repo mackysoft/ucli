@@ -160,7 +160,6 @@ public sealed class TestProfileInitServiceTests
             .IsNull("unityVersion")
             .IsNull("unityEditorPath")
             .HasString("testPlatform", UcliContractConstants.TestProfile.TestPlatformEditMode)
-            .IsNull("buildTarget")
             .IsNull("testFilter")
             .HasArrayLength("testCategories", 0)
             .HasArrayLength("assemblyNames", 0)

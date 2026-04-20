@@ -2,8 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
@@ -46,6 +46,7 @@ public sealed class TestRunArtifactsServiceTests
         Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "editor.log"), session.Paths.EditorLogPath);
         Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "results.json"), session.Paths.ResultsJsonPath);
         Assert.Equal(Path.Combine(session.Paths.ArtifactsDir, "summary.json"), session.Paths.SummaryJsonPath);
+        AssertMetaJsonContract(session.Paths.MetaJsonPath);
         FileSystemAssert.ForFile(gitIgnorePath).Exists();
         Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
     }
@@ -88,14 +89,21 @@ public sealed class TestRunArtifactsServiceTests
             Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: IpcTestRunPlatform.PlayMode,
-            RawTestPlatform: "playmode",
-            BuildTarget: "StandaloneWindows64",
+            TestPlatform: TestRunPlatform.Player("StandaloneWindows64"),
             TestFilter: "Category=Smoke",
             TestCategories: ["smoke", "quick"],
             AssemblyNames: ["My.Tests"],
             TestSettingsPath: testSettingsPath,
             TimeoutMilliseconds: null);
+    }
+
+    private static void AssertMetaJsonContract (string metaJsonPath)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(metaJsonPath));
+        JsonAssert.For(document.RootElement)
+            .HasInt32("schemaVersion", 1)
+            .HasString("testPlatform", "StandaloneWindows64");
+        Assert.False(document.RootElement.TryGetProperty("buildTarget", out _));
     }
 
     private static (DateTimeOffset StartedAt, DateTimeOffset FinishedAt) ReadMetaJson (string metaJsonPath)

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;
@@ -16,12 +16,12 @@ internal static class TestRunPlatformOptionNormalizer
             return TestRunPlatformOptionNormalizationResult.Omitted();
         }
 
-        if (IpcTestRunPlatformCodec.TryParse(optionValue, out var testPlatform))
+        if (TestRunPlatformCodec.TryParse(optionValue, out var testPlatform))
         {
             return TestRunPlatformOptionNormalizationResult.Success(testPlatform);
         }
 
         return TestRunPlatformOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"testPlatform must be editmode or playmode. Actual: {optionValue}"));
+            $"testPlatform must not be empty. Actual: {optionValue}"));
     }
 }

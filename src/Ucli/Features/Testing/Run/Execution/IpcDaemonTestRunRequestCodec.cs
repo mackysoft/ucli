@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.UnityIntegration.Ipc;
@@ -29,8 +30,7 @@ internal static class IpcDaemonTestRunRequestCodec
 
         var payload = IpcPayloadCodec.SerializeToElement(
             new IpcTestRunRequest(
-                TestPlatform: IpcTestRunPlatformCodec.ToValue(configuration.TestPlatform),
-                BuildTarget: configuration.BuildTarget,
+                TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
                 TestFilter: configuration.TestFilter,
                 TestCategories: configuration.TestCategories,
                 AssemblyNames: configuration.AssemblyNames,

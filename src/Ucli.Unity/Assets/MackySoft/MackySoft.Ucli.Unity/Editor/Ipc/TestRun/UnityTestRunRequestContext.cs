@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Represents normalized request values required for one Unity test run. </summary>
     internal sealed record UnityTestRunRequestContext (
         TestMode TestMode,
-        BuildTarget? BuildTarget,
+        BuildTarget? TargetPlatform,
         string? TestFilter,
         string[] TestCategories,
         string[] AssemblyNames,

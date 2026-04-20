@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 
@@ -32,15 +32,8 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
             configuration.UnityProject.UnityProjectRoot,
             "-runTests",
             "-testPlatform",
-            IpcTestRunPlatformCodec.ToUnityValue(configuration.TestPlatform),
+            TestRunPlatformCodec.ToUnityValue(configuration.TestPlatform),
         };
-
-        if (configuration.TestPlatform == IpcTestRunPlatform.PlayMode
-            && !string.IsNullOrWhiteSpace(configuration.BuildTarget))
-        {
-            arguments.Add("-buildTarget");
-            arguments.Add(configuration.BuildTarget!);
-        }
 
         if (configuration.AssemblyNames.Length > 0)
         {

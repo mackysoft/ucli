@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Project;
@@ -31,7 +31,6 @@ internal static class TestRunConfigurationMerger
             UnityEditorPath: NormalizeOptionalPath(cli.UnityEditorPath ?? profile?.UnityEditorPath),
             TestPlatform: parsedTestPlatform,
             RawTestPlatform: mergedRawTestPlatform,
-            BuildTarget: StringValueNormalizer.TrimToNull(cli.BuildTarget ?? profile?.BuildTarget),
             TestFilter: StringValueNormalizer.TrimToNull(cli.TestFilter ?? profile?.TestFilter),
             TestCategories: NormalizeValues(cli.TestCategory, profile?.TestCategories),
             AssemblyNames: NormalizeValues(cli.AssemblyName, profile?.AssemblyNames),
@@ -65,7 +64,7 @@ internal static class TestRunConfigurationMerger
         return UnityExecutionMode.Auto;
     }
 
-    private static (string RawValue, IpcTestRunPlatform? ParsedValue) ResolveTestPlatform (
+    private static (string RawValue, TestRunPlatform? ParsedValue) ResolveTestPlatform (
         TestRunCommandInput cli,
         TestRunProfile? profile)
     {
@@ -74,11 +73,11 @@ internal static class TestRunConfigurationMerger
         if (cli.TestPlatform.HasValue)
         {
             var parsedValue = cli.TestPlatform.Value;
-            return (IpcTestRunPlatformCodec.ToValue(parsedValue), parsedValue);
+            return (TestRunPlatformCodec.ToValue(parsedValue), parsedValue);
         }
 
-        var rawValue = profile?.TestPlatform ?? IpcTestRunPlatformCodec.EditMode;
-        var hasParsedValue = IpcTestRunPlatformCodec.TryParse(rawValue, out var parsedValueFromProfile);
+        var rawValue = profile?.TestPlatform ?? TestRunPlatformCodec.EditMode;
+        var hasParsedValue = TestRunPlatformCodec.TryParse(rawValue, out var parsedValueFromProfile);
         return (rawValue, hasParsedValue ? parsedValueFromProfile : null);
     }
 

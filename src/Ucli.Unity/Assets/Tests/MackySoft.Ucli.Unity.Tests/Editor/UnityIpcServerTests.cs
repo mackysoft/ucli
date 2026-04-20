@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 using UnityEngine;
@@ -629,8 +630,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var payload = JsonSerializer.SerializeToElement(
                 new IpcTestRunRequest(
-                    TestPlatform: "editmode",
-                    BuildTarget: null,
+                    TestPlatform: TestRunPlatformCodec.EditMode,
                     TestFilter: null,
                     TestCategories: Array.Empty<string>(),
                     AssemblyNames: Array.Empty<string>(),

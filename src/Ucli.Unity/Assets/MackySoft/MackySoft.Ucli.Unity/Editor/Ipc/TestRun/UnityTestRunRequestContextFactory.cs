@@ -1,5 +1,6 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
@@ -47,14 +48,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("editorLogPath must not be empty.", nameof(request));
             }
 
-            var testMode = ParseTestMode(request.TestPlatform);
-            var buildTarget = ParseBuildTargetOrNull(request.BuildTarget);
-            if (testMode == TestMode.EditMode && buildTarget.HasValue)
-            {
-                throw new ArgumentException(
-                    "buildTarget is not allowed when testPlatform=editmode.",
-                    nameof(request));
-            }
+            var (testMode, targetPlatform) = ParseTestPlatform(request.TestPlatform);
 
             var consoleLogPath = Application.consoleLogPath;
             if (string.IsNullOrWhiteSpace(consoleLogPath))
@@ -64,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             return new UnityTestRunRequestContext(
                 TestMode: testMode,
-                BuildTarget: buildTarget,
+                TargetPlatform: targetPlatform,
                 TestFilter: request.TestFilter,
                 TestCategories: request.TestCategories,
                 AssemblyNames: request.AssemblyNames,
@@ -73,43 +67,33 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ConsoleLogPath: consoleLogPath);
         }
 
-        /// <summary> Parses test-platform string into Unity test mode. </summary>
+        /// <summary> Parses test-platform string into Unity execution settings. </summary>
         /// <param name="testPlatform"> The test-platform string. </param>
-        /// <returns> The parsed Unity test mode. </returns>
+        /// <returns> One tuple containing Unity test mode and optional player target platform. </returns>
         /// <exception cref="ArgumentException"> Thrown when test-platform value is invalid. </exception>
-        private static TestMode ParseTestMode (string testPlatform)
+        private static (TestMode TestMode, BuildTarget? TargetPlatform) ParseTestPlatform (string testPlatform)
         {
-            if (!IpcTestRunPlatformCodec.TryParse(testPlatform, out var parsedTestPlatform))
+            if (!TestRunPlatformCodec.TryParse(testPlatform, out var parsedTestPlatform))
             {
-                throw new ArgumentException(
-                    $"testPlatform must be {IpcTestRunPlatformCodec.EditMode} or {IpcTestRunPlatformCodec.PlayMode}. Actual: {testPlatform}");
+                throw new ArgumentException($"testPlatform must not be empty. Actual: {testPlatform}");
             }
 
-            if (parsedTestPlatform == IpcTestRunPlatform.EditMode)
+            if (parsedTestPlatform.IsEditMode)
             {
-                return TestMode.EditMode;
+                return (TestMode.EditMode, null);
             }
 
-            return TestMode.PlayMode;
-        }
-
-        /// <summary> Parses optional build-target string into Unity build target enum. </summary>
-        /// <param name="buildTarget"> The optional build-target value. </param>
-        /// <returns> The parsed build target, or <see langword="null" /> when omitted. </returns>
-        /// <exception cref="ArgumentException"> Thrown when build-target value is invalid. </exception>
-        private static BuildTarget? ParseBuildTargetOrNull (string? buildTarget)
-        {
-            if (string.IsNullOrWhiteSpace(buildTarget))
+            if (parsedTestPlatform.IsPlayMode)
             {
-                return null;
+                return (TestMode.PlayMode, null);
             }
 
-            if (!Enum.TryParse(buildTarget, ignoreCase: true, out BuildTarget parsedBuildTarget))
+            if (!Enum.TryParse(parsedTestPlatform.PlayerBuildTargetLiteral, ignoreCase: true, out BuildTarget parsedBuildTarget))
             {
-                throw new ArgumentException($"buildTarget is invalid: {buildTarget}");
+                throw new ArgumentException($"testPlatform is invalid Unity BuildTarget: {parsedTestPlatform.PlayerBuildTargetLiteral}");
             }
 
-            return parsedBuildTarget;
+            return (TestMode.PlayMode, parsedBuildTarget);
         }
     }
 }

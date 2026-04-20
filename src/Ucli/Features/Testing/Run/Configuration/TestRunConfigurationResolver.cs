@@ -1,5 +1,5 @@
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Project;
 using MackySoft.Ucli.UnityIntegration.Resolution;
@@ -117,8 +117,6 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             UnityVersion: unityVersionResolutionResult.UnityVersion!,
             UnityEditorPath: unityEditorPathResolutionResult.UnityEditorPath!,
             TestPlatform: mergedConfiguration.TestPlatform!.Value,
-            RawTestPlatform: mergedConfiguration.RawTestPlatform,
-            BuildTarget: mergedConfiguration.BuildTarget,
             TestFilter: mergedConfiguration.TestFilter,
             TestCategories: mergedConfiguration.TestCategories,
             AssemblyNames: mergedConfiguration.AssemblyNames,
@@ -153,14 +151,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         if (!configuration.TestPlatform.HasValue)
         {
             errors.Add(ExecutionError.InvalidArgument(
-                $"testPlatform must be editmode or playmode. Actual: {configuration.RawTestPlatform}"));
-        }
-
-        if (configuration.TestPlatform == IpcTestRunPlatform.EditMode
-            && !string.IsNullOrWhiteSpace(configuration.BuildTarget))
-        {
-            errors.Add(ExecutionError.InvalidArgument(
-                "buildTarget is not allowed when testPlatform=editmode."));
+                $"testPlatform must be editmode, playmode, or a Unity BuildTarget literal. Actual: {configuration.RawTestPlatform}"));
         }
 
         if (configuration.TimeoutMilliseconds.HasValue && configuration.TimeoutMilliseconds.Value < MinTimeoutMilliseconds)
