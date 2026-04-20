@@ -3,7 +3,13 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Daemon.Runtime;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Hosting.Cli;
 
 namespace MackySoft.Ucli.Tests;

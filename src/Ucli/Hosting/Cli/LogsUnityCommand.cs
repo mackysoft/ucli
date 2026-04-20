@@ -1,7 +1,12 @@
 using System.Text.Json;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Daemon.Logs;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Common;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Daemon;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Streaming;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Unity;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Validation;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 

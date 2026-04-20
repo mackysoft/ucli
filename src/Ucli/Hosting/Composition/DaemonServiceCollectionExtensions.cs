@@ -1,8 +1,26 @@
-using MackySoft.Ucli.Features.Daemon.Logs;
-using MackySoft.Ucli.Features.Daemon.Runtime;
-using MackySoft.Ucli.Features.Daemon.Services;
-using MackySoft.Ucli.Features.Daemon.Services.Start;
-using MackySoft.Ucli.Features.Daemon.Supervisor;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Daemon;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Streaming;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Unity;
+using MackySoft.Ucli.Features.Daemon.Observability.Logs.Validation;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
+using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
+using MackySoft.Ucli.Features.Daemon.UseCases.Common;
+using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Features.Daemon.UseCases.Status;
+using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,13 +37,14 @@ internal static class DaemonServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddUcliDaemonRuntimeServices();
-        services.AddUcliDaemonLogServices();
+        services.AddUcliDaemonLifecycleServices();
         services.AddUcliDaemonSupervisorServices();
+        services.AddUcliDaemonObservabilityServices();
+        services.AddUcliDaemonUseCaseServices();
         return services;
     }
 
-    private static IServiceCollection AddUcliDaemonRuntimeServices (this IServiceCollection services)
+    private static IServiceCollection AddUcliDaemonLifecycleServices (this IServiceCollection services)
     {
         services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
         services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
@@ -57,20 +76,11 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonCleanupOperation, DaemonCleanupOperation>();
         services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
         services.AddSingleton<IDaemonInvalidSessionCleanupSafetyEvaluator, DaemonInvalidSessionCleanupSafetyEvaluator>();
-        services.AddSingleton<IDaemonCommandExecutionContextResolver, DaemonCommandExecutionContextResolver>();
-        services.AddSingleton<IDaemonSessionOutputMapper, DaemonSessionOutputMapper>();
-        services.AddSingleton<IDaemonDiagnosisOutputMapper, DaemonDiagnosisOutputMapper>();
-        services.AddSingleton<IDaemonStartService, DaemonStartService>();
-        services.AddSingleton<IDaemonStopService, DaemonStopService>();
-        services.AddSingleton<IDaemonCleanupService, DaemonCleanupService>();
-        services.AddSingleton<IDaemonStatusService, DaemonStatusService>();
-        services.AddSingleton<IDaemonListQueryService, DaemonListQueryService>();
-        services.AddSingleton<IDaemonListService, DaemonListService>();
         services.AddSingleton<IDaemonReachabilityProbe, IpcDaemonReachabilityProbe>();
         return services;
     }
 
-    private static IServiceCollection AddUcliDaemonLogServices (this IServiceCollection services)
+    private static IServiceCollection AddUcliDaemonObservabilityServices (this IServiceCollection services)
     {
         services.AddSingleton<IUnityLogReader, UnityLogReader>();
         services.AddSingleton<IDaemonLogsClient, IpcDaemonLogsClient>();
@@ -106,6 +116,20 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<SupervisorBootstrapper>();
         services.AddSingleton<SupervisorClient>();
         services.AddSingleton<SupervisorHost>();
+        return services;
+    }
+
+    private static IServiceCollection AddUcliDaemonUseCaseServices (this IServiceCollection services)
+    {
+        services.AddSingleton<IDaemonCommandExecutionContextResolver, DaemonCommandExecutionContextResolver>();
+        services.AddSingleton<IDaemonSessionOutputMapper, DaemonSessionOutputMapper>();
+        services.AddSingleton<IDaemonDiagnosisOutputMapper, DaemonDiagnosisOutputMapper>();
+        services.AddSingleton<IDaemonStartService, DaemonStartService>();
+        services.AddSingleton<IDaemonStopService, DaemonStopService>();
+        services.AddSingleton<IDaemonCleanupService, DaemonCleanupService>();
+        services.AddSingleton<IDaemonStatusService, DaemonStatusService>();
+        services.AddSingleton<IDaemonListQueryService, DaemonListQueryService>();
+        services.AddSingleton<IDaemonListService, DaemonListService>();
         return services;
     }
 }
