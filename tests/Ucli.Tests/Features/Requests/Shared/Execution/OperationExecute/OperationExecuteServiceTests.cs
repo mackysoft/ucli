@@ -299,7 +299,7 @@ public sealed class OperationExecuteServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(1, ipcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
-        Assert.Equal(CliErrorCodes.IpcTimeout, error.Code);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
         Assert.Equal("Timed out before Unity IPC execute request could begin.", error.Message);
     }
 

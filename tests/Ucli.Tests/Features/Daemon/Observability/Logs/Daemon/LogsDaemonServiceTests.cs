@@ -1,6 +1,9 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
@@ -8,7 +11,6 @@ using MackySoft.Ucli.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Validation;
 using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Common;
 using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;

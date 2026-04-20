@@ -87,7 +87,7 @@ internal sealed record RequestStaticValidationPreflightResult (
             ValidationErrors: Array.Empty<ValidationError>(),
             Error: error,
             ErrorCode: string.IsNullOrWhiteSpace(errorCode)
-                ? ExecutionErrorKindCodeMapper.ToCode(error.Kind)
+                ? ExecutionErrorCodeMapper.ToCode(error.Kind)
                 : errorCode);
     }
 }

@@ -432,7 +432,7 @@ public sealed class UnityIpcRequestExecutorTests
             EmptyPayload());
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.True(pluginLocator.ObservedCancellation);
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
@@ -478,7 +478,7 @@ public sealed class UnityIpcRequestExecutorTests
             EmptyPayload());
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(TimeSpan.FromMilliseconds(100), modeDecisionService.LastTimeout);
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);

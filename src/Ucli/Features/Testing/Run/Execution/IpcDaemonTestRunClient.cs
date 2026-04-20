@@ -196,7 +196,7 @@ internal sealed class IpcDaemonTestRunClient : IDaemonTestRunClient
                 UnityTestExecutionResult.Failure(
                     UnityTestExecutionFailureKind.ClientSetupFailed,
                     $"Daemon session token could not be resolved. {error.Message}",
-                    ExecutionErrorKindCodeMapper.ToCode(error.Kind)));
+                    ExecutionErrorCodeMapper.ToCode(error.Kind)));
         }
 
         return (sessionTokenResult.Token!, null);

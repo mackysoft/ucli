@@ -80,7 +80,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: CliErrorCodes.Canceled);
+            errorCode: ExecutionErrorCodes.Canceled);
     }
 
     /// <summary> Creates an error result for infrastructure timeouts. </summary>
@@ -93,7 +93,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: CliErrorCodes.IpcTimeout);
+            errorCode: ExecutionErrorCodes.IpcTimeout);
     }
 
     /// <summary> Creates an error result for unexpected runtime failures. </summary>

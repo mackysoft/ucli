@@ -1,4 +1,7 @@
-namespace MackySoft.Ucli.Features.Daemon.UseCases.Common;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
+
+namespace MackySoft.Ucli.Features.Daemon.Common.Projection;
 
 /// <summary> Converts daemon session domain model to daemon command session payload model. </summary>
 internal interface IDaemonSessionOutputMapper

@@ -80,7 +80,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         {
             return UnityIpcRequestExecutionResult.Failure(
                 $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                CliErrorCodes.IpcTimeout);
+                ExecutionErrorCodes.IpcTimeout);
         }
         catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {

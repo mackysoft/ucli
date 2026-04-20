@@ -1,4 +1,7 @@
-namespace MackySoft.Ucli.Features.Daemon.UseCases.Common;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
+
+namespace MackySoft.Ucli.Features.Daemon.Common.Projection;
 
 /// <summary> Converts daemon diagnosis domain model to daemon command payload model. </summary>
 internal interface IDaemonDiagnosisOutputMapper

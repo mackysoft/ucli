@@ -90,7 +90,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
             return ExecutionError.InvalidArgument(message);
         }
 
-        if (string.Equals(errorCode, CliErrorCodes.IpcTimeout, StringComparison.Ordinal))
+        if (string.Equals(errorCode, ExecutionErrorCodes.IpcTimeout, StringComparison.Ordinal))
         {
             return ExecutionError.Timeout(message);
         }

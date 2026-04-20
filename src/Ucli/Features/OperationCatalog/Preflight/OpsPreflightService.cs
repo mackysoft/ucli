@@ -73,6 +73,6 @@ internal sealed class OpsPreflightService : IOpsPreflightService
         ArgumentNullException.ThrowIfNull(error);
         return OpsPreflightResult.Failure(
             error.Message,
-            ExecutionErrorKindCodeMapper.ToCode(error.Kind));
+            ExecutionErrorCodeMapper.ToCode(error.Kind));
     }
 }

@@ -1,11 +1,10 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Features.Requests.Shared.Execution;
+namespace MackySoft.Ucli.Shared.Execution.ErrorCodes;
 
 /// <summary> Maps <see cref="ExecutionErrorKind" /> values to command-facing machine-readable error codes. </summary>
-internal static class ExecutionErrorKindCodeMapper
+internal static class ExecutionErrorCodeMapper
 {
     /// <summary> Converts one execution-error kind to the corresponding CLI contract error code. </summary>
     /// <param name="kind"> The execution-error kind. </param>
@@ -15,7 +14,7 @@ internal static class ExecutionErrorKindCodeMapper
         return kind switch
         {
             ExecutionErrorKind.InvalidArgument => IpcErrorCodes.InvalidArgument,
-            ExecutionErrorKind.Timeout => CliErrorCodes.IpcTimeout,
+            ExecutionErrorKind.Timeout => ExecutionErrorCodes.IpcTimeout,
             ExecutionErrorKind.InternalError => IpcErrorCodes.InternalError,
             _ => IpcErrorCodes.InternalError,
         };

@@ -89,7 +89,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
         var service = new OperationCatalogDiscoveryService(
             new StubOpsCatalogReader(OpsCatalogFetchResult.Failure(
                 "Timed out before Unity IPC request dispatch could begin.",
-                CliErrorCodes.IpcTimeout)));
+                ExecutionErrorCodes.IpcTimeout)));
 
         var exception = await Assert.ThrowsAsync<OperationCatalogLoadException>(async () =>
             await service.Discover(
@@ -99,7 +99,7 @@ public sealed class OperationCatalogDiscoveryServiceTests
                 cancellationToken: CancellationToken.None));
 
         Assert.Equal(ExecutionErrorKind.Timeout, exception.Error.Kind);
-        Assert.Equal(CliErrorCodes.IpcTimeout, exception.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, exception.ErrorCode);
         Assert.Contains("Operation catalog discovery failed.", exception.Error.Message, StringComparison.Ordinal);
     }
 

@@ -23,7 +23,7 @@ internal sealed class OperationCatalogLoadException : InvalidOperationException
     {
         Error = error ?? throw new ArgumentNullException(nameof(error));
         ErrorCode = string.IsNullOrWhiteSpace(errorCode)
-            ? ExecutionErrorKindCodeMapper.ToCode(Error.Kind)
+            ? ExecutionErrorCodeMapper.ToCode(Error.Kind)
             : errorCode;
     }
 

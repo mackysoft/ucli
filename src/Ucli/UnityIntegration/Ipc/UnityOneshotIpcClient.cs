@@ -112,7 +112,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             {
                 return UnityIpcRequestExecutionResult.Failure(
                     launchResult.Error!.Message,
-                    ExecutionErrorKindCodeMapper.ToCode(launchResult.Error.Kind));
+                    ExecutionErrorCodeMapper.ToCode(launchResult.Error.Kind));
             }
 
             await using var processHandle = launchResult.ProcessHandle!;
@@ -131,7 +131,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 {
                     return UnityIpcRequestExecutionResult.Failure(
                         startupProbeError.Message,
-                        ExecutionErrorKindCodeMapper.ToCode(startupProbeError.Kind));
+                        ExecutionErrorCodeMapper.ToCode(startupProbeError.Kind));
                 }
 
                 if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
@@ -156,7 +156,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 {
                     return UnityIpcRequestExecutionResult.Failure(
                         exitWaitError.Message,
-                        ExecutionErrorKindCodeMapper.ToCode(exitWaitError.Kind));
+                        ExecutionErrorCodeMapper.ToCode(exitWaitError.Kind));
                 }
 
                 shouldTerminateProcess = false;
@@ -193,7 +193,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     {
         return UnityIpcRequestExecutionResult.Failure(
             $"Unity oneshot IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-            CliErrorCodes.IpcTimeout);
+            ExecutionErrorCodes.IpcTimeout);
     }
 
     private async ValueTask<ExecutionError?> WaitUntilReachable (

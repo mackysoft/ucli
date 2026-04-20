@@ -284,7 +284,7 @@ public sealed class PlanServiceTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(IpcErrorCodes.EditorPlaymode)]
-    [InlineData(CliErrorCodes.IpcTimeout)]
+    [InlineData(ExecutionErrorCodes.IpcTimeout)]
     public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (string errorCode)
     {
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Failure(
