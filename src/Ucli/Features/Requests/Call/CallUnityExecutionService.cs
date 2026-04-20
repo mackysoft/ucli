@@ -47,7 +47,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             {
                 return CreateFailure(
                     "Timed out before Unity IPC plan request could begin.",
-                    CliErrorCodes.IpcTimeout,
+                    ExecutionErrorCodes.IpcTimeout,
                     (int)CliExitCode.ToolError,
                     baseOutput);
             }
@@ -112,7 +112,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         {
             return CreateFailure(
                 "Timed out before Unity IPC call request could begin.",
-                CliErrorCodes.IpcTimeout,
+                ExecutionErrorCodes.IpcTimeout,
                 (int)CliExitCode.ToolError,
                 baseOutput);
         }

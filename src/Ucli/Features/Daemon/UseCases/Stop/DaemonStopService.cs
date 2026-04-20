@@ -2,11 +2,10 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
@@ -25,9 +24,7 @@ internal sealed class DaemonStopService : IDaemonStopService
 {
     private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
 
-    private readonly SupervisorManifestStore supervisorManifestStore;
-
-    private readonly SupervisorClient supervisorClient;
+    private readonly ISupervisorProjectGateway supervisorProjectGateway;
 
     private readonly IDaemonStopOperation daemonStopOperation;
 
@@ -35,21 +32,18 @@ internal sealed class DaemonStopService : IDaemonStopService
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStopService" /> class. </summary>
     /// <param name="daemonCommandExecutionContextResolver"> The daemon-command execution-context resolver dependency. </param>
-    /// <param name="supervisorManifestStore"> The supervisor manifest store dependency. </param>
-    /// <param name="supervisorClient"> The supervisor client dependency. </param>
+    /// <param name="supervisorProjectGateway"> The supervisor project-gateway dependency. </param>
     /// <param name="daemonStopOperation"> The daemon stop-operation dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStopService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
-        SupervisorManifestStore supervisorManifestStore,
-        SupervisorClient supervisorClient,
+        ISupervisorProjectGateway supervisorProjectGateway,
         IDaemonStopOperation daemonStopOperation,
         TimeProvider? timeProvider = null)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
-        this.supervisorManifestStore = supervisorManifestStore ?? throw new ArgumentNullException(nameof(supervisorManifestStore));
-        this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
+        this.supervisorProjectGateway = supervisorProjectGateway ?? throw new ArgumentNullException(nameof(supervisorProjectGateway));
         this.daemonStopOperation = daemonStopOperation ?? throw new ArgumentNullException(nameof(daemonStopOperation));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -79,7 +73,16 @@ internal sealed class DaemonStopService : IDaemonStopService
 
         var executionContext = contextResult.Context!;
         var deadline = ExecutionDeadline.Start(executionContext.Timeout, timeProvider);
-        var stopResult = await TryStopViaSupervisor(executionContext, deadline, cancellationToken).ConfigureAwait(false);
+        DaemonStopResult? stopResult = null;
+        if (deadline.TryGetRemainingTimeout(out var supervisorTimeout))
+        {
+            stopResult = await supervisorProjectGateway.TryStopProject(
+                    executionContext.Context.UnityProject,
+                    supervisorTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         if (stopResult == null)
         {
             if (!deadline.TryGetRemainingTimeout(out var directStopTimeout))
@@ -115,104 +118,4 @@ internal sealed class DaemonStopService : IDaemonStopService
         return DaemonStopExecutionResult.Success(output);
     }
 
-    private async ValueTask<DaemonStopResult?> TryStopViaSupervisor (
-        DaemonCommandExecutionContext executionContext,
-        ExecutionDeadline deadline,
-        CancellationToken cancellationToken)
-    {
-        if (!deadline.TryGetRemainingTimeout(out var manifestReadTimeout))
-        {
-            return DaemonStopResult.Failure(ExecutionError.Timeout(
-                "Timed out before supervisor manifest read could begin."));
-        }
-
-        SupervisorInstanceManifest? manifest;
-        try
-        {
-            manifest = await supervisorManifestStore.ReadOrNull(
-                    executionContext.Context.UnityProject.RepositoryRoot,
-                    manifestReadTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (TimeoutException exception)
-        {
-            return DaemonStopResult.Failure(ExecutionError.Timeout(exception.Message));
-        }
-        catch (Exception exception) when (exception is JsonException or InvalidDataException)
-        {
-            var cleanupFailure = TryDeleteMalformedSupervisorManifest(
-                executionContext.Context.UnityProject.RepositoryRoot);
-            if (cleanupFailure != null)
-            {
-                return DaemonStopResult.Failure(cleanupFailure);
-            }
-
-            return null;
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
-                $"Supervisor manifest path is invalid. {exception.Message}"));
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-
-        if (manifest == null)
-        {
-            return null;
-        }
-
-        if (!deadline.TryGetRemainingTimeout(out var probeBudget))
-        {
-            return DaemonStopResult.Failure(ExecutionError.Timeout(
-                "Timed out before supervisor stop probe could begin."));
-        }
-
-        var probeTimeout = probeBudget < SupervisorConstants.PingTimeout
-            ? probeBudget
-            : SupervisorConstants.PingTimeout;
-        var probeStatus = await supervisorClient.ProbeReachability(manifest, probeTimeout, cancellationToken).ConfigureAwait(false);
-        if (probeStatus == SupervisorReachabilityProbeStatus.Unreachable)
-        {
-            return null;
-        }
-
-        if (!deadline.TryGetRemainingTimeout(out var stopTimeout))
-        {
-            return DaemonStopResult.Failure(ExecutionError.Timeout(
-                "Timed out before supervisor stopProject could begin."));
-        }
-
-        return await supervisorClient.StopProject(
-                manifest,
-                executionContext.Context.UnityProject,
-                stopTimeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private ExecutionError? TryDeleteMalformedSupervisorManifest (
-        string repositoryRoot)
-    {
-        try
-        {
-            supervisorManifestStore.DeleteIfExists(repositoryRoot);
-            return null;
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return ExecutionError.InvalidArgument(
-                $"Supervisor manifest cleanup path is invalid. {exception.Message}");
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // NOTE:
-            // malformed supervisor metadata should not block the direct-stop fallback when only
-            // the best-effort manifest cleanup failed.
-            return null;
-        }
-    }
 }

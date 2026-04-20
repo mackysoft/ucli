@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Hosting.Cli;
+namespace MackySoft.Ucli.Shared.Execution.ErrorCodes;
 
 /// <summary> Defines CLI-host specific machine-readable error code values. </summary>
-internal static class CliErrorCodes
+internal static class ExecutionErrorCodes
 {
     /// <summary> Gets the error code used when command execution is canceled. </summary>
     public const string Canceled = "CANCELED";

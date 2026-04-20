@@ -54,7 +54,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Same(preparedRequest, result.PreparedRequest);
         Assert.NotNull(result.ReadIndex);
         Assert.Equal(readIndex.GeneratedAtUtc, result.ReadIndex!.GeneratedAtUtc);

@@ -26,7 +26,7 @@ internal static class PlanFailureResultFactory
             [
                 new IpcError(
                     string.IsNullOrWhiteSpace(errorCode)
-                        ? ExecutionErrorKindCodeMapper.ToCode(error.Kind)
+                        ? ExecutionErrorCodeMapper.ToCode(error.Kind)
                         : errorCode,
                     error.Message,
                     null),

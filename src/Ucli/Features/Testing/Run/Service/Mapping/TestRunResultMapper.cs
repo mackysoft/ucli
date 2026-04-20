@@ -89,8 +89,8 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
 
             var errorCode = unityExecutionResult.FailureKind switch
             {
-                UnityTestExecutionFailureKind.Canceled => CliErrorCodes.Canceled,
-                UnityTestExecutionFailureKind.IpcTimedOut => CliErrorCodes.IpcTimeout,
+                UnityTestExecutionFailureKind.Canceled => ExecutionErrorCodes.Canceled,
+                UnityTestExecutionFailureKind.IpcTimedOut => ExecutionErrorCodes.IpcTimeout,
                 UnityTestExecutionFailureKind.ProcessTimedOut => TestRunErrorCodes.UnityTestExecutionTimeout,
                 _ when !string.IsNullOrWhiteSpace(unityExecutionResult.ErrorCode) => unityExecutionResult.ErrorCode!,
                 _ => TestRunErrorCodes.UnityTestExecutionFailed,
@@ -122,7 +122,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                     summaryJsonPath: session.Paths.SummaryJsonPath),
                 UnityResultsConversionFailureKind.Canceled => TestRunServiceResult.ToolError(
                     conversionResult.ErrorMessage ?? "Unity results conversion was canceled.",
-                    CliErrorCodes.Canceled,
+                    ExecutionErrorCodes.Canceled,
                     runId: session.RunId,
                     artifactsDir: session.Paths.ArtifactsDir,
                     summaryJsonPath: session.Paths.SummaryJsonPath),

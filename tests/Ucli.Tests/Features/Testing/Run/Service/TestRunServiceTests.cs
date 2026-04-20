@@ -209,7 +209,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
     }
 
     [Fact]
@@ -361,7 +361,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
 
@@ -589,7 +589,7 @@ public sealed class TestRunServiceTests
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
-        Assert.Equal(CliErrorCodes.Canceled, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.Canceled, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);

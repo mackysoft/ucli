@@ -85,7 +85,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         {
             return UnityIpcRequestExecutionResult.Failure(
                 "Timed out before Unity execution mode decision could begin.",
-                ExecutionErrorKindCodeMapper.ToCode(ExecutionErrorKind.Timeout));
+                ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.Timeout));
         }
 
         var modeDecisionResult = await modeDecisionService.Decide(
@@ -110,7 +110,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                 {
                     return UnityIpcRequestExecutionResult.Failure(
                         daemonModePluginLocateResult.Message,
-                        ExecutionErrorKindCodeMapper.ToCode(daemonModePluginLocateResult.Kind));
+                        ExecutionErrorCodeMapper.ToCode(daemonModePluginLocateResult.Kind));
                 }
             }
 
@@ -123,7 +123,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         {
             return UnityIpcRequestExecutionResult.Failure(
                 modeDecisionResult.Error!.Message,
-                ExecutionErrorKindCodeMapper.ToCode(modeDecisionResult.Error.Kind));
+                ExecutionErrorCodeMapper.ToCode(modeDecisionResult.Error.Kind));
         }
 
         var decision = modeDecisionResult.Decision!;
@@ -139,7 +139,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
             {
                 return UnityIpcRequestExecutionResult.Failure(
                     pluginLocateError.Message,
-                    ExecutionErrorKindCodeMapper.ToCode(pluginLocateError.Kind));
+                    ExecutionErrorCodeMapper.ToCode(pluginLocateError.Kind));
             }
         }
 
@@ -159,7 +159,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         {
             return UnityIpcRequestExecutionResult.Failure(
                 "Timed out before Unity IPC request dispatch could begin.",
-                ExecutionErrorKindCodeMapper.ToCode(ExecutionErrorKind.Timeout));
+                ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.Timeout));
         }
 
         var unityIpcClient = decision.Target switch
@@ -215,7 +215,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
             {
                 return UnityIpcRequestExecutionResult.Failure(
                     "Timed out before Unity IPC request dispatch could begin.",
-                    ExecutionErrorKindCodeMapper.ToCode(ExecutionErrorKind.Timeout));
+                    ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.Timeout));
             }
 
             var dispatchResult = await daemonIpcClient.SendAsync(
@@ -328,7 +328,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
     {
         return UnityIpcRequestExecutionResult.Failure(
             $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-            CliErrorCodes.IpcTimeout);
+            ExecutionErrorCodes.IpcTimeout);
     }
 
     private static TimeSpan GetReadinessRetryDelay (TimeSpan remainingTimeout)

@@ -1,4 +1,7 @@
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
@@ -7,7 +10,6 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Common;
 using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;

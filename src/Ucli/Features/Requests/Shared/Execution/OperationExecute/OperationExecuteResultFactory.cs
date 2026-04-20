@@ -30,7 +30,7 @@ internal static class OperationExecuteResultFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(error);
 
-        var errorCode = ExecutionErrorKindCodeMapper.ToCode(error.Kind);
+        var errorCode = ExecutionErrorCodeMapper.ToCode(error.Kind);
         return Create(
             requestId,
             [],

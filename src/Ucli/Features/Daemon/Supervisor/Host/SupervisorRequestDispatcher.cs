@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Project;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
@@ -8,16 +9,11 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Common;
-using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
@@ -185,14 +181,14 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                CliErrorCodes.IpcTimeout,
+                ExecutionErrorCodes.IpcTimeout,
                 $"Supervisor ensureRunning timed out after {payload.TimeoutMilliseconds} milliseconds.");
         }
         catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                CliErrorCodes.IpcTimeout,
+                ExecutionErrorCodes.IpcTimeout,
                 "Supervisor ensureRunning was canceled because the caller disconnected.");
         }
 
@@ -267,14 +263,14 @@ internal sealed class SupervisorRequestDispatcher
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                CliErrorCodes.IpcTimeout,
+                ExecutionErrorCodes.IpcTimeout,
                 $"Supervisor stopProject timed out after {payload.TimeoutMilliseconds} milliseconds.");
         }
         catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
-                CliErrorCodes.IpcTimeout,
+                ExecutionErrorCodes.IpcTimeout,
                 "Supervisor stopProject was canceled because the caller disconnected.");
         }
 
@@ -367,7 +363,7 @@ internal sealed class SupervisorRequestDispatcher
     {
         return SupervisorIpcResponseFactory.CreateErrorResponse(
             request,
-            ExecutionErrorKindCodeMapper.ToCode(error.Kind),
+            ExecutionErrorCodeMapper.ToCode(error.Kind),
             error.Message);
     }
 

@@ -139,7 +139,7 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(0, launcher.CallCount);
     }
 
@@ -175,7 +175,7 @@ public sealed class UnityOneshotIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(1, processHandle.TerminateCallCount);
         Assert.Equal(0, processHandle.WaitForExitCallCount);
     }

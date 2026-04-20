@@ -92,7 +92,7 @@ public sealed class UnityDaemonIpcClientTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(CliErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
     }
 
     private static ResolvedUnityProjectContext CreateContext ()

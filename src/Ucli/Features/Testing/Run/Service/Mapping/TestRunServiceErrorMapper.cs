@@ -32,7 +32,7 @@ internal static class TestRunServiceErrorMapper
                 summaryJsonPath),
             ExecutionErrorKind.Timeout => TestRunServiceResult.ToolError(
                 error.Message,
-                CliErrorCodes.IpcTimeout,
+                ExecutionErrorCodes.IpcTimeout,
                 runId,
                 artifactsDir,
                 summaryJsonPath),

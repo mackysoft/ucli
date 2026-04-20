@@ -1,6 +1,10 @@
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
@@ -23,9 +27,7 @@ internal sealed class DaemonStartService : IDaemonStartService
 {
     private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
 
-    private readonly SupervisorBootstrapper supervisorBootstrapper;
-
-    private readonly SupervisorClient supervisorClient;
+    private readonly ISupervisorProjectGateway supervisorProjectGateway;
 
     private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
 
@@ -35,23 +37,20 @@ internal sealed class DaemonStartService : IDaemonStartService
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartService" /> class. </summary>
     /// <param name="daemonCommandExecutionContextResolver"> The daemon-command execution-context resolver dependency. </param>
-    /// <param name="supervisorBootstrapper"> The supervisor bootstrapper dependency. </param>
-    /// <param name="supervisorClient"> The supervisor client dependency. </param>
+    /// <param name="supervisorProjectGateway"> The supervisor project-gateway dependency. </param>
     /// <param name="unityUcliPluginLocator"> The Unity uCLI plugin locator dependency. </param>
     /// <param name="daemonSessionOutputMapper"> The daemon session-output mapper dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
-        SupervisorBootstrapper supervisorBootstrapper,
-        SupervisorClient supervisorClient,
+        ISupervisorProjectGateway supervisorProjectGateway,
         IUnityUcliPluginLocator unityUcliPluginLocator,
         IDaemonSessionOutputMapper daemonSessionOutputMapper,
         TimeProvider? timeProvider = null)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
-        this.supervisorBootstrapper = supervisorBootstrapper ?? throw new ArgumentNullException(nameof(supervisorBootstrapper));
-        this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
+        this.supervisorProjectGateway = supervisorProjectGateway ?? throw new ArgumentNullException(nameof(supervisorProjectGateway));
         this.unityUcliPluginLocator = unityUcliPluginLocator ?? throw new ArgumentNullException(nameof(unityUcliPluginLocator));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
         this.timeProvider = timeProvider ?? TimeProvider.System;
@@ -92,30 +91,13 @@ internal sealed class DaemonStartService : IDaemonStartService
             return DaemonStartExecutionResult.Failure(pluginLocateError);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var bootstrapTimeout))
-        {
-            return DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
-                "Timed out before supervisor bootstrap could begin."));
-        }
-
-        var bootstrapResult = await supervisorBootstrapper.EnsureReady(
-                executionContext.Context.UnityProject.RepositoryRoot,
-                bootstrapTimeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!bootstrapResult.IsSuccess)
-        {
-            return DaemonStartExecutionResult.Failure(bootstrapResult.Error!);
-        }
-
         if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
         {
             return DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
-                "Timed out before supervisor ensureRunning could begin."));
+                "Timed out before supervisor orchestration could begin."));
         }
 
-        var startResult = await supervisorClient.EnsureRunning(
-                bootstrapResult.Manifest!,
+        var startResult = await supervisorProjectGateway.EnsureRunning(
                 executionContext.Context.UnityProject,
                 ensureRunningTimeout,
                 cancellationToken)

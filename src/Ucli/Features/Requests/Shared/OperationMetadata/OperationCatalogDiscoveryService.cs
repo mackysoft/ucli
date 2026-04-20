@@ -110,7 +110,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
             return ExecutionError.InvalidArgument(message);
         }
 
-        if (string.Equals(errorCode, CliErrorCodes.IpcTimeout, StringComparison.Ordinal))
+        if (string.Equals(errorCode, ExecutionErrorCodes.IpcTimeout, StringComparison.Ordinal))
         {
             return ExecutionError.Timeout(message);
         }

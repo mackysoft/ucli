@@ -2,6 +2,9 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
@@ -11,11 +14,11 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Common;
 using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;
@@ -285,6 +288,69 @@ internal static class DaemonServiceTestContext
             LastTimeout = timeout;
             LastCancellationToken = cancellationToken;
             return ValueTask.FromResult(StatusResult);
+        }
+    }
+
+    internal sealed class StubSupervisorProjectGateway : ISupervisorProjectGateway
+    {
+        public DaemonStartResult EnsureRunningResult { get; set; } = DaemonStartResult.Started(CreateSession());
+
+        public DaemonStopResult? TryStopProjectResult { get; set; }
+
+        public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
+
+        public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult?>>? TryStopProjectHandler { get; set; }
+
+        public int EnsureRunningCallCount { get; private set; }
+
+        public int TryStopProjectCallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastEnsureRunningUnityProject { get; private set; }
+
+        public TimeSpan LastEnsureRunningTimeout { get; private set; }
+
+        public CancellationToken LastEnsureRunningCancellationToken { get; private set; }
+
+        public ResolvedUnityProjectContext? LastTryStopProjectUnityProject { get; private set; }
+
+        public TimeSpan LastTryStopProjectTimeout { get; private set; }
+
+        public CancellationToken LastTryStopProjectCancellationToken { get; private set; }
+
+        public ValueTask<DaemonStartResult> EnsureRunning (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            EnsureRunningCallCount++;
+            LastEnsureRunningUnityProject = unityProject;
+            LastEnsureRunningTimeout = timeout;
+            LastEnsureRunningCancellationToken = cancellationToken;
+
+            if (EnsureRunningHandler != null)
+            {
+                return EnsureRunningHandler(unityProject, timeout, cancellationToken);
+            }
+
+            return ValueTask.FromResult(EnsureRunningResult);
+        }
+
+        public ValueTask<DaemonStopResult?> TryStopProject (
+            ResolvedUnityProjectContext unityProject,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
+        {
+            TryStopProjectCallCount++;
+            LastTryStopProjectUnityProject = unityProject;
+            LastTryStopProjectTimeout = timeout;
+            LastTryStopProjectCancellationToken = cancellationToken;
+
+            if (TryStopProjectHandler != null)
+            {
+                return TryStopProjectHandler(unityProject, timeout, cancellationToken);
+            }
+
+            return ValueTask.FromResult(TryStopProjectResult);
         }
     }
 
