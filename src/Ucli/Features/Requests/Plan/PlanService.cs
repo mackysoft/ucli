@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
@@ -51,13 +52,7 @@ internal sealed class PlanService : IPlanService
             .ConfigureAwait(false);
         if (!requestPreparationResult.IsSuccess)
         {
-            var error = requestPreparationResult.Error!;
-            return CreateFailure(
-                error.Message,
-                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
-                error.Kind == ExecutionErrorKind.InvalidArgument
-                    ? (int)CliExitCode.InvalidArgument
-                    : (int)CliExitCode.ToolError);
+            return PlanFailureResultFactory.FromExecutionError(requestPreparationResult.Error!);
         }
 
         var requestStaticValidationPreflightResult = await requestStaticValidationPreflightService.Prepare(
@@ -67,22 +62,19 @@ internal sealed class PlanService : IPlanService
             .ConfigureAwait(false);
 
         var preparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
-        var baseOutput = TryCreateBaseOutput(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+        var baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
         if (requestStaticValidationPreflightResult.Error != null)
         {
-            return CreateFailure(
-                requestStaticValidationPreflightResult.Error.Message,
-                requestStaticValidationPreflightResult.ErrorCode!,
-                ExecuteResponseConverter.ResolveExitCode(requestStaticValidationPreflightResult.ErrorCode!),
-                baseOutput);
+            return PlanFailureResultFactory.FromExecutionError(
+                requestStaticValidationPreflightResult.Error,
+                baseOutput,
+                requestStaticValidationPreflightResult.ErrorCode);
         }
 
         if (requestStaticValidationPreflightResult.HasValidationErrors)
         {
-            return PlanServiceResult.Failure(
-                "Static validation failed.",
-                ConvertValidationErrors(requestStaticValidationPreflightResult.ValidationErrors),
-                (int)CliExitCode.InvalidArgument,
+            return PlanFailureResultFactory.FromValidationErrors(
+                requestStaticValidationPreflightResult.ValidationErrors,
                 baseOutput);
         }
 
@@ -101,13 +93,8 @@ internal sealed class PlanService : IPlanService
             preparedRequest.ProjectContext.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            var error = timeoutResolutionResult.Error!;
-            return CreateFailure(
-                error.Message,
-                ExecutionErrorKindCodeMapper.ToCode(error.Kind),
-                error.Kind == ExecutionErrorKind.InvalidArgument
-                    ? (int)CliExitCode.InvalidArgument
-                    : (int)CliExitCode.ToolError,
+            return PlanFailureResultFactory.FromExecutionError(
+                timeoutResolutionResult.Error!,
                 baseOutput);
         }
 
@@ -126,9 +113,11 @@ internal sealed class PlanService : IPlanService
         if (!executionResult.IsSuccess)
         {
             var errorCode = ResolveErrorCode(executionResult.ErrorCode);
-            return CreateFailure(
+            return PlanServiceResult.Failure(
                 executionResult.Message,
-                errorCode,
+                [
+                    new IpcError(errorCode, executionResult.Message, null),
+                ],
                 ExecuteResponseConverter.ResolveExitCode(errorCode),
                 baseOutput);
         }
@@ -149,11 +138,10 @@ internal sealed class PlanService : IPlanService
 
         if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
         {
-            return CreateFailure(
-                "Execute response payload is invalid. The 'planToken' field is missing.",
-                IpcErrorCodes.InternalError,
-                (int)CliExitCode.ToolError,
-                executionOutput);
+            return PlanFailureResultFactory.FromExecutionError(
+                ExecutionError.InternalError("Execute response payload is invalid. The 'planToken' field is missing."),
+                executionOutput,
+                IpcErrorCodes.InternalError);
         }
 
         return PlanServiceResult.Success(
@@ -162,24 +150,6 @@ internal sealed class PlanService : IPlanService
                 PlanToken = convertedResponse.PlanToken,
             },
             "uCLI plan completed.");
-    }
-
-    private static PlanExecutionOutput? TryCreateBaseOutput (
-        PreparedRequestContext? preparedRequest,
-        ReadIndexInfo? readIndex)
-    {
-        if (preparedRequest == null
-            || readIndex == null
-            || string.IsNullOrWhiteSpace(preparedRequest.Request.RequestId))
-        {
-            return null;
-        }
-
-        return new PlanExecutionOutput(
-            RequestId: preparedRequest.Request.RequestId,
-            OpResults: [],
-            ReadIndex: readIndex,
-            PlanToken: null);
     }
 
     private static JsonElement CreateExecuteRequestPayload (
@@ -193,37 +163,6 @@ internal sealed class PlanService : IPlanService
             UcliCommandIds.Plan,
             document.RootElement.Clone(),
             failFast);
-    }
-
-    private static PlanServiceResult CreateFailure (
-        string message,
-        string errorCode,
-        int exitCode,
-        PlanExecutionOutput? output = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-
-        return PlanServiceResult.Failure(
-            message,
-            [
-                new IpcError(errorCode, message, null),
-            ],
-            exitCode,
-            output);
-    }
-
-    private static IReadOnlyList<IpcError> ConvertValidationErrors (IReadOnlyList<ValidationError> validationErrors)
-    {
-        ArgumentNullException.ThrowIfNull(validationErrors);
-
-        var errors = new IpcError[validationErrors.Count];
-        for (var i = 0; i < validationErrors.Count; i++)
-        {
-            var validationError = validationErrors[i];
-            errors[i] = new IpcError(validationError.Code, validationError.Message, validationError.OpId);
-        }
-
-        return errors;
     }
 
     private static string ResolveErrorCode (string? errorCode)

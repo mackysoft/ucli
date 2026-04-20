@@ -76,7 +76,7 @@ public sealed class OpsCommandTests
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            UcliCommandNames.ListSubcommand,
+            UcliCommandNames.OpsList,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
     }

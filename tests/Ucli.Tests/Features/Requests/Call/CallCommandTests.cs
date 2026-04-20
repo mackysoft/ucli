@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Call;
+using MackySoft.Ucli.Features.Requests.Call.Preflight;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
@@ -39,7 +40,8 @@ public sealed class CallCommandTests
                     ],
                     PlanToken: "plan-token-1")),
             "uCLI call completed.")));
-        var command = new CallCommand(service);
+        var preflightService = new StubCallCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new CallCommand(service, preflightService);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
@@ -85,10 +87,15 @@ public sealed class CallCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Call_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    public async Task Call_WhenModeIsInvalid_UsesFeatureFailurePathWithoutExecutingCall ()
     {
-        var service = new StubCallService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new CallCommand(service);
+        var service = new StubCallService((_, _) => throw new InvalidOperationException("Execute should not be called."));
+        var preflightService = new StubCallCommandPreflightService((_, _, _) => ValueTask.FromResult(CallCommandPreflightResult.Success(
+            new CallExecutionOutput(
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                OpResults: [],
+                Plan: null))));
+        var command = new CallCommand(service, preflightService);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
             mode: "unsupported",
@@ -96,6 +103,7 @@ public sealed class CallCommandTests
 
         Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
         Assert.Null(service.CapturedInput);
+        Assert.Equal(1, preflightService.CallCount);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
@@ -103,13 +111,17 @@ public sealed class CallCommandTests
             UcliCommandNames.Call,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"));
     }
 
     private sealed class StubCallService : ICallService
     {
         private readonly Func<CallCommandInput, CancellationToken, ValueTask<CallServiceResult>> handler;
 
-        public StubCallService (Func<CallCommandInput, CancellationToken, ValueTask<CallServiceResult>> handler)
+        public StubCallService (
+            Func<CallCommandInput, CancellationToken, ValueTask<CallServiceResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
@@ -125,6 +137,31 @@ public sealed class CallCommandTests
             CapturedInput = input;
             CapturedCancellationToken = cancellationToken;
             return handler(input, cancellationToken);
+        }
+    }
+
+    private sealed class StubCallCommandPreflightService : ICallCommandPreflightService
+    {
+        private readonly Func<string?, string?, CancellationToken, ValueTask<CallCommandPreflightResult>> handler;
+
+        public StubCallCommandPreflightService (
+            Func<string?, string?, CancellationToken, ValueTask<CallCommandPreflightResult>> handler)
+        {
+            this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
+        }
+
+        public int CallCount { get; private set; }
+
+        public CancellationToken CapturedCancellationToken { get; private set; }
+
+        public ValueTask<CallCommandPreflightResult> Prepare (
+            string? requestPath,
+            string? projectPath,
+            CancellationToken cancellationToken = default)
+        {
+            CapturedCancellationToken = cancellationToken;
+            CallCount++;
+            return handler(requestPath, projectPath, cancellationToken);
         }
     }
 }

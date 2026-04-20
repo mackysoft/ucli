@@ -127,7 +127,7 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithInvalidTimeoutOption_ReturnsInvalidArgumentWithoutPayload ()
+    public async Task Plan_WithInvalidTimeoutOption_ReturnsInvalidArgumentAndPreservesPreflightPayload ()
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-timeout");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -150,12 +150,20 @@ public sealed class PlanCliOutputContractTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0)
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasBoolean("used", false)
+                    .HasBoolean("hit", false)
+                    .HasString("fallbackReason", "readIndex disabled by mode.")));
+        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithInvalidModeOption_ReturnsInvalidArgumentWithoutPayload ()
+    public async Task Plan_WithInvalidModeOption_ReturnsInvalidArgumentAndPreservesPreflightPayload ()
     {
         using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "invalid-mode");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
@@ -178,7 +186,15 @@ public sealed class PlanCliOutputContractTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0)
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasBoolean("used", false)
+                    .HasBoolean("hit", false)
+                    .HasString("fallbackReason", "readIndex disabled by mode.")));
+        Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("planToken", out _));
     }
 
     [Fact]

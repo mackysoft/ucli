@@ -63,10 +63,10 @@ internal sealed class CallService : ICallService
                 cancellationToken)
             .ConfigureAwait(false);
         var preparedRequestContext = requestPreparationResult.PreparedRequest;
-        var baseOutput = TryCreateBaseOutput(preparedRequestContext?.Request.RequestId);
+        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequestContext?.Request.RequestId);
         if (requestPreparationResult.Error != null)
         {
-            return CreateFailureFromExecutionError(requestPreparationResult.Error, baseOutput);
+            return CallFailureResultFactory.FromExecutionError(requestPreparationResult.Error, baseOutput);
         }
 
         if (preparedRequestContext == null)
@@ -79,7 +79,7 @@ internal sealed class CallService : ICallService
             preparedRequestContext.ProjectContext.Config);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            return CreateFailureFromExecutionError(timeoutResolutionResult.Error!, baseOutput);
+            return CallFailureResultFactory.FromExecutionError(timeoutResolutionResult.Error!, baseOutput);
         }
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
@@ -93,19 +93,15 @@ internal sealed class CallService : ICallService
             .ConfigureAwait(false);
 
         var preparedRequest = preflightResult.PreparedRequest;
-        baseOutput = TryCreateBaseOutput(preparedRequest?.Request.RequestId);
+        baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest?.Request.RequestId);
         if (preflightResult.Error != null)
         {
-            return CreateFailureFromExecutionError(preflightResult.Error, baseOutput, preflightResult.ErrorCode);
+            return CallFailureResultFactory.FromExecutionError(preflightResult.Error, baseOutput, preflightResult.ErrorCode);
         }
 
         if (preflightResult.HasValidationErrors)
         {
-            return CallServiceResult.Failure(
-                "Static validation failed.",
-                ConvertValidationErrors(preflightResult.ValidationErrors),
-                (int)CliExitCode.InvalidArgument,
-                baseOutput);
+            return CallFailureResultFactory.FromValidationErrors(preflightResult.ValidationErrors, baseOutput);
         }
 
         if (preparedRequest == null)
@@ -138,53 +134,4 @@ internal sealed class CallService : ICallService
             .ConfigureAwait(false);
     }
 
-    private static CallExecutionOutput? TryCreateBaseOutput (string? requestId)
-    {
-        if (string.IsNullOrWhiteSpace(requestId))
-        {
-            return null;
-        }
-
-        return new CallExecutionOutput(
-            RequestId: requestId,
-            OpResults: [],
-            Plan: null);
-    }
-
-    private static IReadOnlyList<IpcError> ConvertValidationErrors (IReadOnlyList<ValidationError> validationErrors)
-    {
-        ArgumentNullException.ThrowIfNull(validationErrors);
-
-        var errors = new IpcError[validationErrors.Count];
-        for (var i = 0; i < validationErrors.Count; i++)
-        {
-            var validationError = validationErrors[i];
-            errors[i] = new IpcError(validationError.Code, validationError.Message, validationError.OpId);
-        }
-
-        return errors;
-    }
-
-    private static CallServiceResult CreateFailureFromExecutionError (
-        ExecutionError error,
-        CallExecutionOutput? output,
-        string? errorCode = null)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return CallServiceResult.Failure(
-            error.Message,
-            [
-                new IpcError(
-                    string.IsNullOrWhiteSpace(errorCode)
-                        ? ExecutionErrorKindCodeMapper.ToCode(error.Kind)
-                        : errorCode,
-                    error.Message,
-                    null),
-            ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? (int)CliExitCode.InvalidArgument
-                : (int)CliExitCode.ToolError,
-            output);
-    }
 }

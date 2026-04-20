@@ -97,9 +97,16 @@ public sealed class TestRunCommandTests
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            UcliCommandNames.RunSubcommand,
+            UcliCommandNames.TestRun,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .IsNull("result")
+                .HasString("errorKind", "invalidInput")
+                .IsNull("runId")
+                .IsNull("artifactsDir")
+                .IsNull("summaryJsonPath"));
     }
 
     private sealed class StubTestRunService : ITestRunService

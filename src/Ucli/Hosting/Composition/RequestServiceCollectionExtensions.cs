@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Features.Requests.Call;
+using MackySoft.Ucli.Features.Requests.Call.Preflight;
 using MackySoft.Ucli.Features.Requests.Plan;
+using MackySoft.Ucli.Features.Requests.Plan.Preflight;
 using MackySoft.Ucli.Features.Requests.Refresh;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
@@ -36,9 +38,11 @@ internal static class RequestServiceCollectionExtensions
         services.AddSingleton<IRequestStaticValidationService, RequestStaticValidationService>();
         services.AddSingleton<IRefreshService, RefreshService>();
         services.AddSingleton<IValidateService, ValidateService>();
+        services.AddSingleton<IPlanCommandPreflightService, PlanCommandPreflightService>();
         services.AddSingleton<IPlanService, PlanService>();
         services.AddSingleton<ICallDangerousOperationGuard, CallDangerousOperationGuard>();
         services.AddSingleton<ICallUnityExecutionService, CallUnityExecutionService>();
+        services.AddSingleton<ICallCommandPreflightService, CallCommandPreflightService>();
         services.AddSingleton<ICallService, CallService>();
         return services;
     }

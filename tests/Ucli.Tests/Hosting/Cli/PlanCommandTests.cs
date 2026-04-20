@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Plan;
+using MackySoft.Ucli.Features.Requests.Plan.Preflight;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
@@ -35,7 +36,8 @@ public sealed class PlanCommandTests
                     fallbackReason: "readIndex disabled by mode."),
                 PlanToken: "plan-token-1"),
             "uCLI plan completed.")));
-        var command = new PlanCommand(service);
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
@@ -97,7 +99,8 @@ public sealed class PlanCommandTests
                     hit: true,
                     fallbackReason: null),
                 PlanToken: null))));
-        var command = new PlanCommand(service);
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             requestPath: "/repo/request.json",
@@ -120,7 +123,8 @@ public sealed class PlanCommandTests
     public async Task Plan_WhenReadIndexModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubPlanService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new PlanCommand(service);
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             readIndexMode: "unsupported",
@@ -135,14 +139,24 @@ public sealed class PlanCommandTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+        Assert.Equal(0, preflightService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Plan_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    public async Task Plan_WhenTimeoutIsInvalid_UsesFeatureFailurePathWithoutExecutingPlan ()
     {
-        var service = new StubPlanService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new PlanCommand(service);
+        var service = new StubPlanService((_, _) => throw new InvalidOperationException("Execute should not be called."));
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => ValueTask.FromResult(PlanCommandPreflightResult.Success(
+            new PlanExecutionOutput(
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                OpResults: [],
+                ReadIndex: CreateReadIndexInfo(
+                    used: false,
+                    hit: false,
+                    fallbackReason: "readIndex disabled by mode."),
+                PlanToken: null))));
+        var command = new PlanCommand(service, preflightService);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             timeout: "abc",
@@ -150,6 +164,7 @@ public sealed class PlanCommandTests
 
         Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
         Assert.Null(service.CapturedInput);
+        Assert.Equal(1, preflightService.CallCount);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
@@ -157,6 +172,9 @@ public sealed class PlanCommandTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"));
     }
 
     private static ReadIndexInfo CreateReadIndexInfo (
@@ -181,7 +199,8 @@ public sealed class PlanCommandTests
     {
         private readonly Func<PlanCommandInput, CancellationToken, ValueTask<PlanServiceResult>> handler;
 
-        public StubPlanService (Func<PlanCommandInput, CancellationToken, ValueTask<PlanServiceResult>> handler)
+        public StubPlanService (
+            Func<PlanCommandInput, CancellationToken, ValueTask<PlanServiceResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
@@ -197,6 +216,32 @@ public sealed class PlanCommandTests
             CapturedInput = input;
             CapturedCancellationToken = cancellationToken;
             return handler(input, cancellationToken);
+        }
+    }
+
+    private sealed class StubPlanCommandPreflightService : IPlanCommandPreflightService
+    {
+        private readonly Func<string?, string?, ReadIndexMode?, CancellationToken, ValueTask<PlanCommandPreflightResult>> handler;
+
+        public StubPlanCommandPreflightService (
+            Func<string?, string?, ReadIndexMode?, CancellationToken, ValueTask<PlanCommandPreflightResult>> handler)
+        {
+            this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
+        }
+
+        public int CallCount { get; private set; }
+
+        public CancellationToken CapturedCancellationToken { get; private set; }
+
+        public ValueTask<PlanCommandPreflightResult> Prepare (
+            string? requestPath,
+            string? projectPath,
+            ReadIndexMode? readIndexMode,
+            CancellationToken cancellationToken = default)
+        {
+            CapturedCancellationToken = cancellationToken;
+            CallCount++;
+            return handler(requestPath, projectPath, readIndexMode, cancellationToken);
         }
     }
 }

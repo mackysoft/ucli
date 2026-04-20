@@ -16,6 +16,8 @@ internal static class UcliContractConstants
 
         public const string Mode = "--mode";
 
+        public const string TestPlatform = "--testPlatform";
+
         public const string FailFast = "--failFast";
 
         public const string ReadIndexMode = "--readIndexMode";

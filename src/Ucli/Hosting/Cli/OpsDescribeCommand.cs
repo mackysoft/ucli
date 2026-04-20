@@ -44,7 +44,7 @@ internal sealed class OpsDescribeCommand
         if (!normalizedReadIndexModeResult.IsSuccess)
         {
             var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.DescribeSubcommand,
+                UcliCommandNames.OpsDescribe,
                 normalizedReadIndexModeResult.Error!);
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
@@ -54,7 +54,7 @@ internal sealed class OpsDescribeCommand
         if (!normalizedModeResult.IsSuccess)
         {
             var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.DescribeSubcommand,
+                UcliCommandNames.OpsDescribe,
                 normalizedModeResult.Error!);
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
@@ -64,7 +64,7 @@ internal sealed class OpsDescribeCommand
         if (!normalizedTimeoutResult.IsSuccess)
         {
             var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.DescribeSubcommand,
+                UcliCommandNames.OpsDescribe,
                 normalizedTimeoutResult.Error!);
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;

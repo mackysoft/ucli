@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Requests.Call;
+using MackySoft.Ucli.Features.Requests.Call.Preflight;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
@@ -9,11 +10,17 @@ internal sealed class CallCommand
 {
     private readonly ICallService callService;
 
+    private readonly ICallCommandPreflightService callCommandPreflightService;
+
     /// <summary> Initializes a new instance of the <see cref="CallCommand" /> class. </summary>
     /// <param name="callService"> The call workflow service dependency. </param>
-    public CallCommand (ICallService callService)
+    /// <param name="callCommandPreflightService"> The command preflight dependency used to preserve the call payload on option failures. </param>
+    public CallCommand (
+        ICallService callService,
+        ICallCommandPreflightService callCommandPreflightService)
     {
         this.callService = callService ?? throw new ArgumentNullException(nameof(callService));
+        this.callCommandPreflightService = callCommandPreflightService ?? throw new ArgumentNullException(nameof(callCommandPreflightService));
     }
 
     /// <summary> Executes the <c>call</c> command and emits the JSON result contract. </summary>
@@ -42,24 +49,38 @@ internal sealed class CallCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
-        if (!normalizedModeResult.IsSuccess)
-        {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.Call,
-                normalizedModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
-            return errorResult.ExitCode;
-        }
-
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.Call,
-                normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
-            return errorResult.ExitCode;
+            var preflightResult = await callCommandPreflightService.Prepare(
+                    requestPath,
+                    projectPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var failureResult = preflightResult.FailureResult
+                ?? CallFailureResultFactory.FromExecutionError(
+                    normalizedTimeoutResult.Error!,
+                    preflightResult.Output);
+            var commandFailureResult = CallCommandResultFactory.Create(failureResult);
+            CommandResultWriter.WriteToStandardOutput(commandFailureResult);
+            return commandFailureResult.ExitCode;
+        }
+
+        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
+        if (!normalizedModeResult.IsSuccess)
+        {
+            var preflightResult = await callCommandPreflightService.Prepare(
+                    requestPath,
+                    projectPath,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var failureResult = preflightResult.FailureResult
+                ?? CallFailureResultFactory.FromExecutionError(
+                    normalizedModeResult.Error!,
+                    preflightResult.Output);
+            var commandFailureResult = CallCommandResultFactory.Create(failureResult);
+            CommandResultWriter.WriteToStandardOutput(commandFailureResult);
+            return commandFailureResult.ExitCode;
         }
 
         var serviceResult = await callService.Execute(
