@@ -1,6 +1,5 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Features.Testing.Run;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
@@ -47,7 +46,7 @@ public sealed class TestRunConfigurationResolverTests
             unityVersionResolver,
             unityEditorPathResolver);
 
-        var input = new TestRunCommandInput(
+        var input = new TestRunConfigurationRequest(
             ProjectPath: unityProject.UnityProjectRoot,
             ProfilePath: scope.GetPath("test.profile.json"),
             Mode: NormalizeMode("oneshot"),
@@ -105,7 +104,7 @@ public sealed class TestRunConfigurationResolverTests
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
             new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
 
-        var input = new TestRunCommandInput(
+        var input = new TestRunConfigurationRequest(
             ProjectPath: null,
             ProfilePath: scope.GetPath("test.profile.json"),
             Mode: NormalizeMode("auto"),
@@ -155,7 +154,7 @@ public sealed class TestRunConfigurationResolverTests
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
             new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
 
-        var input = new TestRunCommandInput(
+        var input = new TestRunConfigurationRequest(
             ProjectPath: commandProjectPath,
             ProfilePath: scope.GetPath("test.profile.json"),
             Mode: NormalizeMode("auto"),
@@ -181,7 +180,7 @@ public sealed class TestRunConfigurationResolverTests
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "player-target");
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope);
-        var input = new TestRunCommandInput(
+        var input = new TestRunConfigurationRequest(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
             Mode: NormalizeMode("auto"),
@@ -209,7 +208,7 @@ public sealed class TestRunConfigurationResolverTests
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", $"timeout-{timeoutMilliseconds}");
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope);
-        var input = new TestRunCommandInput(
+        var input = new TestRunConfigurationRequest(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
             Mode: NormalizeMode("auto"),
@@ -237,7 +236,7 @@ public sealed class TestRunConfigurationResolverTests
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "missing-test-settings");
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope);
-        var input = new TestRunCommandInput(
+        var input = new TestRunConfigurationRequest(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
             Mode: NormalizeMode("auto"),

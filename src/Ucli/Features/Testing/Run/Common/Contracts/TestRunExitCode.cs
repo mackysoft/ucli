@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Features.Testing.Run;
+namespace MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Defines process exit codes for test-run execution results. </summary>
 internal enum TestRunExitCode

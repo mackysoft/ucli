@@ -3,10 +3,10 @@ using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
-using MackySoft.Ucli.Features.Testing.Run.Service;
-using MackySoft.Ucli.Features.Testing.Run.Service.Mapping;
-using MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
-using MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition;

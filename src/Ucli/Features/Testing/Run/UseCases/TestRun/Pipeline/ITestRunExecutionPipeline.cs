@@ -1,6 +1,6 @@
-using MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
 
 /// <summary> Executes the test-run artifacts, Unity execution, and conversion pipeline. </summary>
 internal interface ITestRunExecutionPipeline

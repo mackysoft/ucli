@@ -2,8 +2,9 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Features.Testing.Run.Service.Mapping;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
@@ -12,7 +13,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
 
 /// <summary> Implements preflight flow for configuration resolution and execution-mode decision. </summary>
 internal sealed class TestRunPreflightService : ITestRunPreflightService
@@ -48,7 +49,9 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(input);
 
-        var configurationResolutionResult = await ResolveConfigurationSafely(input, cancellationToken).ConfigureAwait(false);
+        var configurationResolutionResult = await ResolveConfigurationSafely(
+            CreateConfigurationRequest(input),
+            cancellationToken).ConfigureAwait(false);
         if (!configurationResolutionResult.IsSuccess)
         {
             return TestRunPreflightResult.FailureResult(
@@ -107,7 +110,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
     /// <returns> A task that resolves to the configuration resolution result. </returns>
     /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled during resolution. </exception>
     private async ValueTask<TestRunConfigurationResolutionResult> ResolveConfigurationSafely (
-        TestRunCommandInput input,
+        TestRunConfigurationRequest input,
         CancellationToken cancellationToken)
     {
         try
@@ -126,6 +129,24 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 ExecutionError.InternalError($"Unexpected error while resolving run configuration: {exception.Message}"),
             ]);
         }
+    }
+
+    private static TestRunConfigurationRequest CreateConfigurationRequest (TestRunCommandInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        return new TestRunConfigurationRequest(
+            ProjectPath: input.ProjectPath,
+            ProfilePath: input.ProfilePath,
+            Mode: input.Mode,
+            UnityVersion: input.UnityVersion,
+            UnityEditorPath: input.UnityEditorPath,
+            TestPlatform: input.TestPlatform,
+            TestFilter: input.TestFilter,
+            TestCategory: input.TestCategory,
+            AssemblyName: input.AssemblyName,
+            TestSettingsPath: input.TestSettingsPath,
+            TimeoutMilliseconds: input.TimeoutMilliseconds);
     }
 
 }

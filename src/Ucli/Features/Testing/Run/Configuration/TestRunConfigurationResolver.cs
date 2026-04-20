@@ -46,7 +46,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the configuration resolution result. </returns>
     public async ValueTask<TestRunConfigurationResolutionResult> Resolve (
-        TestRunCommandInput input,
+        TestRunConfigurationRequest input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -130,7 +130,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     /// <param name="profile"> The optional loaded profile values. </param>
     /// <returns> The resolved project-path candidate. </returns>
     private string ResolveProjectPath (
-        TestRunCommandInput input,
+        TestRunConfigurationRequest input,
         TestRunProfile? profile)
     {
         ArgumentNullException.ThrowIfNull(input);

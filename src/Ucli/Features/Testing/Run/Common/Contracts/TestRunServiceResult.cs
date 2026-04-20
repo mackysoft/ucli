@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Features.Testing.Run;
+namespace MackySoft.Ucli.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Represents normalized output returned from test-run core service. </summary>
 /// <param name="Result"> The pass/fail result when execution reaches test result evaluation; otherwise <see langword="null" />. </param>

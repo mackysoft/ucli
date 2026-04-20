@@ -14,7 +14,7 @@ internal static class TestRunConfigurationMerger
     /// <param name="projectPath"> The resolved project path candidate selected before merge. </param>
     /// <returns> The merged normalized configuration. </returns>
     public static MergedTestRunConfiguration Merge (
-        TestRunCommandInput cli,
+        TestRunConfigurationRequest cli,
         TestRunProfile? profile,
         string projectPath)
     {
@@ -52,7 +52,7 @@ internal static class TestRunConfigurationMerger
     }
 
     private static UnityExecutionMode ResolveMode (
-        TestRunCommandInput cli)
+        TestRunConfigurationRequest cli)
     {
         ArgumentNullException.ThrowIfNull(cli);
 
@@ -65,7 +65,7 @@ internal static class TestRunConfigurationMerger
     }
 
     private static (string RawValue, TestRunPlatform? ParsedValue) ResolveTestPlatform (
-        TestRunCommandInput cli,
+        TestRunConfigurationRequest cli,
         TestRunProfile? profile)
     {
         ArgumentNullException.ThrowIfNull(cli);

@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
-namespace MackySoft.Ucli.Features.Testing.Run;
+namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 
-/// <summary> Represents normalized CLI input values for test-run execution. </summary>
+/// <summary> Represents configuration-resolution input values for one test-run request. </summary>
 /// <param name="ProjectPath"> Optional Unity project root path. </param>
 /// <param name="ProfilePath"> Optional profile configuration path. </param>
 /// <param name="Mode"> Optional Unity execution-mode value. </param>
@@ -15,8 +15,7 @@ namespace MackySoft.Ucli.Features.Testing.Run;
 /// <param name="AssemblyName"> Optional assembly names parsed from the CLI option. </param>
 /// <param name="TestSettingsPath"> Optional path to <c>TestSettings.json</c>. </param>
 /// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
-/// <param name="FailFast"> Whether daemon-backed execution should fail immediately instead of waiting for lifecycle readiness. </param>
-internal sealed record TestRunCommandInput (
+internal sealed record TestRunConfigurationRequest (
     string? ProjectPath,
     string? ProfilePath,
     UnityExecutionMode? Mode,
@@ -27,5 +26,4 @@ internal sealed record TestRunCommandInput (
     string[]? TestCategory,
     string[]? AssemblyName,
     string? TestSettingsPath,
-    int? TimeoutMilliseconds,
-    bool FailFast = false);
+    int? TimeoutMilliseconds);

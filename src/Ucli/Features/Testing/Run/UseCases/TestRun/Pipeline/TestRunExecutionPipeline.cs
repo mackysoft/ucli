@@ -6,7 +6,7 @@ using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
-using MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
@@ -14,7 +14,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Pipeline;
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
 
 /// <summary> Implements one test-run execution pipeline from artifacts preparation to conversion completion. </summary>
 internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline

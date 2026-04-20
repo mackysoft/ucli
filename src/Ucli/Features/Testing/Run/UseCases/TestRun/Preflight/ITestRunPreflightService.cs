@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Service.Preflight;
+using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun;
+
+namespace MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
 
 /// <summary> Resolves command input and execution mode prerequisites before test-run pipeline execution. </summary>
 internal interface ITestRunPreflightService
