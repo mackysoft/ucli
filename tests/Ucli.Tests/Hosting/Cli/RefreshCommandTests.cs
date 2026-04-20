@@ -96,6 +96,30 @@ public sealed class RefreshCommandTests
             UcliCommandNames.Refresh,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+        AssertRefreshFailurePayload(outputJson.RootElement);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Refresh_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubRefreshService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new RefreshCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+            mode: "unsupported",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        AssertRefreshFailurePayload(outputJson.RootElement);
     }
 
     private sealed class StubRefreshService : IRefreshService
@@ -119,5 +143,15 @@ public sealed class RefreshCommandTests
             CapturedCancellationToken = cancellationToken;
             return handler(input, cancellationToken);
         }
+    }
+
+    private static void AssertRefreshFailurePayload (JsonElement rootElement)
+    {
+        var payload = rootElement.GetProperty("payload");
+        var requestId = payload.GetProperty("requestId").GetString();
+
+        Assert.True(Guid.TryParseExact(requestId, "D", out _));
+        JsonAssert.For(payload)
+            .HasArrayLength("opResults", 0);
     }
 }

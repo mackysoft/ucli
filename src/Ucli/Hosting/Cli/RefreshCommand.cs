@@ -40,9 +40,8 @@ internal sealed class RefreshCommand
         var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!normalizedModeResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.Refresh,
-                normalizedModeResult.Error!);
+            var errorResult = CreateCommandResult(
+                OperationExecuteResultFactory.FromExecutionError(normalizedModeResult.Error!));
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -50,9 +49,8 @@ internal sealed class RefreshCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.Refresh,
-                normalizedTimeoutResult.Error!);
+            var errorResult = CreateCommandResult(
+                OperationExecuteResultFactory.FromExecutionError(normalizedTimeoutResult.Error!));
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
