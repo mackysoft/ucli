@@ -1,5 +1,5 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
@@ -27,7 +27,6 @@ public sealed class TestRunConfigurationResolverTests
             UnityVersion = "6000.1.3f1",
             UnityEditorPath = "./profile-editor/Unity",
             TestPlatform = "playmode",
-            BuildTarget = null,
             TestFilter = "Category=Smoke",
             TestCategories = ["profile"],
             AssemblyNames = ["Profile.Tests"],
@@ -55,7 +54,6 @@ public sealed class TestRunConfigurationResolverTests
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
             TestPlatform: NormalizeTestPlatform("editmode"),
-            BuildTarget: null,
             TestFilter: "Name~Smoke",
             TestCategory: ["smoke,quick"],
             AssemblyName: ["Cli.Tests"],
@@ -67,9 +65,7 @@ public sealed class TestRunConfigurationResolverTests
         Assert.True(result.IsSuccess);
         var configuration = Assert.IsType<ResolvedTestRunConfiguration>(result.Configuration);
         Assert.Equal(UnityExecutionMode.Oneshot, configuration.Mode);
-        Assert.Equal(IpcTestRunPlatform.EditMode, configuration.TestPlatform);
-        Assert.Equal("editmode", configuration.RawTestPlatform);
-        Assert.Null(configuration.BuildTarget);
+        Assert.Equal(TestRunPlatform.EditMode, configuration.TestPlatform);
         Assert.Equal("Name~Smoke", configuration.TestFilter);
         Assert.Equal(["smoke", "quick"], configuration.TestCategories);
         Assert.Equal(["Cli.Tests"], configuration.AssemblyNames);
@@ -90,7 +86,6 @@ public sealed class TestRunConfigurationResolverTests
             UnityVersion = "6000.1.3f1",
             UnityEditorPath = "./profile-editor/Unity",
             TestPlatform = "editmode",
-            BuildTarget = null,
             TestFilter = null,
             TestCategories = [],
             AssemblyNames = [],
@@ -117,7 +112,6 @@ public sealed class TestRunConfigurationResolverTests
             UnityVersion: null,
             UnityEditorPath: null,
             TestPlatform: NormalizeTestPlatform("editmode"),
-            BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
@@ -147,7 +141,6 @@ public sealed class TestRunConfigurationResolverTests
                 UnityVersion = "6000.1.3f1",
                 UnityEditorPath = "./profile-editor/Unity",
                 TestPlatform = "editmode",
-                BuildTarget = null,
                 TestFilter = null,
                 TestCategories = [],
                 AssemblyNames = [],
@@ -169,7 +162,6 @@ public sealed class TestRunConfigurationResolverTests
             UnityVersion: null,
             UnityEditorPath: null,
             TestPlatform: NormalizeTestPlatform("editmode"),
-            BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
@@ -184,9 +176,9 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WithEditModeAndBuildTarget_ReturnsInvalidArgument ()
+    public async Task Resolve_WithPlayerTargetLiteral_ReturnsPlayerPlatform ()
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "editmode-buildtarget");
+        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "player-target");
 
         var resolver = CreateResolverWithSuccessfulDependencies(scope);
         var input = new TestRunCommandInput(
@@ -195,8 +187,7 @@ public sealed class TestRunConfigurationResolverTests
             Mode: NormalizeMode("auto"),
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: NormalizeTestPlatform("editmode"),
-            BuildTarget: "Android",
+            TestPlatform: NormalizeTestPlatform("Android"),
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
@@ -205,10 +196,8 @@ public sealed class TestRunConfigurationResolverTests
 
         var result = await resolver.Resolve(input, CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("buildTarget", error.Message, StringComparison.Ordinal);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TestRunPlatform.Player("Android"), result.Configuration!.TestPlatform);
     }
 
     [Theory]
@@ -227,7 +216,6 @@ public sealed class TestRunConfigurationResolverTests
             UnityVersion: null,
             UnityEditorPath: null,
             TestPlatform: NormalizeTestPlatform("editmode"),
-            BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
@@ -256,7 +244,6 @@ public sealed class TestRunConfigurationResolverTests
             UnityVersion: null,
             UnityEditorPath: null,
             TestPlatform: NormalizeTestPlatform("editmode"),
-            BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,

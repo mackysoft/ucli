@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Ipc;
@@ -775,8 +776,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static object CreateValidTestRunPayload (bool failFast = false)
         {
             return new IpcTestRunRequest(
-                TestPlatform: IpcTestRunPlatformCodec.EditMode,
-                BuildTarget: null,
+                TestPlatform: TestRunPlatformCodec.EditMode,
                 TestFilter: null,
                 TestCategories: Array.Empty<string>(),
                 AssemblyNames: Array.Empty<string>(),

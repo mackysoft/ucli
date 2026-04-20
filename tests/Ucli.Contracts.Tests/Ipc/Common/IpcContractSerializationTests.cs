@@ -296,7 +296,6 @@ public sealed class IpcContractSerializationTests
     {
         var requestPayload = new IpcTestRunRequest(
             TestPlatform: "editmode",
-            BuildTarget: null,
             TestFilter: null,
             TestCategories: Array.Empty<string>(),
             AssemblyNames: Array.Empty<string>(),
@@ -311,7 +310,6 @@ public sealed class IpcContractSerializationTests
 
         JsonAssert.For(requestDocument.RootElement)
             .HasString("testPlatform", "editmode")
-            .IsNull("buildTarget")
             .IsNull("testFilter")
             .HasArrayLength("testCategories", 0)
             .HasArrayLength("assemblyNames", 0)

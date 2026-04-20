@@ -19,8 +19,7 @@ public sealed class TestRunProfileLoaderTests
               "projectPath": ".",
               "unityVersion": "6000.1.4f1",
               "unityEditorPath": null,
-              "testPlatform": "playmode",
-              "buildTarget": "StandaloneWindows64",
+              "testPlatform": "StandaloneWindows64",
               "testFilter": null,
               "testCategories": ["smoke"],
               "assemblyNames": ["Game.Tests"],
@@ -37,8 +36,7 @@ public sealed class TestRunProfileLoaderTests
         Assert.Equal(TestRunProfile.SchemaVersionValue, profile.SchemaVersion);
         Assert.Equal(".", profile.ProjectPath);
         Assert.Equal("6000.1.4f1", profile.UnityVersion);
-        Assert.Equal("playmode", profile.TestPlatform);
-        Assert.Equal("StandaloneWindows64", profile.BuildTarget);
+        Assert.Equal("StandaloneWindows64", profile.TestPlatform);
         Assert.Equal(90, profile.Timeout);
     }
 
@@ -56,7 +54,6 @@ public sealed class TestRunProfileLoaderTests
               "unityVersion": null,
               "unityEditorPath": null,
               "testPlatform": "editmode",
-              "buildTarget": null,
               "testFilter": null,
               "testCategories": [],
               "assemblyNames": [],
@@ -76,6 +73,39 @@ public sealed class TestRunProfileLoaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Load_WithLegacyBuildTargetProperty_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "legacy-build-target-property");
+        var profilePath = scope.WriteFile(
+            "test.profile.json",
+            """
+            {
+              "schemaVersion": 1,
+              "projectPath": ".",
+              "unityVersion": null,
+              "unityEditorPath": null,
+              "testPlatform": "playmode",
+              "buildTarget": "Android",
+              "testFilter": null,
+              "testCategories": [],
+              "assemblyNames": [],
+              "testSettingsPath": null,
+              "timeout": 90
+            }
+            """);
+        var loader = new TestRunProfileLoader();
+
+        var result = await loader.Load(profilePath, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("unknown property", error.Message, StringComparison.Ordinal);
+        Assert.Contains("buildTarget", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Load_WithLegacyTimeoutProperty_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "legacy-timeout-property");
@@ -88,7 +118,6 @@ public sealed class TestRunProfileLoaderTests
               "unityVersion": null,
               "unityEditorPath": null,
               "testPlatform": "editmode",
-              "buildTarget": null,
               "testFilter": null,
               "testCategories": [],
               "assemblyNames": [],
@@ -121,7 +150,6 @@ public sealed class TestRunProfileLoaderTests
               "unityVersion": null,
               "unityEditorPath": null,
               "testPlatform": "editmode",
-              "buildTarget": null,
               "testFilter": null,
               "testCategories": [],
               "assemblyNames": [],

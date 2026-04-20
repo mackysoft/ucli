@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
@@ -68,7 +69,7 @@ public sealed class TestRunServiceTests
             configurationResolver: new StubConfigurationResolver(
                 TestRunConfigurationResolutionResult.Failure(
                 [
-                    ExecutionError.InvalidArgument("testPlatform must be editmode or playmode."),
+                    ExecutionError.InvalidArgument("testPlatform must be editmode, playmode, or a Unity BuildTarget literal."),
                 ])),
             modeDecisionService: new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
@@ -631,7 +632,6 @@ public sealed class TestRunServiceTests
             UnityVersion: null,
             UnityEditorPath: null,
             TestPlatform: NormalizeTestPlatform(null),
-            BuildTarget: null,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
@@ -651,9 +651,7 @@ public sealed class TestRunServiceTests
             Mode: mode,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: Path.GetFullPath("./Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: IpcTestRunPlatform.EditMode,
-            RawTestPlatform: "editmode",
-            BuildTarget: null,
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],

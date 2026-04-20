@@ -21,9 +21,6 @@ internal sealed record TestRunProfile
     /// <summary> Gets the optional test-platform value. </summary>
     public string? TestPlatform { get; init; }
 
-    /// <summary> Gets the optional build target value. </summary>
-    public string? BuildTarget { get; init; }
-
     /// <summary> Gets the optional test-filter value. </summary>
     public string? TestFilter { get; init; }
 

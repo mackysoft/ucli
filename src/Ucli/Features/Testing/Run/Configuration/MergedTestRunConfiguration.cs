@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
@@ -10,7 +10,6 @@ namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 /// <param name="UnityEditorPath"> The optional Unity editor path override value. </param>
 /// <param name="TestPlatform"> The parsed test-platform value. </param>
 /// <param name="RawTestPlatform"> The raw merged test-platform value. </param>
-/// <param name="BuildTarget"> The optional build target value. </param>
 /// <param name="TestFilter"> The optional test-filter value. </param>
 /// <param name="TestCategories"> The normalized test-category values. </param>
 /// <param name="AssemblyNames"> The normalized assembly-name values. </param>
@@ -21,9 +20,8 @@ internal sealed record MergedTestRunConfiguration (
     UnityExecutionMode Mode,
     string? UnityVersion,
     string? UnityEditorPath,
-    IpcTestRunPlatform? TestPlatform,
+    TestRunPlatform? TestPlatform,
     string RawTestPlatform,
-    string? BuildTarget,
     string? TestFilter,
     string[] TestCategories,
     string[] AssemblyNames,

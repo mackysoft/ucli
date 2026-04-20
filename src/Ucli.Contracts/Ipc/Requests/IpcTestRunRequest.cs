@@ -1,8 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents a <c>test.run</c> IPC request payload. </summary>
-/// <param name="TestPlatform"> The Unity test platform value (<c>editmode|playmode</c>). </param>
-/// <param name="BuildTarget"> The optional Unity build target used by PlayMode tests. </param>
+/// <param name="TestPlatform"> The Unity test platform value (<c>editmode|playmode|&lt;BuildTarget&gt;</c>). </param>
 /// <param name="TestFilter"> The optional Unity test-name filter. </param>
 /// <param name="TestCategories"> The optional Unity test-category filters. </param>
 /// <param name="AssemblyNames"> The optional Unity test assembly-name filters. </param>
@@ -12,7 +11,6 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="FailFast"> Whether execution should fail immediately instead of waiting for lifecycle readiness. </param>
 public sealed record IpcTestRunRequest (
     string TestPlatform,
-    string? BuildTarget,
     string? TestFilter,
     string[] TestCategories,
     string[] AssemblyNames,

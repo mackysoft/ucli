@@ -1,5 +1,5 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
@@ -147,9 +147,7 @@ public sealed class UnityTestExecutorTests
             Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: IpcTestRunPlatform.EditMode,
-            RawTestPlatform: "editmode",
-            BuildTarget: null,
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],

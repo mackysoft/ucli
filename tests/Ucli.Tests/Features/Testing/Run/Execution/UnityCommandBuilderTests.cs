@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
@@ -14,8 +14,7 @@ public sealed class UnityCommandBuilderTests
     public void BuildArguments_WithMinimumEditModeConfiguration_ReturnsRequiredArguments ()
     {
         var configuration = CreateConfiguration(
-            testPlatform: IpcTestRunPlatform.EditMode,
-            buildTarget: null,
+            testPlatform: TestRunPlatform.EditMode,
             testFilter: null,
             testCategories: [],
             assemblyNames: [],
@@ -47,8 +46,7 @@ public sealed class UnityCommandBuilderTests
     public void BuildArguments_WithPlayModeAndOptionalValues_IncludesOptions ()
     {
         var configuration = CreateConfiguration(
-            testPlatform: IpcTestRunPlatform.PlayMode,
-            buildTarget: "StandaloneWindows64",
+            testPlatform: TestRunPlatform.Player("StandaloneWindows64"),
             testFilter: "Category=Smoke",
             testCategories: ["smoke", "quick"],
             assemblyNames: ["Game.Tests", "Game.MoreTests"],
@@ -58,8 +56,8 @@ public sealed class UnityCommandBuilderTests
 
         var arguments = builder.BuildArguments(configuration, artifactPaths);
 
-        Assert.Equal("PlayMode", GetOptionValue(arguments, "-testPlatform"));
-        Assert.Equal("StandaloneWindows64", GetOptionValue(arguments, "-buildTarget"));
+        Assert.Equal("StandaloneWindows64", GetOptionValue(arguments, "-testPlatform"));
+        Assert.DoesNotContain("-buildTarget", arguments);
         Assert.Equal("Category=Smoke", GetOptionValue(arguments, "-testFilter"));
         Assert.Equal("smoke;quick", GetOptionValue(arguments, "-testCategory"));
         Assert.Equal("Game.Tests;Game.MoreTests", GetOptionValue(arguments, "-assemblyNames"));
@@ -67,8 +65,7 @@ public sealed class UnityCommandBuilderTests
     }
 
     private static ResolvedTestRunConfiguration CreateConfiguration (
-        IpcTestRunPlatform testPlatform,
-        string? buildTarget,
+        TestRunPlatform testPlatform,
         string? testFilter,
         string[] testCategories,
         string[] assemblyNames,
@@ -85,8 +82,6 @@ public sealed class UnityCommandBuilderTests
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: Path.GetFullPath("./Editors/6000.1.4f1/Editor/Unity"),
             TestPlatform: testPlatform,
-            RawTestPlatform: IpcTestRunPlatformCodec.ToValue(testPlatform),
-            BuildTarget: buildTarget,
             TestFilter: testFilter,
             TestCategories: testCategories,
             AssemblyNames: assemblyNames,

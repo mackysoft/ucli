@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -119,8 +120,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcTestRunRequest CreateRequest (bool failFast = false)
         {
             return new IpcTestRunRequest(
-                TestPlatform: IpcTestRunPlatformCodec.EditMode,
-                BuildTarget: null,
+                TestPlatform: TestRunPlatformCodec.EditMode,
                 TestFilter: null,
                 TestCategories: Array.Empty<string>(),
                 AssemblyNames: Array.Empty<string>(),
@@ -134,7 +134,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UnityTestRunRequestContext(
                 TestMode: TestMode.EditMode,
-                BuildTarget: null,
+                TargetPlatform: null,
                 TestFilter: null,
                 TestCategories: Array.Empty<string>(),
                 AssemblyNames: Array.Empty<string>(),

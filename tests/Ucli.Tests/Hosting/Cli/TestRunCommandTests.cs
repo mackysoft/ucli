@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run;
 using MackySoft.Ucli.Features.Testing.Run.Service;
 using MackySoft.Ucli.Hosting.Cli;
@@ -28,8 +29,7 @@ public sealed class TestRunCommandTests
             executionMode: "oneshot",
             unityVersion: "6000.1.4f1",
             unityEditorPath: "/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app",
-            testPlatform: "playmode",
-            buildTarget: "Android",
+            testPlatform: "Android",
             testFilter: "Name~Smoke",
             testCategory: "smoke, fast,nightly",
             assemblyName: "MyGame.Tests.EditMode,MyGame.Tests.PlayMode",
@@ -46,8 +46,7 @@ public sealed class TestRunCommandTests
         Assert.Equal(UnityExecutionMode.Oneshot, input.Mode);
         Assert.Equal("6000.1.4f1", input.UnityVersion);
         Assert.Equal("/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app", input.UnityEditorPath);
-        Assert.Equal(IpcTestRunPlatform.PlayMode, input.TestPlatform);
-        Assert.Equal("Android", input.BuildTarget);
+        Assert.Equal(TestRunPlatform.Player("Android"), input.TestPlatform);
         Assert.Equal("Name~Smoke", input.TestFilter);
         var testCategories = Assert.IsType<string[]>(input.TestCategory);
         var assemblyNames = Assert.IsType<string[]>(input.AssemblyName);
@@ -89,6 +88,35 @@ public sealed class TestRunCommandTests
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
             executionMode: "unsupported",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .IsNull("result")
+                .HasString("errorKind", "invalidInput")
+                .IsNull("runId")
+                .IsNull("artifactsDir")
+                .IsNull("summaryJsonPath"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WhenTestPlatformIsWhitespace_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new TestRunCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
+            testPlatform: " ",
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);

@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
@@ -41,8 +41,7 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             UnityVersion: configuration.UnityVersion,
             UnityEditorPath: configuration.UnityEditorPath,
             Mode: UnityExecutionModeCodec.ToValue(configuration.Mode),
-            TestPlatform: IpcTestRunPlatformCodec.ToValue(configuration.TestPlatform),
-            BuildTarget: configuration.BuildTarget,
+            TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
             TestFilter: configuration.TestFilter,
             TestCategories: configuration.TestCategories,
             AssemblyNames: configuration.AssemblyNames,
@@ -63,7 +62,6 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
     /// <param name="UnityEditorPath"> The resolved Unity editor path. </param>
     /// <param name="Mode"> The execution mode option value. </param>
     /// <param name="TestPlatform"> The test-platform value. </param>
-    /// <param name="BuildTarget"> The optional build target value. </param>
     /// <param name="TestFilter"> The optional test-filter value. </param>
     /// <param name="TestCategories"> The normalized test-category values. </param>
     /// <param name="AssemblyNames"> The normalized assembly-name values. </param>
@@ -79,7 +77,6 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
         string UnityEditorPath,
         string Mode,
         string TestPlatform,
-        string? BuildTarget,
         string? TestFilter,
         string[] TestCategories,
         string[] AssemblyNames,
