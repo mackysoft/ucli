@@ -1,6 +1,6 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Requests.Call;
-using MackySoft.Ucli.Features.Requests.Call.Preflight;
+using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
+using MackySoft.Ucli.Features.Requests.Call.UseCases.Call.Preflight;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
@@ -57,10 +57,7 @@ internal sealed class CallCommand
                     projectPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.FailureResult
-                ?? CallFailureResultFactory.FromExecutionError(
-                    normalizedTimeoutResult.Error!,
-                    preflightResult.Output);
+            var failureResult = preflightResult.CreateFailureResult(normalizedTimeoutResult.Error!);
             var commandFailureResult = CallCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;
@@ -74,10 +71,7 @@ internal sealed class CallCommand
                     projectPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.FailureResult
-                ?? CallFailureResultFactory.FromExecutionError(
-                    normalizedModeResult.Error!,
-                    preflightResult.Output);
+            var failureResult = preflightResult.CreateFailureResult(normalizedModeResult.Error!);
             var commandFailureResult = CallCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;

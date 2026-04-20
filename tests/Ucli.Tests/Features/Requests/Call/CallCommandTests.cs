@@ -1,7 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Call;
-using MackySoft.Ucli.Features.Requests.Call.Preflight;
+using MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
+using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
+using MackySoft.Ucli.Features.Requests.Call.UseCases.Call.Preflight;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 

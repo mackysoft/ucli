@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Plan;
+using MackySoft.Ucli.Features.Requests.Plan.Common.Contracts;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 

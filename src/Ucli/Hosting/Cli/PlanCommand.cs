@@ -1,6 +1,6 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Requests.Plan;
-using MackySoft.Ucli.Features.Requests.Plan.Preflight;
+using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
+using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Preflight;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
@@ -64,10 +64,7 @@ internal sealed class PlanCommand
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.FailureResult
-                ?? PlanFailureResultFactory.FromExecutionError(
-                    normalizedTimeoutResult.Error!,
-                    preflightResult.Output);
+            var failureResult = preflightResult.CreateFailureResult(normalizedTimeoutResult.Error!);
             var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;
@@ -82,10 +79,7 @@ internal sealed class PlanCommand
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.FailureResult
-                ?? PlanFailureResultFactory.FromExecutionError(
-                    normalizedModeResult.Error!,
-                    preflightResult.Output);
+            var failureResult = preflightResult.CreateFailureResult(normalizedModeResult.Error!);
             var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;

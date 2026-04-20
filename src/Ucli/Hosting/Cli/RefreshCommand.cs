@@ -1,6 +1,5 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Requests.Refresh;
-using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
@@ -40,8 +39,7 @@ internal sealed class RefreshCommand
         var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!normalizedModeResult.IsSuccess)
         {
-            var errorResult = CreateCommandResult(
-                OperationExecuteResultFactory.FromExecutionError(normalizedModeResult.Error!));
+            var errorResult = RefreshCommandResultFactory.CreateExecutionError(normalizedModeResult.Error!);
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -49,8 +47,7 @@ internal sealed class RefreshCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
-            var errorResult = CreateCommandResult(
-                OperationExecuteResultFactory.FromExecutionError(normalizedTimeoutResult.Error!));
+            var errorResult = RefreshCommandResultFactory.CreateExecutionError(normalizedTimeoutResult.Error!);
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -63,66 +60,8 @@ internal sealed class RefreshCommand
                     FailFast: failFast),
                 cancellationToken)
             .ConfigureAwait(false);
-        var commandResult = CreateCommandResult(executionResult);
+        var commandResult = RefreshCommandResultFactory.Create(executionResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
-    }
-
-    /// <summary> Creates the command-level JSON result from one refresh execution result. </summary>
-    /// <param name="executionResult"> The refresh execution result. </param>
-    /// <returns> The command result serialized to stdout. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
-    private static CommandResult CreateCommandResult (OperationExecuteResult executionResult)
-    {
-        ArgumentNullException.ThrowIfNull(executionResult);
-
-        var payload = new
-        {
-            requestId = executionResult.RequestId,
-            opResults = executionResult.OpResults,
-        };
-
-        if (executionResult.IsSuccess)
-        {
-            return CommandResult.Success(
-                command: UcliCommandNames.Refresh,
-                message: "uCLI refresh completed.",
-                payload: payload);
-        }
-
-        var errors = new CommandError[executionResult.Errors.Count];
-        for (var i = 0; i < executionResult.Errors.Count; i++)
-        {
-            var error = executionResult.Errors[i];
-            errors[i] = new CommandError(error.Code, error.Message, error.OpId);
-        }
-
-        return new CommandResult(
-            ProtocolVersion: executionResult.ProtocolVersion,
-            Command: UcliCommandNames.Refresh,
-            Status: MackySoft.Ucli.Contracts.Ipc.IpcProtocol.StatusError,
-            ExitCode: executionResult.ExitCode,
-            Message: ResolveFailureMessage(executionResult.Errors),
-            Payload: payload,
-            Errors: errors);
-    }
-
-    /// <summary> Resolves the refresh failure message from one machine-readable error list. </summary>
-    /// <param name="errors"> The machine-readable error list. </param>
-    /// <returns> The first available error message, or a fallback message when missing. </returns>
-    private static string ResolveFailureMessage (IReadOnlyList<MackySoft.Ucli.Contracts.Ipc.IpcError> errors)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                return error.Message;
-            }
-        }
-
-        return "uCLI refresh failed.";
     }
 }

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Validate;
+using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
+using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -71,5 +72,14 @@ internal static class ValidateCommandResultFactory
                     serviceResult.Message,
                     null),
             ]);
+    }
+
+    /// <summary> Creates one invalid-execution command result for <c>validate</c>. </summary>
+    /// <param name="error"> The normalized execution error. </param>
+    /// <returns> The command result serialized to stdout. </returns>
+    public static CommandResult CreateExecutionError (ExecutionError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return CommandResultFactory.FromExecutionError(UcliCommandNames.Validate, error);
     }
 }
