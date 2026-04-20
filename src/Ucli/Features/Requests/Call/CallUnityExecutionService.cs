@@ -38,7 +38,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(input);
 
-        var baseOutput = TryCreateBaseOutput(preparedRequest.Request.RequestId);
+        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.Request.RequestId);
         var effectivePlanToken = StringValueNormalizer.TrimToNull(input.PlanToken);
 
         if (input.WithPlan)
@@ -160,19 +160,6 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         return CallServiceResult.Success(
             executionOutput ?? throw new InvalidOperationException("Successful call execution must produce an output payload."),
             "uCLI call completed.");
-    }
-
-    private static CallExecutionOutput? TryCreateBaseOutput (string? requestId)
-    {
-        if (string.IsNullOrWhiteSpace(requestId))
-        {
-            return null;
-        }
-
-        return new CallExecutionOutput(
-            RequestId: requestId,
-            OpResults: [],
-            Plan: null);
     }
 
     private static JsonElement CreateExecuteRequestPayload (

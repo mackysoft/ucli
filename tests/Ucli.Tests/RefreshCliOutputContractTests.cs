@@ -55,6 +55,31 @@ public sealed class RefreshCliOutputContractTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        AssertRefreshFailurePayload(outputJson.RootElement);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Refresh_WithInvalidModeOption_PreservesRequestPayload ()
+    {
+        using var scope = TestDirectories.CreateTempScope("refresh-cli-output-contract", "invalid-mode");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Refresh,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Mode,
+            "unsupported");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Refresh,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        AssertRefreshFailurePayload(outputJson.RootElement);
     }
 
     [Fact]
@@ -208,5 +233,15 @@ public sealed class RefreshCliOutputContractTests
         });
 
         scope.WriteFile(relativeConfigPath, configJson);
+    }
+
+    private static void AssertRefreshFailurePayload (JsonElement rootElement)
+    {
+        var payload = rootElement.GetProperty("payload");
+        var requestId = payload.GetProperty("requestId").GetString();
+
+        Assert.True(Guid.TryParseExact(requestId, "D", out _));
+        JsonAssert.For(payload)
+            .HasArrayLength("opResults", 0);
     }
 }

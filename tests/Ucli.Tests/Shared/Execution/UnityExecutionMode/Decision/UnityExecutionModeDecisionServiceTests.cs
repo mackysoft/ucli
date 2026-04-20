@@ -76,23 +76,6 @@ public sealed class UnityExecutionModeDecisionServiceTests
         Assert.Equal(DefaultTimeout, probe.LastTimeout);
     }
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("invalid")]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData("\t")]
-    public void Resolve_WithInvalidMode_ReturnsInvalidArgumentError (string mode)
-    {
-        var result = UnityExecutionModeResolver.Resolve(mode);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Mode);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal("Mode must be auto, daemon, or oneshot.", error.Message);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Decide_WhenProbeFails_ReturnsProbeError ()

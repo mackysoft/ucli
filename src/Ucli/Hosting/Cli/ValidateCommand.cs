@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Requests.Validate;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -31,11 +32,21 @@ internal sealed class ValidateCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
+        var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
+        if (!normalizedReadIndexModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Validate,
+                normalizedReadIndexModeResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
         var serviceResult = await validateService.Execute(
                 new ValidateCommandInput(
                     RequestPath: requestPath,
                     ProjectPath: projectPath,
-                    ReadIndexMode: readIndexMode),
+                    ReadIndexMode: normalizedReadIndexModeResult.Mode),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = ValidateCommandResultFactory.Create(serviceResult);

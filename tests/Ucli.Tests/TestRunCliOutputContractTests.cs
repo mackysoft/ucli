@@ -79,6 +79,64 @@ public sealed class TestRunCliOutputContractTests
             expectedCode: "INVALID_ARGUMENT");
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WithInvalidMode_ReturnsTestRunInvalidInputEnvelope ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Test,
+            UcliCommandNames.RunSubcommand,
+            UcliContractConstants.CliOption.Mode,
+            "unsupported");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.TestRun,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .IsNull("result")
+                .HasString("errorKind", "invalidInput")
+                .IsNull("runId")
+                .IsNull("artifactsDir")
+                .IsNull("summaryJsonPath"));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WithInvalidTestPlatform_ReturnsTestRunInvalidInputEnvelope ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Test,
+            UcliCommandNames.RunSubcommand,
+            UcliContractConstants.CliOption.TestPlatform,
+            "unsupported");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.TestRun,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .IsNull("result")
+                .HasString("errorKind", "invalidInput")
+                .IsNull("runId")
+                .IsNull("artifactsDir")
+                .IsNull("summaryJsonPath"));
+    }
+
     private static Task<CommandExecutionResult> RunTestRun (
         string? projectPath = null,
         bool failFast = false)

@@ -2,6 +2,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Tests;
@@ -80,7 +81,7 @@ public sealed class UnityCommandBuilderTests
                 RepositoryRoot: projectPath,
                 ProjectFingerprint: "fingerprint",
                 PathSource: UnityProjectPathSource.CommandOption),
-            Mode: "oneshot",
+            Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: Path.GetFullPath("./Editors/6000.1.4f1/Editor/Unity"),
             TestPlatform: testPlatform,

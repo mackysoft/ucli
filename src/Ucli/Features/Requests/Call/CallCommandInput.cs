@@ -1,10 +1,12 @@
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
+
 namespace MackySoft.Ucli.Features.Requests.Call;
 
 /// <summary> Represents one normalized <c>call</c> command input. </summary>
 /// <param name="RequestPath"> The optional <c>--requestPath</c> value. </param>
 /// <param name="ProjectPath"> The optional <c>--projectPath</c> value. </param>
-/// <param name="Mode"> The optional <c>--mode</c> value. </param>
-/// <param name="Timeout"> The optional <c>--timeout</c> value in milliseconds. </param>
+/// <param name="Mode"> The normalized <c>--mode</c> value. </param>
+/// <param name="TimeoutMilliseconds"> The normalized <c>--timeout</c> value in milliseconds. </param>
 /// <param name="PlanToken"> The optional <c>--planToken</c> value. </param>
 /// <param name="WithPlan"> Whether one plan-equivalent payload should be returned. </param>
 /// <param name="AllowDangerous"> Whether dangerous operations are explicitly allowed by CLI input. </param>
@@ -12,8 +14,8 @@ namespace MackySoft.Ucli.Features.Requests.Call;
 internal sealed record CallCommandInput (
     string? RequestPath,
     string? ProjectPath,
-    string? Mode,
-    string? Timeout,
+    UnityExecutionMode? Mode,
+    int? TimeoutMilliseconds,
     string? PlanToken,
     bool WithPlan,
     bool AllowDangerous,

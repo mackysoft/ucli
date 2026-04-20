@@ -1,30 +1,29 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Project;
 
-namespace MackySoft.Ucli.Features.Requests.Validate;
+namespace MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 
-/// <summary> Resolves metadata for <c>validate</c> by consulting persisted read-index only. </summary>
-internal sealed class ValidateMetadataResolver : IValidateMetadataResolver
+/// <summary> Resolves static-validation catalogs by consulting persisted read-index artifacts only. </summary>
+internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationCatalogResolver
 {
     private const string ReadIndexDisabledReason = "readIndex disabled by mode.";
 
     private readonly IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader;
 
-    /// <summary> Initializes a new instance of the <see cref="ValidateMetadataResolver" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="ReadIndexValidationCatalogResolver" /> class. </summary>
     /// <param name="persistedOpsCatalogSnapshotLoader"> The persisted snapshot loader dependency. </param>
-    public ValidateMetadataResolver (
+    public ReadIndexValidationCatalogResolver (
         IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader)
     {
         this.persistedOpsCatalogSnapshotLoader = persistedOpsCatalogSnapshotLoader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogSnapshotLoader));
     }
 
     /// <inheritdoc />
-    public async ValueTask<ValidateMetadataResolutionResult> Resolve (
+    public async ValueTask<ReadIndexValidationCatalogResolutionResult> Resolve (
         ResolvedUnityProjectContext unityProject,
         ReadIndexMode readIndexMode,
         CancellationToken cancellationToken = default)
@@ -34,7 +33,7 @@ internal sealed class ValidateMetadataResolver : IValidateMetadataResolver
 
         if (readIndexMode == ReadIndexMode.Disabled)
         {
-            return ValidateMetadataResolutionResult.Success(
+            return ReadIndexValidationCatalogResolutionResult.Success(
                 RequestStaticValidationCatalog.Unavailable,
                 CreateReadIndexMiss(ReadIndexDisabledReason));
         }
@@ -52,7 +51,7 @@ internal sealed class ValidateMetadataResolver : IValidateMetadataResolver
         var freshnessResult = IndexFreshnessPolicy.ApplyModeConstraint(readIndexMode, persistedSnapshot.Freshness);
         if (!freshnessResult.IsSuccess)
         {
-            return ValidateMetadataResolutionResult.Failure(
+            return ReadIndexValidationCatalogResolutionResult.Failure(
                 CreateReadIndexHit(
                     freshnessResult.Freshness,
                     persistedSnapshot.GeneratedAtUtc,
@@ -69,13 +68,13 @@ internal sealed class ValidateMetadataResolver : IValidateMetadataResolver
         catch (InvalidOperationException exception)
         {
             var message = $"Index contract file 'ops.catalog.json' is malformed. {exception.Message}";
-            return ValidateMetadataResolutionResult.Failure(
+            return ReadIndexValidationCatalogResolutionResult.Failure(
                 CreateReadIndexMiss(message),
                 IpcErrorCodes.ReadIndexFormatInvalid,
                 message);
         }
 
-        return ValidateMetadataResolutionResult.Success(
+        return ReadIndexValidationCatalogResolutionResult.Success(
             RequestStaticValidationCatalog.Available(operations),
             CreateReadIndexHit(
                 persistedSnapshot.Freshness,
@@ -83,7 +82,7 @@ internal sealed class ValidateMetadataResolver : IValidateMetadataResolver
                 fallbackReason: null));
     }
 
-    private static ValidateMetadataResolutionResult HandleSnapshotLoadFailure (
+    private static ReadIndexValidationCatalogResolutionResult HandleSnapshotLoadFailure (
         IndexServiceError error,
         ReadIndexMode readIndexMode)
     {
@@ -92,12 +91,12 @@ internal sealed class ValidateMetadataResolver : IValidateMetadataResolver
         if ((readIndexMode == ReadIndexMode.AllowStale)
             && string.Equals(error.Code, IpcErrorCodes.ReadIndexBootstrapFailed, StringComparison.Ordinal))
         {
-            return ValidateMetadataResolutionResult.Success(
+            return ReadIndexValidationCatalogResolutionResult.Success(
                 RequestStaticValidationCatalog.Unavailable,
                 CreateReadIndexMiss(error.Message));
         }
 
-        return ValidateMetadataResolutionResult.Failure(
+        return ReadIndexValidationCatalogResolutionResult.Failure(
             CreateReadIndexMiss(error.Message),
             error.Code,
             error.Message);

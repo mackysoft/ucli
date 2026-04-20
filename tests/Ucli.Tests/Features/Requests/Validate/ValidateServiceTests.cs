@@ -1,18 +1,11 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Features.Requests.Validate;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Project;
@@ -23,67 +16,62 @@ public sealed class ValidateServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenPreparationFails_ReturnsFailureWithoutOutput ()
+    public async Task Execute_WhenRequestPreparationFails_ReturnsFailureWithoutOutput ()
     {
-        var error = ExecutionError.InvalidArgument("request is invalid.");
+        var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Success(
+            CreatePreparedRequestContext(),
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: ReadIndexInfoTextCodec.FreshnessProbable)));
         var service = new ValidateService(
-            new StubRequestPreparationService(RequestPreparationResult.Failure(error)),
+            new StubRequestPreparationService(RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project path is invalid."))),
             new StubRequestStaticValidator(ValidationResult.Success()),
-            new StubValidateMetadataResolver(CreateMetadataSuccessResult()));
+            preflightService);
 
-        var result = await service.Execute(new ValidateCommandInput(null, "/tmp/project", null), CancellationToken.None);
+        var result = await service.Execute(
+            new ValidateCommandInput(null, "/tmp/project", null),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Null(result.Output);
+        Assert.Equal(0, preflightService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenReadIndexModeIsInvalid_ReturnsFailureWithoutOutput ()
+    public async Task Execute_WhenSharedPreflightFails_ReturnsFailureWithReadIndexOutput ()
     {
-        var service = new ValidateService(
-            new StubRequestPreparationService(
-                RequestPreparationResult.Success(CreatePreparedRequestContext())),
-            new StubRequestStaticValidator(ValidationResult.Success()),
-            new StubValidateMetadataResolver(CreateMetadataSuccessResult()));
-
-        var result = await service.Execute(new ValidateCommandInput(null, "/tmp/project", "unsupported"), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.False(result.HasValidationErrors);
-        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
-        Assert.Null(result.Output);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenMetadataResolutionFails_ReturnsFailureWithReadIndexOutput ()
-    {
+        var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Failure(
+            ExecutionError.InternalError("Index contract file 'ops.catalog.json' is malformed."),
+            CreatePreparedRequestContext(),
+            CreateReadIndexInfo(
+                used: false,
+                hit: false,
+                freshness: ReadIndexInfoTextCodec.FreshnessProbable),
+            IpcErrorCodes.ReadIndexFormatInvalid));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
             new StubRequestStaticValidator(ValidationResult.Success()),
-            new StubValidateMetadataResolver(ValidateMetadataResolutionResult.Failure(
-                CreateReadIndexInfo(
-                    used: false,
-                    hit: false,
-                    freshness: ReadIndexInfoTextCodec.FreshnessProbable),
-                IpcErrorCodes.ReadIndexFormatInvalid,
-                "Index contract file 'ops.catalog.json' is malformed.")));
+            preflightService);
 
-        var result = await service.Execute(new ValidateCommandInput(null, "/tmp/project", null), CancellationToken.None);
+        var result = await service.Execute(
+            new ValidateCommandInput(null, "/tmp/project", null),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(result.HasValidationErrors);
         Assert.Equal(IpcErrorCodes.ReadIndexFormatInvalid, result.ErrorCode);
         Assert.NotNull(result.Output);
         Assert.False(result.Output!.ReadIndex.Used);
+        Assert.Equal(1, preflightService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenStaticValidationReturnsErrors_ReturnsValidationFailure ()
+    public async Task Execute_WhenSharedPreflightHasValidationErrors_ReturnsValidationFailure ()
     {
         ValidationError[] validationErrors =
         [
@@ -92,12 +80,21 @@ public sealed class ValidateServiceTests
                 "Operation args are invalid.",
                 "step-1"),
         ];
+        var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.ValidationFailure(
+            CreatePreparedRequestContext(),
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: ReadIndexInfoTextCodec.FreshnessProbable),
+            validationErrors));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
-            new StubRequestStaticValidator(new ValidationResult(validationErrors)),
-            new StubValidateMetadataResolver(CreateMetadataSuccessResult()));
+            new StubRequestStaticValidator(ValidationResult.Success()),
+            preflightService);
 
-        var result = await service.Execute(new ValidateCommandInput(null, "/tmp/project", null), CancellationToken.None);
+        var result = await service.Execute(
+            new ValidateCommandInput(null, "/tmp/project", null),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.HasValidationErrors);
@@ -109,43 +106,52 @@ public sealed class ValidateServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenValidationSucceeds_ReturnsSuccess ()
+    public async Task Execute_WhenSharedPreflightSucceeds_ReturnsSuccess ()
     {
-        var validator = new SpyRequestStaticValidator(ValidationResult.Success());
-        var metadataResolver = new StubValidateMetadataResolver(CreateMetadataSuccessResult());
+        var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Success(
+            CreatePreparedRequestContext(),
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: ReadIndexInfoTextCodec.FreshnessProbable)));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
-            validator,
-            metadataResolver);
+            new StubRequestStaticValidator(ValidationResult.Success()),
+            preflightService);
 
-        var result = await service.Execute(new ValidateCommandInput(null, "/tmp/project", null), CancellationToken.None);
+        var result = await service.Execute(
+            new ValidateCommandInput(null, "/tmp/project", null),
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Static validation passed.", result.Message);
         Assert.NotNull(result.Output);
         Assert.True(result.Output!.ReadIndex.Used);
-        Assert.True(validator.LastCatalog!.IsAvailable);
-        Assert.Single(validator.LastCatalog.Operations);
-        Assert.Equal(1, metadataResolver.CallCount);
+        Assert.Equal(1, preflightService.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenExplicitReadIndexModeIsDisabled_SkipsProjectPreparationAndMetadataResolution ()
+    public async Task Execute_WhenExplicitReadIndexModeIsDisabled_SkipsProjectPreparationAndSharedPreflight ()
     {
         var parsedRequest = CreateParsedRequestContext();
         var requestPreparationService = new StubRequestPreparationService(
             RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project is invalid.")),
             ParsedRequestResult.Success(parsedRequest));
         var validator = new SpyRequestStaticValidator(ValidationResult.Success());
-        var metadataResolver = new StubValidateMetadataResolver(CreateMetadataSuccessResult());
+        var preflightService = new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Success(
+            CreatePreparedRequestContext(),
+            CreateReadIndexInfo(
+                used: true,
+                hit: true,
+                freshness: ReadIndexInfoTextCodec.FreshnessProbable)));
         var service = new ValidateService(
             requestPreparationService,
             validator,
-            metadataResolver);
+            preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, null, ReadIndexModeValues.Disabled),
+            new ValidateCommandInput(null, null, ReadIndexMode.Disabled),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -154,9 +160,9 @@ public sealed class ValidateServiceTests
         Assert.False(result.Output.ReadIndex.Hit);
         Assert.Equal("readIndex disabled by mode.", result.Output.ReadIndex.FallbackReason);
         Assert.False(validator.LastCatalog!.IsAvailable);
-        Assert.Equal(0, metadataResolver.CallCount);
         Assert.Equal(1, requestPreparationService.ReadAndParseCallCount);
         Assert.Equal(0, requestPreparationService.PrepareCallCount);
+        Assert.Equal(0, preflightService.CallCount);
     }
 
     private static ParsedRequestContext CreateParsedRequestContext ()
@@ -189,23 +195,6 @@ public sealed class ValidateServiceTests
                 ConfigSource.Default));
     }
 
-    private static ValidateMetadataResolutionResult CreateMetadataSuccessResult ()
-    {
-        return ValidateMetadataResolutionResult.Success(
-            RequestStaticValidationCatalog.Available(
-            [
-                new UcliOperationDescriptor(
-                    Name: "ucli.scene.open",
-                    Kind: UcliOperationKind.Query,
-                    Policy: OperationPolicy.Safe,
-                    ArgsSchemaJson: """{"type":"object"}"""),
-            ]),
-            CreateReadIndexInfo(
-                used: true,
-                hit: true,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable));
-    }
-
     private static ReadIndexInfo CreateReadIndexInfo (
         bool used,
         bool hit,
@@ -216,8 +205,12 @@ public sealed class ValidateServiceTests
             Hit: hit,
             Source: ReadIndexInfoTextCodec.SourceIndex,
             Freshness: freshness,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-            FallbackReason: null);
+            GeneratedAtUtc: used
+                ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")
+                : null,
+            FallbackReason: used
+                ? null
+                : "readIndex disabled by mode.");
     }
 
     private sealed class StubRequestPreparationService : IRequestPreparationService
@@ -279,20 +272,20 @@ public sealed class ValidateServiceTests
         }
     }
 
-    private sealed class StubValidateMetadataResolver : IValidateMetadataResolver
+    private sealed class StubRequestStaticValidationPreflightService : IRequestStaticValidationPreflightService
     {
-        private readonly ValidateMetadataResolutionResult result;
+        private readonly RequestStaticValidationPreflightResult result;
 
-        public StubValidateMetadataResolver (ValidateMetadataResolutionResult result)
+        public StubRequestStaticValidationPreflightService (RequestStaticValidationPreflightResult result)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
         public int CallCount { get; private set; }
 
-        public ValueTask<ValidateMetadataResolutionResult> Resolve (
-            ResolvedUnityProjectContext unityProject,
-            ReadIndexMode readIndexMode,
+        public ValueTask<RequestStaticValidationPreflightResult> Prepare (
+            PreparedRequestContext preparedRequest,
+            ReadIndexMode? readIndexMode,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -338,6 +331,7 @@ public sealed class ValidateServiceTests
             UcliConfig config,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             LastCatalog = catalog;
             return ValueTask.FromResult(result);
         }

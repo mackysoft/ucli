@@ -3,24 +3,18 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Plan;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Features.Requests.Validate;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 using MackySoft.Ucli.UnityIntegration.Project;
+using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -28,10 +22,8 @@ public sealed class PlanServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenReadIndexModeIsDisabled_UsesSyntaxOnlyValidationAndPlanIpc ()
+    public async Task Execute_WhenStaticPreflightSucceeds_UsesPlanIpcPayloadAndReturnsSuccess ()
     {
-        var validator = new SpyRequestStaticValidator(ValidationResult.Success());
-        var metadataResolver = new StubValidateMetadataResolver(CreateMetadataSuccessResult());
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
@@ -48,19 +40,22 @@ public sealed class PlanServiceTests
                 errors: [],
                 planToken: "plan-token-1")));
         var service = new PlanService(
-            new StubRequestPreparationService(ParsedRequestResult.Success(CreateParsedRequestContext())),
-            new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
-            metadataResolver,
-            validator,
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    fallbackReason: null))),
             unityIpcRequestExecutor);
 
         var result = await service.Execute(
             new PlanCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: "oneshot",
-                Timeout: "1234",
-                ReadIndexMode: ReadIndexModeValues.Disabled,
+                Mode: NormalizeMode("oneshot"),
+                TimeoutMilliseconds: NormalizeTimeout("1234"),
+                ReadIndexMode: null,
                 FailFast: true),
             CancellationToken.None);
 
@@ -69,11 +64,7 @@ public sealed class PlanServiceTests
         Assert.NotNull(result.Output);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
         Assert.Equal("plan-token-1", result.Output.PlanToken);
-        Assert.False(result.Output.ReadIndex.Used);
-        Assert.False(result.Output.ReadIndex.Hit);
-        Assert.Equal("readIndex disabled by mode.", result.Output.ReadIndex.FallbackReason);
-        Assert.False(validator.LastCatalog!.IsAvailable);
-        Assert.Equal(0, metadataResolver.CallCount);
+        Assert.True(result.Output.ReadIndex.Used);
         Assert.Equal(1, unityIpcRequestExecutor.CallCount);
         Assert.Equal(UcliCommandIds.Plan, unityIpcRequestExecutor.CapturedCommand);
         Assert.Equal(UnityExecutionMode.Oneshot, unityIpcRequestExecutor.CapturedMode);
@@ -94,17 +85,8 @@ public sealed class PlanServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenAllowStaleFallsBackToSyntaxOnly_ContinuesToUnityExecution ()
+    public async Task Execute_WhenPreflightAllowsSyntaxOnlyFallback_ContinuesToUnityExecution ()
     {
-        var validator = new SpyRequestStaticValidator(ValidationResult.Success());
-        var readIndex = CreateReadIndexInfo(
-            used: false,
-            hit: false,
-            freshness: ReadIndexInfoTextCodec.FreshnessProbable,
-            fallbackReason: "Index contract file was not found: ops.catalog.json.");
-        var metadataResolver = new StubValidateMetadataResolver(ValidateMetadataResolutionResult.Success(
-            RequestStaticValidationCatalog.Unavailable,
-            readIndex));
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
@@ -112,19 +94,22 @@ public sealed class PlanServiceTests
                 errors: [],
                 planToken: "plan-token-1")));
         var service = new PlanService(
-            new StubRequestPreparationService(ParsedRequestResult.Success(CreateParsedRequestContext())),
-            new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
-            metadataResolver,
-            validator,
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
+                CreateReadIndexInfo(
+                    used: false,
+                    hit: false,
+                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    fallbackReason: "Index contract file was not found: ops.catalog.json."))),
             unityIpcRequestExecutor);
 
         var result = await service.Execute(
             new PlanCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.AllowStale,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
+                ReadIndexMode: ReadIndexMode.AllowStale,
                 FailFast: false),
             CancellationToken.None);
 
@@ -133,39 +118,34 @@ public sealed class PlanServiceTests
         Assert.False(result.Output!.ReadIndex.Used);
         Assert.False(result.Output.ReadIndex.Hit);
         Assert.Contains("ops.catalog.json", result.Output.ReadIndex.FallbackReason, StringComparison.Ordinal);
-        Assert.False(validator.LastCatalog!.IsAvailable);
-        Assert.Equal(1, metadataResolver.CallCount);
         Assert.Equal(1, unityIpcRequestExecutor.CallCount);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenRequireFreshMetadataResolutionFails_ReturnsFailureWithoutCallingUnity ()
+    public async Task Execute_WhenPreflightFailsWithReadIndexError_ReturnsFailureWithoutCallingUnity ()
     {
-        var readIndex = CreateReadIndexInfo(
-            used: true,
-            hit: true,
-            freshness: ReadIndexInfoTextCodec.FreshnessStale,
-            fallbackReason: "readIndexMode=requireFresh requires index freshness 'fresh'.");
-        var metadataResolver = new StubValidateMetadataResolver(ValidateMetadataResolutionResult.Failure(
-            readIndex,
-            IpcErrorCodes.ReadIndexFreshRequired,
-            "readIndexMode=requireFresh requires index freshness 'fresh'."));
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor();
         var service = new PlanService(
-            new StubRequestPreparationService(ParsedRequestResult.Success(CreateParsedRequestContext())),
-            new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
-            metadataResolver,
-            new SpyRequestStaticValidator(ValidationResult.Success()),
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Failure(
+                ExecutionError.InternalError("readIndexMode=requireFresh requires index freshness 'fresh'."),
+                CreatePreparedRequestContext(),
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: ReadIndexInfoTextCodec.FreshnessStale,
+                    fallbackReason: "readIndexMode=requireFresh requires index freshness 'fresh'."),
+                IpcErrorCodes.ReadIndexFreshRequired)),
             unityIpcRequestExecutor);
 
         var result = await service.Execute(
             new PlanCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
-                ReadIndexMode: ReadIndexModeValues.RequireFresh,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
+                ReadIndexMode: ReadIndexMode.RequireFresh,
                 FailFast: false),
             CancellationToken.None);
 
@@ -183,7 +163,36 @@ public sealed class PlanServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenStaticValidationFails_ReturnsInvalidArgumentWithoutCallingUnity ()
+    public async Task Execute_WhenPreflightFailsWithInvalidArgument_ReturnsFailureWithoutOutput ()
+    {
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor();
+        var service = new PlanService(
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.Failure(
+                ExecutionError.InvalidArgument("readIndexMode is invalid."))),
+            unityIpcRequestExecutor);
+
+        var result = await service.Execute(
+            new PlanCommandInput(
+                RequestPath: null,
+                ProjectPath: "/repo/UnityProject",
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
+                ReadIndexMode: ReadIndexMode.RequireFresh,
+                FailFast: false),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Null(result.Output);
+        Assert.Equal(0, unityIpcRequestExecutor.CallCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenPreflightHasValidationErrors_ReturnsInvalidArgumentWithoutCallingUnity ()
     {
         ValidationError[] validationErrors =
         [
@@ -194,18 +203,23 @@ public sealed class PlanServiceTests
         ];
         var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor();
         var service = new PlanService(
-            new StubRequestPreparationService(ParsedRequestResult.Success(CreateParsedRequestContext())),
-            new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
-            new StubValidateMetadataResolver(CreateMetadataSuccessResult()),
-            new SpyRequestStaticValidator(new ValidationResult(validationErrors)),
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(RequestStaticValidationPreflightResult.ValidationFailure(
+                CreatePreparedRequestContext(),
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    fallbackReason: null),
+                validationErrors)),
             unityIpcRequestExecutor);
 
         var result = await service.Execute(
             new PlanCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: null,
                 FailFast: false),
             CancellationToken.None);
@@ -238,18 +252,21 @@ public sealed class PlanServiceTests
                 errors: [],
                 planToken: null)));
         var service = new PlanService(
-            new StubRequestPreparationService(ParsedRequestResult.Success(CreateParsedRequestContext())),
-            new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
-            new StubValidateMetadataResolver(CreateMetadataSuccessResult()),
-            new SpyRequestStaticValidator(ValidationResult.Success()),
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    fallbackReason: null))),
             unityIpcRequestExecutor);
 
         var result = await service.Execute(
             new PlanCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: null,
                 FailFast: false),
             CancellationToken.None);
@@ -274,18 +291,21 @@ public sealed class PlanServiceTests
             "Unity execution failed.",
             errorCode));
         var service = new PlanService(
-            new StubRequestPreparationService(ParsedRequestResult.Success(CreateParsedRequestContext())),
-            new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())),
-            new StubValidateMetadataResolver(CreateMetadataSuccessResult()),
-            new SpyRequestStaticValidator(ValidationResult.Success()),
+            new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
+            new StubRequestStaticValidationPreflightService(CreateSuccessPreflightResult(
+                CreateReadIndexInfo(
+                    used: true,
+                    hit: true,
+                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    fallbackReason: null))),
             unityIpcRequestExecutor);
 
         var result = await service.Execute(
             new PlanCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: null,
                 FailFast: false),
             CancellationToken.None);
@@ -299,9 +319,14 @@ public sealed class PlanServiceTests
         Assert.Equal(errorCode, error.Code);
     }
 
-    private static ParsedRequestContext CreateParsedRequestContext ()
+    private static RequestStaticValidationPreflightResult CreateSuccessPreflightResult (ReadIndexInfo readIndex)
     {
-        return new ParsedRequestContext(
+        return RequestStaticValidationPreflightResult.Success(CreatePreparedRequestContext(), readIndex);
+    }
+
+    private static PreparedRequestContext CreatePreparedRequestContext ()
+    {
+        return new PreparedRequestContext(
             RequestJson: """
                 {
                   "protocolVersion": 1,
@@ -313,37 +338,15 @@ public sealed class PlanServiceTests
             Request: new ValidateRequest(
                 ProtocolVersion: 1,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Steps: Array.Empty<ValidateRequestStep?>()));
-    }
-
-    private static ProjectContext CreateProjectContext ()
-    {
-        return new ProjectContext(
-            new ResolvedUnityProjectContext(
-                UnityProjectRoot: "/repo/UnityProject",
-                RepositoryRoot: "/repo",
-                ProjectFingerprint: "project-fingerprint",
-                PathSource: UnityProjectPathSource.CommandOption),
-            UcliConfig.CreateDefault(),
-            ConfigSource.Default);
-    }
-
-    private static ValidateMetadataResolutionResult CreateMetadataSuccessResult ()
-    {
-        return ValidateMetadataResolutionResult.Success(
-            RequestStaticValidationCatalog.Available(
-            [
-                new UcliOperationDescriptor(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: UcliOperationKind.Query,
-                    Policy: OperationPolicy.Safe,
-                    ArgsSchemaJson: """{"type":"object"}"""),
-            ]),
-            CreateReadIndexInfo(
-                used: true,
-                hit: true,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable,
-                fallbackReason: null));
+                Steps: Array.Empty<ValidateRequestStep?>()),
+            ProjectContext: new ProjectContext(
+                new ResolvedUnityProjectContext(
+                    UnityProjectRoot: "/repo/UnityProject",
+                    RepositoryRoot: "/repo",
+                    ProjectFingerprint: "project-fingerprint",
+                    PathSource: UnityProjectPathSource.CommandOption),
+                UcliConfig.CreateDefault(),
+                ConfigSource.Default));
     }
 
     private static ReadIndexInfo CreateReadIndexInfo (
@@ -380,21 +383,39 @@ public sealed class PlanServiceTests
             Errors: errors);
     }
 
+    private sealed class StubRequestStaticValidationPreflightService : IRequestStaticValidationPreflightService
+    {
+        private readonly RequestStaticValidationPreflightResult result;
+
+        public StubRequestStaticValidationPreflightService (RequestStaticValidationPreflightResult result)
+        {
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
+        }
+
+        public ValueTask<RequestStaticValidationPreflightResult> Prepare (
+            PreparedRequestContext preparedRequest,
+            ReadIndexMode? readIndexMode,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
+        }
+    }
+
     private sealed class StubRequestPreparationService : IRequestPreparationService
     {
-        private readonly ParsedRequestResult readAndParseResult;
+        private readonly RequestPreparationResult result;
 
-        public StubRequestPreparationService (ParsedRequestResult readAndParseResult)
+        public StubRequestPreparationService (RequestPreparationResult result)
         {
-            this.readAndParseResult = readAndParseResult ?? throw new ArgumentNullException(nameof(readAndParseResult));
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
         public ValueTask<ParsedRequestResult> ReadAndParse (
             string? requestPath,
             CancellationToken cancellationToken = default)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(readAndParseResult);
+            throw new NotSupportedException();
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
@@ -402,69 +423,7 @@ public sealed class PlanServiceTests
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
-            throw new NotSupportedException();
-        }
-    }
-
-    private sealed class StubProjectContextResolver : IProjectContextResolver
-    {
-        private readonly ProjectContextResolutionResult result;
-
-        public StubProjectContextResolver (ProjectContextResolutionResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public ValueTask<ProjectContextResolutionResult> Resolve (
-            string? projectPath,
-            CancellationToken cancellationToken = default)
-        {
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
-        }
-    }
-
-    private sealed class StubValidateMetadataResolver : IValidateMetadataResolver
-    {
-        private readonly ValidateMetadataResolutionResult result;
-
-        public StubValidateMetadataResolver (ValidateMetadataResolutionResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public int CallCount { get; private set; }
-
-        public ValueTask<ValidateMetadataResolutionResult> Resolve (
-            ResolvedUnityProjectContext unityProject,
-            ReadIndexMode readIndexMode,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            CallCount++;
-            return ValueTask.FromResult(result);
-        }
-    }
-
-    private sealed class SpyRequestStaticValidator : IRequestStaticValidator
-    {
-        private readonly ValidationResult result;
-
-        public SpyRequestStaticValidator (ValidationResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public RequestStaticValidationCatalog? LastCatalog { get; private set; }
-
-        public ValueTask<ValidationResult> Validate (
-            ValidateRequest request,
-            RequestStaticValidationCatalog catalog,
-            UcliConfig config,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            LastCatalog = catalog;
             return ValueTask.FromResult(result);
         }
     }

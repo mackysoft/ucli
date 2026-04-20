@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
@@ -7,10 +8,8 @@ namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 /// <summary> Merges CLI values, profile values, and defaults into normalized test-run configuration. </summary>
 internal static class TestRunConfigurationMerger
 {
-    private const string DefaultMode = "auto";
-
     /// <summary> Merges one command input and profile configuration into a normalized configuration. </summary>
-    /// <param name="cli"> The raw CLI input values. </param>
+    /// <param name="cli"> The interpreted CLI input values. </param>
     /// <param name="profile"> The optional loaded profile. </param>
     /// <param name="projectPath"> The resolved project path candidate selected before merge. </param>
     /// <returns> The merged normalized configuration. </returns>
@@ -22,16 +21,15 @@ internal static class TestRunConfigurationMerger
         ArgumentNullException.ThrowIfNull(cli);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
 
-        var mode = NormalizeMode(cli.Mode ?? DefaultMode);
-        var mergedRawTestPlatform = cli.TestPlatform ?? profile?.TestPlatform ?? IpcTestRunPlatformCodec.EditMode;
-        var hasParsedTestPlatform = IpcTestRunPlatformCodec.TryParse(mergedRawTestPlatform, out var parsedTestPlatform);
+        var mode = ResolveMode(cli);
+        var (mergedRawTestPlatform, parsedTestPlatform) = ResolveTestPlatform(cli, profile);
 
         return new MergedTestRunConfiguration(
             ProjectPath: Path.GetFullPath(projectPath),
             Mode: mode,
             UnityVersion: StringValueNormalizer.TrimToNull(cli.UnityVersion ?? profile?.UnityVersion),
             UnityEditorPath: NormalizeOptionalPath(cli.UnityEditorPath ?? profile?.UnityEditorPath),
-            TestPlatform: hasParsedTestPlatform ? parsedTestPlatform : null,
+            TestPlatform: parsedTestPlatform,
             RawTestPlatform: mergedRawTestPlatform,
             BuildTarget: StringValueNormalizer.TrimToNull(cli.BuildTarget ?? profile?.BuildTarget),
             TestFilter: StringValueNormalizer.TrimToNull(cli.TestFilter ?? profile?.TestFilter),
@@ -54,17 +52,34 @@ internal static class TestRunConfigurationMerger
         return Path.GetFullPath(normalizedPathValue);
     }
 
-    /// <summary> Normalizes mode option value into one trimmed token. </summary>
-    /// <param name="modeValue"> The raw mode option value. </param>
-    /// <returns> The normalized mode value. </returns>
-    private static string NormalizeMode (string modeValue)
+    private static UnityExecutionMode ResolveMode (
+        TestRunCommandInput cli)
     {
-        if (StringValueNormalizer.TryTrimToNonEmpty(modeValue, out var normalizedModeValue))
+        ArgumentNullException.ThrowIfNull(cli);
+
+        if (cli.Mode.HasValue)
         {
-            return normalizedModeValue;
+            return cli.Mode!.Value;
         }
 
-        return modeValue;
+        return UnityExecutionMode.Auto;
+    }
+
+    private static (string RawValue, IpcTestRunPlatform? ParsedValue) ResolveTestPlatform (
+        TestRunCommandInput cli,
+        TestRunProfile? profile)
+    {
+        ArgumentNullException.ThrowIfNull(cli);
+
+        if (cli.TestPlatform.HasValue)
+        {
+            var parsedValue = cli.TestPlatform.Value;
+            return (IpcTestRunPlatformCodec.ToValue(parsedValue), parsedValue);
+        }
+
+        var rawValue = profile?.TestPlatform ?? IpcTestRunPlatformCodec.EditMode;
+        var hasParsedValue = IpcTestRunPlatformCodec.TryParse(rawValue, out var parsedValueFromProfile);
+        return (rawValue, hasParsedValue ? parsedValueFromProfile : null);
     }
 
     /// <summary> Normalizes list values by splitting comma-separated tokens and removing duplicates. </summary>

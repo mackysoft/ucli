@@ -1,4 +1,3 @@
-using System.Globalization;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
@@ -39,7 +38,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
     }
 
     /// <summary> Executes one preflight flow and returns either resolved configuration or failure output. </summary>
-    /// <param name="input"> The raw command input values. </param>
+    /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to preflight result values. </returns>
     public async ValueTask<TestRunPreflightResult> Execute (
@@ -66,8 +65,8 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(configLoadResult.Error!));
         }
 
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(
-            configuration.TimeoutMilliseconds?.ToString(CultureInfo.InvariantCulture),
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            configuration.TimeoutMilliseconds,
             UcliCommandIds.Test,
             configLoadResult.Config!);
         if (!timeoutResolutionResult.IsSuccess)
@@ -76,15 +75,8 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
                 TestRunServiceErrorMapper.MapExecutionError(timeoutResolutionResult.Error!));
         }
 
-        var executionModeResult = UnityExecutionModeResolver.Resolve(configuration.Mode);
-        if (!executionModeResult.IsSuccess)
-        {
-            return TestRunPreflightResult.FailureResult(
-                TestRunServiceErrorMapper.MapExecutionError(executionModeResult.Error!));
-        }
-
         var modeDecisionResult = await modeDecisionService.Decide(
-            mode: executionModeResult.Mode!.Value,
+            mode: configuration.Mode,
             unityProject: configuration.UnityProject,
             timeout: timeoutResolutionResult.Timeout!.Value,
             cancellationToken).ConfigureAwait(false);
@@ -110,7 +102,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
     }
 
     /// <summary> Resolves run configuration and converts unexpected exceptions into structured failures. </summary>
-    /// <param name="input"> The raw command input values. </param>
+    /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the configuration resolution result. </returns>
     /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled during resolution. </exception>

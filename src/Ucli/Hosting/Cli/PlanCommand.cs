@@ -1,5 +1,7 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Features.Requests.Plan;
+using MackySoft.Ucli.Features.Requests.Plan.Preflight;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -8,11 +10,17 @@ internal sealed class PlanCommand
 {
     private readonly IPlanService planService;
 
+    private readonly IPlanCommandPreflightService planCommandPreflightService;
+
     /// <summary> Initializes a new instance of the <see cref="PlanCommand" /> class. </summary>
     /// <param name="planService"> The plan workflow service dependency. </param>
-    public PlanCommand (IPlanService planService)
+    /// <param name="planCommandPreflightService"> The command preflight dependency used to preserve the plan payload on option failures. </param>
+    public PlanCommand (
+        IPlanService planService,
+        IPlanCommandPreflightService planCommandPreflightService)
     {
         this.planService = planService ?? throw new ArgumentNullException(nameof(planService));
+        this.planCommandPreflightService = planCommandPreflightService ?? throw new ArgumentNullException(nameof(planCommandPreflightService));
     }
 
     /// <summary> Executes the <c>plan</c> command and emits the JSON result contract. </summary>
@@ -37,13 +45,59 @@ internal sealed class PlanCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
+        var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
+        if (!normalizedReadIndexModeResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Plan,
+                normalizedReadIndexModeResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var preflightResult = await planCommandPreflightService.Prepare(
+                    requestPath,
+                    projectPath,
+                    normalizedReadIndexModeResult.Mode,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var failureResult = preflightResult.FailureResult
+                ?? PlanFailureResultFactory.FromExecutionError(
+                    normalizedTimeoutResult.Error!,
+                    preflightResult.Output);
+            var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
+            CommandResultWriter.WriteToStandardOutput(commandFailureResult);
+            return commandFailureResult.ExitCode;
+        }
+
+        var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
+        if (!normalizedModeResult.IsSuccess)
+        {
+            var preflightResult = await planCommandPreflightService.Prepare(
+                    requestPath,
+                    projectPath,
+                    normalizedReadIndexModeResult.Mode,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            var failureResult = preflightResult.FailureResult
+                ?? PlanFailureResultFactory.FromExecutionError(
+                    normalizedModeResult.Error!,
+                    preflightResult.Output);
+            var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
+            CommandResultWriter.WriteToStandardOutput(commandFailureResult);
+            return commandFailureResult.ExitCode;
+        }
+
         var serviceResult = await planService.Execute(
                 new PlanCommandInput(
                     RequestPath: requestPath,
                     ProjectPath: projectPath,
-                    Mode: mode,
-                    Timeout: timeout,
-                    ReadIndexMode: readIndexMode,
+                    Mode: normalizedModeResult.Mode,
+                    TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
+                    ReadIndexMode: normalizedReadIndexModeResult.Mode,
                     FailFast: failFast),
                 cancellationToken)
             .ConfigureAwait(false);

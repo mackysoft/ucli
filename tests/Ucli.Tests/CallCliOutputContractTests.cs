@@ -170,6 +170,62 @@ public sealed class CallCliOutputContractTests
                 .HasString("code", UnityExecutionModeDecisionErrorCodes.DaemonNotRunning));
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Call_WithInvalidTimeoutOption_PreservesRequestPayload ()
+    {
+        using var scope = TestDirectories.CreateTempScope("call-cli-output-contract", "invalid-timeout");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
+        var result = await CliProcessRunner.RunCommandWithStandardInput(
+            CreateRequestJson(),
+            UcliCommandNames.Call,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            "abc");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Call,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Call_WithInvalidModeOption_PreservesRequestPayload ()
+    {
+        using var scope = TestDirectories.CreateTempScope("call-cli-output-contract", "invalid-mode");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+
+        var result = await CliProcessRunner.RunCommandWithStandardInput(
+            CreateRequestJson(),
+            UcliCommandNames.Call,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.Mode,
+            "unsupported");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Call,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0));
+    }
+
     private static string CreateRequestJson ()
     {
         return JsonSerializer.Serialize(new

@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
-/// <summary> Parses and normalizes Unity execution mode option values. </summary>
-internal static class UnityExecutionModeParser
+/// <summary> Converts Unity execution mode values between raw literals and typed values. </summary>
+internal static class UnityExecutionModeCodec
 {
     private const string AutoValue = "auto";
 
@@ -50,5 +50,20 @@ internal static class UnityExecutionModeParser
 
         mode = default;
         return false;
+    }
+
+    /// <summary> Converts one Unity execution mode value to the canonical CLI literal. </summary>
+    /// <param name="mode"> The execution mode value. </param>
+    /// <returns> The canonical CLI literal. </returns>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="mode" /> is unsupported. </exception>
+    public static string ToValue (UnityExecutionMode mode)
+    {
+        return mode switch
+        {
+            UnityExecutionMode.Auto => AutoValue,
+            UnityExecutionMode.Daemon => DaemonValue,
+            UnityExecutionMode.Oneshot => OneshotValue,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported execution mode."),
+        };
     }
 }

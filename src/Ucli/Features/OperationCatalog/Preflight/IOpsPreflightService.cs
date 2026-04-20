@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Features.OperationCatalog.Preflight;
 internal interface IOpsPreflightService
 {
     /// <summary> Executes one preflight flow and returns either resolved context or failure output. </summary>
-    /// <param name="input"> The raw command input values. </param>
+    /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to preflight result values. </returns>
     ValueTask<OpsPreflightResult> Execute (

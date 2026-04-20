@@ -74,7 +74,7 @@ internal sealed class OpsService : IOpsService
                 new OpsCommandInput(
                     ProjectPath: input.ProjectPath,
                     Mode: input.Mode,
-                    Timeout: input.Timeout,
+                    TimeoutMilliseconds: input.TimeoutMilliseconds,
                     ReadIndexMode: input.ReadIndexMode,
                     FailFast: input.FailFast),
                 cancellationToken)

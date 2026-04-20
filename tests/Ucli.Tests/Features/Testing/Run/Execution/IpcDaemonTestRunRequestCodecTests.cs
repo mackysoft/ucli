@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Tests;
@@ -47,7 +48,7 @@ public sealed class IpcDaemonTestRunRequestCodecTests
                 RepositoryRoot: scope.FullPath,
                 ProjectFingerprint: "fingerprint",
                 PathSource: UnityProjectPathSource.CommandOption),
-            Mode: "daemon",
+            Mode: UnityExecutionMode.Daemon,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
             TestPlatform: IpcTestRunPlatform.PlayMode,

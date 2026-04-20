@@ -9,13 +9,13 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
 
-public sealed class UnityExecutionModeParserTests
+public sealed class UnityExecutionModeCodecTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public void TryParse_WithNullValue_ReturnsAuto ()
     {
-        var result = UnityExecutionModeParser.TryParse(null, out var mode);
+        var result = UnityExecutionModeCodec.TryParse(null, out var mode);
 
         Assert.True(result);
         Assert.Equal(UnityExecutionMode.Auto, mode);
@@ -33,7 +33,7 @@ public sealed class UnityExecutionModeParserTests
         string value,
         int expectedMode)
     {
-        var result = UnityExecutionModeParser.TryParse(value, out var mode);
+        var result = UnityExecutionModeCodec.TryParse(value, out var mode);
 
         Assert.True(result);
         Assert.Equal((UnityExecutionMode)expectedMode, mode);
@@ -49,7 +49,7 @@ public sealed class UnityExecutionModeParserTests
     [InlineData("1")]
     public void TryParse_WithUnsupportedValue_ReturnsFalse (string value)
     {
-        var result = UnityExecutionModeParser.TryParse(value, out var mode);
+        var result = UnityExecutionModeCodec.TryParse(value, out var mode);
 
         Assert.False(result);
         Assert.Equal(default, mode);

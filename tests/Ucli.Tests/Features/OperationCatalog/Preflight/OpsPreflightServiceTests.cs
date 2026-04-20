@@ -13,49 +13,12 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Project;
+using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests.Ops.Preflight;
 
 public sealed class OpsPreflightServiceTests
 {
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenModeIsInvalid_ReturnsInvalidArgument ()
-    {
-        var service = new OpsPreflightService(new StubProjectContextResolver(
-            ProjectContextResolutionResult.Success(CreateContext())));
-
-        var result = await service.Execute(
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: "unsupported",
-                Timeout: null,
-                ReadIndexMode: null));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal("INVALID_ARGUMENT", result.ErrorCode);
-        Assert.Contains("Mode must be auto, daemon, or oneshot.", result.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenTimeoutIsInvalid_ReturnsInvalidArgument ()
-    {
-        var service = new OpsPreflightService(new StubProjectContextResolver(
-            ProjectContextResolutionResult.Success(CreateContext())));
-
-        var result = await service.Execute(
-            new OpsCommandInput(
-                ProjectPath: null,
-                Mode: null,
-                Timeout: "abc",
-                ReadIndexMode: null));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal("INVALID_ARGUMENT", result.ErrorCode);
-        Assert.Contains("timeout", result.Message, StringComparison.Ordinal);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenInputsAreValid_ReturnsResolvedContext ()
@@ -67,9 +30,9 @@ public sealed class OpsPreflightServiceTests
         var result = await service.Execute(
             new OpsCommandInput(
                 ProjectPath: null,
-                Mode: "daemon",
-                Timeout: "1200",
-                ReadIndexMode: ReadIndexModeValues.AllowStale,
+                Mode: NormalizeMode("daemon"),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
+                ReadIndexMode: NormalizeReadIndexMode(ReadIndexModeValues.AllowStale),
                 FailFast: true));
 
         Assert.True(result.IsSuccess);

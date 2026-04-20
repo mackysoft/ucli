@@ -1,7 +1,10 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog;
 using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests.Cli;
@@ -25,9 +28,9 @@ public sealed class OpsCommandTests
 
         var input = Assert.IsType<OpsCommandInput>(service.LastListInput);
         Assert.Equal("/repo/UnityProject", input.ProjectPath);
-        Assert.Equal("daemon", input.Mode);
-        Assert.Equal("1234", input.Timeout);
-        Assert.Equal("allowStale", input.ReadIndexMode);
+        Assert.Equal(UnityExecutionMode.Daemon, input.Mode);
+        Assert.Equal(1234, input.TimeoutMilliseconds);
+        Assert.Equal(ReadIndexMode.AllowStale, input.ReadIndexMode);
         Assert.True(input.FailFast);
     }
 
@@ -50,10 +53,32 @@ public sealed class OpsCommandTests
         var input = Assert.IsType<OpsDescribeCommandInput>(service.LastDescribeInput);
         Assert.Equal("ucli.go.describe", input.OperationName);
         Assert.Equal("/repo/UnityProject", input.ProjectPath);
-        Assert.Equal("daemon", input.Mode);
-        Assert.Equal("1234", input.Timeout);
-        Assert.Equal("requireFresh", input.ReadIndexMode);
+        Assert.Equal(UnityExecutionMode.Daemon, input.Mode);
+        Assert.Equal(1234, input.TimeoutMilliseconds);
+        Assert.Equal(ReadIndexMode.RequireFresh, input.ReadIndexMode);
         Assert.True(input.FailFast);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task List_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubOpsService();
+        var command = new OpsListCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.List(
+            mode: "unsupported",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.LastListInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.OpsList,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
     }
 
     private sealed class StubOpsService : IOpsService

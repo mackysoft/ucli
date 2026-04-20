@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Features.Testing.Profiles;
 
 /// <summary> Represents JSON values used by <c>ucli test profile init</c>. </summary>
@@ -27,7 +29,6 @@ internal sealed record TestProfile (
 {
     private const int CurrentSchemaVersion = 1;
     private const string DefaultProjectPath = ".";
-    private const string DefaultTestPlatform = "editmode";
     private const int DefaultTimeoutMilliseconds = 1800000;
 
     /// <summary> Creates default values defined by the test-command specification. </summary>
@@ -39,7 +40,7 @@ internal sealed record TestProfile (
             ProjectPath: DefaultProjectPath,
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: DefaultTestPlatform,
+            TestPlatform: IpcTestRunPlatformCodec.EditMode,
             BuildTarget: null,
             TestFilter: null,
             TestCategories: [],

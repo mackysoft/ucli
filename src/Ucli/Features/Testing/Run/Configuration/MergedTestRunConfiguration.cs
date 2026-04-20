@@ -1,10 +1,11 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 
 /// <summary> Represents merged and normalized configuration values before project and editor resolution. </summary>
 /// <param name="ProjectPath"> The absolute Unity project path candidate. </param>
-/// <param name="Mode"> The raw execution-mode option value. </param>
+/// <param name="Mode"> The execution-mode value. </param>
 /// <param name="UnityVersion"> The optional Unity version override value. </param>
 /// <param name="UnityEditorPath"> The optional Unity editor path override value. </param>
 /// <param name="TestPlatform"> The parsed test-platform value. </param>
@@ -17,7 +18,7 @@ namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 /// <param name="TimeoutMilliseconds"> The optional timeout value in milliseconds from CLI/profile input. </param>
 internal sealed record MergedTestRunConfiguration (
     string ProjectPath,
-    string Mode,
+    UnityExecutionMode Mode,
     string? UnityVersion,
     string? UnityEditorPath,
     IpcTestRunPlatform? TestPlatform,

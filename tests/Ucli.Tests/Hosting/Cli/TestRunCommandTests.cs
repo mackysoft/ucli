@@ -1,7 +1,9 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Testing.Run;
 using MackySoft.Ucli.Features.Testing.Run.Service;
 using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -41,10 +43,10 @@ public sealed class TestRunCommandTests
         var input = Assert.IsType<TestRunCommandInput>(service.CapturedInput);
         Assert.Equal("/repo/UnityProject", input.ProjectPath);
         Assert.Equal("/repo/test.profile.json", input.ProfilePath);
-        Assert.Equal("oneshot", input.Mode);
+        Assert.Equal(UnityExecutionMode.Oneshot, input.Mode);
         Assert.Equal("6000.1.4f1", input.UnityVersion);
         Assert.Equal("/Applications/Unity/Hub/Editor/6000.1.4f1/Unity.app", input.UnityEditorPath);
-        Assert.Equal("playmode", input.TestPlatform);
+        Assert.Equal(IpcTestRunPlatform.PlayMode, input.TestPlatform);
         Assert.Equal("Android", input.BuildTarget);
         Assert.Equal("Name~Smoke", input.TestFilter);
         var testCategories = Assert.IsType<string[]>(input.TestCategory);
@@ -76,6 +78,35 @@ public sealed class TestRunCommandTests
         var values = TestRunCommand.SplitCommaSeparatedValues(null);
 
         Assert.Null(values);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Run_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    {
+        var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new TestRunCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
+            executionMode: "unsupported",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, exitCode);
+        Assert.Null(service.CapturedInput);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.TestRun,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .IsNull("result")
+                .HasString("errorKind", "invalidInput")
+                .IsNull("runId")
+                .IsNull("artifactsDir")
+                .IsNull("summaryJsonPath"));
     }
 
     private sealed class StubTestRunService : ITestRunService

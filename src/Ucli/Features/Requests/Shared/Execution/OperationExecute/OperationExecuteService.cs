@@ -44,32 +44,34 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <inheritdoc />
     public async ValueTask<OperationExecuteResult> Execute (
         OperationExecuteDefinition definition,
-        string? projectPath,
-        string? mode,
-        string? timeout,
-        bool failFast,
+        OperationExecuteInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(input);
 
         var requestId = Guid.NewGuid().ToString("D");
 
-        var projectContextResult = await projectContextResolver.Resolve(projectPath, cancellationToken).ConfigureAwait(false);
+        var projectContextResult = await projectContextResolver.Resolve(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
-            return CreateFailureFromExecutionError(requestId, projectContextResult.Error!);
+            return OperationExecuteResultFactory.FromExecutionError(requestId, projectContextResult.Error!);
         }
 
         var projectContext = projectContextResult.Context!;
         var config = projectContext.Config;
-        var timeoutResolutionResult = IpcCommandTimeoutResolver.Resolve(timeout, definition.Command, config);
+        var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
+            input.TimeoutMilliseconds,
+            definition.Command,
+            config);
         if (!timeoutResolutionResult.IsSuccess)
         {
-            return CreateFailureFromExecutionError(requestId, timeoutResolutionResult.Error!);
+            return OperationExecuteResultFactory.FromExecutionError(requestId, timeoutResolutionResult.Error!);
         }
 
         var deadline = ExecutionDeadline.Start(timeoutResolutionResult.Timeout!.Value, timeProvider);
+        var executionMode = input.Mode ?? UnityExecutionMode.Auto;
 
         var authorizationResult = await operationAuthorizationService.Authorize(
                 definition.Descriptor,
@@ -78,7 +80,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         if (!authorizationResult.IsAllowed)
         {
-            return CreateValidationFailure(
+            return OperationExecuteResultFactory.FromValidationErrors(
                 requestId,
                 [
                     new ValidationError(
@@ -88,18 +90,12 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 ]);
         }
 
-        var executionModeResult = UnityExecutionModeResolver.Resolve(mode);
-        if (!executionModeResult.IsSuccess)
-        {
-            return CreateFailureFromExecutionError(requestId, executionModeResult.Error!);
-        }
-
         string? planToken = null;
         if (config.PlanTokenMode == PlanTokenMode.Required)
         {
             if (!deadline.TryGetRemainingTimeout(out var planTimeout))
             {
-                return CreateFailureFromExecutionError(
+                return OperationExecuteResultFactory.FromExecutionError(
                     requestId,
                     ExecutionError.Timeout("Timed out before Unity IPC plan request could begin."));
             }
@@ -107,9 +103,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             var planTokenResult = await IssuePlanToken(
                     definition,
                     requestId,
-                    executionModeResult.Mode!.Value,
+                    executionMode,
                     planTimeout,
-                    failFast,
+                    input.FailFast,
                     config,
                     projectContext.UnityProject,
                     cancellationToken)
@@ -124,25 +120,25 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         if (!deadline.TryGetRemainingTimeout(out var executeTimeout))
         {
-            return CreateFailureFromExecutionError(
+            return OperationExecuteResultFactory.FromExecutionError(
                 requestId,
                 ExecutionError.Timeout("Timed out before Unity IPC execute request could begin."));
         }
 
         var executionResult = await unityIpcRequestExecutor.Execute(
                 definition.Command,
-                executionModeResult.Mode!.Value,
+                executionMode,
                 executeTimeout,
                 config,
                 projectContext.UnityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, failFast, planToken),
+                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, input.FailFast, planToken),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
             var errorCode = ResolveErrorCode(executionResult.ErrorCode);
-            return CreateResult(
+            return OperationExecuteResultFactory.Create(
                 requestId,
                 [],
                 [
@@ -151,7 +147,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 ResolveExitCode(errorCode));
         }
 
-        return CreateFromIpcResponse(requestId, executionResult.Response!);
+        return OperationExecuteResultFactory.FromIpcResponse(requestId, executionResult.Response!);
     }
 
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>
@@ -195,7 +191,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             var errorCode = ResolveErrorCode(executionResult.ErrorCode);
             return (
                 null,
-                CreateResult(
+                OperationExecuteResultFactory.Create(
                     requestId,
                     [],
                     [
@@ -209,7 +205,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         {
             return (
                 null,
-                CreateResult(
+                OperationExecuteResultFactory.Create(
                     requestId,
                     convertedResponse.OpResults,
                     convertedResponse.Errors,
@@ -220,7 +216,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         {
             return (
                 null,
-                CreateResult(
+                OperationExecuteResultFactory.Create(
                     requestId,
                     convertedResponse.OpResults,
                     [
@@ -269,97 +265,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         });
 
         return ExecuteRequestPayloadFactory.Create(command, executeArguments, failFast, planToken);
-    }
-
-    /// <summary> Creates one normalized result from one Unity IPC response. </summary>
-    /// <param name="requestId"> The generated request identifier. </param>
-    /// <param name="response"> The Unity IPC response. </param>
-    /// <returns> The normalized operation execution result. </returns>
-    private static OperationExecuteResult CreateFromIpcResponse (
-        string requestId,
-        IpcResponse response)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        ArgumentNullException.ThrowIfNull(response);
-
-        var convertedResponse = ExecuteResponseConverter.Convert(response);
-        return CreateResult(
-            requestId,
-            convertedResponse.OpResults,
-            convertedResponse.Errors,
-            convertedResponse.ExitCode);
-    }
-
-    /// <summary> Creates one failure result from one structured execution error. </summary>
-    /// <param name="requestId"> The request identifier. </param>
-    /// <param name="error"> The structured execution error. </param>
-    /// <returns> The normalized operation execution result. </returns>
-    private static OperationExecuteResult CreateFailureFromExecutionError (
-        string requestId,
-        ExecutionError error)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        ArgumentNullException.ThrowIfNull(error);
-
-        var errorCode = ExecutionErrorKindCodeMapper.ToCode(error.Kind);
-        return CreateResult(
-            requestId,
-            [],
-            [
-                new IpcError(errorCode, error.Message, null),
-            ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? (int)CliExitCode.InvalidArgument
-                : (int)CliExitCode.ToolError);
-    }
-
-    /// <summary> Creates one failure result from static validation errors. </summary>
-    /// <param name="requestId"> The request identifier. </param>
-    /// <param name="validationErrors"> The static validation errors. </param>
-    /// <returns> The normalized operation execution result. </returns>
-    private static OperationExecuteResult CreateValidationFailure (
-        string requestId,
-        IReadOnlyList<ValidationError> validationErrors)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        ArgumentNullException.ThrowIfNull(validationErrors);
-
-        var errors = new IpcError[validationErrors.Count];
-        for (var i = 0; i < validationErrors.Count; i++)
-        {
-            var validationError = validationErrors[i];
-            errors[i] = new IpcError(validationError.Code, validationError.Message, validationError.OpId);
-        }
-
-        return CreateResult(
-            requestId,
-            [],
-            errors,
-            (int)CliExitCode.InvalidArgument);
-    }
-
-    /// <summary> Creates one normalized operation execution result. </summary>
-    /// <param name="requestId"> The request identifier. </param>
-    /// <param name="opResults"> The per-step execution results. </param>
-    /// <param name="errors"> The machine-readable error list. </param>
-    /// <param name="exitCode"> The associated process exit code. </param>
-    /// <returns> The normalized operation execution result. </returns>
-    private static OperationExecuteResult CreateResult (
-        string requestId,
-        IReadOnlyList<IpcExecuteOperationResult> opResults,
-        IReadOnlyList<IpcError> errors,
-        int exitCode)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        ArgumentNullException.ThrowIfNull(opResults);
-        ArgumentNullException.ThrowIfNull(errors);
-
-        return new OperationExecuteResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            OpResults: opResults,
-            Errors: errors,
-            ExitCode: exitCode);
     }
 
     /// <summary> Resolves the machine-readable error code used for transport-level failures. </summary>

@@ -20,6 +20,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 using MackySoft.Ucli.UnityIntegration.Project;
+using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -62,8 +63,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: "/repo/request.json",
                 ProjectPath: "/repo/UnityProject",
-                Mode: "oneshot",
-                Timeout: "1234",
+                Mode: NormalizeMode("oneshot"),
+                TimeoutMilliseconds: NormalizeTimeout("1234"),
                 PlanToken: "plan-token-1",
                 WithPlan: false,
                 AllowDangerous: false,
@@ -140,8 +141,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: "daemon",
-                Timeout: "1200",
+                Mode: NormalizeMode("daemon"),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
@@ -203,8 +204,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: "1200",
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: "user-plan-token",
                 WithPlan: true,
                 AllowDangerous: false,
@@ -239,8 +240,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
@@ -277,8 +278,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
@@ -318,8 +319,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
@@ -354,8 +355,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: null,
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
@@ -391,8 +392,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: "daemon",
-                Timeout: null,
+                Mode: NormalizeMode("daemon"),
+                TimeoutMilliseconds: NormalizeTimeout(null),
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
@@ -446,8 +447,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: "1200",
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
@@ -513,8 +514,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: "1200",
+                Mode: NormalizeMode(null),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
@@ -527,74 +528,6 @@ public sealed class CallServiceTests
         Assert.Equal("issued-plan-token", result.Output.Plan!.PlanToken);
         Assert.Single(result.Output.Plan.OpResults);
         Assert.Single(result.Output.OpResults);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenTimeoutIsInvalid_PreservesPreflightPayload ()
-    {
-        var preparedRequest = CreatePreparedRequest(
-            requestJson: CreateOpRequestJson(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe),
-            request: CreateOpRequest(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe),
-            operationsByName: CreateOperationsByName(
-                CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
-        var service = CreateService(
-            PhaseExecutionPreflightResult.Success(preparedRequest),
-            new SpyUnityIpcRequestExecutor());
-
-        var result = await service.Execute(
-            new CallCommandInput(
-                RequestPath: null,
-                ProjectPath: "/repo/UnityProject",
-                Mode: null,
-                Timeout: "abc",
-                PlanToken: null,
-                WithPlan: false,
-                AllowDangerous: false,
-                FailFast: false),
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
-        Assert.Empty(result.Output.OpResults);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenModeIsInvalid_PreservesPreflightPayload ()
-    {
-        var preparedRequest = CreatePreparedRequest(
-            requestJson: CreateOpRequestJson(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe),
-            request: CreateOpRequest(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe),
-            operationsByName: CreateOperationsByName(
-                CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Failure(
-                "Mode must be auto, daemon, or oneshot.",
-                IpcErrorCodes.InvalidArgument));
-        var service = CreateService(
-            PhaseExecutionPreflightResult.Success(preparedRequest),
-            ipcRequestExecutor);
-
-        var result = await service.Execute(
-            new CallCommandInput(
-                RequestPath: null,
-                ProjectPath: "/repo/UnityProject",
-                Mode: "unsupported",
-                Timeout: "1200",
-                PlanToken: null,
-                WithPlan: false,
-                AllowDangerous: false,
-                FailFast: false),
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
-        Assert.Empty(result.Output.OpResults);
     }
 
     [Fact]
@@ -639,8 +572,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: "oneshot",
-                Timeout: "1200",
+                Mode: NormalizeMode("oneshot"),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
@@ -687,8 +620,8 @@ public sealed class CallServiceTests
             new CallCommandInput(
                 RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
-                Mode: "oneshot",
-                Timeout: "1200",
+                Mode: NormalizeMode("oneshot"),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,

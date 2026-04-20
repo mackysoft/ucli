@@ -11,6 +11,7 @@ using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
+using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests.Ops;
 
@@ -29,7 +30,7 @@ public sealed class OpsServiceTests
         var describeResultMapper = new StubOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAll(new OpsCommandInput(null, null, null, "broken"));
+        var result = await service.GetAll(new OpsCommandInput(null, NormalizeMode(null), NormalizeTimeout(null), null));
 
         Assert.False(result.IsSuccess);
         Assert.Equal("invalid readIndexMode", result.Message);
@@ -82,7 +83,7 @@ public sealed class OpsServiceTests
         var describeResultMapper = new StubOpsDescribeResultMapper();
         var service = new OpsService(preflightService, catalogAccessService, listResultMapper, describeResultMapper);
 
-        var result = await service.GetAll(new OpsCommandInput("/repo", "auto", "1000", "allowStale", true));
+        var result = await service.GetAll(new OpsCommandInput("/repo", NormalizeMode("auto"), NormalizeTimeout("1000"), NormalizeReadIndexMode("allowStale"), true));
 
         Assert.Same(expectedResult, result);
         Assert.NotNull(preflightService.LastInput);
@@ -126,9 +127,9 @@ public sealed class OpsServiceTests
             new OpsDescribeCommandInput(
                 OperationName: "ucli.unknown",
                 ProjectPath: "/repo",
-                Mode: "auto",
-                Timeout: "1000",
-                ReadIndexMode: "allowStale",
+                Mode: NormalizeMode("auto"),
+                TimeoutMilliseconds: NormalizeTimeout("1000"),
+                ReadIndexMode: NormalizeReadIndexMode("allowStale"),
                 FailFast: true));
 
         Assert.Same(expectedResult, result);

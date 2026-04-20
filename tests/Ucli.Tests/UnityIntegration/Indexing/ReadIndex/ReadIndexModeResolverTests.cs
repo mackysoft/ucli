@@ -18,7 +18,7 @@ public sealed class ReadIndexModeResolverTests
         Assert.True(Enum.TryParse<ReadIndexMode>(defaultModeName, out var defaultMode));
         var config = CreateConfig(defaultMode);
 
-        var result = ReadIndexModeResolver.Resolve(optionValue: null, config);
+        var result = ReadIndexModeResolver.Resolve(optionValue: (string?)null, config);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(defaultMode, result.Mode);
