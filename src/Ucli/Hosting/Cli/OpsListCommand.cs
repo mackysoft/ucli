@@ -1,5 +1,5 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.OperationCatalog;
+using MackySoft.Ucli.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;

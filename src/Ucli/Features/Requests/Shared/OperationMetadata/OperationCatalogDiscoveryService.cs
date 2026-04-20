@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.OperationCatalog;
+using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
