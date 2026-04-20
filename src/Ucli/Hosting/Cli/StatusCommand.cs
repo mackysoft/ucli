@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Status;
+using MackySoft.Ucli.Features.Status.UseCases.Status;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
 
@@ -31,42 +32,22 @@ internal sealed class StatusCommand
 
         CommandExecutionState.MarkStarted();
 
-        var executionResult = await statusService.Execute(projectPath, timeout, cancellationToken).ConfigureAwait(false);
-        var result = CreateCommandResult(executionResult);
-        CommandResultWriter.WriteToStandardOutput(result);
-        return result.ExitCode;
-    }
-
-    /// <summary> Creates command-level JSON result from status service execution result. </summary>
-    /// <param name="executionResult"> The status service execution result. </param>
-    /// <returns> The command result serialized to stdout. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
-    private static CommandResult CreateCommandResult (StatusExecutionResult executionResult)
-    {
-        ArgumentNullException.ThrowIfNull(executionResult);
-
-        if (executionResult.IsSuccess)
+        var timeoutNormalizationResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!timeoutNormalizationResult.IsSuccess)
         {
-            var output = executionResult.Output!;
-            return CommandResult.Success(
-                command: UcliCommandNames.Status,
-                message: "uCLI status retrieval completed.",
-                payload: new
-                {
-                    daemonStatus = output.DaemonStatus,
-                    unityVersion = output.UnityVersion,
-                    serverVersion = output.ServerVersion,
-                    lifecycleState = output.LifecycleState,
-                    blockingReason = output.BlockingReason,
-                    compileState = output.CompileState,
-                    compileGeneration = output.CompileGeneration,
-                    domainReloadGeneration = output.DomainReloadGeneration,
-                    canAcceptExecutionRequests = output.CanAcceptExecutionRequests,
-                    runtime = output.Runtime,
-                    timeoutMilliseconds = output.TimeoutMilliseconds,
-                });
+            var invalidTimeoutResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.Status,
+                timeoutNormalizationResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(invalidTimeoutResult);
+            return invalidTimeoutResult.ExitCode;
         }
 
-        return CommandResultFactory.FromExecutionError(UcliCommandNames.Status, executionResult.Error!);
+        var input = new StatusCommandInput(
+            ProjectPath: projectPath,
+            TimeoutMilliseconds: timeoutNormalizationResult.TimeoutMilliseconds);
+        var executionResult = await statusService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var result = StatusCommandResultFactory.Create(executionResult);
+        CommandResultWriter.WriteToStandardOutput(result);
+        return result.ExitCode;
     }
 }

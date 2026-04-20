@@ -1,4 +1,6 @@
-using MackySoft.Ucli.Features.Status;
+using MackySoft.Ucli.Features.Status.UseCases.Status;
+using MackySoft.Ucli.Features.Status.UseCases.Status.Observation;
+using MackySoft.Ucli.Features.Status.UseCases.Status.Preflight;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition;

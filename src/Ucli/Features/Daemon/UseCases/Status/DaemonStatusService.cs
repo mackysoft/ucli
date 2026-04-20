@@ -29,7 +29,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Features.Status;
+using MackySoft.Ucli.Features.Status.UseCases.Status.Projection;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
