@@ -21,6 +21,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Client;
 

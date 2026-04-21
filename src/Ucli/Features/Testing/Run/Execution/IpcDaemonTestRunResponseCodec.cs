@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 

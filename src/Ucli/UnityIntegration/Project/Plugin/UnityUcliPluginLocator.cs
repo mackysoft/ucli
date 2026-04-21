@@ -2,6 +2,8 @@ using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin;
 

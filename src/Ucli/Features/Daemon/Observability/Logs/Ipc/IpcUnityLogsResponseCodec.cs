@@ -23,6 +23,7 @@ using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 

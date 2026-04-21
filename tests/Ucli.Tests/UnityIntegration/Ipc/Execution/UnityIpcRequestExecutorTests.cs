@@ -23,7 +23,11 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.Shared.Context.Project;
+using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.Tests.Ipc;

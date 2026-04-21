@@ -8,6 +8,7 @@ using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 

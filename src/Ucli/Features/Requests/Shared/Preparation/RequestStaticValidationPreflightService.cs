@@ -4,6 +4,7 @@ using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Features.Requests.Shared.Preparation;
 

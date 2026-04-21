@@ -4,6 +4,8 @@ using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.Shared.Context.Project;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
 
 namespace MackySoft.Ucli.Tests;
 

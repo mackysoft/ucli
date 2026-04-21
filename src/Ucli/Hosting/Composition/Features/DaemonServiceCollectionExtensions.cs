@@ -26,6 +26,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;

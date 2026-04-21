@@ -1,5 +1,3 @@
-global using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-global using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 global using MackySoft.Ucli.Shared.Context.Project;
 global using MackySoft.Ucli.Shared.Execution.ErrorCodes;
 global using MackySoft.Ucli.Shared.Execution.ReadIndex;
@@ -7,11 +5,3 @@ global using MackySoft.Ucli.Shared.Execution.Timeout;
 global using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 global using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 global using MackySoft.Ucli.Shared.Execution.UnityRequest;
-global using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-global using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-global using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
-global using MackySoft.Ucli.UnityIntegration.Ipc.Process;
-global using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
-global using MackySoft.Ucli.UnityIntegration.Project.Plugin;
-global using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
-global using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;

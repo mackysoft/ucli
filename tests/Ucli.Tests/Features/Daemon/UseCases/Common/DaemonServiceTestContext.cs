@@ -26,6 +26,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
