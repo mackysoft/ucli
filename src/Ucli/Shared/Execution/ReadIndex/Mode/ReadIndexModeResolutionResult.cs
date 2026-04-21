@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Represents one read-index mode resolution result. </summary>
 /// <param name="Mode"> The resolved mode on success; otherwise <see langword="null" />. </param>

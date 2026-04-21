@@ -2,7 +2,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Resolves effective read-index mode from command options and config defaults. </summary>
 internal static class ReadIndexModeResolver
