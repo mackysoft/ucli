@@ -11,7 +11,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 {
     private readonly IPersistedOpsCatalogReader persistedOpsCatalogReader;
 
-    private readonly IIndexCatalogReader indexCatalogReader;
+    private readonly IPersistedOpsCatalogPersistenceArtifactsReader persistedOpsCatalogPersistenceArtifactsReader;
 
     private readonly IIndexInputFingerprintCalculator indexInputFingerprintCalculator;
 
@@ -21,19 +21,19 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
     /// <summary> Initializes a new instance of the <see cref="OpsCatalogAccessService" /> class. </summary>
     /// <param name="persistedOpsCatalogReader"> The persisted ops-catalog reader dependency. </param>
-    /// <param name="indexCatalogReader"> The persisted index catalog reader dependency. </param>
+    /// <param name="persistedOpsCatalogPersistenceArtifactsReader"> The persisted artifact reader dependency for refreshed ops-catalog persistence. </param>
     /// <param name="indexInputFingerprintCalculator"> The read-index input fingerprint calculator dependency. </param>
     /// <param name="opsCatalogReader"> The ops catalog reader dependency. </param>
     /// <param name="opsCatalogStore"> The ops catalog persistence dependency. </param>
     public OpsCatalogAccessService (
         IPersistedOpsCatalogReader persistedOpsCatalogReader,
-        IIndexCatalogReader indexCatalogReader,
+        IPersistedOpsCatalogPersistenceArtifactsReader persistedOpsCatalogPersistenceArtifactsReader,
         IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
         this.persistedOpsCatalogReader = persistedOpsCatalogReader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogReader));
-        this.indexCatalogReader = indexCatalogReader ?? throw new ArgumentNullException(nameof(indexCatalogReader));
+        this.persistedOpsCatalogPersistenceArtifactsReader = persistedOpsCatalogPersistenceArtifactsReader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogPersistenceArtifactsReader));
         this.indexInputFingerprintCalculator = indexInputFingerprintCalculator ?? throw new ArgumentNullException(nameof(indexInputFingerprintCalculator));
         this.opsCatalogReader = opsCatalogReader ?? throw new ArgumentNullException(nameof(opsCatalogReader));
         this.opsCatalogStore = opsCatalogStore ?? throw new ArgumentNullException(nameof(opsCatalogStore));
@@ -201,17 +201,16 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             return null;
         }
 
-        var manifestResult = await indexCatalogReader.ReadInputsManifest(
-                context.Context.UnityProject.RepositoryRoot,
-                context.Context.UnityProject.ProjectFingerprint,
+        var persistedArtifacts = await persistedOpsCatalogPersistenceArtifactsReader.Read(
+                context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (manifestResult.IsSuccess)
+        if (persistedArtifacts.InputsManifest != null)
         {
             // NOTE:
             // Reuse the persisted asset lookup hashes to keep inputs/manifest.json aligned with existing
             // lookup artifacts while avoiding an unnecessary Assets/ full scan on the common ops refresh path.
-            var manifest = manifestResult.Value!;
+            var manifest = persistedArtifacts.InputsManifest;
             return new OpsCatalogPersistenceInput(
                 SourceInputsHash: coreSnapshot.CombinedHash,
                 ManifestInputSnapshot: new IndexInputHashSnapshot(
@@ -225,7 +224,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                     CombinedHash: coreSnapshot.CombinedHash));
         }
 
-        if (await HasPersistedAssetLookupArtifacts(context, cancellationToken).ConfigureAwait(false))
+        if (persistedArtifacts.HasPersistedAssetLookupArtifacts)
         {
             // NOTE:
             // Do not regenerate lookup hashes from the live filesystem when persisted lookup artifacts still exist.
@@ -249,30 +248,6 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         return new OpsCatalogPersistenceInput(
             SourceInputsHash: coreSnapshot.CombinedHash,
             ManifestInputSnapshot: fullSnapshot);
-    }
-
-    private async ValueTask<bool> HasPersistedAssetLookupArtifacts (
-        OpsPreflightContext context,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var assetSearchLookupResult = await indexCatalogReader.ReadAssetSearchLookup(
-                context.Context.UnityProject.RepositoryRoot,
-                context.Context.UnityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (assetSearchLookupResult.IsSuccess)
-        {
-            return true;
-        }
-
-        var guidPathLookupResult = await indexCatalogReader.ReadGuidPathLookup(
-                context.Context.UnityProject.RepositoryRoot,
-                context.Context.UnityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return guidPathLookupResult.IsSuccess;
     }
 
     private sealed record OpsCatalogPersistenceInput (

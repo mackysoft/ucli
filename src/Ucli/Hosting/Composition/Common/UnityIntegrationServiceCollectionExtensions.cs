@@ -58,6 +58,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<ISceneTreeLiteAccessService, SceneTreeLiteAccessService>();
         services.AddSingleton<IPersistedOpsCatalogSnapshotLoader, PersistedOpsCatalogSnapshotLoader>();
         services.AddSingleton<IPersistedOpsCatalogReader, PersistedOpsCatalogReader>();
+        services.AddSingleton<IPersistedOpsCatalogPersistenceArtifactsReader, PersistedOpsCatalogPersistenceArtifactsReader>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
