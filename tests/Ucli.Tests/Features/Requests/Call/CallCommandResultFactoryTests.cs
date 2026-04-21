@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Call;
+using MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
+using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Hosting.Cli;
 
 namespace MackySoft.Ucli.Tests;

@@ -2,7 +2,8 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Features.Requests.Validate;
+using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
+using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Hosting.Cli;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 

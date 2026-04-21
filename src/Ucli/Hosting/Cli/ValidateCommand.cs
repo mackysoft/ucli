@@ -1,5 +1,5 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Requests.Validate;
+using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli;
@@ -35,9 +35,7 @@ internal sealed class ValidateCommand
         var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
         if (!normalizedReadIndexModeResult.IsSuccess)
         {
-            var errorResult = CommandResultFactory.FromExecutionError(
-                UcliCommandNames.Validate,
-                normalizedReadIndexModeResult.Error!);
+            var errorResult = ValidateCommandResultFactory.CreateExecutionError(normalizedReadIndexModeResult.Error!);
             CommandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }

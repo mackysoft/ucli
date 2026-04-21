@@ -1,14 +1,14 @@
-using MackySoft.Ucli.Features.Requests.Call;
-using MackySoft.Ucli.Features.Requests.Call.Preflight;
-using MackySoft.Ucli.Features.Requests.Plan;
-using MackySoft.Ucli.Features.Requests.Plan.Preflight;
-using MackySoft.Ucli.Features.Requests.Refresh;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
+using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
+using MackySoft.Ucli.Features.Requests.Call.UseCases.Call.Preflight;
+using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
+using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Preflight;
+using MackySoft.Ucli.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Features.Requests.Validate;
+using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition;
@@ -27,8 +27,10 @@ internal static class RequestServiceCollectionExtensions
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
         services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
+
         services.AddSingleton<IPhaseExecutionPreflightService, PhaseExecutionPreflightService>();
         services.AddSingleton<IOperationExecuteService, OperationExecuteService>();
+
         services.AddSingleton<IOperationCatalogDiscoveryService, OperationCatalogDiscoveryService>();
         services.AddSingleton<IOperationCatalogProvider, OperationCatalogProvider>();
         services.AddSingleton<IOperationCatalog, OperationCatalog>();
@@ -36,14 +38,17 @@ internal static class RequestServiceCollectionExtensions
         services.AddSingleton<IReadIndexValidationCatalogResolver, ReadIndexValidationCatalogResolver>();
         services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
         services.AddSingleton<IRequestStaticValidationService, RequestStaticValidationService>();
-        services.AddSingleton<IRefreshService, RefreshService>();
-        services.AddSingleton<IValidateService, ValidateService>();
+
         services.AddSingleton<IPlanCommandPreflightService, PlanCommandPreflightService>();
         services.AddSingleton<IPlanService, PlanService>();
+
         services.AddSingleton<ICallDangerousOperationGuard, CallDangerousOperationGuard>();
         services.AddSingleton<ICallUnityExecutionService, CallUnityExecutionService>();
         services.AddSingleton<ICallCommandPreflightService, CallCommandPreflightService>();
         services.AddSingleton<ICallService, CallService>();
+
+        services.AddSingleton<IRefreshService, RefreshService>();
+        services.AddSingleton<IValidateService, ValidateService>();
         return services;
     }
 }
