@@ -1,8 +1,8 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Execution.Phases;
-using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
+using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -35,17 +35,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(daemonLogger));
             }
 
-            services.AddSingleton(static _ => UcliOperationCatalogSnapshotBuilder.Build());
-            services.AddSingleton<IAssetLookupSnapshotBuilder, AssetLookupSnapshotBuilder>();
-            services.AddSingleton<ISceneTreeLiteSnapshotBuilder, SceneTreeLiteSnapshotBuilder>();
+            // NOTE:
+            // Project owner exposes static helpers only, so service composition starts from Runtime.
+            services.AddUnityRuntimeServices();
+            services.AddUnityIndexServices();
+            services.AddUnityExecutionServices();
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
-            services.AddSingleton<IUnityEditorReadinessGate, UnityEditorReadinessGate>();
-            services.AddSingleton<IUnityMainThreadRequestExecutor>(new UnitySynchronizationContextRequestExecutor());
-            services.AddSingleton<IExecuteRequestDispatcher>(serviceProvider => CreateExecuteRequestDispatcher(
-                serviceProvider.GetRequiredService<UcliOperationCatalogSnapshot>(),
-                serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
-                serviceProvider.GetRequiredService<IUnityMainThreadRequestExecutor>()));
             services.AddSingleton<IEditorLogRangeExporter, EditorLogRangeExporter>();
             services.AddSingleton<IUnityTestRunRequestContextFactory, UnityTestRunRequestContextFactory>();
             services.AddSingleton<IUnityTestRunner, UnityTestRunner>();
@@ -152,17 +148,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
             return services;
-        }
-
-        private static IExecuteRequestDispatcher CreateExecuteRequestDispatcher (
-            UcliOperationCatalogSnapshot snapshot,
-            IUnityEditorReadinessGate readinessGate,
-            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
-        {
-            var normalizer = new ExecuteRequestNormalizer();
-            var operationRegistry = new InMemoryPhaseOperationRegistry(snapshot.Registrations);
-            var phaseExecutor = new OperationPhaseExecutor(operationRegistry);
-            return new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate, mainThreadRequestExecutor);
         }
     }
 }

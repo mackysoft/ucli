@@ -1,0 +1,65 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
+using UnityEditor;
+using UnityEngine;
+
+namespace MackySoft.Ucli.Unity.Ipc
+{
+    /// <summary> Handles <c>ping</c> IPC method requests. </summary>
+    internal sealed class PingUnityIpcMethodHandler : IUnityIpcMethodHandler
+    {
+        private readonly IServerVersionProvider serverVersionProvider;
+        private readonly IUnityEditorReadinessGate readinessGate;
+        private readonly IDaemonLogger daemonLogger;
+
+        /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
+        /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
+        public PingUnityIpcMethodHandler (
+            IServerVersionProvider serverVersionProvider,
+            IUnityEditorReadinessGate readinessGate,
+            IDaemonLogger daemonLogger = null)
+        {
+            this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+        }
+
+        /// <inheritdoc />
+        public string Method => IpcMethodNames.Ping;
+
+        /// <inheritdoc />
+        public ValueTask<IpcResponse> Handle (
+            IpcRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (request == null)
+            {
+                throw new ArgumentNullException(nameof(request));
+            }
+
+            if (!UnityIpcRequestCodec.TryDecodePingRequest(
+                    request,
+                    out IpcPingRequest _,
+                    out var errorResponse))
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Health,
+                    "Ping payload decode failed.");
+                return new ValueTask<IpcResponse>(errorResponse!);
+            }
+
+            daemonLogger.Info(
+                DaemonLogCategories.Health,
+                "Ping request handled.");
+            var payload = UnityPingResponseCodec.CreatePayload(
+                Application.unityVersion,
+                serverVersionProvider.GetVersion(),
+                readinessGate.CaptureSnapshot());
+            return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
+        }
+    }
+}

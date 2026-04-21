@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Unity.Project;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
@@ -90,12 +91,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return;
                 }
 
-                if (!Scene.IsValid() || !Scene.isLoaded || !EditorSceneManager.IsPreviewScene(Scene))
-                {
-                    return;
-                }
-
-                EditorSceneManager.ClosePreviewScene(Scene);
+                PersistedPreviewSceneLease.CloseIfNeeded(Scene);
             }
         }
 
@@ -171,13 +167,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out Lease lease,
             out string errorMessage)
         {
-            lease = default;
-            if (!TryOpenPersistedPreviewScene(scenePath, out var scene, out errorMessage))
+            if (!PersistedPreviewSceneLease.TryOpen(scenePath, out var previewSceneLease, out errorMessage))
             {
+                lease = default;
                 return false;
             }
 
-            lease = new Lease(scenePath, scene, closeAfterUse: true);
+            lease = new Lease(previewSceneLease.ScenePath, previewSceneLease.Scene, closeAfterUse: true);
             errorMessage = string.Empty;
             return true;
         }
@@ -277,32 +273,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return TryAcquirePersistedPreview(scenePath, out lease, out errorMessage);
-        }
-
-        private static bool TryOpenPersistedPreviewScene (
-            string scenePath,
-            out Scene scene,
-            out string errorMessage)
-        {
-            try
-            {
-                scene = EditorSceneManager.OpenPreviewScene(scenePath);
-            }
-            catch (Exception exception)
-            {
-                scene = default;
-                errorMessage = $"Scene could not be opened for query: {scenePath}. {exception.Message}";
-                return false;
-            }
-
-            if (!scene.IsValid() || !scene.isLoaded)
-            {
-                errorMessage = $"Scene could not be opened for query: {scenePath}.";
-                return false;
-            }
-
-            errorMessage = string.Empty;
-            return true;
         }
     }
 }
