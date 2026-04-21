@@ -14,7 +14,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Assets;
 
@@ -26,7 +26,7 @@ public sealed class AssetLookupSnapshotReaderTests
     {
         var executor = new StubUnityIpcRequestExecutor
         {
-            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
+            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                 AssetSearchEntries:
                 [
@@ -67,7 +67,7 @@ public sealed class AssetLookupSnapshotReaderTests
     {
         var executor = new StubUnityIpcRequestExecutor
         {
-            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
+            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                 AssetSearchEntries:
                 [
@@ -104,7 +104,7 @@ public sealed class AssetLookupSnapshotReaderTests
     {
         var executor = new StubUnityIpcRequestExecutor
         {
-            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
+            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(new IpcIndexAssetsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
                 AssetSearchEntries:
                 [
@@ -168,16 +168,16 @@ public sealed class AssetLookupSnapshotReaderTests
             Errors: Array.Empty<IpcError>());
     }
 
-    private sealed class StubUnityIpcRequestExecutor : IUnityIpcRequestExecutor
+    private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor
     {
         public UcliCommand LastCommand { get; private set; }
 
         public string? LastMethod { get; private set; }
 
-        public UnityIpcRequestExecutionResult Result { get; set; }
-            = UnityIpcRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
+        public UnityRequestExecutionResult Result { get; set; }
+            = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
 
-        public ValueTask<UnityIpcRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

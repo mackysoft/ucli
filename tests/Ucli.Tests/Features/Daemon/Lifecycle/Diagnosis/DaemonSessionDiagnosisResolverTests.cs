@@ -29,7 +29,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 public sealed class DaemonSessionDiagnosisResolverTests
 {

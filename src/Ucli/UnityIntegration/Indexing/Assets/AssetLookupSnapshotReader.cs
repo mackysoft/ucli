@@ -1,9 +1,6 @@
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
@@ -11,18 +8,17 @@ using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 
 /// <summary> Reads one live asset lookup snapshot through the shared IPC execution path. </summary>
 internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
 {
-    private readonly IUnityIpcRequestExecutor ipcRequestExecutor;
+    private readonly IUnityRequestExecutor ipcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="AssetLookupSnapshotReader" /> class. </summary>
-    public AssetLookupSnapshotReader (IUnityIpcRequestExecutor ipcRequestExecutor)
+    public AssetLookupSnapshotReader (IUnityRequestExecutor ipcRequestExecutor)
     {
         this.ipcRequestExecutor = ipcRequestExecutor ?? throw new ArgumentNullException(nameof(ipcRequestExecutor));
     }

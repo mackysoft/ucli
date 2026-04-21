@@ -7,14 +7,12 @@ using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Project;
 
-namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+namespace MackySoft.Ucli.Shared.Execution.UnityRequest;
 
 /// <summary> Executes one Unity IPC request through the resolved daemon or oneshot host. </summary>
-internal interface IUnityIpcRequestExecutor
+internal interface IUnityRequestExecutor
 {
     /// <summary> Executes one Unity IPC request through the configured execution mode policy. </summary>
     /// <param name="command"> The command that owns the request execution. </param>
@@ -26,9 +24,9 @@ internal interface IUnityIpcRequestExecutor
     /// <param name="payload"> The IPC method payload. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The IPC execution result. </returns>
-    ValueTask<UnityIpcRequestExecutionResult> Execute (
+    ValueTask<UnityRequestExecutionResult> Execute (
         UcliCommand command,
-        UnityExecutionMode mode,
+        MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode mode,
         TimeSpan timeout,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,

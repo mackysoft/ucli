@@ -16,17 +16,16 @@ using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 
 namespace MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
 
 /// <summary> Orchestrates Unity IPC plan and call passes for prepared <c>call</c> requests. </summary>
 internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 {
-    private readonly IUnityIpcRequestExecutor unityIpcRequestExecutor;
+    private readonly IUnityRequestExecutor unityIpcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="CallUnityExecutionService" /> class. </summary>
-    public CallUnityExecutionService (IUnityIpcRequestExecutor unityIpcRequestExecutor)
+    public CallUnityExecutionService (IUnityRequestExecutor unityIpcRequestExecutor)
     {
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
     }

@@ -16,9 +16,7 @@ using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Ops.Access;
 
@@ -29,26 +27,24 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenAllowStaleIndexExists_ReturnsIndexWithoutEvaluatingFallbackOptions ()
     {
         var context = CreateContext();
-        var snapshotLoader = new StubPersistedOpsCatalogSnapshotLoader
+        var snapshotLoader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogSnapshotLoadResult.Success(
-                new PersistedOpsCatalogSnapshot(
-                    Entries:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
-                    ],
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    Freshness: IndexFreshness.Probable)),
+            Result = PersistedOpsCatalogReadResult.Success(
+                [
+                    new IndexOpEntryJsonContract(
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                        Kind: "query",
+                        Policy: "safe",
+                        ArgsSchemaJson: """{"type":"object"}"""),
+                ],
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Probable),
         };
         var catalogReader = new StubOpsCatalogReader();
         var store = new StubOpsCatalogStore();
         var service = CreateService(
             snapshotLoader,
-            new StubIndexCatalogReader(),
+            new StubPersistedOpsCatalogPersistenceArtifactsReader(),
             new StubIndexInputFingerprintCalculator(),
             catalogReader,
             store);
@@ -78,20 +74,18 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenRequireFreshIndexIsStale_FallsBackToSource ()
     {
         var context = CreateContext();
-        var snapshotLoader = new StubPersistedOpsCatalogSnapshotLoader
+        var snapshotLoader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogSnapshotLoadResult.Success(
-                new PersistedOpsCatalogSnapshot(
-                    Entries:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
-                    ],
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    Freshness: IndexFreshness.Stale)),
+            Result = PersistedOpsCatalogReadResult.Success(
+                [
+                    new IndexOpEntryJsonContract(
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                        Kind: "query",
+                        Policy: "safe",
+                        ArgsSchemaJson: """{"type":"object"}"""),
+                ],
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Stale),
         };
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var catalogReader = new StubOpsCatalogReader
@@ -115,7 +109,7 @@ public sealed class OpsCatalogAccessServiceTests
         var store = new StubOpsCatalogStore();
         var service = CreateService(
             snapshotLoader,
-            new StubIndexCatalogReader(),
+            new StubPersistedOpsCatalogPersistenceArtifactsReader(),
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -177,8 +171,8 @@ public sealed class OpsCatalogAccessServiceTests
             WriteException = new InvalidOperationException("disk full"),
         };
         var service = CreateService(
-            new StubPersistedOpsCatalogSnapshotLoader(),
-            new StubIndexCatalogReader(),
+            new StubPersistedOpsCatalogReader(),
+            new StubPersistedOpsCatalogPersistenceArtifactsReader(),
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -204,26 +198,11 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenManifestIsMissingButLookupExists_PersistsOpsCatalogWithoutRegeneratingLookupHashes ()
     {
         var context = CreateContext();
-        var indexReader = new StubIndexCatalogReader
+        var persistedArtifactsReader = new StubPersistedOpsCatalogPersistenceArtifactsReader
         {
-            AssetSearchLookupResult = IndexAccessResult<IndexAssetSearchLookupJsonContract>.Success(
-                new IndexAssetSearchLookupJsonContract(
-                    SchemaVersion: 1,
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    SourceInputsHash: "stale-asset-search-hash",
-                    Entries:
-                    [
-                        new IndexAssetSearchEntryJsonContract(
-                            AssetPath: "Assets/Data/Stale.asset",
-                            AssetGuid: "11111111111111111111111111111111",
-                            Name: "Stale",
-                            TypeId: "Game.Stale, Assembly-CSharp",
-                            SearchTypeIds:
-                            [
-                                "Game.Stale, Assembly-CSharp",
-                                "UnityEngine.Object, UnityEngine.CoreModule",
-                            ]),
-                    ])),
+            Result = new PersistedOpsCatalogPersistenceArtifacts(
+                InputsManifest: null,
+                HasPersistedAssetLookupArtifacts: true),
         };
         var catalogReader = new StubOpsCatalogReader
         {
@@ -251,8 +230,8 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
-            new StubPersistedOpsCatalogSnapshotLoader(),
-            indexReader,
+            new StubPersistedOpsCatalogReader(),
+            persistedArtifactsReader,
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -279,10 +258,10 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenPersistingSourceResult_ReusesManifestAssetHashesWithoutFullFingerprint ()
     {
         var context = CreateContext();
-        var indexReader = new StubIndexCatalogReader
+        var persistedArtifactsReader = new StubPersistedOpsCatalogPersistenceArtifactsReader
         {
-            ManifestResult = IndexAccessResult<IndexInputsManifestJsonContract>.Success(
-                new IndexInputsManifestJsonContract(
+            Result = new PersistedOpsCatalogPersistenceArtifacts(
+                InputsManifest: new IndexInputsManifestJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
                     ScriptAssembliesHash: "old-script",
@@ -292,7 +271,8 @@ public sealed class OpsCatalogAccessServiceTests
                     AssetsContentHash: "existing-assets",
                     AssetSearchHash: "existing-asset-search",
                     GuidPathHash: "existing-guid-path",
-                    CombinedHash: "old-combined")),
+                    CombinedHash: "old-combined"),
+                HasPersistedAssetLookupArtifacts: true),
         };
         var catalogReader = new StubOpsCatalogReader
         {
@@ -320,8 +300,8 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
-            new StubPersistedOpsCatalogSnapshotLoader(),
-            indexReader,
+            new StubPersistedOpsCatalogReader(),
+            persistedArtifactsReader,
             inputFingerprintCalculator,
             catalogReader,
             store);
@@ -337,7 +317,7 @@ public sealed class OpsCatalogAccessServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(1, inputFingerprintCalculator.CoreCallCount);
         Assert.Equal(0, inputFingerprintCalculator.FullCallCount);
-        Assert.Equal(1, indexReader.ReadInputsManifestCallCount);
+        Assert.Equal(1, persistedArtifactsReader.CallCount);
         Assert.Equal("combined", store.LastSourceInputsHash);
         Assert.NotNull(store.LastManifestInputSnapshot);
         Assert.Equal("script", store.LastManifestInputSnapshot!.ScriptAssembliesHash);
@@ -363,29 +343,28 @@ public sealed class OpsCatalogAccessServiceTests
     }
 
     private static OpsCatalogAccessService CreateService (
-        IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader,
-        IIndexCatalogReader indexCatalogReader,
+        IPersistedOpsCatalogReader persistedOpsCatalogSnapshotLoader,
+        IPersistedOpsCatalogPersistenceArtifactsReader persistedOpsCatalogPersistenceArtifactsReader,
         IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
         return new OpsCatalogAccessService(
             persistedOpsCatalogSnapshotLoader,
-            indexCatalogReader,
+            persistedOpsCatalogPersistenceArtifactsReader,
             indexInputFingerprintCalculator,
             opsCatalogReader,
             opsCatalogStore);
     }
 
-    private sealed class StubPersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSnapshotLoader
+    private sealed class StubPersistedOpsCatalogReader : IPersistedOpsCatalogReader
     {
-        public PersistedOpsCatalogSnapshotLoadResult Result { get; set; }
-            = PersistedOpsCatalogSnapshotLoadResult.Failure(
-                new IndexServiceError(
-                    IpcErrorCodes.ReadIndexBootstrapFailed,
-                    "Index contract file was not found: ops.catalog.json."));
+        public PersistedOpsCatalogReadResult Result { get; set; }
+            = PersistedOpsCatalogReadResult.Failure(
+                IpcErrorCodes.ReadIndexBootstrapFailed,
+                "Index contract file was not found: ops.catalog.json.");
 
-        public ValueTask<PersistedOpsCatalogSnapshotLoadResult> Load (
+        public ValueTask<PersistedOpsCatalogReadResult> Read (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
@@ -395,90 +374,23 @@ public sealed class OpsCatalogAccessServiceTests
         }
     }
 
-    private sealed class StubIndexCatalogReader : IIndexCatalogReader
+    private sealed class StubPersistedOpsCatalogPersistenceArtifactsReader : IPersistedOpsCatalogPersistenceArtifactsReader
     {
-        public IndexAccessResult<IndexOpsCatalogJsonContract> OpsCatalogResult { get; set; }
-            = IndexAccessResult<IndexOpsCatalogJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
-                "Index contract file was not found: ops.catalog.json.");
+        public int CallCount { get; private set; }
 
-        public IndexAccessResult<IndexAssetSearchLookupJsonContract> AssetSearchLookupResult { get; set; }
-            = IndexAccessResult<IndexAssetSearchLookupJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
-                "Index contract file was not found: lookups/asset-search.lookup.json.");
+        public PersistedOpsCatalogPersistenceArtifacts Result { get; set; }
+            = new(
+                InputsManifest: null,
+                HasPersistedAssetLookupArtifacts: false);
 
-        public IndexAccessResult<IndexGuidPathLookupJsonContract> GuidPathLookupResult { get; set; }
-            = IndexAccessResult<IndexGuidPathLookupJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
-                "Index contract file was not found: lookups/guid-path.lookup.json.");
-
-        public int ReadInputsManifestCallCount { get; private set; }
-
-        public IndexAccessResult<IndexInputsManifestJsonContract> ManifestResult { get; set; }
-            = IndexAccessResult<IndexInputsManifestJsonContract>.Failure(
-                IpcErrorCodes.ReadIndexBootstrapFailed,
-                "Index contract file was not found: inputs/manifest.json.");
-
-        public ValueTask<IndexAccessResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
-            string storageRoot,
-            string projectFingerprint,
+        public ValueTask<PersistedOpsCatalogPersistenceArtifacts> Read (
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(OpsCatalogResult);
-        }
-
-        public ValueTask<IndexAccessResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IndexAccessResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
-            string storageRoot,
-            string projectFingerprint,
-            string scenePath,
-            CancellationToken cancellationToken = default)
-        {
-            throw new NotSupportedException();
-        }
-
-        public ValueTask<IndexAccessResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(AssetSearchLookupResult);
-        }
-
-        public ValueTask<IndexAccessResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(GuidPathLookupResult);
-        }
-
-        public ValueTask<IndexAccessResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
-            string storageRoot,
-            string projectFingerprint,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ReadInputsManifestCallCount++;
-            return ValueTask.FromResult(ManifestResult);
+            ArgumentNullException.ThrowIfNull(unityProject);
+            CallCount++;
+            return ValueTask.FromResult(Result);
         }
     }
 

@@ -13,7 +13,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Scenes;
 
@@ -25,7 +25,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     {
         var executor = new StubUnityIpcRequestExecutor
         {
-            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(
+            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
                     ScenePath: "Assets/Scenes/Main.unity",
@@ -59,7 +59,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     {
         var executor = new StubUnityIpcRequestExecutor
         {
-            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(
+            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
                     ScenePath: "Assets/Scenes/Main.unity",
@@ -89,7 +89,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     {
         var executor = new StubUnityIpcRequestExecutor
         {
-            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(
+            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.UtcNow,
                     ScenePath: "Assets/Scenes/Other.unity",
@@ -120,7 +120,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     {
         var executor = new StubUnityIpcRequestExecutor
         {
-            Result = UnityIpcRequestExecutionResult.Success(CreateSuccessResponse(
+            Result = UnityRequestExecutionResult.Success(CreateSuccessResponse(
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.UtcNow,
                     ScenePath: "Assets/Scenes/Main.unity",
@@ -164,7 +164,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             Errors: Array.Empty<IpcError>());
     }
 
-    private sealed class StubUnityIpcRequestExecutor : IUnityIpcRequestExecutor
+    private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor
     {
         public UnityExecutionMode LastMode { get; private set; }
 
@@ -172,10 +172,10 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 
         public JsonElement LastPayload { get; private set; }
 
-        public UnityIpcRequestExecutionResult Result { get; set; }
-            = UnityIpcRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
+        public UnityRequestExecutionResult Result { get; set; }
+            = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
 
-        public ValueTask<UnityIpcRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

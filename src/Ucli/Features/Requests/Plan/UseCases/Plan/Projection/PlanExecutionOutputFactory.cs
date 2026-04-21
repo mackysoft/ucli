@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Projection;
 

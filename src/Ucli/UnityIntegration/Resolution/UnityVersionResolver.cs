@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 

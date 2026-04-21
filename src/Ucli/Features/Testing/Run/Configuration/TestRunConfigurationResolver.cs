@@ -1,7 +1,8 @@
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;

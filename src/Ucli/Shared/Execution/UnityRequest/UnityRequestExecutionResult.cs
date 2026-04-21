@@ -1,12 +1,12 @@
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+namespace MackySoft.Ucli.Shared.Execution.UnityRequest;
 
 /// <summary> Represents one Unity IPC request execution result. </summary>
 /// <param name="Response"> The IPC response on success; otherwise <see langword="null" />. </param>
 /// <param name="Message"> The user-facing result message. </param>
 /// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
-internal sealed record UnityIpcRequestExecutionResult (
+internal sealed record UnityRequestExecutionResult (
     IpcResponse? Response,
     string Message,
     string? ErrorCode)
@@ -17,11 +17,11 @@ internal sealed record UnityIpcRequestExecutionResult (
     /// <summary> Creates a successful request-execution result. </summary>
     /// <param name="response"> The IPC response returned from Unity. </param>
     /// <returns> The successful request-execution result. </returns>
-    public static UnityIpcRequestExecutionResult Success (IpcResponse response)
+    public static UnityRequestExecutionResult Success (IpcResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        return new UnityIpcRequestExecutionResult(
+        return new UnityRequestExecutionResult(
             Response: response,
             Message: "Unity IPC request execution completed.",
             ErrorCode: null);
@@ -31,11 +31,11 @@ internal sealed record UnityIpcRequestExecutionResult (
     /// <param name="message"> The user-facing failure message. </param>
     /// <param name="errorCode"> The machine-readable failure code. </param>
     /// <returns> The failed request-execution result. </returns>
-    public static UnityIpcRequestExecutionResult Failure (
+    public static UnityRequestExecutionResult Failure (
         string message,
         string errorCode)
     {
-        return new UnityIpcRequestExecutionResult(
+        return new UnityRequestExecutionResult(
             Response: null,
             Message: message,
             ErrorCode: errorCode);

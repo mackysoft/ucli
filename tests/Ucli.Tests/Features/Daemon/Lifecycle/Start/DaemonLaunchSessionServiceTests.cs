@@ -25,6 +25,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Contracts.Ipc;
@@ -38,7 +39,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 public sealed class DaemonLaunchSessionServiceTests
 {

@@ -1,9 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
@@ -13,7 +10,9 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.Shared.Storage;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 
@@ -50,7 +49,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityIpcRequestExecutionResult> SendAsync (
+    public async ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         string method,
         JsonElement payload,
@@ -111,7 +110,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 .ConfigureAwait(false);
             if (!launchResult.IsSuccess)
             {
-                return UnityIpcRequestExecutionResult.Failure(
+                return UnityRequestExecutionResult.Failure(
                     launchResult.Error!.Message,
                     ExecutionErrorCodeMapper.ToCode(launchResult.Error.Kind));
             }
@@ -130,7 +129,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     .ConfigureAwait(false);
                 if (startupProbeError != null)
                 {
-                    return UnityIpcRequestExecutionResult.Failure(
+                    return UnityRequestExecutionResult.Failure(
                         startupProbeError.Message,
                         ExecutionErrorCodeMapper.ToCode(startupProbeError.Kind));
                 }
@@ -155,13 +154,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 var exitWaitError = await WaitForExit(processHandle, exitTimeout, cancellationToken).ConfigureAwait(false);
                 if (exitWaitError != null)
                 {
-                    return UnityIpcRequestExecutionResult.Failure(
+                    return UnityRequestExecutionResult.Failure(
                         exitWaitError.Message,
                         ExecutionErrorCodeMapper.ToCode(exitWaitError.Kind));
                 }
 
                 shouldTerminateProcess = false;
-                return UnityIpcRequestExecutionResult.Success(response);
+                return UnityRequestExecutionResult.Success(response);
             }
             finally
             {
@@ -184,15 +183,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
         catch (Exception exception)
         {
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 $"Failed to execute Unity oneshot IPC request. {exception.Message}",
                 IpcErrorCodes.InternalError);
         }
     }
 
-    private static UnityIpcRequestExecutionResult CreateTimeoutFailure (TimeSpan timeout)
+    private static UnityRequestExecutionResult CreateTimeoutFailure (TimeSpan timeout)
     {
-        return UnityIpcRequestExecutionResult.Failure(
+        return UnityRequestExecutionResult.Failure(
             $"Unity oneshot IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
             ExecutionErrorCodes.IpcTimeout);
     }

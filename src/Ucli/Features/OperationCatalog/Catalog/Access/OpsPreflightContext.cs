@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
 

@@ -12,8 +12,6 @@ using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 
@@ -24,7 +22,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
     private readonly IOperationAuthorizationService operationAuthorizationService;
 
-    private readonly IUnityIpcRequestExecutor unityIpcRequestExecutor;
+    private readonly IUnityRequestExecutor unityIpcRequestExecutor;
 
     private readonly TimeProvider timeProvider;
 
@@ -36,7 +34,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     public OperationExecuteService (
         IProjectContextResolver projectContextResolver,
         IOperationAuthorizationService operationAuthorizationService,
-        IUnityIpcRequestExecutor unityIpcRequestExecutor,
+        IUnityRequestExecutor unityIpcRequestExecutor,
         TimeProvider? timeProvider = null)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));

@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Represents the emitted <c>payload.readIndex</c> metadata for reader commands. </summary>
 /// <param name="Used"> Whether the selected result came from persisted read-index metadata. </param>

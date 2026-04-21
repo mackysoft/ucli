@@ -15,7 +15,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
@@ -26,7 +26,7 @@ public sealed class PlanServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenStaticPreflightSucceeds_UsesPlanIpcPayloadAndReturnsSuccess ()
     {
-        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
                 opResults:
@@ -89,7 +89,7 @@ public sealed class PlanServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenPreflightAllowsSyntaxOnlyFallback_ContinuesToUnityExecution ()
     {
-        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
                 opResults: [],
@@ -238,7 +238,7 @@ public sealed class PlanServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityResponseOmitsPlanToken_ReturnsInternalErrorWithPartialOpResults ()
     {
-        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
                 opResults:
@@ -289,7 +289,7 @@ public sealed class PlanServiceTests
     [InlineData(ExecutionErrorCodes.IpcTimeout)]
     public async Task Execute_WhenUnityExecutionFailsWithToolErrorCode_ReturnsToolErrorAndPreservesPayload (string errorCode)
     {
-        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Failure(
+        var unityIpcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
             "Unity execution failed.",
             errorCode));
         var service = new PlanService(
@@ -430,15 +430,15 @@ public sealed class PlanServiceTests
         }
     }
 
-    private sealed class SpyUnityIpcRequestExecutor : IUnityIpcRequestExecutor
+    private sealed class SpyUnityIpcRequestExecutor : IUnityRequestExecutor
     {
-        private readonly Queue<UnityIpcRequestExecutionResult> results;
+        private readonly Queue<UnityRequestExecutionResult> results;
 
         private readonly List<Invocation> invocations = [];
 
-        public SpyUnityIpcRequestExecutor (params UnityIpcRequestExecutionResult[] results)
+        public SpyUnityIpcRequestExecutor (params UnityRequestExecutionResult[] results)
         {
-            this.results = new Queue<UnityIpcRequestExecutionResult>(results ?? throw new ArgumentNullException(nameof(results)));
+            this.results = new Queue<UnityRequestExecutionResult>(results ?? throw new ArgumentNullException(nameof(results)));
         }
 
         public int CallCount { get; private set; }
@@ -453,7 +453,7 @@ public sealed class PlanServiceTests
 
         public JsonElement CapturedPayload => invocations[^1].Payload;
 
-        public ValueTask<UnityIpcRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

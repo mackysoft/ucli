@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
+namespace MackySoft.Ucli.Shared.Context.Project;
 
 /// <summary> Represents a resolved UnityProject context shared by command foundation services. </summary>
 /// <param name="UnityProjectRoot"> The normalized absolute UnityProject root path. </param>

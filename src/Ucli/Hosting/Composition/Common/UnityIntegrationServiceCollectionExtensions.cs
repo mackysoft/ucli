@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -55,12 +57,14 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<ISceneTreeLiteSourceRefreshService, SceneTreeLiteSourceRefreshService>();
         services.AddSingleton<ISceneTreeLiteAccessService, SceneTreeLiteAccessService>();
         services.AddSingleton<IPersistedOpsCatalogSnapshotLoader, PersistedOpsCatalogSnapshotLoader>();
+        services.AddSingleton<IPersistedOpsCatalogReader, PersistedOpsCatalogReader>();
+        services.AddSingleton<IPersistedOpsCatalogPersistenceArtifactsReader, PersistedOpsCatalogPersistenceArtifactsReader>();
         services.AddSingleton<IIpcEndpointResolver, IpcEndpointResolver>();
         services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
         services.AddSingleton<IUnityIpcClient, UnityDaemonIpcClient>();
         services.AddSingleton<IUnityIpcClient, UnityOneshotIpcClient>();
-        services.AddSingleton<IUnityIpcRequestExecutor, UnityIpcRequestExecutor>();
+        services.AddSingleton<IUnityRequestExecutor, UnityIpcRequestExecutor>();
         return services;
     }
 }

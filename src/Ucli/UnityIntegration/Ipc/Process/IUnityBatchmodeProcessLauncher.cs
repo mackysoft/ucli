@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Process;
 

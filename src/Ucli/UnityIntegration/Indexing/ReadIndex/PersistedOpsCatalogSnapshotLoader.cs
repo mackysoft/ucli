@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 

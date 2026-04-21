@@ -7,7 +7,8 @@ using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
+using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 
 public sealed class ProjectContextResolverTests
 {

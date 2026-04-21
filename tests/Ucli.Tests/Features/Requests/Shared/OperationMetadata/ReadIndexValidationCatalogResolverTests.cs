@@ -1,10 +1,10 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -15,7 +15,10 @@ public sealed class ReadIndexValidationCatalogResolverTests
     public async Task Resolve_WhenReadIndexDisabled_ReturnsSyntaxOnlySuccess ()
     {
         var loader = new SpyPersistedOpsCatalogSnapshotLoader(
-            PersistedOpsCatalogSnapshotLoadResult.Success(CreateSnapshot(IndexFreshness.Fresh)));
+            PersistedOpsCatalogReadResult.Success(
+                CreateSnapshot(IndexFreshness.Fresh).Entries,
+                CreateSnapshot(IndexFreshness.Fresh).GeneratedAtUtc,
+                CreateSnapshot(IndexFreshness.Fresh).Freshness));
         var resolver = new ReadIndexValidationCatalogResolver(loader);
 
         var result = await resolver.Resolve(
@@ -38,10 +41,9 @@ public sealed class ReadIndexValidationCatalogResolverTests
     public async Task Resolve_WhenAllowStaleAndSnapshotIsMissing_ReturnsSyntaxOnlySuccess ()
     {
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
-            PersistedOpsCatalogSnapshotLoadResult.Failure(
-                new IndexServiceError(
-                    IpcErrorCodes.ReadIndexBootstrapFailed,
-                    "Index contract file was not found: ops.catalog.json."))));
+            PersistedOpsCatalogReadResult.Failure(
+                IpcErrorCodes.ReadIndexBootstrapFailed,
+                "Index contract file was not found: ops.catalog.json.")));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -60,7 +62,10 @@ public sealed class ReadIndexValidationCatalogResolverTests
     public async Task Resolve_WhenRequireFreshAndSnapshotIsStale_ReturnsFailureWithReadIndexHit ()
     {
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
-            PersistedOpsCatalogSnapshotLoadResult.Success(CreateSnapshot(IndexFreshness.Stale))));
+            PersistedOpsCatalogReadResult.Success(
+                CreateSnapshot(IndexFreshness.Stale).Entries,
+                CreateSnapshot(IndexFreshness.Stale).GeneratedAtUtc,
+                CreateSnapshot(IndexFreshness.Stale).Freshness)));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -91,7 +96,10 @@ public sealed class ReadIndexValidationCatalogResolverTests
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             Freshness: IndexFreshness.Fresh);
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
-            PersistedOpsCatalogSnapshotLoadResult.Success(malformedSnapshot)));
+            PersistedOpsCatalogReadResult.Success(
+                malformedSnapshot.Entries,
+                malformedSnapshot.GeneratedAtUtc,
+                malformedSnapshot.Freshness)));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -110,7 +118,10 @@ public sealed class ReadIndexValidationCatalogResolverTests
     public async Task Resolve_WhenSnapshotIsUsable_ReturnsMetadataBackedSuccess ()
     {
         var resolver = new ReadIndexValidationCatalogResolver(new SpyPersistedOpsCatalogSnapshotLoader(
-            PersistedOpsCatalogSnapshotLoadResult.Success(CreateSnapshot(IndexFreshness.Probable))));
+            PersistedOpsCatalogReadResult.Success(
+                CreateSnapshot(IndexFreshness.Probable).Entries,
+                CreateSnapshot(IndexFreshness.Probable).GeneratedAtUtc,
+                CreateSnapshot(IndexFreshness.Probable).Freshness)));
 
         var result = await resolver.Resolve(
             CreateUnityProject(),
@@ -150,18 +161,18 @@ public sealed class ReadIndexValidationCatalogResolverTests
             Freshness: freshness);
     }
 
-    private sealed class SpyPersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSnapshotLoader
+    private sealed class SpyPersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogReader
     {
-        private readonly PersistedOpsCatalogSnapshotLoadResult result;
+        private readonly PersistedOpsCatalogReadResult result;
 
-        public SpyPersistedOpsCatalogSnapshotLoader (PersistedOpsCatalogSnapshotLoadResult result)
+        public SpyPersistedOpsCatalogSnapshotLoader (PersistedOpsCatalogReadResult result)
         {
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
         public int CallCount { get; private set; }
 
-        public ValueTask<PersistedOpsCatalogSnapshotLoadResult> Load (
+        public ValueTask<PersistedOpsCatalogReadResult> Read (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

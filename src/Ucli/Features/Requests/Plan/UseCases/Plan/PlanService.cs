@@ -12,8 +12,6 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 
 namespace MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
 
@@ -24,7 +22,7 @@ internal sealed class PlanService : IPlanService
 
     private readonly IRequestStaticValidationPreflightService requestStaticValidationPreflightService;
 
-    private readonly IUnityIpcRequestExecutor unityIpcRequestExecutor;
+    private readonly IUnityRequestExecutor unityIpcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="PlanService" /> class. </summary>
     /// <param name="requestPreparationService"> The shared request-preparation dependency. </param>
@@ -33,7 +31,7 @@ internal sealed class PlanService : IPlanService
     public PlanService (
         IRequestPreparationService requestPreparationService,
         IRequestStaticValidationPreflightService requestStaticValidationPreflightService,
-        IUnityIpcRequestExecutor unityIpcRequestExecutor)
+        IUnityRequestExecutor unityIpcRequestExecutor)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
         this.requestStaticValidationPreflightService = requestStaticValidationPreflightService ?? throw new ArgumentNullException(nameof(requestStaticValidationPreflightService));

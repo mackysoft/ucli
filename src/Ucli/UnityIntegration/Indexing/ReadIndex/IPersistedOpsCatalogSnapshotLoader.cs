@@ -1,5 +1,3 @@
-using MackySoft.Ucli.UnityIntegration.Project;
-
 namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 /// <summary> Loads one persisted ops-catalog snapshot and observes its freshness. </summary>
