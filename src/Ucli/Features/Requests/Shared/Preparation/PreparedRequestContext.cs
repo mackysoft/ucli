@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Context;
 
 namespace MackySoft.Ucli.Features.Requests.Shared.Preparation;

@@ -2,7 +2,9 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Init.Common.Contracts;
 using MackySoft.Ucli.Features.Init.UseCases.Init;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;

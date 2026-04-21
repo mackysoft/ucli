@@ -2,7 +2,9 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Tests;
 

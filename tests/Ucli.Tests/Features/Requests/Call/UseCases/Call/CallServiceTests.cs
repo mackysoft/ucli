@@ -10,7 +10,8 @@ using MackySoft.Ucli.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
@@ -643,7 +644,7 @@ public sealed class CallServiceTests
         return new PhaseExecutionPreparedRequest(
             PreparedRequest: new PreparedRequestContext(
                 RequestJson: requestJson,
-                InputSource: MackySoft.Ucli.Hosting.Cli.Requests.RequestInputSource.StandardInput,
+                InputSource: MackySoft.Ucli.Hosting.Cli.Requests.Input.RequestInputSource.StandardInput,
                 Request: request,
                 ProjectContext: new ProjectContext(
                     new ResolvedUnityProjectContext(
