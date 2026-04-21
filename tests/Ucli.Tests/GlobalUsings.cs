@@ -1,1 +1,9 @@
 global using MackySoft.Ucli.Shared.Execution.ErrorCodes;
+global using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
+global using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+global using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+global using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+global using MackySoft.Ucli.UnityIntegration.Project.Plugin;
+global using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
+global using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
+global using MackySoft.Ucli.UnityIntegration.Project.Resolution;

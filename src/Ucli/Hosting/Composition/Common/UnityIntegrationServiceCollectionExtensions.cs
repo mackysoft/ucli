@@ -5,8 +5,14 @@ using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
-using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
+using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,14 +29,14 @@ internal static class UnityIntegrationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
+        services.AddSingleton<IUnityProjectResolver>(provider => new UnityProjectResolver(
+            provider.GetRequiredService<IProjectPathInputResolver>()));
         services.AddSingleton<UnityUcliPluginMarkerDiscovery>();
         services.AddSingleton<UnityUcliPluginMarkerValidator>();
         services.AddSingleton<UnityUcliPluginMarkerCacheStore>();
         services.AddSingleton<UnityUcliPluginMarkerCacheCoordinator>();
         services.AddSingleton<IUnityUcliPluginLocator, UnityUcliPluginLocator>();
-        services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
-        services.AddSingleton<IUnityProjectResolver>(provider => new UnityProjectResolver(
-            provider.GetRequiredService<IProjectPathInputResolver>()));
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
