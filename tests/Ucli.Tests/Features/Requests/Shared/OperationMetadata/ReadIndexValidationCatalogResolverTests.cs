@@ -3,8 +3,9 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
+using MackySoft.Ucli.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Shared.Context.Project;
+using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests;
 

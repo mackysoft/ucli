@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Represents one index freshness evaluation result. </summary>
 /// <param name="Freshness"> The evaluated freshness value. </param>

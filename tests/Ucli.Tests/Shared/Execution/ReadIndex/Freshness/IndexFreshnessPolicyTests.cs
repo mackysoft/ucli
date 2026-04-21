@@ -1,9 +1,8 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
-namespace MackySoft.Ucli.Tests.Index;
+namespace MackySoft.Ucli.Tests.Execution.ReadIndex;
 
 public sealed class IndexFreshnessPolicyTests
 {

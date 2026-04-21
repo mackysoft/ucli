@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Represents one machine-readable index service error. </summary>
 /// <param name="Code"> The error code. </param>

@@ -2,7 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Validates read-index catalog contracts loaded from persistent storage. </summary>
 internal static class IndexCatalogContractValidator

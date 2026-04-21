@@ -2,7 +2,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Provides read-index freshness policy evaluation and mode constraints. </summary>
 internal static class IndexFreshnessPolicy

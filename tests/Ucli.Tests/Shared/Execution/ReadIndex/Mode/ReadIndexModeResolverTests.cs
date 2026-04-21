@@ -1,9 +1,8 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
-namespace MackySoft.Ucli.Tests.ReadIndex;
+namespace MackySoft.Ucli.Tests.Execution.ReadIndex;
 
 public sealed class ReadIndexModeResolverTests
 {

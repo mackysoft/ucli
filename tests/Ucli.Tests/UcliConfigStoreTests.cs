@@ -4,8 +4,8 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 public sealed class UcliConfigStoreTests
 {
