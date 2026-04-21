@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 

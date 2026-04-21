@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
+namespace MackySoft.Ucli.Shared.Context.Project;
 
 /// <summary> Identifies where the UnityProject path was obtained during resolution. </summary>
 internal enum UnityProjectPathSource

@@ -4,7 +4,6 @@ using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.ErrorCodes;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
 

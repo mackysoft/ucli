@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
+namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 /// <summary> Maps read-index contract literals into command-facing string values. </summary>
 internal static class ReadIndexInfoTextCodec

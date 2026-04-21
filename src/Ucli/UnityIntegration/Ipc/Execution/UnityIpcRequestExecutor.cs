@@ -9,9 +9,6 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Configuration;
@@ -21,12 +18,11 @@ using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
 /// <summary> Executes one IPC request through the resolved Unity daemon or oneshot host. </summary>
-internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
+internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
 {
     private readonly IUnityExecutionModeDecisionService modeDecisionService;
 
@@ -60,9 +56,9 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityIpcRequestExecutionResult> Execute (
+    public async ValueTask<UnityRequestExecutionResult> Execute (
         UcliCommand command,
-        UnityExecutionMode mode,
+        MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode mode,
         TimeSpan timeout,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
@@ -84,7 +80,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
         {
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 "Timed out before Unity execution mode decision could begin.",
                 ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.Timeout));
         }
@@ -109,20 +105,20 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                     .ConfigureAwait(false);
                 if (daemonModePluginLocateResult != null)
                 {
-                    return UnityIpcRequestExecutionResult.Failure(
+                    return UnityRequestExecutionResult.Failure(
                         daemonModePluginLocateResult.Message,
                         ExecutionErrorCodeMapper.ToCode(daemonModePluginLocateResult.Kind));
                 }
             }
 
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 modeDecisionResult.ContractError!.Message,
                 modeDecisionResult.ContractError.Code);
         }
 
         if (!modeDecisionResult.IsSuccess)
         {
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 modeDecisionResult.Error!.Message,
                 ExecutionErrorCodeMapper.ToCode(modeDecisionResult.Error.Kind));
         }
@@ -138,7 +134,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
                 .ConfigureAwait(false);
             if (pluginLocateError != null)
             {
-                return UnityIpcRequestExecutionResult.Failure(
+                return UnityRequestExecutionResult.Failure(
                     pluginLocateError.Message,
                     ExecutionErrorCodeMapper.ToCode(pluginLocateError.Kind));
             }
@@ -158,7 +154,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
 
         if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
         {
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 "Timed out before Unity IPC request dispatch could begin.",
                 ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.Timeout));
         }
@@ -179,7 +175,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
             .ConfigureAwait(false);
     }
 
-    private async ValueTask<UnityIpcRequestExecutionResult> ExecuteDaemonOpsReadWithReadinessGate (
+    private async ValueTask<UnityRequestExecutionResult> ExecuteDaemonOpsReadWithReadinessGate (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         ExecutionDeadline deadline,
@@ -214,7 +210,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
 
             if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
             {
-                return UnityIpcRequestExecutionResult.Failure(
+                return UnityRequestExecutionResult.Failure(
                     "Timed out before Unity IPC request dispatch could begin.",
                     ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.Timeout));
             }
@@ -253,7 +249,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         return parsedPayload;
     }
 
-    private async ValueTask<UnityIpcRequestExecutionResult?> WaitUntilDaemonReadiness (
+    private async ValueTask<UnityRequestExecutionResult?> WaitUntilDaemonReadiness (
         ResolvedUnityProjectContext unityProject,
         bool failFast,
         ExecutionDeadline deadline,
@@ -287,7 +283,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
 
                 if (readinessDecision.IsFailure)
                 {
-                    return UnityIpcRequestExecutionResult.Failure(
+                    return UnityRequestExecutionResult.Failure(
                         readinessDecision.ErrorMessage!,
                         readinessDecision.ErrorCode!);
                 }
@@ -301,13 +297,13 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                return UnityIpcRequestExecutionResult.Failure(
+                return UnityRequestExecutionResult.Failure(
                     $"Unity daemon is not running. {exception.Message}",
                     UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
             }
             catch (Exception exception)
             {
-                return UnityIpcRequestExecutionResult.Failure(
+                return UnityRequestExecutionResult.Failure(
                     $"Failed while waiting for Unity daemon readiness. {exception.Message}",
                     IpcErrorCodes.InternalError);
             }
@@ -325,9 +321,9 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
         }
     }
 
-    private static UnityIpcRequestExecutionResult CreateDaemonTimeoutFailure (TimeSpan timeout)
+    private static UnityRequestExecutionResult CreateDaemonTimeoutFailure (TimeSpan timeout)
     {
-        return UnityIpcRequestExecutionResult.Failure(
+        return UnityRequestExecutionResult.Failure(
             $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
             ExecutionErrorCodes.IpcTimeout);
     }
@@ -403,7 +399,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityIpcRequestExecutor
     }
 
     private static bool ShouldRetryDaemonOpsReadAfterLateWaitableRegression (
-        UnityIpcRequestExecutionResult dispatchResult,
+        UnityRequestExecutionResult dispatchResult,
         bool failFast)
     {
         ArgumentNullException.ThrowIfNull(dispatchResult);

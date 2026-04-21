@@ -5,7 +5,7 @@ using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests;
 

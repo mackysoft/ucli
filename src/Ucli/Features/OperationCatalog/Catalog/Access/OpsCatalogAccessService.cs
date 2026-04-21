@@ -3,15 +3,13 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Implements ops catalog access flow across read-index and source fallback paths. </summary>
 internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 {
-    private readonly IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader;
+    private readonly IPersistedOpsCatalogReader persistedOpsCatalogReader;
 
     private readonly IIndexCatalogReader indexCatalogReader;
 
@@ -22,19 +20,19 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     private readonly IOpsCatalogStore opsCatalogStore;
 
     /// <summary> Initializes a new instance of the <see cref="OpsCatalogAccessService" /> class. </summary>
-    /// <param name="persistedOpsCatalogSnapshotLoader"> The persisted snapshot loader dependency. </param>
+    /// <param name="persistedOpsCatalogReader"> The persisted ops-catalog reader dependency. </param>
     /// <param name="indexCatalogReader"> The persisted index catalog reader dependency. </param>
     /// <param name="indexInputFingerprintCalculator"> The read-index input fingerprint calculator dependency. </param>
     /// <param name="opsCatalogReader"> The ops catalog reader dependency. </param>
     /// <param name="opsCatalogStore"> The ops catalog persistence dependency. </param>
     public OpsCatalogAccessService (
-        IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader,
+        IPersistedOpsCatalogReader persistedOpsCatalogReader,
         IIndexCatalogReader indexCatalogReader,
         IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
-        this.persistedOpsCatalogSnapshotLoader = persistedOpsCatalogSnapshotLoader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogSnapshotLoader));
+        this.persistedOpsCatalogReader = persistedOpsCatalogReader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogReader));
         this.indexCatalogReader = indexCatalogReader ?? throw new ArgumentNullException(nameof(indexCatalogReader));
         this.indexInputFingerprintCalculator = indexInputFingerprintCalculator ?? throw new ArgumentNullException(nameof(indexInputFingerprintCalculator));
         this.opsCatalogReader = opsCatalogReader ?? throw new ArgumentNullException(nameof(opsCatalogReader));
@@ -58,46 +56,46 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 .ConfigureAwait(false);
         }
 
-        var persistedSnapshotResult = await persistedOpsCatalogSnapshotLoader.Load(
+        var persistedCatalogResult = await persistedOpsCatalogReader.Read(
                 context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (!persistedSnapshotResult.IsSuccess)
+        if (!persistedCatalogResult.IsSuccess)
         {
-            if (string.Equals(persistedSnapshotResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (string.Equals(persistedCatalogResult.ErrorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
             {
                 return OpsCatalogReadResult.Failure(
-                    persistedSnapshotResult.Error.Message,
+                    persistedCatalogResult.ErrorMessage!,
                     IpcErrorCodes.InvalidArgument);
             }
 
             return await ReadCatalogFromSource(
                     context,
-                    persistedSnapshotResult.Error.Message,
+                    persistedCatalogResult.ErrorMessage!,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        var persistedSnapshot = persistedSnapshotResult.Snapshot!;
-
-        if (context.ReadIndexMode == ReadIndexMode.AllowStale || persistedSnapshot.Freshness == IndexFreshness.Fresh)
+        var persistedFreshness = persistedCatalogResult.Freshness!.Value;
+        var persistedGeneratedAtUtc = persistedCatalogResult.GeneratedAtUtc!.Value;
+        if (context.ReadIndexMode == ReadIndexMode.AllowStale || persistedFreshness == IndexFreshness.Fresh)
         {
             return OpsCatalogReadResult.Success(
                 new OpsCatalogReadOutput(
-                    Operations: persistedSnapshot.Entries.ToArray(),
+                    Operations: persistedCatalogResult.Entries!.ToArray(),
                     AccessInfo: new OpsCatalogAccessInfo(
                         Used: true,
                         Hit: true,
                         Source: OpsCatalogSource.Index,
-                        Freshness: persistedSnapshot.Freshness,
-                        GeneratedAtUtc: persistedSnapshot.GeneratedAtUtc,
+                        Freshness: persistedFreshness,
+                        GeneratedAtUtc: persistedGeneratedAtUtc,
                         FallbackReason: null)),
                 "Read-index ops catalog hit.");
         }
 
         return await ReadCatalogFromSource(
                 context,
-                $"Existing ops index freshness is '{DescribeFreshness(persistedSnapshot.Freshness)}'.",
+                $"Existing ops index freshness is '{DescribeFreshness(persistedFreshness)}'.",
                 cancellationToken)
             .ConfigureAwait(false);
     }

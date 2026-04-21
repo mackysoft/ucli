@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Shared.Configuration;
@@ -10,20 +9,17 @@ using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Reads the operation catalog through the shared IPC execution path. </summary>
 internal sealed class OpsCatalogReader : IOpsCatalogReader
 {
-    private readonly IUnityIpcRequestExecutor ipcRequestExecutor;
+    private readonly IUnityRequestExecutor ipcRequestExecutor;
 
     /// <summary> Initializes a new instance of the <see cref="OpsCatalogReader" /> class. </summary>
     /// <param name="ipcRequestExecutor"> The shared IPC request executor dependency. </param>
-    public OpsCatalogReader (IUnityIpcRequestExecutor ipcRequestExecutor)
+    public OpsCatalogReader (IUnityRequestExecutor ipcRequestExecutor)
     {
         this.ipcRequestExecutor = ipcRequestExecutor ?? throw new ArgumentNullException(nameof(ipcRequestExecutor));
     }

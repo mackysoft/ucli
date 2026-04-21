@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.Tests.Ipc;

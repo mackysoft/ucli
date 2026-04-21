@@ -8,9 +8,6 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
@@ -18,7 +15,7 @@ using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 
@@ -41,7 +38,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
     }
 
     /// <inheritdoc />
-    public async ValueTask<UnityIpcRequestExecutionResult> SendAsync (
+    public async ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         string method,
         JsonElement payload,
@@ -59,7 +56,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             var message = sessionTokenResult.IsSessionNotAvailable
                 ? "Daemon session token is not available."
                 : $"Daemon session token could not be resolved. {sessionTokenResult.Error!.Message}";
-            return UnityIpcRequestExecutionResult.Failure(message, IpcErrorCodes.InternalError);
+            return UnityRequestExecutionResult.Failure(message, IpcErrorCodes.InternalError);
         }
 
         try
@@ -71,7 +68,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return UnityIpcRequestExecutionResult.Success(response);
+            return UnityRequestExecutionResult.Success(response);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -79,19 +76,19 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         }
         catch (TimeoutException)
         {
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
                 ExecutionErrorCodes.IpcTimeout);
         }
         catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 $"Unity daemon is not running. {exception.Message}",
                 UnityExecutionModeDecisionErrorCodes.DaemonNotRunning);
         }
         catch (Exception exception)
         {
-            return UnityIpcRequestExecutionResult.Failure(
+            return UnityRequestExecutionResult.Failure(
                 $"Failed to execute Unity daemon IPC request. {exception.Message}",
                 IpcErrorCodes.InternalError);
         }

@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
+namespace MackySoft.Ucli.Shared.Context.Project;
 
 /// <summary> Resolves and validates a UnityProject path for CLI command execution. </summary>
 internal interface IUnityProjectResolver

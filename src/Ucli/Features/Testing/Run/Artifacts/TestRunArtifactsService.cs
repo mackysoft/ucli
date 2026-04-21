@@ -3,9 +3,9 @@ using System.Security.Cryptography;
 using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.Shared.Storage;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Artifacts;
 

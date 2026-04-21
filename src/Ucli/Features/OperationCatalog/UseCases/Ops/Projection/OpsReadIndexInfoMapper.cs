@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.UseCases.Ops.Projection;
 

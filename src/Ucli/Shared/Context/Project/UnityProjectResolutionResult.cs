@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
+namespace MackySoft.Ucli.Shared.Context.Project;
 
 /// <summary> Represents the result of UnityProject path resolution. </summary>
 /// <param name="Context"> The resolved UnityProject context, or <see langword="null" /> on failure. </param>

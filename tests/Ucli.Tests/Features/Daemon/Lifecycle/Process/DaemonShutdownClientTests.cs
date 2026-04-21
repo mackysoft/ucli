@@ -31,7 +31,7 @@ using System.Net.Sockets;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 public sealed class DaemonShutdownClientTests
 {

@@ -6,8 +6,8 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 

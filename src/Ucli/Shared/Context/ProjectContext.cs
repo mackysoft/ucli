@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.Shared.Context;
 

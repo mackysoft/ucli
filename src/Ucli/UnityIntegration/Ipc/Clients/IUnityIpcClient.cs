@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.UnityIntegration.Project;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 
@@ -13,7 +12,7 @@ internal interface IUnityIpcClient
     /// <param name="timeout"> The timeout applied to the request. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The execution result that contains either one response envelope or one classified failure. </returns>
-    ValueTask<UnityIpcRequestExecutionResult> SendAsync (
+    ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         string method,
         JsonElement payload,

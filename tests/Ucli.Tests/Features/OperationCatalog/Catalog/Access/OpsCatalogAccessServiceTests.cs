@@ -18,7 +18,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Ops.Access;
 
@@ -29,20 +29,18 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenAllowStaleIndexExists_ReturnsIndexWithoutEvaluatingFallbackOptions ()
     {
         var context = CreateContext();
-        var snapshotLoader = new StubPersistedOpsCatalogSnapshotLoader
+        var snapshotLoader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogSnapshotLoadResult.Success(
-                new PersistedOpsCatalogSnapshot(
-                    Entries:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
-                    ],
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    Freshness: IndexFreshness.Probable)),
+            Result = PersistedOpsCatalogReadResult.Success(
+                [
+                    new IndexOpEntryJsonContract(
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                        Kind: "query",
+                        Policy: "safe",
+                        ArgsSchemaJson: """{"type":"object"}"""),
+                ],
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Probable),
         };
         var catalogReader = new StubOpsCatalogReader();
         var store = new StubOpsCatalogStore();
@@ -78,20 +76,18 @@ public sealed class OpsCatalogAccessServiceTests
     public async Task Read_WhenRequireFreshIndexIsStale_FallsBackToSource ()
     {
         var context = CreateContext();
-        var snapshotLoader = new StubPersistedOpsCatalogSnapshotLoader
+        var snapshotLoader = new StubPersistedOpsCatalogReader
         {
-            Result = PersistedOpsCatalogSnapshotLoadResult.Success(
-                new PersistedOpsCatalogSnapshot(
-                    Entries:
-                    [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
-                    ],
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    Freshness: IndexFreshness.Stale)),
+            Result = PersistedOpsCatalogReadResult.Success(
+                [
+                    new IndexOpEntryJsonContract(
+                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                        Kind: "query",
+                        Policy: "safe",
+                        ArgsSchemaJson: """{"type":"object"}"""),
+                ],
+                DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                IndexFreshness.Stale),
         };
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var catalogReader = new StubOpsCatalogReader
@@ -177,7 +173,7 @@ public sealed class OpsCatalogAccessServiceTests
             WriteException = new InvalidOperationException("disk full"),
         };
         var service = CreateService(
-            new StubPersistedOpsCatalogSnapshotLoader(),
+            new StubPersistedOpsCatalogReader(),
             new StubIndexCatalogReader(),
             inputFingerprintCalculator,
             catalogReader,
@@ -251,7 +247,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
-            new StubPersistedOpsCatalogSnapshotLoader(),
+            new StubPersistedOpsCatalogReader(),
             indexReader,
             inputFingerprintCalculator,
             catalogReader,
@@ -320,7 +316,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
-            new StubPersistedOpsCatalogSnapshotLoader(),
+            new StubPersistedOpsCatalogReader(),
             indexReader,
             inputFingerprintCalculator,
             catalogReader,
@@ -363,7 +359,7 @@ public sealed class OpsCatalogAccessServiceTests
     }
 
     private static OpsCatalogAccessService CreateService (
-        IPersistedOpsCatalogSnapshotLoader persistedOpsCatalogSnapshotLoader,
+        IPersistedOpsCatalogReader persistedOpsCatalogSnapshotLoader,
         IIndexCatalogReader indexCatalogReader,
         IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
@@ -377,15 +373,14 @@ public sealed class OpsCatalogAccessServiceTests
             opsCatalogStore);
     }
 
-    private sealed class StubPersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSnapshotLoader
+    private sealed class StubPersistedOpsCatalogReader : IPersistedOpsCatalogReader
     {
-        public PersistedOpsCatalogSnapshotLoadResult Result { get; set; }
-            = PersistedOpsCatalogSnapshotLoadResult.Failure(
-                new IndexServiceError(
-                    IpcErrorCodes.ReadIndexBootstrapFailed,
-                    "Index contract file was not found: ops.catalog.json."));
+        public PersistedOpsCatalogReadResult Result { get; set; }
+            = PersistedOpsCatalogReadResult.Failure(
+                IpcErrorCodes.ReadIndexBootstrapFailed,
+                "Index contract file was not found: ops.catalog.json.");
 
-        public ValueTask<PersistedOpsCatalogSnapshotLoadResult> Load (
+        public ValueTask<PersistedOpsCatalogReadResult> Read (
             ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {

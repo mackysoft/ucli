@@ -21,7 +21,7 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
@@ -38,7 +38,7 @@ public sealed class CallServiceTests
             operationsByName: CreateOperationsByName(
                 CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -105,7 +105,7 @@ public sealed class CallServiceTests
             operationsByName: CreateOperationsByName(
                 CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -120,7 +120,7 @@ public sealed class CallServiceTests
                     ],
                     errors: [],
                     planToken: "issued-plan-token")),
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -186,13 +186,13 @@ public sealed class CallServiceTests
             operationsByName: CreateOperationsByName(
                 CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults: [],
                     errors: [],
                     planToken: "issued-plan-token")),
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults: [],
@@ -423,7 +423,7 @@ public sealed class CallServiceTests
             operationsByName: CreateOperationsByName(
                 CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusError,
                     opResults:
@@ -475,7 +475,7 @@ public sealed class CallServiceTests
             operationsByName: CreateOperationsByName(
                 CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -490,7 +490,7 @@ public sealed class CallServiceTests
                     ],
                     errors: [],
                     planToken: "issued-plan-token")),
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusError,
                     opResults:
@@ -543,13 +543,13 @@ public sealed class CallServiceTests
             operationsByName: CreateOperationsByName(
                 CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults: [],
                     errors: [],
                     planToken: "issued-plan-token")),
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults: [],
@@ -606,7 +606,7 @@ public sealed class CallServiceTests
             },
         };
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults: [],
@@ -870,11 +870,11 @@ public sealed class CallServiceTests
         }
     }
 
-    private sealed class SpyUnityIpcRequestExecutor : IUnityIpcRequestExecutor
+    private sealed class SpyUnityIpcRequestExecutor : IUnityRequestExecutor
     {
-        private readonly Queue<UnityIpcRequestExecutionResult> results = new();
+        private readonly Queue<UnityRequestExecutionResult> results = new();
 
-        public SpyUnityIpcRequestExecutor (params UnityIpcRequestExecutionResult[] results)
+        public SpyUnityIpcRequestExecutor (params UnityRequestExecutionResult[] results)
         {
             foreach (var result in results)
             {
@@ -890,7 +890,7 @@ public sealed class CallServiceTests
 
         public Action<InvocationContext>? OnExecute { get; init; }
 
-        public ValueTask<UnityIpcRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

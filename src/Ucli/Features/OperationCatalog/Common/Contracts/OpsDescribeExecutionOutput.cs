@@ -1,5 +1,3 @@
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-
 namespace MackySoft.Ucli.Features.OperationCatalog.Common.Contracts;
 
 /// <summary> Represents normalized output for <c>ops describe</c>. </summary>

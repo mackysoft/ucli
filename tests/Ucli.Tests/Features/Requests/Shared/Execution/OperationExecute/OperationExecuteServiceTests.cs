@@ -17,7 +17,7 @@ using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Execution.OperationExecute;
 
@@ -43,7 +43,7 @@ public sealed class OperationExecuteServiceTests
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var timeProvider = new ManualTimeProvider();
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -118,7 +118,7 @@ public sealed class OperationExecuteServiceTests
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -133,7 +133,7 @@ public sealed class OperationExecuteServiceTests
                     ],
                     errors: [],
                     planToken: "plan-token-1")),
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -194,7 +194,7 @@ public sealed class OperationExecuteServiceTests
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -209,7 +209,7 @@ public sealed class OperationExecuteServiceTests
                     ],
                     errors: [],
                     planToken: "plan-token-1")),
-            UnityIpcRequestExecutionResult.Success(
+            UnityRequestExecutionResult.Success(
                 CreateResponse(
                     status: IpcProtocol.StatusOk,
                     opResults:
@@ -260,7 +260,7 @@ public sealed class OperationExecuteServiceTests
         };
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext(config)));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
                 opResults:
@@ -311,7 +311,7 @@ public sealed class OperationExecuteServiceTests
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Denied(
             ValidationErrorCodes.OperationNotAllowed,
             "Operation 'ucli.project.refresh' is blocked by operationPolicy='safe'."));
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusOk,
                 opResults: [],
@@ -346,7 +346,7 @@ public sealed class OperationExecuteServiceTests
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Failure(
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
             message: "execution failed",
             errorCode: errorCode));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
@@ -374,7 +374,7 @@ public sealed class OperationExecuteServiceTests
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             CreateResponse(
                 status: IpcProtocol.StatusError,
                 opResults:
@@ -416,7 +416,7 @@ public sealed class OperationExecuteServiceTests
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
-        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityIpcRequestExecutionResult.Success(
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
             new IpcResponse(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "req-1",
@@ -524,15 +524,15 @@ public sealed class OperationExecuteServiceTests
         }
     }
 
-    private sealed class SpyUnityIpcRequestExecutor : IUnityIpcRequestExecutor
+    private sealed class SpyUnityIpcRequestExecutor : IUnityRequestExecutor
     {
-        private readonly Queue<UnityIpcRequestExecutionResult> results;
+        private readonly Queue<UnityRequestExecutionResult> results;
 
         private readonly List<Invocation> invocations = [];
 
-        public SpyUnityIpcRequestExecutor (params UnityIpcRequestExecutionResult[] results)
+        public SpyUnityIpcRequestExecutor (params UnityRequestExecutionResult[] results)
         {
-            this.results = new Queue<UnityIpcRequestExecutionResult>(results ?? throw new ArgumentNullException(nameof(results)));
+            this.results = new Queue<UnityRequestExecutionResult>(results ?? throw new ArgumentNullException(nameof(results)));
         }
 
         public Action<InvocationContext>? OnExecute { get; init; }
@@ -555,7 +555,7 @@ public sealed class OperationExecuteServiceTests
 
         public JsonElement CapturedPayload => invocations[^1].Payload;
 
-        public ValueTask<UnityIpcRequestExecutionResult> Execute (
+        public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,

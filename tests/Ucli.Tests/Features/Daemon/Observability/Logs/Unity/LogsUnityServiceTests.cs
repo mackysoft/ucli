@@ -17,7 +17,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.Tests.Daemon;
-using MackySoft.Ucli.UnityIntegration.Project;
+using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Logs;
 
