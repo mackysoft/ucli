@@ -1,4 +1,6 @@
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Parsing;
 
 namespace MackySoft.Ucli.Tests;
 

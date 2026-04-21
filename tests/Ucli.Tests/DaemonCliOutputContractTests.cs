@@ -10,7 +10,8 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 

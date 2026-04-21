@@ -28,7 +28,9 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
 namespace MackySoft.Ucli.Tests.Logs;
 

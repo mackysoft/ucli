@@ -6,7 +6,9 @@ using MackySoft.Ucli.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Preflight;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Hosting.Cli;
+using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 

@@ -1,5 +1,5 @@
 using System.Security;
-using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;

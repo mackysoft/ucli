@@ -15,6 +15,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.Tests.Daemon;
 using MackySoft.Ucli.UnityIntegration.Project;
@@ -166,7 +167,7 @@ public sealed class LogsDaemonServiceTests
     [Trait("Size", "Small")]
     public async Task DaemonCommand_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
-        var command = new MackySoft.Ucli.Hosting.Cli.LogsDaemonCommand(new ThrowingLogsDaemonService());
+        var command = new MackySoft.Ucli.Hosting.Cli.Daemon.Logs.LogsDaemonCommand(new ThrowingLogsDaemonService());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
