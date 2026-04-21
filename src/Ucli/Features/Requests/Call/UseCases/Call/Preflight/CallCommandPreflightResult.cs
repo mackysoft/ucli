@@ -35,7 +35,7 @@ internal sealed record CallCommandPreflightResult (
     /// <summary> Creates one normalized failure result that preserves the preflight payload when available. </summary>
     /// <param name="error"> The normalized execution error. </param>
     /// <returns> The normalized failure result. </returns>
-    public CallServiceResult CreateFailureResult (ExecutionError error)
+    public CallServiceResult ToFailureResult (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
         return FailureResult ?? CallFailureResultFactory.FromExecutionError(error, Output);

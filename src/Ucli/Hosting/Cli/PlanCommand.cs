@@ -64,7 +64,7 @@ internal sealed class PlanCommand
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.CreateFailureResult(normalizedTimeoutResult.Error!);
+            var failureResult = preflightResult.ToFailureResult(normalizedTimeoutResult.Error!);
             var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;
@@ -79,7 +79,7 @@ internal sealed class PlanCommand
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.CreateFailureResult(normalizedModeResult.Error!);
+            var failureResult = preflightResult.ToFailureResult(normalizedModeResult.Error!);
             var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;

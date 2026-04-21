@@ -57,7 +57,7 @@ internal sealed class CallCommand
                     projectPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.CreateFailureResult(normalizedTimeoutResult.Error!);
+            var failureResult = preflightResult.ToFailureResult(normalizedTimeoutResult.Error!);
             var commandFailureResult = CallCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;
@@ -71,7 +71,7 @@ internal sealed class CallCommand
                     projectPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var failureResult = preflightResult.CreateFailureResult(normalizedModeResult.Error!);
+            var failureResult = preflightResult.ToFailureResult(normalizedModeResult.Error!);
             var commandFailureResult = CallCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;

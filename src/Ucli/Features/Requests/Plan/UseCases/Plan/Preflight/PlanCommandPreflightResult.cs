@@ -35,7 +35,7 @@ internal sealed record PlanCommandPreflightResult (
     /// <summary> Creates one normalized failure result that preserves the preflight payload when available. </summary>
     /// <param name="error"> The normalized execution error. </param>
     /// <returns> The normalized failure result. </returns>
-    public PlanServiceResult CreateFailureResult (ExecutionError error)
+    public PlanServiceResult ToFailureResult (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
         return FailureResult ?? PlanFailureResultFactory.FromExecutionError(error, Output);
