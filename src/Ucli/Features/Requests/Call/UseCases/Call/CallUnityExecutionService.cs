@@ -159,17 +159,21 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 OpResults = convertedCallResponse.OpResults,
                 ReadPostcondition = convertedCallResponse.ReadPostcondition,
             };
-        var persistenceError = executionOutput == null
+        var persistenceFailure = executionOutput == null
             ? null
-            : await MutationReadPostconditionPersistence.WriteOrCreateError(
+            : await MutationReadPostconditionPersistence.Write(
                     mutationReadPostconditionStore,
                     preparedRequest.UnityProject.RepositoryRoot,
                     preparedRequest.UnityProject.ProjectFingerprint,
                     convertedCallResponse.ReadPostcondition,
                     cancellationToken)
                 .ConfigureAwait(false);
-        if (persistenceError != null)
+        if (persistenceFailure != null)
         {
+            var persistenceError = new IpcError(
+                IpcErrorCodes.InternalError,
+                persistenceFailure.Message,
+                null);
             return CallServiceResult.Failure(
                 persistenceError.Message,
                 AppendError(convertedCallResponse.Errors, persistenceError),

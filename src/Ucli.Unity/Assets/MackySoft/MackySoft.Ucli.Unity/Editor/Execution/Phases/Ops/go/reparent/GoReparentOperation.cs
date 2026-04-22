@@ -169,11 +169,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             state.Target.transform.SetParent(state.Parent.transform, worldPositionStays: false);
             executionContext.MarkRequestAttributedChange(state.TargetResource);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: CreateTouched(state),
-                readInvalidations: CreateReadInvalidations(state.TargetResource)));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: CreateTouched(state))
+                .WithReadInvalidations(CreateReadInvalidations(state.TargetResource)));
         }
 
         private static bool TryValidate (

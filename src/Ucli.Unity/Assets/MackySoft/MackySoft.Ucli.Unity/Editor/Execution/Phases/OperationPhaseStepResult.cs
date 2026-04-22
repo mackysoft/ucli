@@ -21,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public JsonElement? Result { get; init; }
 
         /// <summary> Gets the optional read-surface invalidations emitted by this step. </summary>
-        public IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = Array.Empty<OperationReadInvalidation>();
+        internal IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = Array.Empty<OperationReadInvalidation>();
 
         /// <summary> Gets a value indicating whether this step succeeded. </summary>
         public bool IsSuccess => Failure is null;
@@ -31,15 +31,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The successful phase-step result. </returns>
         public static OperationPhaseStepResult Success (
             IReadOnlyList<OperationTouch>? touched = null,
-            JsonElement? result = null,
-            IReadOnlyList<OperationReadInvalidation>? readInvalidations = null)
+            JsonElement? result = null)
         {
             return Success(
                 applied: false,
                 changed: false,
                 touched: touched,
-                result: result,
-                readInvalidations: readInvalidations);
+                result: result);
         }
 
         /// <summary> Creates a successful phase-step result. </summary>
@@ -51,8 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             bool applied,
             bool changed,
             IReadOnlyList<OperationTouch>? touched = null,
-            JsonElement? result = null,
-            IReadOnlyList<OperationReadInvalidation>? readInvalidations = null)
+            JsonElement? result = null)
         {
             return new OperationPhaseStepResult(
                 Applied: applied,
@@ -61,7 +58,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Failure: null)
             {
                 Result = CloneResult(result),
-                ReadInvalidations = readInvalidations ?? Array.Empty<OperationReadInvalidation>(),
             };
         }
 
@@ -73,16 +69,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static OperationPhaseStepResult Failed (
             OperationFailure failure,
             IReadOnlyList<OperationTouch>? touched = null,
-            JsonElement? result = null,
-            IReadOnlyList<OperationReadInvalidation>? readInvalidations = null)
+            JsonElement? result = null)
         {
             return Failed(
                 failure,
                 applied: false,
                 changed: false,
                 touched: touched,
-                result: result,
-                readInvalidations: readInvalidations);
+                result: result);
         }
 
         /// <summary> Creates a failed phase-step result. </summary>
@@ -97,8 +91,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             bool applied,
             bool changed,
             IReadOnlyList<OperationTouch>? touched = null,
-            JsonElement? result = null,
-            IReadOnlyList<OperationReadInvalidation>? readInvalidations = null)
+            JsonElement? result = null)
         {
             if (failure == null)
             {
@@ -112,6 +105,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Failure: failure)
             {
                 Result = CloneResult(result),
+            };
+        }
+
+        /// <summary> Returns a copy with the supplied read-surface invalidations. </summary>
+        /// <param name="readInvalidations"> The invalidations to attach to the step result. </param>
+        /// <returns> One copied step result carrying the supplied invalidations. </returns>
+        internal OperationPhaseStepResult WithReadInvalidations (IReadOnlyList<OperationReadInvalidation>? readInvalidations)
+        {
+            return this with
+            {
                 ReadInvalidations = readInvalidations ?? Array.Empty<OperationReadInvalidation>(),
             };
         }

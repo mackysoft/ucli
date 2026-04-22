@@ -155,15 +155,19 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
-        var persistenceError = await MutationReadPostconditionPersistence.WriteOrCreateError(
+        var persistenceFailure = await MutationReadPostconditionPersistence.Write(
                 mutationReadPostconditionStore,
                 projectContext.UnityProject.RepositoryRoot,
                 projectContext.UnityProject.ProjectFingerprint,
                 convertedResponse.ReadPostcondition,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (persistenceError != null)
+        if (persistenceFailure != null)
         {
+            var persistenceError = new IpcError(
+                IpcErrorCodes.InternalError,
+                persistenceFailure.Message,
+                null);
             return OperationExecuteResultFactory.Create(
                 requestId,
                 convertedResponse.OpResults,

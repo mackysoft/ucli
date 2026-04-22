@@ -121,14 +121,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             Object.DestroyImmediate(state.Target);
             executionContext.MarkRequestAttributedChange(state.Resource);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(state.Resource),
-                },
-                readInvalidations: CreateReadInvalidations(state.Resource)));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(state.Resource),
+                    })
+                .WithReadInvalidations(CreateReadInvalidations(state.Resource)));
         }
 
         private static bool TryValidate (

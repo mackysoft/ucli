@@ -115,13 +115,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             executionContext.MarkRequestAttributedChange(validationState.SourceResource);
             StoreAliasIfNeeded(operation.As, executionContext, validationState.Target, validationState.SourceResource);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: OperationResourceUtilities.CreateTouches(
-                    validationState.SourceResource,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
-                readInvalidations: OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath()));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: OperationResourceUtilities.CreateTouches(
+                        validationState.SourceResource,
+                        new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)))
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath()));
         }
 
         private static bool TryValidateArguments (

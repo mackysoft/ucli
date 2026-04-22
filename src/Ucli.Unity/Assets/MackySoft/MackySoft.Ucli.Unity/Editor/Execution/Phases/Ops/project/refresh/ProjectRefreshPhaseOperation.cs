@@ -117,13 +117,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext);
             var deduplicatedTouched = DeduplicateTouched(touched);
             MarkRequestAttributedChanges(deduplicatedTouched, executionContext);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: deduplicatedTouched.Count != 0,
-                touched: deduplicatedTouched,
-                readInvalidations: deduplicatedTouched.Count == 0
-                    ? null
-                    : CreateReadInvalidations(callbackPaths, deduplicatedTouched)));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: deduplicatedTouched.Count != 0,
+                    touched: deduplicatedTouched)
+                .WithReadInvalidations(
+                    deduplicatedTouched.Count == 0
+                        ? null
+                        : CreateReadInvalidations(callbackPaths, deduplicatedTouched)));
         }
 
         private static Dictionary<string, bool> CaptureLoadedSceneDirtyState ()

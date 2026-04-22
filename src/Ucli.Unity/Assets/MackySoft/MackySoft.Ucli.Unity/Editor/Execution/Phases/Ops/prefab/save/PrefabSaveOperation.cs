@@ -122,14 +122,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.UnmarkRequestAttributedChange(resource);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(resource),
-                },
-                readInvalidations: OperationReadInvalidationUtilities.CreateAssetSearchOnly()));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(resource),
+                    })
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateAssetSearchOnly()));
         }
 
         private static bool TryResolvePlanArguments (

@@ -1,11 +1,12 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 
 /// <summary> Provides shared persistence helpers for mutation read-postcondition write sites. </summary>
 internal static class MutationReadPostconditionPersistence
 {
-    public static async ValueTask<IpcError?> WriteOrCreateError (
+    public static async ValueTask<ExecutionError?> Write (
         IMutationReadPostconditionStore store,
         string storageRoot,
         string projectFingerprint,
@@ -20,20 +21,11 @@ internal static class MutationReadPostconditionPersistence
             return null;
         }
 
-        var writeResult = await store.WriteMerged(
+        return (await store.WriteMerged(
                 storageRoot,
                 projectFingerprint,
                 readPostcondition,
                 cancellationToken)
-            .ConfigureAwait(false);
-        if (writeResult.IsSuccess)
-        {
-            return null;
-        }
-
-        return new IpcError(
-            IpcErrorCodes.InternalError,
-            writeResult.Error!.Message,
-            null);
+            .ConfigureAwait(false)).Error;
     }
 }

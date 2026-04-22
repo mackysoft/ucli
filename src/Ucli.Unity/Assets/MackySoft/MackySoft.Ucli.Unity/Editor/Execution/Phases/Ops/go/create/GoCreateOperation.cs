@@ -164,14 +164,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             executionContext.MarkRequestAttributedChange(validationState.Resource);
             StoreAliasIfNeeded(operation.As, executionContext, createdGameObject, validationState.Resource);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(validationState.Resource),
-                },
-                readInvalidations: CreateReadInvalidations(validationState.Resource)));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(validationState.Resource),
+                    })
+                .WithReadInvalidations(CreateReadInvalidations(validationState.Resource)));
         }
 
         /// <summary> Validates arguments and resolves the destination resource and optional parent. </summary>
