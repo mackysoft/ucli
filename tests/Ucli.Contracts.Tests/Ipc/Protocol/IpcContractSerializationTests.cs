@@ -470,12 +470,56 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcExecuteResponse_SerializesReadPostconditionContract ()
+    {
+        var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>())
+        {
+            ReadPostcondition = new IpcExecuteReadPostcondition(
+            [
+                new IpcExecuteReadPostconditionRequirement(
+                    Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
+                new IpcExecuteReadPostconditionRequirement(
+                    Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"))
+                {
+                    ScenePath = "Assets/Scenes/Main.unity",
+                },
+            ]),
+        };
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(response, SerializerOptions));
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasProperty("readPostcondition", readPostcondition => readPostcondition
+                .HasArrayLength("requirements", 2)
+                .HasProperty("requirements", 0, requirement => requirement
+                    .HasString("surface", IpcExecuteReadPostconditionSurfaceNames.AssetSearch)
+                    .HasString("minSafeGeneratedAtUtc", "2026-04-23T00:00:00+00:00"))
+                .HasProperty("requirements", 1, requirement => requirement
+                    .HasString("surface", IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite)
+                    .HasString("scenePath", "Assets/Scenes/Main.unity")
+                    .HasString("minSafeGeneratedAtUtc", "2026-04-23T00:00:00+00:00")));
+        Assert.False(jsonDocument.RootElement.GetProperty("readPostcondition").GetProperty("requirements")[0].TryGetProperty("scenePath", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcExecuteResponse_OmitsPlanTokenWhenNull ()
     {
         var response = new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>());
 
         var jsonElement = JsonSerializer.SerializeToElement(response, SerializerOptions);
         Assert.False(jsonElement.TryGetProperty("planToken", out _));
+        Assert.False(jsonElement.TryGetProperty("readPostcondition", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteReadPostconditionSurfaceNames_ExposeExpectedLiterals ()
+    {
+        Assert.Equal("assetSearch", IpcExecuteReadPostconditionSurfaceNames.AssetSearch);
+        Assert.Equal("guidPath", IpcExecuteReadPostconditionSurfaceNames.GuidPath);
+        Assert.Equal("sceneTreeLite", IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite);
     }
 
     [Fact]

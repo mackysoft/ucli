@@ -38,10 +38,11 @@ public sealed class CallCommandTests
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhaseNames.Plan,
                             Applied: false,
-                            Changed: false,
-                            Touched: []),
+                        Changed: false,
+                        Touched: []),
                     ],
-                    PlanToken: "plan-token-1")),
+                    PlanToken: "plan-token-1"),
+                ReadPostcondition: null),
             "uCLI call completed.")));
         var preflightService = new StubCallCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
         var command = new CallCommand(service, preflightService);
@@ -97,7 +98,8 @@ public sealed class CallCommandTests
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],
-                Plan: null))));
+                Plan: null,
+                ReadPostcondition: null))));
         var command = new CallCommand(service, preflightService);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(

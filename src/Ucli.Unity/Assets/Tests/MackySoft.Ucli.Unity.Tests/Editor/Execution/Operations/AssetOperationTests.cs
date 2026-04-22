@@ -72,6 +72,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(AssetDatabase.LoadAssetAtPath<AssetOperationTestAsset>(assetPath), Is.Not.Null);
             Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.AssetSearch, null),
+                (OperationReadInvalidationSurface.GuidPath, null));
         });
 
         [UnityTest]
@@ -125,6 +129,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(targetAsset.AssetReferenceValue, Is.SameAs(createdAsset));
             Assert.That(context.TryGetTemporaryAliasState("created", out var temporaryAliasState), Is.True);
             Assert.That(temporaryAliasState.UnityObject, Is.SameAs(createdAsset));
+            AssertReadInvalidations(
+                setResult,
+                (OperationReadInvalidationSurface.AssetSearch, null));
         });
 
         [UnityTest]
@@ -814,6 +821,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Touched, Is.Empty);
             Assert.That(result.Result.HasValue, Is.True);
             Assert.That(result.Failure, Is.Null);
+        }
+
+        private static void AssertReadInvalidations (
+            OperationPhaseStepResult result,
+            params (OperationReadInvalidationSurface Surface, string? ScenePath)[] expectedInvalidations)
+        {
+            Assert.That(result.ReadInvalidations.Count, Is.EqualTo(expectedInvalidations.Length));
+            for (var i = 0; i < expectedInvalidations.Length; i++)
+            {
+                var expectedInvalidation = expectedInvalidations[i];
+                Assert.That(result.ReadInvalidations[i].Surface, Is.EqualTo(expectedInvalidation.Surface));
+                Assert.That(result.ReadInvalidations[i].ScenePath, Is.EqualTo(expectedInvalidation.ScenePath));
+            }
         }
 
     }

@@ -61,6 +61,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(root), Is.Not.Null);
             Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
             Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(UnityObjectReferenceResolver.CreateResolvedReference(root).GlobalObjectId));
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.AssetSearch, null),
+                (OperationReadInvalidationSurface.GuidPath, null));
         });
 
         [UnityTest]
@@ -606,6 +610,9 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(saveResult, applied: true, changed: true);
             AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
             Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
+            AssertReadInvalidations(
+                saveResult,
+                (OperationReadInvalidationSurface.AssetSearch, null));
         });
 
         [UnityTest]
@@ -733,6 +740,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         && touch.Path == expectedTouch.Path),
                     Is.True,
                     $"Touched resource was not found. kind={expectedTouch.Kind}, path={expectedTouch.Path}");
+            }
+        }
+
+        private static void AssertReadInvalidations (
+            OperationPhaseStepResult result,
+            params (OperationReadInvalidationSurface Surface, string? ScenePath)[] expectedInvalidations)
+        {
+            Assert.That(result.ReadInvalidations.Count, Is.EqualTo(expectedInvalidations.Length));
+            for (var i = 0; i < expectedInvalidations.Length; i++)
+            {
+                var expectedInvalidation = expectedInvalidations[i];
+                Assert.That(result.ReadInvalidations[i].Surface, Is.EqualTo(expectedInvalidation.Surface));
+                Assert.That(result.ReadInvalidations[i].ScenePath, Is.EqualTo(expectedInvalidation.ScenePath));
             }
         }
     }

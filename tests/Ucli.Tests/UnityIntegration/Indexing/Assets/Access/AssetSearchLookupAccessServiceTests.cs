@@ -6,15 +6,16 @@ using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Assets.Access;
 
@@ -42,7 +43,7 @@ public sealed class AssetSearchLookupAccessServiceTests
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
         };
         var refreshService = new StubAssetLookupSourceRefreshService();
-        var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, refreshService);
+        var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Search(
             CreateProject(),
@@ -99,7 +100,7 @@ public sealed class AssetSearchLookupAccessServiceTests
                     ]),
                 "Existing asset-search index freshness is 'stale'."),
         };
-        var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, refreshService);
+        var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Search(
             CreateProject(),
@@ -120,11 +121,73 @@ public sealed class AssetSearchLookupAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Search_WhenReadPostconditionRequiresNewerIndex_FallsBackToSourceEvenWhenAllowStale ()
+    {
+        var indexReader = new StubIndexCatalogReader
+        {
+            AssetSearchLookupResult = IndexAccessResult<IndexAssetSearchLookupJsonContract>.Success(
+                new IndexAssetSearchLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    SourceInputsHash: "asset-search-hash",
+                    Entries:
+                    [
+                        CreateAssetSearchEntry("Assets/Data/Stale.asset", "11111111111111111111111111111111", "Stale", "Game.Stale, Assembly-CSharp"),
+                    ])),
+        };
+        var freshnessEvaluator = new StubIndexFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
+        };
+        var readPostconditionStore = new TestMutationReadPostconditionStore
+        {
+            ReadResult = MutationReadPostconditionReadResult.Success(
+                new IpcExecuteReadPostcondition(
+                [
+                    new IpcExecuteReadPostconditionRequirement(
+                        Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+                        MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
+                ])),
+        };
+        var refreshService = new StubAssetLookupSourceRefreshService
+        {
+            Result = AssetLookupRefreshResult.Success(
+                new IpcIndexAssetsReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:10+00:00"),
+                    AssetSearchEntries:
+                    [
+                        CreateAssetSearchEntry("Assets/Data/Fresh.asset", "22222222222222222222222222222222", "Fresh", "Game.Fresh, Assembly-CSharp"),
+                    ],
+                    GuidPathEntries:
+                    [
+                        new IndexGuidPathEntryJsonContract("22222222222222222222222222222222", "Assets/Data/Fresh.asset"),
+                    ]),
+                "Existing asset-search index generatedAtUtc is older than mutation read postcondition."),
+        };
+        var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
+
+        var result = await service.Search(
+            CreateProject(),
+            UcliConfig.CreateDefault(),
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
+            readIndexMode: ReadIndexMode.AllowStale,
+            query: new AssetSearchLookupQuery(TypeId: null, PathPrefix: "Assets/Data", NameContains: "Fresh"));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AssetLookupSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Contains("mutation read postcondition", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+        Assert.Equal(1, readPostconditionStore.ReadCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Search_WhenQueryIsEmpty_ReturnsInvalidArgument ()
     {
         var service = new AssetSearchLookupAccessService(
             new StubIndexCatalogReader(),
             new StubIndexFreshnessEvaluator(),
+            new TestMutationReadPostconditionStore(),
             new StubAssetLookupSourceRefreshService());
 
         var result = await service.Search(

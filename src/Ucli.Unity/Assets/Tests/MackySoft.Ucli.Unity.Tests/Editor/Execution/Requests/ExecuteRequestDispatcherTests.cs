@@ -99,6 +99,124 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenOperationTraceContainsReadInvalidations_MapsReadPostconditionToPayload () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var operationTrace = new OperationPhaseTrace(
+                "op-1",
+                MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                OperationPhase.Call,
+                true,
+                true,
+                System.Array.Empty<OperationTouch>(),
+                null)
+            {
+                ReadInvalidations = new[]
+                {
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, ScenePath: null),
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, @"Assets\Scenes\Main.unity"),
+                },
+            };
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    operationTrace,
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                operationName: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh);
+
+            var response = await DispatchAsync(dispatcher, request, context, "Read postcondition payload mapping");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(response.Payload.TryGetProperty("readPostcondition", out var readPostcondition), Is.True);
+            var requirements = readPostcondition.GetProperty("requirements");
+            Assert.That(requirements.GetArrayLength(), Is.EqualTo(2));
+
+            var enumerator = requirements.EnumerateArray();
+            Assert.That(enumerator.MoveNext(), Is.True);
+            var assetSearchRequirement = enumerator.Current;
+            Assert.That(assetSearchRequirement.GetProperty("surface").GetString(), Is.EqualTo(IpcExecuteReadPostconditionSurfaceNames.AssetSearch));
+            Assert.That(assetSearchRequirement.TryGetProperty("scenePath", out _), Is.False);
+
+            Assert.That(enumerator.MoveNext(), Is.True);
+            var sceneTreeRequirement = enumerator.Current;
+            Assert.That(sceneTreeRequirement.GetProperty("surface").GetString(), Is.EqualTo(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite));
+            Assert.That(sceneTreeRequirement.GetProperty("scenePath").GetString(), Is.EqualTo("Assets/Scenes/Main.unity"));
+            Assert.That(sceneTreeRequirement.GetProperty("minSafeGeneratedAtUtc").GetString(), Is.EqualTo(assetSearchRequirement.GetProperty("minSafeGeneratedAtUtc").GetString()));
+            Assert.That(enumerator.MoveNext(), Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenReadInvalidationsContainDuplicates_DeduplicatesReadPostconditionRequirements () => UniTask.ToCoroutine(async () =>
+        {
+            var normalizedRequest = CreateNormalizedRequest(
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+            var normalizer = new StubExecuteRequestNormalizer(ExecuteRequestNormalizationResult.Success(normalizedRequest));
+            var phaseExecutor = new SpyOperationPhaseExecutor(PhaseExecutionTrace.Success(
+                protocolVersion: normalizedRequest.ProtocolVersion,
+                requestId: normalizedRequest.RequestId,
+                steps: CreateTraceSteps(normalizedRequest),
+                operationTraces: new[]
+                {
+                    new OperationPhaseTrace(
+                        "op-1",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        System.Array.Empty<OperationTouch>(),
+                        null)
+                    {
+                        ReadInvalidations = new[]
+                        {
+                            new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, ScenePath: null),
+                            new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, "Assets/Scenes/Main.unity"),
+                        },
+                    },
+                    new OperationPhaseTrace(
+                        "op-2",
+                        MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        OperationPhase.Call,
+                        true,
+                        true,
+                        System.Array.Empty<OperationTouch>(),
+                        null)
+                    {
+                        ReadInvalidations = new[]
+                        {
+                            new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, ScenePath: null),
+                            new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, @"Assets\Scenes\Main.unity"),
+                        },
+                    },
+                }));
+            var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor);
+            var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Call,
+                failFast: false,
+                planToken: null,
+                ("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh),
+                ("op-2", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh));
+
+            var response = await DispatchAsync(dispatcher, request, context, "Deduplicated read postcondition payload mapping");
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            var requirements = response.Payload.GetProperty("readPostcondition").GetProperty("requirements");
+            Assert.That(requirements.GetArrayLength(), Is.EqualTo(2));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenSameRequestIdAndSamePayload_ReusesCompletedResponse () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest();

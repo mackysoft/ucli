@@ -48,6 +48,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(loadedScene.GetRootGameObjects().Any(static gameObject => gameObject.name == "CreatedRoot"), Is.True);
             Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.SceneTreeLite, scenePath.Replace('\\', '/')));
         });
 
         [UnityTest]
@@ -112,6 +115,82 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(parent.transform.childCount, Is.EqualTo(1));
             Assert.That(parent.transform.GetChild(0).name, Is.EqualTo("CreatedChild"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Delete_Call_WhenSceneObjectIsValid_DeletesObjectAndEmitsSceneTreeLiteInvalidation () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new GoDeleteOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-delete",
+                opName: UcliPrimitiveOperationNames.GoDelete,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root/Child",
+                    },
+                });
+
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: true);
+            Assert.That(root.transform.childCount, Is.EqualTo(0));
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.SceneTreeLite, scenePath.Replace('\\', '/')));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Reparent_Call_WhenSceneObjectMoves_EmitsSceneTreeLiteInvalidation () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new GoReparentOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(GoOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            var container = new GameObject("Container");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var context = scope.CreateExecutionContext();
+            var requestOperation = CreateOperation(
+                opId: "op-reparent",
+                opName: UcliPrimitiveOperationNames.GoReparent,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root/Child",
+                    },
+                    parent = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Container",
+                    },
+                });
+
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+
+            AssertSuccess(result, applied: true, changed: true);
+            Assert.That(child.transform.parent, Is.SameAs(container.transform));
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.SceneTreeLite, scenePath.Replace('\\', '/')));
         });
 
         [UnityTest]
@@ -1188,6 +1267,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Touched.Count, Is.EqualTo(1));
             Assert.That(result.Touched[0].Kind, Is.EqualTo(expectedTouchKind));
             Assert.That(result.Failure, Is.Null);
+        }
+
+        private static void AssertReadInvalidations (
+            OperationPhaseStepResult result,
+            params (OperationReadInvalidationSurface Surface, string? ScenePath)[] expectedInvalidations)
+        {
+            Assert.That(result.ReadInvalidations.Count, Is.EqualTo(expectedInvalidations.Length));
+            for (var i = 0; i < expectedInvalidations.Length; i++)
+            {
+                var expectedInvalidation = expectedInvalidations[i];
+                Assert.That(result.ReadInvalidations[i].Surface, Is.EqualTo(expectedInvalidation.Surface));
+                Assert.That(result.ReadInvalidations[i].ScenePath, Is.EqualTo(expectedInvalidation.ScenePath));
+            }
         }
     }
 }

@@ -11,13 +11,15 @@ using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Execution.OperationExecute;
 
@@ -63,7 +65,7 @@ public sealed class OperationExecuteServiceTests
                             ]),
                     ],
                     errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, timeProvider);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore(), timeProvider);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -109,6 +111,101 @@ public sealed class OperationExecuteServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenCallResponseIncludesReadPostcondition_PersistsAndReturnsIt ()
+    {
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
+        var readPostconditionStore = new TestMutationReadPostconditionStore();
+        var readPostcondition = CreateReadPostcondition();
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "refresh",
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Applied: true,
+                            Changed: true,
+                            Touched: []),
+                    ],
+                    errors: [],
+                    readPostcondition: readPostcondition)));
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, readPostconditionStore);
+
+        var result = await service.Execute(
+            RefreshOperation,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: UnityExecutionMode.Daemon,
+                timeoutMilliseconds: 120000,
+                failFast: true),
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, readPostconditionStore.WriteCallCount);
+        Assert.Equal("/repo", readPostconditionStore.LastStorageRoot);
+        Assert.Equal("project-fingerprint", readPostconditionStore.LastProjectFingerprint);
+        Assert.NotNull(result.ReadPostcondition);
+        var requirement = Assert.Single(result.ReadPostcondition!.Requirements);
+        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.AssetSearch, requirement.Surface);
+        Assert.Equal(readPostcondition.Requirements[0].MinSafeGeneratedAtUtc, requirement.MinSafeGeneratedAtUtc);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenReadPostconditionPersistenceFails_ReturnsToolErrorAndPreservesPayload ()
+    {
+        var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
+        var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
+        var readPostconditionStore = new TestMutationReadPostconditionStore
+        {
+            WriteResult = MutationReadPostconditionStoreOperationResult.Failure(
+                ExecutionError.InternalError("Failed to persist mutation read postcondition.")),
+        };
+        var readPostcondition = CreateReadPostcondition();
+        var opResults = new[]
+        {
+            new IpcExecuteOperationResult(
+                OpId: "refresh",
+                Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                Phase: IpcExecuteOperationPhaseNames.Call,
+                Applied: true,
+                Changed: true,
+                Touched: []),
+        };
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults: opResults,
+                    errors: [],
+                    readPostcondition: readPostcondition)));
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, readPostconditionStore);
+
+        var result = await service.Execute(
+            RefreshOperation,
+            CreateInput(
+                projectPath: "/repo/UnityProject",
+                mode: UnityExecutionMode.Daemon,
+                timeoutMilliseconds: 120000,
+                failFast: true),
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Single(result.OpResults);
+        Assert.NotNull(result.ReadPostcondition);
+        Assert.Equal(1, readPostconditionStore.WriteCallCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal("Failed to persist mutation read postcondition.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenPlanTokenModeIsRequired_IssuesPlanBeforeCallWithIssuedToken ()
     {
         var config = UcliConfig.CreateDefault() with
@@ -147,7 +244,7 @@ public sealed class OperationExecuteServiceTests
                             Touched: []),
                     ],
                     errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
             RefreshOperation,
@@ -233,7 +330,7 @@ public sealed class OperationExecuteServiceTests
                 }
             },
         };
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, timeProvider);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore(), timeProvider);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -285,7 +382,7 @@ public sealed class OperationExecuteServiceTests
                 }
             },
         };
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, timeProvider);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore(), timeProvider);
 
         var result = await service.Execute(
             RefreshOperation,
@@ -316,7 +413,7 @@ public sealed class OperationExecuteServiceTests
                 status: IpcProtocol.StatusOk,
                 opResults: [],
                 errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
             RefreshOperation,
@@ -349,7 +446,7 @@ public sealed class OperationExecuteServiceTests
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Failure(
             message: "execution failed",
             errorCode: errorCode));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
             RefreshOperation,
@@ -391,7 +488,7 @@ public sealed class OperationExecuteServiceTests
                 [
                     new IpcError(IpcErrorCodes.InvalidArgument, "refresh failed", "refresh"),
                 ])));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
             RefreshOperation,
@@ -423,7 +520,7 @@ public sealed class OperationExecuteServiceTests
                 Status: IpcProtocol.StatusOk,
                 Payload: JsonSerializer.SerializeToElement(new { invalid = true }),
                 Errors: [])));
-        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor);
+        var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
             RefreshOperation,
@@ -471,7 +568,8 @@ public sealed class OperationExecuteServiceTests
         string status,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
-        string? planToken = null)
+        string? planToken = null,
+        IpcExecuteReadPostcondition? readPostcondition = null)
     {
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -480,8 +578,19 @@ public sealed class OperationExecuteServiceTests
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(opResults)
             {
                 PlanToken = planToken,
+                ReadPostcondition = readPostcondition,
             }),
             Errors: errors);
+    }
+
+    private static IpcExecuteReadPostcondition CreateReadPostcondition ()
+    {
+        return new IpcExecuteReadPostcondition(
+        [
+            new IpcExecuteReadPostconditionRequirement(
+                Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+                MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00")),
+        ]);
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver

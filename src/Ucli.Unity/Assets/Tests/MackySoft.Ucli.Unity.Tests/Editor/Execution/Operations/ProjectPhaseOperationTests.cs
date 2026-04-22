@@ -85,6 +85,10 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath), Is.Not.Null);
             Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.AssetSearch, null),
+                (OperationReadInvalidationSurface.GuidPath, null));
         });
 
         [Test]
@@ -410,6 +414,9 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(EditorUtility.IsDirty(asset), Is.False);
             Assert.That(result.Touched.Any(touched => touched.Path == assetPath && touched.Kind == OperationTouchKind.Asset), Is.True);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.AssetSearch, null));
         });
 
         [UnityTest]
@@ -462,6 +469,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(scene.isDirty, Is.False);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Scene && touched.Path == scenePath), Is.True);
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.SceneTreeLite, scenePath.Replace('\\', '/')));
         });
 
         [UnityTest]
@@ -533,6 +543,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
             Assert.That(result.Touched.Any(touched => touched.Kind == OperationTouchKind.Prefab && touched.Path == prefabPath), Is.True);
             Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath)), Is.False);
+            AssertReadInvalidations(
+                result,
+                (OperationReadInvalidationSurface.AssetSearch, null));
 
             scope.CloseCurrentPrefabStageIfOpen();
             var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
@@ -578,6 +591,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Applied, Is.EqualTo(applied));
             Assert.That(result.Changed, Is.EqualTo(changed));
             Assert.That(result.Failure, Is.Null);
+        }
+
+        private static void AssertReadInvalidations (
+            OperationPhaseStepResult result,
+            params (OperationReadInvalidationSurface Surface, string? ScenePath)[] expectedInvalidations)
+        {
+            Assert.That(result.ReadInvalidations.Count, Is.EqualTo(expectedInvalidations.Length));
+            for (var i = 0; i < expectedInvalidations.Length; i++)
+            {
+                var expectedInvalidation = expectedInvalidations[i];
+                Assert.That(result.ReadInvalidations[i].Surface, Is.EqualTo(expectedInvalidation.Surface));
+                Assert.That(result.ReadInvalidations[i].ScenePath, Is.EqualTo(expectedInvalidation.ScenePath));
+            }
         }
     }
 }
