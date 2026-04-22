@@ -152,7 +152,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     touched: new[]
                     {
                         AssetOperationUtilities.CreateAssetTouch(assetPath!),
-                    }));
+                    },
+                    readInvalidations: OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath()));
             }
             finally
             {

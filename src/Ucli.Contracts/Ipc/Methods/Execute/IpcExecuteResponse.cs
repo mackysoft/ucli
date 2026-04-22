@@ -11,4 +11,9 @@ public sealed record IpcExecuteResponse (
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PlanToken { get; init; }
+
+    /// <summary> Gets the optional mutation-to-read postcondition contract emitted after call execution. </summary>
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IpcExecuteReadPostcondition? ReadPostcondition { get; init; }
 }

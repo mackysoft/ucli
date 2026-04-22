@@ -129,7 +129,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touched: new[]
                 {
                     OperationResourceUtilities.CreateTouch(resource),
-                }));
+                },
+                readInvalidations: OperationReadInvalidationUtilities.CreateSceneTreeLite(validationState.ScenePath)));
         }
 
         /// <summary> Validates operation arguments and resolves loaded scene. </summary>

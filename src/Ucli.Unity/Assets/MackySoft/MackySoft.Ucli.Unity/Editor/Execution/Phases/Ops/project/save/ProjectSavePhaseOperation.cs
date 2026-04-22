@@ -136,7 +136,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,
                 changed: touched.Count != 0,
-                touched: touched));
+                touched: touched,
+                readInvalidations: touched.Count == 0 ? null : CreateReadInvalidations(touched)));
         }
 
         private static IReadOnlyList<OperationTouch> CollectKnownPlannedTouchedResources (OperationExecutionContext executionContext)
@@ -256,6 +257,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return true;
+        }
+
+        private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations (IReadOnlyList<OperationTouch> touched)
+        {
+            var invalidations = new List<OperationReadInvalidation>();
+            var includesAssetSearch = false;
+            for (var i = 0; i < touched.Count; i++)
+            {
+                var touch = touched[i];
+                switch (touch.Kind)
+                {
+                    case OperationTouchKind.Asset:
+                    case OperationTouchKind.Prefab:
+                        if (!includesAssetSearch)
+                        {
+                            invalidations.AddRange(OperationReadInvalidationUtilities.CreateAssetSearchOnly());
+                            includesAssetSearch = true;
+                        }
+
+                        break;
+
+                    case OperationTouchKind.Scene:
+                        invalidations.AddRange(OperationReadInvalidationUtilities.CreateSceneTreeLite(touch.Path));
+                        break;
+                }
+            }
+
+            return invalidations;
         }
 
         private static bool TrySaveRequestAttributedOpenedPrefabStage (

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -126,7 +127,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touched: new[]
                 {
                     OperationResourceUtilities.CreateTouch(state.Resource),
-                }));
+                },
+                readInvalidations: CreateReadInvalidations(state.Resource)));
         }
 
         private static bool TryValidate (
@@ -268,6 +270,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     break;
             }
+        }
+
+        private static IReadOnlyList<OperationReadInvalidation>? CreateReadInvalidations (OperationResource resource)
+        {
+            return resource.Kind == OperationTouchKind.Scene
+                ? OperationReadInvalidationUtilities.CreateSceneTreeLite(resource.Path)
+                : null;
         }
 
         private readonly struct ValidationState

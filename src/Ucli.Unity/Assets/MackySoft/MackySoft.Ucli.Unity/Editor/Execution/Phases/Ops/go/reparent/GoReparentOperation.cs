@@ -1,6 +1,7 @@
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -171,7 +172,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,
                 changed: true,
-                touched: CreateTouched(state)));
+                touched: CreateTouched(state),
+                readInvalidations: CreateReadInvalidations(state.TargetResource)));
         }
 
         private static bool TryValidate (
@@ -277,6 +279,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 OperationResourceUtilities.CreateTouch(state.TargetResource),
                 OperationResourceUtilities.CreateTouch(state.ParentResource),
             };
+        }
+
+        private static IReadOnlyList<OperationReadInvalidation>? CreateReadInvalidations (OperationResource resource)
+        {
+            return resource.Kind == OperationTouchKind.Scene
+                ? OperationReadInvalidationUtilities.CreateSceneTreeLite(resource.Path)
+                : null;
         }
 
         private readonly struct ValidationState

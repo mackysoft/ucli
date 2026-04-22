@@ -128,7 +128,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touched: new[]
                 {
                     OperationResourceUtilities.CreateTouch(resource),
-                }));
+                },
+                readInvalidations: OperationReadInvalidationUtilities.CreateAssetSearchOnly()));
         }
 
         private static bool TryResolvePlanArguments (

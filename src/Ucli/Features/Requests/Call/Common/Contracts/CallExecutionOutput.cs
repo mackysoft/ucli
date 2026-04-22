@@ -9,4 +9,5 @@ namespace MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
 internal sealed record CallExecutionOutput (
     string RequestId,
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
-    CallPlanOutput? Plan);
+    CallPlanOutput? Plan,
+    IpcExecuteReadPostcondition? ReadPostcondition);

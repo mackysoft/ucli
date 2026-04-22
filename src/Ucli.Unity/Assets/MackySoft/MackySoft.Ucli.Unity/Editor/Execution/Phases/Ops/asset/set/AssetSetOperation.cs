@@ -202,7 +202,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 touched: new[]
                 {
                     AssetOperationUtilities.CreateAssetTouch(binding.AssetPath),
-                }));
+                },
+                readInvalidations: changed
+                    ? OperationReadInvalidationUtilities.CreateAssetSearchOnly()
+                    : null));
         }
 
         private static bool TryResolveValidateTarget (

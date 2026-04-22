@@ -75,6 +75,9 @@ public static class UcliStoragePathNames
     /// <summary> Gets the uCLI Unity plugin marker cache file name under one fingerprint directory. </summary>
     public const string UnityUcliPluginMarkerCacheFileName = "ucli-plugin-marker-cache.json";
 
+    /// <summary> Gets the mutation read-postcondition file name under one fingerprint directory. </summary>
+    public const string MutationReadPostconditionFileName = "mutation-read-postcondition.json";
+
     /// <summary> Gets the Unity batchmode log file name under one fingerprint directory. </summary>
     public const string UnityLogFileName = "unity.log";
 

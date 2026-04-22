@@ -13,7 +13,8 @@ internal sealed record OperationExecuteResult (
     string RequestId,
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
     IReadOnlyList<IpcError> Errors,
-    int ExitCode)
+    int ExitCode,
+    IpcExecuteReadPostcondition? ReadPostcondition)
 {
     /// <summary> Gets a value indicating whether the operation execution succeeded. </summary>
     public bool IsSuccess => Errors.Count == 0;

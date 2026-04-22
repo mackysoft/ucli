@@ -11,7 +11,8 @@ internal sealed record ExecuteResponseConversionResult (
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
     IReadOnlyList<IpcError> Errors,
     int ExitCode,
-    string? PlanToken)
+    string? PlanToken,
+    IpcExecuteReadPostcondition? ReadPostcondition)
 {
     /// <summary> Gets a value indicating whether the converted response succeeded. </summary>
     public bool IsSuccess => Errors.Count == 0;

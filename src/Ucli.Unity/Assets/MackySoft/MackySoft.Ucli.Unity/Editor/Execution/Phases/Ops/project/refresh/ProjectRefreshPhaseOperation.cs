@@ -120,7 +120,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: true,
                 changed: deduplicatedTouched.Count != 0,
-                touched: deduplicatedTouched));
+                touched: deduplicatedTouched,
+                readInvalidations: deduplicatedTouched.Count == 0
+                    ? null
+                    : CreateReadInvalidations(callbackPaths, deduplicatedTouched)));
         }
 
         private static Dictionary<string, bool> CaptureLoadedSceneDirtyState ()
@@ -204,6 +207,41 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return result;
+        }
+
+        private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations (
+            IReadOnlyList<string> callbackPaths,
+            IReadOnlyList<OperationTouch> touched)
+        {
+            var invalidations = new List<OperationReadInvalidation>();
+            var includesAssetLookupInvalidation = false;
+            var callbackTouched = ProjectOperationUtilities.CreateTouchedResources(callbackPaths, System.Array.Empty<string>());
+            for (var i = 0; i < callbackTouched.Count; i++)
+            {
+                var touch = callbackTouched[i];
+                if (touch.Kind == OperationTouchKind.ProjectSettings)
+                {
+                    continue;
+                }
+
+                if (!includesAssetLookupInvalidation)
+                {
+                    invalidations.AddRange(OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath());
+                    includesAssetLookupInvalidation = true;
+                }
+            }
+
+            for (var i = 0; i < touched.Count; i++)
+            {
+                if (touched[i].Kind != OperationTouchKind.Scene)
+                {
+                    continue;
+                }
+
+                invalidations.AddRange(OperationReadInvalidationUtilities.CreateSceneTreeLite(touched[i].Path));
+            }
+
+            return invalidations;
         }
     }
 }

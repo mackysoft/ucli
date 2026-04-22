@@ -13,6 +13,7 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
@@ -24,10 +25,15 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 {
     private readonly IUnityRequestExecutor unityIpcRequestExecutor;
 
+    private readonly IMutationReadPostconditionStore mutationReadPostconditionStore;
+
     /// <summary> Initializes a new instance of the <see cref="CallUnityExecutionService" /> class. </summary>
-    public CallUnityExecutionService (IUnityRequestExecutor unityIpcRequestExecutor)
+    public CallUnityExecutionService (
+        IUnityRequestExecutor unityIpcRequestExecutor,
+        IMutationReadPostconditionStore mutationReadPostconditionStore)
     {
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
+        this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
     }
 
     /// <inheritdoc />
@@ -151,7 +157,26 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             : baseOutput with
             {
                 OpResults = convertedCallResponse.OpResults,
+                ReadPostcondition = convertedCallResponse.ReadPostcondition,
             };
+        var persistenceError = executionOutput == null
+            ? null
+            : await MutationReadPostconditionPersistence.WriteOrCreateError(
+                    mutationReadPostconditionStore,
+                    preparedRequest.UnityProject.RepositoryRoot,
+                    preparedRequest.UnityProject.ProjectFingerprint,
+                    convertedCallResponse.ReadPostcondition,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        if (persistenceError != null)
+        {
+            return CallServiceResult.Failure(
+                persistenceError.Message,
+                AppendError(convertedCallResponse.Errors, persistenceError),
+                (int)CliExitCode.ToolError,
+                executionOutput);
+        }
+
         if (!convertedCallResponse.IsSuccess)
         {
             return CallServiceResult.Failure(
@@ -223,5 +248,22 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         return fallbackMessage;
+    }
+
+    private static IReadOnlyList<IpcError> AppendError (
+        IReadOnlyList<IpcError> errors,
+        IpcError persistenceError)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+        ArgumentNullException.ThrowIfNull(persistenceError);
+
+        var mergedErrors = new IpcError[errors.Count + 1];
+        for (var i = 0; i < errors.Count; i++)
+        {
+            mergedErrors[i] = errors[i];
+        }
+
+        mergedErrors[^1] = persistenceError;
+        return mergedErrors;
     }
 }

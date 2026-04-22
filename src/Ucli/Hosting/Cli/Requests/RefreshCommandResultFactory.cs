@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -16,11 +17,15 @@ internal static class RefreshCommandResultFactory
     {
         ArgumentNullException.ThrowIfNull(executionResult);
 
-        var payload = new
+        var payload = new Dictionary<string, object?>
         {
-            requestId = executionResult.RequestId,
-            opResults = executionResult.OpResults,
+            ["requestId"] = executionResult.RequestId,
+            ["opResults"] = executionResult.OpResults,
         };
+        if (executionResult.ReadPostcondition != null)
+        {
+            payload["readPostcondition"] = executionResult.ReadPostcondition;
+        }
 
         if (executionResult.IsSuccess)
         {

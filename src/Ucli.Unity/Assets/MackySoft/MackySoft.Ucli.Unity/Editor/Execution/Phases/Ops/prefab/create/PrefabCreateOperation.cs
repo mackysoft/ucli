@@ -120,7 +120,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: true,
                 touched: OperationResourceUtilities.CreateTouches(
                     validationState.SourceResource,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
+                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
+                readInvalidations: OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath()));
         }
 
         private static bool TryValidateArguments (

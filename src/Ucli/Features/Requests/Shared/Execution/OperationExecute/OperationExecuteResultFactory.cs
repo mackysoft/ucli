@@ -85,7 +85,8 @@ internal static class OperationExecuteResultFactory
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
-            convertedResponse.ExitCode);
+            convertedResponse.ExitCode,
+            convertedResponse.ReadPostcondition);
     }
 
     /// <summary> Creates one normalized operation execution result. </summary>
@@ -98,7 +99,8 @@ internal static class OperationExecuteResultFactory
         string requestId,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
-        int exitCode)
+        int exitCode,
+        IpcExecuteReadPostcondition? readPostcondition = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
@@ -109,6 +111,7 @@ internal static class OperationExecuteResultFactory
             RequestId: requestId,
             OpResults: opResults,
             Errors: errors,
-            ExitCode: exitCode);
+            ExitCode: exitCode,
+            ReadPostcondition: readPostcondition);
     }
 }
