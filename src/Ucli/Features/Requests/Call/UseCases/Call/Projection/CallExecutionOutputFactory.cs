@@ -18,6 +18,7 @@ internal static class CallExecutionOutputFactory
         return new CallExecutionOutput(
             RequestId: requestId,
             OpResults: [],
-            Plan: null);
+            Plan: null,
+            ReadPostcondition: null);
     }
 }

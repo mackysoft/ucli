@@ -20,6 +20,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Gets the optional query result payload produced by this step. </summary>
         public JsonElement? Result { get; init; }
 
+        /// <summary> Gets the optional read-surface invalidations emitted by this step. </summary>
+        internal IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = Array.Empty<OperationReadInvalidation>();
+
         /// <summary> Gets a value indicating whether this step succeeded. </summary>
         public bool IsSuccess => Failure is null;
 
@@ -102,6 +105,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Failure: failure)
             {
                 Result = CloneResult(result),
+            };
+        }
+
+        /// <summary> Returns a copy with the supplied read-surface invalidations. </summary>
+        /// <param name="readInvalidations"> The invalidations to attach to the step result. </param>
+        /// <returns> One copied step result carrying the supplied invalidations. </returns>
+        internal OperationPhaseStepResult WithReadInvalidations (IReadOnlyList<OperationReadInvalidation>? readInvalidations)
+        {
+            return this with
+            {
+                ReadInvalidations = readInvalidations ?? Array.Empty<OperationReadInvalidation>(),
             };
         }
 

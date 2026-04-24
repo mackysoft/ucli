@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
@@ -43,6 +44,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
         services.AddSingleton<IIndexCatalogReader, FileIndexCatalogReader>();
+        services.AddSingleton<IMutationReadPostconditionStore, MutationReadPostconditionStore>();
         services.AddSingleton<IIndexInputFingerprintCalculator, FileSystemIndexInputFingerprintCalculator>();
         services.AddSingleton<IIndexFreshnessEvaluator, IndexFreshnessEvaluator>();
         services.AddSingleton<IAssetLookupStore, FileAssetLookupStore>();

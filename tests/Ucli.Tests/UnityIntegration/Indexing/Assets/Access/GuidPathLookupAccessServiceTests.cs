@@ -6,15 +6,17 @@ using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Assets.Access;
 
@@ -41,7 +43,7 @@ public sealed class GuidPathLookupAccessServiceTests
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
         };
         var refreshService = new StubAssetLookupSourceRefreshService();
-        var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, refreshService);
+        var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.TryResolveAssetGuid(
             CreateProject(),
@@ -102,7 +104,7 @@ public sealed class GuidPathLookupAccessServiceTests
                     ]),
                 "Existing guid-path index freshness is 'stale'."),
         };
-        var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, refreshService);
+        var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.TryResolveAssetPath(
             CreateProject(),
@@ -122,11 +124,65 @@ public sealed class GuidPathLookupAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task TryResolveAssetGuid_WhenReadPostconditionStoreFails_FallsBackToSource ()
+    {
+        var indexReader = new StubIndexCatalogReader
+        {
+            GuidPathLookupResult = IndexAccessResult<IndexGuidPathLookupJsonContract>.Success(
+                new IndexGuidPathLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    SourceInputsHash: "guid-path-hash",
+                    Entries:
+                    [
+                        new IndexGuidPathEntryJsonContract("11111111111111111111111111111111", "Assets/Data/Spawner.asset"),
+                    ])),
+        };
+        var freshnessEvaluator = new StubIndexFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
+        };
+        var readPostconditionStore = new TestMutationReadPostconditionStore
+        {
+            ReadResult = MutationReadPostconditionReadResult.Failure(
+                ExecutionError.InvalidArgument("Mutation read postcondition is invalid: /repo/.ucli/local/fingerprints/project-fingerprint/mutation-read-postcondition.json.")),
+        };
+        var refreshService = new StubAssetLookupSourceRefreshService
+        {
+            Result = AssetLookupRefreshResult.Success(
+                new IpcIndexAssetsReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:01:00+00:00"),
+                    AssetSearchEntries: [],
+                    GuidPathEntries:
+                    [
+                        new IndexGuidPathEntryJsonContract("11111111111111111111111111111111", "Assets/Data/Spawner.asset"),
+                    ]),
+                "Mutation read postcondition is invalid."),
+        };
+        var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
+
+        var result = await service.TryResolveAssetGuid(
+            CreateProject(),
+            UcliConfig.CreateDefault(),
+            mode: UnityExecutionMode.Auto,
+            timeout: TimeSpan.FromMilliseconds(1200),
+            readIndexMode: ReadIndexMode.RequireFresh,
+            assetGuid: "11111111111111111111111111111111");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AssetLookupSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Contains("Mutation read postcondition", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+        Assert.Equal(1, readPostconditionStore.ReadCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task TryResolveAssetPath_WhenPathIsOutsideAssets_ReturnsInvalidArgument ()
     {
         var service = new GuidPathLookupAccessService(
             new StubIndexCatalogReader(),
             new StubIndexFreshnessEvaluator(),
+            new TestMutationReadPostconditionStore(),
             new StubAssetLookupSourceRefreshService());
 
         var result = await service.TryResolveAssetPath(

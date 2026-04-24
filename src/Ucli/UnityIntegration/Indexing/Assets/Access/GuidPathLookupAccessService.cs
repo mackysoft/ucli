@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
@@ -17,16 +18,19 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
 {
     private readonly IIndexCatalogReader indexCatalogReader;
     private readonly IIndexFreshnessEvaluator indexFreshnessEvaluator;
+    private readonly IMutationReadPostconditionStore mutationReadPostconditionStore;
     private readonly IAssetLookupSourceRefreshService assetLookupSourceRefreshService;
 
     /// <summary> Initializes a new instance of the <see cref="GuidPathLookupAccessService" /> class. </summary>
     public GuidPathLookupAccessService (
         IIndexCatalogReader indexCatalogReader,
         IIndexFreshnessEvaluator indexFreshnessEvaluator,
+        IMutationReadPostconditionStore mutationReadPostconditionStore,
         IAssetLookupSourceRefreshService assetLookupSourceRefreshService)
     {
         this.indexCatalogReader = indexCatalogReader ?? throw new ArgumentNullException(nameof(indexCatalogReader));
         this.indexFreshnessEvaluator = indexFreshnessEvaluator ?? throw new ArgumentNullException(nameof(indexFreshnessEvaluator));
+        this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
         this.assetLookupSourceRefreshService = assetLookupSourceRefreshService ?? throw new ArgumentNullException(nameof(assetLookupSourceRefreshService));
     }
 
@@ -136,6 +140,27 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                     timeout,
                     readIndexMode,
                     lookupResult.Error.Message,
+                    resolver,
+                    key,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateGuidPath(
+                mutationReadPostconditionStore,
+                project,
+                lookupResult.Value!.GeneratedAtUtc,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!readPostconditionEvaluation.CanUseIndex)
+        {
+            return await ReadFromSource(
+                    project,
+                    config,
+                    mode,
+                    timeout,
+                    readIndexMode,
+                    readPostconditionEvaluation.FallbackReason!,
                     resolver,
                     key,
                     cancellationToken)

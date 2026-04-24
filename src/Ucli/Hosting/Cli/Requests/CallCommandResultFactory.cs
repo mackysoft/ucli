@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -48,39 +49,38 @@ internal static class CallCommandResultFactory
             return new { };
         }
 
+        var payload = new Dictionary<string, object?>
+        {
+            ["requestId"] = output.RequestId,
+            ["opResults"] = output.OpResults,
+        };
+
+        if (output.ReadPostcondition != null)
+        {
+            payload["readPostcondition"] = output.ReadPostcondition;
+        }
+
         if (output.Plan == null)
         {
-            return new
-            {
-                requestId = output.RequestId,
-                opResults = output.OpResults,
-            };
+            return payload;
         }
 
         if (string.IsNullOrWhiteSpace(output.Plan.PlanToken))
         {
-            return new
-            {
-                requestId = output.RequestId,
-                opResults = output.OpResults,
-                plan = new
-                {
-                    requestId = output.Plan.RequestId,
-                    opResults = output.Plan.OpResults,
-                },
-            };
-        }
-
-        return new
-        {
-            requestId = output.RequestId,
-            opResults = output.OpResults,
-            plan = new
+            payload["plan"] = new
             {
                 requestId = output.Plan.RequestId,
                 opResults = output.Plan.OpResults,
-                planToken = output.Plan.PlanToken,
-            },
+            };
+            return payload;
+        }
+
+        payload["plan"] = new
+        {
+            requestId = output.Plan.RequestId,
+            opResults = output.Plan.OpResults,
+            planToken = output.Plan.PlanToken,
         };
+        return payload;
     }
 }

@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
@@ -17,16 +18,19 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
 {
     private readonly IIndexCatalogReader indexCatalogReader;
     private readonly ISceneTreeLiteFreshnessEvaluator freshnessEvaluator;
+    private readonly IMutationReadPostconditionStore mutationReadPostconditionStore;
     private readonly ISceneTreeLiteSourceRefreshService sourceRefreshService;
 
     /// <summary> Initializes a new instance of the <see cref="SceneTreeLiteAccessService" /> class. </summary>
     public SceneTreeLiteAccessService (
         IIndexCatalogReader indexCatalogReader,
         ISceneTreeLiteFreshnessEvaluator freshnessEvaluator,
+        IMutationReadPostconditionStore mutationReadPostconditionStore,
         ISceneTreeLiteSourceRefreshService sourceRefreshService)
     {
         this.indexCatalogReader = indexCatalogReader ?? throw new ArgumentNullException(nameof(indexCatalogReader));
         this.freshnessEvaluator = freshnessEvaluator ?? throw new ArgumentNullException(nameof(freshnessEvaluator));
+        this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
         this.sourceRefreshService = sourceRefreshService ?? throw new ArgumentNullException(nameof(sourceRefreshService));
     }
 
@@ -119,6 +123,29 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     normalizedScenePath,
                     depth,
                     lookupResult.Error.Message,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateSceneTreeLite(
+                mutationReadPostconditionStore,
+                project,
+                normalizedScenePath,
+                lookupResult.Value!.GeneratedAtUtc,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!readPostconditionEvaluation.CanUseIndex)
+        {
+            return await ReadFromSource(
+                    project,
+                    config,
+                    command,
+                    mode,
+                    timeout,
+                    readIndexMode,
+                    normalizedScenePath,
+                    depth,
+                    readPostconditionEvaluation.FallbackReason!,
                     cancellationToken)
                 .ConfigureAwait(false);
         }

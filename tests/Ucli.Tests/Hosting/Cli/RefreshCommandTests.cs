@@ -32,7 +32,8 @@ public sealed class RefreshCommandTests
                 ]),
         ],
         Errors: [],
-        ExitCode: (int)CliExitCode.Success);
+        ExitCode: (int)CliExitCode.Success,
+        ReadPostcondition: null);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -76,6 +77,48 @@ public sealed class RefreshCommandTests
                     .HasBoolean("applied", true)
                     .HasBoolean("changed", true)
                     .HasArrayLength("touched", 1)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Refresh_WhenReadPostconditionExists_WritesTopLevelPayload ()
+    {
+        var readPostcondition = new IpcExecuteReadPostcondition(
+        [
+            new IpcExecuteReadPostconditionRequirement(
+                Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+                MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00")),
+        ]);
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(new OperationExecuteResult(
+            ProtocolVersion: IpcProtocol.CurrentVersion,
+            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            OpResults:
+            [
+                new IpcExecuteOperationResult(
+                    OpId: "refresh",
+                    Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                    Phase: IpcExecuteOperationPhaseNames.Call,
+                    Applied: true,
+                    Changed: true,
+                    Touched: []),
+            ],
+            Errors: [],
+            ExitCode: (int)CliExitCode.Success,
+            ReadPostcondition: readPostcondition)));
+        var command = new RefreshCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
+            projectPath: "/repo/UnityProject",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
+            .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
+                .HasArrayLength("requirements", 1)
+                .HasProperty("requirements", 0, requirement => requirement
+                    .HasString("surface", IpcExecuteReadPostconditionSurfaceNames.AssetSearch)));
     }
 
     [Fact]

@@ -7,15 +7,16 @@ using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Scenes.Access;
 
@@ -43,7 +44,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable),
         };
         var refreshService = new StubSceneTreeLiteSourceRefreshService();
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Read(
             project,
@@ -87,7 +88,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
 
         var result = await service.Read(
             project,
@@ -125,7 +126,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         {
             Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
 
         var result = await service.Read(
             project,
@@ -178,7 +179,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     ]),
                 "Existing scene-tree-lite index freshness is 'stale'."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Read(
             project,
@@ -200,6 +201,123 @@ public sealed class SceneTreeLiteAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenReadPostconditionRequiresNewerSceneIndex_FallsBackToSource ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "postcondition-fallback");
+        var project = CreateProject(scope);
+        WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
+        var indexReader = new StubIndexCatalogReader
+        {
+            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+                new IndexSceneTreeLiteLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    SourceInputsHash: "scene-hash",
+                    Roots: CreateTree())),
+        };
+        var freshnessEvaluator = new StubSceneTreeLiteFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
+        };
+        var readPostconditionStore = new TestMutationReadPostconditionStore
+        {
+            ReadResult = MutationReadPostconditionReadResult.Success(
+                new IpcExecuteReadPostcondition(
+                [
+                    new IpcExecuteReadPostconditionRequirement(
+                        Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                        MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00"))
+                    {
+                        ScenePath = "Assets/Scenes/Main.unity",
+                    },
+                ])),
+        };
+        var refreshService = new StubSceneTreeLiteSourceRefreshService
+        {
+            Result = SceneTreeLiteRefreshResult.Success(
+                new IpcIndexSceneTreeLiteReadResponse(
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:01:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    Roots:
+                    [
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>()),
+                    ]),
+                "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
+        };
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            "Assets/Scenes/Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SceneTreeLiteSource.Source, result.Output!.AccessInfo.Source);
+        Assert.Contains("mutation read postcondition", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenReadPostconditionTargetsDifferentScene_KeepsUsingIndex ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "postcondition-non-matching-scene");
+        var project = CreateProject(scope);
+        WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
+        var indexReader = new StubIndexCatalogReader
+        {
+            SceneTreeLiteLookupResult = IndexAccessResult<IndexSceneTreeLiteLookupJsonContract>.Success(
+                new IndexSceneTreeLiteLookupJsonContract(
+                    SchemaVersion: 1,
+                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
+                    ScenePath: "Assets/Scenes/Main.unity",
+                    SourceInputsHash: "scene-hash",
+                    Roots: CreateTree())),
+        };
+        var freshnessEvaluator = new StubSceneTreeLiteFreshnessEvaluator
+        {
+            Result = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh),
+        };
+        var readPostconditionStore = new TestMutationReadPostconditionStore
+        {
+            ReadResult = MutationReadPostconditionReadResult.Success(
+                new IpcExecuteReadPostcondition(
+                [
+                    new IpcExecuteReadPostconditionRequirement(
+                        Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                        MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00"))
+                    {
+                        ScenePath = "Assets/Scenes/Other.unity",
+                    },
+                ])),
+        };
+        var refreshService = new StubSceneTreeLiteSourceRefreshService();
+        var service = new SceneTreeLiteAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.RequireFresh,
+            "Assets/Scenes/Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(SceneTreeLiteSource.Index, result.Output!.AccessInfo.Source);
+        Assert.Equal(0, refreshService.CallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenReadIndexModeIsDisabled_UsesSourcePath ()
     {
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "disabled");
@@ -215,7 +333,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 "readIndex disabled by mode."),
         };
         var indexReader = new StubIndexCatalogReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Read(
             project,
@@ -251,7 +369,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                 "scene-tree-lite readIndex is unavailable for non-Assets scene paths."),
         };
         var indexReader = new StubIndexCatalogReader();
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Read(
             project,
@@ -287,7 +405,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     SourceInputsHash: "scene-hash",
                     Roots: CreateTree())),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new StubSceneTreeLiteSourceRefreshService());
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
 
         var result = await service.Read(
             project,
@@ -328,7 +446,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     Roots: CreateTree()),
                 "scene-tree-lite lookup is missing."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Read(
             project,
@@ -369,7 +487,7 @@ public sealed class SceneTreeLiteAccessServiceTests
                     Roots: CreateTree()),
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
-        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), refreshService);
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService);
 
         var result = await service.Read(
             project,

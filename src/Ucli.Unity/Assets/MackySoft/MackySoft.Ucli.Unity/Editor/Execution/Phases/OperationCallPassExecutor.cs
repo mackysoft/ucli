@@ -74,6 +74,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             Failure: replayedPlanStepResult.Failure)
                         {
                             Result = replayedPlanStepResult.Result,
+                            ReadInvalidations = replayedPlanStepResult.ReadInvalidations,
                         });
                         errors.Add(replayedPlanStepResult.Failure!);
                         hasFailed = true;
@@ -102,6 +103,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         Failure: callStepResult.Failure)
                     {
                         Result = callStepResult.Result,
+                        ReadInvalidations = callStepResult.ReadInvalidations,
                     });
                     errors.Add(callStepResult.Failure!);
                     hasFailed = true;
@@ -118,6 +120,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Failure: null)
                 {
                     Result = callStepResult.Result,
+                    ReadInvalidations = callStepResult.ReadInvalidations,
                 });
             }
 

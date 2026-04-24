@@ -123,13 +123,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.UnmarkRequestAttributedChange(resource);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(resource),
-                }));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(resource),
+                    })
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLite(validationState.ScenePath)));
         }
 
         /// <summary> Validates operation arguments and resolves loaded scene. </summary>

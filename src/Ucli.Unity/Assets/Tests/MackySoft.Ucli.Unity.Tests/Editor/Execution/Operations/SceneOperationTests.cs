@@ -179,6 +179,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(scene.isDirty, Is.False);
+            Assert.That(result.ReadInvalidations.Count, Is.EqualTo(1));
+            Assert.That(result.ReadInvalidations[0].Surface, Is.EqualTo(OperationReadInvalidationSurface.SceneTreeLite));
+            Assert.That(result.ReadInvalidations[0].ScenePath, Is.EqualTo(scenePath.Replace('\\', '/')));
         });
 
         [UnityTest]

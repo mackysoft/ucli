@@ -146,13 +146,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     }
                 }
 
-                return Task.FromResult(OperationPhaseStepResult.Success(
-                    applied: true,
-                    changed: true,
-                    touched: new[]
-                    {
-                        AssetOperationUtilities.CreateAssetTouch(assetPath!),
-                    }));
+                return Task.FromResult(
+                    OperationPhaseStepResult.Success(
+                        applied: true,
+                        changed: true,
+                        touched: new[]
+                        {
+                            AssetOperationUtilities.CreateAssetTouch(assetPath!),
+                        })
+                    .WithReadInvalidations(OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath()));
             }
             finally
             {

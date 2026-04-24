@@ -1,6 +1,7 @@
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -168,10 +169,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             state.Target.transform.SetParent(state.Parent.transform, worldPositionStays: false);
             executionContext.MarkRequestAttributedChange(state.TargetResource);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: CreateTouched(state)));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: CreateTouched(state))
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(state.TargetResource)));
         }
 
         private static bool TryValidate (

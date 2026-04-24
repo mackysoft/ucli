@@ -133,10 +133,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.UnmarkRequestAttributedChange(new OperationResource(projectTouched[i].Kind, projectTouched[i].Path));
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: touched.Count != 0,
-                touched: touched));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: touched.Count != 0,
+                    touched: touched)
+                .WithReadInvalidations(touched.Count == 0 ? null : OperationReadInvalidationUtilities.CreateForProjectSave(touched)));
         }
 
         private static IReadOnlyList<OperationTouch> CollectKnownPlannedTouchedResources (OperationExecutionContext executionContext)

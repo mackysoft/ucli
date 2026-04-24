@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -163,13 +164,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             executionContext.MarkRequestAttributedChange(validationState.Resource);
             StoreAliasIfNeeded(operation.As, executionContext, createdGameObject, validationState.Resource);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(validationState.Resource),
-                }));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(validationState.Resource),
+                    })
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(validationState.Resource)));
         }
 
         /// <summary> Validates arguments and resolves the destination resource and optional parent. </summary>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
@@ -31,7 +32,8 @@ public sealed class CallCommandResultFactoryTests
                 Plan: new CallPlanOutput(
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     OpResults: [],
-                    PlanToken: null))));
+                    PlanToken: null),
+                ReadPostcondition: null)));
 
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
         var payload = json.RootElement.GetProperty("payload");
@@ -53,5 +55,40 @@ public sealed class CallCommandResultFactoryTests
 
         using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
         Assert.False(json.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenReadPostconditionExists_EmitsTopLevelPayloadOnly ()
+    {
+        var readPostcondition = new IpcExecuteReadPostcondition(
+        [
+            new IpcExecuteReadPostconditionRequirement(
+                Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00"))
+            {
+                ScenePath = "Assets/Scenes/Main.unity",
+            },
+        ]);
+        var result = CallCommandResultFactory.Create(CallServiceResult.Success(
+            new CallExecutionOutput(
+                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                OpResults: [],
+                Plan: new CallPlanOutput(
+                    RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                    OpResults: [],
+                    PlanToken: "plan-token-1"),
+                ReadPostcondition: readPostcondition),
+            "uCLI call completed."));
+
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
+        var payload = json.RootElement.GetProperty("payload");
+        JsonAssert.For(payload)
+            .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
+                .HasArrayLength("requirements", 1)
+                .HasProperty("requirements", 0, requirement => requirement
+                    .HasString("surface", IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite)
+                    .HasString("scenePath", "Assets/Scenes/Main.unity")));
+        Assert.False(payload.GetProperty("plan").TryGetProperty("readPostcondition", out _));
     }
 }

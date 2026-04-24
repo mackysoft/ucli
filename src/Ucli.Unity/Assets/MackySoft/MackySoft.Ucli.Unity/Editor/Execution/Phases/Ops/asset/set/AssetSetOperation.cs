@@ -196,13 +196,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.AliasStore.Set(binding.Alias, resolvedReference);
             }
 
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: changed,
-                touched: new[]
-                {
-                    AssetOperationUtilities.CreateAssetTouch(binding.AssetPath),
-                }));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: changed,
+                    touched: new[]
+                    {
+                        AssetOperationUtilities.CreateAssetTouch(binding.AssetPath),
+                    })
+                .WithReadInvalidations(
+                    changed
+                        ? OperationReadInvalidationUtilities.CreateAssetSearchOnly()
+                        : null));
         }
 
         private static bool TryResolveValidateTarget (

@@ -14,14 +14,15 @@ using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.Shared.Context.Project;
 using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
@@ -636,6 +637,133 @@ public sealed class CallServiceTests
         Assert.False(preflightService.ReceivedFailFast);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenCallResponseIncludesReadPostcondition_PersistsAndExposesIt ()
+    {
+        var preparedRequest = CreatePreparedRequest(
+            requestJson: CreateOpRequestJson(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave),
+            request: CreateOpRequest(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave),
+            operationsByName: CreateOperationsByName(
+                CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, OperationPolicy.Advanced)));
+        var readPostconditionStore = new TestMutationReadPostconditionStore();
+        var readPostcondition = CreateReadPostcondition();
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "step-1",
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
+                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Applied: true,
+                            Changed: true,
+                            Touched:
+                            [
+                                new IpcExecuteTouchedResource(
+                                    Kind: IpcExecuteTouchedResourceKindNames.Scene,
+                                    Path: "Assets/Scenes/Main.unity",
+                                    Guid: null),
+                            ]),
+                    ],
+                    errors: [],
+                    planToken: null,
+                    readPostcondition: readPostcondition)));
+        var service = CreateService(
+            PhaseExecutionPreflightResult.Success(preparedRequest),
+            ipcRequestExecutor,
+            mutationReadPostconditionStore: readPostconditionStore);
+
+        var result = await service.Execute(
+            new CallCommandInput(
+                RequestPath: null,
+                ProjectPath: "/repo/UnityProject",
+                Mode: NormalizeMode("oneshot"),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
+                PlanToken: null,
+                WithPlan: false,
+                AllowDangerous: false,
+                FailFast: false),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Output);
+        Assert.NotNull(result.Output!.ReadPostcondition);
+        Assert.Equal(1, readPostconditionStore.WriteCallCount);
+        Assert.Equal("/repo", readPostconditionStore.LastStorageRoot);
+        Assert.Equal("project-fingerprint", readPostconditionStore.LastProjectFingerprint);
+        var requirement = Assert.Single(result.Output.ReadPostcondition!.Requirements);
+        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
+        Assert.Equal("Assets/Scenes/Main.unity", requirement.ScenePath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenReadPostconditionPersistenceFails_ReturnsToolErrorAndPreservesOutput ()
+    {
+        var preparedRequest = CreatePreparedRequest(
+            requestJson: CreateOpRequestJson(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave),
+            request: CreateOpRequest(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave),
+            operationsByName: CreateOperationsByName(
+                CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, OperationPolicy.Advanced)));
+        var readPostconditionStore = new TestMutationReadPostconditionStore
+        {
+            WriteResult = MutationReadPostconditionStoreOperationResult.Failure(
+                ExecutionError.InternalError("Failed to persist mutation read postcondition.")),
+        };
+        var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
+            UnityRequestExecutionResult.Success(
+                CreateResponse(
+                    status: IpcProtocol.StatusOk,
+                    opResults:
+                    [
+                        new IpcExecuteOperationResult(
+                            OpId: "step-1",
+                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
+                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Applied: true,
+                            Changed: true,
+                            Touched:
+                            [
+                                new IpcExecuteTouchedResource(
+                                    Kind: IpcExecuteTouchedResourceKindNames.Scene,
+                                    Path: "Assets/Scenes/Main.unity",
+                                    Guid: null),
+                            ]),
+                    ],
+                    errors: [],
+                    planToken: null,
+                    readPostcondition: CreateReadPostcondition())));
+        var service = CreateService(
+            PhaseExecutionPreflightResult.Success(preparedRequest),
+            ipcRequestExecutor,
+            mutationReadPostconditionStore: readPostconditionStore);
+
+        var result = await service.Execute(
+            new CallCommandInput(
+                RequestPath: null,
+                ProjectPath: "/repo/UnityProject",
+                Mode: NormalizeMode("oneshot"),
+                TimeoutMilliseconds: NormalizeTimeout("1200"),
+                PlanToken: null,
+                WithPlan: false,
+                AllowDangerous: false,
+                FailFast: false),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.NotNull(result.Output);
+        Assert.Single(result.Output!.OpResults);
+        Assert.NotNull(result.Output.ReadPostcondition);
+        Assert.Equal(1, readPostconditionStore.WriteCallCount);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal("Failed to persist mutation read postcondition.", error.Message);
+    }
+
     private static PhaseExecutionPreparedRequest CreatePreparedRequest (
         string requestJson,
         ValidateRequest request,
@@ -662,7 +790,8 @@ public sealed class CallServiceTests
         SpyUnityIpcRequestExecutor ipcRequestExecutor,
         TimeProvider? timeProvider = null,
         RequestPreparationResult? requestPreparationResult = null,
-        StubPhaseExecutionPreflightService? preflightService = null)
+        StubPhaseExecutionPreflightService? preflightService = null,
+        TestMutationReadPostconditionStore? mutationReadPostconditionStore = null)
     {
         ArgumentNullException.ThrowIfNull(preflightResult);
         ArgumentNullException.ThrowIfNull(ipcRequestExecutor);
@@ -675,7 +804,7 @@ public sealed class CallServiceTests
             new StubRequestPreparationService(requestPreparationResult),
             preflightService ?? new StubPhaseExecutionPreflightService(preflightResult),
             new CallDangerousOperationGuard(),
-            new CallUnityExecutionService(ipcRequestExecutor),
+            new CallUnityExecutionService(ipcRequestExecutor, mutationReadPostconditionStore ?? new TestMutationReadPostconditionStore()),
             timeProvider);
     }
 
@@ -800,7 +929,8 @@ public sealed class CallServiceTests
         string status,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
-        string? planToken)
+        string? planToken,
+        IpcExecuteReadPostcondition? readPostcondition = null)
     {
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -809,8 +939,22 @@ public sealed class CallServiceTests
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(opResults)
             {
                 PlanToken = planToken,
+                ReadPostcondition = readPostcondition,
             }),
             Errors: errors);
+    }
+
+    private static IpcExecuteReadPostcondition CreateReadPostcondition ()
+    {
+        return new IpcExecuteReadPostcondition(
+        [
+            new IpcExecuteReadPostconditionRequirement(
+                Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00"))
+            {
+                ScenePath = "Assets/Scenes/Main.unity",
+            },
+        ]);
     }
 
     private sealed class StubRequestPreparationService : IRequestPreparationService

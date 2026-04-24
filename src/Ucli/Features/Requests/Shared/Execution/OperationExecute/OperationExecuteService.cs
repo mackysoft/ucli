@@ -4,11 +4,13 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Features.Requests.Shared.Execution.Postprocessing;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
+using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Foundation;
@@ -24,6 +26,8 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
     private readonly IUnityRequestExecutor unityIpcRequestExecutor;
 
+    private readonly IMutationReadPostconditionStore mutationReadPostconditionStore;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="OperationExecuteService" /> class. </summary>
@@ -35,11 +39,13 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         IProjectContextResolver projectContextResolver,
         IOperationAuthorizationService operationAuthorizationService,
         IUnityRequestExecutor unityIpcRequestExecutor,
+        IMutationReadPostconditionStore mutationReadPostconditionStore,
         TimeProvider? timeProvider = null)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.operationAuthorizationService = operationAuthorizationService ?? throw new ArgumentNullException(nameof(operationAuthorizationService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
+        this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -149,7 +155,21 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 ResolveExitCode(errorCode));
         }
 
-        return OperationExecuteResultFactory.FromIpcResponse(requestId, executionResult.Response!);
+        var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
+                ExecuteResponseConverter.Convert(executionResult.Response!),
+                mutationReadPostconditionStore,
+                projectContext.UnityProject.RepositoryRoot,
+                projectContext.UnityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var convertedResponse = postprocessedResponse.Response;
+
+        return OperationExecuteResultFactory.Create(
+            requestId,
+            convertedResponse.OpResults,
+            convertedResponse.Errors,
+            convertedResponse.ExitCode,
+            convertedResponse.ReadPostcondition);
     }
 
     /// <summary> Executes one internal <c>plan</c> pass and returns the issued plan token. </summary>
@@ -298,4 +318,5 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         return ExecuteResponseConverter.ResolveExitCode(errors);
     }
+
 }

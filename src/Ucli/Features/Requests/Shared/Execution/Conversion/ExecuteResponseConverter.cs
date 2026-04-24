@@ -41,7 +41,8 @@ internal static class ExecuteResponseConverter
             OpResults: payload.OpResults,
             Errors: normalizedErrors,
             ExitCode: ResolveExitCode(normalizedErrors),
-            PlanToken: payload.PlanToken);
+            PlanToken: payload.PlanToken,
+            ReadPostcondition: payload.ReadPostcondition);
     }
 
     /// <summary> Resolves the CLI exit code from one machine-readable error code. </summary>
@@ -107,6 +108,7 @@ internal static class ExecuteResponseConverter
             OpResults: [],
             Errors: errors,
             ExitCode: ResolveExitCode(errors),
-            PlanToken: null);
+            PlanToken: null,
+            ReadPostcondition: null);
     }
 }

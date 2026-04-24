@@ -24,5 +24,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         /// <summary> Gets the optional query result payload produced by the final phase. </summary>
         public JsonElement? Result { get; init; }
+
+        /// <summary> Gets the read-surface invalidations emitted by the final phase. </summary>
+        public IReadOnlyList<OperationReadInvalidation> ReadInvalidations { get; init; } = System.Array.Empty<OperationReadInvalidation>();
     }
 }

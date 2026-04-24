@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -120,13 +121,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             Object.DestroyImmediate(state.Target);
             executionContext.MarkRequestAttributedChange(state.Resource);
-            return Task.FromResult(OperationPhaseStepResult.Success(
-                applied: true,
-                changed: true,
-                touched: new[]
-                {
-                    OperationResourceUtilities.CreateTouch(state.Resource),
-                }));
+            return Task.FromResult(
+                OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(state.Resource),
+                    })
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(state.Resource)));
         }
 
         private static bool TryValidate (
