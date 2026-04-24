@@ -13,6 +13,7 @@ using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
@@ -21,7 +22,6 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 

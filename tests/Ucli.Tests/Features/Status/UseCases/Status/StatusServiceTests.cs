@@ -16,13 +16,13 @@ using MackySoft.Ucli.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Features.Status.UseCases.Status.Preflight;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.Tests.Status;

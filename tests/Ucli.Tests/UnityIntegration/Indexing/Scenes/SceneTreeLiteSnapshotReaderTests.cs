@@ -6,6 +6,7 @@ using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
@@ -13,7 +14,6 @@ using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Ipc;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Tests.Scenes;
 

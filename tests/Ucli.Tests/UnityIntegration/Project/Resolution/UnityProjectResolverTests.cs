@@ -1,9 +1,9 @@
 namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 
 public sealed class UnityProjectResolverTests
