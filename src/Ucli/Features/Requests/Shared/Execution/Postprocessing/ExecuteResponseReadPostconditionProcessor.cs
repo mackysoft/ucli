@@ -1,8 +1,9 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 
-namespace MackySoft.Ucli.Features.Requests.Shared.Execution.Conversion;
+namespace MackySoft.Ucli.Features.Requests.Shared.Execution.Postprocessing;
 
 /// <summary> Applies mutation read-postcondition persistence policy to converted execute responses. </summary>
 internal static class ExecuteResponseReadPostconditionProcessor
