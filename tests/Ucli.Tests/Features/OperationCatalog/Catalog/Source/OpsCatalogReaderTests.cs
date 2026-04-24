@@ -6,8 +6,8 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Shared.Execution.UnityRequest;
 
 namespace MackySoft.Ucli.Tests.Ops.Source;
 

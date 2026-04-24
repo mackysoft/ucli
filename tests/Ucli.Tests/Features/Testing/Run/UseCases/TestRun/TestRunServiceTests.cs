@@ -17,13 +17,13 @@ using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Configuration;
+using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.Shared.Context.Project;
 using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;

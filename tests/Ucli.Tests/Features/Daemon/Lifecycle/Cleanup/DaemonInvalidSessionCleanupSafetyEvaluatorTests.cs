@@ -28,8 +28,8 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Diagnostics;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.Shared.Context.Project;
+using MackySoft.Ucli.Shared.Foundation;
 
 public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 {

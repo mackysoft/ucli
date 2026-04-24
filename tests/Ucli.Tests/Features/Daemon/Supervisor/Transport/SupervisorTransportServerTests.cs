@@ -26,11 +26,11 @@ using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
 using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Tests.Helpers;
 using MackySoft.Ucli.UnityIntegration.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
