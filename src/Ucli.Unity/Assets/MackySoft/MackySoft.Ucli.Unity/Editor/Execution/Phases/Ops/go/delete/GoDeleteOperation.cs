@@ -129,7 +129,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         OperationResourceUtilities.CreateTouch(state.Resource),
                     })
-                .WithReadInvalidations(CreateReadInvalidations(state.Resource)));
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(state.Resource)));
         }
 
         private static bool TryValidate (
@@ -271,13 +271,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     break;
             }
-        }
-
-        private static IReadOnlyList<OperationReadInvalidation>? CreateReadInvalidations (OperationResource resource)
-        {
-            return resource.Kind == OperationTouchKind.Scene
-                ? OperationReadInvalidationUtilities.CreateSceneTreeLite(resource.Path)
-                : null;
         }
 
         private readonly struct ValidationState

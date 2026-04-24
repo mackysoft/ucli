@@ -159,25 +159,22 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 OpResults = convertedCallResponse.OpResults,
                 ReadPostcondition = convertedCallResponse.ReadPostcondition,
             };
-        var persistenceFailure = executionOutput == null
-            ? null
-            : await MutationReadPostconditionPersistence.Write(
+        var postprocessedCallResponse = executionOutput == null
+            ? (Response: convertedCallResponse, PersistenceError: (IpcError?)null)
+            : await ExecuteResponseReadPostconditionProcessor.Persist(
+                    convertedCallResponse,
                     mutationReadPostconditionStore,
                     preparedRequest.UnityProject.RepositoryRoot,
                     preparedRequest.UnityProject.ProjectFingerprint,
-                    convertedCallResponse.ReadPostcondition,
                     cancellationToken)
                 .ConfigureAwait(false);
-        if (persistenceFailure != null)
+        convertedCallResponse = postprocessedCallResponse.Response;
+        if (postprocessedCallResponse.PersistenceError != null)
         {
-            var persistenceError = new IpcError(
-                IpcErrorCodes.InternalError,
-                persistenceFailure.Message,
-                null);
             return CallServiceResult.Failure(
-                persistenceError.Message,
-                AppendError(convertedCallResponse.Errors, persistenceError),
-                (int)CliExitCode.ToolError,
+                postprocessedCallResponse.PersistenceError.Message,
+                convertedCallResponse.Errors,
+                convertedCallResponse.ExitCode,
                 executionOutput);
         }
 
@@ -254,20 +251,4 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         return fallbackMessage;
     }
 
-    private static IReadOnlyList<IpcError> AppendError (
-        IReadOnlyList<IpcError> errors,
-        IpcError persistenceError)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-        ArgumentNullException.ThrowIfNull(persistenceError);
-
-        var mergedErrors = new IpcError[errors.Count + 1];
-        for (var i = 0; i < errors.Count; i++)
-        {
-            mergedErrors[i] = errors[i];
-        }
-
-        mergedErrors[^1] = persistenceError;
-        return mergedErrors;
-    }
 }

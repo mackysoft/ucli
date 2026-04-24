@@ -154,27 +154,14 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 ResolveExitCode(errorCode));
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
-        var persistenceFailure = await MutationReadPostconditionPersistence.Write(
+        var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
+                ExecuteResponseConverter.Convert(executionResult.Response!),
                 mutationReadPostconditionStore,
                 projectContext.UnityProject.RepositoryRoot,
                 projectContext.UnityProject.ProjectFingerprint,
-                convertedResponse.ReadPostcondition,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (persistenceFailure != null)
-        {
-            var persistenceError = new IpcError(
-                IpcErrorCodes.InternalError,
-                persistenceFailure.Message,
-                null);
-            return OperationExecuteResultFactory.Create(
-                requestId,
-                convertedResponse.OpResults,
-                AppendError(convertedResponse.Errors, persistenceError),
-                (int)CliExitCode.ToolError,
-                convertedResponse.ReadPostcondition);
-        }
+        var convertedResponse = postprocessedResponse.Response;
 
         return OperationExecuteResultFactory.Create(
             requestId,
@@ -331,20 +318,4 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         return ExecuteResponseConverter.ResolveExitCode(errors);
     }
 
-    private static IReadOnlyList<IpcError> AppendError (
-        IReadOnlyList<IpcError> errors,
-        IpcError persistenceError)
-    {
-        ArgumentNullException.ThrowIfNull(errors);
-        ArgumentNullException.ThrowIfNull(persistenceError);
-
-        var mergedErrors = new IpcError[errors.Count + 1];
-        for (var i = 0; i < errors.Count; i++)
-        {
-            mergedErrors[i] = errors[i];
-        }
-
-        mergedErrors[^1] = persistenceError;
-        return mergedErrors;
-    }
 }

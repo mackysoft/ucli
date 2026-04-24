@@ -172,7 +172,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     {
                         OperationResourceUtilities.CreateTouch(validationState.Resource),
                     })
-                .WithReadInvalidations(CreateReadInvalidations(validationState.Resource)));
+                .WithReadInvalidations(OperationReadInvalidationUtilities.CreateSceneTreeLiteForSceneResource(validationState.Resource)));
         }
 
         /// <summary> Validates arguments and resolves the destination resource and optional parent. </summary>
@@ -273,13 +273,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             errorMessage = string.Empty;
             return true;
-        }
-
-        private static IReadOnlyList<OperationReadInvalidation>? CreateReadInvalidations (OperationResource resource)
-        {
-            return resource.Kind == OperationTouchKind.Scene
-                ? OperationReadInvalidationUtilities.CreateSceneTreeLite(resource.Path)
-                : null;
         }
 
         /// <summary> Moves one created GameObject into the validated destination scene or parent. </summary>
