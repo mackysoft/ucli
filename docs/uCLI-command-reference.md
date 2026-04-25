@@ -2,8 +2,8 @@
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
 >
-> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`test` である。
-> `resolve` / `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
+> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`test` である。
+> `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
 
 ## コマンド概要
 
@@ -11,6 +11,7 @@
 | --- | --- | --- |
 | `ucli init` | `.ucli` の設定雛形を生成する | Git repository root を優先する |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
+| `ucli resolve` | selector 1 件を GlobalObjectId へ解決する | scene-tree-lite index を優先し、必要時だけ Unity IPC へ fallback する |
 | `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
 | `ucli plan` | JSON リクエストの plan フェーズを実行する | static preflight 後に Unity IPC `plan` を実行する |
 | `ucli call` | JSON リクエストの call フェーズを実行する | static preflight 後に Unity IPC `call` を実行する |
@@ -36,6 +37,11 @@
   - `--mode` / `--timeout` は受け付けず、Unity IPC に接続しない。
   - 成功時 payload は `readIndex` のみを返す。
   - `allowStale` では snapshot 欠落時に syntax-only へ縮退し、`requireFresh` では `READ_INDEX_BOOTSTRAP_FAILED` / `READ_INDEX_FORMAT_INVALID` / `READ_INDEX_FRESH_REQUIRED` を返す。
+- `ucli resolve`
+  - selector flags から 1 件だけ解決し、JSON request、`stdin`、`--requestPath` は受け付けない。
+  - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
+  - selector は `--globalObjectId` / `--assetGuid` / `--assetPath` / `--projectAssetPath` / `--scene --hierarchyPath [--componentType]` / `--prefab --hierarchyPath` の exactly one とする。
+  - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
 - `ucli plan`
   - `stdin` または `--requestPath` から JSON リクエストを読み、static preflight 後に Unity IPC `plan` を実行する。
   - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
@@ -203,6 +209,48 @@ Git root が判定できない環境では実行時 CWD を対象にする。
 
 ### `init` の出力
 - `payload` のフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
+
+## `ucli resolve`
+`ucli resolve` は selector 1 件を解決する読取コマンドである。
+CLI は JSON request を読まず、selector flags から固定の `ucli.resolve` 1 step を組み立てる。
+
+### `resolve` options
+| Option | Short | Description |
+| --- | --- | --- |
+| `--projectPath <string?>` | `-p` | 対象Unity project root path |
+| `--mode <string?>` | - | `auto` (default), `daemon`, or `oneshot` |
+| `--timeout <int?>` | - | IPC待機タイムアウト（ミリ秒）。`1..2147483647` |
+| `--readIndexMode <string?>` | - | `disabled`, `allowStale`, or `requireFresh` |
+| `--failFast` | - | Unity fallback 時に `ready` になる前なら待機せず即失敗する |
+| `--globalObjectId <string?>` | - | GlobalObjectId selector |
+| `--assetGuid <string?>` | - | asset GUID selector |
+| `--assetPath <string?>` | - | Unity asset path selector |
+| `--projectAssetPath <string?>` | - | project-relative asset path selector |
+| `--scene <string?>` | - | scene hierarchy selector の scene path |
+| `--hierarchyPath <string?>` | - | scene / prefab 内の GameObject hierarchy path |
+| `--componentType <string?>` | - | scene hierarchy selector の component type |
+| `--prefab <string?>` | - | prefab hierarchy selector の prefab path |
+
+### `resolve` 実行契約
+- selector は exactly one とし、`stdin` と `--requestPath` は受け付けない。
+- `--scene --hierarchyPath` かつ `--componentType` なしの場合、scene-tree-lite readIndex で解決できれば Unity IPC へ接続しない。
+- `--globalObjectId`、asset 系 selector、`--componentType` 付き scene selector、prefab selector、readIndex miss は Unity IPC `execute(command=resolve)` へ fallback する。
+- Unity fallback は `Validate -> Plan` を実行し、`planToken` は発行しない。
+- `--failFast` は Unity fallback 時だけ適用する。readIndex hit では Unity readiness wait を行わない。
+
+### `resolve` のレスポンス契約
+- 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
+- `opResults[0].opId` は `resolve`、`op` は `ucli.resolve`、`phase` は `plan`、`applied=false`、`changed=false` とする。
+- 解決結果は `opResults[0].result.globalObjectId` に置く。
+- readIndex 完結時は `payload.readIndex.source=index`、`used=true` を返す。
+- Unity fallback 時は `payload.readIndex.source=unity`、`used=false`、`fallbackReason` に fallback 理由を返す。
+
+### `resolve` 実行例
+```bash
+ucli resolve --projectPath ./UnityProject --scene Assets/Scenes/Main.unity --hierarchyPath Root/Child
+ucli resolve --projectPath ./UnityProject --assetGuid 11111111111111111111111111111111 --mode daemon --failFast
+ucli resolve --projectPath ./UnityProject --prefab Assets/Prefabs/Card.prefab --hierarchyPath Root/Label
+```
 
 ## `ucli plan`
 `ucli plan` は最初の公開 request-driven execute コマンドである。  
