@@ -6,12 +6,12 @@ using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
-/// <summary> Provides the <c>resolve</c> CLI command entry point. </summary>
+/// <summary> Provides the resolve CLI command entry point. </summary>
 internal sealed class ResolveCommand
 {
     private readonly IResolveService resolveService;
 
-    /// <summary> Initializes a new instance of the <see cref="ResolveCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the ResolveCommand class. </summary>
     public ResolveCommand (IResolveService resolveService)
     {
         this.resolveService = resolveService ?? throw new ArgumentNullException(nameof(resolveService));

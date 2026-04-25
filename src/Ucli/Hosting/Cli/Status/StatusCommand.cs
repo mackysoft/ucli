@@ -6,20 +6,20 @@ using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Status;
 
-/// <summary> Provides the <c>status</c> CLI command entry point. </summary>
+/// <summary> Provides the status CLI command entry point. </summary>
 internal sealed class StatusCommand
 {
     private readonly IStatusService statusService;
 
-    /// <summary> Initializes a new instance of the <see cref="StatusCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the StatusCommand class. </summary>
     /// <param name="statusService"> The status service dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="statusService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when statusService is null. </exception>
     public StatusCommand (IStatusService statusService)
     {
         this.statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
     }
 
-    /// <summary> Executes the <c>status</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the status command and emits the JSON result contract. </summary>
     /// <param name="projectPath">--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout">Optional daemon status timeout in milliseconds. When omitted, timeout is resolved from config defaults.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>

@@ -7,14 +7,14 @@ using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
-/// <summary> Provides the <c>call</c> CLI command entry point. </summary>
+/// <summary> Provides the call CLI command entry point. </summary>
 internal sealed class CallCommand
 {
     private readonly ICallService callService;
 
     private readonly ICallCommandPreflightService callCommandPreflightService;
 
-    /// <summary> Initializes a new instance of the <see cref="CallCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the CallCommand class. </summary>
     /// <param name="callService"> The call workflow service dependency. </param>
     /// <param name="callCommandPreflightService"> The command preflight dependency used to preserve the call payload on option failures. </param>
     public CallCommand (
@@ -25,15 +25,15 @@ internal sealed class CallCommand
         this.callCommandPreflightService = callCommandPreflightService ?? throw new ArgumentNullException(nameof(callCommandPreflightService));
     }
 
-    /// <summary> Executes the <c>call</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the call command and emits the JSON result contract. </summary>
     /// <param name="requestPath">--requestPath, Optional path to one request JSON file.</param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
-    /// <param name="mode">Unity execution mode (<c>auto|daemon|oneshot</c>).</param>
+    /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    /// <param name="planToken">--planToken, Optional plan token issued by a prior <c>plan</c> execution.</param>
+    /// <param name="planToken">--planToken, Optional plan token issued by a prior plan execution.</param>
     /// <param name="withPlan">--withPlan, Includes one plan-equivalent payload alongside call output.</param>
     /// <param name="allowDangerous">--allowDangerous, Explicitly allows dangerous operations when the project config also permits them.</param>
-    /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet <c>ready</c>.</param>
+    /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet ready.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Call)]

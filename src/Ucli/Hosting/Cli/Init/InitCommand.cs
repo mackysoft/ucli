@@ -5,20 +5,20 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Init;
 
-/// <summary> Provides the <c>init</c> CLI command entry point. </summary>
+/// <summary> Provides the init CLI command entry point. </summary>
 internal sealed class InitCommand
 {
     private readonly IInitService initService;
 
-    /// <summary> Initializes a new instance of the <see cref="InitCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the InitCommand class. </summary>
     /// <param name="initService"> The init service dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="initService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when initService is null. </exception>
     public InitCommand (IInitService initService)
     {
         this.initService = initService ?? throw new ArgumentNullException(nameof(initService));
     }
 
-    /// <summary> Executes the <c>init</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the init command and emits the JSON result contract. </summary>
     /// <param name="force"> Whether existing template files can be overwritten. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>

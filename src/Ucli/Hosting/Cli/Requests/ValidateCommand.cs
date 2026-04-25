@@ -6,22 +6,22 @@ using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
-/// <summary> Provides the <c>validate</c> CLI command entry point. </summary>
+/// <summary> Provides the validate CLI command entry point. </summary>
 internal sealed class ValidateCommand
 {
     private readonly IValidateService validateService;
 
-    /// <summary> Initializes a new instance of the <see cref="ValidateCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the ValidateCommand class. </summary>
     /// <param name="validateService"> The validate workflow service dependency. </param>
     public ValidateCommand (IValidateService validateService)
     {
         this.validateService = validateService ?? throw new ArgumentNullException(nameof(validateService));
     }
 
-    /// <summary> Executes the <c>validate</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the validate command and emits the JSON result contract. </summary>
     /// <param name="requestPath">--requestPath, Optional path to one request JSON file.</param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
-    /// <param name="readIndexMode">--readIndexMode, readIndex mode (<c>disabled|allowStale|requireFresh</c>).</param>
+    /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Validate)]
