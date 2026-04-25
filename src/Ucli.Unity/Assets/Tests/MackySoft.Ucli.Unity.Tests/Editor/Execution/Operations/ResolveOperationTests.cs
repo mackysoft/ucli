@@ -99,6 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.Plan(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
+            AssertResolvedGlobalObjectId(result, expectedGlobalObjectId);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
             Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
@@ -1184,6 +1185,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Changed, Is.EqualTo(changed));
             Assert.That(result.Touched.Count, Is.EqualTo(0));
             Assert.That(result.Failure, Is.Null);
+        }
+
+        private static void AssertResolvedGlobalObjectId (
+            OperationPhaseStepResult result,
+            string expectedGlobalObjectId)
+        {
+            Assert.That(result.Result.HasValue, Is.True);
+            Assert.That(result.Result!.Value.GetProperty("globalObjectId").GetString(), Is.EqualTo(expectedGlobalObjectId));
         }
 
         private sealed class ResolveTestAsset : ScriptableObject

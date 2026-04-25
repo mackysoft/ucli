@@ -262,7 +262,8 @@ public sealed class IpcContractSerializationTests
         using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
 
         JsonAssert.For(requestDocument.RootElement)
-            .HasString("scenePath", "Assets/Scenes/Sample.unity");
+            .HasString("scenePath", "Assets/Scenes/Sample.unity")
+            .HasBoolean("failFast", false);
         JsonAssert.For(responseDocument.RootElement)
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasString("scenePath", "Assets/Scenes/Sample.unity")
@@ -466,6 +467,64 @@ public sealed class IpcContractSerializationTests
                     .HasString("kind", IpcExecuteTouchedResourceKindNames.Scene)
                     .HasString("path", "Assets/Scenes/Main.unity")
                     .HasString("guid", "11111111111111111111111111111111")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteOperationResultFactory_CreatePlanResult_CreatesSharedEnvelopeContract ()
+    {
+        var payload = JsonSerializer.SerializeToElement(
+            new IpcResolveOperationResult("GlobalObjectId_V1-2-3-4-5-6"),
+            SerializerOptions);
+        var opResult = IpcExecuteOperationResultFactory.CreatePlanResult(
+            opId: "resolve",
+            op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve,
+            applied: false,
+            changed: false,
+            touched: Array.Empty<IpcExecuteTouchedResource>(),
+            result: payload);
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(opResult, SerializerOptions));
+
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasString("opId", "resolve")
+            .HasString("op", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve)
+            .HasString("phase", IpcExecuteOperationPhaseNames.Plan)
+            .HasBoolean("applied", false)
+            .HasBoolean("changed", false)
+            .HasArrayLength("touched", 0)
+            .HasProperty("result", result => result
+                .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcResolveOperationResult_SerializesWithCamelCaseContractFields ()
+    {
+        var payload = new IpcResolveOperationResult(
+            GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6");
+
+        using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(payload, SerializerOptions));
+
+        JsonAssert.For(jsonDocument.RootElement)
+            .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcResolveSelectorArgsSchema_UsesCanonicalResolveSelectorPropertyNames ()
+    {
+        using var jsonDocument = JsonDocument.Parse(IpcResolveSelectorArgsSchema.Json);
+
+        var properties = jsonDocument.RootElement.GetProperty("properties");
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.GlobalObjectId, out _));
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.AssetGuid, out _));
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.AssetPath, out _));
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.ProjectAssetPath, out _));
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.Scene, out _));
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.Prefab, out _));
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.HierarchyPath, out _));
+        Assert.True(properties.TryGetProperty(IpcResolveSelectorPropertyNames.ComponentType, out _));
     }
 
     [Fact]

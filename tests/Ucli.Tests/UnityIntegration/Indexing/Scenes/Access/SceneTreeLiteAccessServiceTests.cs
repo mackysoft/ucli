@@ -344,6 +344,7 @@ public sealed class SceneTreeLiteAccessServiceTests
             ReadIndexMode.Disabled,
             "Assets/Scenes/Main.unity",
             depth: null,
+            failFast: true,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -351,6 +352,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.Equal("readIndex disabled by mode.", result.Output.AccessInfo.FallbackReason);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
         Assert.Equal(UnityExecutionMode.Auto, refreshService.LastMode);
+        Assert.True(refreshService.LastFailFast);
     }
 
     [Fact]
@@ -597,6 +599,8 @@ public sealed class SceneTreeLiteAccessServiceTests
 
         public UnityExecutionMode LastMode { get; private set; }
 
+        public bool LastFailFast { get; private set; }
+
         public SceneTreeLiteRefreshResult Result { get; set; }
             = SceneTreeLiteRefreshResult.Failure("not configured", IpcErrorCodes.InternalError);
 
@@ -609,11 +613,13 @@ public sealed class SceneTreeLiteAccessServiceTests
             ReadIndexMode readIndexMode,
             string scenePath,
             string fallbackReason,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastMode = mode;
+            LastFailFast = failFast;
             return ValueTask.FromResult(Result);
         }
     }
