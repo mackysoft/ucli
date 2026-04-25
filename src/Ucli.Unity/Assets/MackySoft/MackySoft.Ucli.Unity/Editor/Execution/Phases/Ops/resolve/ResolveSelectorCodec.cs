@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
@@ -8,14 +9,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         private static readonly (string Name, SelectorPropertyKind Kind)[] PropertyDefinitions =
         {
-            (ResolveSelectorPropertyNames.GlobalObjectId, SelectorPropertyKind.GlobalObjectId),
-            (ResolveSelectorPropertyNames.AssetGuid, SelectorPropertyKind.AssetGuid),
-            (ResolveSelectorPropertyNames.AssetPath, SelectorPropertyKind.AssetPath),
-            (ResolveSelectorPropertyNames.ProjectAssetPath, SelectorPropertyKind.ProjectAssetPath),
-            (ResolveSelectorPropertyNames.Scene, SelectorPropertyKind.Scene),
-            (ResolveSelectorPropertyNames.Prefab, SelectorPropertyKind.Prefab),
-            (ResolveSelectorPropertyNames.HierarchyPath, SelectorPropertyKind.HierarchyPath),
-            (ResolveSelectorPropertyNames.ComponentType, SelectorPropertyKind.ComponentType),
+            (IpcResolveSelectorPropertyNames.GlobalObjectId, SelectorPropertyKind.GlobalObjectId),
+            (IpcResolveSelectorPropertyNames.AssetGuid, SelectorPropertyKind.AssetGuid),
+            (IpcResolveSelectorPropertyNames.AssetPath, SelectorPropertyKind.AssetPath),
+            (IpcResolveSelectorPropertyNames.ProjectAssetPath, SelectorPropertyKind.ProjectAssetPath),
+            (IpcResolveSelectorPropertyNames.Scene, SelectorPropertyKind.Scene),
+            (IpcResolveSelectorPropertyNames.Prefab, SelectorPropertyKind.Prefab),
+            (IpcResolveSelectorPropertyNames.HierarchyPath, SelectorPropertyKind.HierarchyPath),
+            (IpcResolveSelectorPropertyNames.ComponentType, SelectorPropertyKind.ComponentType),
         };
 
         private enum SelectorPropertyKind
@@ -91,21 +92,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if ((state.HasScenePath || state.HasPrefabPath) != state.HasHierarchyPath)
             {
                 errorMessage =
-                    $"Operation 'args' requires hierarchy selectors to specify either '{ResolveSelectorPropertyNames.Scene}' or '{ResolveSelectorPropertyNames.Prefab}' together with '{ResolveSelectorPropertyNames.HierarchyPath}'.";
+                    $"Operation 'args' requires hierarchy selectors to specify either '{IpcResolveSelectorPropertyNames.Scene}' or '{IpcResolveSelectorPropertyNames.Prefab}' together with '{IpcResolveSelectorPropertyNames.HierarchyPath}'.";
                 return false;
             }
 
             if (state.HasScenePath && state.HasPrefabPath)
             {
                 errorMessage =
-                    $"Operation 'args' must not specify both '{ResolveSelectorPropertyNames.Scene}' and '{ResolveSelectorPropertyNames.Prefab}'.";
+                    $"Operation 'args' must not specify both '{IpcResolveSelectorPropertyNames.Scene}' and '{IpcResolveSelectorPropertyNames.Prefab}'.";
                 return false;
             }
 
             if (state.HasComponentType && !(state.HasScenePath || state.HasPrefabPath))
             {
                 errorMessage =
-                    $"Operation 'args' property '{ResolveSelectorPropertyNames.ComponentType}' requires '{ResolveSelectorPropertyNames.Scene}' or '{ResolveSelectorPropertyNames.Prefab}' with '{ResolveSelectorPropertyNames.HierarchyPath}'.";
+                    $"Operation 'args' property '{IpcResolveSelectorPropertyNames.ComponentType}' requires '{IpcResolveSelectorPropertyNames.Scene}' or '{IpcResolveSelectorPropertyNames.Prefab}' with '{IpcResolveSelectorPropertyNames.HierarchyPath}'.";
                 return false;
             }
 
@@ -113,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (selectorCount != 1)
             {
                 errorMessage =
-                    $"Operation 'args' must specify exactly one selector: '{ResolveSelectorPropertyNames.GlobalObjectId}', '{ResolveSelectorPropertyNames.AssetGuid}', '{ResolveSelectorPropertyNames.AssetPath}', '{ResolveSelectorPropertyNames.ProjectAssetPath}', '{ResolveSelectorPropertyNames.Scene}' + '{ResolveSelectorPropertyNames.HierarchyPath}', or '{ResolveSelectorPropertyNames.Prefab}' + '{ResolveSelectorPropertyNames.HierarchyPath}'.";
+                    $"Operation 'args' must specify exactly one selector: '{IpcResolveSelectorPropertyNames.GlobalObjectId}', '{IpcResolveSelectorPropertyNames.AssetGuid}', '{IpcResolveSelectorPropertyNames.AssetPath}', '{IpcResolveSelectorPropertyNames.ProjectAssetPath}', '{IpcResolveSelectorPropertyNames.Scene}' + '{IpcResolveSelectorPropertyNames.HierarchyPath}', or '{IpcResolveSelectorPropertyNames.Prefab}' + '{IpcResolveSelectorPropertyNames.HierarchyPath}'.";
                 return false;
             }
 
@@ -192,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.GlobalObjectId:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.GlobalObjectId,
+                        IpcResolveSelectorPropertyNames.GlobalObjectId,
                         ref state.HasGlobalObjectId,
                         out var globalObjectId,
                         out errorMessage))
@@ -205,7 +206,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.AssetGuid:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.AssetGuid,
+                        IpcResolveSelectorPropertyNames.AssetGuid,
                         ref state.HasAssetGuid,
                         out var assetGuid,
                         out errorMessage))
@@ -218,7 +219,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.AssetPath:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.AssetPath,
+                        IpcResolveSelectorPropertyNames.AssetPath,
                         ref state.HasAssetPath,
                         out var assetPath,
                         out errorMessage))
@@ -231,7 +232,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.ProjectAssetPath:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.ProjectAssetPath,
+                        IpcResolveSelectorPropertyNames.ProjectAssetPath,
                         ref state.HasProjectAssetPath,
                         out var projectAssetPath,
                         out errorMessage))
@@ -244,7 +245,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.Scene:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.Scene,
+                        IpcResolveSelectorPropertyNames.Scene,
                         ref state.HasScenePath,
                         out var scenePath,
                         out errorMessage))
@@ -257,7 +258,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.Prefab:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.Prefab,
+                        IpcResolveSelectorPropertyNames.Prefab,
                         ref state.HasPrefabPath,
                         out var prefabPath,
                         out errorMessage))
@@ -270,7 +271,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.HierarchyPath:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.HierarchyPath,
+                        IpcResolveSelectorPropertyNames.HierarchyPath,
                         ref state.HasHierarchyPath,
                         out var hierarchyPath,
                         out errorMessage))
@@ -283,7 +284,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case SelectorPropertyKind.ComponentType:
                     if (!TryReadUniqueRequiredString(
                         property,
-                        ResolveSelectorPropertyNames.ComponentType,
+                        IpcResolveSelectorPropertyNames.ComponentType,
                         ref state.HasComponentType,
                         out var componentType,
                         out errorMessage))

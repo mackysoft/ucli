@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
@@ -90,14 +91,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the property name belongs to selector syntax; otherwise <see langword="false" />. </returns>
         private static bool IsSelectorProperty (string propertyName)
         {
-            return string.Equals(propertyName, ResolveSelectorPropertyNames.GlobalObjectId, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.AssetGuid, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.AssetPath, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.ProjectAssetPath, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.Scene, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.Prefab, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.HierarchyPath, StringComparison.Ordinal)
-                || string.Equals(propertyName, ResolveSelectorPropertyNames.ComponentType, StringComparison.Ordinal);
+            return string.Equals(propertyName, IpcResolveSelectorPropertyNames.GlobalObjectId, StringComparison.Ordinal)
+                || string.Equals(propertyName, IpcResolveSelectorPropertyNames.AssetGuid, StringComparison.Ordinal)
+                || string.Equals(propertyName, IpcResolveSelectorPropertyNames.AssetPath, StringComparison.Ordinal)
+                || string.Equals(propertyName, IpcResolveSelectorPropertyNames.ProjectAssetPath, StringComparison.Ordinal)
+                || string.Equals(propertyName, IpcResolveSelectorPropertyNames.Scene, StringComparison.Ordinal)
+                || string.Equals(propertyName, IpcResolveSelectorPropertyNames.Prefab, StringComparison.Ordinal)
+                || string.Equals(propertyName, IpcResolveSelectorPropertyNames.HierarchyPath, StringComparison.Ordinal)
+                || string.Equals(propertyName, IpcResolveSelectorPropertyNames.ComponentType, StringComparison.Ordinal);
         }
 
         /// <summary> Reads one unique alias property. </summary>

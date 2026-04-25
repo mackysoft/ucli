@@ -8,5 +8,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Runs <c>validate -&gt; plan -&gt; call</c> phases. </summary>
         Call = 1,
+
+        /// <summary> Runs <c>validate -&gt; plan</c> phases without issuing a plan token. </summary>
+        PlanWithoutToken = 2,
     }
 }

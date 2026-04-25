@@ -23,6 +23,7 @@ internal static class CliCommandRegistrar
         app.Add<InitCommand>();
         app.Add<StatusCommand>();
         app.Add<RefreshCommand>();
+        app.Add<ResolveCommand>();
         app.Add<ValidateCommand>();
         app.Add<PlanCommand>();
         app.Add<CallCommand>();

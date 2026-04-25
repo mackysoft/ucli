@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -25,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!scene.IsValid() || !scene.isLoaded)
             {
                 errorMessage =
-                    $"Scene is not loaded: {scenePath}. Resolve with '{ResolveSelectorPropertyNames.Scene}' + '{ResolveSelectorPropertyNames.HierarchyPath}' requires the scene to be opened first.";
+                    $"Scene is not loaded: {scenePath}. Resolve with '{IpcResolveSelectorPropertyNames.Scene}' + '{IpcResolveSelectorPropertyNames.HierarchyPath}' requires the scene to be opened first.";
                 return false;
             }
 

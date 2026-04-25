@@ -50,6 +50,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         ReadIndexMode readIndexMode,
         string scenePath,
         string fallbackReason,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -61,7 +62,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
 
         if (!SceneTreeLiteAccessUtilities.IsLookupEligibleScenePath(scenePath))
         {
-            var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, cancellationToken).ConfigureAwait(false);
+            var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
             if (!fetchResult.IsSuccess)
             {
                 return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!);
@@ -84,6 +85,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     mode,
                     timeout,
                     scenePath,
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!attemptResult.FetchResult.IsSuccess)
@@ -120,12 +122,13 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         UnityExecutionMode mode,
         TimeSpan timeout,
         string scenePath,
+        bool failFast,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var sourceHashBeforeRead = await sourceHashCalculator.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
-        var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, cancellationToken).ConfigureAwait(false);
+        var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
         if (!fetchResult.IsSuccess)
         {
             return (fetchResult, null, false);

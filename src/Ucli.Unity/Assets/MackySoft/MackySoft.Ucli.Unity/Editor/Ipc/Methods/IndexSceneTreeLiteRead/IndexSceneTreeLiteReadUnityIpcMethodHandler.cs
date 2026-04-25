@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Index;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
 
@@ -13,10 +14,15 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly ISceneTreeLiteSnapshotBuilder sceneTreeLiteSnapshotBuilder;
 
+        private readonly IUnityEditorReadinessGate readinessGate;
+
         /// <summary> Initializes a new instance of the <see cref="IndexSceneTreeLiteReadUnityIpcMethodHandler" /> class. </summary>
-        public IndexSceneTreeLiteReadUnityIpcMethodHandler (ISceneTreeLiteSnapshotBuilder sceneTreeLiteSnapshotBuilder)
+        public IndexSceneTreeLiteReadUnityIpcMethodHandler (
+            ISceneTreeLiteSnapshotBuilder sceneTreeLiteSnapshotBuilder,
+            IUnityEditorReadinessGate readinessGate)
         {
             this.sceneTreeLiteSnapshotBuilder = sceneTreeLiteSnapshotBuilder ?? throw new ArgumentNullException(nameof(sceneTreeLiteSnapshotBuilder));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
         }
 
         /// <inheritdoc />
@@ -41,9 +47,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
+            var readinessResult = await readinessGate.EnsureExecutionReady(payload!.FailFast, cancellationToken).ConfigureAwait(false);
+            if (!readinessResult.IsReady)
+            {
+                var error = readinessResult.Error!;
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    error.Code,
+                    error.Message,
+                    error.OpId);
+            }
+
             try
             {
-                var responsePayload = await sceneTreeLiteSnapshotBuilder.Build(payload!.ScenePath, cancellationToken);
+                var responsePayload = await sceneTreeLiteSnapshotBuilder.Build(payload.ScenePath, cancellationToken);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, responsePayload);
             }
             catch (OperationCanceledException)

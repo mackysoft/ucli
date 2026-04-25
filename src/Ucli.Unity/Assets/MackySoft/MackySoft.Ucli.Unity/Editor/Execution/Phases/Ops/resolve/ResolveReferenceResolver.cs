@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEngine;
@@ -741,7 +742,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!GlobalObjectId.TryParse(globalObjectIdText, out var globalObjectId))
             {
                 unityObject = null;
-                errorMessage = $"'{ResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string.";
+                errorMessage = $"'{IpcResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string.";
                 return false;
             }
 
