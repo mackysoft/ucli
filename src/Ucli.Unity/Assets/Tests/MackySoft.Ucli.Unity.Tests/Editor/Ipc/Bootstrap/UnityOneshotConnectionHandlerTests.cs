@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenNonPingRequestReturnsError_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenNonPingRequestReturnsError_SignalsCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
             var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
-            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.False);
+            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.True);
         });
 
         private static UnityOneshotConnectionHandler CreateHandler (
