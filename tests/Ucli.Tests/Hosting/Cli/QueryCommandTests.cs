@@ -27,7 +27,7 @@ public sealed class QueryCommandTests
             timeout: "1234",
             readIndexMode: "allowStale",
             failFast: true,
-            type: "UnityEngine.Material",
+            type: "UnityEngine.Material, UnityEngine.CoreModule",
             limit: 50,
             cancellationToken: cancellationTokenSource.Token));
 
@@ -44,7 +44,7 @@ public sealed class QueryCommandTests
         Assert.Equal(UcliCommandNames.QueryAssetsFind, operation.CommandName);
         Assert.Equal("assets.find", operation.OperationId);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, operation.OperationName);
-        Assert.Equal("UnityEngine.Material", operation.Query.TypeId);
+        Assert.Equal("UnityEngine.Material, UnityEngine.CoreModule", operation.Query.TypeId);
         Assert.Equal(50, operation.WindowOptions.Limit);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
@@ -72,7 +72,7 @@ public sealed class QueryCommandTests
         var command = new QueryAssetsFindCommand(service);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
-            type: "UnityEngine.Material",
+            type: "UnityEngine.Material, UnityEngine.CoreModule",
             limit: 10,
             all: true,
             cancellationToken: CancellationToken.None));
@@ -145,7 +145,7 @@ public sealed class QueryCommandTests
             UcliCommandNames.AssetsSubcommand,
             UcliCommandNames.FindSubcommand,
             "--type",
-            "UnityEngine.Material",
+            "UnityEngine.Material, UnityEngine.CoreModule",
             UcliContractConstants.CliOption.ProjectPath,
             invalidProjectPath,
             UcliContractConstants.CliOption.FailFast);

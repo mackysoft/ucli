@@ -28,14 +28,14 @@ public sealed class QueryServiceTests
                         AssetPath: "Assets/A.mat",
                         AssetGuid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                         Name: "A",
-                        TypeId: "UnityEngine.Material",
-                        SearchTypeIds: ["UnityEngine.Material"]),
+                        TypeId: "UnityEngine.Material, UnityEngine.CoreModule",
+                        SearchTypeIds: ["UnityEngine.Material, UnityEngine.CoreModule"]),
                     new IndexAssetSearchEntryJsonContract(
                         AssetPath: "Assets/B.mat",
                         AssetGuid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                         Name: "B",
-                        TypeId: "UnityEngine.Material",
-                        SearchTypeIds: ["UnityEngine.Material"]),
+                        TypeId: "UnityEngine.Material, UnityEngine.CoreModule",
+                        SearchTypeIds: ["UnityEngine.Material, UnityEngine.CoreModule"]),
                 ],
                 AccessInfo: new AssetLookupAccessInfo(
                     Used: true,
@@ -55,8 +55,8 @@ public sealed class QueryServiceTests
                     CommandName: UcliCommandNames.QueryAssetsFind,
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
-                    Args: JsonSerializer.SerializeToElement(new { type = "UnityEngine.Material" }),
-                    Query: new AssetSearchLookupQuery("UnityEngine.Material", null, null),
+                    Args: JsonSerializer.SerializeToElement(new { type = "UnityEngine.Material, UnityEngine.CoreModule" }),
+                    Query: new AssetSearchLookupQuery("UnityEngine.Material, UnityEngine.CoreModule", null, null),
                     WindowOptions: new QueryWindowOptions(
                         All: false,
                         Limit: 1,
@@ -154,7 +154,7 @@ public sealed class QueryServiceTests
 
         var args = JsonSerializer.SerializeToElement(new
         {
-            type = "UnityEngine.Transform",
+            type = "UnityEngine.Transform, UnityEngine.CoreModule",
         });
         var result = await service.Execute(
             CreateInput(
@@ -186,7 +186,7 @@ public sealed class QueryServiceTests
         var step = Assert.Single(executeRequest.Arguments.GetProperty("steps").EnumerateArray());
         Assert.Equal("comp.schema", step.GetProperty("id").GetString());
         Assert.Equal(UcliPrimitiveOperationNames.CompSchema, step.GetProperty("op").GetString());
-        Assert.Equal("UnityEngine.Transform", step.GetProperty("args").GetProperty("type").GetString());
+        Assert.Equal("UnityEngine.Transform, UnityEngine.CoreModule", step.GetProperty("args").GetProperty("type").GetString());
     }
 
     private static QueryCommandInput CreateInput (
@@ -237,7 +237,7 @@ public sealed class QueryServiceTests
                 {
                     Result = JsonSerializer.SerializeToElement(new
                     {
-                        type = "UnityEngine.Transform",
+                        type = "UnityEngine.Transform, UnityEngine.CoreModule",
                     }),
                 },
             ])),
