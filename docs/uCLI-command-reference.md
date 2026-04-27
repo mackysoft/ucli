@@ -297,10 +297,10 @@ ucli resolve --projectPath ./UnityProject --prefab Assets/Prefabs/Card.prefab --
 
 ### `query` 実行例
 ```bash
-ucli query assets find --projectPath ./UnityProject --type UnityEngine.Material --limit 100
+ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material, UnityEngine.CoreModule" --limit 100
 ucli query scene tree --projectPath ./UnityProject --path Assets/Scenes/Main.unity --depth 1
 ucli query go describe --projectPath ./UnityProject --scene Assets/Scenes/Main.unity --hierarchyPath Root/Player --fullDepth
-ucli query comp schema --projectPath ./UnityProject --type UnityEngine.Transform
+ucli query comp schema --projectPath ./UnityProject --type "UnityEngine.Transform, UnityEngine.CoreModule"
 ucli query asset schema --projectPath ./UnityProject --assetGuid 11111111111111111111111111111111
 ```
 
