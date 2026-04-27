@@ -12,45 +12,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class ResolveOperation : IUcliOperation
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                ""assetGuid"": { ""type"": ""string"", ""minLength"": 1 },
-                ""assetPath"": { ""type"": ""string"", ""minLength"": 1 },
-                ""projectAssetPath"": { ""type"": ""string"", ""minLength"": 1 },
-                ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
-                ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 },
-                ""componentType"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""oneOf"": [
-                { ""required"": [""globalObjectId""] },
-                { ""required"": [""assetGuid""] },
-                { ""required"": [""assetPath""] },
-                { ""required"": [""projectAssetPath""] },
-                { ""required"": [""scene"", ""hierarchyPath""] },
-                { ""required"": [""prefab"", ""hierarchyPath""] }
-              ],
-              ""allOf"": [
-                {
-                  ""if"": { ""required"": [""componentType""] },
-                  ""then"": {
-                    ""oneOf"": [
-                      { ""required"": [""scene"", ""hierarchyPath""] }
-                    ]
-                  }
-                }
-              ]
-            }";
-
         public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            argsSchemaJson: ArgsSchemaJson);
+            argsSchemaJson: IpcResolveSelectorArgsSchema.Json);
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -72,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
-                    $"'{ResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string."));
+                    $"'{IpcResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string."));
             }
 
             if (!TryValidateSupportedSelector(selector, operation.Id, out var unsupportedSelectorResult))
@@ -135,7 +101,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             StoreAliasIfNeeded(operation.As, executionContext, resolvedReference!);
-            return Task.FromResult(OperationPhaseStepResult.Success(applied, changed: false));
+            return Task.FromResult(OperationPhaseStepResult.Success(
+                applied,
+                changed: false,
+                result: IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(resolvedReference!.GlobalObjectId))));
         }
 
         /// <summary> Stores one resolved reference to alias store when alias is specified. </summary>
@@ -171,6 +140,5 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 "Operation 'ucli.resolve' does not support prefab component selectors.");
             return false;
         }
-
     }
 }

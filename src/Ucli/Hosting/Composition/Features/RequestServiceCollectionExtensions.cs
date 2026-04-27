@@ -3,6 +3,7 @@ using MackySoft.Ucli.Features.Requests.Call.UseCases.Call.Preflight;
 using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Preflight;
 using MackySoft.Ucli.Features.Requests.Refresh.UseCases.Refresh;
+using MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
@@ -13,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;
 
-/// <summary> Registers request feature services for refresh, validate, plan, and call commands. </summary>
+/// <summary> Registers request feature services for refresh, resolve, validate, plan, and call commands. </summary>
 internal static class RequestServiceCollectionExtensions
 {
     /// <summary> Registers request feature services. </summary>
@@ -48,6 +49,7 @@ internal static class RequestServiceCollectionExtensions
         services.AddSingleton<ICallService, CallService>();
 
         services.AddSingleton<IRefreshService, RefreshService>();
+        services.AddSingleton<IResolveService, ResolveService>();
         services.AddSingleton<IValidateService, ValidateService>();
         return services;
     }

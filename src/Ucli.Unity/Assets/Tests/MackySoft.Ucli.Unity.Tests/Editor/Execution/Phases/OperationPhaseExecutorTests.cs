@@ -103,6 +103,34 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCommandIsPlanWithoutToken_ExecutesValidateAndPlanWithoutPlanToken () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new RecordingPhaseOperation(
+                validateResult: OperationPhaseStepResult.Success(),
+                planResult: OperationPhaseStepResult.Success(applied: false, changed: false),
+                callResult: OperationPhaseStepResult.Success(applied: true, changed: true));
+            var coordinator = new StubPlanTokenCoordinator(
+                issueResultFactory: _ => PlanTokenIssueResult.Success("unused"),
+                requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
+                validationResultFactory: _ => PlanTokenValidationResult.Success());
+            var executor = new OperationPhaseExecutor(
+                CreateRegistry((MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, operation)),
+                coordinator);
+            var request = CreateRequest("op-1", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
+
+            var trace = await ExecuteAsync(executor, PhaseExecutionCommand.PlanWithoutToken, request, "Resolve phase execution");
+
+            CollectionAssert.AreEqual(new[] { OperationPhase.Validate, OperationPhase.Plan }, operation.CalledPhases);
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(trace.PlanToken, Is.Null);
+            Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Plan));
+            Assert.That(coordinator.IssueCallCount, Is.EqualTo(0));
+            Assert.That(coordinator.ValidateCallRequestCount, Is.EqualTo(0));
+            Assert.That(coordinator.ValidateCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCallContainsDuplicateOperationNames_ReplaysPlanBeforeEachCall () => UniTask.ToCoroutine(async () =>
         {
             var operation = new StatefulPhaseOperation();

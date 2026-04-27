@@ -117,6 +117,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     errors: planPassResult.Errors);
             }
 
+            if (command == PhaseExecutionCommand.PlanWithoutToken)
+            {
+                return PhaseExecutionTrace.Success(
+                    protocolVersion: request.ProtocolVersion,
+                    requestId: request.RequestId,
+                    steps: planPassResult.CompiledSteps,
+                    operationTraces: planPassResult.OperationTraces);
+            }
+
             if (command == PhaseExecutionCommand.Plan)
             {
                 var issueResult = planTokenCoordinator.Issue(

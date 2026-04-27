@@ -12,20 +12,20 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 
-/// <summary> Provides the <c>daemon cleanup</c> CLI command entry point. </summary>
+/// <summary> Provides the daemon cleanup CLI command entry point. </summary>
 internal sealed class DaemonCleanupCommand
 {
     private readonly IDaemonCleanupService daemonCleanupService;
 
-    /// <summary> Initializes a new instance of the <see cref="DaemonCleanupCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the DaemonCleanupCommand class. </summary>
     /// <param name="daemonCleanupService"> The daemon-cleanup service dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonCleanupService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when daemonCleanupService is null. </exception>
     public DaemonCleanupCommand (IDaemonCleanupService daemonCleanupService)
     {
         this.daemonCleanupService = daemonCleanupService ?? throw new ArgumentNullException(nameof(daemonCleanupService));
     }
 
-    /// <summary> Executes the <c>daemon cleanup</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the daemon cleanup command and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout"> Optional daemon cleanup timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -48,7 +48,7 @@ internal sealed class DaemonCleanupCommand
     /// <summary> Creates command-level JSON result from daemon-cleanup execution result. </summary>
     /// <param name="executionResult"> The daemon-cleanup execution result. </param>
     /// <returns> The command result serialized to stdout. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when executionResult is null. </exception>
     private static CommandResult CreateCommandResult (DaemonCleanupExecutionResult executionResult)
     {
         ArgumentNullException.ThrowIfNull(executionResult);

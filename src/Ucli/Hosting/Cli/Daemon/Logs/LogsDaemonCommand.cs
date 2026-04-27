@@ -33,7 +33,7 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
-/// <summary> Provides the <c>logs daemon</c> CLI command entry point. </summary>
+/// <summary> Provides the logs daemon CLI command entry point. </summary>
 internal sealed class LogsDaemonCommand
 {
     private static readonly JsonSerializerOptions JsonLineSerializerOptions = new()
@@ -44,27 +44,27 @@ internal sealed class LogsDaemonCommand
 
     private readonly ILogsDaemonService logsDaemonService;
 
-    /// <summary> Initializes a new instance of the <see cref="LogsDaemonCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the LogsDaemonCommand class. </summary>
     /// <param name="logsDaemonService"> The daemon-log orchestration service dependency. </param>
     public LogsDaemonCommand (ILogsDaemonService logsDaemonService)
     {
         this.logsDaemonService = logsDaemonService ?? throw new ArgumentNullException(nameof(logsDaemonService));
     }
 
-    /// <summary> Executes the <c>logs daemon</c> command. </summary>
+    /// <summary> Executes the logs daemon command. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="tail"> The optional tail count. </param>
     /// <param name="after"> The optional opaque cursor used for incremental reads. </param>
     /// <param name="since"> The optional lower time bound in ISO 8601 format. </param>
     /// <param name="until"> The optional upper time bound in ISO 8601 format. </param>
-    /// <param name="level"> The optional level filter (<c>error|warning|info|all</c>). </param>
+    /// <param name="level"> The optional level filter (error|warning|info|all). </param>
     /// <param name="query"> The optional free-text query value. </param>
-    /// <param name="queryTarget"> --queryTarget, The optional query target (<c>message|stack|both</c>). </param>
+    /// <param name="queryTarget"> --queryTarget, The optional query target (message|stack|both). </param>
     /// <param name="category"> The optional category filter. </param>
     /// <param name="stream"> Enables stream polling mode until canceled or timeout conditions are met. </param>
-    /// <param name="pollIntervalMilliseconds"> --pollIntervalMilliseconds, The optional polling interval in milliseconds used when <paramref name="stream" /> is enabled. </param>
-    /// <param name="idleTimeoutMilliseconds"> --idleTimeoutMilliseconds, The optional idle timeout in milliseconds used when <paramref name="stream" /> is enabled. </param>
-    /// <param name="format"> The output format (<c>text|json</c>). </param>
+    /// <param name="pollIntervalMilliseconds"> --pollIntervalMilliseconds, The optional polling interval in milliseconds used when stream is enabled. </param>
+    /// <param name="idleTimeoutMilliseconds"> --idleTimeoutMilliseconds, The optional idle timeout in milliseconds used when stream is enabled. </param>
+    /// <param name="format"> The output format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
     [Command(UcliCommandNames.Daemon)]

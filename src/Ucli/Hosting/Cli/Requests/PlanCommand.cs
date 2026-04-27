@@ -7,14 +7,14 @@ using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
-/// <summary> Provides the <c>plan</c> CLI command entry point. </summary>
+/// <summary> Provides the plan CLI command entry point. </summary>
 internal sealed class PlanCommand
 {
     private readonly IPlanService planService;
 
     private readonly IPlanCommandPreflightService planCommandPreflightService;
 
-    /// <summary> Initializes a new instance of the <see cref="PlanCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the PlanCommand class. </summary>
     /// <param name="planService"> The plan workflow service dependency. </param>
     /// <param name="planCommandPreflightService"> The command preflight dependency used to preserve the plan payload on option failures. </param>
     public PlanCommand (
@@ -25,13 +25,13 @@ internal sealed class PlanCommand
         this.planCommandPreflightService = planCommandPreflightService ?? throw new ArgumentNullException(nameof(planCommandPreflightService));
     }
 
-    /// <summary> Executes the <c>plan</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the plan command and emits the JSON result contract. </summary>
     /// <param name="requestPath">--requestPath, Optional path to one request JSON file.</param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
-    /// <param name="mode">Unity execution mode (<c>auto|daemon|oneshot</c>).</param>
+    /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    /// <param name="readIndexMode">--readIndexMode, readIndex mode (<c>disabled|allowStale|requireFresh</c>).</param>
-    /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet <c>ready</c>.</param>
+    /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
+    /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet ready.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Plan)]

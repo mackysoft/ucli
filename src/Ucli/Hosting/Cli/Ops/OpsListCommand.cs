@@ -6,24 +6,24 @@ using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Ops;
 
-/// <summary> Provides the <c>ops list</c> CLI command entry point. </summary>
+/// <summary> Provides the ops list CLI command entry point. </summary>
 internal sealed class OpsListCommand
 {
     private readonly IOpsService opsService;
 
-    /// <summary> Initializes a new instance of the <see cref="OpsListCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the OpsListCommand class. </summary>
     /// <param name="opsService"> The ops workflow service dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="opsService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when opsService is null. </exception>
     public OpsListCommand (IOpsService opsService)
     {
         this.opsService = opsService ?? throw new ArgumentNullException(nameof(opsService));
     }
 
-    /// <summary> Executes the <c>ops list</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the ops list command and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
-    /// <param name="mode">Unity execution mode (<c>auto|daemon|oneshot</c>).</param>
+    /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
-    /// <param name="readIndexMode">--readIndexMode, readIndex mode (<c>disabled|allowStale|requireFresh</c>).</param>
+    /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
     /// <param name="failFast">--failFast, Fails immediately when live fallback hits a non-ready Unity editor lifecycle.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>

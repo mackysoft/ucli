@@ -31,6 +31,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         UnityExecutionMode mode,
         TimeSpan timeout,
         string scenePath,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -46,7 +47,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 config,
                 project,
                 IpcMethodNames.IndexSceneTreeLiteRead,
-                IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath)),
+                IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

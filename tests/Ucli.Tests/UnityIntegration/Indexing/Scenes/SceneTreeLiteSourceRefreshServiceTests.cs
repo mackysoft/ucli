@@ -40,13 +40,15 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
             "readIndex stale.",
-            CancellationToken.None);
+            failFast: true,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Same(response, result.Response);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         Assert.Equal(1, reader.CallCount);
         Assert.Equal(UnityExecutionMode.Auto, reader.LastMode);
+        Assert.True(reader.LastFailFast);
         Assert.Equal(2, calculator.CallCount);
         Assert.Equal(1, store.CallCount);
         Assert.Equal("hash-1", store.SourceInputsHash);
@@ -76,7 +78,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
             "readIndex stale.",
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Same(firstResponse, result.Response);
@@ -110,7 +112,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             ReadIndexMode.AllowStale,
             "Packages/com.example/Scenes/Main.unity",
             "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Same(response, result.Response);
@@ -150,6 +152,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
 
         public UnityExecutionMode LastMode { get; private set; }
 
+        public bool LastFailFast { get; private set; }
+
         public void Enqueue (SceneTreeLiteSnapshotFetchResult result)
         {
             results.Enqueue(result);
@@ -162,11 +166,13 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UnityExecutionMode mode,
             TimeSpan timeout,
             string scenePath,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastMode = mode;
+            LastFailFast = failFast;
             if (!results.TryDequeue(out var result))
             {
                 throw new InvalidOperationException("Scene snapshot result is not configured.");

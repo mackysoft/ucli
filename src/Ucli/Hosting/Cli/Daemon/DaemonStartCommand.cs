@@ -12,20 +12,20 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 
-/// <summary> Provides the <c>daemon start</c> CLI command entry point. </summary>
+/// <summary> Provides the daemon start CLI command entry point. </summary>
 internal sealed class DaemonStartCommand
 {
     private readonly IDaemonStartService daemonStartService;
 
-    /// <summary> Initializes a new instance of the <see cref="DaemonStartCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the DaemonStartCommand class. </summary>
     /// <param name="daemonStartService"> The daemon-start service dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonStartService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when daemonStartService is null. </exception>
     public DaemonStartCommand (IDaemonStartService daemonStartService)
     {
         this.daemonStartService = daemonStartService ?? throw new ArgumentNullException(nameof(daemonStartService));
     }
 
-    /// <summary> Executes the <c>daemon start</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the daemon start command and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout"> Optional daemon start timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -48,7 +48,7 @@ internal sealed class DaemonStartCommand
     /// <summary> Creates command-level JSON result from daemon-start execution result. </summary>
     /// <param name="executionResult"> The daemon-start execution result. </param>
     /// <returns> The command result serialized to stdout. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when executionResult is null. </exception>
     private static CommandResult CreateCommandResult (DaemonStartExecutionResult executionResult)
     {
         ArgumentNullException.ThrowIfNull(executionResult);

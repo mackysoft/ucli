@@ -8,32 +8,32 @@ using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Testing;
 
-/// <summary> Provides the <c>test run</c> CLI command entry point. </summary>
+/// <summary> Provides the test run CLI command entry point. </summary>
 internal sealed class TestRunCommand
 {
     private readonly ITestRunService testRunService;
 
-    /// <summary> Initializes a new instance of the <see cref="TestRunCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the TestRunCommand class. </summary>
     /// <param name="testRunService"> The test-run core service dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="testRunService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when testRunService is null. </exception>
     public TestRunCommand (ITestRunService testRunService)
     {
         this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
     }
 
-    /// <summary> Executes the <c>test run</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the test run command and emits the JSON result contract. </summary>
     /// <param name="projectPath"> -p|--projectPath, Unity project root path. </param>
     /// <param name="profilePath"> -c|--profilePath, profile configuration path. </param>
-    /// <param name="executionMode"> --mode, Unity execution mode (<c>auto|daemon|oneshot</c>). </param>
+    /// <param name="executionMode"> --mode, Unity execution mode (auto|daemon|oneshot). </param>
     /// <param name="unityVersion"> -u|--unityVersion, Unity editor version. </param>
     /// <param name="unityEditorPath"> --unityEditorPath, Unity editor executable path or editor directory path. </param>
-    /// <param name="testPlatform"> --testPlatform, Unity test platform (<c>editmode|playmode|&lt;BuildTarget&gt;</c>). </param>
+    /// <param name="testPlatform"> --testPlatform, Unity test platform (editmode, playmode, or a Unity BuildTarget literal). </param>
     /// <param name="testFilter"> -f|--testFilter, test name filter pattern. </param>
     /// <param name="testCategory"> --testCategory, comma-separated test categories. </param>
     /// <param name="assemblyName"> -a|--assemblyName, comma-separated assembly names. </param>
-    /// <param name="testSettingsPath"> -s|--testSettingsPath, path to <c>TestSettings.json</c>. </param>
+    /// <param name="testSettingsPath"> -s|--testSettingsPath, path to TestSettings.json. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
-    /// <param name="failFast"> --failFast, Fails immediately when daemon-backed execution is not yet <c>ready</c>. </param>
+    /// <param name="failFast"> --failFast, Fails immediately when daemon-backed execution is not yet ready. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the command pipeline. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.RunSubcommand)]

@@ -97,6 +97,14 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 
 `ucli.assets.find` の `touched` は常に空配列である。
 
+#### `IpcExecuteResponse.opResults[].result` for `ucli.resolve`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `globalObjectId` | string | yes | 解決済み GlobalObjectId |
+
+`ucli.resolve` の `touched` は常に空配列である。
+
 ##### `IpcExecuteResponse.opResults[].result.matches[]` for `ucli.assets.find`
 
 | Property | Type | Required | Description |
@@ -248,6 +256,14 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `requestId` | string | yes | 内部 `execute` リクエストの `requestId` |
 | `opResults` | array | yes | `ucli.project.refresh` の `call` 結果 |
 | `readPostcondition` | object | no | mutation 後 read の safe 条件。shape は `IpcExecuteResponse.readPostcondition` を参照 |
+
+### `ucli resolve`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `requestId` | string | yes | 内部 `execute(command=resolve)` または index 解決単位の `requestId` |
+| `opResults` | array | yes | `ucli.resolve` の `plan` 結果。成功時は単一要素 |
+| `readIndex` | object | yes | 最終結果の観測元。shape は `payload.readIndex` を参照 |
 
 ### `ucli validate`
 

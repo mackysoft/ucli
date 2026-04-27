@@ -117,13 +117,12 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 var step = steps[stepIndex];
                 if (step.PrimitiveCount == 0)
                 {
-                    opResults[stepIndex] = new IpcExecuteOperationResult(
-                        OpId: step.Id,
-                        Op: step.OperationName,
-                        Phase: ToOperationPhaseName(OperationPhase.Plan),
-                        Applied: false,
-                        Changed: false,
-                        Touched: Array.Empty<IpcExecuteTouchedResource>());
+                    opResults[stepIndex] = IpcExecuteOperationResultFactory.CreatePlanResult(
+                        opId: step.Id,
+                        op: step.OperationName,
+                        applied: false,
+                        changed: false,
+                        touched: Array.Empty<IpcExecuteTouchedResource>());
                     continue;
                 }
 
@@ -138,16 +137,14 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 JsonElement? result = null;
                 var touchedResources = AggregateTouched(step.PrimitiveCount, operationTraces, operationTraceIndex, ref lastPhase, ref applied, ref changed, ref result);
 
-                opResults[stepIndex] = new IpcExecuteOperationResult(
-                    OpId: step.Id,
-                    Op: step.OperationName,
-                    Phase: ToOperationPhaseName(lastPhase),
-                    Applied: applied,
-                    Changed: changed,
-                    Touched: touchedResources)
-                {
-                    Result = step.Kind == IpcRequestStepKind.Op ? result : null,
-                };
+                opResults[stepIndex] = IpcExecuteOperationResultFactory.Create(
+                    opId: step.Id,
+                    op: step.OperationName,
+                    phase: ToOperationPhaseName(lastPhase),
+                    applied: applied,
+                    changed: changed,
+                    touched: touchedResources,
+                    result: step.Kind == IpcRequestStepKind.Op ? result : null);
                 operationTraceIndex += step.PrimitiveCount;
             }
 

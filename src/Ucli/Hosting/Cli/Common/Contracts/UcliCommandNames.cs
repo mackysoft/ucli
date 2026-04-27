@@ -20,6 +20,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for refresh. </summary>
     public const string Refresh = "refresh";
 
+    /// <summary> Gets the command name for resolve. </summary>
+    public const string Resolve = "resolve";
+
     /// <summary> Gets the command name for validate. </summary>
     public const string Validate = "validate";
 
@@ -106,6 +109,7 @@ internal static class UcliCommandNames
         Init,
         Status,
         Refresh,
+        Resolve,
         Validate,
         Plan,
         Call,

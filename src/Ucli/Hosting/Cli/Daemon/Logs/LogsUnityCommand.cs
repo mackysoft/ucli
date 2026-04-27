@@ -33,7 +33,7 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 
-/// <summary> Provides the <c>logs unity</c> CLI command entry point. </summary>
+/// <summary> Provides the logs unity CLI command entry point. </summary>
 internal sealed class LogsUnityCommand
 {
     private static readonly JsonSerializerOptions JsonLineSerializerOptions = new()
@@ -44,30 +44,30 @@ internal sealed class LogsUnityCommand
 
     private readonly ILogsUnityService logsUnityService;
 
-    /// <summary> Initializes a new instance of the <see cref="LogsUnityCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the LogsUnityCommand class. </summary>
     /// <param name="logsUnityService"> The Unity-log orchestration service dependency. </param>
     public LogsUnityCommand (ILogsUnityService logsUnityService)
     {
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
     }
 
-    /// <summary> Executes the <c>logs unity</c> command. </summary>
+    /// <summary> Executes the logs unity command. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="tail"> The optional tail count. </param>
     /// <param name="after"> The optional opaque cursor used for incremental reads. </param>
     /// <param name="since"> The optional lower time bound in ISO 8601 format. </param>
     /// <param name="until"> The optional upper time bound in ISO 8601 format. </param>
-    /// <param name="level"> The optional level filter (<c>error|warning|info|all</c>). </param>
+    /// <param name="level"> The optional level filter (error|warning|info|all). </param>
     /// <param name="query"> The optional free-text query value. </param>
-    /// <param name="queryTarget"> --queryTarget, The optional query target (<c>message|stack|both</c>). </param>
-    /// <param name="source"> The optional source filter (<c>compile|runtime|all</c>). </param>
-    /// <param name="stackTrace"> --stackTrace, The optional stack-trace mode (<c>none|error|all</c>). </param>
+    /// <param name="queryTarget"> --queryTarget, The optional query target (message|stack|both). </param>
+    /// <param name="source"> The optional source filter (compile|runtime|all). </param>
+    /// <param name="stackTrace"> --stackTrace, The optional stack-trace mode (none|error|all). </param>
     /// <param name="stackTraceMaxFrames"> --stackTraceMaxFrames, The optional stack-trace frame cap applied after stack-trace filtering. </param>
     /// <param name="stackTraceMaxChars"> --stackTraceMaxChars, The optional stack-trace character cap applied after stack-trace filtering. </param>
     /// <param name="stream"> Enables stream polling mode until canceled or timeout conditions are met. </param>
-    /// <param name="pollIntervalMilliseconds"> --pollIntervalMilliseconds, The optional polling interval in milliseconds used when <paramref name="stream" /> is enabled. </param>
-    /// <param name="idleTimeoutMilliseconds"> --idleTimeoutMilliseconds, The optional idle timeout in milliseconds used when <paramref name="stream" /> is enabled. </param>
-    /// <param name="format"> The output format (<c>text|json</c>). </param>
+    /// <param name="pollIntervalMilliseconds"> --pollIntervalMilliseconds, The optional polling interval in milliseconds used when stream is enabled. </param>
+    /// <param name="idleTimeoutMilliseconds"> --idleTimeoutMilliseconds, The optional idle timeout in milliseconds used when stream is enabled. </param>
+    /// <param name="format"> The output format (text|json). </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The command exit code. </returns>
     [Command(UcliCommandNames.UnitySubcommand)]

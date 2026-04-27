@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -140,7 +138,14 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 config,
                 projectContext.UnityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Call, input.FailFast, planToken),
+                ExecuteRequestPayloadFactory.CreateSingleOperation(
+                    UcliCommandIds.Call,
+                    requestId,
+                    definition.OperationId,
+                    definition.Descriptor.Name,
+                    definition.Args,
+                    input.FailFast,
+                    planToken),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -205,7 +210,13 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 config,
                 unityProject,
                 IpcMethodNames.Execute,
-                CreateExecuteRequestPayload(definition, requestId, UcliCommandIds.Plan, failFast),
+                ExecuteRequestPayloadFactory.CreateSingleOperation(
+                    UcliCommandIds.Plan,
+                    requestId,
+                    definition.OperationId,
+                    definition.Descriptor.Name,
+                    definition.Args,
+                    failFast),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -251,42 +262,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         }
 
         return (convertedResponse.PlanToken, null);
-    }
-
-    /// <summary> Creates the execute payload for one fixed operation execution. </summary>
-    /// <param name="definition"> The fixed operation definition. </param>
-    /// <param name="requestId"> The generated request identifier. </param>
-    /// <param name="command"> The internal execute command sent to Unity. </param>
-    /// <param name="failFast"> Whether Unity-side execution should fail immediately instead of waiting for lifecycle readiness. </param>
-    /// <param name="planToken"> The optional plan token attached to call execution. </param>
-    /// <returns> The serialized IPC execute payload. </returns>
-    private static JsonElement CreateExecuteRequestPayload (
-        OperationExecuteDefinition definition,
-        string requestId,
-        UcliCommand command,
-        bool failFast,
-        string? planToken = null)
-    {
-        ArgumentNullException.ThrowIfNull(definition);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-
-        var executeArguments = JsonSerializer.SerializeToElement(new
-        {
-            protocolVersion = IpcProtocol.CurrentVersion,
-            requestId,
-            steps = new[]
-            {
-                new
-                {
-                    kind = "op",
-                    id = definition.OperationId,
-                    op = definition.Descriptor.Name,
-                    args = definition.Args,
-                },
-            },
-        });
-
-        return ExecuteRequestPayloadFactory.Create(command, executeArguments, failFast, planToken);
     }
 
     /// <summary> Resolves the machine-readable error code used for transport-level failures. </summary>

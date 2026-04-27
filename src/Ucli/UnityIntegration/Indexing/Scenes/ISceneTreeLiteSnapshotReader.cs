@@ -19,5 +19,6 @@ internal interface ISceneTreeLiteSnapshotReader
         UnityExecutionMode mode,
         TimeSpan timeout,
         string scenePath,
+        bool failFast = false,
         CancellationToken cancellationToken = default);
 }

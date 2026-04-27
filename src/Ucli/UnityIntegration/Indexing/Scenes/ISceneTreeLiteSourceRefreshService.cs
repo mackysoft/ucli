@@ -22,5 +22,6 @@ internal interface ISceneTreeLiteSourceRefreshService
         ReadIndexMode readIndexMode,
         string scenePath,
         string fallbackReason,
+        bool failFast = false,
         CancellationToken cancellationToken = default);
 }

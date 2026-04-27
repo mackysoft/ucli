@@ -22,5 +22,6 @@ internal interface ISceneTreeLiteAccessService
         ReadIndexMode readIndexMode,
         string scenePath,
         int? depth,
+        bool failFast = false,
         CancellationToken cancellationToken = default);
 }

@@ -43,13 +43,15 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
-            CancellationToken.None);
+            failFast: true,
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(UnityExecutionMode.Auto, executor.LastMode);
         Assert.Equal(IpcMethodNames.IndexSceneTreeLiteRead, executor.LastMethod);
         Assert.True(IpcPayloadCodec.TryDeserialize(executor.LastPayload, out IpcIndexSceneTreeLiteReadRequest payload, out _));
         Assert.Equal("Assets/Scenes/Main.unity", payload.ScenePath);
+        Assert.True(payload.FailFast);
         Assert.Single(result.Response!.Roots!);
     }
 
@@ -77,7 +79,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UnityExecutionMode.Daemon,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(" ", result.Response!.Roots![0].Name);
@@ -107,7 +109,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UnityExecutionMode.Oneshot,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
@@ -138,7 +140,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UnityExecutionMode.Oneshot,
             TimeSpan.FromSeconds(1),
             "Assets/Scenes/Main.unity",
-            CancellationToken.None);
+            cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);

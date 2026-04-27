@@ -41,6 +41,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCommandIsResolve_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
+        {
+            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Resolve, PhaseExecutionCommand.PlanWithoutToken);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenPlanTraceContainsPlanToken_MapsTokenToPayload () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest();
@@ -363,13 +370,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Dispatch_WhenCommandIsResolve_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
-        {
-            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Resolve);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsQuery_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
             await AssertReturnsCommandNotImplementedError(UcliCommandIds.Query);
@@ -413,7 +413,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(UcliCommandIds.Resolve);
+            var request = CreateExecuteRequest(UcliCommandIds.Query);
 
             var response = await DispatchAsync(dispatcher, request, context, "Command not implemented without readiness wait");
 

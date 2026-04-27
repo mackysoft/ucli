@@ -34,8 +34,13 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 return true;
             }
 
-            if (commandId == UcliCommandIds.Resolve
-                || commandId == UcliCommandIds.Query)
+            if (commandId == UcliCommandIds.Resolve)
+            {
+                command = PhaseExecutionCommand.PlanWithoutToken;
+                return true;
+            }
+
+            if (commandId == UcliCommandIds.Query)
             {
                 command = default;
                 return false;

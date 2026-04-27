@@ -12,20 +12,20 @@ using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 
-/// <summary> Provides the <c>daemon status</c> CLI command entry point. </summary>
+/// <summary> Provides the daemon status CLI command entry point. </summary>
 internal sealed class DaemonStatusCommand
 {
     private readonly IDaemonStatusService daemonStatusService;
 
-    /// <summary> Initializes a new instance of the <see cref="DaemonStatusCommand" /> class. </summary>
+    /// <summary> Initializes a new instance of the DaemonStatusCommand class. </summary>
     /// <param name="daemonStatusService"> The daemon-status service dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonStatusService" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when daemonStatusService is null. </exception>
     public DaemonStatusCommand (IDaemonStatusService daemonStatusService)
     {
         this.daemonStatusService = daemonStatusService ?? throw new ArgumentNullException(nameof(daemonStatusService));
     }
 
-    /// <summary> Executes the <c>daemon status</c> command and emits the JSON result contract. </summary>
+    /// <summary> Executes the daemon status command and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout"> Optional daemon status timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -48,7 +48,7 @@ internal sealed class DaemonStatusCommand
     /// <summary> Creates command-level JSON result from daemon-status execution result. </summary>
     /// <param name="executionResult"> The daemon-status execution result. </param>
     /// <returns> The command result serialized to stdout. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executionResult" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when executionResult is null. </exception>
     private static CommandResult CreateCommandResult (DaemonStatusExecutionResult executionResult)
     {
         ArgumentNullException.ThrowIfNull(executionResult);

@@ -44,6 +44,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         ReadIndexMode readIndexMode,
         string scenePath,
         int? depth,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -80,6 +81,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     normalizedScenePath,
                     depth,
                     "readIndex disabled by mode.",
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -96,6 +98,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     normalizedScenePath,
                     depth,
                     "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -123,6 +126,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     normalizedScenePath,
                     depth,
                     lookupResult.Error.Message,
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -146,6 +150,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     normalizedScenePath,
                     depth,
                     readPostconditionEvaluation.FallbackReason!,
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -188,6 +193,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 normalizedScenePath,
                 depth,
                 $"Existing scene-tree-lite index freshness is '{SceneTreeLiteAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
+                failFast,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -202,6 +208,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         string normalizedScenePath,
         int? depth,
         string fallbackReason,
+        bool failFast,
         CancellationToken cancellationToken)
     {
         var refreshResult = await sourceRefreshService.Refresh(
@@ -213,6 +220,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 readIndexMode,
                 normalizedScenePath,
                 fallbackReason,
+                failFast,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
