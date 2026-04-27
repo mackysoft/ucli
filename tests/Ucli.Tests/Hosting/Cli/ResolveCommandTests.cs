@@ -39,9 +39,9 @@ public sealed class ResolveCommandTests
         Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
         Assert.Equal(ReadIndexMode.AllowStale, service.CapturedInput.ReadIndexMode);
         Assert.True(service.CapturedInput.FailFast);
-        Assert.Equal(ResolveSelectorKind.SceneHierarchyPath, service.CapturedInput.Selector.Kind);
-        Assert.Equal("Assets/Scenes/Main.unity", service.CapturedInput.Selector.Scene);
-        Assert.Equal("Root/Child", service.CapturedInput.Selector.HierarchyPath);
+        var selector = Assert.IsType<ResolveSceneHierarchySelectorInput>(service.CapturedInput.Selector);
+        Assert.Equal("Assets/Scenes/Main.unity", selector.Scene);
+        Assert.Equal("Root/Child", selector.HierarchyPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(

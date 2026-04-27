@@ -73,11 +73,12 @@ internal sealed class ResolveService : IResolveService
         var executionMode = input.Mode ?? UnityExecutionMode.Auto;
         var timeout = timeoutResolutionResult.Timeout!.Value;
         var readIndexMode = readIndexModeResult.Mode!.Value;
-        if (input.Selector.IsSceneHierarchyGameObject && readIndexMode != ReadIndexMode.Disabled)
+        if (input.Selector is ResolveSceneHierarchySelectorInput sceneHierarchySelector && readIndexMode != ReadIndexMode.Disabled)
         {
             var indexResult = await TryResolveFromSceneTreeLiteIndex(
                     requestId,
                     input,
+                    sceneHierarchySelector,
                     projectContext,
                     executionMode,
                     timeout,
@@ -115,13 +116,13 @@ internal sealed class ResolveService : IResolveService
     private async ValueTask<(ResolveServiceResult? CompletedResult, string FallbackReason)> TryResolveFromSceneTreeLiteIndex (
         string requestId,
         ResolveCommandInput input,
+        ResolveSceneHierarchySelectorInput selector,
         ProjectContext projectContext,
         UnityExecutionMode executionMode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         CancellationToken cancellationToken)
     {
-        var selector = input.Selector;
         var readResult = await sceneTreeLiteAccessService.Read(
                 projectContext.UnityProject,
                 projectContext.Config,
@@ -129,7 +130,7 @@ internal sealed class ResolveService : IResolveService
                 executionMode,
                 timeout,
                 readIndexMode,
-                selector.Scene!,
+                selector.Scene,
                 depth: null,
                 failFast: input.FailFast,
                 cancellationToken: cancellationToken)
@@ -155,7 +156,7 @@ internal sealed class ResolveService : IResolveService
             return (null, output.AccessInfo.FallbackReason ?? "scene-tree-lite readIndex was not used.");
         }
 
-        var resolveResult = SceneTreeLiteHierarchyPathResolver.Resolve(output.Roots, selector.HierarchyPath!);
+        var resolveResult = SceneTreeLiteHierarchyPathResolver.Resolve(output.Roots, selector.HierarchyPath);
         if (!resolveResult.IsSuccess)
         {
             return (null, resolveResult.ErrorMessage!);
@@ -242,7 +243,7 @@ internal sealed class ResolveService : IResolveService
         ResolveSelectorInput selector,
         ReadIndexMode readIndexMode)
     {
-        if (selector.IsSceneHierarchyGameObject && readIndexMode == ReadIndexMode.Disabled)
+        if (selector is ResolveSceneHierarchySelectorInput && readIndexMode == ReadIndexMode.Disabled)
         {
             return "readIndex disabled by mode.";
         }

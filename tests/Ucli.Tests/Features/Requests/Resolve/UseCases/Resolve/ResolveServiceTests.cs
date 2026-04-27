@@ -147,16 +147,7 @@ public sealed class ResolveServiceTests
 
         var result = await service.Execute(
             CreateInput(
-                selector: new ResolveSelectorInput(
-                    Kind: ResolveSelectorKind.AssetGuid,
-                    GlobalObjectId: null,
-                    AssetGuid: "11111111111111111111111111111111",
-                    AssetPath: null,
-                    ProjectAssetPath: null,
-                    Scene: null,
-                    HierarchyPath: null,
-                    ComponentType: null,
-                    Prefab: null),
+                selector: new ResolveAssetGuidSelectorInput("11111111111111111111111111111111"),
                 failFast: true),
             CancellationToken.None);
 
@@ -239,16 +230,9 @@ public sealed class ResolveServiceTests
 
     private static ResolveSelectorInput CreateSceneSelector ()
     {
-        return new ResolveSelectorInput(
-            Kind: ResolveSelectorKind.SceneHierarchyPath,
-            GlobalObjectId: null,
-            AssetGuid: null,
-            AssetPath: null,
-            ProjectAssetPath: null,
+        return new ResolveSceneHierarchySelectorInput(
             Scene: "Assets/Scenes/Main.unity",
-            HierarchyPath: "Root/Child",
-            ComponentType: null,
-            Prefab: null);
+            HierarchyPath: "Root/Child");
     }
 
     private static ProjectContext CreateContext ()

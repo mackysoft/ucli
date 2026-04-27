@@ -69,16 +69,14 @@ internal static class ResolveSelectorInputFactory
                 return ResolveSelectorInputCreationResult.Failure(CreateHierarchySelectorError());
             }
 
-            return ResolveSelectorInputCreationResult.Success(new ResolveSelectorInput(
-                Kind: normalizedComponentType is null ? ResolveSelectorKind.SceneHierarchyPath : ResolveSelectorKind.SceneComponent,
-                GlobalObjectId: null,
-                AssetGuid: null,
-                AssetPath: null,
-                ProjectAssetPath: null,
-                Scene: normalizedScene,
-                HierarchyPath: normalizedHierarchyPath,
-                ComponentType: normalizedComponentType,
-                Prefab: null));
+            if (normalizedComponentType is null)
+            {
+                return ResolveSelectorInputCreationResult.Success(
+                    new ResolveSceneHierarchySelectorInput(normalizedScene, normalizedHierarchyPath));
+            }
+
+            return ResolveSelectorInputCreationResult.Success(
+                new ResolveSceneComponentSelectorInput(normalizedScene, normalizedHierarchyPath, normalizedComponentType));
         }
 
         if (normalizedPrefab is not null)
@@ -93,16 +91,8 @@ internal static class ResolveSelectorInputFactory
                     "Selector '--componentType' is supported only with '--scene --hierarchyPath'."));
             }
 
-            return ResolveSelectorInputCreationResult.Success(new ResolveSelectorInput(
-                Kind: ResolveSelectorKind.PrefabHierarchyPath,
-                GlobalObjectId: null,
-                AssetGuid: null,
-                AssetPath: null,
-                ProjectAssetPath: null,
-                Scene: null,
-                HierarchyPath: normalizedHierarchyPath,
-                ComponentType: null,
-                Prefab: normalizedPrefab));
+            return ResolveSelectorInputCreationResult.Success(
+                new ResolvePrefabHierarchySelectorInput(normalizedPrefab, normalizedHierarchyPath));
         }
 
         if (normalizedHierarchyPath is not null || normalizedComponentType is not null)
@@ -112,37 +102,23 @@ internal static class ResolveSelectorInputFactory
 
         if (normalizedGlobalObjectId is not null)
         {
-            return CreateScalarSelector(ResolveSelectorKind.GlobalObjectId, normalizedGlobalObjectId, null, null, null);
+            return ResolveSelectorInputCreationResult.Success(new ResolveGlobalObjectIdSelectorInput(normalizedGlobalObjectId));
         }
         if (normalizedAssetGuid is not null)
         {
-            return CreateScalarSelector(ResolveSelectorKind.AssetGuid, null, normalizedAssetGuid, null, null);
+            return ResolveSelectorInputCreationResult.Success(new ResolveAssetGuidSelectorInput(normalizedAssetGuid));
         }
         if (normalizedAssetPath is not null)
         {
-            return CreateScalarSelector(ResolveSelectorKind.AssetPath, null, null, normalizedAssetPath, null);
+            return ResolveSelectorInputCreationResult.Success(new ResolveAssetPathSelectorInput(normalizedAssetPath));
         }
 
-        return CreateScalarSelector(ResolveSelectorKind.ProjectAssetPath, null, null, null, normalizedProjectAssetPath);
-    }
+        if (normalizedProjectAssetPath is not null)
+        {
+            return ResolveSelectorInputCreationResult.Success(new ResolveProjectAssetPathSelectorInput(normalizedProjectAssetPath));
+        }
 
-    private static ResolveSelectorInputCreationResult CreateScalarSelector (
-        ResolveSelectorKind kind,
-        string? globalObjectId,
-        string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath)
-    {
-        return ResolveSelectorInputCreationResult.Success(new ResolveSelectorInput(
-            Kind: kind,
-            GlobalObjectId: globalObjectId,
-            AssetGuid: assetGuid,
-            AssetPath: assetPath,
-            ProjectAssetPath: projectAssetPath,
-            Scene: null,
-            HierarchyPath: null,
-            ComponentType: null,
-            Prefab: null));
+        throw new InvalidOperationException("Exactly one resolve selector was expected after validation.");
     }
 
     private static bool TryNormalizeOptional (

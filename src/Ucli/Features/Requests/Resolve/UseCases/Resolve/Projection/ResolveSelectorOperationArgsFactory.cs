@@ -11,28 +11,38 @@ internal static class ResolveSelectorOperationArgsFactory
     {
         ArgumentNullException.ThrowIfNull(selector);
 
-        var args = new Dictionary<string, string>(StringComparer.Ordinal);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.GlobalObjectId, selector.GlobalObjectId);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.AssetGuid, selector.AssetGuid);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.AssetPath, selector.AssetPath);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.ProjectAssetPath, selector.ProjectAssetPath);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.Scene, selector.Scene);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.HierarchyPath, selector.HierarchyPath);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.ComponentType, selector.ComponentType);
-        AddIfNotNull(args, IpcResolveSelectorPropertyNames.Prefab, selector.Prefab);
-        return IpcPayloadCodec.SerializeToElement(args);
+        return selector switch
+        {
+            ResolveGlobalObjectIdSelectorInput globalObjectId => CreateArgs(
+                (IpcResolveSelectorPropertyNames.GlobalObjectId, globalObjectId.GlobalObjectId)),
+            ResolveAssetGuidSelectorInput assetGuid => CreateArgs(
+                (IpcResolveSelectorPropertyNames.AssetGuid, assetGuid.AssetGuid)),
+            ResolveAssetPathSelectorInput assetPath => CreateArgs(
+                (IpcResolveSelectorPropertyNames.AssetPath, assetPath.AssetPath)),
+            ResolveProjectAssetPathSelectorInput projectAssetPath => CreateArgs(
+                (IpcResolveSelectorPropertyNames.ProjectAssetPath, projectAssetPath.ProjectAssetPath)),
+            ResolveSceneHierarchySelectorInput sceneHierarchy => CreateArgs(
+                (IpcResolveSelectorPropertyNames.Scene, sceneHierarchy.Scene),
+                (IpcResolveSelectorPropertyNames.HierarchyPath, sceneHierarchy.HierarchyPath)),
+            ResolveSceneComponentSelectorInput sceneComponent => CreateArgs(
+                (IpcResolveSelectorPropertyNames.Scene, sceneComponent.Scene),
+                (IpcResolveSelectorPropertyNames.HierarchyPath, sceneComponent.HierarchyPath),
+                (IpcResolveSelectorPropertyNames.ComponentType, sceneComponent.ComponentType)),
+            ResolvePrefabHierarchySelectorInput prefabHierarchy => CreateArgs(
+                (IpcResolveSelectorPropertyNames.Prefab, prefabHierarchy.Prefab),
+                (IpcResolveSelectorPropertyNames.HierarchyPath, prefabHierarchy.HierarchyPath)),
+            _ => throw new ArgumentException("Unsupported resolve selector type.", nameof(selector)),
+        };
     }
 
-    private static void AddIfNotNull (
-        IDictionary<string, string> args,
-        string name,
-        string? value)
+    private static JsonElement CreateArgs (params (string Name, string Value)[] properties)
     {
-        if (value is null)
+        var args = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var property in properties)
         {
-            return;
+            args.Add(property.Name, property.Value);
         }
 
-        args.Add(name, value);
+        return IpcPayloadCodec.SerializeToElement(args);
     }
 }
