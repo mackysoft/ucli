@@ -23,6 +23,24 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name for resolve. </summary>
     public const string Resolve = "resolve";
 
+    /// <summary> Gets the top-level command name for query. </summary>
+    public const string Query = "query";
+
+    /// <summary> Gets the command name for <c>query assets find</c> result payloads. </summary>
+    public const string QueryAssetsFind = "query.assets.find";
+
+    /// <summary> Gets the command name for <c>query scene tree</c> result payloads. </summary>
+    public const string QuerySceneTree = "query.scene.tree";
+
+    /// <summary> Gets the command name for <c>query go describe</c> result payloads. </summary>
+    public const string QueryGoDescribe = "query.go.describe";
+
+    /// <summary> Gets the command name for <c>query comp schema</c> result payloads. </summary>
+    public const string QueryCompSchema = "query.comp.schema";
+
+    /// <summary> Gets the command name for <c>query asset schema</c> result payloads. </summary>
+    public const string QueryAssetSchema = "query.asset.schema";
+
     /// <summary> Gets the command name for validate. </summary>
     public const string Validate = "validate";
 
@@ -104,12 +122,37 @@ internal static class UcliCommandNames
     /// <summary> Gets the nested command name for logs unity target. </summary>
     public const string UnitySubcommand = "unity";
 
+    /// <summary> Gets the nested command name for asset queries. </summary>
+    public const string AssetSubcommand = "asset";
+
+    /// <summary> Gets the nested command name for assets queries. </summary>
+    public const string AssetsSubcommand = "assets";
+
+    /// <summary> Gets the nested command name for component queries. </summary>
+    public const string CompSubcommand = "comp";
+
+    /// <summary> Gets the nested command name for GameObject queries. </summary>
+    public const string GoSubcommand = "go";
+
+    /// <summary> Gets the nested command name for scene queries. </summary>
+    public const string SceneSubcommand = "scene";
+
+    /// <summary> Gets the nested command name for find queries. </summary>
+    public const string FindSubcommand = "find";
+
+    /// <summary> Gets the nested command name for schema queries. </summary>
+    public const string SchemaSubcommand = "schema";
+
+    /// <summary> Gets the nested command name for scene tree queries. </summary>
+    public const string TreeSubcommand = "tree";
+
     private static readonly HashSet<string> RegisteredCommandNames = new(StringComparer.Ordinal)
     {
         Init,
         Status,
         Refresh,
         Resolve,
+        Query,
         Validate,
         Plan,
         Call,
@@ -217,6 +260,46 @@ internal static class UcliCommandNames
             }
 
             return Logs;
+        }
+
+        if (string.Equals(firstArgument, Query, StringComparison.Ordinal))
+        {
+            if (args.Length >= 3
+                && string.Equals(args[1], AssetsSubcommand, StringComparison.Ordinal)
+                && string.Equals(args[2], FindSubcommand, StringComparison.Ordinal))
+            {
+                return QueryAssetsFind;
+            }
+
+            if (args.Length >= 3
+                && string.Equals(args[1], SceneSubcommand, StringComparison.Ordinal)
+                && string.Equals(args[2], TreeSubcommand, StringComparison.Ordinal))
+            {
+                return QuerySceneTree;
+            }
+
+            if (args.Length >= 3
+                && string.Equals(args[1], GoSubcommand, StringComparison.Ordinal)
+                && string.Equals(args[2], DescribeSubcommand, StringComparison.Ordinal))
+            {
+                return QueryGoDescribe;
+            }
+
+            if (args.Length >= 3
+                && string.Equals(args[1], CompSubcommand, StringComparison.Ordinal)
+                && string.Equals(args[2], SchemaSubcommand, StringComparison.Ordinal))
+            {
+                return QueryCompSchema;
+            }
+
+            if (args.Length >= 3
+                && string.Equals(args[1], AssetSubcommand, StringComparison.Ordinal)
+                && string.Equals(args[2], SchemaSubcommand, StringComparison.Ordinal))
+            {
+                return QueryAssetSchema;
+            }
+
+            return Query;
         }
 
         if (string.Equals(firstArgument, Ops, StringComparison.Ordinal))

@@ -42,6 +42,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         AssetSearchLookupQuery query,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -64,6 +65,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     readIndexMode,
                     normalizedQuery,
                     "readIndex disabled by mode.",
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -90,6 +92,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     readIndexMode,
                     normalizedQuery,
                     lookupResult.Error.Message,
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -110,6 +113,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     readIndexMode,
                     normalizedQuery,
                     readPostconditionEvaluation.FallbackReason!,
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -151,6 +155,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 readIndexMode,
                 normalizedQuery,
                 $"Existing asset-search index freshness is '{AssetLookupAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
+                failFast,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -163,6 +168,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         ReadIndexMode readIndexMode,
         AssetSearchLookupQuery normalizedQuery,
         string fallbackReason,
+        bool failFast,
         CancellationToken cancellationToken)
     {
         var refreshResult = await assetLookupSourceRefreshService.Refresh(
@@ -173,6 +179,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 timeout,
                 readIndexMode,
                 fallbackReason,
+                failFast,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)

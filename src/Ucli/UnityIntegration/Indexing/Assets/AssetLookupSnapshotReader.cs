@@ -30,6 +30,7 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -44,7 +45,7 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
                 config,
                 project,
                 IpcMethodNames.IndexAssetsRead,
-                IpcPayloadCodec.SerializeToElement(new IpcIndexAssetsReadRequest()),
+                IpcPayloadCodec.SerializeToElement(new IpcIndexAssetsReadRequest(failFast)),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

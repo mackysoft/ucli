@@ -18,5 +18,6 @@ internal interface IAssetLookupSnapshotReader
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
+        bool failFast = false,
         CancellationToken cancellationToken = default);
 }

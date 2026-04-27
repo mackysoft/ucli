@@ -21,5 +21,6 @@ internal interface IAssetLookupSourceRefreshService
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string fallbackReason,
+        bool failFast = false,
         CancellationToken cancellationToken = default);
 }
