@@ -55,8 +55,7 @@ public sealed class QueryServiceTests
                     CommandName: UcliCommandNames.QueryAssetsFind,
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
-                    Args: JsonSerializer.SerializeToElement(new { type = "UnityEngine.Material, UnityEngine.CoreModule" }),
-                    Query: new AssetSearchLookupQuery("UnityEngine.Material, UnityEngine.CoreModule", null, null),
+                    Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
                     WindowOptions: new QueryWindowOptions(
                         All: false,
                         Limit: 1,
@@ -70,6 +69,8 @@ public sealed class QueryServiceTests
         Assert.Equal(UcliCommandNames.QueryAssetsFind, result.CommandName);
         Assert.Equal(1, assetSearchLookupAccessService.CallCount);
         Assert.True(assetSearchLookupAccessService.CapturedFailFast);
+        Assert.NotNull(assetSearchLookupAccessService.CapturedQuery);
+        Assert.Equal("UnityEngine.Material, UnityEngine.CoreModule", assetSearchLookupAccessService.CapturedQuery!.TypeId);
         Assert.Equal(0, sceneTreeLiteAccessService.CallCount);
         Assert.Equal(0, unityRequestExecutor.CallCount);
         Assert.True(result.ReadIndex.Used);
@@ -117,7 +118,6 @@ public sealed class QueryServiceTests
                     CommandName: UcliCommandNames.QuerySceneTree,
                     OperationId: "scene.tree",
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
-                    Args: JsonSerializer.SerializeToElement(new { path = "Assets/Scenes/Main.unity", depth = 1 }),
                     ScenePath: "Assets/Scenes/Main.unity",
                     Depth: 1,
                     WindowOptions: new QueryWindowOptions(
@@ -280,6 +280,8 @@ public sealed class QueryServiceTests
 
         public bool CapturedFailFast { get; private set; }
 
+        public AssetSearchLookupQuery? CapturedQuery { get; private set; }
+
         public ValueTask<AssetSearchLookupReadResult> Search (
             ResolvedUnityProjectContext project,
             UcliConfig config,
@@ -293,6 +295,7 @@ public sealed class QueryServiceTests
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             CapturedFailFast = failFast;
+            CapturedQuery = query;
             return ValueTask.FromResult(result);
         }
     }

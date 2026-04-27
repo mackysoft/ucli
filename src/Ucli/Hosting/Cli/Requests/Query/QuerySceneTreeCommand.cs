@@ -84,7 +84,6 @@ internal sealed class QuerySceneTreeCommand
                     CommandName: UcliCommandNames.QuerySceneTree,
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
-                    Args: QueryOperationArgsFactory.CreateSceneTree(normalizedPath, depthResult.Depth),
                     ScenePath: normalizedPath,
                     Depth: depthResult.Depth,
                     WindowOptions: windowResult.Options!),

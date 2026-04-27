@@ -8,4 +8,4 @@ internal sealed record QueryUnityOperationRequest (
     string OperationId,
     string OperationName,
     JsonElement Args)
-    : QueryOperationRequest(CommandName, OperationId, OperationName, Args);
+    : QueryOperationRequest(CommandName, OperationId, OperationName);

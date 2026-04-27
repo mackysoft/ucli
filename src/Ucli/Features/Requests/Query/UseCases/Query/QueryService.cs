@@ -136,13 +136,17 @@ internal sealed class QueryService : IQueryService
         bool failFast,
         CancellationToken cancellationToken)
     {
+        var query = new AssetSearchLookupQuery(
+            TypeId: operation.Filter.TypeId,
+            PathPrefix: operation.Filter.PathPrefix,
+            NameContains: operation.Filter.NameContains);
         var readResult = await assetSearchLookupAccessService.Search(
                 projectContext.UnityProject,
                 projectContext.Config,
                 executionMode,
                 timeout,
                 readIndexMode,
-                operation.Query,
+                query,
                 failFast,
                 cancellationToken)
             .ConfigureAwait(false);

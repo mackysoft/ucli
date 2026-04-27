@@ -5,7 +5,6 @@ using MackySoft.Ucli.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -60,7 +59,7 @@ internal sealed class QueryAssetsFindCommand
             return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, commonOptionsResult.Error!);
         }
 
-        if (!TryCreateQuery(type, pathPrefix, nameContains, out var query, out var error))
+        if (!TryCreateFilter(type, pathPrefix, nameContains, out var filter, out var error))
         {
             return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, error!);
         }
@@ -78,21 +77,20 @@ internal sealed class QueryAssetsFindCommand
                     CommandName: UcliCommandNames.QueryAssetsFind,
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
-                    Args: QueryOperationArgsFactory.CreateAssetsFind(query!),
-                    Query: query!,
+                    Filter: filter!,
                     WindowOptions: windowResult.Options!),
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private static bool TryCreateQuery (
+    private static bool TryCreateFilter (
         string? type,
         string? pathPrefix,
         string? nameContains,
-        out AssetSearchLookupQuery? query,
+        out QueryAssetsFindFilter? filter,
         out ExecutionError? error)
     {
-        query = null;
+        filter = null;
         if (!QueryOptionValueNormalizer.TryNormalizeOptional(type, "type", out var normalizedType, out error))
         {
             return false;
@@ -115,7 +113,7 @@ internal sealed class QueryAssetsFindCommand
             return false;
         }
 
-        query = new AssetSearchLookupQuery(
+        filter = new QueryAssetsFindFilter(
             TypeId: normalizedType,
             PathPrefix: normalizedPathPrefix,
             NameContains: normalizedNameContains);

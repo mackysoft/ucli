@@ -44,7 +44,7 @@ public sealed class QueryCommandTests
         Assert.Equal(UcliCommandNames.QueryAssetsFind, operation.CommandName);
         Assert.Equal("assets.find", operation.OperationId);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, operation.OperationName);
-        Assert.Equal("UnityEngine.Material, UnityEngine.CoreModule", operation.Query.TypeId);
+        Assert.Equal("UnityEngine.Material, UnityEngine.CoreModule", operation.Filter.TypeId);
         Assert.Equal(50, operation.WindowOptions.Limit);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
