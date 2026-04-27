@@ -126,8 +126,8 @@ done
 - `push` to `master` では変更差分を判定しつつ、実行 OS は `Linux` のみに絞って post-merge 検証を軽量化する。
 - `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、contracts pack を常に `Linux`、`Windows`、`macOS` の 3 OS でフル検証する。
 - Unity 検証は `src/Ucli`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`scripts/update-local-contracts-package.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、`ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
-- `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で同じ publish / repository version sync 処理まで継続する。
-- `contracts-package-publish` は公開後に `src/Ucli.Contracts/Ucli.Contracts.csproj` と `src/Ucli.Unity/Assets/packages.config` の `MackySoft.Ucli.Contracts` バージョンを同一値へ自動同期する。
+- `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で同じ publish / repository version sync PR 作成まで継続する。
+- `contracts-package-publish` は公開後に `chore/contracts-sync-<version>` ブランチを作成し、`src/Ucli.Contracts/Ucli.Contracts.csproj` と `src/Ucli.Unity/Assets/packages.config` の `MackySoft.Ucli.Contracts` バージョンを同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`）。
 
 ```bash
