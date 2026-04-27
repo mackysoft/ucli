@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Index;
@@ -49,10 +50,11 @@ namespace MackySoft.Ucli.Unity.Index
                 }
 
                 var assetType = mainAsset.GetType();
+                var assetName = ResolveAssetName(mainAsset, normalizedAssetPath);
                 snapshotEntries.Add(new SnapshotEntry(
                     normalizedAssetPath,
                     assetGuid,
-                    mainAsset.name,
+                    assetName,
                     IndexTypeIdFormatter.Format(assetType),
                     BuildSearchTypeIds(assetType)));
             }
@@ -95,6 +97,22 @@ namespace MackySoft.Ucli.Unity.Index
             }
 
             return searchTypeIds;
+        }
+
+        private static string ResolveAssetName (
+            UnityEngine.Object mainAsset,
+            string assetPath)
+        {
+            if (!string.IsNullOrWhiteSpace(mainAsset.name))
+            {
+                return mainAsset.name;
+            }
+
+            // NOTE:
+            // Some Unity-generated assets can have an empty main object name while the asset path is valid.
+            // The persisted lookup contract requires a non-empty name, so use the stable path-derived name.
+            var fileName = Path.GetFileNameWithoutExtension(assetPath);
+            return string.IsNullOrWhiteSpace(fileName) ? assetPath : fileName;
         }
 
         private readonly struct SnapshotEntry
