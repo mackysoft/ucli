@@ -377,13 +377,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Dispatch_WhenCommandIsQuery_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
-        {
-            await AssertReturnsCommandNotImplementedError(UcliCommandIds.Query);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCommandIsRefresh_ReturnsCommandNotImplementedError () => UniTask.ToCoroutine(async () =>
         {
             await AssertReturnsCommandNotImplementedError(UcliCommandIds.Refresh);
@@ -420,7 +413,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var readinessGate = StubUnityEditorReadinessGate.CreatePending();
             var dispatcher = new ExecuteRequestDispatcher(normalizer, phaseExecutor, readinessGate);
             var context = new ExecuteDispatchContext("req-1", IpcProtocol.CurrentVersion);
-            var request = CreateExecuteRequest(UcliCommandIds.Query);
+            var request = CreateExecuteRequest(UcliCommandIds.Refresh);
 
             var response = await DispatchAsync(dispatcher, request, context, "Command not implemented without readiness wait");
 
