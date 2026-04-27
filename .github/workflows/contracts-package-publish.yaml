@@ -12,8 +12,10 @@ on:
         type: string
 
 permissions:
+  actions: write
   contents: write
   packages: write
+  pull-requests: write
 
 jobs:
   prepare-release:
@@ -99,16 +101,20 @@ jobs:
           --api-key "${{ secrets.GITHUB_TOKEN }}"
           --skip-duplicate
 
-      - name: Sync contracts package versions in repository
+      - name: Create contracts package version sync pull request
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
           PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git fetch origin "${DEFAULT_BRANCH}"
-          git checkout -B "${DEFAULT_BRANCH}" "origin/${DEFAULT_BRANCH}"
+          sync_branch="chore/contracts-sync-${PACKAGE_VERSION}"
+          git checkout -B "${sync_branch}" "origin/${DEFAULT_BRANCH}"
 
           csproj_path="src/Ucli.Contracts/Ucli.Contracts.csproj"
           unity_packages_config_path="src/Ucli.Unity/Assets/packages.config"
@@ -140,4 +146,41 @@ jobs:
 
           git add "${csproj_path}" "${unity_packages_config_path}"
           git commit -m "chore(contracts): sync package version to ${PACKAGE_VERSION}"
-          git push origin "HEAD:${DEFAULT_BRANCH}"
+          if git ls-remote --exit-code --heads origin "${sync_branch}" >/dev/null; then
+            git fetch origin "${sync_branch}:refs/remotes/origin/${sync_branch}"
+            remote_sync_sha="$(git rev-parse "refs/remotes/origin/${sync_branch}")"
+            git push --force-with-lease="refs/heads/${sync_branch}:${remote_sync_sha}" origin "HEAD:${sync_branch}"
+          else
+            git push origin "HEAD:${sync_branch}"
+          fi
+
+          existing_pr_url="$(gh pr list \
+            --repo "${REPOSITORY}" \
+            --state open \
+            --head "${sync_branch}" \
+            --json url \
+            --jq '.[0].url // empty')"
+          if [[ -n "${existing_pr_url}" ]]; then
+            echo "Contracts version sync pull request already exists: ${existing_pr_url}"
+          else
+            pr_body="$(cat <<EOF
+          ## Summary
+          - Sync \`MackySoft.Ucli.Contracts\` package version to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish.
+          - Update \`${csproj_path}\` and \`${unity_packages_config_path}\`.
+
+          ## Verification
+          - \`contracts-package-publish\` packed and published \`${RELEASE_TAG}\` before creating this PR.
+          - \`verify\` workflow was dispatched for \`${sync_branch}\`.
+          EOF
+          )"
+            gh pr create \
+              --repo "${REPOSITORY}" \
+              --base "${DEFAULT_BRANCH}" \
+              --head "${sync_branch}" \
+              --title "chore(contracts): sync package version to ${PACKAGE_VERSION}" \
+              --body "${pr_body}"
+          fi
+
+          gh workflow run verify.yaml \
+            --repo "${REPOSITORY}" \
+            --ref "${sync_branch}"
