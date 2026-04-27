@@ -309,28 +309,30 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator IndexAssetsReadHandler_WhenPayloadIsValid_ReturnsOkResponse () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new IndexAssetsReadUnityIpcMethodHandler(new StubAssetLookupSnapshotBuilder(
-                () => new IpcIndexAssetsReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-                    AssetSearchEntries: new[]
-                    {
-                        new MackySoft.Ucli.Contracts.Index.IndexAssetSearchEntryJsonContract(
-                            AssetPath: "Assets/Data/Spawner.asset",
-                            AssetGuid: "11111111111111111111111111111111",
-                            Name: "Spawner",
-                            TypeId: "Game.Spawner, Assembly-CSharp",
-                            SearchTypeIds: new[]
-                            {
-                                "Game.Spawner, Assembly-CSharp",
-                                "UnityEngine.Object, UnityEngine.CoreModule",
-                            }),
-                    },
-                    GuidPathEntries: new[]
-                    {
-                        new MackySoft.Ucli.Contracts.Index.IndexGuidPathEntryJsonContract(
-                            AssetGuid: "11111111111111111111111111111111",
-                            AssetPath: "Assets/Data/Spawner.asset"),
-                    })));
+            var handler = new IndexAssetsReadUnityIpcMethodHandler(
+                new StubAssetLookupSnapshotBuilder(
+                    () => new IpcIndexAssetsReadResponse(
+                        GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+                        AssetSearchEntries: new[]
+                        {
+                            new MackySoft.Ucli.Contracts.Index.IndexAssetSearchEntryJsonContract(
+                                AssetPath: "Assets/Data/Spawner.asset",
+                                AssetGuid: "11111111111111111111111111111111",
+                                Name: "Spawner",
+                                TypeId: "Game.Spawner, Assembly-CSharp",
+                                SearchTypeIds: new[]
+                                {
+                                    "Game.Spawner, Assembly-CSharp",
+                                    "UnityEngine.Object, UnityEngine.CoreModule",
+                                }),
+                        },
+                        GuidPathEntries: new[]
+                        {
+                            new MackySoft.Ucli.Contracts.Index.IndexGuidPathEntryJsonContract(
+                                AssetGuid: "11111111111111111111111111111111",
+                                AssetPath: "Assets/Data/Spawner.asset"),
+                        })),
+                new StubUnityEditorReadinessGate());
             var request = CreateIndexAssetsReadRequest("req-index-assets-valid", new IpcIndexAssetsReadRequest());
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -344,13 +346,40 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator IndexAssetsReadHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        public IEnumerator IndexAssetsReadHandler_WhenFailFastAndEditorIsBusy_ReturnsReadinessErrorWithoutBuildingSnapshot () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new IndexAssetsReadUnityIpcMethodHandler(new StubAssetLookupSnapshotBuilder(
+            var builder = new StubAssetLookupSnapshotBuilder(
                 () => new IpcIndexAssetsReadResponse(
                     GeneratedAtUtc: DateTimeOffset.UtcNow,
                     AssetSearchEntries: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexAssetSearchEntryJsonContract>(),
-                    GuidPathEntries: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexGuidPathEntryJsonContract>())));
+                    GuidPathEntries: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexGuidPathEntryJsonContract>()));
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var handler = new IndexAssetsReadUnityIpcMethodHandler(builder, readinessGate);
+            var request = CreateIndexAssetsReadRequest(
+                "req-index-assets-busy",
+                new IpcIndexAssetsReadRequest(FailFast: true));
+
+            var response = await handler.Handle(request, CancellationToken.None);
+
+            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcErrorCodes.EditorBusy));
+            Assert.That(readinessGate.CallCount, Is.EqualTo(1));
+            Assert.That(readinessGate.LastFailFast, Is.True);
+            Assert.That(builder.CallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator IndexAssetsReadHandler_WhenPayloadIsInvalid_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new IndexAssetsReadUnityIpcMethodHandler(
+                new StubAssetLookupSnapshotBuilder(
+                    () => new IpcIndexAssetsReadResponse(
+                        GeneratedAtUtc: DateTimeOffset.UtcNow,
+                        AssetSearchEntries: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexAssetSearchEntryJsonContract>(),
+                        GuidPathEntries: Array.Empty<MackySoft.Ucli.Contracts.Index.IndexGuidPathEntryJsonContract>())),
+                new StubUnityEditorReadinessGate());
             var request = CreateIndexAssetsReadRequest("req-index-assets-invalid", 123);
 
             var response = await handler.Handle(request, CancellationToken.None);
@@ -955,9 +984,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.build = build;
             }
 
+            public int CallCount { get; private set; }
+
             public ValueTask<IpcIndexAssetsReadResponse> Build (CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                CallCount++;
                 return new ValueTask<IpcIndexAssetsReadResponse>(build());
             }
         }

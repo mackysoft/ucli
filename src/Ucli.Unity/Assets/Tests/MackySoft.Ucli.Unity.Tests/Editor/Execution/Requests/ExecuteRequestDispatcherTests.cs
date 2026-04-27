@@ -48,6 +48,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenCommandIsQuery_DelegatesToPhaseExecutor () => UniTask.ToCoroutine(async () =>
+        {
+            await AssertDelegatesToPhaseExecutor(UcliCommandIds.Query, PhaseExecutionCommand.PlanWithoutToken);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenPlanTraceContainsPlanToken_MapsTokenToPayload () => UniTask.ToCoroutine(async () =>
         {
             var normalizedRequest = CreateNormalizedRequest();
