@@ -40,12 +40,14 @@ public sealed class AssetLookupSourceRefreshServiceTests
             timeout: TimeSpan.FromMilliseconds(1000),
             readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
+            failFast: true,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Same(response, result.Response);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         Assert.Equal(1, reader.CallCount);
+        Assert.True(reader.LastFailFast);
         Assert.Equal(2, calculator.FullCallCount);
         Assert.Equal(1, store.CallCount);
         Assert.Equal(response.GeneratedAtUtc, store.GeneratedAtUtc);
@@ -225,6 +227,8 @@ public sealed class AssetLookupSourceRefreshServiceTests
 
         public int CallCount { get; private set; }
 
+        public bool LastFailFast { get; private set; }
+
         public void Enqueue (AssetLookupSnapshotFetchResult result)
         {
             results.Enqueue(result);
@@ -236,10 +240,12 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
+            LastFailFast = failFast;
             if (!results.TryDequeue(out var result))
             {
                 throw new InvalidOperationException("Asset lookup snapshot result is not configured.");

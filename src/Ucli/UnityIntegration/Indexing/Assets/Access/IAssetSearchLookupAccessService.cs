@@ -19,5 +19,6 @@ internal interface IAssetSearchLookupAccessService
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         AssetSearchLookupQuery query,
+        bool failFast = false,
         CancellationToken cancellationToken = default);
 }

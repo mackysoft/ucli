@@ -262,6 +262,7 @@ public sealed class GuidPathLookupAccessServiceTests
             TimeSpan timeout,
             ReadIndexMode readIndexMode,
             string fallbackReason,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -384,6 +384,30 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator AssetLookupSnapshotBuilder_Build_UsesPathNameWhenMainAssetNameIsEmpty () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var token = Guid.NewGuid().ToString("N");
+            var assetPath = $"Assets/empty_name_asset_lookup_{token}.asset";
+            var expectedName = Path.GetFileNameWithoutExtension(assetPath);
+            scope.TrackAsset(assetPath);
+
+            var asset = ScriptableObject.CreateInstance<IndexCatalogTestAsset>();
+            AssetDatabase.CreateAsset(asset, assetPath);
+            asset.name = string.Empty;
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssets();
+
+            var builder = new AssetLookupSnapshotBuilder();
+            var response = await builder.Build(CancellationToken.None);
+            var assetSearchEntry = response.AssetSearchEntries!
+                .Single(entry => string.Equals(entry.AssetPath, assetPath, StringComparison.Ordinal));
+
+            Assert.That(assetSearchEntry.Name, Is.EqualTo(expectedName));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator SceneTreeLiteSnapshotBuilder_Build_ReturnsDeterministicTree () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();

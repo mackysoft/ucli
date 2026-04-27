@@ -2,6 +2,7 @@ using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Features.Requests.Call.UseCases.Call.Preflight;
 using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Preflight;
+using MackySoft.Ucli.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
@@ -49,6 +50,7 @@ internal static class RequestServiceCollectionExtensions
         services.AddSingleton<ICallService, CallService>();
 
         services.AddSingleton<IRefreshService, RefreshService>();
+        services.AddSingleton<IQueryService, QueryService>();
         services.AddSingleton<IResolveService, ResolveService>();
         services.AddSingleton<IValidateService, ValidateService>();
         return services;

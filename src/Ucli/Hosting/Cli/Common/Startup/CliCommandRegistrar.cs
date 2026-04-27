@@ -24,6 +24,11 @@ internal static class CliCommandRegistrar
         app.Add<StatusCommand>();
         app.Add<RefreshCommand>();
         app.Add<ResolveCommand>();
+        app.Add<QueryAssetsFindCommand>("query assets");
+        app.Add<QuerySceneTreeCommand>("query scene");
+        app.Add<QueryGoDescribeCommand>("query go");
+        app.Add<QueryCompSchemaCommand>("query comp");
+        app.Add<QueryAssetSchemaCommand>("query asset");
         app.Add<ValidateCommand>();
         app.Add<PlanCommand>();
         app.Add<CallCommand>();

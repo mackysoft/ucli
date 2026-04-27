@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Index;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -11,10 +12,15 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IAssetLookupSnapshotBuilder assetLookupSnapshotBuilder;
 
+        private readonly IUnityEditorReadinessGate readinessGate;
+
         /// <summary> Initializes a new instance of the <see cref="IndexAssetsReadUnityIpcMethodHandler" /> class. </summary>
-        public IndexAssetsReadUnityIpcMethodHandler (IAssetLookupSnapshotBuilder assetLookupSnapshotBuilder)
+        public IndexAssetsReadUnityIpcMethodHandler (
+            IAssetLookupSnapshotBuilder assetLookupSnapshotBuilder,
+            IUnityEditorReadinessGate readinessGate)
         {
             this.assetLookupSnapshotBuilder = assetLookupSnapshotBuilder ?? throw new ArgumentNullException(nameof(assetLookupSnapshotBuilder));
+            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
         }
 
         /// <inheritdoc />
@@ -33,10 +39,21 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!UnityIpcRequestCodec.TryDecodeIndexAssetsReadRequest(
                     request,
-                    out IpcIndexAssetsReadRequest? _,
+                    out IpcIndexAssetsReadRequest? payload,
                     out var errorResponse))
             {
                 return errorResponse!;
+            }
+
+            var readinessResult = await readinessGate.EnsureExecutionReady(payload!.FailFast, cancellationToken).ConfigureAwait(false);
+            if (!readinessResult.IsReady)
+            {
+                var error = readinessResult.Error!;
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    error.Code,
+                    error.Message,
+                    error.OpId);
             }
 
             try

@@ -44,6 +44,40 @@ internal static class Program
         UcliCommandNames.DescribeSubcommand,
     ];
 
+    private static readonly string[] QuerySubcommands =
+    [
+        UcliCommandNames.AssetsSubcommand,
+        UcliCommandNames.SceneSubcommand,
+        UcliCommandNames.GoSubcommand,
+        UcliCommandNames.CompSubcommand,
+        UcliCommandNames.AssetSubcommand,
+    ];
+
+    private static readonly string[] QueryAssetSubcommands =
+    [
+        UcliCommandNames.SchemaSubcommand,
+    ];
+
+    private static readonly string[] QueryAssetsSubcommands =
+    [
+        UcliCommandNames.FindSubcommand,
+    ];
+
+    private static readonly string[] QueryCompSubcommands =
+    [
+        UcliCommandNames.SchemaSubcommand,
+    ];
+
+    private static readonly string[] QueryGoSubcommands =
+    [
+        UcliCommandNames.DescribeSubcommand,
+    ];
+
+    private static readonly string[] QuerySceneSubcommands =
+    [
+        UcliCommandNames.TreeSubcommand,
+    ];
+
     /// <summary> Executes the CLI command pipeline and emits JSON command results. </summary>
     /// <param name="args"> The command-line arguments passed to the process. </param>
     /// <returns> The process exit code determined by command execution. </returns>
@@ -188,6 +222,18 @@ internal static class Program
             return true;
         }
 
+        if (string.Equals(firstArgument, UcliCommandNames.Query, StringComparison.Ordinal)
+            && TryHandleInvalidSubcommand(args, UcliCommandNames.Query, QuerySubcommands))
+        {
+            return true;
+        }
+
+        if (string.Equals(firstArgument, UcliCommandNames.Query, StringComparison.Ordinal)
+            && TryHandleInvalidQueryLeafSubcommand(args))
+        {
+            return true;
+        }
+
         if (UcliCommandNames.IsRegistered(firstArgument)
             || string.Equals(firstArgument, UcliCommandNames.Help, StringComparison.Ordinal))
         {
@@ -228,6 +274,70 @@ internal static class Program
 
         CommandResultWriter.WriteToStandardOutput(result);
         Environment.ExitCode = result.ExitCode;
+        return true;
+    }
+
+    /// <summary> Handles invalid leaf subcommand tokens for typed query command groups. </summary>
+    /// <param name="args"> The command-line arguments passed to the process. </param>
+    /// <returns>
+    /// <para> <see langword="true" /> when this method writes an error response and sets <see cref="Environment.ExitCode" />. </para>
+    /// <para> Otherwise, <see langword="false" />. </para>
+    /// </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
+    private static bool TryHandleInvalidQueryLeafSubcommand (string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
+        if (args.Length < 2)
+        {
+            return false;
+        }
+
+        var group = args[1];
+        var supportedSubcommands = group switch
+        {
+            UcliCommandNames.AssetSubcommand => QueryAssetSubcommands,
+            UcliCommandNames.AssetsSubcommand => QueryAssetsSubcommands,
+            UcliCommandNames.CompSubcommand => QueryCompSubcommands,
+            UcliCommandNames.GoSubcommand => QueryGoSubcommands,
+            UcliCommandNames.SceneSubcommand => QuerySceneSubcommands,
+            _ => null,
+        };
+        if (supportedSubcommands == null)
+        {
+            return false;
+        }
+
+        if (args.Length == 2)
+        {
+            var missingResult = CommandResult.InvalidArgument(
+                command: UcliCommandNames.Query,
+                message: $"Subcommand is required for command 'query {group}'. Supported subcommands: {string.Join(", ", supportedSubcommands)}.");
+            CommandResultWriter.WriteToStandardOutput(missingResult);
+            Environment.ExitCode = missingResult.ExitCode;
+            return true;
+        }
+
+        var subcommand = args[2];
+        if (CommandTokenClassifier.IsHelpOptionToken(subcommand)
+            || CommandTokenClassifier.IsVersionOptionToken(subcommand))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < supportedSubcommands.Length; i++)
+        {
+            if (string.Equals(subcommand, supportedSubcommands[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        var invalidResult = CommandResult.InvalidArgument(
+            command: UcliCommandNames.Query,
+            message: $"Subcommand '{subcommand}' is not recognized for command 'query {group}'.");
+        CommandResultWriter.WriteToStandardOutput(invalidResult);
+        Environment.ExitCode = invalidResult.ExitCode;
         return true;
     }
 }

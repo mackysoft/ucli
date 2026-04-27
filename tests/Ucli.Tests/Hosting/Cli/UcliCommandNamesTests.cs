@@ -91,6 +91,32 @@ public sealed class UcliCommandNamesTests
         Assert.True(result);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(UcliCommandNames.AssetsSubcommand, UcliCommandNames.FindSubcommand, UcliCommandNames.QueryAssetsFind)]
+    [InlineData(UcliCommandNames.SceneSubcommand, UcliCommandNames.TreeSubcommand, UcliCommandNames.QuerySceneTree)]
+    [InlineData(UcliCommandNames.GoSubcommand, UcliCommandNames.DescribeSubcommand, UcliCommandNames.QueryGoDescribe)]
+    [InlineData(UcliCommandNames.CompSubcommand, UcliCommandNames.SchemaSubcommand, UcliCommandNames.QueryCompSchema)]
+    [InlineData(UcliCommandNames.AssetSubcommand, UcliCommandNames.SchemaSubcommand, UcliCommandNames.QueryAssetSchema)]
+    public void ResolveResultCommandName_WhenQueryCommandSpecified_ReturnsExpectedCommandName (
+        string group,
+        string subcommand,
+        string expected)
+    {
+        var commandName = UcliCommandNames.ResolveResultCommandName([UcliCommandNames.Query, group, subcommand]);
+
+        Assert.Equal(expected, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenQueryCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Query);
+
+        Assert.True(result);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void ResolveResultCommandName_WhenRefreshCommandSpecified_ReturnsRefresh ()

@@ -51,12 +51,20 @@ public sealed class AssetLookupSnapshotReaderTests
         };
         var reader = new AssetLookupSnapshotReader(executor);
 
-        var result = await reader.Read(CreateProjectContext().UnityProject, UcliConfig.CreateDefault(), UcliCommandIds.Query, UnityExecutionMode.Auto, TimeSpan.FromMilliseconds(1000));
+        var result = await reader.Read(
+            CreateProjectContext().UnityProject,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1000),
+            failFast: true);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
         Assert.Equal(IpcMethodNames.IndexAssetsRead, executor.LastMethod);
         Assert.Equal(UcliCommandIds.Query, executor.LastCommand);
+        Assert.True(IpcPayloadCodec.TryDeserialize(executor.LastPayload, out IpcIndexAssetsReadRequest payload, out _));
+        Assert.True(payload.FailFast);
         Assert.Single(result.Response!.AssetSearchEntries!);
         Assert.Single(result.Response.GuidPathEntries!);
     }
@@ -174,6 +182,8 @@ public sealed class AssetLookupSnapshotReaderTests
 
         public string? LastMethod { get; private set; }
 
+        public JsonElement LastPayload { get; private set; }
+
         public UnityRequestExecutionResult Result { get; set; }
             = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
 
@@ -190,6 +200,7 @@ public sealed class AssetLookupSnapshotReaderTests
             cancellationToken.ThrowIfCancellationRequested();
             LastCommand = command;
             LastMethod = method;
+            LastPayload = payload;
             return ValueTask.FromResult(Result);
         }
     }

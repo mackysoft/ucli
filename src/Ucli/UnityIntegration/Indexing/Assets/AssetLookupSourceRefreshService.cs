@@ -50,6 +50,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
         string fallbackReason,
+        bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -68,6 +69,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
                     command,
                     mode,
                     timeout,
+                    failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!attemptResult.FetchResult.IsSuccess)
@@ -103,6 +105,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
+        bool failFast,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -118,6 +121,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
                 command,
                 mode,
                 timeout,
+                failFast,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!fetchResult.IsSuccess)

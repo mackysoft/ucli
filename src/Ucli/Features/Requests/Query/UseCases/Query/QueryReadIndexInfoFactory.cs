@@ -1,0 +1,53 @@
+using MackySoft.Ucli.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
+using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
+
+namespace MackySoft.Ucli.Features.Requests.Query.UseCases.Query;
+
+/// <summary> Creates command-facing read-index metadata for typed query commands. </summary>
+internal static class QueryReadIndexInfoFactory
+{
+    /// <summary> Creates readIndex metadata from asset-search lookup access metadata. </summary>
+    public static ReadIndexInfo FromAssetLookupAccess (AssetLookupAccessInfo accessInfo)
+    {
+        ArgumentNullException.ThrowIfNull(accessInfo);
+
+        return new ReadIndexInfo(
+            Used: accessInfo.Used && accessInfo.Source == AssetLookupSource.Index,
+            Hit: accessInfo.Hit,
+            Source: accessInfo.Source == AssetLookupSource.Index
+                ? ReadIndexInfoTextCodec.SourceIndex
+                : ReadIndexInfoTextCodec.SourceUnity,
+            Freshness: ReadIndexInfoTextCodec.MapFreshness(accessInfo.Freshness),
+            GeneratedAtUtc: accessInfo.GeneratedAtUtc,
+            FallbackReason: accessInfo.FallbackReason);
+    }
+
+    /// <summary> Creates readIndex metadata from scene-tree-lite access metadata. </summary>
+    public static ReadIndexInfo FromSceneTreeLiteAccess (SceneTreeLiteAccessInfo accessInfo)
+    {
+        ArgumentNullException.ThrowIfNull(accessInfo);
+
+        return new ReadIndexInfo(
+            Used: accessInfo.Used && accessInfo.Source == SceneTreeLiteSource.Index,
+            Hit: accessInfo.Hit,
+            Source: accessInfo.Source == SceneTreeLiteSource.Index
+                ? ReadIndexInfoTextCodec.SourceIndex
+                : ReadIndexInfoTextCodec.SourceUnity,
+            Freshness: ReadIndexInfoTextCodec.MapFreshness(accessInfo.Freshness),
+            GeneratedAtUtc: accessInfo.GeneratedAtUtc,
+            FallbackReason: accessInfo.FallbackReason);
+    }
+
+    /// <summary> Creates Unity-backed readIndex metadata. </summary>
+    public static ReadIndexInfo Unity (string? fallbackReason)
+    {
+        return new ReadIndexInfo(
+            Used: false,
+            Hit: false,
+            Source: ReadIndexInfoTextCodec.SourceUnity,
+            Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+            GeneratedAtUtc: null,
+            FallbackReason: fallbackReason);
+    }
+}

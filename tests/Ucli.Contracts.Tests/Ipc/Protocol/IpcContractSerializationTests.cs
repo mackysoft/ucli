@@ -193,7 +193,7 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcIndexAssetsReadContracts_SerializeWithCamelCaseFields ()
     {
-        var requestPayload = new IpcIndexAssetsReadRequest();
+        var requestPayload = new IpcIndexAssetsReadRequest(FailFast: true);
         var responsePayload = new IpcIndexAssetsReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             AssetSearchEntries:
@@ -220,7 +220,8 @@ public sealed class IpcContractSerializationTests
         using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
         using var responseDocument = JsonDocument.Parse(JsonSerializer.Serialize(responsePayload, SerializerOptions));
 
-        Assert.Equal(JsonValueKind.Object, requestDocument.RootElement.ValueKind);
+        JsonAssert.For(requestDocument.RootElement)
+            .HasBoolean("failFast", true);
         JsonAssert.For(responseDocument.RootElement)
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasArrayLength("assetSearchEntries", 1)

@@ -229,6 +229,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 timeout,
                 readIndexMode,
                 fallbackReason,
+                failFast: false,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)

@@ -2,8 +2,7 @@
 > この文書は、uCLI のコマンド一覧、option table、サブコマンド規則、終了コード、実行例のリファレンスである。
 > 全体契約は [uCLI.md](uCLI.md)、JSON プロパティ定義は [uCLI-property-reference.md](uCLI-property-reference.md)、JSON リクエスト入力契約は [json-request-spec.md](json-request-spec.md) を参照する。
 >
-> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`test` である。
-> `query` は、この文書では内部 execute 契約の設計メモとしてのみ扱い、現行 CLI では利用できない。
+> 現在の公開 CLI host が登録している top-level command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`test` である。
 
 ## コマンド概要
 
@@ -12,6 +11,7 @@
 | `ucli init` | `.ucli` の設定雛形を生成する | Git repository root を優先する |
 | `ucli refresh` | プロジェクト更新を独立コマンドとして実行する | 固定の `ucli.project.refresh` を実行する |
 | `ucli resolve` | selector 1 件を GlobalObjectId へ解決する | scene-tree-lite index を優先し、必要時だけ Unity IPC へ fallback する |
+| `ucli query` | 型付きサブコマンドで検索・構造取得・スキーマ取得を行う | `assets find` / `scene tree` / `go describe` / `comp schema` / `asset schema` を持つ |
 | `ucli validate` | JSON リクエストを静的に lint する | Unity へ接続せず readIndex snapshot を参照する |
 | `ucli plan` | JSON リクエストの plan フェーズを実行する | static preflight 後に Unity IPC `plan` を実行する |
 | `ucli call` | JSON リクエストの call フェーズを実行する | static preflight 後に Unity IPC `call` を実行する |
@@ -42,6 +42,11 @@
   - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - selector は `--globalObjectId` / `--assetGuid` / `--assetPath` / `--projectAssetPath` / `--scene --hierarchyPath [--componentType]` / `--prefab --hierarchyPath` の exactly one とする。
   - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
+- `ucli query`
+  - JSON request、`stdin`、`--requestPath` は受け付けず、型付きサブコマンドから固定 primitive operation 1 件を組み立てる。
+  - 全サブコマンドで `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
+  - 一覧系の `assets find` と `scene tree` は `--limit`、`--after`、`--all` を受け付け、既定 `limit=100`、最大 `10000` とする。
+  - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
 - `ucli plan`
   - `stdin` または `--requestPath` から JSON リクエストを読み、static preflight 後に Unity IPC `plan` を実行する。
   - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
@@ -68,6 +73,7 @@
 - current batchmode daemon が実際に観測・返却する非 ready 状態は `starting`, `busy`, `compiling`, `domainReloading`, `playmode`, `shuttingDown`。`blockedByModal` と `safeMode` は reserved literal だが batchmode ではまだ返さない。
 - 待機は既存の `--timeout` budget を消費し、budget を使い切った場合は `IPC_TIMEOUT` を返す。
 - `ucli ops list` / `ucli ops describe` では live source fallback に対してのみ意味を持つ。readIndex hit では readiness wait を行わない。
+- `ucli query assets find` / `ucli query scene tree` では readIndex hit 時に Unity 接続も readiness wait も行わない。live source fallback または Unity 専用 query では `--failFast` を IPC に渡す。
 - `ucli test run` では daemon-backed execution に対してのみ意味を持つ。`oneshot` と `auto -> oneshot` は従来どおり direct `-runTests` を使い、readiness wait を行わない。
 
 ### 共通エラー契約
@@ -250,6 +256,52 @@ CLI は JSON request を読まず、selector flags から固定の `ucli.resolve
 ucli resolve --projectPath ./UnityProject --scene Assets/Scenes/Main.unity --hierarchyPath Root/Child
 ucli resolve --projectPath ./UnityProject --assetGuid 11111111111111111111111111111111 --mode daemon --failFast
 ucli resolve --projectPath ./UnityProject --prefab Assets/Prefabs/Card.prefab --hierarchyPath Root/Label
+```
+
+## `ucli query`
+`ucli query` は検索・構造取得・スキーマ取得を型付きサブコマンドで実行する読取コマンドである。CLI は JSON request を読まず、サブコマンドと flags から固定の primitive operation 1 step を組み立てる。
+
+### `query` 共通 options
+| Option | Short | Description |
+| --- | --- | --- |
+| `--projectPath <string?>` | `-p` | 対象Unity project root path |
+| `--mode <string?>` | - | `auto` (default), `daemon`, or `oneshot` |
+| `--timeout <int?>` | - | IPC待機タイムアウト（ミリ秒）。`1..2147483647` |
+| `--readIndexMode <string?>` | - | `disabled`, `allowStale`, or `requireFresh` |
+| `--failFast` | - | Unity fallback または Unity 専用 query で `ready` になる前なら待機せず即失敗する |
+
+### `query` サブコマンド
+| Command | 固定 operation | Options |
+| --- | --- | --- |
+| `ucli query assets find` | `ucli.assets.find` | `--type <string?>` / `--pathPrefix <string?>` / `--nameContains <string?>` の 1 つ以上、`--limit <int?>`、`--after <string?>`、`--all` |
+| `ucli query scene tree` | `ucli.scene.tree` | `--path <string>`、`--depth <int?>`、`--fullDepth`、`--limit <int?>`、`--after <string?>`、`--all` |
+| `ucli query go describe` | `ucli.go.describe` | `--globalObjectId <string>` または `--scene <path> --hierarchyPath <path>` または `--prefab <path> --hierarchyPath <path>`、`--depth <int?>`、`--fullDepth` |
+| `ucli query comp schema` | `ucli.comp.schema` | `--type <string>` |
+| `ucli query asset schema` | `ucli.asset.schema` | `--type <string>` または `--globalObjectId <string>` または `--assetGuid <string>` または `--assetPath <path>` または `--projectAssetPath <path>` |
+
+### `query` 実行契約
+- `assets find` と `scene tree` は readIndex lookup を優先し、必要時だけ live Unity source へ fallback する。
+- `go describe`、`comp schema`、`asset schema` は Unity IPC `execute(command=query)` へ委譲し、Unity 側では `Validate -> Plan` を実行する。`planToken` は発行しない。
+- `scene tree` の既定 depth は `1`、`go describe` の既定 depth は `0` とする。`--fullDepth` は depth を `null` として渡す。
+- `--fullDepth` と `--depth` は同時指定できない。`--depth` は `0` 以上とする。
+- `--all` は `--limit` / `--after` と同時指定できない。
+- bounded window は command/query layer で適用し、primitive operation 自体は limit / cursor を持たない。
+
+### `query` のレスポンス契約
+- 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
+- `command` はサブコマンドごとに `query.assets.find`、`query.scene.tree`、`query.go.describe`、`query.comp.schema`、`query.asset.schema` のいずれかを返す。
+- `assets find` の結果は `opResults[0].result.matches[]` と `opResults[0].result.window` に置く。
+- `scene tree` の結果は `opResults[0].result.path`、`opResults[0].result.roots[]`、`opResults[0].result.window` に置く。
+- `window` は `limit`、`after`、`nextCursor`、`isComplete`、`totalCount` を返す。
+- readIndex 完結時は `payload.readIndex.source=index`、`used=true` を返す。Unity fallback または Unity 専用 query では `source=unity`、`used=false` を返す。
+
+### `query` 実行例
+```bash
+ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material, UnityEngine.CoreModule" --limit 100
+ucli query scene tree --projectPath ./UnityProject --path Assets/Scenes/Main.unity --depth 1
+ucli query go describe --projectPath ./UnityProject --scene Assets/Scenes/Main.unity --hierarchyPath Root/Player --fullDepth
+ucli query comp schema --projectPath ./UnityProject --type "UnityEngine.Transform, UnityEngine.CoreModule"
+ucli query asset schema --projectPath ./UnityProject --assetGuid 11111111111111111111111111111111
 ```
 
 ## `ucli plan`

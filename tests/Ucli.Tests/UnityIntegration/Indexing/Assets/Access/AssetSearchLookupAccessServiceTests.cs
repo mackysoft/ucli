@@ -108,7 +108,8 @@ public sealed class AssetSearchLookupAccessServiceTests
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.RequireFresh,
-            query: new AssetSearchLookupQuery(TypeId: null, PathPrefix: "Assets/Data", NameContains: "Fresh"));
+            query: new AssetSearchLookupQuery(TypeId: null, PathPrefix: "Assets/Data", NameContains: "Fresh"),
+            failFast: true);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
@@ -116,6 +117,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         Assert.Equal("Assets/Data/Fresh.asset", result.Output.Entries[0].AssetPath);
         Assert.Equal(AssetLookupSource.Source, result.Output.AccessInfo.Source);
         Assert.Equal(UcliCommandIds.Query, refreshService.LastCommand);
+        Assert.True(refreshService.LastFailFast);
         Assert.Contains("stale", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
     }
 
@@ -274,6 +276,8 @@ public sealed class AssetSearchLookupAccessServiceTests
 
         public UcliCommand LastCommand { get; private set; }
 
+        public bool LastFailFast { get; private set; }
+
         public AssetLookupRefreshResult Result { get; set; }
             = AssetLookupRefreshResult.Failure("not configured", IpcErrorCodes.InternalError);
 
@@ -285,11 +289,13 @@ public sealed class AssetSearchLookupAccessServiceTests
             TimeSpan timeout,
             ReadIndexMode readIndexMode,
             string fallbackReason,
+            bool failFast = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
             LastCommand = command;
+            LastFailFast = failFast;
             return ValueTask.FromResult(Result);
         }
     }
