@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
+namespace MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve.Projection;
 
 /// <summary> Creates <c>ucli.resolve</c> operation argument payloads from normalized selectors. </summary>
 internal static class ResolveSelectorOperationArgsFactory

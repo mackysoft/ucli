@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 
-namespace MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve.ReadIndex;
+namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
 /// <summary> Resolves GameObject hierarchy paths from scene-tree-lite lookup nodes. </summary>
 internal static class SceneTreeLiteHierarchyPathResolver
@@ -11,7 +11,7 @@ internal static class SceneTreeLiteHierarchyPathResolver
     /// <returns> A successful result when exactly one node matches the full path and has a GlobalObjectId; otherwise a failed result. </returns>
     /// <exception cref="ArgumentNullException"> <paramref name="roots" /> or <paramref name="hierarchyPath" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> <paramref name="hierarchyPath" /> is empty or whitespace. </exception>
-    public static ResolveHierarchyPathReadIndexResult Resolve (
+    public static SceneTreeLiteHierarchyPathResolutionResult Resolve (
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
         string hierarchyPath)
     {
@@ -23,7 +23,7 @@ internal static class SceneTreeLiteHierarchyPathResolver
         {
             if (string.IsNullOrEmpty(segments[segmentIndex]))
             {
-                return ResolveHierarchyPathReadIndexResult.Failure("Hierarchy path must not contain empty segments.");
+                return SceneTreeLiteHierarchyPathResolutionResult.Failure("Hierarchy path must not contain empty segments.");
             }
         }
 
@@ -31,7 +31,7 @@ internal static class SceneTreeLiteHierarchyPathResolver
         AddMatches(roots, segments[0], candidates);
         if (candidates.Count == 0)
         {
-            return ResolveHierarchyPathReadIndexResult.Failure($"Hierarchy path '{hierarchyPath}' did not match a GameObject.");
+            return SceneTreeLiteHierarchyPathResolutionResult.Failure($"Hierarchy path '{hierarchyPath}' did not match a GameObject.");
         }
 
         for (var segmentIndex = 0; segmentIndex < segments.Length; segmentIndex++)
@@ -50,7 +50,7 @@ internal static class SceneTreeLiteHierarchyPathResolver
 
             if (nextCandidates.Count == 0)
             {
-                return ResolveHierarchyPathReadIndexResult.Failure($"Hierarchy path '{hierarchyPath}' did not match a GameObject.");
+                return SceneTreeLiteHierarchyPathResolutionResult.Failure($"Hierarchy path '{hierarchyPath}' did not match a GameObject.");
             }
 
             candidates = nextCandidates;
@@ -58,16 +58,16 @@ internal static class SceneTreeLiteHierarchyPathResolver
 
         if (candidates.Count > 1)
         {
-            return ResolveHierarchyPathReadIndexResult.Failure($"Hierarchy path '{hierarchyPath}' matched multiple GameObjects.");
+            return SceneTreeLiteHierarchyPathResolutionResult.Failure($"Hierarchy path '{hierarchyPath}' matched multiple GameObjects.");
         }
 
         var current = candidates[0];
         if (string.IsNullOrWhiteSpace(current.GlobalObjectId))
         {
-            return ResolveHierarchyPathReadIndexResult.Failure($"Hierarchy path '{hierarchyPath}' does not have a GlobalObjectId in scene-tree-lite.");
+            return SceneTreeLiteHierarchyPathResolutionResult.Failure($"Hierarchy path '{hierarchyPath}' does not have a GlobalObjectId in scene-tree-lite.");
         }
 
-        return ResolveHierarchyPathReadIndexResult.Success(current.GlobalObjectId);
+        return SceneTreeLiteHierarchyPathResolutionResult.Success(current.GlobalObjectId);
     }
 
     private static void AddMatches (

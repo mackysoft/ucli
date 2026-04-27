@@ -1,6 +1,7 @@
+using MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
+namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
 /// <summary> Represents selector creation outcome for <c>ucli resolve</c>. </summary>
 internal sealed record ResolveSelectorInputCreationResult (

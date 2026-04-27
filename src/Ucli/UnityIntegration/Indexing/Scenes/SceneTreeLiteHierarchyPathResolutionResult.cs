@@ -1,9 +1,9 @@
-namespace MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve.ReadIndex;
+namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
 /// <summary> Represents one hierarchy-path resolution attempt against scene-tree-lite data. </summary>
 /// <param name="GlobalObjectId"> The resolved GlobalObjectId when resolution succeeded; otherwise <see langword="null" />. </param>
 /// <param name="ErrorMessage"> The failure message when resolution failed; otherwise <see langword="null" />. </param>
-internal sealed record ResolveHierarchyPathReadIndexResult (
+internal sealed record SceneTreeLiteHierarchyPathResolutionResult (
     string? GlobalObjectId,
     string? ErrorMessage)
 {
@@ -15,10 +15,10 @@ internal sealed record ResolveHierarchyPathReadIndexResult (
     /// <returns> A result whose <see cref="IsSuccess" /> value is <see langword="true" />. </returns>
     /// <exception cref="ArgumentNullException"> <paramref name="globalObjectId" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> <paramref name="globalObjectId" /> is empty or whitespace. </exception>
-    public static ResolveHierarchyPathReadIndexResult Success (string globalObjectId)
+    public static SceneTreeLiteHierarchyPathResolutionResult Success (string globalObjectId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(globalObjectId);
-        return new ResolveHierarchyPathReadIndexResult(globalObjectId, null);
+        return new SceneTreeLiteHierarchyPathResolutionResult(globalObjectId, null);
     }
 
     /// <summary> Creates a failed resolution result. </summary>
@@ -26,9 +26,9 @@ internal sealed record ResolveHierarchyPathReadIndexResult (
     /// <returns> A result whose <see cref="IsSuccess" /> value is <see langword="false" />. </returns>
     /// <exception cref="ArgumentNullException"> <paramref name="message" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentException"> <paramref name="message" /> is empty or whitespace. </exception>
-    public static ResolveHierarchyPathReadIndexResult Failure (string message)
+    public static SceneTreeLiteHierarchyPathResolutionResult Failure (string message)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        return new ResolveHierarchyPathReadIndexResult(null, message);
+        return new SceneTreeLiteHierarchyPathResolutionResult(null, message);
     }
 }

@@ -2,7 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve.ReadIndex;
+using MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve.Projection;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Shared.Configuration;
@@ -11,6 +11,7 @@ using MackySoft.Ucli.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
 
 namespace MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
@@ -217,23 +218,13 @@ internal sealed class ResolveService : IResolveService
         string requestId,
         bool failFast)
     {
-        var executeArguments = JsonSerializer.SerializeToElement(new
-        {
-            protocolVersion = IpcProtocol.CurrentVersion,
+        return ExecuteRequestPayloadFactory.CreateSingleOperation(
+            UcliCommandIds.Resolve,
             requestId,
-            steps = new[]
-            {
-                new
-                {
-                    kind = "op",
-                    id = ResolveOperationId,
-                    op = UcliPrimitiveOperationNames.Resolve,
-                    args = ResolveSelectorOperationArgsFactory.Create(selector),
-                },
-            },
-        }, IpcJsonSerializerOptions.Default);
-
-        return ExecuteRequestPayloadFactory.Create(UcliCommandIds.Resolve, executeArguments, failFast);
+            ResolveOperationId,
+            UcliPrimitiveOperationNames.Resolve,
+            ResolveSelectorOperationArgsFactory.Create(selector),
+            failFast);
     }
 
     private static IpcExecuteOperationResult CreateResolveOperationResult (string globalObjectId)
