@@ -1075,6 +1075,33 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(schema.GetProperty("properties").ToString(), Does.Contain("\"path\":\"integerValue\""));
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Schema_Plan_WhenTypeIsTransform_ReturnsSchemaResult () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new CompSchemaOperation();
+            var typeId = IndexTypeIdFormatter.Format(typeof(Transform));
+            var requestOperation = CreateOperation(
+                opId: "op-schema",
+                opName: UcliPrimitiveOperationNames.CompSchema,
+                args: new
+                {
+                    type = typeId,
+                });
+
+            using var executionContext = new OperationExecutionContext();
+            var result = await operation.Plan(requestOperation, executionContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
+            Assert.That(result.Result.HasValue, Is.True);
+            var schema = result.Result!.Value;
+            Assert.That(schema.GetProperty("schemaKey").GetString(), Is.EqualTo($"comp:{typeId}"));
+            Assert.That(schema.GetProperty("kind").GetString(), Is.EqualTo("comp"));
+            Assert.That(schema.GetProperty("typeId").GetString(), Is.EqualTo(typeId));
+            Assert.That(schema.GetProperty("displayName").GetString(), Is.EqualTo(nameof(Transform)));
+            Assert.That(schema.GetProperty("properties").ValueKind, Is.EqualTo(JsonValueKind.Array));
+        });
+
         private static NormalizedOperation CreateOperation (
             string opId,
             string opName,
