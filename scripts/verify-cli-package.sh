@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Shared by PR verification and release publishing. Package shape checks belong
-# here so the local smoke test and publish smoke test cannot diverge.
 if [[ "$#" -ne 2 ]]; then
   echo "Usage: $0 <package-dir> <expected-version>" >&2
   exit 2

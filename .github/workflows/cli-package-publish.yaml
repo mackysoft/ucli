@@ -114,8 +114,6 @@ jobs:
       - name: Smoke test CLI tool package
         env:
           PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
-        # The script isolates the local package source before installing, so a
-        # rerun cannot pass by resolving an already-published package.
         run: ./scripts/verify-cli-package.sh artifacts/packages "${PACKAGE_VERSION}"
 
       - name: NuGet login
@@ -163,8 +161,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # NOTE: The package is already published at this point. This PR only
-          # brings the repository default version back in sync with that release.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 

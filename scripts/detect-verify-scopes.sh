@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Centralizes the GitHub Actions scope contract. Keep workflow wiring in YAML
-# and changed-file classification here so adding a scope has one main edit site.
 dotnet_matrix_pr='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"},{"runs_on":"windows-latest","os_name":"windows"},{"runs_on":"macos-latest","os_name":"macos"}]}'
 dotnet_matrix_push='{"include":[{"runs_on":"ubuntu-latest","os_name":"linux"}]}'
 unity_matrix_pr='{"include":[{"runs_on":"ubuntu-22.04","os_name":"linux","cache_installation":true},{"runs_on":"windows-latest","os_name":"windows","cache_installation":false},{"runs_on":"macos-latest","os_name":"macos","cache_installation":true}]}'
@@ -39,8 +37,7 @@ emit_outputs() {
   emit_output unity_matrix_json "${unity_matrix_json}"
 }
 
-# When comparison context is unavailable, run every scope rather than silently
-# skipping a job that may be required for the change.
+# Fail closed when comparison context is unavailable.
 emit_full_verification() {
   needs_dotnet=true
   needs_unity=true
@@ -193,8 +190,6 @@ if [[ "${event_name}" == "pull_request" ]]; then
 fi
 
 if [[ "${event_name}" == "push" ]]; then
-  # Post-merge verification is intentionally lighter, while PRs and manual runs
-  # keep the wider OS matrix before code reaches master.
   dotnet_matrix_json="${dotnet_matrix_push}"
   unity_matrix_json="${unity_matrix_push}"
 fi
