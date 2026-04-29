@@ -7,6 +7,7 @@ using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;
 
+[Collection(CurrentDirectoryTestCollection.Name)]
 public sealed class InitServiceTests
 {
     [Fact]
