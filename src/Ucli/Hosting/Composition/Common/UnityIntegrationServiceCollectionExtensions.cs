@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;

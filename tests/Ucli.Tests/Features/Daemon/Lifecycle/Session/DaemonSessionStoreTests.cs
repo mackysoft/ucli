@@ -25,6 +25,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Infrastructure.Storage;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Runtime.Versioning;

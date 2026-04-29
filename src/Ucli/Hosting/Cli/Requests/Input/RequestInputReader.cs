@@ -1,6 +1,6 @@
 using System.Security;
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests.Input;

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>MackySoft.Ucli.Infrastructure</AssemblyName>
+    <RootNamespace>MackySoft.Ucli.Infrastructure</RootNamespace>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackageId>MackySoft.Ucli.Infrastructure</PackageId>
+    <Version>0.18.0</Version>
+    <Description>Shared infrastructure services for uCLI runtime components.</Description>
+    <RepositoryUrl>https://github.com/mackysoft/ucli</RepositoryUrl>
+    <PackageTags>ucli;unity;infrastructure</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Ucli.Contracts/Ucli.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../LICENSE" Pack="true" PackagePath="" Link="LICENSE" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

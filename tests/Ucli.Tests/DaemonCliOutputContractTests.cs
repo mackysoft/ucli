@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Project;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
@@ -12,6 +11,8 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Infrastructure.Project;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests;
 

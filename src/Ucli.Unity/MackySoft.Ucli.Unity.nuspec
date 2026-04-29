@@ -15,6 +15,7 @@
     <tags>ucli unity editor automation ipc nugetforunity</tags>
     <dependencies>
       <dependency id="MackySoft.Ucli.Contracts" version="0.18.0" />
+      <dependency id="MackySoft.Ucli.Infrastructure" version="0.18.0" />
       <dependency id="Microsoft.Bcl.AsyncInterfaces" version="8.0.0" />
       <dependency id="Microsoft.Extensions.DependencyInjection" version="6.0.0" />
       <dependency id="Microsoft.Extensions.DependencyInjection.Abstractions" version="6.0.0" />

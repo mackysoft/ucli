@@ -1,6 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Json;
-using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;

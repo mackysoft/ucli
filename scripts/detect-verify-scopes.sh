@@ -10,7 +10,7 @@ dotnet_matrix_json="${dotnet_matrix_pr}"
 unity_matrix_json="${unity_matrix_pr}"
 needs_dotnet=false
 needs_unity=false
-needs_contracts_pack=false
+needs_shared_pack=false
 needs_cli_pack=false
 needs_unity_pack=false
 
@@ -32,7 +32,7 @@ emit_output() {
 emit_outputs() {
   emit_output needs_dotnet "${needs_dotnet}"
   emit_output needs_unity "${needs_unity}"
-  emit_output needs_contracts_pack "${needs_contracts_pack}"
+  emit_output needs_shared_pack "${needs_shared_pack}"
   emit_output needs_cli_pack "${needs_cli_pack}"
   emit_output needs_unity_pack "${needs_unity_pack}"
   emit_output dotnet_matrix_json "${dotnet_matrix_json}"
@@ -43,7 +43,7 @@ emit_outputs() {
 emit_full_verification() {
   needs_dotnet=true
   needs_unity=true
-  needs_contracts_pack=true
+  needs_shared_pack=true
   needs_cli_pack=true
   needs_unity_pack=true
   dotnet_matrix_json="${dotnet_matrix_pr}"
@@ -69,7 +69,7 @@ is_dotnet_input() {
 
   case "${file}" in
     # Changes to this detector can alter every downstream job decision.
-    .editorconfig|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh)
+    .editorconfig|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/shared-package-publish.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh)
       return 0
       ;;
   esac
@@ -79,7 +79,7 @@ is_dotnet_input() {
   fi
 
   case "${file}" in
-    src/Ucli/*|src/Ucli.Contracts/*|tests/*)
+    src/Ucli/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|tests/*)
       return 0
       ;;
     *)
@@ -92,7 +92,7 @@ is_unity_input() {
   local file="$1"
 
   case "${file}" in
-    .github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/setup-nuget-cli.sh|scripts/update-local-contracts-package.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
+    .github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/setup-nuget-cli.sh|scripts/update-local-shared-packages.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
       return 0
       ;;
   esac
@@ -102,7 +102,7 @@ is_unity_input() {
   fi
 
   case "${file}" in
-    src/Ucli/*|src/Ucli.Contracts/*)
+    src/Ucli/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
       return 0
       ;;
     *)
@@ -124,7 +124,7 @@ is_package_publish_shared_input() {
   esac
 }
 
-is_contracts_pack_input() {
+is_shared_pack_input() {
   local file="$1"
 
   if is_package_publish_shared_input "${file}"; then
@@ -132,7 +132,7 @@ is_contracts_pack_input() {
   fi
 
   case "${file}" in
-    .github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-contracts-package-version.sh)
+    .github/workflows/verify.yaml|.github/workflows/shared-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-shared-package-version.sh)
       return 0
       ;;
   esac
@@ -142,7 +142,7 @@ is_contracts_pack_input() {
   fi
 
   case "${file}" in
-    src/Ucli.Contracts/*)
+    src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
       return 0
       ;;
     *)
@@ -159,7 +159,7 @@ is_cli_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*)
+    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
       return 0
       ;;
     *)
@@ -250,8 +250,8 @@ while IFS= read -r file; do
     needs_unity=true
   fi
 
-  if is_contracts_pack_input "${file}"; then
-    needs_contracts_pack=true
+  if is_shared_pack_input "${file}"; then
+    needs_shared_pack=true
   fi
 
   if is_cli_pack_input "${file}"; then

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Infrastructure.Ipc;
 using System;
 using System.IO;
 using System.Net.Sockets;

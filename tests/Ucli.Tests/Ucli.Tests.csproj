@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Ucli.Contracts/Ucli.Contracts.csproj" />
+    <ProjectReference Include="../../src/Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Ucli/Ucli.csproj" />
     <ProjectReference Include="../Tests.Helper/Tests.Helper.csproj" />
   </ItemGroup>

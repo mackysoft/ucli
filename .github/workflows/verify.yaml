@@ -22,7 +22,7 @@ jobs:
     outputs:
       needs_dotnet: ${{ steps.detect.outputs.needs_dotnet }}
       needs_unity: ${{ steps.detect.outputs.needs_unity }}
-      needs_contracts_pack: ${{ steps.detect.outputs.needs_contracts_pack }}
+      needs_shared_pack: ${{ steps.detect.outputs.needs_shared_pack }}
       needs_cli_pack: ${{ steps.detect.outputs.needs_cli_pack }}
       needs_unity_pack: ${{ steps.detect.outputs.needs_unity_pack }}
       dotnet_matrix_json: ${{ steps.detect.outputs.dotnet_matrix_json }}
@@ -208,7 +208,7 @@ jobs:
             ${{ runner.os }}-unity-library-
 
       - name: Restore Unity dependencies
-        run: ./scripts/update-local-contracts-package.sh --prune
+        run: ./scripts/update-local-shared-packages.sh --prune
         shell: bash
 
       - name: Run Unity EditMode tests on Linux or macOS
@@ -327,10 +327,10 @@ jobs:
           Write-Error "Unity EditMode tests failed with exit code ${{ steps.unity_test_windows.outputs.exit_code }}."
         shell: pwsh
 
-  contracts_pack:
-    name: contracts-pack
+  shared_pack:
+    name: shared-pack
     needs: changes
-    if: ${{ needs.changes.outputs.needs_contracts_pack == 'true' }}
+    if: ${{ needs.changes.outputs.needs_shared_pack == 'true' }}
     runs-on: ubuntu-latest
 
     defaults:
@@ -352,20 +352,22 @@ jobs:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
-      - name: Restore contracts
-        run: dotnet restore src/Ucli.Contracts/Ucli.Contracts.csproj
+      - name: Restore shared packages
+        run: dotnet restore src/Ucli.Infrastructure/Ucli.Infrastructure.csproj
 
-      - name: Build contracts
-        run: dotnet build src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-restore
+      - name: Build shared packages
+        run: dotnet build src/Ucli.Infrastructure/Ucli.Infrastructure.csproj --configuration Release --no-restore
 
-      - name: Pack contracts
-        run: dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-build --output artifacts/packages
+      - name: Pack shared packages
+        run: |
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj --configuration Release --no-build --output artifacts/packages
+          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj --configuration Release --no-build --output artifacts/packages
 
-      - name: Upload contracts package
+      - name: Upload shared packages
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: contracts-package-artifacts
+          name: shared-package-artifacts
           path: artifacts/packages
           if-no-files-found: warn
 
@@ -456,7 +458,7 @@ jobs:
       - access_guard
       - dotnet
       - unity
-      - contracts_pack
+      - shared_pack
       - cli_pack
       - unity_pack
     runs-on: ubuntu-latest
@@ -467,14 +469,14 @@ jobs:
         env:
           NEEDS_DOTNET: ${{ needs.changes.outputs.needs_dotnet }}
           NEEDS_UNITY: ${{ needs.changes.outputs.needs_unity }}
-          NEEDS_CONTRACTS_PACK: ${{ needs.changes.outputs.needs_contracts_pack }}
+          NEEDS_SHARED_PACK: ${{ needs.changes.outputs.needs_shared_pack }}
           NEEDS_CLI_PACK: ${{ needs.changes.outputs.needs_cli_pack }}
           NEEDS_UNITY_PACK: ${{ needs.changes.outputs.needs_unity_pack }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           ACCESS_GUARD_RESULT: ${{ needs.access_guard.result }}
           DOTNET_RESULT: ${{ needs.dotnet.result }}
           UNITY_RESULT: ${{ needs.unity.result }}
-          CONTRACTS_PACK_RESULT: ${{ needs.contracts_pack.result }}
+          SHARED_PACK_RESULT: ${{ needs.shared_pack.result }}
           CLI_PACK_RESULT: ${{ needs.cli_pack.result }}
           UNITY_PACK_RESULT: ${{ needs.unity_pack.result }}
         run: |
@@ -502,8 +504,8 @@ jobs:
             fi
           fi
 
-          if [[ "${NEEDS_CONTRACTS_PACK}" == "true" && "${CONTRACTS_PACK_RESULT}" != "success" ]]; then
-            echo "contracts-pack job is required but finished with ${CONTRACTS_PACK_RESULT}." >&2
+          if [[ "${NEEDS_SHARED_PACK}" == "true" && "${SHARED_PACK_RESULT}" != "success" ]]; then
+            echo "shared-pack job is required but finished with ${SHARED_PACK_RESULT}." >&2
             exit 1
           fi
 

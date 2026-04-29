@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
 
