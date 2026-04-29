@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Shared by PR verification and release publishing. Package shape checks belong
+# here so the local smoke test and publish smoke test cannot diverge.
 if [[ "$#" -ne 2 ]]; then
   echo "Usage: $0 <package-dir> <expected-version>" >&2
   exit 2
@@ -15,6 +17,8 @@ if [[ ! -d "${package_dir}" ]]; then
 fi
 
 package_dir="$(cd "${package_dir}" && pwd)"
+# Use the exact expected package file so a stale package in the directory cannot
+# satisfy the smoke test by accident.
 package_path="${package_dir}/MackySoft.Ucli.${expected_version}.nupkg"
 if [[ ! -f "${package_path}" ]]; then
   echo "CLI package was not created: ${package_path}" >&2
@@ -25,6 +29,8 @@ temp_root="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 tool_path="$(mktemp -d "${temp_root%/}/ucli-tool.XXXXXX")"
 trap 'rm -rf "${tool_path}"' EXIT
 
+# --source replaces configured feeds, ensuring the install exercises only the
+# nupkg built by this run.
 dotnet tool install \
   --tool-path "${tool_path}" \
   --source "${package_dir}" \

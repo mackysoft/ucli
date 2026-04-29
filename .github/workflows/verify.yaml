@@ -42,6 +42,8 @@ jobs:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
+        # NOTE: Scope rules live in a script so package checks can evolve without
+        # turning this workflow step back into a long inline shell block.
         run: ./scripts/detect-verify-scopes.sh
 
   access_guard:
@@ -441,6 +443,8 @@ jobs:
           --output artifacts/packages
 
       - name: Smoke test CLI tool package
+        # NOTE: This calls the same package contract check used by the publish
+        # workflow, so PR verification and release verification cannot drift.
         run: ./scripts/verify-cli-package.sh artifacts/packages 0.0.0-ci
 
       - name: Upload CLI package
