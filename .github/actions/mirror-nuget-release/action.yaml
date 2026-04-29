@@ -1,0 +1,46 @@
+name: Mirror NuGet package to GitHub Release
+description: Mirror one NuGet package artifact to the matching GitHub Release.
+
+inputs:
+  github-token:
+    description: GitHub token used by gh to create or update the release.
+    required: true
+  package-id:
+    description: NuGet package ID.
+    required: true
+  package-version:
+    description: NuGet package version.
+    required: true
+  release-tag:
+    description: GitHub Release tag name.
+    required: true
+  release-title:
+    description: GitHub Release title.
+    required: true
+  release-notes:
+    description: GitHub Release notes.
+    required: true
+  repository:
+    description: GitHub repository in owner/name form.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Mirror package to GitHub Release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PACKAGE_ID: ${{ inputs.package-id }}
+        PACKAGE_VERSION: ${{ inputs.package-version }}
+        RELEASE_NOTES: ${{ inputs.release-notes }}
+        RELEASE_TAG: ${{ inputs.release-tag }}
+        RELEASE_TITLE: ${{ inputs.release-title }}
+        REPOSITORY: ${{ inputs.repository }}
+      run: >-
+        ./scripts/mirror-nuget-package-release.sh
+        --repository "${REPOSITORY}"
+        --tag-name "${RELEASE_TAG}"
+        --package-glob "artifacts/packages/${PACKAGE_ID}.${PACKAGE_VERSION}.nupkg"
+        --title "${RELEASE_TITLE}"
+        --notes "${RELEASE_NOTES}"

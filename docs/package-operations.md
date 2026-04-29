@@ -3,37 +3,57 @@
 ## Shared Contracts Ownership
 - 共通DTOは `src/Ucli.Contracts` で定義する。
 - CLI（`src/Ucli`）は `ProjectReference` で `Ucli.Contracts` を参照する。
-- Unityプラグイン（`src/Ucli.Unity`）は NuGetForUnity と `packages.config` で `MackySoft.Ucli.Contracts` を参照する。
+- Unity開発プロジェクト（`src/Ucli.Unity`）は NuGetForUnity と `packages.config` で `MackySoft.Ucli.Contracts` を参照する。
+- 配布用Unityプラグインは `MackySoft.Ucli.Unity` nupkg として生成し、NuGetForUnity で導入する。
 
 ## Unity Dependency Restore
 - `src/Ucli.Unity/Assets/NuGet.config` で以下のソースを利用する。
-  - `PrivateNuGet`: `https://nuget.pkg.github.com/mackysoft/index.json`
+  - `LocalNuGet`: `../Packages/nuget-local-source`
   - `nuget.org`: `https://api.nuget.org/v3/index.json`
 - NuGetForUnity の復元成果物は生成物として扱う。
   - `src/Ucli.Unity/Assets/Packages/`
   - `src/Ucli.Unity/.nuget-cache/`
   - `src/Ucli.Unity/.nuget-packages/`
+- `src/Ucli.Unity/Assets/NuGet.config` は package source mapping で `MackySoft.Ucli.Contracts` を `LocalNuGet` に固定し、開発中の共有契約が公開済み版で上書きされることを防ぐ。
 
-## GitHub Packages Authentication
-- 認証情報はリポジトリに含めない。
-- NuGetForUnity は `ApplicationData/NuGet/NuGet.Config` を参照する。
-  - macOS/Linux: `~/.config/NuGet/NuGet.Config`
-  - Windows: `%AppData%\NuGet\NuGet.Config`
-- `dotnet` CLI は通常 `~/.nuget/NuGet/NuGet.Config` を参照する。
-- Unity と CLI の設定を揃えるため、`~/.config/NuGet/NuGet.Config` と `~/.nuget/NuGet/NuGet.Config` は同一内容に維持する。
-- `packageSourceCredentials` のキー名は、`NuGet.config` の source key と一致させる（`PrivateNuGet`）。
-- GitHub Packages 読み取りには `read:packages` 権限が必要。private repository 配下のパッケージは `repo` も必要。
+## NuGet Source Policy
+- 公開パッケージは `MackySoft.Ucli`、`MackySoft.Ucli.Contracts`、`MackySoft.Ucli.Unity` のいずれも nuget.org へ公開する。
+- 利用者側の Unity project は `nuget.org` source だけで `MackySoft.Ucli.Unity` と推移依存を復元できる。
+- 開発用 project は `MackySoft.Ucli.Contracts` を `LocalNuGet` から復元し、`Microsoft.*` / `System.*` の外部依存を `nuget.org` から復元する。
+- 認証付き feed は標準導入手順に含めない。
 
-```bash
-dotnet nuget add source "https://nuget.pkg.github.com/mackysoft/index.json" \
-  --name "PrivateNuGet" \
-  --username "<github-user>" \
-  --password "<github-pat>" \
-  --store-password-in-clear-text \
-  --configfile "$HOME/.config/NuGet/NuGet.Config"
+## Unity Plugin Distribution
+`MackySoft.Ucli.Unity` は NuGetForUnity 用の nupkg として nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。Unityプラグイン本体、`ucli-plugin.json`、README、LICENSE を package root に含め、復元後の配置は次の形になる。
+
+```text
+Assets/Packages/MackySoft.Ucli.Unity.<version>/ucli-plugin.json
+Assets/Packages/MackySoft.Ucli.Unity.<version>/Editor/MackySoft.Ucli.Unity.Editor.asmdef
 ```
 
-上記設定後に Unity を batchmode で開くと、NuGetForUnity が `packages.config` の依存を GitHub Packages から復元する。
+利用者側は `Assets/NuGet.config` に `nuget.org` を設定し、NuGetForUnity で `MackySoft.Ucli.Unity` を導入する。`MackySoft.Ucli.Unity` は `MackySoft.Ucli.Contracts`、`System.Text.Json`、`Microsoft.Extensions.DependencyInjection` などを NuGet 依存として定義する。
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<packages>
+  <package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
+</packages>
+```
+
+NuGetForUnity のUIで導入した場合は依存パッケージも `packages.config` に追加される。`nuget restore` をCIなどで直接使うプロジェクトでは、NuGetForUnity が生成した依存行を含む `packages.config` をコミットする。
+
+配布パッケージは次のコマンドで生成・検証する。
+
+```bash
+./scripts/pack-unity-plugin.sh --version <version> --output "artifacts/packages"
+./scripts/verify-unity-plugin-package.sh "artifacts/packages" <version>
+```
+
+## Release Artifact Mirror
+各 publish workflow は、nuget.org への公開が成功した後に同じ `.nupkg` を GitHub Releases へミラーする。配布の正は nuget.org とし、GitHub Releases はタグごとの公開成果物を確認する監査場所として扱う。
+
+- `cli/<version>`: `MackySoft.Ucli.<version>.nupkg`
+- `contracts/<version>`: `MackySoft.Ucli.Contracts.<version>.nupkg`
+- `unity/<version>`: `MackySoft.Ucli.Unity.<version>.nupkg`
 
 ## CLI Global Tool Distribution
 `MackySoft.Ucli` は nuget.org へ .NET global tool として公開する。利用者は追加 NuGet source を設定せず、次のコマンドで導入する。
@@ -48,7 +68,7 @@ dotnet tool install --global MackySoft.Ucli --version <version>
 dotnet tool update --global MackySoft.Ucli --version <version>
 ```
 
-CLI パッケージは `src/Ucli/Ucli.csproj` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから publish する。
+CLI パッケージは `src/Ucli/Ucli.csproj` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
 
 ```bash
 dotnet pack "src/Ucli/Ucli.csproj" \
@@ -58,7 +78,7 @@ dotnet pack "src/Ucli/Ucli.csproj" \
   -o "artifacts/packages"
 ```
 
-nuget.org への公開は GitHub Actions の Trusted Publishing を使用する。nuget.org 側で repository owner `mackysoft`、repository `ucli`、workflow file `cli-package-publish.yaml`、environment 未指定の policy を作成し、GitHub repository variable `NUGET_USER` に nuget.org profile name を設定する。
+nuget.org への公開は GitHub Actions の Trusted Publishing を使用する。nuget.org 側で repository owner `mackysoft`、repository `ucli`、workflow file `cli-package-publish.yaml` / `contracts-package-publish.yaml` / `unity-package-publish.yaml`、environment 未指定の policy を作成し、GitHub repository variable `NUGET_USER` に nuget.org profile name を設定する。
 
 ## NuGetForUnity パッケージ解決手順
 ### 標準フロー（Unity エディタ起動）
@@ -96,6 +116,7 @@ rm -rf src/Ucli.Unity/.nuget-packages
 nuget restore "src/Ucli.Unity/Assets/packages.config" \
   -PackagesDirectory "src/Ucli.Unity/Assets/Packages" \
   -ConfigFile "src/Ucli.Unity/Assets/NuGet.config" \
+  -NoCache \
   -NonInteractive
 ```
 3. `nuget restore` が生成した package 配下の簡易 `.meta` を削除し、次回 Unity 起動で importer 設定を再生成させる。
@@ -147,17 +168,21 @@ done
 - `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、contracts pack、CLI pack を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
 - `contracts-package-publish` の workflow 自体を変更した PR でも `verify` は `.NET` と contracts pack を起動し、公開フロー変更を無検証のまま通さない。
 - `cli-package-publish` の workflow 自体を変更した PR では `verify` は `.NET` と CLI pack を起動し、global tool packaging の回帰を検出する。
+- `unity-package-publish` の workflow、Unity package nuspec、pack/verify script、Unityプラグイン本体、`packages.config` を変更した PR では `verify` は Unity package pack を起動し、NuGetForUnity配布物の回帰を検出する。
 - `verify` は workflow-level `concurrency` で同一 PR または同一 branch の古い run を自動キャンセルする。`workflow_dispatch` のみ明示比較用途のため自動キャンセルしない。
 - `pull_request` では変更差分を merge base 起点で判定し、必要な job だけを `Linux`、`Windows`、`macOS` の 3 OS matrix で実行する。外部 contributor の PR では `access-guard` job が失敗し、Unity job は実行しない。
 - `push` to `master` では変更差分を判定しつつ、実行 OS は `Linux` のみに絞って post-merge 検証を軽量化する。
-- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、contracts pack、CLI pack をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
+- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、contracts pack、CLI pack、Unity package pack をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
 - Unity 検証は `src/Ucli`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`scripts/update-local-contracts-package.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、`ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
 - CLI pack 検証は `src/Ucli`、`src/Ucli.Contracts`、`README.md`、`LICENSE`、`cli-package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
-- `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で同じ publish / repository version sync PR 作成まで継続する。
-- `contracts-package-publish` は公開後に `chore/contracts-sync-<version>` ブランチを作成し、`src/Ucli.Contracts/Ucli.Contracts.csproj` と `src/Ucli.Unity/Assets/packages.config` の `MackySoft.Ucli.Contracts` バージョンを同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release 作成まで継続する。
+- Unity package pack 検証は `scripts/pack-unity-plugin.sh` で `MackySoft.Ucli.Unity` nupkg を作成し、`scripts/verify-unity-plugin-package.sh` で必須ファイル、依存定義、ローカル復元後の `ucli-plugin.json` 配置を検証する。
+- `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
+- `contracts-package-publish` は公開後に `chore/contracts-sync-<version>` ブランチを作成し、`src/Ucli.Contracts/Ucli.Contracts.csproj`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の `MackySoft.Ucli.Contracts` バージョンを同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release mirror まで継続する。
 - `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`src/Ucli/Ucli.csproj` の `MackySoft.Ucli` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`、`cli/x.y.z`）。
+- `unity-package-publish`: `unity/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / package verify / nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
+- `unity-package-publish` は公開後に `chore/unity-sync-<version>` ブランチを作成し、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の `MackySoft.Ucli.Unity` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`、`cli/x.y.z`、`unity/x.y.z`）。
 
 ```bash
 git tag contracts/x.y.z
@@ -165,4 +190,7 @@ git push origin contracts/x.y.z
 
 git tag cli/x.y.z
 git push origin cli/x.y.z
+
+git tag unity/x.y.z
+git push origin unity/x.y.z
 ```

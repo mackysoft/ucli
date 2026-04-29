@@ -14,7 +14,7 @@ on:
 permissions:
   actions: write
   contents: write
-  packages: write
+  id-token: write
   pull-requests: write
 
 jobs:
@@ -35,23 +35,7 @@ jobs:
         shell: bash
         env:
           DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            package_version="${DISPATCH_VERSION}"
-          else
-            tag_name="${GITHUB_REF_NAME}"
-            package_version="${tag_name#contracts/}"
-          fi
-
-          if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Package version must use <major>.<minor>.<patch> format. Actual: ${package_version}" >&2
-            exit 1
-          fi
-
-          tag_name="contracts/${package_version}"
-
-          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
-          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+        run: ./scripts/resolve-release-version.sh --tag-prefix contracts --dispatch-version "${DISPATCH_VERSION}"
 
       - name: Create and push release tag
         if: github.event_name == 'workflow_dispatch'
@@ -59,17 +43,7 @@ jobs:
         env:
           TAG_NAME: ${{ steps.version.outputs.tag_name }}
           RELEASE_SHA: ${{ github.sha }}
-        run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null; then
-            echo "Tag ${TAG_NAME} already exists." >&2
-            exit 1
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag "${TAG_NAME}" "${RELEASE_SHA}"
-          git push origin "refs/tags/${TAG_NAME}"
+        run: ./scripts/create-release-tag.sh --tag-name "${TAG_NAME}" --release-sha "${RELEASE_SHA}"
 
   publish:
     needs: prepare-release
@@ -94,12 +68,22 @@ jobs:
           -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
           --output artifacts/packages
 
-      - name: Publish to GitHub Packages
-        run: >-
-          dotnet nuget push "artifacts/packages/*.nupkg"
-          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-          --api-key "${{ secrets.GITHUB_TOKEN }}"
-          --skip-duplicate
+      - name: Publish to nuget.org
+        uses: ./.github/actions/publish-nuget-package
+        with:
+          package-glob: artifacts/packages/*.nupkg
+          nuget-user: ${{ vars.NUGET_USER }}
+
+      - name: Mirror package to GitHub Release
+        uses: ./.github/actions/mirror-nuget-release
+        with:
+          github-token: ${{ github.token }}
+          package-id: MackySoft.Ucli.Contracts
+          package-version: ${{ needs.prepare-release.outputs.package_version }}
+          release-tag: ${{ needs.prepare-release.outputs.tag_name }}
+          release-title: uCLI Contracts ${{ needs.prepare-release.outputs.package_version }}
+          release-notes: Shared contracts package for ${{ needs.prepare-release.outputs.tag_name }}.
+          repository: ${{ github.repository }}
 
       - name: Create contracts package version sync pull request
         env:
@@ -109,78 +93,36 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -euo pipefail
 
-          git fetch origin "${DEFAULT_BRANCH}"
           sync_branch="chore/contracts-sync-${PACKAGE_VERSION}"
-          git checkout -B "${sync_branch}" "origin/${DEFAULT_BRANCH}"
+          ./scripts/prepare-version-sync-branch.sh \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}"
 
-          csproj_path="src/Ucli.Contracts/Ucli.Contracts.csproj"
-          unity_packages_config_path="src/Ucli.Unity/Assets/packages.config"
+          ./scripts/sync-contracts-package-version.sh \
+            --version "${PACKAGE_VERSION}"
 
-          csproj_current_version="$(sed -n 's#.*<Version>\(.*\)</Version>.*#\1#p' "${csproj_path}" | head -n 1)"
-          if [[ -z "${csproj_current_version}" ]]; then
-            echo "Failed to resolve contracts csproj version from ${csproj_path}." >&2
-            exit 1
-          fi
-
-          unity_current_version="$(sed -n 's#.*<package id="MackySoft.Ucli.Contracts" version="\([^"]\+\)".*#\1#p' "${unity_packages_config_path}" | head -n 1)"
-          if [[ -z "${unity_current_version}" ]]; then
-            echo "Failed to resolve Unity contracts package version from ${unity_packages_config_path}." >&2
-            exit 1
-          fi
-
-          if [[ "${csproj_current_version}" != "${PACKAGE_VERSION}" ]]; then
-            sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>${PACKAGE_VERSION}<\/Version>/" "${csproj_path}"
-          fi
-
-          if [[ "${unity_current_version}" != "${PACKAGE_VERSION}" ]]; then
-            sed -i -E "s#(<package id=\"MackySoft.Ucli.Contracts\" version=\")[^\"]+(\".*)#\\1${PACKAGE_VERSION}\\2#" "${unity_packages_config_path}"
-          fi
-
-          if git diff --quiet -- "${csproj_path}" "${unity_packages_config_path}"; then
-            echo "No repository version sync required."
-            exit 0
-          fi
-
-          git add "${csproj_path}" "${unity_packages_config_path}"
-          git commit -m "chore(contracts): sync package version to ${PACKAGE_VERSION}"
-          if git ls-remote --exit-code --heads origin "${sync_branch}" >/dev/null; then
-            git fetch origin "${sync_branch}:refs/remotes/origin/${sync_branch}"
-            remote_sync_sha="$(git rev-parse "refs/remotes/origin/${sync_branch}")"
-            git push --force-with-lease="refs/heads/${sync_branch}:${remote_sync_sha}" origin "HEAD:${sync_branch}"
-          else
-            git push origin "HEAD:${sync_branch}"
-          fi
-
-          existing_pr_url="$(gh pr list \
-            --repo "${REPOSITORY}" \
-            --state open \
-            --head "${sync_branch}" \
-            --json url \
-            --jq '.[0].url // empty')"
-          if [[ -n "${existing_pr_url}" ]]; then
-            echo "Contracts version sync pull request already exists: ${existing_pr_url}"
-          else
-            pr_body="$(cat <<EOF
+          pr_body_file="$(mktemp)"
+          trap 'rm -f "${pr_body_file}"' EXIT
+          cat > "${pr_body_file}" <<EOF
           ## Summary
           - Sync \`MackySoft.Ucli.Contracts\` package version to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish.
-          - Update \`${csproj_path}\` and \`${unity_packages_config_path}\`.
+          - Update \`src/Ucli.Contracts/Ucli.Contracts.csproj\`, \`src/Ucli.Unity/Assets/packages.config\`, and \`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec\`.
 
           ## Verification
           - \`contracts-package-publish\` packed and published \`${RELEASE_TAG}\` before creating this PR.
-          - \`verify\` workflow was dispatched for \`${sync_branch}\`.
+          - \`verify.yaml\` workflow was dispatched for \`${sync_branch}\`.
           EOF
-          )"
-            gh pr create \
-              --repo "${REPOSITORY}" \
-              --base "${DEFAULT_BRANCH}" \
-              --head "${sync_branch}" \
-              --title "chore(contracts): sync package version to ${PACKAGE_VERSION}" \
-              --body "${pr_body}"
-          fi
 
-          gh workflow run verify.yaml \
-            --repo "${REPOSITORY}" \
-            --ref "${sync_branch}"
+          ./scripts/create-version-sync-pr.sh \
+            --repository "${REPOSITORY}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}" \
+            --commit-message "chore(contracts): sync package version to ${PACKAGE_VERSION}" \
+            --pr-title "chore(contracts): sync package version to ${PACKAGE_VERSION}" \
+            --pr-body-file "${pr_body_file}" \
+            --verify-workflow verify.yaml \
+            --changed-path "src/Ucli.Contracts/Ucli.Contracts.csproj" \
+            --changed-path "src/Ucli.Unity/Assets/packages.config" \
+            --changed-path "src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec"

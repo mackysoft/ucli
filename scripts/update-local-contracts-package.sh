@@ -116,6 +116,7 @@ echo "[4/7] Restore Unity packages.config from local/source feeds"
 nuget restore "${unity_packages_config}" \
   -PackagesDirectory "${unity_packages_dir}" \
   -ConfigFile "${unity_nuget_config}" \
+  -NoCache \
   -NonInteractive
 
 echo "[5/7] Remove NuGet placeholder .meta files from restored Unity packages"

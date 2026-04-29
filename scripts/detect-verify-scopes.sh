@@ -12,6 +12,7 @@ needs_dotnet=false
 needs_unity=false
 needs_contracts_pack=false
 needs_cli_pack=false
+needs_unity_pack=false
 
 event_name="${EVENT_NAME:-}"
 current_sha="${CURRENT_SHA:-}"
@@ -33,6 +34,7 @@ emit_outputs() {
   emit_output needs_unity "${needs_unity}"
   emit_output needs_contracts_pack "${needs_contracts_pack}"
   emit_output needs_cli_pack "${needs_cli_pack}"
+  emit_output needs_unity_pack "${needs_unity_pack}"
   emit_output dotnet_matrix_json "${dotnet_matrix_json}"
   emit_output unity_matrix_json "${unity_matrix_json}"
 }
@@ -43,6 +45,7 @@ emit_full_verification() {
   needs_unity=true
   needs_contracts_pack=true
   needs_cli_pack=true
+  needs_unity_pack=true
   dotnet_matrix_json="${dotnet_matrix_pr}"
   unity_matrix_json="${unity_matrix_pr}"
   emit_outputs
@@ -89,7 +92,7 @@ is_unity_input() {
   local file="$1"
 
   case "${file}" in
-    .github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/update-local-contracts-package.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
+    .github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/setup-nuget-cli.sh|scripts/update-local-contracts-package.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
       return 0
       ;;
   esac
@@ -108,11 +111,28 @@ is_unity_input() {
   esac
 }
 
-is_contracts_pack_input() {
+is_package_publish_shared_input() {
   local file="$1"
 
   case "${file}" in
-    .github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml|scripts/detect-verify-scopes.sh)
+    .github/actions/mirror-nuget-release/action.yaml|.github/actions/publish-nuget-package/action.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_contracts_pack_input() {
+  local file="$1"
+
+  if is_package_publish_shared_input "${file}"; then
+    return 0
+  fi
+
+  case "${file}" in
+    .github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-contracts-package-version.sh)
       return 0
       ;;
   esac
@@ -134,8 +154,29 @@ is_contracts_pack_input() {
 is_cli_pack_input() {
   local file="$1"
 
+  if is_package_publish_shared_input "${file}"; then
+    return 0
+  fi
+
   case "${file}" in
-    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*)
+    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_unity_pack_input() {
+  local file="$1"
+
+  if is_package_publish_shared_input "${file}"; then
+    return 0
+  fi
+
+  case "${file}" in
+    README.md|LICENSE|docs/package-operations.md|.github/workflows/verify.yaml|.github/workflows/unity-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/pack-unity-plugin.sh|scripts/setup-nuget-cli.sh|scripts/sync-unity-package-version.sh|scripts/verify-unity-plugin-package.sh|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/*)
       return 0
       ;;
     *)
@@ -215,6 +256,10 @@ while IFS= read -r file; do
 
   if is_cli_pack_input "${file}"; then
     needs_cli_pack=true
+  fi
+
+  if is_unity_pack_input "${file}"; then
+    needs_unity_pack=true
   fi
 done <<< "${changed_files}"
 

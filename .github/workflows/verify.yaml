@@ -24,6 +24,7 @@ jobs:
       needs_unity: ${{ steps.detect.outputs.needs_unity }}
       needs_contracts_pack: ${{ steps.detect.outputs.needs_contracts_pack }}
       needs_cli_pack: ${{ steps.detect.outputs.needs_cli_pack }}
+      needs_unity_pack: ${{ steps.detect.outputs.needs_unity_pack }}
       dotnet_matrix_json: ${{ steps.detect.outputs.dotnet_matrix_json }}
       unity_matrix_json: ${{ steps.detect.outputs.unity_matrix_json }}
 
@@ -160,44 +161,9 @@ jobs:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
-      - name: Setup Mono on Linux
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          set -euo pipefail
-          if command -v mono >/dev/null 2>&1; then
-            mono --version | head -n 1
-            exit 0
-          fi
-
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get update
-          sudo apt-get install --yes mono-complete
-        shell: bash
-
-      - name: Setup Mono on macOS
-        if: ${{ runner.os == 'macOS' }}
-        run: |
-          set -euo pipefail
-          brew install mono
-        shell: bash
-
-      - name: Setup NuGet on Linux or macOS
+      - name: Setup NuGet CLI on Linux or macOS
         if: ${{ runner.os != 'Windows' }}
-        run: |
-          set -euo pipefail
-
-          nuget_dir="${RUNNER_TEMP}/nuget"
-          mkdir -p "${nuget_dir}"
-          curl --fail --location --silent --show-error \
-            "https://dist.nuget.org/win-x86-commandline/v7.3.0/nuget.exe" \
-            --output "${nuget_dir}/nuget.exe"
-          cat <<'EOF' > "${nuget_dir}/nuget"
-          #!/usr/bin/env bash
-          set -euo pipefail
-          mono "$(dirname "$0")/nuget.exe" "$@"
-          EOF
-          chmod +x "${nuget_dir}/nuget"
-          echo "${nuget_dir}" >> "${GITHUB_PATH}"
+        run: ./scripts/setup-nuget-cli.sh
         shell: bash
 
       - name: Setup NuGet on Windows
@@ -451,6 +417,37 @@ jobs:
           path: artifacts/packages
           if-no-files-found: warn
 
+  unity_pack:
+    name: unity-pack
+    needs: changes
+    if: ${{ needs.changes.outputs.needs_unity_pack == 'true' }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup NuGet CLI
+        run: ./scripts/setup-nuget-cli.sh
+
+      - name: Pack Unity plugin
+        run: ./scripts/pack-unity-plugin.sh --version 0.0.0-ci --output artifacts/packages
+
+      - name: Verify Unity plugin package
+        run: ./scripts/verify-unity-plugin-package.sh artifacts/packages 0.0.0-ci
+
+      - name: Upload Unity plugin package
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unity-package-artifacts
+          path: artifacts/packages
+          if-no-files-found: warn
+
   required:
     name: required
     if: ${{ always() }}
@@ -461,6 +458,7 @@ jobs:
       - unity
       - contracts_pack
       - cli_pack
+      - unity_pack
     runs-on: ubuntu-latest
 
     steps:
@@ -471,12 +469,14 @@ jobs:
           NEEDS_UNITY: ${{ needs.changes.outputs.needs_unity }}
           NEEDS_CONTRACTS_PACK: ${{ needs.changes.outputs.needs_contracts_pack }}
           NEEDS_CLI_PACK: ${{ needs.changes.outputs.needs_cli_pack }}
+          NEEDS_UNITY_PACK: ${{ needs.changes.outputs.needs_unity_pack }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           ACCESS_GUARD_RESULT: ${{ needs.access_guard.result }}
           DOTNET_RESULT: ${{ needs.dotnet.result }}
           UNITY_RESULT: ${{ needs.unity.result }}
           CONTRACTS_PACK_RESULT: ${{ needs.contracts_pack.result }}
           CLI_PACK_RESULT: ${{ needs.cli_pack.result }}
+          UNITY_PACK_RESULT: ${{ needs.unity_pack.result }}
         run: |
           set -euo pipefail
 
@@ -509,6 +509,11 @@ jobs:
 
           if [[ "${NEEDS_CLI_PACK}" == "true" && "${CLI_PACK_RESULT}" != "success" ]]; then
             echo "cli-pack job is required but finished with ${CLI_PACK_RESULT}." >&2
+            exit 1
+          fi
+
+          if [[ "${NEEDS_UNITY_PACK}" == "true" && "${UNITY_PACK_RESULT}" != "success" ]]; then
+            echo "unity-pack job is required but finished with ${UNITY_PACK_RESULT}." >&2
             exit 1
           fi
 
