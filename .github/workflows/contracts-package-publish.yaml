@@ -14,7 +14,7 @@ on:
 permissions:
   actions: write
   contents: write
-  packages: write
+  id-token: write
   pull-requests: write
 
 jobs:
@@ -35,23 +35,7 @@ jobs:
         shell: bash
         env:
           DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            package_version="${DISPATCH_VERSION}"
-          else
-            tag_name="${GITHUB_REF_NAME}"
-            package_version="${tag_name#contracts/}"
-          fi
-
-          if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Package version must use <major>.<minor>.<patch> format. Actual: ${package_version}" >&2
-            exit 1
-          fi
-
-          tag_name="contracts/${package_version}"
-
-          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
-          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+        run: ./scripts/resolve-release-version.sh --tag-prefix contracts --dispatch-version "${DISPATCH_VERSION}"
 
       - name: Create and push release tag
         if: github.event_name == 'workflow_dispatch'
@@ -59,17 +43,7 @@ jobs:
         env:
           TAG_NAME: ${{ steps.version.outputs.tag_name }}
           RELEASE_SHA: ${{ github.sha }}
-        run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null; then
-            echo "Tag ${TAG_NAME} already exists." >&2
-            exit 1
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag "${TAG_NAME}" "${RELEASE_SHA}"
-          git push origin "refs/tags/${TAG_NAME}"
+        run: ./scripts/create-release-tag.sh --tag-name "${TAG_NAME}" --release-sha "${RELEASE_SHA}"
 
   publish:
     needs: prepare-release
@@ -94,12 +68,11 @@ jobs:
           -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
           --output artifacts/packages
 
-      - name: Publish to GitHub Packages
-        run: >-
-          dotnet nuget push "artifacts/packages/*.nupkg"
-          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-          --api-key "${{ secrets.GITHUB_TOKEN }}"
-          --skip-duplicate
+      - name: Publish to nuget.org
+        uses: ./.github/actions/publish-nuget-package
+        with:
+          package-glob: artifacts/packages/*.nupkg
+          nuget-user: ${{ vars.NUGET_USER }}
 
       - name: Create contracts package version sync pull request
         env:

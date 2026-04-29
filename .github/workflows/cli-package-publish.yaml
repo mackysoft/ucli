@@ -35,25 +35,7 @@ jobs:
         shell: bash
         env:
           DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
-        run: |
-          set -euo pipefail
-
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            package_version="${DISPATCH_VERSION}"
-          else
-            tag_name="${GITHUB_REF_NAME}"
-            package_version="${tag_name#cli/}"
-          fi
-
-          if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Package version must use <major>.<minor>.<patch> format. Actual: ${package_version}" >&2
-            exit 1
-          fi
-
-          tag_name="cli/${package_version}"
-
-          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
-          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+        run: ./scripts/resolve-release-version.sh --tag-prefix cli --dispatch-version "${DISPATCH_VERSION}"
 
       - name: Create and push release tag
         if: github.event_name == 'workflow_dispatch'
@@ -61,19 +43,7 @@ jobs:
         env:
           TAG_NAME: ${{ steps.version.outputs.tag_name }}
           RELEASE_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null; then
-            echo "Tag ${TAG_NAME} already exists." >&2
-            exit 1
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag "${TAG_NAME}" "${RELEASE_SHA}"
-          git push origin "refs/tags/${TAG_NAME}"
+        run: ./scripts/create-release-tag.sh --tag-name "${TAG_NAME}" --release-sha "${RELEASE_SHA}"
 
   publish:
     needs: prepare-release
@@ -116,18 +86,11 @@ jobs:
           PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
         run: ./scripts/verify-cli-package.sh artifacts/packages "${PACKAGE_VERSION}"
 
-      - name: NuGet login
-        id: nuget_login
-        uses: NuGet/login@v1
-        with:
-          user: ${{ vars.NUGET_USER }}
-
       - name: Publish to nuget.org
-        run: >-
-          dotnet nuget push "artifacts/packages/*.nupkg"
-          --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}"
-          --source "https://api.nuget.org/v3/index.json"
-          --skip-duplicate
+        uses: ./.github/actions/publish-nuget-package
+        with:
+          package-glob: artifacts/packages/*.nupkg
+          nuget-user: ${{ vars.NUGET_USER }}
 
       - name: Create or update GitHub Release
         shell: bash
