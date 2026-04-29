@@ -161,10 +161,20 @@ jobs:
         run: |
           set -euo pipefail
 
+          sync_branch="chore/cli-sync-${PACKAGE_VERSION}"
+          ./scripts/prepare-version-sync-branch.sh \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}"
+
+          ./scripts/sync-cli-package-version.sh \
+            --version "${PACKAGE_VERSION}"
+
           ./scripts/create-version-sync-pr.sh \
-            --package cli \
-            --version "${PACKAGE_VERSION}" \
-            --release-tag "${RELEASE_TAG}" \
             --repository "${REPOSITORY}" \
             --default-branch "${DEFAULT_BRANCH}" \
-            --verify-workflow verify.yaml
+            --sync-branch "${sync_branch}" \
+            --commit-message "chore(cli): sync package version to ${PACKAGE_VERSION}" \
+            --pr-title "chore(cli): sync package version to ${PACKAGE_VERSION}" \
+            --pr-body "Sync \`MackySoft.Ucli\` package version to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish. The \`cli-package-publish\` workflow packed, smoke-tested, published, and released the package before creating this PR, then dispatched \`verify.yaml\` for \`${sync_branch}\`." \
+            --verify-workflow verify.yaml \
+            --changed-path "src/Ucli/Ucli.csproj"

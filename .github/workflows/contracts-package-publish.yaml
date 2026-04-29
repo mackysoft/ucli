@@ -111,10 +111,34 @@ jobs:
         run: |
           set -euo pipefail
 
+          sync_branch="chore/contracts-sync-${PACKAGE_VERSION}"
+          ./scripts/prepare-version-sync-branch.sh \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}"
+
+          ./scripts/sync-contracts-package-version.sh \
+            --version "${PACKAGE_VERSION}"
+
+          pr_body_file="$(mktemp)"
+          trap 'rm -f "${pr_body_file}"' EXIT
+          cat > "${pr_body_file}" <<EOF
+          ## Summary
+          - Sync \`MackySoft.Ucli.Contracts\` package version to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish.
+          - Update \`src/Ucli.Contracts/Ucli.Contracts.csproj\`, \`src/Ucli.Unity/Assets/packages.config\`, and \`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec\`.
+
+          ## Verification
+          - \`contracts-package-publish\` packed and published \`${RELEASE_TAG}\` before creating this PR.
+          - \`verify.yaml\` workflow was dispatched for \`${sync_branch}\`.
+          EOF
+
           ./scripts/create-version-sync-pr.sh \
-            --package contracts \
-            --version "${PACKAGE_VERSION}" \
-            --release-tag "${RELEASE_TAG}" \
             --repository "${REPOSITORY}" \
             --default-branch "${DEFAULT_BRANCH}" \
-            --verify-workflow verify.yaml
+            --sync-branch "${sync_branch}" \
+            --commit-message "chore(contracts): sync package version to ${PACKAGE_VERSION}" \
+            --pr-title "chore(contracts): sync package version to ${PACKAGE_VERSION}" \
+            --pr-body-file "${pr_body_file}" \
+            --verify-workflow verify.yaml \
+            --changed-path "src/Ucli.Contracts/Ucli.Contracts.csproj" \
+            --changed-path "src/Ucli.Unity/Assets/packages.config" \
+            --changed-path "src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec"
