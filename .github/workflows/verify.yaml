@@ -23,6 +23,7 @@ jobs:
       needs_dotnet: ${{ steps.detect.outputs.needs_dotnet }}
       needs_unity: ${{ steps.detect.outputs.needs_unity }}
       needs_contracts_pack: ${{ steps.detect.outputs.needs_contracts_pack }}
+      needs_cli_pack: ${{ steps.detect.outputs.needs_cli_pack }}
       dotnet_matrix_json: ${{ steps.detect.outputs.dotnet_matrix_json }}
       unity_matrix_json: ${{ steps.detect.outputs.unity_matrix_json }}
 
@@ -54,11 +55,13 @@ jobs:
           needs_dotnet=false
           needs_unity=false
           needs_contracts_pack=false
+          needs_cli_pack=false
 
           emit_outputs() {
             echo "needs_dotnet=${needs_dotnet}" >> "${GITHUB_OUTPUT}"
             echo "needs_unity=${needs_unity}" >> "${GITHUB_OUTPUT}"
             echo "needs_contracts_pack=${needs_contracts_pack}" >> "${GITHUB_OUTPUT}"
+            echo "needs_cli_pack=${needs_cli_pack}" >> "${GITHUB_OUTPUT}"
             echo "dotnet_matrix_json=${dotnet_matrix_json}" >> "${GITHUB_OUTPUT}"
             echo "unity_matrix_json=${unity_matrix_json}" >> "${GITHUB_OUTPUT}"
           }
@@ -67,6 +70,7 @@ jobs:
             needs_dotnet=true
             needs_unity=true
             needs_contracts_pack=true
+            needs_cli_pack=true
             dotnet_matrix_json="${dotnet_matrix_pr}"
             unity_matrix_json="${unity_matrix_pr}"
             emit_outputs
@@ -89,7 +93,7 @@ jobs:
             local file="$1"
 
             case "${file}" in
-              .editorconfig|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml)
+              .editorconfig|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml|.github/workflows/cli-package-publish.yaml)
                 return 0
                 ;;
             esac
@@ -146,6 +150,19 @@ jobs:
 
             case "${file}" in
               src/Ucli.Contracts/*)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          is_cli_pack_input() {
+            local file="$1"
+
+            case "${file}" in
+              README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*)
                 return 0
                 ;;
               *)
@@ -216,6 +233,10 @@ jobs:
 
             if is_contracts_pack_input "${file}"; then
               needs_contracts_pack=true
+            fi
+
+            if is_cli_pack_input "${file}"; then
+              needs_cli_pack=true
             fi
           done <<< "${changed_files}"
 
@@ -587,6 +608,54 @@ jobs:
           path: artifacts/packages
           if-no-files-found: warn
 
+  cli_pack:
+    name: cli-pack
+    needs: changes
+    if: ${{ needs.changes.outputs.needs_cli_pack == 'true' }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Restore CLI
+        run: dotnet restore src/Ucli/Ucli.csproj
+
+      - name: Pack CLI tool
+        run: >-
+          dotnet pack src/Ucli/Ucli.csproj
+          --configuration Release
+          --no-restore
+          -p:Version=0.0.0-ci
+          -p:PackageVersion=0.0.0-ci
+          --output artifacts/packages
+
+      - name: Smoke test CLI tool package
+        run: ./scripts/verify-cli-package.sh artifacts/packages 0.0.0-ci
+
+      - name: Upload CLI package
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cli-package-artifacts
+          path: artifacts/packages
+          if-no-files-found: warn
+
   required:
     name: required
     if: ${{ always() }}
@@ -596,6 +665,7 @@ jobs:
       - dotnet
       - unity
       - contracts_pack
+      - cli_pack
     runs-on: ubuntu-latest
 
     steps:
@@ -605,11 +675,13 @@ jobs:
           NEEDS_DOTNET: ${{ needs.changes.outputs.needs_dotnet }}
           NEEDS_UNITY: ${{ needs.changes.outputs.needs_unity }}
           NEEDS_CONTRACTS_PACK: ${{ needs.changes.outputs.needs_contracts_pack }}
+          NEEDS_CLI_PACK: ${{ needs.changes.outputs.needs_cli_pack }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           ACCESS_GUARD_RESULT: ${{ needs.access_guard.result }}
           DOTNET_RESULT: ${{ needs.dotnet.result }}
           UNITY_RESULT: ${{ needs.unity.result }}
           CONTRACTS_PACK_RESULT: ${{ needs.contracts_pack.result }}
+          CLI_PACK_RESULT: ${{ needs.cli_pack.result }}
         run: |
           set -euo pipefail
 
@@ -637,6 +709,11 @@ jobs:
 
           if [[ "${NEEDS_CONTRACTS_PACK}" == "true" && "${CONTRACTS_PACK_RESULT}" != "success" ]]; then
             echo "contracts-pack job is required but finished with ${CONTRACTS_PACK_RESULT}." >&2
+            exit 1
+          fi
+
+          if [[ "${NEEDS_CLI_PACK}" == "true" && "${CLI_PACK_RESULT}" != "success" ]]; then
+            echo "cli-pack job is required but finished with ${CLI_PACK_RESULT}." >&2
             exit 1
           fi
 
