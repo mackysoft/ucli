@@ -103,6 +103,7 @@ EOF
 nuget restore "${temp_dir}/packages.config" \
   -PackagesDirectory "${restore_root}/Assets/Packages" \
   -Source "${package_dir}" \
+  -NoCache \
   -NonInteractive >/dev/null
 
 restored_marker_path="${restore_root}/Assets/Packages/${package_id}.${expected_version}/ucli-plugin.json"
