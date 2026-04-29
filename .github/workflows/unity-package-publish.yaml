@@ -1,20 +1,20 @@
-name: cli-package-publish
+name: unity-package-publish
 
 on:
   push:
     tags:
-      - cli/*
+      - unity/*
   workflow_dispatch:
     inputs:
       package_version:
-        description: "SemVer CLI package version (e.g. 0.18.0)"
+        description: "SemVer Unity package version (e.g. 0.18.0)"
         required: true
         type: string
 
 permissions:
   actions: write
   contents: write
-  id-token: write
+  packages: write
   pull-requests: write
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
             package_version="${DISPATCH_VERSION}"
           else
             tag_name="${GITHUB_REF_NAME}"
-            package_version="${tag_name#cli/}"
+            package_version="${tag_name#unity/}"
           fi
 
           if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -50,7 +50,7 @@ jobs:
             exit 1
           fi
 
-          tag_name="cli/${package_version}"
+          tag_name="unity/${package_version}"
 
           echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
           echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
@@ -79,13 +79,15 @@ jobs:
     needs: prepare-release
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          # Pack from the resolved release tag so the nupkg, GitHub Release,
-          # and post-publish sync PR all refer to the same immutable source.
           ref: ${{ needs.prepare-release.outputs.tag_name }}
 
       - name: Setup .NET
@@ -93,65 +95,23 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Cache NuGet packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+      - name: Setup NuGet CLI
+        run: ./scripts/setup-nuget-cli.sh
 
-      - name: Restore CLI
-        run: dotnet restore src/Ucli/Ucli.csproj
+      - name: Pack Unity plugin
+        run: ./scripts/pack-unity-plugin.sh --version "${{ needs.prepare-release.outputs.package_version }}" --output artifacts/packages
 
-      - name: Pack CLI tool
-        run: >-
-          dotnet pack src/Ucli/Ucli.csproj
-          --configuration Release
-          --no-restore
-          -p:Version=${{ needs.prepare-release.outputs.package_version }}
-          -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
-          --output artifacts/packages
+      - name: Verify Unity plugin package
+        run: ./scripts/verify-unity-plugin-package.sh artifacts/packages "${{ needs.prepare-release.outputs.package_version }}"
 
-      - name: Smoke test CLI tool package
-        env:
-          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
-        run: ./scripts/verify-cli-package.sh artifacts/packages "${PACKAGE_VERSION}"
-
-      - name: NuGet login
-        id: nuget_login
-        uses: NuGet/login@v1
-        with:
-          user: ${{ vars.NUGET_USER }}
-
-      - name: Publish to nuget.org
+      - name: Publish to GitHub Packages
         run: >-
           dotnet nuget push "artifacts/packages/*.nupkg"
-          --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}"
-          --source "https://api.nuget.org/v3/index.json"
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
           --skip-duplicate
 
-      - name: Create or update GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
-          REPOSITORY: ${{ github.repository }}
-          TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
-        run: |
-          set -euo pipefail
-
-          package_path="$(find artifacts/packages -maxdepth 1 -type f -name 'MackySoft.Ucli.*.nupkg' | head -n 1)"
-          [[ -n "${package_path}" ]] || { echo "CLI package was not created." >&2; exit 1; }
-
-          if gh release view "${TAG_NAME}" --repo "${REPOSITORY}" >/dev/null 2>&1; then
-            gh release upload "${TAG_NAME}" "${package_path}" --repo "${REPOSITORY}" --clobber
-          else
-            gh release create "${TAG_NAME}" "${package_path}" \
-              --repo "${REPOSITORY}" \
-              --title "uCLI ${PACKAGE_VERSION}" \
-              --notes "CLI global tool package for ${TAG_NAME}."
-          fi
-
-      - name: Create CLI package version sync pull request
+      - name: Create Unity package version sync pull request
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GH_TOKEN: ${{ github.token }}
@@ -162,7 +122,7 @@ jobs:
           set -euo pipefail
 
           ./scripts/create-version-sync-pr.sh \
-            --package cli \
+            --package unity \
             --version "${PACKAGE_VERSION}" \
             --release-tag "${RELEASE_TAG}" \
             --repository "${REPOSITORY}" \

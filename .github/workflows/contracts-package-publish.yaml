@@ -109,78 +109,12 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -euo pipefail
 
-          git fetch origin "${DEFAULT_BRANCH}"
-          sync_branch="chore/contracts-sync-${PACKAGE_VERSION}"
-          git checkout -B "${sync_branch}" "origin/${DEFAULT_BRANCH}"
-
-          csproj_path="src/Ucli.Contracts/Ucli.Contracts.csproj"
-          unity_packages_config_path="src/Ucli.Unity/Assets/packages.config"
-
-          csproj_current_version="$(sed -n 's#.*<Version>\(.*\)</Version>.*#\1#p' "${csproj_path}" | head -n 1)"
-          if [[ -z "${csproj_current_version}" ]]; then
-            echo "Failed to resolve contracts csproj version from ${csproj_path}." >&2
-            exit 1
-          fi
-
-          unity_current_version="$(sed -n 's#.*<package id="MackySoft.Ucli.Contracts" version="\([^"]\+\)".*#\1#p' "${unity_packages_config_path}" | head -n 1)"
-          if [[ -z "${unity_current_version}" ]]; then
-            echo "Failed to resolve Unity contracts package version from ${unity_packages_config_path}." >&2
-            exit 1
-          fi
-
-          if [[ "${csproj_current_version}" != "${PACKAGE_VERSION}" ]]; then
-            sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>${PACKAGE_VERSION}<\/Version>/" "${csproj_path}"
-          fi
-
-          if [[ "${unity_current_version}" != "${PACKAGE_VERSION}" ]]; then
-            sed -i -E "s#(<package id=\"MackySoft.Ucli.Contracts\" version=\")[^\"]+(\".*)#\\1${PACKAGE_VERSION}\\2#" "${unity_packages_config_path}"
-          fi
-
-          if git diff --quiet -- "${csproj_path}" "${unity_packages_config_path}"; then
-            echo "No repository version sync required."
-            exit 0
-          fi
-
-          git add "${csproj_path}" "${unity_packages_config_path}"
-          git commit -m "chore(contracts): sync package version to ${PACKAGE_VERSION}"
-          if git ls-remote --exit-code --heads origin "${sync_branch}" >/dev/null; then
-            git fetch origin "${sync_branch}:refs/remotes/origin/${sync_branch}"
-            remote_sync_sha="$(git rev-parse "refs/remotes/origin/${sync_branch}")"
-            git push --force-with-lease="refs/heads/${sync_branch}:${remote_sync_sha}" origin "HEAD:${sync_branch}"
-          else
-            git push origin "HEAD:${sync_branch}"
-          fi
-
-          existing_pr_url="$(gh pr list \
-            --repo "${REPOSITORY}" \
-            --state open \
-            --head "${sync_branch}" \
-            --json url \
-            --jq '.[0].url // empty')"
-          if [[ -n "${existing_pr_url}" ]]; then
-            echo "Contracts version sync pull request already exists: ${existing_pr_url}"
-          else
-            pr_body="$(cat <<EOF
-          ## Summary
-          - Sync \`MackySoft.Ucli.Contracts\` package version to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish.
-          - Update \`${csproj_path}\` and \`${unity_packages_config_path}\`.
-
-          ## Verification
-          - \`contracts-package-publish\` packed and published \`${RELEASE_TAG}\` before creating this PR.
-          - \`verify\` workflow was dispatched for \`${sync_branch}\`.
-          EOF
-          )"
-            gh pr create \
-              --repo "${REPOSITORY}" \
-              --base "${DEFAULT_BRANCH}" \
-              --head "${sync_branch}" \
-              --title "chore(contracts): sync package version to ${PACKAGE_VERSION}" \
-              --body "${pr_body}"
-          fi
-
-          gh workflow run verify.yaml \
-            --repo "${REPOSITORY}" \
-            --ref "${sync_branch}"
+          ./scripts/create-version-sync-pr.sh \
+            --package contracts \
+            --version "${PACKAGE_VERSION}" \
+            --release-tag "${RELEASE_TAG}" \
+            --repository "${REPOSITORY}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --verify-workflow verify.yaml

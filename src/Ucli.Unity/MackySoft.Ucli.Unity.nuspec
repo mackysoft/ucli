@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>MackySoft.Ucli.Unity</id>
+    <version>0.18.0</version>
+    <title>uCLI Unity Plugin</title>
+    <authors>Hiroya Aramaki</authors>
+    <owners>MackySoft</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="file">LICENSE</license>
+    <readme>README.md</readme>
+    <projectUrl>https://github.com/mackysoft/ucli</projectUrl>
+    <repository type="git" url="https://github.com/mackysoft/ucli" />
+    <description>Unity Editor plugin for uCLI IPC and automation.</description>
+    <tags>ucli unity editor automation ipc nugetforunity</tags>
+    <dependencies>
+      <dependency id="MackySoft.Ucli.Contracts" version="0.18.0" />
+      <dependency id="Microsoft.Bcl.AsyncInterfaces" version="8.0.0" />
+      <dependency id="Microsoft.Extensions.DependencyInjection" version="6.0.0" />
+      <dependency id="Microsoft.Extensions.DependencyInjection.Abstractions" version="6.0.0" />
+      <dependency id="System.Buffers" version="4.5.1" />
+      <dependency id="System.Memory" version="4.5.5" />
+      <dependency id="System.Runtime.CompilerServices.Unsafe" version="6.0.0" />
+      <dependency id="System.Text.Encodings.Web" version="8.0.0" />
+      <dependency id="System.Text.Json" version="8.0.5" />
+      <dependency id="System.Threading.Tasks.Extensions" version="4.5.4" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="Assets/MackySoft/MackySoft.Ucli.Unity/**" target="" />
+    <file src="../../README.md" target="README.md" />
+    <file src="../../LICENSE" target="LICENSE" />
+  </files>
+</package>

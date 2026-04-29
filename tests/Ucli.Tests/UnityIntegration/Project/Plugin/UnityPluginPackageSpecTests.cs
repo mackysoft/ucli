@@ -1,0 +1,105 @@
+namespace MackySoft.Ucli.Tests;
+
+using System.Xml.Linq;
+using MackySoft.Tests;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin;
+
+public sealed class UnityPluginPackageSpecTests
+{
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Nuspec_DeclaresSameDependenciesAsUnityPackagesConfig ()
+    {
+        var repositoryRoot = ResolveRepositoryRoot();
+        var nuspecPath = Path.Combine(repositoryRoot, "src", "Ucli.Unity", "MackySoft.Ucli.Unity.nuspec");
+        var packagesConfigPath = Path.Combine(repositoryRoot, "src", "Ucli.Unity", "Assets", "packages.config");
+
+        var nuspecDependencies = ReadNuspecDependencies(nuspecPath);
+        var packagesConfigDependencies = ReadPackagesConfigDependencies(packagesConfigPath);
+
+        Assert.Equal(packagesConfigDependencies, nuspecDependencies);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Locate_WhenNuGetForUnityRestoredUnityPackageContainsMarker_ReturnsFound ()
+    {
+        var repositoryRoot = ResolveRepositoryRoot();
+        var packageVersion = ReadUnityPackageVersion(Path.Combine(
+            repositoryRoot,
+            "src",
+            "Ucli.Unity",
+            "MackySoft.Ucli.Unity.nuspec"));
+        using var scope = TestDirectories.CreateTempScope("unity-ucli-plugin-package", "nugetforunity-restore");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        var packageRoot = Path.Combine("UnityProject", "Assets", "Packages", $"MackySoft.Ucli.Unity.{packageVersion}");
+        scope.WriteFile(
+            Path.Combine(packageRoot, UnityUcliPluginLocator.MarkerFileName),
+            """
+            {
+              "pluginId": "com.mackysoft.ucli.unity",
+              "protocolVersion": 1
+            }
+            """);
+        var locator = new UnityUcliPluginLocator();
+
+        var result = await locator.Locate(unityProjectPath, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(UnityUcliPluginLocateStatus.Found, result.Status);
+        Assert.NotNull(result.MarkerPath);
+        Assert.EndsWith(
+            Path.Combine("Assets", "Packages", $"MackySoft.Ucli.Unity.{packageVersion}", UnityUcliPluginLocator.MarkerFileName),
+            result.MarkerPath,
+            StringComparison.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, string> ReadNuspecDependencies (string nuspecPath)
+    {
+        var document = XDocument.Load(nuspecPath);
+        var ns = document.Root?.Name.Namespace ?? XNamespace.None;
+        return document
+            .Descendants(ns + "dependency")
+            .ToDictionary(
+                dependency => dependency.Attribute("id")?.Value ?? string.Empty,
+                dependency => dependency.Attribute("version")?.Value ?? string.Empty,
+                StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, string> ReadPackagesConfigDependencies (string packagesConfigPath)
+    {
+        var document = XDocument.Load(packagesConfigPath);
+        return document
+            .Descendants("package")
+            .ToDictionary(
+                package => package.Attribute("id")?.Value ?? string.Empty,
+                package => package.Attribute("version")?.Value ?? string.Empty,
+                StringComparer.Ordinal);
+    }
+
+    private static string ReadUnityPackageVersion (string nuspecPath)
+    {
+        var document = XDocument.Load(nuspecPath);
+        var ns = document.Root?.Name.Namespace ?? XNamespace.None;
+        return document
+            .Descendants(ns + "version")
+            .Select(element => element.Value)
+            .First();
+    }
+
+    private static string ResolveRepositoryRoot ()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Ucli.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("Repository root could not be resolved from the test output directory.");
+    }
+}
