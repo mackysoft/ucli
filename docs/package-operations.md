@@ -23,7 +23,7 @@
 - 認証付き feed は標準導入手順に含めない。
 
 ## Unity Plugin Distribution
-`MackySoft.Ucli.Unity` は NuGetForUnity 用の nupkg として nuget.org へ公開する。Unityプラグイン本体、`ucli-plugin.json`、README、LICENSE を package root に含め、復元後の配置は次の形になる。
+`MackySoft.Ucli.Unity` は NuGetForUnity 用の nupkg として nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。Unityプラグイン本体、`ucli-plugin.json`、README、LICENSE を package root に含め、復元後の配置は次の形になる。
 
 ```text
 Assets/Packages/MackySoft.Ucli.Unity.<version>/ucli-plugin.json
@@ -48,6 +48,13 @@ NuGetForUnity のUIで導入した場合は依存パッケージも `packages.co
 ./scripts/verify-unity-plugin-package.sh "artifacts/packages" <version>
 ```
 
+## Release Artifact Mirror
+各 publish workflow は、nuget.org への公開が成功した後に同じ `.nupkg` を GitHub Releases へミラーする。配布の正は nuget.org とし、GitHub Releases はタグごとの公開成果物を確認する監査場所として扱う。
+
+- `cli/<version>`: `MackySoft.Ucli.<version>.nupkg`
+- `contracts/<version>`: `MackySoft.Ucli.Contracts.<version>.nupkg`
+- `unity/<version>`: `MackySoft.Ucli.Unity.<version>.nupkg`
+
 ## CLI Global Tool Distribution
 `MackySoft.Ucli` は nuget.org へ .NET global tool として公開する。利用者は追加 NuGet source を設定せず、次のコマンドで導入する。
 
@@ -61,7 +68,7 @@ dotnet tool install --global MackySoft.Ucli --version <version>
 dotnet tool update --global MackySoft.Ucli --version <version>
 ```
 
-CLI パッケージは `src/Ucli/Ucli.csproj` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから publish する。
+CLI パッケージは `src/Ucli/Ucli.csproj` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから nuget.org へ公開し、同じ `.nupkg` を GitHub Releases へミラーする。
 
 ```bash
 dotnet pack "src/Ucli/Ucli.csproj" \
@@ -169,11 +176,11 @@ done
 - Unity 検証は `src/Ucli`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`scripts/update-local-contracts-package.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、`ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
 - CLI pack 検証は `src/Ucli`、`src/Ucli.Contracts`、`README.md`、`LICENSE`、`cli-package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
 - Unity package pack 検証は `scripts/pack-unity-plugin.sh` で `MackySoft.Ucli.Unity` nupkg を作成し、`scripts/verify-unity-plugin-package.sh` で必須ファイル、依存定義、ローカル復元後の `ucli-plugin.json` 配置を検証する。
-- `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で同じ publish / repository version sync PR 作成まで継続する。
+- `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
 - `contracts-package-publish` は公開後に `chore/contracts-sync-<version>` ブランチを作成し、`src/Ucli.Contracts/Ucli.Contracts.csproj`、`src/Ucli.Unity/Assets/packages.config`、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の `MackySoft.Ucli.Contracts` バージョンを同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release 作成まで継続する。
+- `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release mirror まで継続する。
 - `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`src/Ucli/Ucli.csproj` の `MackySoft.Ucli` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- `unity-package-publish`: `unity/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / package verify / nuget.org publish / repository version sync PR 作成まで継続する。
+- `unity-package-publish`: `unity/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / package verify / nuget.org publish / GitHub Release mirror / repository version sync PR 作成まで継続する。
 - `unity-package-publish` は公開後に `chore/unity-sync-<version>` ブランチを作成し、`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec` の `MackySoft.Ucli.Unity` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
 - タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`、`cli/x.y.z`、`unity/x.y.z`）。
 
