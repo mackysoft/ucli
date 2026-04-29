@@ -2,15 +2,15 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Infrastructure.Index;
 
-namespace MackySoft.Ucli.Tests.Index;
+namespace MackySoft.Ucli.Infrastructure.Tests.Index;
 
-public sealed class FileSystemIndexInputFingerprintCalculatorTests
+public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
 {
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsNull_WhenRequiredInputsAreMissing ()
     {
-        using var scope = TestDirectories.CreateTempScope("index-hasher", "missing-inputs");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "missing-inputs");
         var calculator = new FileSystemIndexInputFingerprintCalculator();
         scope.CreateDirectory("Assets");
         scope.CreateDirectory("Packages");
@@ -24,7 +24,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsSnapshot_WhenRequiredInputsExist ()
     {
-        using var scope = TestDirectories.CreateTempScope("index-hasher", "success");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "success");
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
@@ -42,7 +42,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsDifferentCombinedHash_WhenInputChanges ()
     {
-        using var scope = TestDirectories.CreateTempScope("index-hasher", "change-detection");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "change-detection");
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 

@@ -1,25 +1,38 @@
+#if !NET8_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
+#if NET8_0_OR_GREATER
 using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
+#endif
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Storage;
 
-namespace MackySoft.Ucli.Shared.Storage;
+namespace MackySoft.Ucli.Infrastructure.Storage;
 
 /// <summary> Applies same-user filesystem boundaries to local runtime storage. </summary>
 internal static class FileSystemAccessBoundary
 {
+#if NET8_0_OR_GREATER
     private const UnixFileMode OwnerOnlyDirectoryMode =
         UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
 
     private const UnixFileMode OwnerOnlyFileMode =
         UnixFileMode.UserRead | UnixFileMode.UserWrite;
+#else
+    private const int OwnerOnlyDirectoryMode = 0x1C0;
+
+    private const int OwnerOnlyFileMode = 0x180;
+#endif
 
     /// <summary> Ensures the target directory exists and is limited to the current user. </summary>
     /// <param name="directoryPath"> The directory path to secure. </param>
     public static void EnsureSecureDirectory (string directoryPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            throw new ArgumentException("Directory path must not be empty.", nameof(directoryPath));
+        }
 
         var normalizedDirectoryPath = Path.GetFullPath(directoryPath);
         if (TryResolveLocalDirectoryRoot(normalizedDirectoryPath, out var localDirectoryRoot))
@@ -37,7 +50,10 @@ internal static class FileSystemAccessBoundary
     /// <param name="filePath"> The file path to secure. </param>
     public static void EnsureSecureFile (string filePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path must not be empty.", nameof(filePath));
+        }
 
         var normalizedFilePath = Path.GetFullPath(filePath);
         if (!File.Exists(normalizedFilePath))
@@ -52,7 +68,10 @@ internal static class FileSystemAccessBoundary
     /// <param name="socketPath"> The socket path to secure. </param>
     public static void EnsureSecureUnixSocket (string socketPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(socketPath);
+        if (string.IsNullOrWhiteSpace(socketPath))
+        {
+            throw new ArgumentException("Socket path must not be empty.", nameof(socketPath));
+        }
 
         var normalizedSocketPath = Path.GetFullPath(socketPath);
         if (!File.Exists(normalizedSocketPath))
@@ -99,6 +118,7 @@ internal static class FileSystemAccessBoundary
 
     private static void ApplySecureDirectoryMode (string directoryPath)
     {
+#if NET8_0_OR_GREATER
         if (OperatingSystem.IsWindows())
         {
             ApplyCurrentUserDirectoryAcl(directoryPath);
@@ -106,10 +126,19 @@ internal static class FileSystemAccessBoundary
         }
 
         File.SetUnixFileMode(directoryPath, OwnerOnlyDirectoryMode);
+#else
+        if (IsWindows())
+        {
+            return;
+        }
+
+        ApplyUnixFileMode(directoryPath, OwnerOnlyDirectoryMode, "directory");
+#endif
     }
 
     private static void ApplySecureFileMode (string filePath)
     {
+#if NET8_0_OR_GREATER
         if (OperatingSystem.IsWindows())
         {
             ApplyCurrentUserFileAcl(filePath);
@@ -117,8 +146,17 @@ internal static class FileSystemAccessBoundary
         }
 
         File.SetUnixFileMode(filePath, OwnerOnlyFileMode);
+#else
+        if (IsWindows())
+        {
+            return;
+        }
+
+        ApplyUnixFileMode(filePath, OwnerOnlyFileMode, "file");
+#endif
     }
 
+#if NET8_0_OR_GREATER
     [SupportedOSPlatform("windows")]
     private static void ApplyCurrentUserDirectoryAcl (string directoryPath)
     {
@@ -152,6 +190,21 @@ internal static class FileSystemAccessBoundary
         return identity.User
             ?? throw new InvalidOperationException("Current Windows user SID could not be resolved for filesystem access boundary.");
     }
+#else
+    private static void ApplyUnixFileMode (
+        string path,
+        int mode,
+        string targetKind)
+    {
+        if (Chmod(path, mode) != 0)
+        {
+            throw new IOException($"chmod failed for {targetKind} '{path}'. errno={Marshal.GetLastWin32Error()}");
+        }
+    }
+
+    [DllImport("libc", SetLastError = true, EntryPoint = "chmod")]
+    private static extern int Chmod (string pathname, int mode);
+#endif
 
     private static bool TryResolveLocalDirectoryRoot (
         string directoryPath,
@@ -203,8 +256,17 @@ internal static class FileSystemAccessBoundary
 
     private static StringComparison GetPathComparison ()
     {
-        return OperatingSystem.IsWindows()
+        return IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
+    }
+
+    private static bool IsWindows ()
+    {
+#if NET8_0_OR_GREATER
+        return OperatingSystem.IsWindows();
+#else
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+#endif
     }
 }

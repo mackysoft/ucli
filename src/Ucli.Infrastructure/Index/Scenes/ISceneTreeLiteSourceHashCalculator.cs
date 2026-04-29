@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
+namespace MackySoft.Ucli.Infrastructure.Index;
 
 /// <summary> Computes source hashes for per-scene scene-tree-lite freshness checks. </summary>
 internal interface ISceneTreeLiteSourceHashCalculator

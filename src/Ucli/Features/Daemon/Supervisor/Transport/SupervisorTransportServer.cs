@@ -26,7 +26,7 @@ using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.Shared.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
@@ -176,20 +176,12 @@ internal sealed class SupervisorTransportServer
         Func<CancellationToken, Task> onStarted,
         CancellationToken cancellationToken)
     {
-        var socketDirectoryPath = Path.GetDirectoryName(address);
-        if (!string.IsNullOrWhiteSpace(socketDirectoryPath))
-        {
-            FileSystemAccessBoundary.EnsureSecureDirectory(socketDirectoryPath);
-        }
-
-        if (File.Exists(address))
-        {
-            File.Delete(address);
-        }
+        var accessBoundary = new UnixSocketAccessBoundary(address, UcliIpcEndpointNames.SupervisorAddressPrefix);
+        accessBoundary.PrepareForBind();
 
         using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
         listener.Bind(new UnixDomainSocketEndPoint(address));
-        FileSystemAccessBoundary.EnsureSecureUnixSocket(address);
+        accessBoundary.HardenBoundSocket();
         listener.Listen(8);
 
         lock (syncRoot)
@@ -238,14 +230,7 @@ internal sealed class SupervisorTransportServer
                 }
             }
 
-            if (File.Exists(address))
-            {
-                File.Delete(address);
-            }
-
-            UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-                address,
-                UcliIpcEndpointNames.SupervisorAddressPrefix);
+            accessBoundary.Cleanup();
         }
     }
 

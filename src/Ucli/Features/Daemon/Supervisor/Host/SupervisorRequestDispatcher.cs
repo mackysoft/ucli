@@ -11,6 +11,7 @@ using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.ErrorCodes;

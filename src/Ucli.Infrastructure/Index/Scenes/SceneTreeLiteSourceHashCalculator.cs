@@ -2,7 +2,7 @@ using System.Text;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 
-namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
+namespace MackySoft.Ucli.Infrastructure.Index;
 
 /// <summary> Computes one scene-tree-lite source hash from the target scene asset and meta file. </summary>
 internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHashCalculator
@@ -30,45 +30,18 @@ internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHa
             PathStringNormalizer.ToPlatformSeparated(normalizedScenePath));
         var absoluteMetaPath = absoluteScenePath + ".meta";
 
-        var sceneHash = await TryHashFile(absoluteScenePath, cancellationToken).ConfigureAwait(false);
+        var sceneHash = await FileContentHash.TryComputeFileHash(absoluteScenePath, cancellationToken).ConfigureAwait(false);
         if (sceneHash == null)
         {
             return null;
         }
 
-        var metaHash = await TryHashFile(absoluteMetaPath, cancellationToken).ConfigureAwait(false);
+        var metaHash = await FileContentHash.TryComputeFileHash(absoluteMetaPath, cancellationToken).ConfigureAwait(false);
         if (metaHash == null)
         {
             return null;
         }
 
         return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(string.Concat(sceneHash, "\n", metaHash)));
-    }
-
-    private static async ValueTask<string?> TryHashFile (
-        string filePath,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!File.Exists(filePath))
-        {
-            return null;
-        }
-
-        byte[] bytes;
-        try
-        {
-            bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
-        {
-            return null;
-        }
-
-        return Sha256LowerHex.Compute(bytes);
     }
 }

@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text.Json;
 
-namespace MackySoft.Ucli.Contracts.Ipc;
+namespace MackySoft.Ucli.Infrastructure.Ipc;
 
 /// <summary> Encodes and decodes IPC frames using <c>length-prefix + UTF-8 JSON</c>. </summary>
 public static class IpcFrameCodec

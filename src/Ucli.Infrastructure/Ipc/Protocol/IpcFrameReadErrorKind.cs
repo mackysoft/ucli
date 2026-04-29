@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Contracts.Ipc;
+namespace MackySoft.Ucli.Infrastructure.Ipc;
 
 /// <summary> Defines machine-readable error kinds for IPC frame reads. </summary>
 public enum IpcFrameReadErrorKind

@@ -1,10 +1,11 @@
 using System.Buffers.Binary;
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
-namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
+namespace MackySoft.Ucli.Infrastructure.Tests.Ipc;
 
-public sealed class IpcFrameCodecContractTests
+public sealed class IpcFrameCodecTests
 {
     [Fact]
     [Trait("Size", "Small")]

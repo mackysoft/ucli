@@ -3,7 +3,6 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.Shared.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
 

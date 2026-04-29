@@ -231,27 +231,7 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
         string filePath,
         CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!File.Exists(filePath))
-        {
-            return null;
-        }
-
-        byte[] bytes;
-        try
-        {
-            bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception) when (IsIoFailure(exception))
-        {
-            return null;
-        }
-
-        return Sha256LowerHex.Compute(bytes);
+        return await FileContentHash.TryComputeFileHash(filePath, cancellationToken).ConfigureAwait(false);
     }
 
     private static string ComputeUtf8Hash (string text)

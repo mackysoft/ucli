@@ -31,7 +31,6 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.Shared.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
 

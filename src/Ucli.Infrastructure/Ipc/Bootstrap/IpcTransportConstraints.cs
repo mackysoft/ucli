@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Contracts.Ipc;
+namespace MackySoft.Ucli.Infrastructure.Ipc;
 
 /// <summary> Defines transport-level constraints shared by IPC endpoint resolution and tests. </summary>
 public static class IpcTransportConstraints

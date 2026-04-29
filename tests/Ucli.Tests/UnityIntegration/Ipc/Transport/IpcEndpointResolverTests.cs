@@ -1,5 +1,6 @@
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 

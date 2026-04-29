@@ -12,7 +12,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void TryResolveRepositoryRoot_WithGitDirectoryOnCurrentPath_ReturnsCurrentPath ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "resolve-repository-root");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "resolve-repository-root");
         var repositoryRoot = scope.CreateDirectory("Repo");
         scope.CreateDirectory(Path.Combine("Repo", UcliStoragePathNames.GitMarkerName));
 
@@ -25,7 +25,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void TryResolveRepositoryRoot_WithGitFileOnParentPath_ReturnsParentRepositoryRoot ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "resolve-repository-root-parent-file");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "resolve-repository-root-parent-file");
         var repositoryRoot = scope.CreateDirectory("Repo");
         scope.WriteFile(
             Path.Combine("Repo", UcliStoragePathNames.GitMarkerName),
@@ -41,7 +41,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void TryResolveRepositoryRoot_WithoutGitMarker_ReturnsNull ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "resolve-repository-root-not-found");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "resolve-repository-root-not-found");
         var directoryPath = scope.CreateDirectory("NoGitRepo");
 
         var resolvedPath = UcliStoragePathResolver.TryResolveRepositoryRoot(directoryPath);
@@ -53,7 +53,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveStorageRoot_WithGitMarkerOnParentPath_ReturnsRepositoryRoot ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "resolve-storage-root-parent");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "resolve-storage-root-parent");
         var repositoryRoot = scope.CreateDirectory("Repo");
         scope.CreateDirectory(Path.Combine("Repo", UcliStoragePathNames.GitMarkerName));
         var startPath = scope.CreateDirectory(Path.Combine("Repo", "UnityProject"));
@@ -67,7 +67,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveStorageRoot_WithoutGitMarker_ReturnsNormalizedStartPath ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "resolve-storage-root-fallback");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "resolve-storage-root-fallback");
         var startPath = scope.CreateDirectory(Path.Combine("Workspace", "UnityProject"));
 
         var resolvedPath = UcliStoragePathResolver.ResolveStorageRoot(startPath);
@@ -79,7 +79,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveConfigPath_ReturnsSharedUcliConfigPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveConfigPath(storageRoot);
 
@@ -95,7 +95,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolvePlanTokenKeyPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolvePlanTokenKeyPath(storageRoot, "abc123");
 
@@ -114,7 +114,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveUnityUcliPluginMarkerCachePath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(storageRoot, "abc123");
 
@@ -133,7 +133,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveIndexDirectory_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveIndexDirectory(storageRoot, "abc123");
 
@@ -152,7 +152,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveIndexCatalogsDirectory_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveIndexCatalogsDirectory(storageRoot, "abc123");
 
@@ -172,7 +172,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveTypesCatalogPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveTypesCatalogPath(storageRoot, "abc123");
 
@@ -193,7 +193,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveSchemasCatalogPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(storageRoot, "abc123");
 
@@ -214,7 +214,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveOpsCatalogPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveOpsCatalogPath(storageRoot, "abc123");
 
@@ -235,7 +235,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveIndexLookupsDirectory_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveIndexLookupsDirectory(storageRoot, "abc123");
 
@@ -255,7 +255,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveAssetSearchLookupPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(storageRoot, "abc123");
 
@@ -276,7 +276,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveGuidPathLookupPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(storageRoot, "abc123");
 
@@ -297,7 +297,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveSceneTreeLiteLookupDirectory_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupDirectory(storageRoot, "abc123");
 
@@ -318,7 +318,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveSceneTreeLiteLookupPath_ReturnsHashedSceneScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
         const string scenePath = @"Assets\Scenes\Sample.unity";
         var expectedSceneKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes("Assets/Scenes/Sample.unity"));
 
@@ -342,7 +342,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveMutationReadPostconditionPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(storageRoot, "abc123");
 
@@ -361,7 +361,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveIndexInputsManifestPath_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, "abc123");
 
@@ -382,7 +382,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveArtifactsDirectory_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveArtifactsDirectory(storageRoot, "abc123");
 
@@ -401,7 +401,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveTestArtifactsDirectory_ReturnsFingerprintScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveTestArtifactsDirectory(storageRoot, "abc123");
 
@@ -421,7 +421,7 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveTestRunArtifactsDirectory_ReturnsRunScopedPath ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var resolvedPath = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(storageRoot, "abc123", "run-id");
 
@@ -450,7 +450,7 @@ public sealed class UcliStoragePathResolverContractTests
     [InlineData("..")]
     public void ResolveTestRunArtifactsDirectory_WithPathSegmentOrTraversalRunId_ThrowsArgumentException (string runId)
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-contracts-storage-root");
+        var storageRoot = Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
 
         var exception = Assert.Throws<ArgumentException>(() =>
             UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(storageRoot, "abc123", runId));

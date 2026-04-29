@@ -10,7 +10,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryComputeCore_ReturnsSameCombinedHash_WhenOnlyAssetContentChanges ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-index-fingerprint", "core-asset-content");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "core-asset-content");
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
@@ -33,7 +33,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsDifferentAssetHashes_WhenAssetContentChanges ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-index-fingerprint", "asset-content");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", "asset-content");
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 
@@ -58,7 +58,7 @@ public sealed class FileSystemIndexInputFingerprintCalculatorTests
     [InlineData("move")]
     public async Task TryCompute_ReturnsDifferentAssetHashes_WhenAssetTopologyChanges (string changeKind)
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-index-fingerprint", changeKind);
+        using var scope = TestDirectories.CreateTempScope("infrastructure-index-fingerprint", changeKind);
         PrepareRequiredInputs(scope);
         var calculator = new FileSystemIndexInputFingerprintCalculator();
 

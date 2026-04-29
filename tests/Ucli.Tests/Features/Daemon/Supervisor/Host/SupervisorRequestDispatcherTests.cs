@@ -30,6 +30,7 @@ using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Shared.Execution.Process;

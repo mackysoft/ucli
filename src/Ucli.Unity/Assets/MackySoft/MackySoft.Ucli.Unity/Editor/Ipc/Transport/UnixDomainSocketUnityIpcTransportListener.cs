@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(onStarted));
             }
 
-            var accessBoundary = new UnixSocketAccessBoundary(address);
+            var accessBoundary = new UnixSocketAccessBoundary(address, UcliIpcEndpointNames.DaemonAddressPrefix);
             UnixSocketPathUtilities.ValidateSocketPathLength(address, nameof(address));
             accessBoundary.PrepareForBind();
 

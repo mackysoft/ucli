@@ -1,7 +1,7 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
+using MackySoft.Ucli.Infrastructure.Index;
 
-namespace MackySoft.Ucli.Tests.Scenes;
+namespace MackySoft.Ucli.Infrastructure.Tests.Index;
 
 public sealed class SceneTreeLiteSourceHashCalculatorTests
 {
@@ -9,7 +9,7 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsStableHash_WhenSceneAndMetaAreUnchanged ()
     {
-        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-hash", "stable");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "stable");
         WriteScene(scope, sceneContents: "scene-v1", metaContents: "meta-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
 
@@ -24,7 +24,7 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsDifferentHash_WhenSceneContentsChange ()
     {
-        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-hash", "scene-change");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "scene-change");
         WriteScene(scope, sceneContents: "scene-v1", metaContents: "meta-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
         var first = await calculator.TryCompute(scope.FullPath, "Assets/Scenes/Main.unity", CancellationToken.None);
@@ -41,7 +41,7 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsDifferentHash_WhenMetaContentsChange ()
     {
-        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-hash", "meta-change");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "meta-change");
         WriteScene(scope, sceneContents: "scene-v1", metaContents: "meta-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
         var first = await calculator.TryCompute(scope.FullPath, "Assets/Scenes/Main.unity", CancellationToken.None);
@@ -58,7 +58,7 @@ public sealed class SceneTreeLiteSourceHashCalculatorTests
     [Trait("Size", "Small")]
     public async Task TryCompute_ReturnsNull_WhenMetaFileIsMissing ()
     {
-        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-hash", "missing-meta");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-scene-tree-lite-hash", "missing-meta");
         scope.WriteFile(Path.Combine("Assets", "Scenes", "Main.unity"), "scene-v1");
         var calculator = new SceneTreeLiteSourceHashCalculator();
 

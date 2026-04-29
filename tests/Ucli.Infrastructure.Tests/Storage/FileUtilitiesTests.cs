@@ -10,7 +10,7 @@ public sealed class FileUtilitiesTests
     [Trait("Size", "Small")]
     public async Task WriteAllTextAtomically_WhenTargetExists_ReplacesExistingContents ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "atomic-write-overwrite");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-overwrite");
         var path = Path.Combine(scope.FullPath, "daemon-diagnosis.json");
         await File.WriteAllTextAsync(path, "old-contents", CancellationToken.None);
 

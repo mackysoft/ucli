@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Contracts.Ipc;
+namespace MackySoft.Ucli.Infrastructure.Ipc;
 
 /// <summary> Represents one IPC frame read result. </summary>
 /// <typeparam name="T"> The target model type. </typeparam>

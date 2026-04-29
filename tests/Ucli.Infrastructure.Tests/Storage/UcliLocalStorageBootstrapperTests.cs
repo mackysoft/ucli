@@ -10,7 +10,7 @@ public sealed class UcliLocalStorageBootstrapperTests
     [Trait("Size", "Small")]
     public void EnsureInitialized_WhenTargetIsUnderUcliLocal_BootstrapsSharedStorage ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "bootstrap-local-storage");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bootstrap-local-storage");
         var storageRoot = scope.CreateDirectory("Repo");
         var indexDirectoryPath = UcliStoragePathResolver.ResolveIndexDirectory(storageRoot, "fingerprint");
         var ucliDirectoryPath = Path.Combine(storageRoot, UcliStoragePathNames.UcliDirectoryName);
@@ -33,7 +33,7 @@ public sealed class UcliLocalStorageBootstrapperTests
     [Trait("Size", "Small")]
     public void EnsureInitialized_WhenGitIgnoreAlreadyExists_DoesNotOverwriteExistingContents ()
     {
-        using var scope = TestDirectories.CreateTempScope("contracts-storage", "bootstrap-existing-gitignore");
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bootstrap-existing-gitignore");
         var storageRoot = scope.CreateDirectory("Repo");
         var gitIgnorePath = Path.Combine(
             storageRoot,
