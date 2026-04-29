@@ -94,11 +94,7 @@ namespace MackySoft.Ucli.Unity.Index
                 {
                     hideFlags = HideFlags.HideAndDontSave,
                 };
-                var component = host.AddComponent(componentType);
-                if (component == null)
-                {
-                    throw new InvalidOperationException($"Failed to create component instance. type={componentType.FullName}");
-                }
+                var component = CreateComponentInstance(host, componentType);
 
                 var serializedObject = new SerializedObject(component);
                 propertyResult = schemaPropertyCollector.Collect(componentType, serializedObject);
@@ -122,6 +118,24 @@ namespace MackySoft.Ucli.Unity.Index
         {
             var typeId = IndexTypeIdFormatter.Format(componentType);
             return $"{IndexSchemaKindValues.Comp}:{typeId}";
+        }
+
+        private static Component CreateComponentInstance (
+            GameObject host,
+            Type componentType)
+        {
+            if (componentType == typeof(Transform))
+            {
+                return host.transform;
+            }
+
+            var component = host.AddComponent(componentType);
+            if (component == null)
+            {
+                throw new InvalidOperationException($"Failed to create component instance. type={componentType.FullName}");
+            }
+
+            return component;
         }
 
         private static bool IsValidComponentType (Type componentType)

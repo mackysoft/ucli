@@ -49,14 +49,23 @@ internal sealed class RequestInputReader : IRequestInputReader
         var hasRequestPath = !string.IsNullOrWhiteSpace(requestPath);
         var hasRedirectedStandardInput = isStandardInputRedirected();
 
-        if (hasRequestPath && hasRedirectedStandardInput)
-        {
-            return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
-                "Request input source is ambiguous. Specify either --requestPath or redirected standard input."));
-        }
-
         if (hasRequestPath)
         {
+            if (hasRedirectedStandardInput)
+            {
+                var standardInputResult = await ReadStandardInputForSourceSelectionAsync(cancellationToken);
+                if (!standardInputResult.IsSuccess)
+                {
+                    return RequestInputReadResult.Failure(standardInputResult.Error!);
+                }
+
+                if (!string.IsNullOrWhiteSpace(standardInputResult.Json))
+                {
+                    return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
+                        "Request input source is ambiguous. Specify either --requestPath or redirected standard input."));
+                }
+            }
+
             return await ReadFromRequestPathAsync(requestPath!, cancellationToken);
         }
 
@@ -86,6 +95,24 @@ internal sealed class RequestInputReader : IRequestInputReader
         }
 
         return ValidateJson(json, RequestInputSource.StandardInput, "standard input");
+    }
+
+    /// <summary> Reads redirected standard input only to decide whether it carries request content. </summary>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The read result used for source selection. </returns>
+    private async ValueTask<(bool IsSuccess, string? Json, ExecutionError? Error)> ReadStandardInputForSourceSelectionAsync (
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var json = await readStandardInputAsync(cancellationToken);
+            return (true, json, null);
+        }
+        catch (IOException exception)
+        {
+            return (false, null, ExecutionError.InternalError(
+                $"Failed to read request JSON from standard input. {exception.Message}"));
+        }
     }
 
     /// <summary> Reads and validates request JSON from a request file path. </summary>

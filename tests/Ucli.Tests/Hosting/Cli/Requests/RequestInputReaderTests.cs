@@ -34,6 +34,24 @@ public sealed class RequestInputReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ReadAsync_ReadsRequestPath_WhenRedirectedStandardInputIsEmpty ()
+    {
+        const string expectedJson = """{"source":"file"}""";
+        var reader = new RequestInputReader(
+            isStandardInputRedirected: static () => true,
+            readStandardInputAsync: static _ => Task.FromResult(" \r\n\t"),
+            readRequestFileAsync: static (_, _) => Task.FromResult(expectedJson));
+
+        var result = await reader.ReadAsync("request.json");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expectedJson, result.Json);
+        Assert.Equal(RequestInputSource.RequestPath, result.Source);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ReadAsync_ReadsRequestPath_WhenOnlyRequestPathIsSpecified ()
     {
         const string expectedJson = """{"source":"file"}""";
