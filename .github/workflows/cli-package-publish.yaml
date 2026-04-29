@@ -1,0 +1,216 @@
+name: cli-package-publish
+
+on:
+  push:
+    tags:
+      - cli/*
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: "SemVer CLI package version (e.g. 0.18.0)"
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      package_version: ${{ steps.version.outputs.package_version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve package version
+        id: version
+        shell: bash
+        env:
+          DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            package_version="${DISPATCH_VERSION}"
+          else
+            tag_name="${GITHUB_REF_NAME}"
+            package_version="${tag_name#cli/}"
+          fi
+
+          if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Package version must use <major>.<minor>.<patch> format. Actual: ${package_version}" >&2
+            exit 1
+          fi
+
+          tag_name="cli/${package_version}"
+
+          echo "package_version=${package_version}" >> "${GITHUB_OUTPUT}"
+          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create and push release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null; then
+            echo "Tag ${TAG_NAME} already exists." >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag "${TAG_NAME}" "${RELEASE_SHA}"
+          git push origin "refs/tags/${TAG_NAME}"
+
+  publish:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # Pack from the resolved release tag so the nupkg, GitHub Release,
+          # and post-publish sync PR all refer to the same immutable source.
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
+
+      - name: Restore CLI
+        run: dotnet restore src/Ucli/Ucli.csproj
+
+      - name: Pack CLI tool
+        run: >-
+          dotnet pack src/Ucli/Ucli.csproj
+          --configuration Release
+          --no-restore
+          -p:Version=${{ needs.prepare-release.outputs.package_version }}
+          -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
+          --output artifacts/packages
+
+      - name: Smoke test CLI tool package
+        env:
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+        run: ./scripts/verify-cli-package.sh artifacts/packages "${PACKAGE_VERSION}"
+
+      - name: NuGet login
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Publish to nuget.org
+        run: >-
+          dotnet nuget push "artifacts/packages/*.nupkg"
+          --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}"
+          --source "https://api.nuget.org/v3/index.json"
+          --skip-duplicate
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+          REPOSITORY: ${{ github.repository }}
+          TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          package_path="$(find artifacts/packages -maxdepth 1 -type f -name 'MackySoft.Ucli.*.nupkg' | head -n 1)"
+          [[ -n "${package_path}" ]] || { echo "CLI package was not created." >&2; exit 1; }
+
+          if gh release view "${TAG_NAME}" --repo "${REPOSITORY}" >/dev/null 2>&1; then
+            gh release upload "${TAG_NAME}" "${package_path}" --repo "${REPOSITORY}" --clobber
+          else
+            gh release create "${TAG_NAME}" "${package_path}" \
+              --repo "${REPOSITORY}" \
+              --title "uCLI ${PACKAGE_VERSION}" \
+              --notes "CLI global tool package for ${TAG_NAME}."
+          fi
+
+      - name: Create CLI package version sync pull request
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin "${DEFAULT_BRANCH}"
+          sync_branch="chore/cli-sync-${PACKAGE_VERSION}"
+          git checkout -B "${sync_branch}" "origin/${DEFAULT_BRANCH}"
+
+          csproj_path="src/Ucli/Ucli.csproj"
+          current_version="$(sed -n 's#.*<Version>\(.*\)</Version>.*#\1#p' "${csproj_path}" | head -n 1)"
+          if [[ -z "${current_version}" ]]; then
+            echo "Failed to resolve CLI csproj version from ${csproj_path}." >&2
+            exit 1
+          fi
+
+          if [[ "${current_version}" != "${PACKAGE_VERSION}" ]]; then
+            sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>${PACKAGE_VERSION}<\/Version>/" "${csproj_path}"
+          fi
+
+          if git diff --quiet -- "${csproj_path}"; then
+            echo "No repository version sync required."
+            exit 0
+          fi
+
+          git add "${csproj_path}"
+          git commit -m "chore(cli): sync package version to ${PACKAGE_VERSION}"
+          if git ls-remote --exit-code --heads origin "${sync_branch}" >/dev/null; then
+            git fetch origin "${sync_branch}:refs/remotes/origin/${sync_branch}"
+            remote_sync_sha="$(git rev-parse "refs/remotes/origin/${sync_branch}")"
+            git push --force-with-lease="refs/heads/${sync_branch}:${remote_sync_sha}" origin "HEAD:${sync_branch}"
+          else
+            git push origin "HEAD:${sync_branch}"
+          fi
+
+          existing_pr_url="$(gh pr list \
+            --repo "${REPOSITORY}" \
+            --state open \
+            --head "${sync_branch}" \
+            --json url \
+            --jq '.[0].url // empty')"
+          if [[ -n "${existing_pr_url}" ]]; then
+            echo "CLI version sync pull request already exists: ${existing_pr_url}"
+          else
+            gh pr create \
+              --repo "${REPOSITORY}" \
+              --base "${DEFAULT_BRANCH}" \
+              --head "${sync_branch}" \
+              --title "chore(cli): sync package version to ${PACKAGE_VERSION}" \
+              --body "Sync \`MackySoft.Ucli\` package version to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish. The \`cli-package-publish\` workflow packed, smoke-tested, published, and released the package before creating this PR, then dispatched \`verify\` for \`${sync_branch}\`."
+          fi
+
+          gh workflow run verify.yaml \
+            --repo "${REPOSITORY}" \
+            --ref "${sync_branch}"

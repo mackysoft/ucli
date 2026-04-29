@@ -8,6 +8,19 @@
     <LangVersion>13.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>ucli</ToolCommandName>
+    <PackageId>MackySoft.Ucli</PackageId>
+    <Version>0.18.0</Version>
+    <Authors>Hiroya Aramaki</Authors>
+    <Company>MackySoft</Company>
+    <Description>CLI workflow for Unity automation.</Description>
+    <RepositoryUrl>https://github.com/mackysoft/ucli</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>ucli;unity;cli;automation</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,7 +36,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="../../LICENSE" Link="LICENSE">
+    <None Include="../../README.md" Pack="true" PackagePath="" Link="README.md" />
+
+    <None Include="../../LICENSE" Pack="true" PackagePath="" Link="LICENSE">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>

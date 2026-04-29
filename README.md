@@ -10,24 +10,31 @@ Unity Editor API を経由した編集操作を中心に、Unity Test Framework 
 
 ## Get Started
 
-### 1. プロジェクト設定を初期化する
+### 1. CLI をインストールする
+```bash
+dotnet tool install --global MackySoft.Ucli --version <version>
+```
+
+```bash
+dotnet tool update --global MackySoft.Ucli --version <version>
+```
+
+### 2. プロジェクト設定を初期化する
 ```bash
 ucli init
 ```
 
-### 2. 変更前に計画を確認する
+### 3. 変更前に計画を確認する
 ```bash
 ucli plan < request.json
 ```
 
-### 3. 変更を適用する
+### 4. 変更を適用する
 ```bash
 ucli call --planToken "<PLAN_TOKEN>" < request.json
 ```
 
-### 4. Unity テストを実行する（統合後の予定）
-※ `ucli test` は現時点では未実装です。次は統合仕様の利用例です。
-
+### 5. Unity テストを実行する
 ```bash
 ucli test run \
   --projectPath ./UnityProject \
@@ -48,8 +55,8 @@ ucli test run \
 - `ucli ops`
 - `ucli status`
 - `ucli daemon`
-- `ucli test run`（予定）
-- `ucli test profile init`（予定）
+- `ucli test run`
+- `ucli test profile init`
 
 詳細仕様の入口は `docs/uCLI.md` です。  
 JSON リクエスト仕様は `docs/json-request-spec.md`、設計原則は `docs/uCLI-design-principles.md` を参照してください。
