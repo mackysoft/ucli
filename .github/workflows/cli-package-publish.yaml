@@ -92,27 +92,16 @@ jobs:
           package-glob: artifacts/packages/*.nupkg
           nuget-user: ${{ vars.NUGET_USER }}
 
-      - name: Create or update GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
-          REPOSITORY: ${{ github.repository }}
-          TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
-        run: |
-          set -euo pipefail
-
-          package_path="$(find artifacts/packages -maxdepth 1 -type f -name 'MackySoft.Ucli.*.nupkg' | head -n 1)"
-          [[ -n "${package_path}" ]] || { echo "CLI package was not created." >&2; exit 1; }
-
-          if gh release view "${TAG_NAME}" --repo "${REPOSITORY}" >/dev/null 2>&1; then
-            gh release upload "${TAG_NAME}" "${package_path}" --repo "${REPOSITORY}" --clobber
-          else
-            gh release create "${TAG_NAME}" "${package_path}" \
-              --repo "${REPOSITORY}" \
-              --title "uCLI ${PACKAGE_VERSION}" \
-              --notes "CLI global tool package for ${TAG_NAME}."
-          fi
+      - name: Mirror package to GitHub Release
+        uses: ./.github/actions/mirror-nuget-release
+        with:
+          github-token: ${{ github.token }}
+          package-id: MackySoft.Ucli
+          package-version: ${{ needs.prepare-release.outputs.package_version }}
+          release-tag: ${{ needs.prepare-release.outputs.tag_name }}
+          release-title: uCLI ${{ needs.prepare-release.outputs.package_version }}
+          release-notes: CLI global tool package for ${{ needs.prepare-release.outputs.tag_name }}.
+          repository: ${{ github.repository }}
 
       - name: Create CLI package version sync pull request
         env:

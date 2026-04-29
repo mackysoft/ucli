@@ -111,11 +111,28 @@ is_unity_input() {
   esac
 }
 
-is_contracts_pack_input() {
+is_package_publish_shared_input() {
   local file="$1"
 
   case "${file}" in
-    .github/actions/publish-nuget-package/action.yaml|.github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/detect-verify-scopes.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh|scripts/sync-contracts-package-version.sh)
+    .github/actions/mirror-nuget-release/action.yaml|.github/actions/publish-nuget-package/action.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/mirror-nuget-package-release.sh|scripts/package-version-sync-common.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_contracts_pack_input() {
+  local file="$1"
+
+  if is_package_publish_shared_input "${file}"; then
+    return 0
+  fi
+
+  case "${file}" in
+    .github/workflows/verify.yaml|.github/workflows/contracts-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-contracts-package-version.sh)
       return 0
       ;;
   esac
@@ -137,8 +154,12 @@ is_contracts_pack_input() {
 is_cli_pack_input() {
   local file="$1"
 
+  if is_package_publish_shared_input "${file}"; then
+    return 0
+  fi
+
   case "${file}" in
-    README.md|LICENSE|.github/actions/publish-nuget-package/action.yaml|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/detect-verify-scopes.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*)
+    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*)
       return 0
       ;;
     *)
@@ -150,8 +171,12 @@ is_cli_pack_input() {
 is_unity_pack_input() {
   local file="$1"
 
+  if is_package_publish_shared_input "${file}"; then
+    return 0
+  fi
+
   case "${file}" in
-    README.md|LICENSE|docs/package-operations.md|.github/actions/publish-nuget-package/action.yaml|.github/workflows/verify.yaml|.github/workflows/unity-package-publish.yaml|scripts/create-release-tag.sh|scripts/create-version-sync-pr.sh|scripts/detect-verify-scopes.sh|scripts/pack-unity-plugin.sh|scripts/prepare-version-sync-branch.sh|scripts/resolve-release-version.sh|scripts/setup-nuget-cli.sh|scripts/sync-unity-package-version.sh|scripts/verify-unity-plugin-package.sh|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/*)
+    README.md|LICENSE|docs/package-operations.md|.github/workflows/verify.yaml|.github/workflows/unity-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/pack-unity-plugin.sh|scripts/setup-nuget-cli.sh|scripts/sync-unity-package-version.sh|scripts/verify-unity-plugin-package.sh|src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec|src/Ucli.Unity/Assets/packages.config|src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/*)
       return 0
       ;;
     *)
