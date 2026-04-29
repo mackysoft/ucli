@@ -35,6 +35,31 @@ dotnet nuget add source "https://nuget.pkg.github.com/mackysoft/index.json" \
 
 上記設定後に Unity を batchmode で開くと、NuGetForUnity が `packages.config` の依存を GitHub Packages から復元する。
 
+## CLI Global Tool Distribution
+`MackySoft.Ucli` は nuget.org へ .NET global tool として公開する。利用者は追加 NuGet source を設定せず、次のコマンドで導入する。
+
+```bash
+dotnet tool install --global MackySoft.Ucli --version <version>
+```
+
+既存インストールの更新は次のコマンドで行う。
+
+```bash
+dotnet tool update --global MackySoft.Ucli --version <version>
+```
+
+CLI パッケージは `src/Ucli/Ucli.csproj` を正として `dotnet pack` で生成する。公開 workflow は release tag の version を `Version` / `PackageVersion` に渡し、`ucli --version` が公開 version と一致することを検証してから publish する。
+
+```bash
+dotnet pack "src/Ucli/Ucli.csproj" \
+  -c Release \
+  -p:Version=<version> \
+  -p:PackageVersion=<version> \
+  -o "artifacts/packages"
+```
+
+nuget.org への公開は GitHub Actions の Trusted Publishing を使用する。nuget.org 側で repository owner `mackysoft`、repository `ucli`、workflow file `cli-package-publish.yaml`、environment 未指定の policy を作成し、GitHub repository variable `NUGET_USER` に nuget.org profile name を設定する。
+
 ## NuGetForUnity パッケージ解決手順
 ### 標準フロー（Unity エディタ起動）
 1. `src/Ucli.Unity/Assets/packages.config` を更新する。
@@ -119,18 +144,25 @@ done
 失敗時はログの `Scripts have compiler errors.` の直前にあるエラーで原因を判定する。
 
 ## CI / Release Workflow
-- `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、contracts pack を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
+- `verify`: PR、`master` push、`workflow_dispatch` で起動する統一検証 workflow。変更差分に応じて `.NET`、Unity、contracts pack、CLI pack を job 単位で分岐し、最終的な必須判定は `required` job で集約する。
 - `contracts-package-publish` の workflow 自体を変更した PR でも `verify` は `.NET` と contracts pack を起動し、公開フロー変更を無検証のまま通さない。
+- `cli-package-publish` の workflow 自体を変更した PR では `verify` は `.NET` と CLI pack を起動し、global tool packaging の回帰を検出する。
 - `verify` は workflow-level `concurrency` で同一 PR または同一 branch の古い run を自動キャンセルする。`workflow_dispatch` のみ明示比較用途のため自動キャンセルしない。
 - `pull_request` では変更差分を merge base 起点で判定し、必要な job だけを `Linux`、`Windows`、`macOS` の 3 OS matrix で実行する。外部 contributor の PR では `access-guard` job が失敗し、Unity job は実行しない。
 - `push` to `master` では変更差分を判定しつつ、実行 OS は `Linux` のみに絞って post-merge 検証を軽量化する。
-- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、contracts pack を常に `Linux`、`Windows`、`macOS` の 3 OS でフル検証する。
+- `workflow_dispatch` は差分判定を使わず、`.NET`、Unity、contracts pack、CLI pack をフル検証する。`.NET` と Unity は `Linux`、`Windows`、`macOS` の 3 OS で実行し、package 検証は `Linux` で実行する。
 - Unity 検証は `src/Ucli`、`src/Ucli.Unity`、`src/Ucli.Contracts`、`scripts/update-local-contracts-package.sh`、`verify` 自体の変更時に動く。`buildalon/unity-setup` と `buildalon/activate-unity-license` で各 OS の Unity Editor を用意した後、`ucli test run --mode oneshot` を使って `EditMode` テストアセンブリを明示指定して実行する。workflow はプロセス終了コードだけでなく `command-result.json` の `status` / `exitCode` / `payload.result` も検証し、`pass` 以外を失敗として扱う。
+- CLI pack 検証は `src/Ucli`、`src/Ucli.Contracts`、`README.md`、`LICENSE`、`cli-package-publish`、`verify` 自体の変更時に動く。`dotnet pack` 後にローカル tool install、`ucli --version`、`ucli --help`、nupkg 内の `DotnetToolSettings.xml` / `README.md` / `LICENSE` を検証する。
 - `contracts-package-publish`: `contracts/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、その同一 workflow run の中で同じ publish / repository version sync PR 作成まで継続する。
 - `contracts-package-publish` は公開後に `chore/contracts-sync-<version>` ブランチを作成し、`src/Ucli.Contracts/Ucli.Contracts.csproj` と `src/Ucli.Unity/Assets/packages.config` の `MackySoft.Ucli.Contracts` バージョンを同一値へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
-- タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`）。
+- `cli-package-publish`: `cli/<major>.<minor>.<patch>` タグを公開の起点とする。`workflow_dispatch` は `package_version` から同名タグを先に作成して push し、同一 workflow run の中で pack / smoke test / nuget.org publish / GitHub Release 作成まで継続する。
+- `cli-package-publish` は公開後に `chore/cli-sync-<version>` ブランチを作成し、`src/Ucli/Ucli.csproj` の `MackySoft.Ucli` バージョンを公開 version へ同期する PR を作成する。同期 PR に対しては `verify` workflow を明示的に dispatch する。
+- タグは `v` プレフィックスを付けない（例: `contracts/x.y.z`、`cli/x.y.z`）。
 
 ```bash
 git tag contracts/x.y.z
 git push origin contracts/x.y.z
+
+git tag cli/x.y.z
+git push origin cli/x.y.z
 ```
