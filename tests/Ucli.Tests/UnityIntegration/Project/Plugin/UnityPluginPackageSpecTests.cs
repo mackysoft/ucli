@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests;
 using System.Xml.Linq;
 using MackySoft.Tests;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
+using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
 
 public sealed class UnityPluginPackageSpecTests
 {
@@ -41,7 +42,7 @@ public sealed class UnityPluginPackageSpecTests
               "protocolVersion": 1
             }
             """);
-        var locator = new UnityUcliPluginLocator();
+        var locator = new UnityUcliPluginLocator(CreateNoOpCacheStore());
 
         var result = await locator.Locate(unityProjectPath, CancellationToken.None);
 
@@ -85,6 +86,14 @@ public sealed class UnityPluginPackageSpecTests
             .Descendants(ns + "version")
             .Select(element => element.Value)
             .First();
+    }
+
+    private static UnityUcliPluginMarkerCacheStore CreateNoOpCacheStore ()
+    {
+        return new UnityUcliPluginMarkerCacheStore(
+            static (_, _) => ValueTask.FromResult<string?>(null),
+            static (_, _, _) => ValueTask.CompletedTask,
+            static _ => { });
     }
 
     private static string ResolveRepositoryRoot ()
