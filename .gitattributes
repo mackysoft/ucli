@@ -1,5 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-# C# sources are formatted with CRLF based on .editorconfig.
-*.cs text eol=crlf
+# C# sources are formatted with LF based on .editorconfig.
+*.cs text eol=lf
