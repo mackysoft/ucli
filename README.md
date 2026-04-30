@@ -83,47 +83,7 @@ Initialize optional project-local uCLI settings:
 ucli init
 ```
 
-Create a request file:
-
-```json
-{
-  "protocolVersion": 1,
-  "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-  "steps": [
-    {
-      "kind": "op",
-      "id": "openMainScene",
-      "op": "ucli.scene.open",
-      "args": {
-        "path": "Assets/Scenes/Main.unity"
-      }
-    },
-    {
-      "kind": "edit",
-      "id": "editSpawner",
-      "on": {
-        "scene": "Assets/Scenes/Main.unity"
-      },
-      "select": {
-        "gameObject": "Root/Enemies/Spawner",
-        "component": "Game.EnemySpawner, Assembly-CSharp",
-        "cardinality": "one"
-      },
-      "actions": [
-        {
-          "kind": "set",
-          "values": {
-            "spawnInterval": 3.0
-          }
-        }
-      ],
-      "commit": "context"
-    }
-  ]
-}
-```
-
-Validate the request without connecting to Unity:
+Validate a request without connecting to Unity:
 
 ```bash
 ucli validate --requestPath ./request.json --projectPath ./UnityProject
