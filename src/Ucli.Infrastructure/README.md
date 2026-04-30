@@ -2,11 +2,11 @@
 
 [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Infrastructure?label=MackySoft.Ucli.Infrastructure)](https://www.nuget.org/packages/MackySoft.Ucli.Infrastructure) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mackysoft/ucli/blob/master/LICENSE)
 
+**Created by Hiroya Aramaki ([Makihiro](https://twitter.com/makihiro_dev))**
+
 `MackySoft.Ucli.Infrastructure` contains shared infrastructure services used by uCLI runtime components.
 
 This is an advanced integration package, not the protocol contract layer. It builds on `MackySoft.Ucli.Contracts` and provides boundary services for runtime code that needs filesystem, process, fingerprint, and transport helpers. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
-
-Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft), [mackysoft.net](https://mackysoft.net/)).
 
 ## Installation
 

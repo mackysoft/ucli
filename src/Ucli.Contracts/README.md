@@ -2,11 +2,11 @@
 
 [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Contracts?label=MackySoft.Ucli.Contracts)](https://www.nuget.org/packages/MackySoft.Ucli.Contracts) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mackysoft/ucli/blob/master/LICENSE)
 
+**Created by Hiroya Aramaki ([Makihiro](https://twitter.com/makihiro_dev))**
+
 `MackySoft.Ucli.Contracts` contains the shared IPC protocol and data contract types used by uCLI runtime components.
 
 This is an advanced integration package for uCLI runtime, Unity plugin integration, and tooling that needs to exchange uCLI protocol messages directly. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
-
-Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft), [mackysoft.net](https://mackysoft.net/)).
 
 ## Installation
 

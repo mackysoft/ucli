@@ -2,9 +2,9 @@
 
 [![verify](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml/badge.svg)](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml) [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli?label=MackySoft.Ucli)](https://www.nuget.org/packages/MackySoft.Ucli) [![NuGet Unity](https://img.shields.io/nuget/v/MackySoft.Ucli.Unity?label=MackySoft.Ucli.Unity)](https://www.nuget.org/packages/MackySoft.Ucli.Unity) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-uCLI lets you inspect, plan, apply, and verify Unity Editor automation from a terminal, script, continuous integration job, or agent workflow. It is built for Unity project changes that should go through Unity Editor APIs instead of direct YAML editing.
+**Created by Hiroya Aramaki ([Makihiro](https://twitter.com/makihiro_dev))**
 
-Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft), [mackysoft.net](https://mackysoft.net/)). Development is supported through [GitHub Sponsors](https://github.com/sponsors/mackysoft).
+uCLI lets you inspect, plan, apply, and verify Unity Editor automation from a terminal, script, continuous integration job, or agent workflow. It is built for Unity project changes that should go through Unity Editor APIs instead of direct YAML editing.
 
 ## What You Can Do
 
@@ -550,9 +550,9 @@ Common options:
 | Option | Applies to | Meaning |
 | --- | --- | --- |
 | `--projectPath <path>` | Unity-backed commands | Target Unity project path. |
-| `--mode auto|daemon|oneshot` | Unity-backed commands | Choose daemon reuse or one-shot batchmode. |
+| `--mode auto\|daemon\|oneshot` | Unity-backed commands | Choose daemon reuse or one-shot batchmode. |
 | `--timeout <milliseconds>` | Unity-backed commands | Override the command timeout. |
-| `--readIndexMode disabled|allowStale|requireFresh` | Query-like commands | Control read-index use. |
+| `--readIndexMode disabled\|allowStale\|requireFresh` | Query-like commands | Control read-index use. |
 | `--failFast` | Unity-backed commands | Fail when the Unity editor lifecycle is not ready instead of waiting. |
 | `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
