@@ -2,7 +2,7 @@ using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
-namespace MackySoft.Ucli.Infrastructure.Tests.Ipc;
+namespace MackySoft.Ucli.Infrastructure.Tests.Ipc.Bootstrap;
 
 public sealed class UnixSocketPathUtilitiesTests
 {

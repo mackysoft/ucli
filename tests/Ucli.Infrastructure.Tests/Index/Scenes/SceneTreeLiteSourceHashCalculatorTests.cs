@@ -1,7 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Index;
 
-namespace MackySoft.Ucli.Infrastructure.Tests.Index;
+namespace MackySoft.Ucli.Infrastructure.Tests.Index.Scenes;
 
 public sealed class SceneTreeLiteSourceHashCalculatorTests
 {

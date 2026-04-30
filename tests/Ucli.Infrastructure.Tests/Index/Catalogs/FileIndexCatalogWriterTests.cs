@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.Infrastructure.Storage;
 
-namespace MackySoft.Ucli.Infrastructure.Tests.Index;
+namespace MackySoft.Ucli.Infrastructure.Tests.Index.Catalogs;
 
 public sealed class FileIndexCatalogWriterTests
 {
