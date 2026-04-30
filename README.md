@@ -77,43 +77,39 @@ Assets/Packages/MackySoft.Ucli.Unity.<version>/ucli-plugin.json
 
 ## Usage
 
-Initialize optional project-local uCLI settings:
+Use uCLI in this order for a typical project workflow.
+
+Initialize optional project-local settings:
 
 ```bash
 ucli init
 ```
 
-Validate a request without connecting to Unity:
+Check the target project and editor state:
 
 ```bash
-ucli validate --requestPath ./request.json --projectPath ./UnityProject
+ucli status --projectPath ./UnityProject
 ```
 
-Plan the request before applying changes:
+Start a daemon when you will run repeated Unity-backed commands:
 
 ```bash
-ucli plan --requestPath ./request.json --projectPath ./UnityProject
+ucli daemon start --projectPath ./UnityProject
 ```
 
-Apply the request with the `planToken` returned by `ucli plan`:
-
-```bash
-ucli call --requestPath ./request.json --projectPath ./UnityProject --planToken "<PLAN_TOKEN>"
-```
-
-Query project data:
+Inspect project data before editing:
 
 ```bash
 ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material, UnityEngine.CoreModule" --limit 100
 ucli query scene tree --projectPath ./UnityProject --path Assets/Scenes/Main.unity --depth 1
 ```
 
-Run a Unity daemon for repeated requests:
+Validate, plan, and apply an edit request:
 
 ```bash
-ucli daemon start --projectPath ./UnityProject
-ucli status --projectPath ./UnityProject
-ucli daemon stop --projectPath ./UnityProject
+ucli validate --requestPath ./request.json --projectPath ./UnityProject
+ucli plan --requestPath ./request.json --projectPath ./UnityProject
+ucli call --requestPath ./request.json --projectPath ./UnityProject --planToken "<PLAN_TOKEN>"
 ```
 
 Run Unity tests and collect normalized artifacts:
@@ -126,6 +122,12 @@ ucli test run \
 ```
 
 Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
+
+Stop the daemon when you no longer need it:
+
+```bash
+ucli daemon stop --projectPath ./UnityProject
+```
 
 ## Details
 
