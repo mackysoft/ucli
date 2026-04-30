@@ -32,7 +32,7 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 
 ## Repository
 
-Source, issues, and documentation:
+Source and issue tracking:
 
 <https://github.com/mackysoft/ucli>
 

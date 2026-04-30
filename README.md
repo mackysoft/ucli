@@ -169,14 +169,9 @@ ucli daemon stop --projectPath ./UnityProject
 | `MackySoft.Ucli.Contracts` | You build tooling that exchanges uCLI IPC contracts directly. |
 | `MackySoft.Ucli.Infrastructure` | You build uCLI runtime integrations that need shared infrastructure helpers. |
 
-## More Details
-
-- [Command reference](https://github.com/mackysoft/ucli/blob/master/docs/uCLI-command-reference.md): options, exit codes, and command examples.
-- [JSON request specification](https://github.com/mackysoft/ucli/blob/master/docs/json-request-spec.md): request structure, edit steps, primitive operation steps, selectors, and commit boundaries.
-
 ## Support
 
-Use [GitHub Issues](https://github.com/mackysoft/ucli/issues) for bugs, feature requests, and documentation problems.
+Use [GitHub Issues](https://github.com/mackysoft/ucli/issues) for bugs, feature requests, and README problems.
 
 For bug reports, include:
 
@@ -187,7 +182,7 @@ For bug reports, include:
 - `--mode` value, when relevant
 - Error output or logs from `ucli logs unity` / `ucli logs daemon`
 
-Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and documentation improvements.
+Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and README improvements.
 
 ## Sponsor
 
