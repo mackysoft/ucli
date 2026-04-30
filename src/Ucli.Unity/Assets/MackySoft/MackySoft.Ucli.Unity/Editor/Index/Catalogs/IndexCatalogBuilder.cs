@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Infrastructure.Index;
 using System;
 using System.Linq;
 using System.Threading;

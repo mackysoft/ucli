@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
 

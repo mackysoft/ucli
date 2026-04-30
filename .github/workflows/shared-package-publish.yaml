@@ -1,0 +1,138 @@
+name: shared-package-publish
+
+on:
+  push:
+    tags:
+      - shared/*
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: "SemVer package version (e.g. 0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      package_version: ${{ steps.version.outputs.package_version }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve package version
+        id: version
+        shell: bash
+        env:
+          DISPATCH_VERSION: ${{ github.event.inputs.package_version }}
+        run: ./scripts/resolve-release-version.sh --tag-prefix shared --dispatch-version "${DISPATCH_VERSION}"
+
+      - name: Create and push release tag
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: ./scripts/create-release-tag.sh --tag-name "${TAG_NAME}" --release-sha "${RELEASE_SHA}"
+
+  publish:
+    needs: prepare-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare-release.outputs.tag_name }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Pack shared packages
+        run: |
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
+            --configuration Release \
+            -p:Version=${{ needs.prepare-release.outputs.package_version }} \
+            -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }} \
+            --output artifacts/packages
+          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj \
+            --configuration Release \
+            -p:Version=${{ needs.prepare-release.outputs.package_version }} \
+            -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }} \
+            --output artifacts/packages
+
+      - name: Publish to nuget.org
+        uses: ./.github/actions/publish-nuget-package
+        with:
+          package-glob: artifacts/packages/*.nupkg
+          nuget-user: ${{ vars.NUGET_USER }}
+
+      - name: Mirror packages to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: >-
+          ./scripts/mirror-nuget-package-release.sh
+          --repository "${REPOSITORY}"
+          --tag-name "${RELEASE_TAG}"
+          --package-glob "artifacts/packages/*.nupkg"
+          --title "uCLI Shared ${PACKAGE_VERSION}"
+          --notes "Shared contracts and infrastructure packages for ${RELEASE_TAG}."
+
+      - name: Create shared package version sync pull request
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_VERSION: ${{ needs.prepare-release.outputs.package_version }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          sync_branch="chore/shared-sync-${PACKAGE_VERSION}"
+          ./scripts/prepare-version-sync-branch.sh \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}"
+
+          ./scripts/sync-shared-package-version.sh \
+            --version "${PACKAGE_VERSION}"
+
+          pr_body_file="$(mktemp)"
+          trap 'rm -f "${pr_body_file}"' EXIT
+          cat > "${pr_body_file}" <<EOF
+          ## Summary
+          - Sync shared package versions to \`${PACKAGE_VERSION}\` after \`${RELEASE_TAG}\` publish.
+          - Update \`src/Ucli.Contracts/Ucli.Contracts.csproj\`, \`src/Ucli.Infrastructure/Ucli.Infrastructure.csproj\`, \`src/Ucli.Unity/Assets/packages.config\`, and \`src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec\`.
+
+          ## Verification
+          - \`shared-package-publish\` packed and published \`${RELEASE_TAG}\` before creating this PR.
+          - \`verify.yaml\` workflow was dispatched for \`${sync_branch}\`.
+          EOF
+
+          ./scripts/create-version-sync-pr.sh \
+            --repository "${REPOSITORY}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --sync-branch "${sync_branch}" \
+            --commit-message "chore(shared): sync package version to ${PACKAGE_VERSION}" \
+            --pr-title "chore(shared): sync package version to ${PACKAGE_VERSION}" \
+            --pr-body-file "${pr_body_file}" \
+            --verify-workflow verify.yaml \
+            --changed-path "src/Ucli.Contracts/Ucli.Contracts.csproj" \
+            --changed-path "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj" \
+            --changed-path "src/Ucli.Unity/Assets/packages.config" \
+            --changed-path "src/Ucli.Unity/MackySoft.Ucli.Unity.nuspec"

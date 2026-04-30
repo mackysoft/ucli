@@ -21,7 +21,7 @@ using MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
-using MackySoft.Ucli.Shared.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 

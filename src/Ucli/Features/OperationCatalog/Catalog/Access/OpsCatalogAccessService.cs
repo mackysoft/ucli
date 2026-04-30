@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Infrastructure.Index;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
 

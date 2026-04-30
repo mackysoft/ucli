@@ -1,6 +1,7 @@
 using System.IO.Pipes;
 using System.Net.Sockets;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 

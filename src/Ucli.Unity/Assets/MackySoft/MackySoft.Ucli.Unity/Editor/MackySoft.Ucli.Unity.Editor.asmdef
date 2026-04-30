@@ -2,7 +2,8 @@
     "name": "MackySoft.Ucli.Unity.Editor",
     "rootNamespace": "MackySoft.Ucli.Unity",
     "references": [
-        "MackySoft.Ucli.Contracts"
+        "MackySoft.Ucli.Contracts",
+        "MackySoft.Ucli.Infrastructure"
     ],
     "includePlatforms": [
         "Editor"

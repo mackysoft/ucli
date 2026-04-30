@@ -14,6 +14,7 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "MackySoft.Ucli.Contracts.dll",
+        "MackySoft.Ucli.Infrastructure.dll",
         "System.Text.Json.dll",
         "System.Text.Encodings.Web.dll",
         "Microsoft.Bcl.AsyncInterfaces.dll",

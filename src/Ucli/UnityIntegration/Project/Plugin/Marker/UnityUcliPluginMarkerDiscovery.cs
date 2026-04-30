@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Infrastructure.Index;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Infrastructure.Index;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,7 +9,6 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Index;
 using NUnit.Framework;
@@ -245,96 +245,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.PackagesLockHash, Is.Not.Empty);
             Assert.That(snapshot.AssemblyDefinitionHash, Is.Not.Empty);
             Assert.That(snapshot.CombinedHash, Is.Not.Empty);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator FileIndexCatalogWriter_WhenWriteSucceeds_CreatesExpectedCatalogPaths () => UniTask.ToCoroutine(async () =>
-        {
-            var writer = new FileIndexCatalogWriter();
-            var generatedAtUtc = DateTimeOffset.Parse("2026-03-04T00:00:00+00:00");
-            var typesCatalog = new IndexTypesCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: generatedAtUtc,
-                SourceInputsHash: "combined-hash",
-                Entries: new[]
-                {
-                    new IndexTypeEntryJsonContract(
-                        TypeId: IndexTypeIdFormatter.Format(typeof(IndexCatalogTestComponent)),
-                        DisplayName: nameof(IndexCatalogTestComponent),
-                        Namespace: typeof(IndexCatalogTestComponent).Namespace,
-                        AssemblyName: typeof(IndexCatalogTestComponent).Assembly.GetName().Name,
-                        BaseTypeId: IndexTypeIdFormatter.Format(typeof(MonoBehaviour)),
-                        Flags: new IndexTypeFlagsJsonContract(
-                            IsAbstract: false,
-                            IsGenericDefinition: false,
-                            IsUnityObject: true,
-                            IsComponent: true,
-                            IsScriptableObject: false,
-                            IsSerializeReferenceCandidate: false)),
-                });
-            var schemasCatalog = new IndexSchemasCatalogJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: generatedAtUtc,
-                SourceInputsHash: "combined-hash",
-                Entries: new[]
-                {
-                    new IndexSchemaEntryJsonContract(
-                        SchemaKey: $"comp:{IndexTypeIdFormatter.Format(typeof(IndexCatalogTestComponent))}",
-                        Kind: IndexSchemaKindValues.Comp,
-                        TypeId: IndexTypeIdFormatter.Format(typeof(IndexCatalogTestComponent)),
-                        DisplayName: nameof(IndexCatalogTestComponent),
-                        Properties: new[]
-                        {
-                            new IndexSchemaPropertyEntryJsonContract(
-                                Path: "integerValue",
-                                PropertyType: IndexPropertyTypeValues.Integer,
-                                DeclaredTypeId: IndexTypeIdFormatter.Format(typeof(int)),
-                                IsArray: false,
-                                ElementTypeId: null,
-                                IsReadOnly: false),
-                        }),
-                });
-            var inputsManifest = new IndexInputsManifestJsonContract(
-                SchemaVersion: 1,
-                GeneratedAtUtc: generatedAtUtc,
-                ScriptAssembliesHash: "script-hash",
-                PackagesManifestHash: "manifest-hash",
-                PackagesLockHash: "lock-hash",
-                AssemblyDefinitionHash: "asm-hash",
-                AssetsContentHash: "assets-hash",
-                AssetSearchHash: "asset-search-hash",
-                GuidPathHash: "guid-path-hash",
-                CombinedHash: "combined-hash");
-            var storageRootPath = Path.Combine(Path.GetTempPath(), $"ucli-index-writer-tests-{Guid.NewGuid():N}");
-            const string projectFingerprint = "writer-fingerprint";
-            try
-            {
-                var result = await writer.Write(
-                    storageRootPath,
-                    projectFingerprint,
-                    typesCatalog,
-                    schemasCatalog,
-                    inputsManifest,
-                    CancellationToken.None);
-
-                Assert.That(result.IsSuccess, Is.True);
-                Assert.That(result.ErrorMessage, Is.Null);
-
-                var typesCatalogPath = UcliStoragePathResolver.ResolveTypesCatalogPath(storageRootPath, projectFingerprint);
-                var schemasCatalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(storageRootPath, projectFingerprint);
-                var inputsManifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRootPath, projectFingerprint);
-                Assert.That(File.Exists(typesCatalogPath), Is.True);
-                Assert.That(File.Exists(schemasCatalogPath), Is.True);
-                Assert.That(File.Exists(inputsManifestPath), Is.True);
-            }
-            finally
-            {
-                if (Directory.Exists(storageRootPath))
-                {
-                    Directory.Delete(storageRootPath, recursive: true);
-                }
-            }
         });
 
         [UnityTest]

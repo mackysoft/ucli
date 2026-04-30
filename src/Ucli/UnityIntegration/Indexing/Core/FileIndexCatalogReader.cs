@@ -1,8 +1,9 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Paths;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 

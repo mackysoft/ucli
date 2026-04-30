@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Ucli.Contracts/Ucli.Contracts.csproj" />
+    <ProjectReference Include="../Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Index;

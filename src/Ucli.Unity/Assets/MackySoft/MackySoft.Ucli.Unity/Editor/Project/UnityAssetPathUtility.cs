@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using MackySoft.Ucli.Contracts.Paths;
+using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
 

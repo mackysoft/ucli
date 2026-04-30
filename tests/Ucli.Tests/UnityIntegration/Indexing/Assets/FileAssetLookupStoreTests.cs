@@ -1,6 +1,8 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Index;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 
 namespace MackySoft.Ucli.Tests.Assets;

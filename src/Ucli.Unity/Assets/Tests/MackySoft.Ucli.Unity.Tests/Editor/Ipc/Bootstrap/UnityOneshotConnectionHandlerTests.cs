@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
