@@ -62,18 +62,17 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Pack shared packages
-        run: >-
-          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj
-          --configuration Release
-          -p:Version=${{ needs.prepare-release.outputs.package_version }}
-          -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
-          --output artifacts/packages
-
-          && dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj
-          --configuration Release
-          -p:Version=${{ needs.prepare-release.outputs.package_version }}
-          -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }}
-          --output artifacts/packages
+        run: |
+          dotnet pack src/Ucli.Contracts/Ucli.Contracts.csproj \
+            --configuration Release \
+            -p:Version=${{ needs.prepare-release.outputs.package_version }} \
+            -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }} \
+            --output artifacts/packages
+          dotnet pack src/Ucli.Infrastructure/Ucli.Infrastructure.csproj \
+            --configuration Release \
+            -p:Version=${{ needs.prepare-release.outputs.package_version }} \
+            -p:PackageVersion=${{ needs.prepare-release.outputs.package_version }} \
+            --output artifacts/packages
 
       - name: Publish to nuget.org
         uses: ./.github/actions/publish-nuget-package
