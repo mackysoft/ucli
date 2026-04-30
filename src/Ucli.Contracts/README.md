@@ -1,7 +1,6 @@
 # MackySoft.Ucli.Contracts
 
-[![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Contracts?label=MackySoft.Ucli.Contracts)](https://www.nuget.org/packages/MackySoft.Ucli.Contracts)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mackysoft/ucli/blob/master/LICENSE)
+[![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Contracts?label=MackySoft.Ucli.Contracts)](https://www.nuget.org/packages/MackySoft.Ucli.Contracts) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mackysoft/ucli/blob/master/LICENSE)
 
 `MackySoft.Ucli.Contracts` contains the shared IPC protocol and data contract types used by uCLI runtime components.
 

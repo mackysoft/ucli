@@ -1,7 +1,6 @@
 # MackySoft.Ucli.Infrastructure
 
-[![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Infrastructure?label=MackySoft.Ucli.Infrastructure)](https://www.nuget.org/packages/MackySoft.Ucli.Infrastructure)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mackysoft/ucli/blob/master/LICENSE)
+[![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Infrastructure?label=MackySoft.Ucli.Infrastructure)](https://www.nuget.org/packages/MackySoft.Ucli.Infrastructure) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mackysoft/ucli/blob/master/LICENSE)
 
 `MackySoft.Ucli.Infrastructure` contains shared infrastructure services used by uCLI runtime components.
 
