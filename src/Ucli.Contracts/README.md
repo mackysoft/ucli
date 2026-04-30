@@ -1,24 +1,48 @@
 # MackySoft.Ucli.Contracts
 
-Shared contract types for the uCLI IPC protocol.
+[![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli.Contracts?label=MackySoft.Ucli.Contracts)](https://www.nuget.org/packages/MackySoft.Ucli.Contracts)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mackysoft/ucli/blob/master/LICENSE)
+
+`MackySoft.Ucli.Contracts` contains the shared IPC protocol and data contract types used by uCLI runtime components.
+
+This package is mainly for uCLI runtime, Unity plugin integration, and tooling that needs to exchange uCLI protocol messages directly. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
+
+## Installation
+
+Install a pinned version from nuget.org:
+
+```bash
+dotnet add package MackySoft.Ucli.Contracts --version <version>
+```
 
 ## What This Package Provides
 
-`MackySoft.Ucli.Contracts` contains the shared protocol and data contract types used by uCLI components.
+- IPC request and response contracts.
+- Protocol constants and shared protocol metadata.
+- Configuration and storage contract models.
+- JSON serialization helpers for uCLI contract types.
+- Shared data shapes used by the CLI, Unity plugin, and infrastructure package.
 
-It includes:
+## Related Packages
 
-- IPC request and response contracts
-- Protocol constants and transport helpers
-- Configuration and storage contracts
-- JSON serialization helpers for the contract model
-
-## Usage
-
-Reference the package from each uCLI component that exchanges protocol messages, then use the shared contract types from the `MackySoft.Ucli.Contracts` namespaces.
+| Package | Role |
+| --- | --- |
+| `MackySoft.Ucli` | .NET global tool that provides the `ucli` command. |
+| `MackySoft.Ucli.Unity` | Unity Editor plugin for uCLI IPC and automation. |
+| `MackySoft.Ucli.Infrastructure` | Shared infrastructure services that use the contract model. |
 
 ## Repository
 
-Source and issue tracking:
+Source, issues, and documentation:
 
 <https://github.com/mackysoft/ucli>
+
+## Sponsor
+
+If uCLI or other MackySoft projects are useful to you, sponsorship is appreciated.
+
+GitHub Sponsors: <https://github.com/sponsors/mackysoft>
+
+## License
+
+This package is under the [MIT License](https://github.com/mackysoft/ucli/blob/master/LICENSE).
