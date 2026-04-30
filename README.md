@@ -2,102 +2,76 @@
 
 [![verify](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml/badge.svg)](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml) [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli?label=MackySoft.Ucli)](https://www.nuget.org/packages/MackySoft.Ucli) [![NuGet Unity](https://img.shields.io/nuget/v/MackySoft.Ucli.Unity?label=MackySoft.Ucli.Unity)](https://www.nuget.org/packages/MackySoft.Ucli.Unity) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft))**
+uCLI lets you run Unity Editor operations and Unity Test Framework tests from a terminal, script, continuous integration job, or agent workflow. It is designed for Unity project automation where changes should be inspected, planned, applied, and verified without editing Unity YAML by hand.
 
-uCLI is a command line workflow for automating Unity projects from local terminals, scripts, continuous integration jobs, and agent-driven tools. It drives Unity through Unity Editor APIs, keeps request and response data machine-readable, and provides both one-shot batchmode execution and long-running daemon execution.
+## What You Can Do
 
-## Key Features
-
-- Unity edit requests expressed as JSON and executed through `validate`, `plan`, and `call`.
-- Safe planning flow with `planToken`, request validation, and drift checks before applying changes.
-- `auto`, `daemon`, and `oneshot` execution modes for interactive work, repeated automation, and isolated batchmode runs.
-- Typed query commands for assets, scenes, GameObjects, components, schemas, and object resolution.
-- Read index support for fast lookup paths that can avoid opening Unity when cached data is fresh enough.
-- Daemon lifecycle commands, Unity and daemon log streaming, and status reporting.
-- Unity Test Framework execution through `ucli test run`, with normalized result artifacts.
-- NuGet distribution for the .NET global tool, Unity plugin, IPC contracts, and shared infrastructure packages.
+- Inspect Unity project state from the command line.
+- Query assets, scenes, GameObjects, components, and schemas.
+- Validate and plan JSON edit requests before applying them.
+- Apply Unity edits through Unity Editor APIs.
+- Reuse a daemon for repeated Unity-backed commands, or run one-shot batchmode commands.
+- Run Unity tests and collect normalized artifacts.
+- Read Unity and daemon logs when automation fails.
 
 ## Installation
 
 ### Requirements
 
-- .NET 8 or later for the `ucli` global tool.
-- A Unity project with the `MackySoft.Ucli.Unity` plugin installed when you run Unity editor operations.
-- NuGetForUnity in the Unity project when installing the Unity plugin package.
+- .NET 8 or later.
+- A Unity project with NuGetForUnity when installing the Unity plugin.
 
-The verified Unity Editor versions are release-dependent. Check the release notes and project requirements for the version you install.
-
-### Install the CLI
-
-Install a pinned version from nuget.org:
+### CLI
 
 ```bash
 dotnet tool install --global MackySoft.Ucli --version <version>
 ```
 
-Update an existing global tool installation:
+Update an existing installation:
 
 ```bash
 dotnet tool update --global MackySoft.Ucli --version <version>
 ```
 
-Check the installed command:
+Confirm the command is available:
 
 ```bash
 ucli --version
 ```
 
-### Install the Unity plugin
+### Unity Plugin
 
-Install `MackySoft.Ucli.Unity` with NuGetForUnity. The package is published to nuget.org and restores its uCLI contract, infrastructure, and runtime dependencies through NuGet.
+Install `MackySoft.Ucli.Unity` into the Unity project with NuGetForUnity. The Unity project must be able to restore packages from nuget.org.
 
-Make sure the Unity project has a nuget.org package source. A minimal `Assets/NuGet.config` source entry is:
-
-```xml
-<configuration>
-  <packageSources>
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-  </packageSources>
-</configuration>
-```
-
-Then install the package from the NuGetForUnity UI, or add the package to `Assets/packages.config`:
+If you manage `Assets/packages.config` directly, add:
 
 ```xml
-<packages>
-  <package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
-</packages>
+<package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
 ```
 
-After restore, the plugin marker is placed under the restored package:
+## Typical Workflow
 
-```text
-Assets/Packages/MackySoft.Ucli.Unity.<version>/ucli-plugin.json
-```
-
-## Usage
-
-Use uCLI in this order for a typical project workflow.
-
-Initialize optional project-local settings:
+Set up optional project-local configuration once:
 
 ```bash
 ucli init
 ```
 
-Check the target project and editor state:
+Check that uCLI can resolve the target Unity project:
 
 ```bash
 ucli status --projectPath ./UnityProject
 ```
 
-Start a daemon when you will run repeated Unity-backed commands:
+Start a daemon when you plan to run several Unity-backed commands:
 
 ```bash
 ucli daemon start --projectPath ./UnityProject
 ```
 
-Inspect project data before editing:
+Skip the daemon for one-off commands. The default `--mode auto` uses a running daemon when available and falls back to one-shot batchmode when it is not.
+
+Inspect project data before making changes:
 
 ```bash
 ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material, UnityEngine.CoreModule" --limit 100
@@ -112,7 +86,7 @@ ucli plan --requestPath ./request.json --projectPath ./UnityProject
 ucli call --requestPath ./request.json --projectPath ./UnityProject --planToken "<PLAN_TOKEN>"
 ```
 
-Run Unity tests and collect normalized artifacts:
+Run Unity tests after edits:
 
 ```bash
 ucli test run \
@@ -123,87 +97,57 @@ ucli test run \
 
 Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
 
+Read logs when a command or test fails:
+
+```bash
+ucli logs unity --projectPath ./UnityProject --tail 200 --level error
+ucli logs daemon --projectPath ./UnityProject --tail 200
+```
+
 Stop the daemon when you no longer need it:
 
 ```bash
 ucli daemon stop --projectPath ./UnityProject
 ```
 
-## Details
+## Command Guide
 
-### Architecture
-
-uCLI is split into four public packages:
-
-| Package | Role |
+| Command | Use it when you need to |
 | --- | --- |
-| `MackySoft.Ucli` | .NET global tool that provides the `ucli` command. |
-| `MackySoft.Ucli.Unity` | Unity Editor plugin for IPC, execution, indexing, logs, and Unity Test Framework integration. |
-| `MackySoft.Ucli.Contracts` | Shared IPC protocol and data contract types. |
-| `MackySoft.Ucli.Infrastructure` | Shared infrastructure services used by uCLI runtime components. |
+| `ucli status` | Check daemon and Unity lifecycle state. |
+| `ucli query` | Read project data without writing changes. |
+| `ucli resolve` | Resolve a selector to a Unity object identifier. |
+| `ucli validate` | Check a request before Unity execution. |
+| `ucli plan` | Preview an edit request and receive a `planToken`. |
+| `ucli call` | Apply an edit request. |
+| `ucli refresh` | Run Unity project refresh. |
+| `ucli logs` | Read Unity or daemon logs. |
+| `ucli daemon` | Manage daemon sessions. |
+| `ucli test` | Run Unity Test Framework tests. |
+| `ucli ops` | List and inspect available primitive operations. |
 
-The CLI and Unity plugin communicate through IPC and exchange JSON request and response contracts. Editing is performed through Unity Editor APIs such as Scene, Prefab, AssetDatabase, and SerializedObject APIs.
+## Packages
 
-### Execution Modes
-
-Most Unity-backed commands accept `--mode`:
-
-| Mode | Behavior |
+| Package | Install when |
 | --- | --- |
-| `auto` | Uses an existing daemon when one is running. Falls back to one-shot batchmode when no daemon is running. |
-| `daemon` | Requires an existing daemon and fails if it is not running. |
-| `oneshot` | Runs a single Unity batchmode process and fails if a daemon is already running for the project. |
+| `MackySoft.Ucli` | You need the `ucli` command. |
+| `MackySoft.Ucli.Unity` | You need Unity Editor operations in a Unity project. |
+| `MackySoft.Ucli.Contracts` | You build tooling that exchanges uCLI IPC contracts directly. |
+| `MackySoft.Ucli.Infrastructure` | You build uCLI runtime integrations that need shared infrastructure helpers. |
 
-Daemon startup is explicit:
+## Reference
 
-```bash
-ucli daemon start --projectPath ./UnityProject
-```
-
-### Command Overview
-
-| Command | Purpose |
-| --- | --- |
-| `ucli init` | Create optional `.ucli` configuration files. |
-| `ucli validate` | Validate JSON requests without Unity IPC. |
-| `ucli plan` | Resolve and plan JSON requests before applying changes. |
-| `ucli call` | Apply JSON requests to Unity. |
-| `ucli resolve` | Resolve selectors to Unity object identifiers. |
-| `ucli query` | Run typed read commands for assets, scenes, GameObjects, components, and schemas. |
-| `ucli refresh` | Run the standard project refresh operation. |
-| `ucli ops` | List and describe primitive operations. |
-| `ucli status` | Report daemon and lifecycle status. |
-| `ucli logs` | Read Unity and daemon logs. |
-| `ucli daemon` | Start, stop, clean up, inspect, and list daemon sessions. |
-| `ucli test` | Run Unity Test Framework tests and initialize test profiles. |
-
-### Documentation
-
-- [Product and execution contract](https://github.com/mackysoft/ucli/blob/master/docs/uCLI.md)
 - [Command reference](https://github.com/mackysoft/ucli/blob/master/docs/uCLI-command-reference.md)
 - [JSON request specification](https://github.com/mackysoft/ucli/blob/master/docs/json-request-spec.md)
 - [JSON property reference](https://github.com/mackysoft/ucli/blob/master/docs/uCLI-property-reference.md)
 - [Operation catalog](https://github.com/mackysoft/ucli/blob/master/docs/ops-catalog.md)
-- [Design principles](https://github.com/mackysoft/ucli/blob/master/docs/uCLI-design-principles.md)
 - [Package operations](https://github.com/mackysoft/ucli/blob/master/docs/package-operations.md)
 
-## Help and Contribute
-
-Feature requests, bug reports, and pull requests are welcome in the GitHub repository:
+## Support
 
 - Issues: <https://github.com/mackysoft/ucli/issues>
 - Pull requests: <https://github.com/mackysoft/ucli/pulls>
-
-If uCLI or other MackySoft projects are useful to you, sponsorship is appreciated.
-
-GitHub Sponsors: <https://github.com/sponsors/mackysoft>
-
-## Author Info
-
-Hiroya Aramaki is an indie game developer in Japan.
-
-- GitHub: <https://github.com/mackysoft>
-- Blog: <https://mackysoft.net/blog>
+- GitHub Sponsors: <https://github.com/sponsors/mackysoft>
 
 ## License
 
