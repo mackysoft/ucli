@@ -161,6 +161,14 @@ jobs:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
+      - name: Restore uCLI
+        run: dotnet restore src/Ucli/Ucli.csproj
+        shell: bash
+
+      - name: Build uCLI
+        run: dotnet build src/Ucli/Ucli.csproj --configuration Release --no-restore
+        shell: bash
+
       - name: Setup NuGet CLI on Linux or macOS
         if: ${{ runner.os != 'Windows' }}
         run: ./scripts/setup-nuget-cli.sh
@@ -190,14 +198,6 @@ jobs:
           license: personal
           username: ${{ secrets.UNITY_EMAIL }}
           password: ${{ secrets.UNITY_PASSWORD }}
-
-      - name: Restore uCLI
-        run: dotnet restore src/Ucli/Ucli.csproj
-        shell: bash
-
-      - name: Build uCLI
-        run: dotnet build src/Ucli/Ucli.csproj --configuration Release --no-restore
-        shell: bash
 
       - name: Cache Unity Library
         uses: actions/cache@v5
