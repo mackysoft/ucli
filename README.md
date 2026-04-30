@@ -54,6 +54,14 @@ If you manage `Assets/packages.config` directly, add:
 
 Use a pinned `<version>` for both the CLI and Unity plugin in released automation.
 
+## Compatibility and Stability
+
+- Pin `MackySoft.Ucli` and `MackySoft.Ucli.Unity` to compatible released versions and update them together.
+- `protocolVersion: 1` is the current request protocol for automation workflows.
+- `MackySoft.Ucli.Contracts` is for direct IPC protocol and tooling consumers.
+- `MackySoft.Ucli.Infrastructure` is an advanced integration package for runtime support code.
+- Operations marked `dangerous` are outside the normal safe-edit path and require an explicit `ucli call --allowDangerous`.
+
 ## Typical Workflow
 
 uCLI is normally driven by a runner: a local shell script, a continuous integration job, or an agent. The runner reads Unity state, builds one JSON request, sends that request to uCLI, and decides whether to accept the result.
@@ -78,9 +86,17 @@ ucli daemon start --projectPath ./UnityProject
 
 For one-off local commands and CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when one is available and falls back to one-shot batchmode when it is not.
 
+## Automation Output Contract
+
+Except for `ucli logs`, uCLI commands write one JSON result envelope to standard output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
+
+`ucli logs unity` and `ucli logs daemon` write log entries to standard output. Use `--format json` when a runner needs newline-delimited JSON log events.
+
+Automation should parse standard output and treat standard error as diagnostic text.
+
 ## Reading Project State
 
-Read before you write. These commands emit machine-readable JSON on standard output.
+Read before you write. These commands emit machine-readable JSON.
 
 ```bash
 ucli refresh --projectPath ./UnityProject
@@ -182,7 +198,9 @@ printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken
 
 Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
 
-## Request DSL
+## Request DSL Core
+
+This section covers the core request shape used by common automation. Operation-specific arguments and policies come from the operation catalog exposed by `ucli ops list` and `ucli ops describe`.
 
 A request is one ordered unit of work:
 
@@ -322,13 +340,15 @@ For a scene context, select a set produced by `ucli.scene.query`:
 | Value | Meaning |
 | --- | --- |
 | `one` | Exactly one target must match. |
-| `first` | Use the first target from a deterministic match set. |
+| `first` | Use the first target from the selector's deterministic match order. |
 | `all` | Apply the same action to every matched target. |
 | `atMostOne` | Allow zero or one target. |
 
+`all` runs the same action list for every selected target in deterministic order. Actions that create a new global resource, such as `createAsset` and `createPrefab`, require the selection to resolve to at most one target.
+
 ### Actions
 
-If `target` is omitted, the action uses the current selected target. An action that creates or ensures an object can expose it with `as`, and later actions in the same step can refer to it with `"$name"`.
+If `target` is omitted, the action uses the current selected target. `createPrefab` is the exception: it always requires an explicit `target` and `path`. An action that creates or ensures an object can expose it with `as`, and later actions in the same step can refer to it with `"$name"`.
 
 ```json
 {
@@ -388,7 +408,7 @@ If `target` is omitted, the action uses the current selected target. An action t
 | --- | --- |
 | `none` | Apply the edit in memory and do not save from this step. |
 | `context` | Save the current scene, prefab, asset, or project context. |
-| `project` | Save the project. |
+| `project` | Save project-scoped changes and request-attributed open scene or prefab contexts. |
 
 uCLI does not implicitly save an edit step. Choose `commit` intentionally.
 
@@ -429,9 +449,9 @@ Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
 }
 ```
 
-## Operation Catalog
+## Operation Catalog Summary
 
-Use `edit` for common edits. Use `op` when you need an explicit primitive operation from this catalog.
+Use `edit` for common edits. Use `op` when you need an explicit primitive operation from the catalog. The live catalog for the installed Unity plugin is available through `ucli ops list` and `ucli ops describe`.
 
 ### Read Operations
 
@@ -468,6 +488,10 @@ Use `edit` for common edits. Use `op` when you need an explicit primitive operat
 | `ucli.go.delete` | mutation | `{ target }` | Delete a GameObject. |
 | `ucli.go.reparent` | mutation | `{ target, parent }` | Move a GameObject under a new parent. |
 | `ucli.prefab.create` | mutation | `{ target, path }` | Create a prefab asset from a GameObject. |
+
+### Dangerous Operations
+
+`ucli call` blocks operations marked `dangerous` unless the command includes `--allowDangerous`. Prefer the normal `edit` flow and non-dangerous primitive operations. Use dangerous operations only when the catalog marks the required operation that way and the request has been reviewed.
 
 ## Verifying Changes
 
@@ -529,12 +553,10 @@ Common options:
 | `--mode auto|daemon|oneshot` | Unity-backed commands | Choose daemon reuse or one-shot batchmode. |
 | `--timeout <milliseconds>` | Unity-backed commands | Override the command timeout. |
 | `--readIndexMode disabled|allowStale|requireFresh` | Query-like commands | Control read-index use. |
-| `--failFast` | Unity-backed commands | Fail immediately when Unity cannot accept the request. |
+| `--failFast` | Unity-backed commands | Fail when the Unity editor lifecycle is not ready instead of waiting. |
 | `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
-| `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the Unity plugin. |
-
-Normal command results are written as JSON to standard output. `ucli logs` writes log entries to standard output. Diagnostics and progress messages are written to standard error.
+| `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the operation catalog. |
 
 ## Packages
 
@@ -542,8 +564,8 @@ Normal command results are written as JSON to standard output. `ucli logs` write
 | --- | --- |
 | `MackySoft.Ucli` | You need the `ucli` command. |
 | `MackySoft.Ucli.Unity` | You need Unity Editor operations in a Unity project. |
-| `MackySoft.Ucli.Contracts` | You build tooling that exchanges uCLI IPC contracts directly. |
-| `MackySoft.Ucli.Infrastructure` | You build uCLI runtime integrations that need shared infrastructure helpers. |
+| `MackySoft.Ucli.Contracts` | You build advanced tooling that exchanges uCLI IPC contracts directly. |
+| `MackySoft.Ucli.Infrastructure` | You build advanced uCLI runtime integrations that need shared infrastructure helpers. |
 
 ## Support
 

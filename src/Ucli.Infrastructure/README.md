@@ -4,7 +4,7 @@
 
 `MackySoft.Ucli.Infrastructure` contains shared infrastructure services used by uCLI runtime components.
 
-This package is not the protocol contract layer. It builds on `MackySoft.Ucli.Contracts` and provides boundary services for runtime code that needs filesystem, process, fingerprint, and transport helpers. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
+This is an advanced integration package, not the protocol contract layer. It builds on `MackySoft.Ucli.Contracts` and provides boundary services for runtime code that needs filesystem, process, fingerprint, and transport helpers. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
 
 Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft), [mackysoft.net](https://mackysoft.net/)).
 

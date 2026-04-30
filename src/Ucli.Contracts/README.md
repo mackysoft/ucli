@@ -4,7 +4,7 @@
 
 `MackySoft.Ucli.Contracts` contains the shared IPC protocol and data contract types used by uCLI runtime components.
 
-This package is mainly for uCLI runtime, Unity plugin integration, and tooling that needs to exchange uCLI protocol messages directly. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
+This is an advanced integration package for uCLI runtime, Unity plugin integration, and tooling that needs to exchange uCLI protocol messages directly. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
 
 Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft), [mackysoft.net](https://mackysoft.net/)).
 
