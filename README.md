@@ -80,13 +80,19 @@ ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material
 ucli query scene tree --projectPath ./UnityProject --path Assets/Scenes/Main.unity --depth 1
 ```
 
-Validate, plan, and apply an edit request:
+Pass edit requests through standard input. In scripts and agent workflows, generate the JSON request, inspect the plan, then pass the same request body to `call`.
+
+The plan result is JSON. The example below uses `jq` to read `payload.planToken`; use your script's JSON parser if you do not use `jq`.
 
 ```bash
-ucli validate --requestPath ./request.json --projectPath ./UnityProject
-ucli plan --requestPath ./request.json --projectPath ./UnityProject
-ucli call --requestPath ./request.json --projectPath ./UnityProject --planToken "<PLAN_TOKEN>"
+ucli validate --projectPath ./UnityProject < ./request.json
+ucli plan --projectPath ./UnityProject < ./request.json > ./plan-result.json
+
+PLAN_TOKEN="$(jq -r '.payload.planToken' ./plan-result.json)"
+ucli call --projectPath ./UnityProject --planToken "$PLAN_TOKEN" < ./request.json
 ```
+
+Use `--requestPath` only when a path-based invocation is more convenient for your tool or script.
 
 Run Unity tests after edits:
 
