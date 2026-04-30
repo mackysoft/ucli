@@ -60,7 +60,7 @@ Use a pinned `<version>` for both the CLI and Unity plugin in released automatio
 - `protocolVersion: 1` is the current request protocol for automation workflows.
 - `MackySoft.Ucli.Contracts` is for direct IPC protocol and tooling consumers.
 - `MackySoft.Ucli.Infrastructure` is an advanced integration package for runtime support code.
-- Operations marked `dangerous` are outside the normal safe-edit path and require an explicit `ucli call --allowDangerous`.
+- Operations marked `dangerous` are outside the normal guarded edit path and require an explicit `ucli call --allowDangerous`.
 
 ## Typical Workflow
 
@@ -88,7 +88,7 @@ For one-off local commands and CI jobs, you can skip the daemon. The default `--
 
 ## Automation Output Contract
 
-Except for `ucli logs`, uCLI commands write one JSON result envelope to standard output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
+Except for `ucli logs`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
 
 `ucli logs unity` and `ucli logs daemon` write log entries to standard output. Use `--format json` when a runner needs newline-delimited JSON log events.
 
