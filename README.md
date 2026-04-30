@@ -480,7 +480,16 @@ ucli test run \
   --assemblyName MyGame.Tests.EditMode
 ```
 
+The command result includes `payload.artifactsDir` and `payload.summaryJsonPath`.
 Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
+
+| Artifact | Use it for |
+| --- | --- |
+| `summary.json` | Fast pass/fail checks, result counts, and top failures. |
+| `results.json` | Normalized per-test results for automation. |
+| `results.xml` | Raw Unity Test Framework output from `-testResults`. |
+| `editor.log` | Unity Editor diagnostics for setup failures, compiler errors, and runtime exceptions. |
+| `meta.json` | The resolved test run configuration and timestamps. |
 
 When a command or test fails, read Unity and daemon logs before retrying:
 
