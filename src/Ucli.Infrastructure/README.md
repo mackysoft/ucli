@@ -6,6 +6,8 @@
 
 This package is not the protocol contract layer. It builds on `MackySoft.Ucli.Contracts` and provides boundary services for runtime code that needs filesystem, process, fingerprint, and transport helpers. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
 
+Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft), [mackysoft.net](https://mackysoft.net/)).
+
 ## Installation
 
 Install a pinned version from nuget.org:
@@ -36,11 +38,25 @@ Source and issue tracking:
 
 <https://github.com/mackysoft/ucli>
 
+## Support
+
+Use GitHub Issues for bugs, questions, and package problems:
+
+<https://github.com/mackysoft/ucli/issues>
+
+Include the package name and version when reporting package-specific problems.
+
 ## Sponsor
 
-If uCLI or other MackySoft projects are useful to you, sponsorship is appreciated.
+If uCLI or other MackySoft projects are useful to you, please support MackySoft through GitHub Sponsors:
 
-GitHub Sponsors: <https://github.com/sponsors/mackysoft>
+<https://github.com/sponsors/mackysoft>
+
+## Author
+
+- Website: <https://mackysoft.net/>
+- GitHub: <https://github.com/mackysoft>
+- Sponsors: <https://github.com/sponsors/mackysoft>
 
 ## License
 

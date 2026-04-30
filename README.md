@@ -2,18 +2,19 @@
 
 [![verify](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml/badge.svg)](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml) [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli?label=MackySoft.Ucli)](https://www.nuget.org/packages/MackySoft.Ucli) [![NuGet Unity](https://img.shields.io/nuget/v/MackySoft.Ucli.Unity?label=MackySoft.Ucli.Unity)](https://www.nuget.org/packages/MackySoft.Ucli.Unity) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-uCLI lets you run Unity Editor operations and Unity Test Framework tests from a terminal, script, continuous integration job, or agent workflow. It is designed for Unity project automation where changes should be inspected, planned, applied, and verified without editing Unity YAML by hand.
+uCLI lets you inspect, plan, apply, and verify Unity Editor automation from a terminal, script, continuous integration job, or agent workflow. It is built for Unity project changes that should go through Unity Editor APIs instead of direct YAML editing.
 
-Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft)).
+Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft), [mackysoft.net](https://mackysoft.net/)). Development is supported through [GitHub Sponsors](https://github.com/sponsors/mackysoft).
 
 ## What You Can Do
 
-- Inspect Unity project state from the command line.
-- Query assets, scenes, GameObjects, components, and schemas.
-- Validate and plan JSON edit requests before applying them.
-- Apply Unity edits through Unity Editor APIs.
-- Reuse a daemon for repeated Unity-backed commands, or run one-shot batchmode commands.
-- Run Unity tests and collect normalized artifacts.
+- Query assets, scenes, GameObjects, components, schemas, and operation metadata.
+- Send JSON requests that combine primitive Unity operations and higher-level edit steps.
+- Validate and plan requests before applying them.
+- Apply changes through Unity Editor APIs with `call`.
+- Use `call --withPlan` for a compact plan-and-apply flow.
+- Use a daemon for repeated Unity-backed commands, or one-shot batchmode for isolated jobs.
+- Run Unity Test Framework tests and collect normalized artifacts.
 - Read Unity and daemon logs when automation fails.
 
 ## Installation
@@ -51,9 +52,11 @@ If you manage `Assets/packages.config` directly, add:
 <package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
 ```
 
-## How uCLI Is Used
+Use a pinned `<version>` for both the CLI and Unity plugin in released automation.
 
-uCLI is usually driven by an automation runner: a local script, a continuous integration job, or an agent that needs to inspect and modify a Unity project. The runner sends structured requests to uCLI, reads structured JSON results, and lets a developer or quality gate decide whether the change is acceptable.
+## Typical Workflow
+
+uCLI is normally driven by a runner: a local shell script, a continuous integration job, or an agent. The runner reads Unity state, builds one JSON request, sends that request to uCLI, and decides whether to accept the result.
 
 Set up optional project-local configuration once per repository:
 
@@ -61,52 +64,113 @@ Set up optional project-local configuration once per repository:
 ucli init
 ```
 
-Before automation starts, confirm that uCLI can resolve the target Unity project:
+Confirm that uCLI can resolve the target Unity project:
 
 ```bash
 ucli status --projectPath ./UnityProject
 ```
 
-For an interactive agent session or a local script that will run several Unity-backed commands, start a daemon:
+Start a daemon when an interactive session or local automation will run several Unity-backed commands:
 
 ```bash
 ucli daemon start --projectPath ./UnityProject
 ```
 
-For one-off local commands or CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when available and falls back to one-shot batchmode when it is not.
+For one-off local commands and CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when one is available and falls back to one-shot batchmode when it is not.
 
-Read project state before deciding what to change:
+## Reading Project State
+
+Read before you write. These commands emit machine-readable JSON on standard output.
 
 ```bash
-ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material, UnityEngine.CoreModule" --limit 100
-ucli query scene tree --projectPath ./UnityProject --path Assets/Scenes/Main.unity --depth 1
+ucli refresh --projectPath ./UnityProject
+
+ucli query assets find \
+  --projectPath ./UnityProject \
+  --type "UnityEngine.Material, UnityEngine.CoreModule" \
+  --limit 100
+
+ucli query scene tree \
+  --projectPath ./UnityProject \
+  --path Assets/Scenes/Main.unity \
+  --depth 1
+
+ucli query comp schema \
+  --projectPath ./UnityProject \
+  --type "Game.EnemySpawner, Assembly-CSharp"
+
+ucli resolve \
+  --projectPath ./UnityProject \
+  --scene Assets/Scenes/Main.unity \
+  --hierarchyPath Root/Enemies/Spawner \
+  --componentType "Game.EnemySpawner, Assembly-CSharp"
 ```
 
-After your tool or agent has a JSON edit request, run the same request body through `validate`, `plan`, and `call`:
+For read-heavy workflows, `--readIndexMode` controls whether query-like commands may use stored index data:
+
+| Mode | Behavior |
+| --- | --- |
+| `disabled` | Skip stored index data and read from Unity when the command needs project state. |
+| `allowStale` | Use stored index data even when it is stale, and fall back when it is unavailable. |
+| `requireFresh` | Use stored index data only when it is fresh; otherwise refresh from Unity when the command supports it. |
+
+The operation catalog is also available from the CLI:
 
 ```bash
-ucli validate --projectPath ./UnityProject < ./request.json
-ucli plan --projectPath ./UnityProject < ./request.json
-ucli call --projectPath ./UnityProject --planToken "<PLAN_TOKEN>" < ./request.json
+ucli ops list --projectPath ./UnityProject
+ucli ops describe ucli.scene.open --projectPath ./UnityProject
 ```
 
-An edit request is a JSON object with:
+## Applying Changes
 
-- `protocolVersion`: currently `1`
-- `requestId`: a UUID generated by your runner
-- `steps`: ordered work items
-
-Each step is one of:
-
-- `kind: "op"` for a direct Unity operation, such as opening a scene, saving a scene, refreshing the project, resolving an object, or querying structure.
-- `kind: "edit"` for a context-bound edit, such as changing a component on a GameObject in a scene, prefab, asset, or project context.
-
-Use the same request body for all three commands. `validate` checks request shape and static constraints before Unity execution. `plan` checks the request against current Unity state, reports the planned result, and returns a `planToken` without applying persistent changes. `call` applies the request when the token still matches the request and project state.
-
-For scripts, capture the JSON plan result and read `payload.planToken` before calling:
+Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.
 
 ```bash
-# REQUEST_JSON is produced by your script, CI job, or agent.
+REQUEST_JSON='{
+  "protocolVersion": 1,
+  "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+  "steps": [
+    {
+      "kind": "op",
+      "id": "openMainScene",
+      "op": "ucli.scene.open",
+      "args": {
+        "path": "Assets/Scenes/Main.unity"
+      }
+    },
+    {
+      "kind": "edit",
+      "id": "editSpawner",
+      "on": {
+        "scene": "Assets/Scenes/Main.unity"
+      },
+      "select": {
+        "gameObject": "Root/Enemies/Spawner",
+        "component": "Game.EnemySpawner, Assembly-CSharp",
+        "cardinality": "one"
+      },
+      "actions": [
+        {
+          "kind": "set",
+          "values": {
+            "spawnInterval": 3.0,
+            "maxCount": 10
+          }
+        }
+      ],
+      "commit": "context"
+    }
+  ]
+}'
+
+printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --withPlan
+```
+
+This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, edits the `Game.EnemySpawner` component, and saves the scene through `commit: "context"`.
+
+When a human review step or quality gate must inspect the plan before applying changes, split execution into `validate`, `plan`, and `call`:
+
+```bash
 printf '%s' "$REQUEST_JSON" | ucli validate --projectPath ./UnityProject
 PLAN_JSON="$(printf '%s' "$REQUEST_JSON" | ucli plan --projectPath ./UnityProject)"
 
@@ -114,13 +178,300 @@ PLAN_TOKEN="$(printf '%s' "$PLAN_JSON" | jq -r '.payload.planToken')"
 printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken "$PLAN_TOKEN"
 ```
 
-The script example uses `jq`; use your runner's JSON parser if you do not use `jq`.
+`validate` checks request shape and static constraints. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
 
-Use `--requestPath` only when a file path is the natural interface for your tool.
+Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
 
-uCLI writes machine-readable JSON to standard output for normal command results. Diagnostic logs and progress messages are written to standard error.
+## Request DSL
 
-After edits, run Unity tests from the same automation flow:
+A request is one ordered unit of work:
+
+```json
+{
+  "protocolVersion": 1,
+  "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+  "steps": []
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `protocolVersion` | Request protocol version. Use `1`. |
+| `requestId` | UUID generated by the runner for this request. |
+| `steps` | Ordered steps. uCLI runs them in array order. |
+
+Each step is either `kind: "op"` or `kind: "edit"`.
+
+### Primitive Operation Step
+
+Use `op` when the operation you need is already in the operation catalog.
+
+```json
+{
+  "kind": "op",
+  "id": "openMainScene",
+  "op": "ucli.scene.open",
+  "args": {
+    "path": "Assets/Scenes/Main.unity"
+  }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Step identifier used in results and diagnostics. |
+| `op` | Operation name, such as `ucli.scene.open`. |
+| `args` | Operation-specific argument object. |
+
+### Edit Step
+
+Use `edit` for common Unity edits where you want to name a context, select targets, apply actions, and choose the save boundary.
+
+```json
+{
+  "kind": "edit",
+  "id": "editSpawner",
+  "on": {
+    "scene": "Assets/Scenes/Main.unity"
+  },
+  "select": {
+    "gameObject": "Root/Enemies/Spawner",
+    "component": "Game.EnemySpawner, Assembly-CSharp",
+    "cardinality": "one"
+  },
+  "actions": [
+    {
+      "kind": "set",
+      "values": {
+        "spawnInterval": 3.0,
+        "weights.Array.data[0]": 0.25
+      }
+    }
+  ],
+  "commit": "context"
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `on` | The edit context and persistence boundary. |
+| `select` | The object or objects to edit inside the context. |
+| `actions` | One or more edits to apply to the selected target. |
+| `commit` | Save behavior. Use `none`, `context`, or `project`. |
+
+`scene` and `prefab` edits that mutate or use `commit: "context"` need that context open. Put `ucli.scene.open` or `ucli.prefab.open` before the edit step when the runner has not opened it already.
+
+### Edit Contexts
+
+| Context | JSON | Use it for |
+| --- | --- | --- |
+| Scene | `{ "scene": "Assets/Scenes/Main.unity" }` | GameObjects and components in a scene. |
+| Prefab | `{ "prefab": "Assets/Prefabs/Enemy.prefab" }` | GameObjects and components in a prefab stage. |
+| Asset | `{ "asset": "Assets/Data/GameBalance.asset" }` | A main asset such as a ScriptableObject. |
+| Project | `{ "project": true }` | Project-scoped assets such as `ProjectSettings/TagManager.asset`. |
+
+### Selectors
+
+For scene and prefab contexts, select a GameObject by hierarchy path. Add `component` when the action should target a component on that GameObject.
+
+```json
+{
+  "gameObject": "Root/Enemies/Spawner",
+  "component": "Game.EnemySpawner, Assembly-CSharp",
+  "cardinality": "one"
+}
+```
+
+For an asset context, select the asset itself:
+
+```json
+{
+  "self": true,
+  "cardinality": "one"
+}
+```
+
+For project-scoped settings, select the project asset path:
+
+```json
+{
+  "projectAsset": {
+    "path": "ProjectSettings/TagManager.asset"
+  },
+  "cardinality": "one"
+}
+```
+
+For a scene context, select a set produced by `ucli.scene.query`:
+
+```json
+{
+  "from": {
+    "op": "ucli.scene.query",
+    "args": {
+      "pathPrefix": "Root/Enemies",
+      "componentType": "Game.EnemySpawner, Assembly-CSharp"
+    }
+  },
+  "cardinality": "all"
+}
+```
+
+`cardinality` is required:
+
+| Value | Meaning |
+| --- | --- |
+| `one` | Exactly one target must match. |
+| `first` | Use the first target from a deterministic match set. |
+| `all` | Apply the same action to every matched target. |
+| `atMostOne` | Allow zero or one target. |
+
+### Actions
+
+If `target` is omitted, the action uses the current selected target. An action that creates or ensures an object can expose it with `as`, and later actions in the same step can refer to it with `"$name"`.
+
+```json
+{
+  "kind": "edit",
+  "id": "ensureSpawner",
+  "on": {
+    "scene": "Assets/Scenes/Main.unity"
+  },
+  "select": {
+    "gameObject": "Root/Enemies/Spawner",
+    "cardinality": "one"
+  },
+  "actions": [
+    {
+      "kind": "ensureComponent",
+      "type": "Game.EnemySpawner, Assembly-CSharp",
+      "as": "spawner"
+    },
+    {
+      "kind": "set",
+      "target": "$spawner",
+      "values": {
+        "spawnInterval": 3.0,
+        "maxCount": 10
+      }
+    }
+  ],
+  "commit": "context"
+}
+```
+
+| Action | Required fields | Use it for |
+| --- | --- | --- |
+| `set` | `values` | Set serialized properties on the selected object, component, or asset. |
+| `ensureComponent` | `type` | Add a component when it is missing and reuse it when it exists. |
+| `createObject` | `name` | Create a GameObject in the selected context. |
+| `createAsset` | `type`, `path` | Create a ScriptableObject main asset under `Assets/`. |
+| `createPrefab` | `target`, `path` | Create a prefab asset from a GameObject. |
+| `delete` | none | Delete the current target or the explicit `target`. |
+| `reparent` | `parent` | Move a GameObject under another parent. |
+
+`set.values` uses Unity serialized property paths:
+
+```json
+{
+  "kind": "set",
+  "values": {
+    "spawnInterval": 3.0,
+    "weights.Array.data[0]": 0.25
+  }
+}
+```
+
+### Commit
+
+| Value | Behavior |
+| --- | --- |
+| `none` | Apply the edit in memory and do not save from this step. |
+| `context` | Save the current scene, prefab, asset, or project context. |
+| `project` | Save the project. |
+
+uCLI does not implicitly save an edit step. Choose `commit` intentionally.
+
+### Primitive Target Selectors
+
+Primitive operations that take a `target` use one of these selector shapes:
+
+```json
+{ "globalObjectId": "GlobalObjectId_V1-..." }
+{ "assetGuid": "0123456789abcdef0123456789abcdef" }
+{ "assetPath": "Assets/Data/GameBalance.asset" }
+{ "projectAssetPath": "ProjectSettings/TagManager.asset" }
+{ "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner" }
+{ "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner", "componentType": "Game.EnemySpawner, Assembly-CSharp" }
+{ "prefab": "Assets/Prefabs/Enemy.prefab", "hierarchyPath": "Root/Visual" }
+```
+
+Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
+
+```json
+{
+  "kind": "op",
+  "id": "setSpawnerRaw",
+  "op": "ucli.comp.set",
+  "args": {
+    "target": {
+      "scene": "Assets/Scenes/Main.unity",
+      "hierarchyPath": "Root/Enemies/Spawner",
+      "componentType": "Game.EnemySpawner, Assembly-CSharp"
+    },
+    "sets": [
+      {
+        "path": "spawnInterval",
+        "value": 3.0
+      }
+    ]
+  }
+}
+```
+
+## Operation Catalog
+
+Use `edit` for common edits. Use `op` when you need an explicit primitive operation from this catalog.
+
+### Read Operations
+
+| Operation | Type | Args | Use it for |
+| --- | --- | --- | --- |
+| `ucli.assets.find` | query | `{ type?, pathPrefix?, nameContains? }` | Find main assets under `Assets/`. At least one filter is required. |
+| `ucli.asset.schema` | query | `{ type }` or `{ target }` | Read writable serialized fields for an asset type or existing asset. |
+| `ucli.comp.schema` | query | `{ type }` | Read writable serialized fields for a component type. |
+| `ucli.go.describe` | query | `{ target, depth? }` | Inspect one GameObject and its components. |
+| `ucli.resolve` | query | selector object | Resolve a selector to a Unity object identifier. |
+| `ucli.scene.query` | query | `{ scene, pathPrefix?, componentType? }` | Find scene GameObjects or components for selection. |
+| `ucli.scene.tree` | query | `{ path, depth? }` | Read a scene hierarchy. |
+
+### Context And Save Operations
+
+| Operation | Type | Args | Use it for |
+| --- | --- | --- | --- |
+| `ucli.scene.open` | query | `{ path }` | Ensure a scene is loaded. |
+| `ucli.scene.save` | mutation | `{ path }` | Save a loaded scene. |
+| `ucli.prefab.open` | query | `{ path }` | Open a prefab editing context. |
+| `ucli.prefab.save` | mutation | `{ path }` | Save the opened prefab context. |
+| `ucli.project.refresh` | mutation | `{}` | Refresh the Unity project and AssetDatabase. |
+| `ucli.project.save` | mutation | `{}` | Save project assets, project settings, and tracked open contexts. |
+
+### Mutation Operations
+
+| Operation | Type | Args | Use it for |
+| --- | --- | --- | --- |
+| `ucli.asset.create` | mutation | `{ type, path }` | Create a ScriptableObject main asset under `Assets/`. |
+| `ucli.asset.set` | mutation | `{ target, sets[] }` | Set serialized properties on an asset or project-scoped asset. |
+| `ucli.comp.ensure` | mutation | `{ target, type }` | Ensure a component exists on a GameObject. |
+| `ucli.comp.set` | mutation | `{ target, sets[] }` | Set serialized properties on a component. |
+| `ucli.go.create` | mutation | `{ name, scene }` or `{ name, parent }` | Create a GameObject at a scene root or under a parent. |
+| `ucli.go.delete` | mutation | `{ target }` | Delete a GameObject. |
+| `ucli.go.reparent` | mutation | `{ target, parent }` | Move a GameObject under a new parent. |
+| `ucli.prefab.create` | mutation | `{ target, path }` | Create a prefab asset from a GameObject. |
+
+## Verifying Changes
+
+Run Unity tests after applying edits:
 
 ```bash
 ucli test run \
@@ -148,17 +499,33 @@ ucli daemon stop --projectPath ./UnityProject
 
 | Command | Use it when you need to |
 | --- | --- |
-| `ucli status` | Check daemon and Unity lifecycle state. |
+| `ucli init` | Create optional project-local uCLI configuration. |
+| `ucli status` | Check Unity project resolution and daemon lifecycle state. |
+| `ucli refresh` | Refresh Unity project state. |
 | `ucli query` | Read project data without writing changes. |
 | `ucli resolve` | Resolve a selector to a Unity object identifier. |
+| `ucli ops` | List and inspect available primitive operations. |
 | `ucli validate` | Check a request before Unity execution. |
-| `ucli plan` | Preview an edit request and receive a `planToken`. |
-| `ucli call` | Apply an edit request. |
-| `ucli refresh` | Run Unity project refresh. |
+| `ucli plan` | Preview a request and receive a `planToken`. |
+| `ucli call` | Apply a request. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
-| `ucli ops` | List and inspect available primitive operations. |
+
+Common options:
+
+| Option | Applies to | Meaning |
+| --- | --- | --- |
+| `--projectPath <path>` | Unity-backed commands | Target Unity project path. |
+| `--mode auto|daemon|oneshot` | Unity-backed commands | Choose daemon reuse or one-shot batchmode. |
+| `--timeout <milliseconds>` | Unity-backed commands | Override the command timeout. |
+| `--readIndexMode disabled|allowStale|requireFresh` | Query-like commands | Control read-index use. |
+| `--failFast` | Unity-backed commands | Fail immediately when Unity cannot accept the request. |
+| `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
+| `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
+| `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the Unity plugin. |
+
+Normal command results are written as JSON to standard output. Diagnostics, progress, and logs are written to standard error.
 
 ## Packages
 
@@ -171,7 +538,7 @@ ucli daemon stop --projectPath ./UnityProject
 
 ## Support
 
-Use [GitHub Issues](https://github.com/mackysoft/ucli/issues) for bugs, feature requests, and README problems.
+Use [GitHub Issues](https://github.com/mackysoft/ucli/issues) for bugs, feature requests, usage questions, and README problems.
 
 For bug reports, include:
 
@@ -179,23 +546,24 @@ For bug reports, include:
 - Unity version
 - Operating system
 - The command you ran
-- `--mode` value, when relevant
+- `--mode` and `--readIndexMode` values, when relevant
 - Error output or logs from `ucli logs unity` / `ucli logs daemon`
 
 Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and README improvements.
 
 ## Sponsor
 
-If uCLI helps your Unity automation workflow, please consider sponsoring MackySoft. Sponsorship supports maintenance and continued development.
+If uCLI helps your Unity automation workflow, please support MackySoft through GitHub Sponsors:
 
-GitHub Sponsors: <https://github.com/sponsors/mackysoft>
+<https://github.com/sponsors/mackysoft>
 
 ## Author
 
 Hiroya Aramaki is an indie game developer in Japan.
 
-- GitHub: <https://github.com/mackysoft>
 - Website: <https://mackysoft.net/>
+- GitHub: <https://github.com/mackysoft>
+- Sponsors: <https://github.com/sponsors/mackysoft>
 
 ## License
 
