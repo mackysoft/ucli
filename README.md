@@ -4,6 +4,8 @@
 
 uCLI lets you run Unity Editor operations and Unity Test Framework tests from a terminal, script, continuous integration job, or agent workflow. It is designed for Unity project automation where changes should be inspected, planned, applied, and verified without editing Unity YAML by hand.
 
+Created by Hiroya Aramaki ([Makihiro](https://github.com/mackysoft)).
+
 ## What You Can Do
 
 - Inspect Unity project state from the command line.
@@ -147,7 +149,19 @@ ucli daemon stop --projectPath ./UnityProject
 
 - Issues: <https://github.com/mackysoft/ucli/issues>
 - Pull requests: <https://github.com/mackysoft/ucli/pulls>
-- GitHub Sponsors: <https://github.com/sponsors/mackysoft>
+
+## Sponsor
+
+If uCLI helps your Unity automation workflow, please consider sponsoring MackySoft. Sponsorship supports maintenance and continued development.
+
+GitHub Sponsors: <https://github.com/sponsors/mackysoft>
+
+## Author
+
+Hiroya Aramaki is an indie game developer in Japan.
+
+- GitHub: <https://github.com/mackysoft>
+- Blog: <https://mackysoft.net/blog>
 
 ## License
 
