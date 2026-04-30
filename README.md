@@ -180,7 +180,7 @@ GitHub Sponsors: <https://github.com/sponsors/mackysoft>
 Hiroya Aramaki is an indie game developer in Japan.
 
 - GitHub: <https://github.com/mackysoft>
-- Blog: <https://mackysoft.net/blog>
+- Website: <https://mackysoft.net/>
 
 ## License
 
