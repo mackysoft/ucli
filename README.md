@@ -105,6 +105,16 @@ The script example uses `jq`; use your runner's JSON parser if you do not use `j
 
 Use `--requestPath` only when a file path is the natural interface for your tool.
 
+Request execution has three stages:
+
+| Stage | What it does |
+| --- | --- |
+| `validate` | Checks request shape and static constraints before Unity execution. |
+| `plan` | Resolves the request, reports the planned result, and returns a `planToken`. It does not apply persistent changes. |
+| `call` | Applies the same request to Unity. Pass the `planToken` when you want the call to be tied to the inspected plan. |
+
+uCLI writes machine-readable JSON to standard output for normal command results. Diagnostic logs and progress messages are written to standard error.
+
 After edits, run Unity tests from the same automation flow:
 
 ```bash
@@ -154,13 +164,10 @@ ucli daemon stop --projectPath ./UnityProject
 | `MackySoft.Ucli.Contracts` | You build tooling that exchanges uCLI IPC contracts directly. |
 | `MackySoft.Ucli.Infrastructure` | You build uCLI runtime integrations that need shared infrastructure helpers. |
 
-## Reference
+## More Details
 
-- [Command reference](https://github.com/mackysoft/ucli/blob/master/docs/uCLI-command-reference.md)
-- [JSON request specification](https://github.com/mackysoft/ucli/blob/master/docs/json-request-spec.md)
-- [JSON property reference](https://github.com/mackysoft/ucli/blob/master/docs/uCLI-property-reference.md)
-- [Operation catalog](https://github.com/mackysoft/ucli/blob/master/docs/ops-catalog.md)
-- [Package operations](https://github.com/mackysoft/ucli/blob/master/docs/package-operations.md)
+- [Command reference](https://github.com/mackysoft/ucli/blob/master/docs/uCLI-command-reference.md): options, exit codes, and command examples.
+- [JSON request specification](https://github.com/mackysoft/ucli/blob/master/docs/json-request-spec.md): request structure, edit steps, primitive operation steps, selectors, and commit boundaries.
 
 ## Support
 
