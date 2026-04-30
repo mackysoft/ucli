@@ -51,50 +51,53 @@ If you manage `Assets/packages.config` directly, add:
 <package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
 ```
 
-## Typical Workflow
+## How uCLI Is Used
 
-Set up optional project-local configuration once:
+uCLI is usually driven by an automation runner: a local script, a continuous integration job, or an agent that needs to inspect and modify a Unity project. The runner sends structured requests to uCLI, reads structured JSON results, and lets a developer or quality gate decide whether the change is acceptable.
+
+Set up optional project-local configuration once per repository:
 
 ```bash
 ucli init
 ```
 
-Check that uCLI can resolve the target Unity project:
+Before automation starts, confirm that uCLI can resolve the target Unity project:
 
 ```bash
 ucli status --projectPath ./UnityProject
 ```
 
-Start a daemon when you plan to run several Unity-backed commands:
+For an interactive agent session or a local script that will run several Unity-backed commands, start a daemon:
 
 ```bash
 ucli daemon start --projectPath ./UnityProject
 ```
 
-Skip the daemon for one-off commands. The default `--mode auto` uses a running daemon when available and falls back to one-shot batchmode when it is not.
+For one-off local commands or CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when available and falls back to one-shot batchmode when it is not.
 
-Inspect project data before making changes:
+Read project state before deciding what to change:
 
 ```bash
 ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material, UnityEngine.CoreModule" --limit 100
 ucli query scene tree --projectPath ./UnityProject --path Assets/Scenes/Main.unity --depth 1
 ```
 
-Pass edit requests through standard input. In scripts and agent workflows, generate the JSON request, inspect the plan, then pass the same request body to `call`.
+Generate a JSON edit request in your runner, then pass the same request body through `validate`, `plan`, and `call`. `plan` returns JSON; read `payload.planToken` from that result and pass it to `call`.
 
-The plan result is JSON. The example below uses `jq` to read `payload.planToken`; use your script's JSON parser if you do not use `jq`.
+This shell example uses `jq`; use your runner's JSON parser if you do not use `jq`.
 
 ```bash
-ucli validate --projectPath ./UnityProject < ./request.json
-ucli plan --projectPath ./UnityProject < ./request.json > ./plan-result.json
+# REQUEST_JSON is produced by your script, CI job, or agent.
+printf '%s' "$REQUEST_JSON" | ucli validate --projectPath ./UnityProject
+PLAN_JSON="$(printf '%s' "$REQUEST_JSON" | ucli plan --projectPath ./UnityProject)"
 
-PLAN_TOKEN="$(jq -r '.payload.planToken' ./plan-result.json)"
-ucli call --projectPath ./UnityProject --planToken "$PLAN_TOKEN" < ./request.json
+PLAN_TOKEN="$(printf '%s' "$PLAN_JSON" | jq -r '.payload.planToken')"
+printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken "$PLAN_TOKEN"
 ```
 
-Use `--requestPath` only when a path-based invocation is more convenient for your tool or script.
+Use `--requestPath` only when a file path is the natural interface for your tool.
 
-Run Unity tests after edits:
+After edits, run Unity tests from the same automation flow:
 
 ```bash
 ucli test run \
@@ -105,14 +108,14 @@ ucli test run \
 
 Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
 
-Read logs when a command or test fails:
+When a command or test fails, read Unity and daemon logs before retrying:
 
 ```bash
 ucli logs unity --projectPath ./UnityProject --tail 200 --level error
 ucli logs daemon --projectPath ./UnityProject --tail 200
 ```
 
-Stop the daemon when you no longer need it:
+Stop the daemon at the end of an interactive automation session:
 
 ```bash
 ucli daemon stop --projectPath ./UnityProject
