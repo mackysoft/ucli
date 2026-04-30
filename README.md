@@ -82,9 +82,15 @@ ucli query assets find --projectPath ./UnityProject --type "UnityEngine.Material
 ucli query scene tree --projectPath ./UnityProject --path Assets/Scenes/Main.unity --depth 1
 ```
 
-Generate a JSON edit request in your runner, then pass the same request body through `validate`, `plan`, and `call`. `plan` returns JSON; read `payload.planToken` from that result and pass it to `call`.
+After your tool or agent has a JSON edit request, run the same request body through `validate`, `plan`, and `call`:
 
-This shell example uses `jq`; use your runner's JSON parser if you do not use `jq`.
+```bash
+ucli validate --projectPath ./UnityProject < ./request.json
+ucli plan --projectPath ./UnityProject < ./request.json
+ucli call --projectPath ./UnityProject --planToken "<PLAN_TOKEN>" < ./request.json
+```
+
+For scripts, capture the JSON plan result and read `payload.planToken` before calling:
 
 ```bash
 # REQUEST_JSON is produced by your script, CI job, or agent.
@@ -94,6 +100,8 @@ PLAN_JSON="$(printf '%s' "$REQUEST_JSON" | ucli plan --projectPath ./UnityProjec
 PLAN_TOKEN="$(printf '%s' "$PLAN_JSON" | jq -r '.payload.planToken')"
 printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken "$PLAN_TOKEN"
 ```
+
+The script example uses `jq`; use your runner's JSON parser if you do not use `jq`.
 
 Use `--requestPath` only when a file path is the natural interface for your tool.
 
