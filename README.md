@@ -525,7 +525,7 @@ Common options:
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
 | `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the Unity plugin. |
 
-Normal command results are written as JSON to standard output. Diagnostics, progress, and logs are written to standard error.
+Normal command results are written as JSON to standard output. `ucli logs` writes log entries to standard output. Diagnostics and progress messages are written to standard error.
 
 ## Packages
 
