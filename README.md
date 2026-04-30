@@ -147,8 +147,18 @@ ucli daemon stop --projectPath ./UnityProject
 
 ## Support
 
-- Issues: <https://github.com/mackysoft/ucli/issues>
-- Pull requests: <https://github.com/mackysoft/ucli/pulls>
+Use [GitHub Issues](https://github.com/mackysoft/ucli/issues) for bugs, feature requests, and documentation problems.
+
+For bug reports, include:
+
+- `ucli --version`
+- Unity version
+- Operating system
+- The command you ran
+- `--mode` value, when relevant
+- Error output or logs from `ucli logs unity` / `ucli logs daemon`
+
+Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and documentation improvements.
 
 ## Sponsor
 
