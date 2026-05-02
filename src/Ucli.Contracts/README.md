@@ -19,10 +19,21 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 ## What This Package Provides
 
 - IPC request and response contracts.
+- Typed primitive operation Args/Result contract types.
+- Attributes used to generate operation `argsSchema` and `resultSchema`.
+- `UcliNoResult` for operations that intentionally omit `opResults[].result`.
 - Protocol constants and shared protocol metadata.
 - Configuration and storage contract models.
 - JSON serialization helpers for uCLI contract types.
 - Shared data shapes used by the CLI, Unity plugin, and infrastructure package.
+
+## Operation Contracts
+
+Primitive operation contracts are authored as CLR Args/Result types. Required fields, descriptions, JSON property names, and simple constraints are declared on those contract properties. uCLI generates JSON Schema from the typed contract and exposes it through `ops describe`.
+
+Selectors are also contract types, such as `GameObjectReferenceArgs`, `ComponentReferenceArgs`, and `AssetReferenceArgs`. Operation authors consume those typed references and keep resolved Unity objects inside the Unity implementation layer.
+
+JSON remains the IPC wire format. Operation implementations and command builders should use the typed contract model before crossing the IPC boundary, and should avoid treating raw `JsonElement` as the authoring surface.
 
 ## Related Packages
 

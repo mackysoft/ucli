@@ -137,6 +137,8 @@ ucli ops list --projectPath ./UnityProject
 ucli ops describe ucli.scene.open --projectPath ./UnityProject
 ```
 
+`ops describe` returns the generated `argsSchema` and `resultSchema` for one primitive operation. uCLI operation contracts are authored as typed Args/Result contract types in `MackySoft.Ucli.Contracts`; JSON Schema is generated from those types and their schema attributes. Agents should inspect `ops describe` instead of copying raw JSON examples into requests.
+
 ## Applying Changes
 
 Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.

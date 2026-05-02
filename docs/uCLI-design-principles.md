@@ -111,15 +111,17 @@ file、log、session、artifact は reload generation をまたいで reopen で
 ### Transport は意味を変えない
 transport は搬送路であり、意味論を変える理由ではない。
 差異がある場合は、黙って欠落させず capability として明示する。
-### Schema を唯一の正本にする
+### Contract 型を唯一の正本にする
 README、help、skill、tool description を別々に人手で保守しない。  
-**機械可読な schema / metadata を唯一の正本**にする。
+operation ごとの Args/Result contract 型を唯一の正本にし、機械可読な `argsSchema` / `resultSchema` / metadata はそこから生成する。
 ### Unsafe path は隔離する
 任意コード実行や危険操作は認めてもよいが、safe 系の主経路とは分ける。  
 危険操作に safe と同じ保証を与えない。
 ### Safe core は typed operation で閉じる
 safe 系主経路は `typed reference + typed op + explicit context` を基準にする。
 generic setter や任意コード実行を safe core の前提にしない。
+selector は `GameObjectReferenceArgs`、`ComponentReferenceArgs`、`AssetReferenceArgs` などの contract 型で受け取り、解決済み `UnityEngine.Object` は Unity 実装層の内部状態に閉じ込める。
+operation 本体は `JsonElement` 起点ではなく typed Args を受け取り、JSON は IPC と schema validation の境界に閉じ込める。
 ### Sugar は正本ではない
 
 短縮構文は許容してよい。  

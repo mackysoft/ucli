@@ -61,6 +61,9 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `id`: step 識別子
 - `op`: 実行する op 名
 - `args`: op 固有引数
+
+`args` は operation ごとの Args contract 型から生成された `argsSchema` で検証する。利用者やエージェントは `ucli ops describe <opName>` で `argsSchema` と `resultSchema` を取得し、生の JSON 例ではなく schema を正として request を組み立てる。`opResults[].result` は operation ごとの Result contract 型に対応する主データであり、実行状態や副作用情報は envelope の `phase` / `applied` / `changed` / `touched` / `errors` を参照する。
+
 ### 用途
 `op` は少なくとも次を表現する。
 - scene / prefab / project の open / save / refresh

@@ -8,6 +8,8 @@
 
 This is an advanced integration package, not the protocol contract layer. It builds on `MackySoft.Ucli.Contracts` and provides boundary services for runtime code that needs filesystem, process, fingerprint, and transport helpers. Users who only run the `ucli` command or install `MackySoft.Ucli.Unity` usually do not need to reference this package directly.
 
+Operation Args/Result contracts and operation schema generation belong to `MackySoft.Ucli.Contracts`, not this infrastructure package. Infrastructure code may transport or persist generated contract data, but it does not define the operation contract source of truth.
+
 ## Installation
 
 Install a pinned version from nuget.org:

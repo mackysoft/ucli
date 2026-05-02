@@ -24,7 +24,8 @@
 ## 公開コマンド
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
-  - `describe <opName>` は特定オペレーションの引数スキーマを返す。
+  - `describe <opName>` は特定オペレーションの `argsSchema` と `resultSchema` を返す。
+  - `argsSchema` / `resultSchema` は Args/Result contract 型から生成された JSON Schema であり、request 作成時の機械可読な正本とする。
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
   - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。
@@ -44,6 +45,7 @@
   - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
 - `ucli query`
   - JSON request、`stdin`、`--requestPath` は受け付けず、型付きサブコマンドから固定 primitive operation 1 件を組み立てる。
+  - サブコマンドの flags は operation Args contract 型に写像してから IPC payload へシリアライズする。
   - 全サブコマンドで `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - 一覧系の `assets find` と `scene tree` は `--limit`、`--after`、`--all` を受け付け、既定 `limit=100`、最大 `10000` とする。
   - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
