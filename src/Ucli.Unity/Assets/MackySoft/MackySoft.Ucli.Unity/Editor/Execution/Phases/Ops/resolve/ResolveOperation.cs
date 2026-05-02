@@ -10,25 +10,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements selector resolution flow for the <c>ucli.resolve</c> operation. </summary>
     [UcliOperation]
-    internal sealed class ResolveOperation : IUcliOperation
+    internal sealed class ResolveOperation : TypedUcliOperation<UcliOperationContracts.ResolveSelectorArgs, IpcResolveOperationResult>
     {
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.ResolveSelectorArgs, IpcResolveOperationResult>(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
-            argsSchemaJson: IpcResolveSelectorArgsSchema.Json);
+            policy: OperationPolicy.Safe);
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliOperationContracts.ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            if (!ResolveSelectorCodec.TryParse(operation.Args, out var selector, out var errorMessage))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
             }
@@ -54,12 +55,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliOperationContracts.ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            return ExecuteResolve(operation, executionContext, applied: false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return ExecuteResolve(operation, args, executionContext, applied: false);
         }
 
         /// <summary> Executes call phase for <c>ucli.resolve</c>. </summary>
@@ -67,12 +70,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliOperationContracts.ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            return ExecuteResolve(operation, executionContext, applied: true);
+            cancellationToken.ThrowIfCancellationRequested();
+            return ExecuteResolve(operation, args, executionContext, applied: true);
         }
 
         /// <summary> Executes selector parse/resolve flow shared by plan and call phases. </summary>
@@ -82,10 +87,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecuteResolve (
             NormalizedOperation operation,
+            UcliOperationContracts.ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
             bool applied)
         {
-            if (!ResolveSelectorCodec.TryParse(operation.Args, out var selector, out var parseErrorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var parseErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage));
             }

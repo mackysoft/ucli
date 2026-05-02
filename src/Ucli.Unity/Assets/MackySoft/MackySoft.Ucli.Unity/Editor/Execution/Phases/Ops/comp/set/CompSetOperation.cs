@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -12,61 +13,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.comp.set</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompSetOperation : IUcliOperation
+    internal sealed class CompSetOperation : TypedUcliOperation<UcliOperationContracts.ComponentSetArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""target"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""componentType"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""scene"", ""hierarchyPath"", ""componentType""] },
-                    { ""required"": [""prefab"", ""hierarchyPath"", ""componentType""] }
-                  ]
-                },
-                ""sets"": {
-                  ""type"": ""array"",
-                  ""minItems"": 1,
-                  ""items"": {
-                    ""type"": ""object"",
-                    ""additionalProperties"": false,
-                    ""properties"": {
-                      ""path"": { ""type"": ""string"", ""minLength"": 1 },
-                      ""value"": {}
-                    },
-                    ""required"": [""path"", ""value""]
-                  }
-                }
-              },
-              ""required"": [""target"", ""sets""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.ComponentSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompSet,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            policy: OperationPolicy.Advanced);
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentSetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveValidateTarget(operation, executionContext, out _, out var failure))
+            if (!TryResolveValidateTarget(operation, args, executionContext, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -74,13 +35,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentSetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolvePlanBinding(operation, executionContext, out var bindingState, out var failure))
+            if (!TryResolvePlanBinding(operation, args, executionContext, out var bindingState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -130,13 +92,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }));
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentSetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveCallBinding(operation, executionContext, out var bindingState, out var failure))
+            if (!TryResolveCallBinding(operation, args, executionContext, out var bindingState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -191,13 +154,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveValidateTarget (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentSetArgs args,
             OperationExecutionContext executionContext,
             out ValidatedTargetState validatedTargetState,
             out OperationPhaseStepResult? failure)
         {
             validatedTargetState = default;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -220,13 +184,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePlanBinding (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentSetArgs args,
             OperationExecutionContext executionContext,
             out ResolvedBindingState bindingState,
             out OperationPhaseStepResult? failure)
         {
             bindingState = default;
             failure = null;
-            if (!TryResolveValidateTarget(operation, executionContext, out var validatedTargetState, out failure))
+            if (!TryResolveValidateTarget(operation, args, executionContext, out var validatedTargetState, out failure))
             {
                 return false;
             }
@@ -290,13 +255,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveCallBinding (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentSetArgs args,
             OperationExecutionContext executionContext,
             out ResolvedBindingState bindingState,
             out OperationPhaseStepResult? failure)
         {
             bindingState = default;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -378,7 +344,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ResolvedBindingState (
                 TargetBinding binding,
-                System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment> sets)
+                IReadOnlyList<SerializedPropertyAssignment> sets)
             {
                 Binding = binding;
                 Sets = sets;
@@ -386,7 +352,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public TargetBinding Binding { get; }
 
-            public System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment> Sets { get; }
+            public IReadOnlyList<SerializedPropertyAssignment> Sets { get; }
         }
     }
 }

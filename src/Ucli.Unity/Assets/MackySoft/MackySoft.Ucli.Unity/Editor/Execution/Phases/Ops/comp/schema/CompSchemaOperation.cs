@@ -1,6 +1,8 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Index;
@@ -11,34 +13,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.comp.schema</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompSchemaOperation : IUcliOperation
+    internal sealed class CompSchemaOperation : TypedUcliOperation<UcliOperationContracts.TypeArgs, IndexSchemaEntryJsonContract>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""type"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""type""]
-            }";
-
         private readonly ComponentSchemaExtractor schemaExtractor =
             new ComponentSchemaExtractor(new IndexSchemaPropertyCollector());
 
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.TypeArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.CompSchema,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
-            argsSchemaJson: ArgsSchemaJson);
+            policy: OperationPolicy.Safe);
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliOperationContracts.TypeArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, out _, out var failure))
+            if (!TryValidateArguments(operation, args, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -46,30 +38,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public async Task<OperationPhaseStepResult> Plan (
+        protected override async Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliOperationContracts.TypeArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await Execute(operation, applied: false, cancellationToken).ConfigureAwait(false);
+            return await Execute(operation, args, applied: false, cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<OperationPhaseStepResult> Call (
+        protected override async Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliOperationContracts.TypeArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await Execute(operation, applied: true, cancellationToken).ConfigureAwait(false);
+            return await Execute(operation, args, applied: true, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
+            UcliOperationContracts.TypeArgs args,
             bool applied,
             CancellationToken cancellationToken)
         {
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, args, out var validationState, out var failure))
             {
                 return failure!;
             }
@@ -93,18 +88,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            UcliOperationContracts.TypeArgs args,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
             validationState = default;
             failure = null;
-            if (!CompSchemaArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var errorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
-                return false;
-            }
-
-            if (!ComponentTypeResolver.TryResolveComponentType(parsedArguments.TypeId, out var componentType, out errorMessage))
+            if (!ComponentTypeResolver.TryResolveComponentType(args.Type, out var componentType, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -116,12 +106,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly struct ValidationState
         {
-            public ValidationState (System.Type componentType)
+            public ValidationState (Type componentType)
             {
                 ComponentType = componentType;
             }
 
-            public System.Type? ComponentType { get; }
+            public Type? ComponentType { get; }
         }
     }
 }

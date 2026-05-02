@@ -11,37 +11,73 @@ internal static class ResolveSelectorOperationArgsFactory
     {
         ArgumentNullException.ThrowIfNull(selector);
 
-        return selector switch
+        var args = selector switch
         {
-            ResolveGlobalObjectIdSelectorInput globalObjectId => CreateArgs(
-                (IpcResolveSelectorPropertyNames.GlobalObjectId, globalObjectId.GlobalObjectId)),
-            ResolveAssetGuidSelectorInput assetGuid => CreateArgs(
-                (IpcResolveSelectorPropertyNames.AssetGuid, assetGuid.AssetGuid)),
-            ResolveAssetPathSelectorInput assetPath => CreateArgs(
-                (IpcResolveSelectorPropertyNames.AssetPath, assetPath.AssetPath)),
-            ResolveProjectAssetPathSelectorInput projectAssetPath => CreateArgs(
-                (IpcResolveSelectorPropertyNames.ProjectAssetPath, projectAssetPath.ProjectAssetPath)),
-            ResolveSceneHierarchySelectorInput sceneHierarchy => CreateArgs(
-                (IpcResolveSelectorPropertyNames.Scene, sceneHierarchy.Scene),
-                (IpcResolveSelectorPropertyNames.HierarchyPath, sceneHierarchy.HierarchyPath)),
-            ResolveSceneComponentSelectorInput sceneComponent => CreateArgs(
-                (IpcResolveSelectorPropertyNames.Scene, sceneComponent.Scene),
-                (IpcResolveSelectorPropertyNames.HierarchyPath, sceneComponent.HierarchyPath),
-                (IpcResolveSelectorPropertyNames.ComponentType, sceneComponent.ComponentType)),
-            ResolvePrefabHierarchySelectorInput prefabHierarchy => CreateArgs(
-                (IpcResolveSelectorPropertyNames.Prefab, prefabHierarchy.Prefab),
-                (IpcResolveSelectorPropertyNames.HierarchyPath, prefabHierarchy.HierarchyPath)),
+            ResolveGlobalObjectIdSelectorInput globalObjectId => new UcliOperationContracts.ResolveSelectorArgs(
+                globalObjectId: globalObjectId.GlobalObjectId,
+                assetGuid: null,
+                assetPath: null,
+                projectAssetPath: null,
+                scene: null,
+                prefab: null,
+                hierarchyPath: null,
+                componentType: null),
+            ResolveAssetGuidSelectorInput assetGuid => new UcliOperationContracts.ResolveSelectorArgs(
+                globalObjectId: null,
+                assetGuid: assetGuid.AssetGuid,
+                assetPath: null,
+                projectAssetPath: null,
+                scene: null,
+                prefab: null,
+                hierarchyPath: null,
+                componentType: null),
+            ResolveAssetPathSelectorInput assetPath => new UcliOperationContracts.ResolveSelectorArgs(
+                globalObjectId: null,
+                assetGuid: null,
+                assetPath: assetPath.AssetPath,
+                projectAssetPath: null,
+                scene: null,
+                prefab: null,
+                hierarchyPath: null,
+                componentType: null),
+            ResolveProjectAssetPathSelectorInput projectAssetPath => new UcliOperationContracts.ResolveSelectorArgs(
+                globalObjectId: null,
+                assetGuid: null,
+                assetPath: null,
+                projectAssetPath: projectAssetPath.ProjectAssetPath,
+                scene: null,
+                prefab: null,
+                hierarchyPath: null,
+                componentType: null),
+            ResolveSceneHierarchySelectorInput sceneHierarchy => new UcliOperationContracts.ResolveSelectorArgs(
+                globalObjectId: null,
+                assetGuid: null,
+                assetPath: null,
+                projectAssetPath: null,
+                scene: sceneHierarchy.Scene,
+                prefab: null,
+                hierarchyPath: sceneHierarchy.HierarchyPath,
+                componentType: null),
+            ResolveSceneComponentSelectorInput sceneComponent => new UcliOperationContracts.ResolveSelectorArgs(
+                globalObjectId: null,
+                assetGuid: null,
+                assetPath: null,
+                projectAssetPath: null,
+                scene: sceneComponent.Scene,
+                prefab: null,
+                hierarchyPath: sceneComponent.HierarchyPath,
+                componentType: sceneComponent.ComponentType),
+            ResolvePrefabHierarchySelectorInput prefabHierarchy => new UcliOperationContracts.ResolveSelectorArgs(
+                globalObjectId: null,
+                assetGuid: null,
+                assetPath: null,
+                projectAssetPath: null,
+                scene: null,
+                prefab: prefabHierarchy.Prefab,
+                hierarchyPath: prefabHierarchy.HierarchyPath,
+                componentType: null),
             _ => throw new ArgumentException("Unsupported resolve selector type.", nameof(selector)),
         };
-    }
-
-    private static JsonElement CreateArgs (params (string Name, string Value)[] properties)
-    {
-        var args = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var property in properties)
-        {
-            args.Add(property.Name, property.Value);
-        }
 
         return IpcPayloadCodec.SerializeToElement(args);
     }

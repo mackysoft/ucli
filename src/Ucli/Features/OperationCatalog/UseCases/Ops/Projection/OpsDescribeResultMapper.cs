@@ -47,15 +47,43 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
                 IpcErrorCodes.InternalError);
         }
 
+        if (!TryParseOptionalSchema(operation.ResultSchemaJson, out var resultSchema))
+        {
+            return OpsDescribeServiceResult.Failure(
+                $"Operation '{operationName}' result schema is invalid.",
+                IpcErrorCodes.InternalError);
+        }
+
         return OpsDescribeServiceResult.Success(
             new OpsDescribeExecutionOutput(
                 Operation: new OpsOperationDetail(
                     Name: operation.Name!,
                     Kind: operation.Kind!,
                     Policy: operation.Policy!,
-                    ArgsSchema: argsSchema),
+                    ArgsSchema: argsSchema,
+                    ResultSchema: resultSchema),
                 ReadIndex: readIndexInfoMapper.Map(output.AccessInfo)),
             $"uCLI ops describe completed for '{operationName}'.");
+    }
+
+    private static bool TryParseOptionalSchema (
+        string? json,
+        out JsonElement? schema)
+    {
+        if (json == null)
+        {
+            schema = null;
+            return true;
+        }
+
+        if (!TryParseSchema(json, out var parsedSchema))
+        {
+            schema = null;
+            return false;
+        }
+
+        schema = parsedSchema;
+        return true;
     }
 
     private static bool TryParseSchema (

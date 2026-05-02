@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
@@ -17,7 +18,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy)
-            : this(operationName, kind, policy, "{\"type\":\"object\"}", requiresPreCallPlanReplay: false)
+            : this(
+                operationName,
+                kind,
+                policy,
+                typeof(UcliEmptyArgs),
+                typeof(UcliNoResult),
+                requiresPreCallPlanReplay: false)
         {
         }
 
@@ -25,14 +32,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
-        /// <param name="argsSchemaJson"> The args-schema JSON object text. </param>
+        /// <param name="argsType"> The operation args contract type. </param>
+        /// <param name="resultType"> The operation result contract type. </param>
         /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when one contract type is <see langword="null" />. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy,
-            string argsSchemaJson)
-            : this(operationName, kind, policy, argsSchemaJson, requiresPreCallPlanReplay: false)
+            Type argsType,
+            Type resultType)
+            : this(operationName, kind, policy, argsType, resultType, requiresPreCallPlanReplay: false)
         {
         }
 
@@ -40,14 +50,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
-        /// <param name="argsSchemaJson"> The args-schema JSON object text. </param>
+        /// <param name="argsType"> The operation args contract type. </param>
+        /// <param name="resultType"> The operation result contract type. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
         /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when one contract type is <see langword="null" />. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy,
-            string argsSchemaJson,
+            Type argsType,
+            Type resultType,
             bool requiresPreCallPlanReplay)
         {
             if (string.IsNullOrWhiteSpace(operationName))
@@ -60,29 +73,61 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentException("Operation name must not contain leading or trailing whitespace.", nameof(operationName));
             }
 
+            if (argsType == null)
+            {
+                throw new ArgumentNullException(nameof(argsType));
+            }
+
+            if (resultType == null)
+            {
+                throw new ArgumentNullException(nameof(resultType));
+            }
+
+            var argsSchemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(argsType);
+            var resultSchemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(resultType);
+
             if (string.IsNullOrWhiteSpace(argsSchemaJson))
             {
                 throw new ArgumentException("Args schema JSON must not be null, empty, or whitespace.", nameof(argsSchemaJson));
             }
 
-            try
+            ValidateSchemaJson(argsSchemaJson, nameof(argsSchemaJson), "Args schema JSON");
+            if (resultSchemaJson != null)
             {
-                using var document = JsonDocument.Parse(argsSchemaJson);
-                if (document.RootElement.ValueKind != JsonValueKind.Object)
-                {
-                    throw new ArgumentException("Args schema JSON must be a JSON object.", nameof(argsSchemaJson));
-                }
-            }
-            catch (JsonException exception)
-            {
-                throw new ArgumentException($"Args schema JSON is invalid. {exception.Message}", nameof(argsSchemaJson), exception);
+                ValidateSchemaJson(resultSchemaJson, nameof(resultSchemaJson), "Result schema JSON");
             }
 
             OperationName = operationName;
             Kind = kind;
             Policy = policy;
+            ArgsType = argsType;
+            ResultType = resultType;
             ArgsSchemaJson = argsSchemaJson;
+            ResultSchemaJson = resultSchemaJson;
             RequiresPreCallPlanReplay = requiresPreCallPlanReplay;
+        }
+
+        /// <summary> Creates typed operation metadata from args and result contract types. </summary>
+        /// <typeparam name="TArgs"> The operation args contract type. </typeparam>
+        /// <typeparam name="TResult"> The operation result contract type. </typeparam>
+        /// <param name="operationName"> The operation name. </param>
+        /// <param name="kind"> The operation kind metadata. </param>
+        /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <returns> The created operation metadata. </returns>
+        public static UcliOperationMetadata Create<TArgs, TResult> (
+            string operationName,
+            UcliOperationKind kind,
+            OperationPolicy policy,
+            bool requiresPreCallPlanReplay = false)
+        {
+            return new UcliOperationMetadata(
+                operationName,
+                kind,
+                policy,
+                typeof(TArgs),
+                typeof(TResult),
+                requiresPreCallPlanReplay);
         }
 
         /// <summary> Gets the registered operation name. </summary>
@@ -94,10 +139,38 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Gets the operation policy metadata. </summary>
         public OperationPolicy Policy { get; }
 
+        /// <summary> Gets the operation args contract type. </summary>
+        public Type ArgsType { get; }
+
+        /// <summary> Gets the operation result contract type. </summary>
+        public Type ResultType { get; }
+
         /// <summary> Gets the args-schema JSON object text. </summary>
         public string ArgsSchemaJson { get; }
 
+        /// <summary> Gets the result-schema JSON object text, or <see langword="null" /> when no result payload is emitted. </summary>
+        public string? ResultSchemaJson { get; }
+
         /// <summary> Gets a value indicating whether call execution must replay plan immediately beforehand. </summary>
         public bool RequiresPreCallPlanReplay { get; }
+
+        private static void ValidateSchemaJson (
+            string schemaJson,
+            string parameterName,
+            string displayName)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(schemaJson);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    throw new ArgumentException($"{displayName} must be a JSON object.", parameterName);
+                }
+            }
+            catch (JsonException exception)
+            {
+                throw new ArgumentException($"{displayName} is invalid. {exception.Message}", parameterName, exception);
+            }
+        }
     }
 }

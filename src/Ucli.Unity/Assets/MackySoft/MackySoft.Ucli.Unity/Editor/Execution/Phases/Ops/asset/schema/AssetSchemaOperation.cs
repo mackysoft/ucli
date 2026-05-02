@@ -1,6 +1,8 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.Index;
@@ -11,83 +13,56 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.schema</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetSchemaOperation : IUcliOperation
+    internal sealed class AssetSchemaOperation : TypedUcliOperation<UcliOperationContracts.AssetSchemaArgs, IndexSchemaEntryJsonContract>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""type"": { ""type"": ""string"", ""minLength"": 1 },
-                ""target"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""assetGuid"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""assetPath"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""projectAssetPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""assetGuid""] },
-                    { ""required"": [""assetPath""] },
-                    { ""required"": [""projectAssetPath""] }
-                  ]
-                }
-              },
-              ""oneOf"": [
-                { ""required"": [""type""] },
-                { ""required"": [""target""] }
-              ]
-            }";
-
         private readonly AssetSchemaExtractor assetSchemaExtractor =
             new AssetSchemaExtractor(new IndexSchemaPropertyCollector());
 
         private readonly AssetTargetSchemaBuilder targetSchemaBuilder = new AssetTargetSchemaBuilder();
 
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.AssetSchemaArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.AssetSchema,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe,
-            argsSchemaJson: ArgsSchemaJson);
+            policy: OperationPolicy.Safe);
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliOperationContracts.AssetSchemaArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(TryValidate(operation, executionContext, allowTemporaryState: true, out _, out var failure)
+            return Task.FromResult(TryValidate(operation, args, executionContext, allowTemporaryState: true, out _, out var failure)
                 ? OperationPhaseStepResult.Success(applied: false, changed: false)
                 : failure!);
         }
 
-        public async Task<OperationPhaseStepResult> Plan (
+        protected override async Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliOperationContracts.AssetSchemaArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await Execute(
                 operation,
+                args,
                 executionContext,
                 applied: false,
                 allowTemporaryState: true,
                 cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<OperationPhaseStepResult> Call (
+        protected override async Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliOperationContracts.AssetSchemaArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return await Execute(
                 operation,
+                args,
                 executionContext,
                 applied: true,
                 allowTemporaryState: false,
@@ -96,12 +71,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private async Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
+            UcliOperationContracts.AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             bool applied,
             bool allowTemporaryState,
             CancellationToken cancellationToken)
         {
-            if (!TryValidate(operation, executionContext, allowTemporaryState, out var validationState, out var failure))
+            if (!TryValidate(operation, args, executionContext, allowTemporaryState, out var validationState, out var failure))
             {
                 return failure!;
             }
@@ -133,6 +109,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private bool TryValidate (
             NormalizedOperation operation,
+            UcliOperationContracts.AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,
@@ -140,17 +117,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!AssetSchemaArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
-                return false;
-            }
 
-            if (!arguments.HasTargetReference)
+            if (args.Target == null)
             {
-                if (!AssetTypeResolver.TryResolveCreateAssetType(arguments.TypeId!, out var assetType, out errorMessage))
+                if (!AssetTypeResolver.TryResolveCreateAssetType(args.Type!, out var assetType, out var typeErrorMessage))
                 {
-                    failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
+                    failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, typeErrorMessage);
                     return false;
                 }
 
@@ -158,7 +130,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!TryResolveTargetAsset(arguments, executionContext, allowTemporaryState, out var unityObject, out errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage)
+                || !TryResolveTargetAsset(targetReference, executionContext, allowTemporaryState, out var unityObject, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -169,7 +142,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveTargetAsset (
-            AssetSchemaArguments arguments,
+            UnityObjectReference targetReference,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -177,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             unityObject = null;
             if (!AssetOperationUtilities.TryResolveAssetTarget(
-                arguments.TargetReference,
+                targetReference,
                 executionContext,
                 allowTemporaryState,
                 out var resolvedAsset,
@@ -203,16 +176,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly struct ValidationState
         {
             public ValidationState (
-                System.Type? assetType,
-                MackySoft.Ucli.Contracts.Index.IndexSchemaEntryJsonContract? targetSchemaEntry)
+                Type? assetType,
+                IndexSchemaEntryJsonContract? targetSchemaEntry)
             {
                 AssetType = assetType;
                 TargetSchemaEntry = targetSchemaEntry;
             }
 
-            public System.Type? AssetType { get; }
+            public Type? AssetType { get; }
 
-            public MackySoft.Ucli.Contracts.Index.IndexSchemaEntryJsonContract? TargetSchemaEntry { get; }
+            public IndexSchemaEntryJsonContract? TargetSchemaEntry { get; }
         }
     }
 }

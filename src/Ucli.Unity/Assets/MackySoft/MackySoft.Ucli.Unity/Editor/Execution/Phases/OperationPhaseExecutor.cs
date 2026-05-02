@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Ipc.Validation;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
@@ -178,17 +179,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
         }
 
-        private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<MackySoft.Ucli.Contracts.Ipc.Validation.IpcRequestContractStep> sourceSteps)
+        private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcRequestContractStep> sourceSteps)
         {
             var steps = new NormalizedRequestStep[sourceSteps.Count];
             for (var i = 0; i < sourceSteps.Count; i++)
             {
                 var sourceStep = sourceSteps[i];
-                var kind = sourceStep.Kind ?? MackySoft.Ucli.Contracts.Ipc.Validation.IpcRequestStepKind.Op;
+                var kind = sourceStep.Kind ?? IpcRequestStepKind.Op;
                 steps[i] = new NormalizedRequestStep(
                     Id: sourceStep.Id ?? string.Empty,
                     Kind: kind,
-                    OperationName: kind == MackySoft.Ucli.Contracts.Ipc.Validation.IpcRequestStepKind.Edit
+                    OperationName: kind == IpcRequestStepKind.Edit
                         ? "edit"
                         : sourceStep.OperationName ?? string.Empty,
                     PrimitiveCount: 0);

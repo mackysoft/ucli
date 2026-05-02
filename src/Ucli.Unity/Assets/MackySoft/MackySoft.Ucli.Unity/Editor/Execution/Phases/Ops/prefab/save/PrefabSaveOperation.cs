@@ -13,31 +13,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.prefab.save</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class PrefabSaveOperation : IUcliOperation
+    internal sealed class PrefabSaveOperation : TypedUcliOperation<UcliOperationContracts.PathArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""path"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""path""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.PathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabSave,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            policy: OperationPolicy.Advanced);
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliOperationContracts.PathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolvePlanArguments(operation, executionContext, out _, out var failure))
+            if (!TryResolvePlanArguments(operation, args, executionContext, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -45,14 +35,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliOperationContracts.PathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryResolvePlanArguments(
                 operation,
+                args,
                 executionContext,
                 out var resolutionState,
                 out var failure))
@@ -72,14 +64,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }));
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliOperationContracts.PathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryResolveCallArguments(
                 operation,
+                args,
                 executionContext,
                 out var resolutionState,
                 out var failure))
@@ -135,13 +129,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePlanArguments (
             NormalizedOperation operation,
+            UcliOperationContracts.PathArgs args,
             OperationExecutionContext executionContext,
             out ResolutionState resolutionState,
             out OperationPhaseStepResult? failure)
         {
             resolutionState = default;
             failure = null;
-            if (!TryParseAndValidatePrefabPath(operation, out var prefabPath, out failure))
+            if (!TryParseAndValidatePrefabPath(operation, args, out var prefabPath, out failure))
             {
                 return false;
             }
@@ -186,13 +181,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveCallArguments (
             NormalizedOperation operation,
+            UcliOperationContracts.PathArgs args,
             OperationExecutionContext executionContext,
             out ResolutionState resolutionState,
             out OperationPhaseStepResult? failure)
         {
             resolutionState = default;
             failure = null;
-            if (!TryParseAndValidatePrefabPath(operation, out var prefabPath, out failure))
+            if (!TryParseAndValidatePrefabPath(operation, args, out var prefabPath, out failure))
             {
                 return false;
             }
@@ -218,15 +214,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryParseAndValidatePrefabPath (
             NormalizedOperation operation,
+            UcliOperationContracts.PathArgs args,
             out string prefabPath,
             out OperationPhaseStepResult? failure)
         {
             failure = null;
-            if (!PrefabOperationArgumentsCodec.TryParsePathArguments(operation.Args, out prefabPath, out var parseErrorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
-                return false;
-            }
+            prefabPath = args.Path;
 
             if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(prefabPath, out var errorMessage))
             {

@@ -12,48 +12,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.comp.ensure</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompEnsureOperation : IUcliOperation
+    internal sealed class CompEnsureOperation : TypedUcliOperation<UcliOperationContracts.ComponentEnsureArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""target"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""scene"", ""hierarchyPath""] },
-                    { ""required"": [""prefab"", ""hierarchyPath""] }
-                  ]
-                },
-                ""type"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""target"", ""type""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.ComponentEnsureArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompEnsure,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            policy: OperationPolicy.Advanced);
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentEnsureArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
+            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -61,31 +34,35 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentEnsureArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, executionContext, applied: false);
+            return Execute(operation, args, executionContext, applied: false);
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentEnsureArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, executionContext, applied: true);
+            return Execute(operation, args, executionContext, applied: true);
         }
 
         private static Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentEnsureArgs args,
             OperationExecutionContext executionContext,
             bool applied)
         {
             if (!TryValidateArguments(
                 operation,
+                args,
                 executionContext,
                 allowTemporaryState: !applied,
                 out var validationState,
@@ -124,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         if (!ComponentOperationUtilities.TryCreateTemporaryComponent(validationState.ComponentType, executionContext, out component, out var errorMessage))
                         {
                             return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
-                                Code: MackySoft.Ucli.Contracts.Ipc.IpcErrorCodes.InternalError,
+                                Code: IpcErrorCodes.InternalError,
                                 Message: errorMessage,
                                 OpId: operation.Id)));
                         }
@@ -175,6 +152,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            UcliOperationContracts.ComponentEnsureArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,
@@ -182,14 +160,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!CompEnsureArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
             if (!GoOperationUtilities.TryResolveEditableGameObject(
-                parsedArguments.TargetReference,
+                targetReference,
                 executionContext,
                 allowTemporaryState,
                 out var targetResolution,
@@ -199,7 +177,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentTypeResolver.TryResolveComponentType(parsedArguments.TypeId, out var resolvedComponentType, out errorMessage))
+            if (!ComponentTypeResolver.TryResolveComponentType(args.Type, out var resolvedComponentType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

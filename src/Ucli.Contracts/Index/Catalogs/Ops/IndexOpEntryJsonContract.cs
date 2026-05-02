@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Index;
 
 /// <summary> Represents one persisted op entry in <c>ops.catalog.json</c>. </summary>
@@ -5,8 +7,11 @@ namespace MackySoft.Ucli.Contracts.Index;
 /// <param name="Kind"> The operation-kind literal. </param>
 /// <param name="Policy"> The operation-policy literal. </param>
 /// <param name="ArgsSchemaJson"> The JSON object text that describes operation args. </param>
+/// <param name="ResultSchemaJson"> The JSON object text that describes operation result, or <see langword="null" /> when no result is emitted. </param>
 public sealed record IndexOpEntryJsonContract (
     string? Name,
     string? Kind,
     string? Policy,
-    string? ArgsSchemaJson);
+    string? ArgsSchemaJson,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? ResultSchemaJson = null);

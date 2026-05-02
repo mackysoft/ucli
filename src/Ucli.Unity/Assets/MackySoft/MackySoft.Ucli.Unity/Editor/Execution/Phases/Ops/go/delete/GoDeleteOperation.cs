@@ -12,47 +12,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.delete</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoDeleteOperation : IUcliOperation
+    internal sealed class GoDeleteOperation : TypedUcliOperation<UcliOperationContracts.GoTargetArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""target"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""scene"", ""hierarchyPath""] },
-                    { ""required"": [""prefab"", ""hierarchyPath""] }
-                  ]
-                }
-              },
-              ""required"": [""target""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.GoTargetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoDelete,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            policy: OperationPolicy.Advanced);
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliOperationContracts.GoTargetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, executionContext, allowTemporaryState: true, out _, out var failure))
+            if (!TryValidate(operation, args, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -60,13 +34,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliOperationContracts.GoTargetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, executionContext, allowTemporaryState: true, out var state, out var failure))
+            if (!TryValidate(operation, args, executionContext, allowTemporaryState: true, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -81,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     preparationErrorMessage));
             }
 
-            if (!TryValidate(operation, executionContext, allowTemporaryState: true, out state, out failure))
+            if (!TryValidate(operation, args, executionContext, allowTemporaryState: true, out state, out failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -108,13 +83,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }));
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliOperationContracts.GoTargetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, executionContext, allowTemporaryState: false, out var state, out var failure))
+            if (!TryValidate(operation, args, executionContext, allowTemporaryState: false, out var state, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -134,6 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidate (
             NormalizedOperation operation,
+            UcliOperationContracts.GoTargetArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState state,
@@ -141,13 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             state = default;
             failure = null;
-            if (!operation.Args.TryGetProperty(GoOperationPropertyNames.Target, out var targetElement))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, "Operation 'args' requires property 'target'.");
-                return false;
-            }
-
-            if (!UnityObjectReferenceCodec.TryParse(targetElement, "args.target", out var targetReference, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

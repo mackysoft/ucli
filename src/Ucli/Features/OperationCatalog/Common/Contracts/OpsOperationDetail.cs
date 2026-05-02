@@ -7,8 +7,10 @@ namespace MackySoft.Ucli.Features.OperationCatalog.Common.Contracts;
 /// <param name="Kind"> The operation kind literal. </param>
 /// <param name="Policy"> The operation policy literal. </param>
 /// <param name="ArgsSchema"> The JSON schema object for operation arguments. </param>
+/// <param name="ResultSchema"> The JSON schema object for operation result, or <see langword="null" /> when no result is emitted. </param>
 internal sealed record OpsOperationDetail (
     string Name,
     string Kind,
     string Policy,
-    JsonElement ArgsSchema);
+    JsonElement ArgsSchema,
+    JsonElement? ResultSchema = null);

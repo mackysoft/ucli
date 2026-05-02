@@ -1,6 +1,25 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents the result payload returned by one <c>ucli.resolve</c> operation result. </summary>
-/// <param name="GlobalObjectId"> The resolved GlobalObjectId string. </param>
-public sealed record IpcResolveOperationResult (
-    string GlobalObjectId);
+[UcliDescription("Resolve operation result.")]
+public sealed record IpcResolveOperationResult
+{
+    [JsonConstructor]
+    public IpcResolveOperationResult (string GlobalObjectId)
+    {
+        if (string.IsNullOrWhiteSpace(GlobalObjectId))
+        {
+            throw new ArgumentException("GlobalObjectId must not be null, empty, or whitespace.", nameof(GlobalObjectId));
+        }
+
+        this.GlobalObjectId = GlobalObjectId;
+    }
+
+    /// <summary> Gets the resolved GlobalObjectId string. </summary>
+    [UcliRequired]
+    [UcliDescription("Resolved Unity GlobalObjectId.")]
+    [UcliMinLength(1)]
+    public string GlobalObjectId { get; init; }
+}

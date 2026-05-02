@@ -15,36 +15,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.project.save</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class ProjectSavePhaseOperation : IUcliOperation
+    internal sealed class ProjectSavePhaseOperation : TypedUcliOperation<UcliEmptyArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectSave,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            policy: OperationPolicy.Advanced);
 
         /// <summary> Executes validate phase for <c>ucli.project.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            UcliEmptyArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ProjectOperationUtilities.TryValidateEmptyArguments(operation.Args, out var errorMessage))
-            {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
-            }
-
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
@@ -53,17 +42,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            UcliEmptyArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ProjectOperationUtilities.TryValidateEmptyArguments(operation.Args, out var errorMessage))
-            {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
-            }
-
             var touched = CollectKnownPlannedTouchedResources(executionContext);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
@@ -76,17 +61,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            UcliEmptyArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ProjectOperationUtilities.TryValidateEmptyArguments(operation.Args, out var errorMessage))
-            {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
-            }
-
             var touched = new List<OperationTouch>();
             // NOTE:
             // Unity project saves are not transactional across scenes, prefab stages, and project assets.

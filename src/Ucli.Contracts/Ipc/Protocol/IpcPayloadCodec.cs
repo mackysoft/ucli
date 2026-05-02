@@ -39,7 +39,7 @@ public static class IpcPayloadCodec
             error = IpcPayloadReadError.None;
             return true;
         }
-        catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException)
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException or ArgumentException)
         {
             value = default!;
             error = new IpcPayloadReadError(IpcPayloadReadErrorKind.DeserializeFailed, exception.Message);

@@ -840,7 +840,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         operationName: operations[i].Name,
                         kind: operations[i].Operation.Metadata.Kind,
                         policy: operations[i].Operation.Metadata.Policy,
-                        argsSchemaJson: operations[i].Operation.Metadata.ArgsSchemaJson,
+                        argsType: operations[i].Operation.Metadata.ArgsType,
+                        resultType: operations[i].Operation.Metadata.ResultType,
                         requiresPreCallPlanReplay: operations[i].Operation.Metadata.RequiresPreCallPlanReplay),
                     operations[i].Operation);
             }
@@ -1183,7 +1184,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationName: "ucli.tests.stateful",
                 kind: UcliOperationKind.Query,
                 policy: OperationPolicy.Safe,
-                argsSchemaJson: "{\"type\":\"object\"}",
+                argsType: typeof(UcliEmptyArgs),
+                resultType: typeof(UcliNoResult),
                 requiresPreCallPlanReplay: true);
 
             public Task<OperationPhaseStepResult> Validate (
@@ -1231,7 +1233,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 operationName: "ucli.tests.replay-failing",
                 kind: UcliOperationKind.Mutation,
                 policy: OperationPolicy.Advanced,
-                argsSchemaJson: "{\"type\":\"object\"}",
+                argsType: typeof(UcliEmptyArgs),
+                resultType: typeof(UcliNoResult),
                 requiresPreCallPlanReplay: true);
 
             public List<OperationPhase> CalledPhases { get; } = new List<OperationPhase>();

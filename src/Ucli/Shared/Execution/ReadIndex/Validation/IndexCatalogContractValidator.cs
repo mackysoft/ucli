@@ -47,7 +47,8 @@ internal static class IndexCatalogContractValidator
                 || string.IsNullOrWhiteSpace(entry.Name)
                 || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
                 || !OperationPolicyCodec.TryParse(entry.Policy, out _)
-                || !IsValidSchemaObject(entry.ArgsSchemaJson))
+                || !IsValidSchemaObject(entry.ArgsSchemaJson)
+                || !IsValidOptionalSchemaObject(entry.ResultSchemaJson))
             {
                 error = $"Operation entry at index {i} is invalid.";
                 return false;
@@ -405,5 +406,10 @@ internal static class IndexCatalogContractValidator
         {
             return false;
         }
+    }
+
+    private static bool IsValidOptionalSchemaObject (string? json)
+    {
+        return json == null || IsValidSchemaObject(json);
     }
 }

@@ -36,7 +36,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Name: registration.Metadata.OperationName,
                     Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
                     Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
-                    ArgsSchemaJson: PublicOperationArgsSchemaSanitizer.Sanitize(registration.Metadata.ArgsSchemaJson)))
+                    ArgsSchemaJson: PublicOperationArgsSchemaSanitizer.Sanitize(registration.Metadata.ArgsSchemaJson),
+                    ResultSchemaJson: registration.Metadata.ResultSchemaJson))
                 .ToArray();
 
             return new UcliOperationCatalogSnapshot(
