@@ -60,8 +60,13 @@ if ! command -v dotnet >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v nuget >/dev/null 2>&1; then
-  echo "ERROR: nuget command is required." >&2
+nuget_command=()
+if command -v nuget >/dev/null 2>&1; then
+  nuget_command=(nuget)
+elif command -v nuget.exe >/dev/null 2>&1; then
+  nuget_command=(nuget.exe)
+else
+  echo "ERROR: nuget or nuget.exe command is required." >&2
   exit 1
 fi
 
@@ -143,7 +148,7 @@ rm -rf "${repository_root}/src/Ucli.Unity/.nuget-cache"
 rm -rf "${repository_root}/src/Ucli.Unity/.nuget-packages"
 
 echo "[5/8] Restore Unity packages.config from local/source feeds"
-nuget restore "${unity_packages_config}" \
+"${nuget_command[@]}" restore "${unity_packages_config}" \
   -PackagesDirectory "${unity_packages_dir}" \
   -ConfigFile "${unity_nuget_config}" \
   -NoCache \
