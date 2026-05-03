@@ -68,6 +68,8 @@ JSON リクエスト入力の機械構造は `RequestEnvelopeSchema + operation 
 
 `argsSchema` は `steps[].args` の JSON 構造検証だけを担う。利用者やエージェントは `ucli ops describe <opName>` の `operation.description` / `inputs[]` / `inputs[].constraints` を先に読み、operation 選択と `args` の組み立てを行う。最後に `operation.argsSchema` で `args` の構造を検証する。
 
+public raw `op` の `args` では request-local alias selector branch の `var` を使用しない。`var` は予約済み property であり、値が `null` でも raw `op` 実行時に拒否する。`ops describe` の `argsSchema` / `inputs[].variants[]` にも出さない。
+
 `opResults[].result` は operation ごとの Result contract 型に対応する主データであり、実行状態や副作用情報は envelope の `phase` / `applied` / `changed` / `touched` / `errors` を参照する。結果の有無と読み方は `ops describe` の `operation.resultContract` と `operation.resultSchema` を参照する。
 
 `steps` は空配列を許可する。`steps: []` は no-op request であり、Unity state、project file、readIndex を変更しない。

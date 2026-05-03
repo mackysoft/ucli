@@ -301,7 +301,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `argsPath` | string | no | 対応する `steps[].args` 内 JSON path。省略時は `$.<name>` |
 | `variants` | array | no | selector / reference の表現方法。shape は `payload.operation.inputs[].variants[]` を参照 |
 
-`valueType` は IPC JSON の値型だけを表す。C# contract では `SceneAssetPath`、`PrefabAssetPath`、`UnityHierarchyPath`、`UnityGlobalObjectId`、`UnityAssetGuid`、`UcliPlanAlias`、`UnityTypeId` などの semantic value type を使えるが、`ops describe` ではそれらも JSON wire shape に合わせて `valueType:"string"` として出す。意味の違いは型名をそのまま外へ出すのではなく、`description` と `constraints` に展開する。
+`valueType` は IPC JSON の値型だけを表す。C# contract では `SceneAssetPath`、`PrefabAssetPath`、`UnityHierarchyPath`、`UnityGlobalObjectId`、`UnityAssetGuid`、`UnityTypeId` などの semantic value type を使えるが、`ops describe` ではそれらも JSON wire shape に合わせて `valueType:"string"` として出す。意味の違いは型名をそのまま外へ出すのではなく、`description` と `constraints` に展開する。
 
 必須性は `argsSchema.required` で表す。optional input は `argsSchema.required` に含めない。`inputs[]` には `required` field を持たせない。
 
