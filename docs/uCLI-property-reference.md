@@ -448,7 +448,7 @@ kind ごとの parameter 規則:
 | kind | Assurance rule | Examples |
 | --- | --- | --- |
 | `query` | 観測のみ。`mayDirty:false`、`mayPersist:false`、`sideEffects:[]` とする。読み取った resource を `touchedKinds` で表す場合がある | `ucli.scene.tree`, `ucli.assets.find` |
-| `command` | Editor 状態や AssetDatabase 状態を変え得る。永続化対象の内容変更を主目的にしないため、通常は `mayDirty:false`、`mayPersist:false` とし、副作用は `sideEffects` で表す | `ucli.scene.open`, `ucli.prefab.open`, `ucli.project.refresh` |
+| `command` | Editor 状態や AssetDatabase 状態を変え得る。永続化対象の内容変更を主目的にしないが、import や AssetDatabase refresh によって dirty / persist が起こり得る場合は `mayDirty` / `mayPersist` を `true` にし、副作用は `sideEffects` で表す | `ucli.scene.open`, `ucli.prefab.open`, `ucli.project.refresh` |
 | `mutation` | Scene / Prefab / Asset / ProjectSettings を dirty または保存し得る。対象種別は `touchedKinds`、永続化可能性は `mayPersist` で表す | `ucli.comp.set`, `ucli.scene.save` |
 
 #### `ucli ops describe payload.operation.argsSchema`

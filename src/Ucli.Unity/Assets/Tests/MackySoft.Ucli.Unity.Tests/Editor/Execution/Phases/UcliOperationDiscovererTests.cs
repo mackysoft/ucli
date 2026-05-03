@@ -224,6 +224,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
             Assert.That(projectRefreshEntry.Kind, Is.EqualTo(UcliOperationKindValues.Command));
+            Assert.That(projectRefreshEntry.Assurance, Is.Not.Null);
+            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.RefreshesAssetDatabase));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesAsset));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesScene));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesPrefab));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesProjectSettings));
+            Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
+            Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
 
             var goCreateSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoCreate);
             using var goCreateSchemaDocument = JsonDocument.Parse(goCreateSchemaJson);

@@ -23,9 +23,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Refreshes Unity AssetDatabase and reports resources changed by import.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.RefreshesAssetDatabase },
-                mayDirty: false,
-                mayPersist: false,
+                new[]
+                {
+                    UcliOperationSideEffect.RefreshesAssetDatabase,
+                    UcliOperationSideEffect.WritesAsset,
+                    UcliOperationSideEffect.WritesScene,
+                    UcliOperationSideEffect.WritesPrefab,
+                    UcliOperationSideEffect.WritesProjectSettings,
+                },
+                mayDirty: true,
+                mayPersist: true,
                 new[]
                 {
                     IpcExecuteTouchedResourceKindNames.Scene,
