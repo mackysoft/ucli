@@ -430,47 +430,47 @@ public static class UcliOperationJsonSchemaGenerator
 
     private sealed class SchemaGenerationContext
     {
-        private readonly Dictionary<Type, string> m_definitionNames = new Dictionary<Type, string>();
+        private readonly Dictionary<Type, string> definitionNames = new Dictionary<Type, string>();
 
-        private readonly List<SchemaDefinition> m_definitions = new List<SchemaDefinition>();
+        private readonly List<SchemaDefinition> definitions = new List<SchemaDefinition>();
 
-        private readonly HashSet<Type> m_activeTypes = new HashSet<Type>();
+        private readonly HashSet<Type> activeTypes = new HashSet<Type>();
 
-        private readonly HashSet<string> m_usedNames = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> usedNames = new HashSet<string>(StringComparer.Ordinal);
 
-        public int DefinitionCount => m_definitions.Count;
+        public int DefinitionCount => definitions.Count;
 
         public string GetOrAddDefinition (Type type)
         {
-            if (m_definitionNames.TryGetValue(type, out var existingName))
+            if (definitionNames.TryGetValue(type, out var existingName))
             {
                 return existingName;
             }
 
             var definitionName = CreateUniqueDefinitionName(type);
-            m_definitionNames.Add(type, definitionName);
-            m_definitions.Add(new SchemaDefinition(definitionName, type));
+            definitionNames.Add(type, definitionName);
+            definitions.Add(new SchemaDefinition(definitionName, type));
             return definitionName;
         }
 
         public SchemaDefinition GetDefinition (int index)
         {
-            return m_definitions[index];
+            return definitions[index];
         }
 
         public bool IsActive (Type type)
         {
-            return m_activeTypes.Contains(type);
+            return activeTypes.Contains(type);
         }
 
         public void PushActive (Type type)
         {
-            m_activeTypes.Add(type);
+            activeTypes.Add(type);
         }
 
         public void PopActive (Type type)
         {
-            m_activeTypes.Remove(type);
+            activeTypes.Remove(type);
         }
 
         private string CreateUniqueDefinitionName (Type type)
@@ -484,7 +484,7 @@ public static class UcliOperationJsonSchemaGenerator
 
             var candidate = baseName;
             var suffix = 2;
-            while (!m_usedNames.Add(candidate))
+            while (!usedNames.Add(candidate))
             {
                 candidate = baseName + suffix.ToString(CultureInfo.InvariantCulture);
                 suffix++;
