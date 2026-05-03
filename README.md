@@ -61,6 +61,7 @@ Use uCLI when you need to automate Unity from scripts, CI, or agents without los
 ### 🤖 For Agents
 
 - Discover available operations with `ucli ops list` and `ucli ops describe`.
+- Treat `ucli ops describe <operation>` as the runtime contract for arguments, constraints, results, and assurance metadata instead of guessing from memory.
 - Inspect assets, scene trees, components, and serialized schemas before editing.
 - Build JSON requests with primitive `op` steps and higher-level `edit` steps.
 - Use `validate`, `plan`, and `call` to keep review and execution separate.
@@ -278,6 +279,8 @@ printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken
 ```
 
 `validate` checks request shape and static constraints. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
+
+> **IMPORTANT:** A timeout or disconnect does not prove that nothing was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
 
 > **TIP:** Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
 
@@ -535,6 +538,8 @@ Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
 ## 📚 Operation Catalog Summary
 
 Use `edit` for common edits. Use `op` when you need an explicit primitive operation from the catalog. The live catalog for the installed Unity plugin is available through `ucli ops list` and `ucli ops describe`.
+
+> **TIP:** Agents should use `ucli ops describe <operation>` as the runtime contract before constructing primitive `op` steps. Do not hard-code operation arguments from memory.
 
 ### 📖 Read Operations
 
