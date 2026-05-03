@@ -6,8 +6,6 @@
 
 ## Verification
 - Gate level: <Smoke|Standard|Full>
-- Diff budget: <PASS/FAIL>
-- Spec drift: <PASS/FAIL/Skipped>
 - Format: <PASS/FAIL>
 - Tests: <PASS/FAIL>
 - Coverage: <N/A|value>

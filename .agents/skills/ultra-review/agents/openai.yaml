@@ -1,0 +1,6 @@
+interface:
+  display_name: "Ultra Review"
+  short_description: "複数観点で反復レビューし、有効な指摘を修正する"
+  default_prompt: "Use $ultra-review to run iterative multi-lens review across required lenses, evaluate findings through $review-triage, and by default fix safe accepted issues until no actionable findings remain unless the user explicitly asks for review-only output."
+policy:
+  allow_implicit_invocation: true
