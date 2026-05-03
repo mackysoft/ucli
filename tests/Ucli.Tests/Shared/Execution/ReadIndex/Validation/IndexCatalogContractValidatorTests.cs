@@ -84,6 +84,44 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenVariantArgsPathIsOutsideInput ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(
+                    argsSchemaJson: """{"type":"object","additionalProperties":false,"properties":{"target":{"type":"object","additionalProperties":false,"properties":{"globalObjectId":{"type":"string"}}}}}""",
+                    inputs:
+                    [
+                        new UcliOperationInputContract(
+                            name: "target",
+                            valueType: "object",
+                            description: "Object reference to resolve.",
+                            constraints: Array.Empty<UcliOperationInputConstraintContract>(),
+                            variants:
+                            [
+                                new UcliOperationInputVariantContract(
+                                    name: "globalObjectId",
+                                    description: "Use an exact Unity GlobalObjectId.",
+                                    argsPaths:
+                                    [
+                                        "$.other.globalObjectId",
+                                    ],
+                                    constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+                            ]),
+                    ]),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsValidTypesCatalog_ReturnsTrue_WhenContractIsComplete ()
     {
         var contract = new IndexTypesCatalogJsonContract(
@@ -512,7 +550,8 @@ public sealed class IndexCatalogContractValidatorTests
 
     private static IndexOpEntryJsonContract CreateValidOpsEntry (
         string argsSchemaJson = """{"type":"object","additionalProperties":false,"properties":{}}""",
-        string? resultSchemaJson = null)
+        string? resultSchemaJson = null,
+        IReadOnlyList<UcliOperationInputContract>? inputs = null)
     {
         return new IndexOpEntryJsonContract(
             Name: "ucli.scene.open",
@@ -522,7 +561,7 @@ public sealed class IndexCatalogContractValidatorTests
             ResultSchemaJson: resultSchemaJson)
         {
             Description = "Opens a Unity scene asset in the editor.",
-            Inputs =
+            Inputs = inputs ??
             [
                 new UcliOperationInputContract(
                     name: "path",

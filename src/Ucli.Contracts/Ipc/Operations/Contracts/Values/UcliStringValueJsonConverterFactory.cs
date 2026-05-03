@@ -1,4 +1,3 @@
-using System;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -50,7 +49,16 @@ public sealed class UcliStringValueJsonConverterFactory : JsonConverterFactory
             }
 
             var value = reader.GetString() ?? throw new JsonException($"JSON string for '{typeToConvert.FullName}' must not be null.");
-            return (TValue)StringConstructor.Invoke(new object[] { value });
+            try
+            {
+                return (TValue)StringConstructor.Invoke(new object[] { value });
+            }
+            catch (TargetInvocationException exception)
+            {
+                throw new JsonException(
+                    $"JSON string for '{typeToConvert.FullName}' is invalid. {exception.InnerException?.Message ?? exception.Message}",
+                    exception.InnerException ?? exception);
+            }
         }
 
         public override void Write (

@@ -103,7 +103,52 @@ public sealed class IpcPayloadCodecContractTests
         Assert.Contains("$.ServerVersion", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDeserializeStrict_WithCaseVariantProperty_ReturnsDeserializeFailed ()
+    {
+        using var document = JsonDocument.Parse("""{"ServerVersion":"v1"}""");
+
+        var result = IpcPayloadCodec.TryDeserializeStrict(
+            document.RootElement,
+            out PayloadEnvelope? payload,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
+        Assert.NotEmpty(error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDeserialize_WhenSemanticStringValueRejectsInput_ReturnsDeserializeFailed ()
+    {
+        using var document = JsonDocument.Parse("""{"value":"bad"}""");
+
+        var result = IpcPayloadCodec.TryDeserialize(
+            document.RootElement,
+            out RejectingValueEnvelope? payload,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
+        Assert.Contains("Rejected value.", error.Message, StringComparison.Ordinal);
+    }
+
     private sealed record PayloadEnvelope (string ServerVersion);
+
+    private sealed record RejectingValueEnvelope (RejectingStringValue Value);
+
+    private sealed record RejectingStringValue : UcliStringValue
+    {
+        public RejectingStringValue (string value)
+            : base(value)
+        {
+            throw new ArgumentException("Rejected value.", nameof(value));
+        }
+    }
 
     private static JsonSchemaNode PayloadEnvelopeSchema => JsonSchemaNode.Object(
         builder => builder.Required("serverVersion", JsonSchemaNode.Value(JsonSchemaType.String)),

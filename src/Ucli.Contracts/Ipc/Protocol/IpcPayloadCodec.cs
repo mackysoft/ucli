@@ -25,6 +25,37 @@ public static class IpcPayloadCodec
         out T value,
         out IpcPayloadReadError error)
     {
+        return TryDeserialize(
+            element,
+            IpcJsonSerializerOptions.Default,
+            out value,
+            out error);
+    }
+
+    /// <summary> Tries to deserialize one JSON element payload while requiring exact JSON property names. </summary>
+    /// <typeparam name="T"> The target model type. </typeparam>
+    /// <param name="element"> The source payload element. </param>
+    /// <param name="value"> The deserialized payload value when operation succeeds. </param>
+    /// <param name="error"> The machine-readable payload read error when operation fails. </param>
+    /// <returns> <see langword="true" /> when payload is valid and deserialized; otherwise <see langword="false" />. </returns>
+    public static bool TryDeserializeStrict<T> (
+        JsonElement element,
+        out T value,
+        out IpcPayloadReadError error)
+    {
+        return TryDeserialize(
+            element,
+            IpcJsonSerializerOptions.StrictPropertyNames,
+            out value,
+            out error);
+    }
+
+    private static bool TryDeserialize<T> (
+        JsonElement element,
+        JsonSerializerOptions options,
+        out T value,
+        out IpcPayloadReadError error)
+    {
         if (!TryValidateUniqueObjectProperties(element, "$", out var duplicatePropertyPath))
         {
             value = default!;
@@ -36,7 +67,7 @@ public static class IpcPayloadCodec
 
         try
         {
-            var parsedValue = element.Deserialize<T>(IpcJsonSerializerOptions.Default);
+            var parsedValue = element.Deserialize<T>(options);
             if (parsedValue is null)
             {
                 value = default!;

@@ -50,6 +50,58 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void DiscoverFromTypes_WhenTypedOperationMetadataArgsTypeDoesNotMatch_ThrowsInvalidOperationException ()
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
+                {
+                    typeof(MetadataArgsMismatchOperation),
+                });
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void DiscoverFromTypes_WhenTypedOperationMetadataResultTypeDoesNotMatch_ThrowsInvalidOperationException ()
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
+                {
+                    typeof(MetadataResultMismatchOperation),
+                });
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenEmittedResultTypeNameDoesNotMatch_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = UcliOperationMetadata.Create<GenericDiscoverableArgs, GenericDiscoverableResult>(
+                    operationName: "ucli.tests.result-contract-mismatch",
+                    kind: UcliOperationKind.Query,
+                    policy: OperationPolicy.Safe,
+                    describeContract: new UcliOperationDescribeContract(
+                        "Result contract mismatch operation.",
+                        Array.Empty<UcliOperationInputContract>(),
+                        new UcliOperationResultContract(
+                            emitted: true,
+                            resultType: "DifferentResult",
+                            description: "Wrong result contract."),
+                        new UcliOperationAssuranceContract(
+                            Array.Empty<UcliOperationSideEffect>(),
+                            mayDirty: false,
+                            mayPersist: false,
+                            Array.Empty<string>(),
+                            UcliOperationPlanMode.ValidationOnly)));
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void DiscoverFromTypes_WhenAttributedTypeDoesNotImplementOperation_ThrowsInvalidOperationException ()
         {
             Assert.Throws<InvalidOperationException>(() =>
@@ -233,6 +285,20 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
             Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
 
+            var prefabCreateEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.PrefabCreate);
+            Assert.That(prefabCreateEntry.Assurance, Is.Not.Null);
+            Assert.That(prefabCreateEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesPrefab));
+            Assert.That(prefabCreateEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesScene));
+            Assert.That(prefabCreateEntry.Assurance.MayDirty, Is.True);
+            Assert.That(prefabCreateEntry.Assurance.MayPersist, Is.True);
+            Assert.That(prefabCreateEntry.Assurance.TouchedKinds, Does.Contain(IpcExecuteTouchedResourceKindNames.Scene));
+            Assert.That(prefabCreateEntry.Assurance.TouchedKinds, Does.Contain(IpcExecuteTouchedResourceKindNames.Prefab));
+
+            var assetSetEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.AssetSet);
+            Assert.That(assetSetEntry.Assurance, Is.Not.Null);
+            Assert.That(assetSetEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesAsset));
+            Assert.That(assetSetEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffectValues.WritesProjectSettings));
+
             var goCreateSchemaJson = FindCatalogSchema(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoCreate);
             using var goCreateSchemaDocument = JsonDocument.Parse(goCreateSchemaJson);
             var goCreateParentProperties = goCreateSchemaDocument.RootElement.GetProperty("properties").GetProperty("parent").GetProperty("properties");
@@ -249,6 +315,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
                 AssertContainsNoVarBranch(schemaDocument.RootElement);
+                AssertContainsNoVarVariantArgsPath(snapshot.Catalog.Operations[i].Inputs);
             }
         }
 
@@ -359,12 +426,103 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        [UcliOperation]
+        private sealed class MetadataArgsMismatchOperation : UcliOperation<GenericDiscoverableArgs, UcliNoResult>
+        {
+            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
+                operationName: "ucli.tests.args-mismatch",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe,
+                description: "Metadata args mismatch operation.",
+                assurance: new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ValidationOnly));
+
+            protected override Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        [UcliOperation]
+        private sealed class MetadataResultMismatchOperation : UcliOperation<GenericDiscoverableArgs, GenericDiscoverableResult>
+        {
+            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
+                operationName: "ucli.tests.result-mismatch",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe,
+                description: "Metadata result mismatch operation.",
+                assurance: new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ValidationOnly));
+
+            protected override Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
         [UcliDescription("Generic discoverable operation args.")]
         private sealed class GenericDiscoverableArgs
         {
             [UcliRequired]
             [UcliDescription("Scene asset path to inspect.")]
             public SceneAssetPath? Path { get; set; }
+        }
+
+        [UcliDescription("Generic discoverable operation result.")]
+        private sealed class GenericDiscoverableResult
+        {
         }
 
         [UcliOperation]
@@ -441,6 +599,37 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 default:
                     return;
+            }
+        }
+
+        private static void AssertContainsNoVarVariantArgsPath (IReadOnlyList<UcliOperationInputContract>? inputs)
+        {
+            if (inputs == null)
+            {
+                return;
+            }
+
+            for (var inputIndex = 0; inputIndex < inputs.Count; inputIndex++)
+            {
+                var variants = inputs[inputIndex].Variants;
+                if (variants == null)
+                {
+                    continue;
+                }
+
+                for (var variantIndex = 0; variantIndex < variants.Count; variantIndex++)
+                {
+                    var argsPaths = variants[variantIndex].ArgsPaths;
+                    if (argsPaths == null)
+                    {
+                        continue;
+                    }
+
+                    for (var pathIndex = 0; pathIndex < argsPaths.Count; pathIndex++)
+                    {
+                        Assert.That(argsPaths[pathIndex], Does.Not.EndWith(".var"));
+                    }
+                }
             }
         }
 

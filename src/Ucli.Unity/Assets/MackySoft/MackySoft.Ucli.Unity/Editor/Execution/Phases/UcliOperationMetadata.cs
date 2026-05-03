@@ -226,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return;
             }
 
-            ValidateEmittedResultContract(describeContract.ResultContract);
+            ValidateEmittedResultContract(describeContract.ResultContract, resultType);
         }
 
         private static void ValidateNoResultContract (UcliOperationResultContract resultContract)
@@ -239,10 +239,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
         }
 
-        private static void ValidateEmittedResultContract (UcliOperationResultContract resultContract)
+        private static void ValidateEmittedResultContract (
+            UcliOperationResultContract resultContract,
+            Type resultType)
         {
             if (!resultContract.Emitted
                 || string.IsNullOrWhiteSpace(resultContract.ResultType)
+                || !string.Equals(resultContract.ResultType, resultType.Name, StringComparison.Ordinal)
                 || string.IsNullOrWhiteSpace(resultContract.Description))
             {
                 throw new ArgumentException("Result-emitting operations must declare a matching resultContract.", nameof(resultContract));

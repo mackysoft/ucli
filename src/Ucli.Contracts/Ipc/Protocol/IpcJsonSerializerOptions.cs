@@ -18,4 +18,10 @@ public static class IpcJsonSerializerOptions
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         WriteIndented = false,
     };
+
+    /// <summary> Gets serializer options for operation args whose property names must match the published schema exactly. </summary>
+    public static JsonSerializerOptions StrictPropertyNames { get; } = new(Default)
+    {
+        PropertyNameCaseInsensitive = false,
+    };
 }

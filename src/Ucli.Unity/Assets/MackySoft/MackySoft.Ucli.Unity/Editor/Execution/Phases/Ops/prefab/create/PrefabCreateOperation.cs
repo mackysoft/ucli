@@ -20,10 +20,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Creates a prefab asset from a scene GameObject.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesPrefab },
-                mayDirty: false,
+                new[] { UcliOperationSideEffect.WritesPrefab, UcliOperationSideEffect.WritesScene },
+                mayDirty: true,
                 mayPersist: true,
-                new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
                 UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (

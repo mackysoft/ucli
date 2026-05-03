@@ -101,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             args = default;
             failure = null;
-            if (!IpcPayloadCodec.TryDeserialize(operation.Args, out TArgs value, out var error))
+            if (!IpcPayloadCodec.TryDeserializeStrict(operation.Args, out TArgs value, out var error))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,

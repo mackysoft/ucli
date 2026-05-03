@@ -130,7 +130,11 @@ internal static class IndexCatalogContractValidator
             }
 
             if (!TryValidateInputConstraints(input.Constraints, operationName, out error)
-                || !TryValidateInputVariants(input.Variants, operationName, out error))
+                || !TryValidateInputVariants(
+                    input.Variants,
+                    operationName,
+                    input.ArgsPath ?? ("$." + input.Name),
+                    out error))
             {
                 return false;
             }
@@ -143,6 +147,7 @@ internal static class IndexCatalogContractValidator
     private static bool TryValidateInputVariants (
         IReadOnlyList<UcliOperationInputVariantContract>? variants,
         string operationName,
+        string inputArgsPath,
         out string? error)
     {
         if (variants == null)
@@ -169,7 +174,8 @@ internal static class IndexCatalogContractValidator
 
             for (var pathIndex = 0; pathIndex < variant.ArgsPaths.Count; pathIndex++)
             {
-                if (!IsValidArgsPath(variant.ArgsPaths[pathIndex]))
+                if (!IsValidArgsPath(variant.ArgsPaths[pathIndex])
+                    || !IsVariantArgsPathWithinInput(variant.ArgsPaths[pathIndex], inputArgsPath))
                 {
                     error = $"Operation entry '{operationName}' has an invalid input variant args path.";
                     return false;
@@ -184,6 +190,15 @@ internal static class IndexCatalogContractValidator
 
         error = null;
         return true;
+    }
+
+    private static bool IsVariantArgsPathWithinInput (
+        string variantArgsPath,
+        string inputArgsPath)
+    {
+        return string.Equals(inputArgsPath, "$", StringComparison.Ordinal)
+            || string.Equals(variantArgsPath, inputArgsPath, StringComparison.Ordinal)
+            || variantArgsPath.StartsWith(inputArgsPath + ".", StringComparison.Ordinal);
     }
 
     private static bool TryValidateInputConstraints (

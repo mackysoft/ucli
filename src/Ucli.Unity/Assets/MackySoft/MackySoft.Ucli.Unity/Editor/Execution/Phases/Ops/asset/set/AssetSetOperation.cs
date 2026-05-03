@@ -20,7 +20,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             policy: OperationPolicy.Advanced,
             description: "Assigns serialized property values on an asset or project asset target.",
             assurance: new UcliOperationAssuranceContract(
-                new[] { UcliOperationSideEffect.WritesAsset },
+                new[] { UcliOperationSideEffect.WritesAsset, UcliOperationSideEffect.WritesProjectSettings },
                 mayDirty: true,
                 mayPersist: false,
                 new[] { IpcExecuteTouchedResourceKindNames.Asset, IpcExecuteTouchedResourceKindNames.ProjectSettings },
