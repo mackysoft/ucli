@@ -21,7 +21,7 @@ internal static class QueryOperationArgsFactory
     public static JsonElement CreateCompSchema (string typeId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
-        return IpcPayloadCodec.SerializeToElement(new TypeArgs(typeId));
+        return IpcPayloadCodec.SerializeToElement(new ComponentTypeArgs(typeId));
     }
 
     /// <summary> Creates <c>ucli.asset.schema</c> args for a type selector. </summary>

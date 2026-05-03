@@ -17,11 +17,18 @@ public sealed class UcliOperationInputConstraintContract
         Kind = kind;
     }
 
+    /// <summary> Initializes a new instance of the <see cref="UcliOperationInputConstraintContract" /> class. </summary>
+    /// <param name="kind"> The constraint kind enum value. </param>
+    public UcliOperationInputConstraintContract (UcliOperationInputConstraintKind kind)
+        : this(UcliOperationInputConstraintKindCodec.ToValue(kind))
+    {
+    }
+
     /// <summary> Creates a constraint that rejects empty strings, arrays, or objects. </summary>
     /// <returns> The constraint contract. </returns>
     public static UcliOperationInputConstraintContract NonEmpty ()
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.NonEmpty);
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.NonEmpty);
     }
 
     /// <summary> Creates an inclusive numeric range constraint. </summary>
@@ -32,7 +39,7 @@ public sealed class UcliOperationInputConstraintContract
         double? min,
         double? max)
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range)
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.Range)
         {
             Min = min,
             Max = max,
@@ -43,28 +50,28 @@ public sealed class UcliOperationInputConstraintContract
     /// <returns> The constraint contract. </returns>
     public static UcliOperationInputConstraintContract ProjectRelativePath ()
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ProjectRelativePath);
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.ProjectRelativePath);
     }
 
     /// <summary> Creates an existing-asset constraint. </summary>
-    /// <param name="assetKind"> The asset kind literal. </param>
+    /// <param name="assetKind"> The asset kind enum value. </param>
     /// <returns> The constraint contract. </returns>
-    public static UcliOperationInputConstraintContract AssetExists (string assetKind)
+    public static UcliOperationInputConstraintContract AssetExists (UcliOperationAssetKind assetKind)
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.AssetExists)
         {
-            AssetKind = assetKind,
+            AssetKind = UcliOperationAssetKindCodec.ToValue(assetKind),
         };
     }
 
     /// <summary> Creates an asset-creatable constraint. </summary>
-    /// <param name="assetKind"> The asset kind literal. </param>
+    /// <param name="assetKind"> The asset kind enum value. </param>
     /// <returns> The constraint contract. </returns>
-    public static UcliOperationInputConstraintContract AssetCreatable (string assetKind)
+    public static UcliOperationInputConstraintContract AssetCreatable (UcliOperationAssetKind assetKind)
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetCreatable)
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.AssetCreatable)
         {
-            AssetKind = assetKind,
+            AssetKind = UcliOperationAssetKindCodec.ToValue(assetKind),
         };
     }
 
@@ -72,24 +79,24 @@ public sealed class UcliOperationInputConstraintContract
     /// <returns> The constraint contract. </returns>
     public static UcliOperationInputConstraintContract GlobalObjectId ()
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.GlobalObjectId);
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.GlobalObjectId);
     }
 
     /// <summary> Creates a Unity hierarchy path constraint. </summary>
     /// <returns> The constraint contract. </returns>
     public static UcliOperationInputConstraintContract HierarchyPath ()
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath);
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.HierarchyPath);
     }
 
     /// <summary> Creates a reference-resolvable constraint. </summary>
-    /// <param name="targetKind"> The reference target kind literal. </param>
+    /// <param name="targetKind"> The reference target kind enum value. </param>
     /// <returns> The constraint contract. </returns>
-    public static UcliOperationInputConstraintContract ReferenceResolvable (string targetKind)
+    public static UcliOperationInputConstraintContract ReferenceResolvable (UcliOperationReferenceTargetKind targetKind)
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable)
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.ReferenceResolvable)
         {
-            TargetKind = targetKind,
+            TargetKind = UcliOperationReferenceTargetKindCodec.ToValue(targetKind),
         };
     }
 
@@ -97,28 +104,28 @@ public sealed class UcliOperationInputConstraintContract
     /// <returns> The constraint contract. </returns>
     public static UcliOperationInputConstraintContract TypeExists ()
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeExists);
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.TypeExists);
     }
 
     /// <summary> Creates a type-assignable constraint. </summary>
-    /// <param name="typeKind"> The type kind literal. </param>
+    /// <param name="typeKind"> The type kind enum value. </param>
     /// <returns> The constraint contract. </returns>
-    public static UcliOperationInputConstraintContract TypeAssignableTo (string typeKind)
+    public static UcliOperationInputConstraintContract TypeAssignableTo (UcliOperationTypeKind typeKind)
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeAssignableTo)
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.TypeAssignableTo)
         {
-            TypeKind = typeKind,
+            TypeKind = UcliOperationTypeKindCodec.ToValue(typeKind),
         };
     }
 
     /// <summary> Creates a serialized-property access constraint. </summary>
-    /// <param name="access"> The access literal. </param>
+    /// <param name="access"> The access enum value. </param>
     /// <returns> The constraint contract. </returns>
-    public static UcliOperationInputConstraintContract SerializedProperty (string access)
+    public static UcliOperationInputConstraintContract SerializedProperty (UcliOperationSerializedPropertyAccess access)
     {
-        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.SerializedProperty)
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.SerializedProperty)
         {
-            Access = access,
+            Access = UcliOperationSerializedPropertyAccessCodec.ToValue(access),
         };
     }
 

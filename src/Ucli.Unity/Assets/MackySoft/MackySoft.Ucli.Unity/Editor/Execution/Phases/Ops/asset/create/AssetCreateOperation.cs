@@ -13,13 +13,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetCreateOperation : TypedUcliOperation<AssetCreateArgs, UcliNoResult>
+    internal sealed class AssetCreateOperation : UcliOperation<AssetCreateArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.AssetCreate));
+            description: "Creates a Unity asset at a project-relative path.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesAsset },
+                mayDirty: false,
+                mayPersist: true,
+                new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

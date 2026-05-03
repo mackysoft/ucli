@@ -15,13 +15,25 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.project.refresh</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class ProjectRefreshPhaseOperation : TypedUcliOperation<UcliEmptyArgs, UcliNoResult>
+    internal sealed class ProjectRefreshPhaseOperation : UcliOperation<UcliEmptyArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectRefresh,
             kind: UcliOperationKind.Command,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.ProjectRefresh));
+            description: "Refreshes Unity AssetDatabase and reports resources changed by import.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.RefreshesAssetDatabase },
+                mayDirty: false,
+                mayPersist: false,
+                new[]
+                {
+                    IpcExecuteTouchedResourceKindNames.Scene,
+                    IpcExecuteTouchedResourceKindNames.Prefab,
+                    IpcExecuteTouchedResourceKindNames.Asset,
+                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                },
+                UcliOperationPlanMode.ValidationOnly));
 
         /// <summary> Executes validate phase for <c>ucli.project.refresh</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

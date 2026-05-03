@@ -12,16 +12,31 @@ public sealed record GameObjectReferenceArgs
     [JsonConstructor]
     public GameObjectReferenceArgs (
         string? alias,
-        string? globalObjectId,
-        string? prefab,
-        string? scene,
-        string? hierarchyPath)
+        UnityGlobalObjectId? globalObjectId,
+        PrefabAssetPath? prefab,
+        SceneAssetPath? scene,
+        UnityHierarchyPath? hierarchyPath)
     {
         Alias = alias;
         GlobalObjectId = globalObjectId;
         Prefab = prefab;
         Scene = scene;
         HierarchyPath = hierarchyPath;
+    }
+
+    public GameObjectReferenceArgs (
+        string? alias,
+        string? globalObjectId,
+        string? prefab,
+        string? scene,
+        string? hierarchyPath)
+        : this(
+            alias,
+            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
+            prefab == null ? null : new PrefabAssetPath(prefab),
+            scene == null ? null : new SceneAssetPath(scene),
+            hierarchyPath == null ? null : new UnityHierarchyPath(hierarchyPath))
+    {
     }
 
     [UcliDescription("Temporary plan alias produced earlier in the same request.")]
@@ -31,17 +46,17 @@ public sealed record GameObjectReferenceArgs
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; init; }
 
     [UcliDescription("Prefab asset path for a hierarchy selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Prefab { get; init; }
+    public PrefabAssetPath? Prefab { get; init; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Scene { get; init; }
+    public SceneAssetPath? Scene { get; init; }
 
     [UcliDescription("Unity hierarchy path inside the selected scene or prefab.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? HierarchyPath { get; init; }
+    public UnityHierarchyPath? HierarchyPath { get; init; }
 }

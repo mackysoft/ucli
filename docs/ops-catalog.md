@@ -39,7 +39,7 @@
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ucli.comp.ensure` | mutation | advanced | mvp-core | 対象に指定コンポーネントが存在する状態を保証する。 | `ComponentEnsureArgs` | `UcliNoResult` | result は返さない |
-| `ucli.comp.schema` | query | safe | mvp-support | コンポーネント型の設定可能項目を取得する。 | `TypeArgs` | `IndexSchemaEntryJsonContract` | 対象 component 型の serialized property schema |
+| `ucli.comp.schema` | query | safe | mvp-support | コンポーネント型の設定可能項目を取得する。 | `ComponentTypeArgs` | `IndexSchemaEntryJsonContract` | 対象 component 型の serialized property schema |
 | `ucli.comp.set` | mutation | advanced | mvp-core | 対象コンポーネントのシリアライズ値を更新する。 | `ComponentSetArgs` | `UcliNoResult` | result は返さない |
 
 ## cs
@@ -65,8 +65,8 @@
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `ucli.prefab.create` | mutation | advanced | mvp-core | Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | `PrefabCreateArgs` | `UcliNoResult` | result は返さない |
-| `ucli.prefab.open` | command | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `PathArgs` | `UcliNoResult` | result は返さない |
-| `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `PathArgs` | `UcliNoResult` | result は返さない |
+| `ucli.prefab.open` | command | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `PrefabPathArgs` | `UcliNoResult` | result は返さない |
+| `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `PrefabPathArgs` | `UcliNoResult` | result は返さない |
 
 ## project
 
@@ -85,7 +85,7 @@
 
 | op | kind | policy | status | 概要 | Args | Result | result 概要 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `ucli.scene.open` | command | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。閉じている Scene を live で開くときは `OpenSceneMode.Single` を使う。 | `PathArgs` | `UcliNoResult` | result は返さない |
+| `ucli.scene.open` | command | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。閉じている Scene を live で開くときは `OpenSceneMode.Single` を使う。 | `ScenePathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.scene.query` | query | safe | mvp-core | scene context 内で selection candidate を列挙する。`/` を含む GameObject 名は `hierarchyPath` で表現できないため candidate に含めない。 | `SceneQueryArgs` | `SceneQueryResult` | `scene` と `matches[]` を返し、match は `kind`, `hierarchyPath`, `componentType` を持つ |
-| `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `PathArgs` | `UcliNoResult` | result は返さない |
+| `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `ScenePathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。 | `SceneTreeArgs` | `SceneTreeResult` | `path` と root GameObject tree の `roots[]` を返す |

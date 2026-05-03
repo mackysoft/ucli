@@ -12,13 +12,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.delete</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoDeleteOperation : TypedUcliOperation<GoTargetArgs, UcliNoResult>
+    internal sealed class GoDeleteOperation : UcliOperation<GoTargetArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoTargetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoDelete,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDelete));
+            description: "Deletes a GameObject from a scene or prefab hierarchy.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
+                mayDirty: true,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

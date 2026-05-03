@@ -13,17 +13,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.prefab.save</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class PrefabSaveOperation : TypedUcliOperation<PathArgs, UcliNoResult>
+    internal sealed class PrefabSaveOperation : UcliOperation<PrefabPathArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PathArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabPathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabSave,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.PrefabSave));
+            description: "Saves an opened or previewed prefab asset.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesPrefab },
+                mayDirty: false,
+                mayPersist: true,
+                new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            PathArgs args,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -38,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            PathArgs args,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -67,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            PathArgs args,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -130,7 +136,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePlanArguments (
             NormalizedOperation operation,
-            PathArgs args,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
             out ResolutionState resolutionState,
             out OperationPhaseStepResult? failure)
@@ -182,7 +188,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveCallArguments (
             NormalizedOperation operation,
-            PathArgs args,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
             out ResolutionState resolutionState,
             out OperationPhaseStepResult? failure)
@@ -215,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryParseAndValidatePrefabPath (
             NormalizedOperation operation,
-            PathArgs args,
+            PrefabPathArgs args,
             out string prefabPath,
             out OperationPhaseStepResult? failure)
         {

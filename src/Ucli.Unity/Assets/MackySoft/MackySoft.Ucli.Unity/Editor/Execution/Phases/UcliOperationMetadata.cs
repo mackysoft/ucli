@@ -148,6 +148,32 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 requiresPreCallPlanReplay);
         }
 
+        /// <summary> Creates typed operation metadata and derives the input contract from args attributes. </summary>
+        /// <typeparam name="TArgs"> The operation args contract type. </typeparam>
+        /// <typeparam name="TResult"> The operation result contract type. </typeparam>
+        /// <param name="operationName"> The operation name. </param>
+        /// <param name="kind"> The operation kind metadata. </param>
+        /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="description"> The operation purpose description. </param>
+        /// <param name="assurance"> The agent-facing assurance metadata. </param>
+        /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <returns> The created operation metadata. </returns>
+        public static UcliOperationMetadata Create<TArgs, TResult> (
+            string operationName,
+            UcliOperationKind kind,
+            OperationPolicy policy,
+            string description,
+            UcliOperationAssuranceContract assurance,
+            bool requiresPreCallPlanReplay = false)
+        {
+            return Create<TArgs, TResult>(
+                operationName,
+                kind,
+                policy,
+                UcliOperationDescribeContractBuilder.Create<TArgs, TResult>(description, assurance),
+                requiresPreCallPlanReplay);
+        }
+
         /// <summary> Gets the registered operation name. </summary>
         public string OperationName { get; }
 

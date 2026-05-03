@@ -201,7 +201,7 @@ public sealed class OpsCliOutputContractTests
                     .HasString("name", UcliPrimitiveOperationNames.GoDescribe)
                     .HasString("kind", "query")
                     .HasString("policy", "safe")
-                    .HasString("description", UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDescribe).Description!)
+                    .HasString("description", "Returns a GameObject description including components and child hierarchy.")
                     .HasProperty("inputs")
                     .HasProperty("resultContract", resultContract => resultContract
                         .HasBoolean("emitted", true)
@@ -402,7 +402,7 @@ public sealed class OpsCliOutputContractTests
         string argsSchemaJson,
         string? resultSchemaJson = null)
     {
-        var describe = UcliOperationDescribeCatalog.Get(name);
+        var describe = CreateGoDescribeContract();
         return new IndexOpEntryJsonContract(
             name,
             kind,
@@ -415,5 +415,16 @@ public sealed class OpsCliOutputContractTests
             ResultContract = describe.ResultContract,
             Assurance = describe.Assurance,
         };
+    }
+    private static UcliOperationDescribeContract CreateGoDescribeContract ()
+    {
+        return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+            "Returns a GameObject description including components and child hierarchy.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
     }
 }

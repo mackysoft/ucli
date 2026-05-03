@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Base class for operations that keep JSON parsing at the IPC boundary and run phases with typed args. </summary>
     /// <typeparam name="TArgs"> The operation args contract type. </typeparam>
     /// <typeparam name="TResult"> The operation result contract type. </typeparam>
-    public abstract class TypedUcliOperation<TArgs, TResult> : IUcliOperation<TArgs, TResult>
+    public abstract class UcliOperation<TArgs, TResult> : IUcliOperation<TArgs, TResult>
     {
         /// <inheritdoc />
         public abstract UcliOperationMetadata Metadata { get; }

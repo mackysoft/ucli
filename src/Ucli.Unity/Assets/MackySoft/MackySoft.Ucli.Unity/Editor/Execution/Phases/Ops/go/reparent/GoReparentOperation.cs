@@ -13,13 +13,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.reparent</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoReparentOperation : TypedUcliOperation<GoReparentArgs, UcliNoResult>
+    internal sealed class GoReparentOperation : UcliOperation<GoReparentArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoReparentArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoReparent,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoReparent));
+            description: "Moves a GameObject under a new parent GameObject.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
+                mayDirty: true,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

@@ -55,6 +55,21 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CreateArgsSchemaJson_WhenPropertyUsesSemanticStringValue_EmitsStringStructure ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(ScenePathArgs));
+
+        using var document = JsonDocument.Parse(schemaJson);
+        var pathProperty = document.RootElement
+            .GetProperty("properties")
+            .GetProperty("path");
+
+        Assert.Equal("string", pathProperty.GetProperty("type").GetString());
+        Assert.False(pathProperty.TryGetProperty("properties", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateResultSchemaJson_WhenResultIsNoResult_ReturnsNull ()
     {
         var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(UcliNoResult));
@@ -101,6 +116,15 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
         var missing = UcliOperationJsonSchemaGenerator.FindMissingPropertyDescriptions(typeof(MissingDescriptionArgs));
 
         Assert.Equal(new[] { "rawName" }, missing);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FindMissingPropertyDescriptions_WhenSemanticStringValueHasDescription_DoesNotReportProperty ()
+    {
+        var missing = UcliOperationJsonSchemaGenerator.FindMissingPropertyDescriptions(typeof(ScenePathArgs));
+
+        Assert.Empty(missing);
     }
 
     [UcliDescription("Sample args.")]

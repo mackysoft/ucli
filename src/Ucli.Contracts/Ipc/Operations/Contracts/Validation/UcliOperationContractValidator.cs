@@ -322,6 +322,7 @@ public static class UcliOperationContractValidator
     private static bool IsScalar (Type type)
     {
         return type == StringType
+            || UcliStringValue.IsAssignableFrom(type)
             || type == typeof(bool)
             || type == typeof(byte)
             || type == typeof(sbyte)

@@ -12,13 +12,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.set</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetSetOperation : TypedUcliOperation<AssetSetArgs, UcliNoResult>
+    internal sealed class AssetSetOperation : UcliOperation<AssetSetArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetSet,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.AssetSet));
+            description: "Assigns serialized property values on an asset or project asset target.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesAsset },
+                mayDirty: true,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Asset, IpcExecuteTouchedResourceKindNames.ProjectSettings },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

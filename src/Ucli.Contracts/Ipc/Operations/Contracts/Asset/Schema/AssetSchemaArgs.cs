@@ -9,7 +9,7 @@ public sealed record AssetSchemaArgs
 {
     [JsonConstructor]
     public AssetSchemaArgs (
-        string? type,
+        UnityTypeId? type,
         AssetReferenceArgs? target)
     {
         Type = type;
@@ -18,9 +18,10 @@ public sealed record AssetSchemaArgs
 
     [UcliDescription("Unity asset type identifier to inspect.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Type { get; init; }
+    public UnityTypeId? Type { get; init; }
 
     [UcliDescription("Existing asset target to inspect.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.Asset)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AssetReferenceArgs? Target { get; init; }
 }

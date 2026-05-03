@@ -78,6 +78,26 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcPayloadCodec_SemanticStringValue_RoundTripsAsJsonString ()
+    {
+        using var document = JsonDocument.Parse("{\"path\":\"Assets/Scenes/Main.unity\"}");
+
+        var result = IpcPayloadCodec.TryDeserialize<ScenePathArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.True(result, error.Message);
+        Assert.Equal("Assets/Scenes/Main.unity", args.Path.Value);
+
+        var payload = IpcPayloadCodec.SerializeToElement(args);
+
+        JsonAssert.For(payload)
+            .HasString("path", "Assets/Scenes/Main.unity");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcErrorCodes_ExposeCoreAndReadIndexConstants ()
     {
         Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
@@ -162,7 +182,7 @@ public sealed class IpcContractSerializationTests
     public void IpcOpsReadContracts_SerializeWithCamelCaseFields ()
     {
         var requestPayload = new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true);
-        var describe = UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDescribe);
+        var describe = CreateGoDescribeContract();
         var responsePayload = new IpcOpsReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             Operations:
@@ -672,4 +692,15 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("projectSettings", IpcExecuteTouchedResourceKindNames.ProjectSettings);
     }
 
+    private static UcliOperationDescribeContract CreateGoDescribeContract ()
+    {
+        return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+            "Returns a GameObject description including components and child hierarchy.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
+    }
 }

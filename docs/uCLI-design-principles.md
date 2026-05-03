@@ -113,8 +113,8 @@ transport は搬送路であり、意味論を変える理由ではない。
 差異がある場合は、黙って欠落させず capability として明示する。
 ### Contract 型を唯一の正本にする
 README、help、skill、tool description を別々に人手で保守しない。  
-operation ごとの Args/Result contract 型と、operation description / input constraints / resultContract / assurance metadata を公開 contract の正本にする。
-`argsSchema` / `resultSchema` はその contract から生成される JSON 構造検証用 schema とし、agent 向けの主契約にはしない。意味制約は JSON Schema の低レベル keyword ではなく `inputs[].constraints` に置く。
+operation ごとの Args/Result contract 型と operation metadata を公開 contract の正本にする。複数 operation で同じ意味を持つ scalar 入力は C# contract 上の semantic value type として表し、IPC JSON では primitive JSON 値のまま扱う。入力ごとの説明と意味制約は Args property または semantic value type の属性に置き、`inputs[]` はそこから生成する。operation 全体の description / resultContract / assurance metadata は operation metadata に置く。
+`argsSchema` / `resultSchema` はその contract から生成される JSON 構造検証用 schema とし、agent 向けの主契約にはしない。意味制約は JSON Schema の低レベル keyword ではなく Args 属性から生成される `inputs[].constraints` に置く。
 ### Operation は1つのユーザー意図を表す
 1つの operation に複数の意味 variant を持たせない。
 description が「A または B」になる operation、必須入力セットによってユーザー意図が変わる operation、result 解釈や policy / sideEffects / planMode が変わる operation は分割対象とする。

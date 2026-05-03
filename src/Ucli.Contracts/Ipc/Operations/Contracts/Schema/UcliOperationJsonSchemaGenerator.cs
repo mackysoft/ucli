@@ -55,7 +55,7 @@ public static class UcliOperationJsonSchemaGenerator
         var missing = new List<string>();
         foreach (var property in UcliOperationContractReflection.GetSchemaProperties(contractType))
         {
-            if (property.GetCustomAttribute<UcliDescriptionAttribute>() == null)
+            if (GetDescriptionOrNull(property) == null)
             {
                 missing.Add(UcliOperationContractReflection.GetJsonPropertyName(property));
             }
@@ -82,7 +82,7 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context)
     {
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (actualType == StringType)
+        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType))
         {
             WriteType(writer, "string");
             return;
@@ -207,7 +207,7 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context)
     {
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
-        if (actualType == StringType)
+        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType))
         {
             WriteType(writer, "string");
             return;
@@ -295,7 +295,7 @@ public static class UcliOperationJsonSchemaGenerator
         bool includeNull)
     {
         string? schemaType = null;
-        if (actualType == StringType)
+        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType))
         {
             schemaType = "string";
         }
@@ -426,6 +426,20 @@ public static class UcliOperationJsonSchemaGenerator
         return type == typeof(float)
             || type == typeof(double)
             || type == typeof(decimal);
+    }
+
+    private static string? GetDescriptionOrNull (PropertyInfo property)
+    {
+        var description = property.GetCustomAttribute<UcliDescriptionAttribute>();
+        if (description != null)
+        {
+            return description.Description;
+        }
+
+        var actualType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        return UcliStringValue.IsAssignableFrom(actualType)
+            ? actualType.GetCustomAttribute<UcliDescriptionAttribute>()?.Description
+            : null;
     }
 
     private sealed class SchemaGenerationContext

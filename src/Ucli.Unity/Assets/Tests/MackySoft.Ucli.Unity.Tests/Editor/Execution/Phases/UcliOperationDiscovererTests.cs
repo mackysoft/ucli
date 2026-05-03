@@ -410,11 +410,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
                 new UcliOperationAssuranceContract(
-                    Array.Empty<string>(),
+                    Array.Empty<UcliOperationSideEffect>(),
                     mayDirty: false,
                     mayPersist: false,
                     Array.Empty<string>(),
-                    UcliOperationPlanModeValues.ValidationOnly));
+                    UcliOperationPlanMode.ValidationOnly));
         }
     }
 }

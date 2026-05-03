@@ -111,7 +111,7 @@ public sealed class OpsCommandTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             LastDescribeInput = input;
-            var describe = UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDescribe);
+            var describe = CreateGoDescribeContract();
             return ValueTask.FromResult(OpsDescribeServiceResult.Success(
                 new OpsDescribeExecutionOutput(
                     Operation: new OpsOperationDetail(
@@ -126,6 +126,18 @@ public sealed class OpsCommandTests
                         resultSchema: null),
                     ReadIndex: new ReadIndexInfo(false, false, "index", "probable", null, null)),
                 "uCLI ops describe completed."));
+        }
+
+        private static UcliOperationDescribeContract CreateGoDescribeContract ()
+        {
+            return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+                "Returns a GameObject description including components and child hierarchy.",
+                new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ObservesLiveUnity));
         }
     }
 }

@@ -12,13 +12,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.comp.ensure</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompEnsureOperation : TypedUcliOperation<ComponentEnsureArgs, UcliNoResult>
+    internal sealed class CompEnsureOperation : UcliOperation<ComponentEnsureArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentEnsureArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompEnsure,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.CompEnsure));
+            description: "Ensures that a GameObject has a component of the requested type.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
+                mayDirty: true,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

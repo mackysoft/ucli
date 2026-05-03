@@ -7,18 +7,25 @@ public sealed record AssetCreateArgs
 {
     [JsonConstructor]
     public AssetCreateArgs (
-        string type,
-        string path)
+        UnityTypeId type,
+        CreatableUnityAssetPath path)
     {
         Type = type;
         Path = path;
     }
 
+    public AssetCreateArgs (
+        string type,
+        string path)
+        : this(new UnityTypeId(type), new CreatableUnityAssetPath(path))
+    {
+    }
+
     [UcliRequired]
     [UcliDescription("Unity asset type identifier to create.")]
-    public string Type { get; init; }
+    public UnityTypeId Type { get; init; }
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path to create.")]
-    public string Path { get; init; }
+    public CreatableUnityAssetPath Path { get; init; }
 }

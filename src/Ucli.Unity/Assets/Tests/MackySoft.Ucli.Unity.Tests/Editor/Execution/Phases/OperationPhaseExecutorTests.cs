@@ -570,7 +570,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 version: PlanTokenCompactCodec.TokenVersion,
                 keyId: PlanTokenCompactCodec.TokenKeyId,
                 projectFingerprint: scope.ProjectFingerprint,
-                requestDigest: Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span),
+                requestDigest: Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.ToArray()),
                 stateFingerprint: PlanTokenStateFingerprintCalculator.Compute(environment.Capture(), traces),
                 issuedAtUtc: environment.UtcNow,
                 expiresAtUtc: environment.UtcNow.AddMinutes(15),
@@ -857,11 +857,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
                 new UcliOperationAssuranceContract(
-                    Array.Empty<string>(),
+                    Array.Empty<UcliOperationSideEffect>(),
                     mayDirty: false,
                     mayPersist: false,
                     Array.Empty<string>(),
-                    UcliOperationPlanModeValues.ValidationOnly));
+                    UcliOperationPlanMode.ValidationOnly));
         }
 
         private static NormalizedExecuteRequest CreateRequest (

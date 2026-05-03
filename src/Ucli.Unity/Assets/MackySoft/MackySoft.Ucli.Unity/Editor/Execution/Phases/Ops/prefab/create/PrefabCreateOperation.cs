@@ -12,13 +12,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.prefab.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class PrefabCreateOperation : TypedUcliOperation<PrefabCreateArgs, UcliNoResult>
+    internal sealed class PrefabCreateOperation : UcliOperation<PrefabCreateArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.PrefabCreate));
+            description: "Creates a prefab asset from a scene GameObject.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesPrefab },
+                mayDirty: false,
+                mayPersist: true,
+                new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

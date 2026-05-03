@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,13 +13,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.query</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneQueryOperation : TypedUcliOperation<SceneQueryArgs, SceneQueryResult>
+    internal sealed class SceneQueryOperation : UcliOperation<SceneQueryArgs, SceneQueryResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneQueryArgs, SceneQueryResult>(
             operationName: UcliPrimitiveOperationNames.SceneQuery,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.SceneQuery));
+            description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

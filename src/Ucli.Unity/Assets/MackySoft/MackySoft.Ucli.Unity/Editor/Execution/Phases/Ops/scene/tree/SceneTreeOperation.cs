@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,13 +14,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.tree</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneTreeOperation : TypedUcliOperation<SceneTreeArgs, SceneTreeResult>
+    internal sealed class SceneTreeOperation : UcliOperation<SceneTreeArgs, SceneTreeResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneTreeArgs, SceneTreeResult>(
             operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.SceneTree));
+            description: "Returns the hierarchy tree for a Unity scene.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         /// <summary> Executes validate phase for <c>ucli.scene.tree</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

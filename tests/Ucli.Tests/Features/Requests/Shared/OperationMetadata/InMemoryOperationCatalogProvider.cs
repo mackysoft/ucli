@@ -20,7 +20,8 @@ namespace MackySoft.Ucli.Tests;
 internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvider
 {
     private static readonly string ResolveArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ResolveSelectorArgs));
-    private static readonly string ScenePathArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(PathArgs));
+    private static readonly string ScenePathArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ScenePathArgs));
+    private static readonly string PrefabPathArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(PrefabPathArgs));
     private static readonly string SceneTreeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(SceneTreeArgs));
     private static readonly string GoCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoCreateArgs));
     private static readonly string GoDescribeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoDescribeArgs));
@@ -32,7 +33,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
     private static readonly string AssetCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetCreateArgs));
     private static readonly string AssetsFindArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetsFindArgs));
     private static readonly string AssetSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSchemaArgs));
-    private static readonly string CompSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(TypeArgs));
+    private static readonly string CompSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ComponentTypeArgs));
     private static readonly string AssetSetArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSetArgs));
     private static readonly string PrefabCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(PrefabCreateArgs));
     private static readonly string StrictEmptyObjectArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliEmptyArgs));
@@ -56,8 +57,8 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.GoDescribe, UcliOperationKind.Query, OperationPolicy.Safe, GoDescribeArgsSchemaJson),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.GoReparent, UcliOperationKind.Mutation, OperationPolicy.Advanced, GoReparentArgsSchemaJson),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, PrefabCreateArgsSchemaJson),
-        new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabOpen, UcliOperationKind.Command, OperationPolicy.Safe, ScenePathArgsSchemaJson),
-        new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, ScenePathArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabOpen, UcliOperationKind.Command, OperationPolicy.Safe, PrefabPathArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, PrefabPathArgsSchemaJson),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.ProjectRefresh, UcliOperationKind.Command, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
         new UcliOperationDescriptor(UcliPrimitiveOperationNames.ProjectSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
     ];

@@ -16,9 +16,11 @@ public sealed record GoReparentArgs
 
     [UcliRequired]
     [UcliDescription("Target GameObject reference.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
     public GameObjectReferenceArgs Target { get; init; }
 
     [UcliRequired]
     [UcliDescription("New parent GameObject reference.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
     public GameObjectReferenceArgs Parent { get; init; }
 }

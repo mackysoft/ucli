@@ -13,16 +13,31 @@ public sealed record AssetReferenceArgs
     [JsonConstructor]
     public AssetReferenceArgs (
         string? alias,
-        string? globalObjectId,
+        UnityGlobalObjectId? globalObjectId,
         string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath)
+        UnityAssetPath? assetPath,
+        ProjectSettingsAssetPath? projectAssetPath)
     {
         Alias = alias;
         GlobalObjectId = globalObjectId;
         AssetGuid = assetGuid;
         AssetPath = assetPath;
         ProjectAssetPath = projectAssetPath;
+    }
+
+    public AssetReferenceArgs (
+        string? alias,
+        string? globalObjectId,
+        string? assetGuid,
+        string? assetPath,
+        string? projectAssetPath)
+        : this(
+            alias,
+            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
+            assetGuid,
+            assetPath == null ? null : new UnityAssetPath(assetPath),
+            projectAssetPath == null ? null : new ProjectSettingsAssetPath(projectAssetPath))
+    {
     }
 
     [UcliDescription("Temporary plan alias produced earlier in the same request.")]
@@ -32,7 +47,7 @@ public sealed record AssetReferenceArgs
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; init; }
 
     [UcliDescription("Asset GUID selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -40,9 +55,9 @@ public sealed record AssetReferenceArgs
 
     [UcliDescription("Asset path selector under the Unity project.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? AssetPath { get; init; }
+    public UnityAssetPath? AssetPath { get; init; }
 
     [UcliDescription("Project-scoped asset path selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ProjectAssetPath { get; init; }
+    public ProjectSettingsAssetPath? ProjectAssetPath { get; init; }
 }

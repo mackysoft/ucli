@@ -15,13 +15,31 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.project.save</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class ProjectSavePhaseOperation : TypedUcliOperation<UcliEmptyArgs, UcliNoResult>
+    internal sealed class ProjectSavePhaseOperation : UcliOperation<UcliEmptyArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectSave,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.ProjectSave));
+            description: "Saves dirty project assets, scenes, and prefab stages known to uCLI.",
+            assurance: new UcliOperationAssuranceContract(
+                new[]
+                {
+                    UcliOperationSideEffect.WritesAsset,
+                    UcliOperationSideEffect.WritesScene,
+                    UcliOperationSideEffect.WritesPrefab,
+                    UcliOperationSideEffect.WritesProjectSettings,
+                },
+                mayDirty: false,
+                mayPersist: true,
+                new[]
+                {
+                    IpcExecuteTouchedResourceKindNames.Scene,
+                    IpcExecuteTouchedResourceKindNames.Prefab,
+                    IpcExecuteTouchedResourceKindNames.Asset,
+                    IpcExecuteTouchedResourceKindNames.ProjectSettings,
+                },
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         /// <summary> Executes validate phase for <c>ucli.project.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

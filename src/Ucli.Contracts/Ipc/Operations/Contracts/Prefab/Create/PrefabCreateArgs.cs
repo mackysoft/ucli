@@ -8,17 +8,25 @@ public sealed record PrefabCreateArgs
     [JsonConstructor]
     public PrefabCreateArgs (
         SceneGameObjectReferenceArgs target,
-        string path)
+        CreatablePrefabAssetPath path)
     {
         Target = target;
         Path = path;
     }
 
+    public PrefabCreateArgs (
+        SceneGameObjectReferenceArgs target,
+        string path)
+        : this(target, new CreatablePrefabAssetPath(path))
+    {
+    }
+
     [UcliRequired]
     [UcliDescription("Source scene GameObject reference.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
     public SceneGameObjectReferenceArgs Target { get; init; }
 
     [UcliRequired]
     [UcliDescription("Prefab asset path to create.")]
-    public string Path { get; init; }
+    public CreatablePrefabAssetPath Path { get; init; }
 }

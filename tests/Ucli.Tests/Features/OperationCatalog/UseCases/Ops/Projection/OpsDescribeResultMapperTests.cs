@@ -102,7 +102,14 @@ public sealed class OpsDescribeResultMapperTests
         string argsSchemaJson,
         string? resultSchemaJson = null)
     {
-        var describe = UcliOperationDescribeCatalog.Get(name);
+        var describe = UcliOperationDescribeContractBuilder.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
+            "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
         return new IndexOpEntryJsonContract(
             name,
             kind,

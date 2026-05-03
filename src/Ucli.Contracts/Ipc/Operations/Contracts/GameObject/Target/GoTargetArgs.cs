@@ -13,5 +13,6 @@ public sealed record GoTargetArgs
 
     [UcliRequired]
     [UcliDescription("Target GameObject reference.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
     public GameObjectReferenceArgs Target { get; init; }
 }

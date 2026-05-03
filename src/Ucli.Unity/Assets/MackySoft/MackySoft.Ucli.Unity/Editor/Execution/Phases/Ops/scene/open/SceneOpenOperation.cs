@@ -11,13 +11,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.open</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneOpenOperation : TypedUcliOperation<PathArgs, UcliNoResult>
+    internal sealed class SceneOpenOperation : UcliOperation<ScenePathArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PathArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ScenePathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.SceneOpen,
             kind: UcliOperationKind.Command,
             policy: OperationPolicy.Safe,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.SceneOpen));
+            description: "Opens a Unity scene asset in the editor.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.OpensSceneInEditor },
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         /// <summary> Executes validate phase for <c>ucli.scene.open</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
@@ -26,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            PathArgs args,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -46,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            PathArgs args,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -89,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            PathArgs args,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -141,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            PathArgs args,
+            ScenePathArgs args,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {

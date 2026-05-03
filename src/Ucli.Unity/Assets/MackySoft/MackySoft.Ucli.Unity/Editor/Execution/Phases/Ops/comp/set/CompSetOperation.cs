@@ -13,13 +13,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.comp.set</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompSetOperation : TypedUcliOperation<ComponentSetArgs, UcliNoResult>
+    internal sealed class CompSetOperation : UcliOperation<ComponentSetArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompSet,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.CompSet));
+            description: "Assigns serialized property values on a component target.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
+                mayDirty: true,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

@@ -219,7 +219,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
     [Trait("Size", "Small")]
     public void IndexOpsCatalogJsonContractSerializer_RoundTripsContract ()
     {
-        var describe = UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDescribe);
+        var describe = CreateGoDescribeContract();
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
@@ -344,5 +344,16 @@ public sealed class IndexCatalogJsonContractSerializerTests
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("scenePath", out _));
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("sourceInputsHash", out _));
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("roots", out _));
+    }
+    private static UcliOperationDescribeContract CreateGoDescribeContract ()
+    {
+        return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+            "Returns a GameObject description including components and child hierarchy.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
     }
 }

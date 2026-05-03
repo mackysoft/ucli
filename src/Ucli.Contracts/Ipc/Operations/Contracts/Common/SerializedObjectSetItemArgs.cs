@@ -8,16 +8,24 @@ public sealed record SerializedObjectSetItemArgs
 {
     [JsonConstructor]
     public SerializedObjectSetItemArgs (
-        string path,
+        SerializedPropertyPath path,
         JsonElement value)
     {
         Path = path;
         Value = value;
     }
 
+    public SerializedObjectSetItemArgs (
+        string path,
+        JsonElement value)
+        : this(new SerializedPropertyPath(path), value)
+    {
+    }
+
     [UcliRequired]
     [UcliDescription("SerializedProperty path to assign.")]
-    public string Path { get; init; }
+    [UcliInputConstraint(UcliOperationInputConstraintKind.SerializedProperty, Access = UcliOperationSerializedPropertyAccess.Write)]
+    public SerializedPropertyPath Path { get; init; }
 
     [UcliRequired]
     [UcliDescription("JSON value assigned to the serialized property.")]

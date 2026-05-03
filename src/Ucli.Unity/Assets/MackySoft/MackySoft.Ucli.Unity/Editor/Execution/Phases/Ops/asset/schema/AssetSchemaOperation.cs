@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.schema</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetSchemaOperation : TypedUcliOperation<AssetSchemaArgs, IndexSchemaEntryJsonContract>
+    internal sealed class AssetSchemaOperation : UcliOperation<AssetSchemaArgs, IndexSchemaEntryJsonContract>
     {
         private readonly AssetSchemaExtractor assetSchemaExtractor =
             new AssetSchemaExtractor(new IndexSchemaPropertyCollector());
@@ -24,7 +24,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             operationName: UcliPrimitiveOperationNames.AssetSchema,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.AssetSchema));
+            description: "Returns the serialized schema for an asset type or existing asset target.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

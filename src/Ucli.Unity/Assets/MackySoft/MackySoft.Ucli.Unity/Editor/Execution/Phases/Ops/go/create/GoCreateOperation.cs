@@ -13,13 +13,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoCreateOperation : TypedUcliOperation<GoCreateArgs, UcliNoResult>
+    internal sealed class GoCreateOperation : UcliOperation<GoCreateArgs, UcliNoResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoCreate));
+            description: "Creates a GameObject in a scene or under an existing parent.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesScene, UcliOperationSideEffect.WritesPrefab },
+                mayDirty: true,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         /// <summary> Executes validate phase for <c>ucli.go.create</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

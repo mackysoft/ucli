@@ -13,13 +13,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.assets.find</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetsFindOperation : TypedUcliOperation<AssetsFindArgs, AssetsFindResult>
+    internal sealed class AssetsFindOperation : UcliOperation<AssetsFindArgs, AssetsFindResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetsFindArgs, AssetsFindResult>(
             operationName: UcliPrimitiveOperationNames.AssetsFind,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.AssetsFind));
+            description: "Finds project assets by type, path prefix, or name substring.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

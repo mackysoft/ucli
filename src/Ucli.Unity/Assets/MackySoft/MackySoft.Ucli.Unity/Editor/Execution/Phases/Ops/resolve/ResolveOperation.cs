@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -10,13 +11,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements selector resolution flow for the <c>ucli.resolve</c> operation. </summary>
     [UcliOperation]
-    internal sealed class ResolveOperation : TypedUcliOperation<ResolveSelectorArgs, IpcResolveOperationResult>
+    internal sealed class ResolveOperation : UcliOperation<ResolveSelectorArgs, IpcResolveOperationResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.Resolve));
+            description: "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

@@ -14,14 +14,14 @@ public sealed record ResolveSelectorArgs
 {
     [JsonConstructor]
     public ResolveSelectorArgs (
-        string? globalObjectId,
+        UnityGlobalObjectId? globalObjectId,
         string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath,
-        string? scene,
-        string? prefab,
-        string? hierarchyPath,
-        string? componentType)
+        UnityAssetPath? assetPath,
+        ProjectSettingsAssetPath? projectAssetPath,
+        SceneAssetPath? scene,
+        PrefabAssetPath? prefab,
+        UnityHierarchyPath? hierarchyPath,
+        UnityComponentTypeId? componentType)
     {
         GlobalObjectId = globalObjectId;
         AssetGuid = assetGuid;
@@ -35,7 +35,7 @@ public sealed record ResolveSelectorArgs
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; init; }
 
     [UcliDescription("Asset GUID selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -43,25 +43,25 @@ public sealed record ResolveSelectorArgs
 
     [UcliDescription("Asset path selector under the Unity project.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? AssetPath { get; init; }
+    public UnityAssetPath? AssetPath { get; init; }
 
     [UcliDescription("Project-scoped asset path selector, such as ProjectSettings assets.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ProjectAssetPath { get; init; }
+    public ProjectSettingsAssetPath? ProjectAssetPath { get; init; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Scene { get; init; }
+    public SceneAssetPath? Scene { get; init; }
 
     [UcliDescription("Prefab asset path for a hierarchy selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Prefab { get; init; }
+    public PrefabAssetPath? Prefab { get; init; }
 
     [UcliDescription("Unity hierarchy path inside the selected scene or prefab.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? HierarchyPath { get; init; }
+    public UnityHierarchyPath? HierarchyPath { get; init; }
 
     [UcliDescription("Component type identifier for component selection.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ComponentType { get; init; }
+    public UnityComponentTypeId? ComponentType { get; init; }
 }

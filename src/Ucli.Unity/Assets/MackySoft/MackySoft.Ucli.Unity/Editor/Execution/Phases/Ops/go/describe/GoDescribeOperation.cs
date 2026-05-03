@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -11,13 +12,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.describe</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoDescribeOperation : TypedUcliOperation<GoDescribeArgs, GameObjectDescriptionResult>
+    internal sealed class GoDescribeOperation : UcliOperation<GoDescribeArgs, GameObjectDescriptionResult>
     {
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             operationName: UcliPrimitiveOperationNames.GoDescribe,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDescribe));
+            description: "Returns a GameObject description including components and child hierarchy.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         /// <summary> Executes validate phase for <c>ucli.go.describe</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
