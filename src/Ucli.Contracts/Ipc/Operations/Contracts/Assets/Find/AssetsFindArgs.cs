@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-[UcliDescription("Asset search operation arguments.")]
+[UcliDescription("Asset search operation arguments. Specify at least one filter. Searches persistent main assets under Assets.")]
 public sealed record AssetsFindArgs
 {
     [JsonConstructor]
@@ -31,11 +31,11 @@ public sealed record AssetsFindArgs
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public UnityTypeId? Type { get; init; }
 
-    [UcliDescription("Optional asset path prefix filter.")]
+    [UcliDescription("Optional project-relative Assets path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ProjectRelativePathPrefix? PathPrefix { get; init; }
 
-    [UcliDescription("Optional case-sensitive asset name substring filter.")]
+    [UcliDescription("Optional case-insensitive asset name substring filter.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NameContains { get; init; }

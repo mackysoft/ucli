@@ -131,12 +131,17 @@ public static class UcliOperationContractValidator
             return true;
         }
 
+        var actualType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        if (!TryValidateSupportedInputConstraints(property, value!, actualType, path, out errorMessage))
+        {
+            return false;
+        }
+
         if (TryGetArrayElementType(property.PropertyType, out var elementType))
         {
             return TryValidateArray(value!, elementType!, path, visitedTypes, out errorMessage);
         }
 
-        var actualType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
         if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
         {
             return true;
@@ -201,22 +206,62 @@ public static class UcliOperationContractValidator
         }
 
         var matchCount = 0;
+        UcliRequiredPropertyAlternativeAttribute? matchedAlternative = null;
         for (var i = 0; i < alternatives.Length; i++)
         {
             if (IsAlternativeMatched(value, contractType, alternatives[i].RequiredPropertyNames))
             {
                 matchCount++;
+                matchedAlternative = alternatives[i];
             }
         }
 
         if (matchCount == 1)
         {
-            errorMessage = string.Empty;
-            return true;
+            return TryValidateAlternativePropertyExclusivity(
+                value,
+                contractType,
+                matchedAlternative!,
+                alternatives,
+                path,
+                out errorMessage);
         }
 
         errorMessage = $"Operation '{path}' must match exactly one required-property alternative.";
         return false;
+    }
+
+    private static bool TryValidateAlternativePropertyExclusivity (
+        object value,
+        Type contractType,
+        UcliRequiredPropertyAlternativeAttribute matchedAlternative,
+        IReadOnlyList<UcliRequiredPropertyAlternativeAttribute> alternatives,
+        string path,
+        out string errorMessage)
+    {
+        var allowedPropertyNames = new HashSet<string>(matchedAlternative.RequiredPropertyNames, StringComparer.Ordinal);
+        var alternativePropertyNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < alternatives.Count; i++)
+        {
+            var propertyNames = alternatives[i].RequiredPropertyNames;
+            for (var j = 0; j < propertyNames.Length; j++)
+            {
+                alternativePropertyNames.Add(propertyNames[j]);
+            }
+        }
+
+        foreach (var propertyName in alternativePropertyNames)
+        {
+            if (!allowedPropertyNames.Contains(propertyName)
+                && IsPropertyPresent(value, contractType, propertyName))
+            {
+                errorMessage = $"Operation '{path}' must not mix required-property alternatives.";
+                return false;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
     }
 
     private static bool TryValidatePropertyDependencies (
@@ -243,6 +288,165 @@ public static class UcliOperationContractValidator
 
         errorMessage = string.Empty;
         return true;
+    }
+
+    private static bool TryValidateSupportedInputConstraints (
+        PropertyInfo property,
+        object value,
+        Type actualType,
+        string path,
+        out string errorMessage)
+    {
+        var attributes = UcliOperationContractReflection.GetInputConstraintAttributes(property);
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            var attribute = attributes[i];
+            switch (attribute.Kind)
+            {
+                case UcliOperationInputConstraintKind.NonEmpty:
+                    if (!TryValidateNonEmpty(value, path, out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    break;
+
+                case UcliOperationInputConstraintKind.Range:
+                    if (!TryValidateRange(value, attribute, path, out errorMessage))
+                    {
+                        return false;
+                    }
+
+                    break;
+            }
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateNonEmpty (
+        object value,
+        string path,
+        out string errorMessage)
+    {
+        switch (value)
+        {
+            case string text when string.IsNullOrWhiteSpace(text):
+                errorMessage = $"Operation '{path}' must not be empty.";
+                return false;
+
+            case UcliStringValue semanticString when string.IsNullOrWhiteSpace(semanticString.Value):
+                errorMessage = $"Operation '{path}' must not be empty.";
+                return false;
+
+            case IEnumerable enumerable when !HasAny(enumerable):
+                errorMessage = $"Operation '{path}' must not be empty.";
+                return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryValidateRange (
+        object value,
+        UcliInputConstraintAttribute attribute,
+        string path,
+        out string errorMessage)
+    {
+        if (!TryConvertToDouble(value, out var number))
+        {
+            errorMessage = string.Empty;
+            return true;
+        }
+
+        if (!double.IsNaN(attribute.Min) && number < attribute.Min)
+        {
+            errorMessage = $"Operation '{path}' must be greater than or equal to {attribute.Min.ToString(CultureInfo.InvariantCulture)}.";
+            return false;
+        }
+
+        if (!double.IsNaN(attribute.Max) && number > attribute.Max)
+        {
+            errorMessage = $"Operation '{path}' must be less than or equal to {attribute.Max.ToString(CultureInfo.InvariantCulture)}.";
+            return false;
+        }
+
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    private static bool TryConvertToDouble (
+        object value,
+        out double number)
+    {
+        switch (value)
+        {
+            case byte typed:
+                number = typed;
+                return true;
+
+            case sbyte typed:
+                number = typed;
+                return true;
+
+            case short typed:
+                number = typed;
+                return true;
+
+            case ushort typed:
+                number = typed;
+                return true;
+
+            case int typed:
+                number = typed;
+                return true;
+
+            case uint typed:
+                number = typed;
+                return true;
+
+            case long typed:
+                number = typed;
+                return true;
+
+            case ulong typed:
+                number = typed;
+                return true;
+
+            case float typed:
+                number = typed;
+                return true;
+
+            case double typed:
+                number = typed;
+                return true;
+
+            case decimal typed:
+                number = (double)typed;
+                return true;
+
+            default:
+                number = 0;
+                return false;
+        }
+    }
+
+    private static bool HasAny (IEnumerable enumerable)
+    {
+        var enumerator = enumerable.GetEnumerator();
+        try
+        {
+            return enumerator.MoveNext();
+        }
+        finally
+        {
+            if (enumerator is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
     }
 
     private static bool IsAlternativeMatched (

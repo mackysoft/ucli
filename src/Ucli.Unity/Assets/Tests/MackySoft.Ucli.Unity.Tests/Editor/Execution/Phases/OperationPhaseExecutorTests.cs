@@ -66,6 +66,87 @@ namespace MackySoft.Ucli.Unity.Tests
             });
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public async Task TypedOperation_WhenArgsFailContractValidation_ReturnsInvalidArgumentWithoutCallingBody ()
+        {
+            var operation = new RequiredTypedOperation();
+            using var executionContext = new OperationExecutionContext();
+            var normalizedOperation = CreateNormalizedOperation(
+                "op-typed",
+                "ucli.tests.required",
+                new
+                {
+                });
+
+            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(operation.ValidateBodyCalled, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task TypedOperation_WhenArgsFailDeserialize_ReturnsInvalidArgumentWithoutCallingBody ()
+        {
+            var operation = new RequiredTypedOperation();
+            using var executionContext = new OperationExecutionContext();
+            var normalizedOperation = CreateNormalizedOperation(
+                "op-typed",
+                "ucli.tests.required",
+                new
+                {
+                    name = 1,
+                });
+
+            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(operation.ValidateBodyCalled, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task TypedOperation_WhenPlanArgsFailContractValidation_ReturnsInvalidArgumentWithoutCallingBody ()
+        {
+            var operation = new RequiredTypedOperation();
+            using var executionContext = new OperationExecutionContext();
+            var normalizedOperation = CreateNormalizedOperation(
+                "op-typed",
+                "ucli.tests.required",
+                new
+                {
+                });
+
+            var result = await operation.Plan(normalizedOperation, executionContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(operation.PlanBodyCalled, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task TypedOperation_WhenCallArgsFailContractValidation_ReturnsInvalidArgumentWithoutCallingBody ()
+        {
+            var operation = new RequiredTypedOperation();
+            using var executionContext = new OperationExecutionContext();
+            var normalizedOperation = CreateNormalizedOperation(
+                "op-typed",
+                "ucli.tests.required",
+                new
+                {
+                });
+
+            var result = await operation.Call(normalizedOperation, executionContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(operation.CallBodyCalled, Is.False);
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsPlan_ExecutesValidateAndPlanOnly () => UniTask.ToCoroutine(async () =>
@@ -904,6 +985,19 @@ namespace MackySoft.Ucli.Unity.Tests
                 CanonicalDigestPayloadUtf8: Encoding.UTF8.GetBytes(canonicalPayloadJson));
         }
 
+        private static NormalizedOperation CreateNormalizedOperation (
+            string operationId,
+            string operationName,
+            object args)
+        {
+            return new NormalizedOperation(
+                operationId,
+                operationName,
+                JsonSerializer.SerializeToElement(args),
+                As: null,
+                Expect: null);
+        }
+
         private static NormalizedExecuteRequest CreateRequest (
             params (string OpId, string Op)[] operations)
         {
@@ -1135,6 +1229,65 @@ namespace MackySoft.Ucli.Unity.Tests
                     Directory.Delete(RepositoryRoot, recursive: true);
                 }
             }
+        }
+
+        private sealed class RequiredTypedOperation : UcliOperation<RequiredTypedArgs, UcliNoResult>
+        {
+            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<RequiredTypedArgs, UcliNoResult>(
+                operationName: "ucli.tests.required",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe,
+                description: "Test operation requiring one typed arg.",
+                assurance: new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ValidationOnly));
+
+            public bool ValidateBodyCalled { get; private set; }
+
+            public bool PlanBodyCalled { get; private set; }
+
+            public bool CallBodyCalled { get; private set; }
+
+            protected override Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                RequiredTypedArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                ValidateBodyCalled = true;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                RequiredTypedArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                PlanBodyCalled = true;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                RequiredTypedArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                CallBodyCalled = true;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        [UcliDescription("Required typed operation args.")]
+        private sealed class RequiredTypedArgs
+        {
+            [UcliRequired]
+            [UcliDescription("Required name.")]
+            public string? Name { get; set; }
         }
 
         private sealed class RecordingPhaseOperation : IUcliOperation

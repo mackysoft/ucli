@@ -30,6 +30,17 @@ internal static class UcliOperationContractReflection
         return JsonNamingPolicy.CamelCase.ConvertName(property.Name);
     }
 
+    public static UcliInputConstraintAttribute[] GetInputConstraintAttributes (PropertyInfo property)
+    {
+        var actualType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        var typeAttributes = actualType.GetCustomAttributes<UcliInputConstraintAttribute>().ToArray();
+        var propertyAttributes = property.GetCustomAttributes<UcliInputConstraintAttribute>().ToArray();
+        var attributes = new UcliInputConstraintAttribute[typeAttributes.Length + propertyAttributes.Length];
+        Array.Copy(typeAttributes, attributes, typeAttributes.Length);
+        Array.Copy(propertyAttributes, 0, attributes, typeAttributes.Length, propertyAttributes.Length);
+        return attributes;
+    }
+
     private static bool IsAlwaysJsonIgnored (PropertyInfo property)
     {
         var jsonIgnore = property.GetCustomAttribute<JsonIgnoreAttribute>();

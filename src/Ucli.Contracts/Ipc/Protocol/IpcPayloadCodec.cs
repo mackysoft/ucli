@@ -25,6 +25,15 @@ public static class IpcPayloadCodec
         out T value,
         out IpcPayloadReadError error)
     {
+        if (!TryValidateUniqueObjectProperties(element, "$", out var duplicatePropertyPath))
+        {
+            value = default!;
+            error = new IpcPayloadReadError(
+                IpcPayloadReadErrorKind.DeserializeFailed,
+                $"IPC payload contains duplicated property: {duplicatePropertyPath}.");
+            return false;
+        }
+
         try
         {
             var parsedValue = element.Deserialize<T>(IpcJsonSerializerOptions.Default);
@@ -45,5 +54,61 @@ public static class IpcPayloadCodec
             error = new IpcPayloadReadError(IpcPayloadReadErrorKind.DeserializeFailed, exception.Message);
             return false;
         }
+    }
+
+    private static bool TryValidateUniqueObjectProperties (
+        JsonElement element,
+        string path,
+        out string duplicatePropertyPath)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                return TryValidateUniqueObjectPropertyNames(element, path, out duplicatePropertyPath);
+
+            case JsonValueKind.Array:
+                var index = 0;
+                foreach (var item in element.EnumerateArray())
+                {
+                    if (!TryValidateUniqueObjectProperties(item, $"{path}[{index}]", out duplicatePropertyPath))
+                    {
+                        return false;
+                    }
+
+                    index++;
+                }
+
+                duplicatePropertyPath = string.Empty;
+                return true;
+
+            default:
+                duplicatePropertyPath = string.Empty;
+                return true;
+        }
+    }
+
+    private static bool TryValidateUniqueObjectPropertyNames (
+        JsonElement element,
+        string path,
+        out string duplicatePropertyPath)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in element.EnumerateObject())
+        {
+            var propertyPath = $"{path}.{property.Name}";
+            if (!names.Add(property.Name))
+            {
+                duplicatePropertyPath = propertyPath;
+                return false;
+            }
+
+            if (!TryValidateUniqueObjectProperties(property.Value, propertyPath, out duplicatePropertyPath))
+            {
+                return false;
+            }
+        }
+
+        duplicatePropertyPath = string.Empty;
+        return true;
     }
 }

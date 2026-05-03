@@ -69,6 +69,23 @@ public sealed class IpcPayloadCodecContractTests
         Assert.NotEmpty(error.Message);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDeserialize_WithDuplicatedObjectProperty_ReturnsDeserializeFailed ()
+    {
+        using var document = JsonDocument.Parse("""{"serverVersion":"v1","serverVersion":"v2"}""");
+
+        var result = IpcPayloadCodec.TryDeserialize(
+            document.RootElement,
+            out PayloadEnvelope? payload,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
+        Assert.Contains("$.serverVersion", error.Message, StringComparison.Ordinal);
+    }
+
     private sealed record PayloadEnvelope (string ServerVersion);
 
     private static JsonSchemaNode PayloadEnvelopeSchema => JsonSchemaNode.Object(

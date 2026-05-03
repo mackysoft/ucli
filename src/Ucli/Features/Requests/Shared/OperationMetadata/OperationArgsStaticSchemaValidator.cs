@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 /// <summary> Validates one operation args object against the registered static schema subset. </summary>
 internal static class OperationArgsStaticSchemaValidator
 {
+    private const int MaxReferenceDepth = 64;
+
     /// <summary> Validates one operation <c>args</c> payload against the registered static schema subset. </summary>
     /// <param name="schemaJson"> The registered operation-args schema JSON. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="args"> The operation-args payload to validate. </param>
@@ -27,7 +29,8 @@ internal static class OperationArgsStaticSchemaValidator
         try
         {
             using var document = JsonDocument.Parse(schemaJson);
-            return TryValidateElement(document.RootElement, args, "args", out schemaInvalid, out error);
+            var context = new SchemaValidationContext(document.RootElement);
+            return TryValidateElement(context, document.RootElement, args, "args", out schemaInvalid, out error);
         }
         catch (JsonException exception)
         {
@@ -38,6 +41,7 @@ internal static class OperationArgsStaticSchemaValidator
     }
 
     private static bool TryValidateElement (
+        SchemaValidationContext context,
         JsonElement schema,
         JsonElement value,
         string path,
@@ -56,6 +60,43 @@ internal static class OperationArgsStaticSchemaValidator
             return false;
         }
 
+        if (schema.TryGetProperty("$ref", out var referenceElement))
+        {
+            if (schema.EnumerateObject().Count() != 1)
+            {
+                schemaInvalid = true;
+                error = $"Schema '$ref' for '{path}' must not be combined with other schema keywords.";
+                return false;
+            }
+
+            if (!TryResolveReference(
+                context,
+                referenceElement,
+                path,
+                out var definitionName,
+                out var referencedSchema,
+                out schemaInvalid,
+                out error))
+            {
+                return false;
+            }
+
+            if (!context.TryEnterReference(definitionName, out error))
+            {
+                schemaInvalid = true;
+                return false;
+            }
+
+            try
+            {
+                return TryValidateElement(context, referencedSchema, value, path, out schemaInvalid, out error);
+            }
+            finally
+            {
+                context.ExitReference(definitionName);
+            }
+        }
+
         if (schema.TryGetProperty("type", out var typeElement)
             && !TryValidateType(typeElement, value, path, out schemaInvalid, out error))
         {
@@ -63,13 +104,13 @@ internal static class OperationArgsStaticSchemaValidator
         }
 
         if (value.ValueKind == JsonValueKind.Object
-            && !TryValidateObjectKeywords(schema, value, path, out schemaInvalid, out error))
+            && !TryValidateObjectKeywords(context, schema, value, path, out schemaInvalid, out error))
         {
             return false;
         }
 
         if (value.ValueKind == JsonValueKind.Array
-            && !TryValidateArrayKeywords(schema, value, path, out schemaInvalid, out error))
+            && !TryValidateArrayKeywords(context, schema, value, path, out schemaInvalid, out error))
         {
             return false;
         }
@@ -170,6 +211,7 @@ internal static class OperationArgsStaticSchemaValidator
     }
 
     private static bool TryValidateArrayKeywords (
+        SchemaValidationContext context,
         JsonElement schema,
         JsonElement value,
         string path,
@@ -193,7 +235,7 @@ internal static class OperationArgsStaticSchemaValidator
         var itemIndex = 0;
         foreach (var item in value.EnumerateArray())
         {
-            if (!TryValidateElement(itemsElement, item, $"{path}[{itemIndex}]", out schemaInvalid, out error))
+            if (!TryValidateElement(context, itemsElement, item, $"{path}[{itemIndex}]", out schemaInvalid, out error))
             {
                 return false;
             }
@@ -207,12 +249,19 @@ internal static class OperationArgsStaticSchemaValidator
     }
 
     private static bool TryValidateObjectKeywords (
+        SchemaValidationContext context,
         JsonElement schema,
         JsonElement value,
         string path,
         out bool schemaInvalid,
         out string? error)
     {
+        if (!TryValidateUniquePropertyNames(value, path, out error))
+        {
+            schemaInvalid = false;
+            return false;
+        }
+
         if (schema.TryGetProperty("required", out var requiredElement))
         {
             if (requiredElement.ValueKind != JsonValueKind.Array)
@@ -301,11 +350,77 @@ internal static class OperationArgsStaticSchemaValidator
                     continue;
                 }
 
-                if (!TryValidateElement(property.Value, propertyValue, $"{path}.{property.Key}", out schemaInvalid, out error))
+                if (!TryValidateElement(context, property.Value, propertyValue, $"{path}.{property.Key}", out schemaInvalid, out error))
                 {
                     return false;
                 }
             }
+        }
+
+        schemaInvalid = false;
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateUniquePropertyNames (
+        JsonElement value,
+        string path,
+        out string? error)
+    {
+        var propertyNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in value.EnumerateObject())
+        {
+            if (!propertyNames.Add(property.Name))
+            {
+                error = $"Property '{path}.{property.Name}' is duplicated.";
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryResolveReference (
+        SchemaValidationContext context,
+        JsonElement referenceElement,
+        string path,
+        out string definitionName,
+        out JsonElement referencedSchema,
+        out bool schemaInvalid,
+        out string? error)
+    {
+        definitionName = string.Empty;
+        referencedSchema = default;
+        if (referenceElement.ValueKind != JsonValueKind.String)
+        {
+            schemaInvalid = true;
+            error = $"Schema '$ref' for '{path}' must be a string.";
+            return false;
+        }
+
+        var reference = referenceElement.GetString();
+        if (string.IsNullOrWhiteSpace(reference)
+            || !reference.StartsWith("#/$defs/", StringComparison.Ordinal))
+        {
+            schemaInvalid = true;
+            error = $"Schema '$ref' for '{path}' must target '#/$defs/<name>'.";
+            return false;
+        }
+
+        definitionName = reference.Substring("#/$defs/".Length);
+        if (definitionName.Length == 0)
+        {
+            schemaInvalid = true;
+            error = $"Schema '$ref' for '{path}' must include a definition name.";
+            return false;
+        }
+
+        if (!context.TryGetDefinition(definitionName, out referencedSchema))
+        {
+            schemaInvalid = true;
+            error = $"Schema '$ref' for '{path}' references unknown definition '{definitionName}'.";
+            return false;
         }
 
         schemaInvalid = false;
@@ -439,6 +554,64 @@ internal static class OperationArgsStaticSchemaValidator
 
             default:
                 return false;
+        }
+    }
+
+    private sealed class SchemaValidationContext
+    {
+        private readonly JsonElement rootSchema;
+
+        private readonly HashSet<string> activeReferences = new(StringComparer.Ordinal);
+
+        public SchemaValidationContext (JsonElement rootSchema)
+        {
+            this.rootSchema = rootSchema;
+        }
+
+        public bool TryEnterReference (
+            string name,
+            out string? error)
+        {
+            if (activeReferences.Count >= MaxReferenceDepth)
+            {
+                error = $"Schema '$ref' nesting exceeds the maximum supported depth of {MaxReferenceDepth}.";
+                return false;
+            }
+
+            if (!activeReferences.Add(name))
+            {
+                error = $"Schema '$ref' contains a circular reference to definition '{name}'.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        }
+
+        public void ExitReference (string name)
+        {
+            activeReferences.Remove(name);
+        }
+
+        public bool TryGetDefinition (
+            string name,
+            out JsonElement schema)
+        {
+            schema = default;
+            if (!rootSchema.TryGetProperty("$defs", out var definitions)
+                || definitions.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (!definitions.TryGetProperty(name, out var definition)
+                || definition.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            schema = definition;
+            return true;
         }
     }
 }

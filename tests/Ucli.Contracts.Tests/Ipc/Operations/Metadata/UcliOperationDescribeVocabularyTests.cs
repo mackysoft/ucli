@@ -42,6 +42,24 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ConstraintKindValues_AreStableLiterals ()
+    {
+        Assert.Equal("nonEmpty", UcliOperationInputConstraintKindValues.NonEmpty);
+        Assert.Equal("range", UcliOperationInputConstraintKindValues.Range);
+        Assert.Equal("projectRelativePath", UcliOperationInputConstraintKindValues.ProjectRelativePath);
+        Assert.Equal("assetExists", UcliOperationInputConstraintKindValues.AssetExists);
+        Assert.Equal("assetCreatable", UcliOperationInputConstraintKindValues.AssetCreatable);
+        Assert.Equal("globalObjectId", UcliOperationInputConstraintKindValues.GlobalObjectId);
+        Assert.Equal("hierarchyPath", UcliOperationInputConstraintKindValues.HierarchyPath);
+        Assert.Equal("referenceResolvable", UcliOperationInputConstraintKindValues.ReferenceResolvable);
+        Assert.Equal("typeExists", UcliOperationInputConstraintKindValues.TypeExists);
+        Assert.Equal("typeAssignableTo", UcliOperationInputConstraintKindValues.TypeAssignableTo);
+        Assert.Equal("serializedProperty", UcliOperationInputConstraintKindValues.SerializedProperty);
+        Assert.Equal("assetGuid", UcliOperationInputConstraintKindValues.AssetGuid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ConstraintParameterEnums_HaveStableValues ()
     {
         Assert.Equal(0, (int)UcliOperationAssetKind.Unspecified);
@@ -76,6 +94,21 @@ public sealed class UcliOperationDescribeVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ConstraintParameterValues_AreStableLiterals ()
+    {
+        Assert.Equal("asset", UcliOperationAssetKindValues.Asset);
+        Assert.Equal("prefab", UcliOperationAssetKindValues.Prefab);
+        Assert.Equal("projectSettings", UcliOperationAssetKindValues.ProjectSettings);
+        Assert.Equal("scene", UcliOperationAssetKindValues.Scene);
+        Assert.Equal("asset", UcliOperationReferenceTargetKindValues.Asset);
+        Assert.Equal("component", UcliOperationReferenceTargetKindValues.Component);
+        Assert.Equal("gameObject", UcliOperationReferenceTargetKindValues.GameObject);
+        Assert.Equal("component", UcliOperationTypeKindValues.Component);
+        Assert.Equal("write", UcliOperationSerializedPropertyAccessValues.Write);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void AssuranceEnums_HaveStableValues ()
     {
         Assert.Equal(0, (int)UcliOperationSideEffect.OpensSceneInEditor);
@@ -104,5 +137,21 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(UcliOperationPlanModeValues.ValidationOnly, UcliOperationPlanModeCodec.ToValue(UcliOperationPlanMode.ValidationOnly));
         Assert.Equal(UcliOperationPlanModeValues.ObservesLiveUnity, UcliOperationPlanModeCodec.ToValue(UcliOperationPlanMode.ObservesLiveUnity));
         Assert.Equal(UcliOperationPlanModeValues.MayCreatePreviewState, UcliOperationPlanModeCodec.ToValue(UcliOperationPlanMode.MayCreatePreviewState));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AssuranceValues_AreStableLiterals ()
+    {
+        Assert.Equal("opensSceneInEditor", UcliOperationSideEffectValues.OpensSceneInEditor);
+        Assert.Equal("opensPrefabStage", UcliOperationSideEffectValues.OpensPrefabStage);
+        Assert.Equal("refreshesAssetDatabase", UcliOperationSideEffectValues.RefreshesAssetDatabase);
+        Assert.Equal("writesAsset", UcliOperationSideEffectValues.WritesAsset);
+        Assert.Equal("writesScene", UcliOperationSideEffectValues.WritesScene);
+        Assert.Equal("writesPrefab", UcliOperationSideEffectValues.WritesPrefab);
+        Assert.Equal("writesProjectSettings", UcliOperationSideEffectValues.WritesProjectSettings);
+        Assert.Equal("validationOnly", UcliOperationPlanModeValues.ValidationOnly);
+        Assert.Equal("observesLiveUnity", UcliOperationPlanModeValues.ObservesLiveUnity);
+        Assert.Equal("mayCreatePreviewState", UcliOperationPlanModeValues.MayCreatePreviewState);
     }
 }

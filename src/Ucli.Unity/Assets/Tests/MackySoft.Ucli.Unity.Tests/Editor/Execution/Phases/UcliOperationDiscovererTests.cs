@@ -32,6 +32,24 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void DiscoverFromTypes_WhenTypeIsGenericOperation_ReturnsTypedDescribeContract ()
+        {
+            var operations = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
+            {
+                typeof(GenericDiscoverableOperation),
+            });
+
+            Assert.That(operations.Count, Is.EqualTo(1));
+            Assert.That(operations[0].Operation, Is.TypeOf<GenericDiscoverableOperation>());
+            Assert.That(operations[0].Metadata.ArgsType, Is.EqualTo(typeof(GenericDiscoverableArgs)));
+            Assert.That(operations[0].Metadata.ResultType, Is.EqualTo(typeof(UcliNoResult)));
+            Assert.That(operations[0].Metadata.DescribeContract.Description, Is.EqualTo("Generic operation used to verify custom operation authoring."));
+            Assert.That(operations[0].Metadata.DescribeContract.Inputs!.Count, Is.EqualTo(1));
+            Assert.That(operations[0].Metadata.DescribeContract.Inputs[0].Name, Is.EqualTo("path"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void DiscoverFromTypes_WhenAttributedTypeDoesNotImplementOperation_ThrowsInvalidOperationException ()
         {
             Assert.Throws<InvalidOperationException>(() =>
@@ -291,6 +309,57 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         [UcliOperation]
+        private sealed class GenericDiscoverableOperation : UcliOperation<GenericDiscoverableArgs, UcliNoResult>
+        {
+            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
+                operationName: "ucli.tests.generic-discover",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe,
+                description: "Generic operation used to verify custom operation authoring.",
+                assurance: new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ValidationOnly));
+
+            protected override Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                GenericDiscoverableArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        [UcliDescription("Generic discoverable operation args.")]
+        private sealed class GenericDiscoverableArgs
+        {
+            [UcliRequired]
+            [UcliDescription("Scene asset path to inspect.")]
+            public SceneAssetPath? Path { get; set; }
+        }
+
+        [UcliOperation]
         private sealed class InvalidAttributedType
         {
         }
@@ -369,37 +438,53 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static void AssertContainsNoUnsupportedSchemaKeyword (JsonElement element)
         {
-            switch (element.ValueKind)
+            AssertContainsOnlySupportedSchemaKeywords(element);
+        }
+
+        private static void AssertContainsOnlySupportedSchemaKeywords (JsonElement schemaNode)
+        {
+            Assert.That(schemaNode.ValueKind, Is.EqualTo(JsonValueKind.Object));
+            foreach (var property in schemaNode.EnumerateObject())
             {
-                case JsonValueKind.Object:
-                    foreach (var property in element.EnumerateObject())
-                    {
-                        Assert.That(property.Name, Is.Not.EqualTo("description"));
-                        Assert.That(property.Name, Is.Not.EqualTo("minLength"));
-                        Assert.That(property.Name, Is.Not.EqualTo("minimum"));
-                        Assert.That(property.Name, Is.Not.EqualTo("maximum"));
-                        Assert.That(property.Name, Is.Not.EqualTo("pattern"));
-                        Assert.That(property.Name, Is.Not.EqualTo("oneOf"));
-                        Assert.That(property.Name, Is.Not.EqualTo("anyOf"));
-                        Assert.That(property.Name, Is.Not.EqualTo("allOf"));
-                        Assert.That(property.Name, Is.Not.EqualTo("if"));
-                        Assert.That(property.Name, Is.Not.EqualTo("then"));
-                        Assert.That(property.Name, Is.Not.EqualTo("else"));
-                        AssertContainsNoUnsupportedSchemaKeyword(property.Value);
-                    }
+                Assert.That(IsSupportedSchemaKeyword(property.Name), Is.True, $"Unsupported schema keyword: {property.Name}");
+                switch (property.Name)
+                {
+                    case "properties":
+                    case "$defs":
+                        AssertSchemaMapUsesSupportedKeywords(property.Value);
+                        break;
 
-                    return;
+                    case "items":
+                        AssertContainsOnlySupportedSchemaKeywords(property.Value);
+                        break;
+                }
+            }
+        }
 
-                case JsonValueKind.Array:
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        AssertContainsNoUnsupportedSchemaKeyword(item);
-                    }
+        private static void AssertSchemaMapUsesSupportedKeywords (JsonElement mapElement)
+        {
+            Assert.That(mapElement.ValueKind, Is.EqualTo(JsonValueKind.Object));
+            foreach (var entry in mapElement.EnumerateObject())
+            {
+                AssertContainsOnlySupportedSchemaKeywords(entry.Value);
+            }
+        }
 
-                    return;
+        private static bool IsSupportedSchemaKeyword (string keyword)
+        {
+            switch (keyword)
+            {
+                case "type":
+                case "properties":
+                case "required":
+                case "additionalProperties":
+                case "items":
+                case "$ref":
+                case "$defs":
+                    return true;
 
                 default:
-                    return;
+                    return false;
             }
         }
 

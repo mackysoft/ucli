@@ -41,7 +41,7 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
                 IpcErrorCodes.InvalidArgument);
         }
 
-        if (!TryParseSchema(operation.ArgsSchemaJson!, out var argsSchema))
+        if (!TryParseSchema(operation.ArgsSchemaJson, out var argsSchema))
         {
             return OpsDescribeServiceResult.Failure(
                 $"Operation '{operationName}' args schema is invalid.",
@@ -99,9 +99,15 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
     }
 
     private static bool TryParseSchema (
-        string json,
+        string? json,
         out JsonElement schema)
     {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            schema = default;
+            return false;
+        }
+
         try
         {
             using var document = JsonDocument.Parse(json);

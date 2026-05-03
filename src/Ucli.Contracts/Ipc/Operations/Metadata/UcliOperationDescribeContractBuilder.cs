@@ -161,13 +161,7 @@ public static class UcliOperationDescribeContractBuilder
 
     private static IReadOnlyList<UcliOperationInputConstraintContract> CreateConstraints (PropertyInfo property)
     {
-        var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-        var typeAttributes = propertyType.GetCustomAttributes<UcliInputConstraintAttribute>().ToArray();
-        var propertyAttributes = property.GetCustomAttributes<UcliInputConstraintAttribute>().ToArray();
-        var attributes = new UcliInputConstraintAttribute[typeAttributes.Length + propertyAttributes.Length];
-        Array.Copy(typeAttributes, attributes, typeAttributes.Length);
-        Array.Copy(propertyAttributes, 0, attributes, typeAttributes.Length, propertyAttributes.Length);
-
+        var attributes = UcliOperationContractReflection.GetInputConstraintAttributes(property);
         if (attributes.Length == 0)
         {
             return Array.Empty<UcliOperationInputConstraintContract>();
