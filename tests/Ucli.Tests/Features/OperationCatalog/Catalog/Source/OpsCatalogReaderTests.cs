@@ -1,13 +1,10 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityRequest;
 
 namespace MackySoft.Ucli.Tests.Ops.Source;
 
@@ -29,7 +26,19 @@ public sealed class OpsCatalogReaderTests
                             Name: UcliPrimitiveOperationNames.GoDescribe,
                             Kind: "query",
                             Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
+                            ArgsSchemaJson: """{"type":"object"}""",
+                            ResultSchemaJson: """{"type":"object"}""")
+                        {
+                            Description = "Returns a GameObject description including components and child hierarchy.",
+                            Inputs = Array.Empty<UcliOperationInputContract>(),
+                            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
+                            Assurance = new UcliOperationAssuranceContract(
+                                Array.Empty<string>(),
+                                mayDirty: false,
+                                mayPersist: false,
+                                Array.Empty<string>(),
+                                UcliOperationPlanModeValues.ObservesLiveUnity),
+                        },
                     ]))),
         };
         var reader = new OpsCatalogReader(executor);

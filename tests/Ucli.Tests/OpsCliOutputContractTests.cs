@@ -1,10 +1,7 @@
-using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -114,16 +111,26 @@ public sealed class OpsCliOutputContractTests
                 SourceInputsHash: "source-hash",
                 Entries:
                 [
-                    new IndexOpEntryJsonContract(
-                        Name: UcliPrimitiveOperationNames.GoDescribe,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
-                    new IndexOpEntryJsonContract(
-                        Name: UcliPrimitiveOperationNames.SceneSave,
-                        Kind: "mutation",
-                        Policy: "advanced",
-                        ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.GoDescribe,
+                        kind: "query",
+                        policy: "safe",
+                        argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
+                        resultSchemaJson: """{"type":"object"}"""),
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.SceneSave,
+                        kind: "mutation",
+                        policy: "advanced",
+                        argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
+                        resultSchemaJson: null,
+                        describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+                            "Saves a Unity scene asset.",
+                            new UcliOperationAssuranceContract(
+                                Array.Empty<UcliOperationSideEffect>(),
+                                mayDirty: false,
+                                mayPersist: true,
+                                Array.Empty<string>(),
+                                UcliOperationPlanMode.ObservesLiveUnity))),
                 ]));
 
         var result = await CliProcessRunner.RunCommand(
@@ -215,12 +222,64 @@ public sealed class OpsCliOutputContractTests
                         .HasString("type", "object")
                         .HasProperty("properties", properties => properties
                             .HasProperty("path", path => path
-                                .HasString("type", "string")))))
+                                .HasString("type", "string"))))
+                    .HasProperty("resultSchema", resultSchema => resultSchema
+                        .HasString("type", "object")))
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasString("source", "index")
                     .HasString("freshness", "probable")));
         var operationElement = outputJson.RootElement.GetProperty("payload").GetProperty("operation");
         Assert.False(operationElement.TryGetProperty("outputs", out _));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task OpsDescribe_WithNoResultOperation_ReturnsNullResultSchema ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ops-cli-output-contract", "describe-no-result");
+        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
+        SeedOpsCatalog(
+            unityProjectPath,
+            new IndexOpsCatalogJsonContract(
+                SchemaVersion: 1,
+                GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+                SourceInputsHash: "source-hash",
+                Entries:
+                [
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.SceneOpen,
+                        kind: "command",
+                        policy: "safe",
+                        argsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}""",
+                        resultSchemaJson: null,
+                        describe: UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
+                            "Opens a Unity scene asset in the editor.",
+                            new UcliOperationAssuranceContract(
+                                Array.Empty<UcliOperationSideEffect>(),
+                                mayDirty: false,
+                                mayPersist: false,
+                                Array.Empty<string>(),
+                                UcliOperationPlanMode.ObservesLiveUnity))),
+                ]));
+
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Ops,
+            UcliCommandNames.DescribeSubcommand,
+            UcliPrimitiveOperationNames.SceneOpen,
+            UcliContractConstants.CliOption.ProjectPath,
+            unityProjectPath,
+            UcliContractConstants.CliOption.ReadIndexMode,
+            UcliContractConstants.Config.ReadIndexModeAllowStale);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasProperty("operation", operation => operation
+                    .HasProperty("resultContract", resultContract => resultContract
+                        .HasBoolean("emitted", false)
+                        .HasString("resultType", nameof(UcliNoResult)))
+                    .IsNull("resultSchema")));
     }
 
     [Fact]
@@ -237,11 +296,12 @@ public sealed class OpsCliOutputContractTests
                 SourceInputsHash: "source-hash",
                 Entries:
                 [
-                    new IndexOpEntryJsonContract(
-                        Name: UcliPrimitiveOperationNames.GoDescribe,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object"}"""),
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.GoDescribe,
+                        kind: "query",
+                        policy: "safe",
+                        argsSchemaJson: """{"type":"object"}""",
+                        resultSchemaJson: """{"type":"object"}"""),
                 ]));
 
         var result = await CliProcessRunner.RunCommand(
@@ -279,11 +339,12 @@ public sealed class OpsCliOutputContractTests
                 SourceInputsHash: "source-hash",
                 Entries:
                 [
-                    new IndexOpEntryJsonContract(
-                        Name: UcliPrimitiveOperationNames.GoDescribe,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object"}"""),
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.GoDescribe,
+                        kind: "query",
+                        policy: "safe",
+                        argsSchemaJson: """{"type":"object"}""",
+                        resultSchemaJson: """{"type":"object"}"""),
                 ]));
 
         var result = await CliProcessRunner.RunCommand(
@@ -323,11 +384,12 @@ public sealed class OpsCliOutputContractTests
                 SourceInputsHash: "source-hash",
                 Entries:
                 [
-                    new IndexOpEntryJsonContract(
-                        Name: UcliPrimitiveOperationNames.GoDescribe,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object"}"""),
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.GoDescribe,
+                        kind: "query",
+                        policy: "safe",
+                        argsSchemaJson: """{"type":"object"}""",
+                        resultSchemaJson: """{"type":"object"}"""),
                 ]));
 
         var result = await CliProcessRunner.RunCommand(
@@ -400,9 +462,10 @@ public sealed class OpsCliOutputContractTests
         string kind,
         string policy,
         string argsSchemaJson,
-        string? resultSchemaJson = null)
+        string? resultSchemaJson = null,
+        UcliOperationDescribeContract? describe = null)
     {
-        var describe = CreateGoDescribeContract();
+        describe ??= CreateGoDescribeContract();
         return new IndexOpEntryJsonContract(
             name,
             kind,

@@ -1,8 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -45,11 +44,7 @@ public sealed class ValidateCliOutputContractTests
         SeedOpsCatalog(
             unityProjectPath,
             CreateOpsCatalog(
-                new IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: "query",
-                    Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
+                CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
 
         var result = await CliProcessRunner.RunCommandWithStandardInput(
             requestJson,
@@ -89,11 +84,7 @@ public sealed class ValidateCliOutputContractTests
         SeedOpsCatalog(
             unityProjectPath,
             CreateOpsCatalog(
-                new IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                    Kind: "query",
-                    Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
+                CreateGoDescribeEntry("""{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}""")));
 
         var result = await CliProcessRunner.RunCommandWithStandardInput(
             requestJson,
@@ -167,6 +158,27 @@ public sealed class ValidateCliOutputContractTests
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             SourceInputsHash: "source-hash",
             Entries: entries);
+    }
+
+    private static IndexOpEntryJsonContract CreateGoDescribeEntry (string argsSchemaJson)
+    {
+        return new IndexOpEntryJsonContract(
+            Name: UcliPrimitiveOperationNames.GoDescribe,
+            Kind: "query",
+            Policy: "safe",
+            ArgsSchemaJson: argsSchemaJson,
+            ResultSchemaJson: """{"type":"object"}""")
+        {
+            Description = "Returns a GameObject description including components and child hierarchy.",
+            Inputs = Array.Empty<UcliOperationInputContract>(),
+            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
+            Assurance = new UcliOperationAssuranceContract(
+                Array.Empty<string>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanModeValues.ObservesLiveUnity),
+        };
     }
 
     private static string CreateRequestJson (

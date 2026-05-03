@@ -340,6 +340,10 @@ public static class UcliOperationContractValidator
                 errorMessage = $"Operation '{path}' must not be empty.";
                 return false;
 
+            case JsonElement jsonElement when IsEmptyJsonElement(jsonElement):
+                errorMessage = $"Operation '{path}' must not be empty.";
+                return false;
+
             case IEnumerable enumerable when !HasAny(enumerable):
                 errorMessage = $"Operation '{path}' must not be empty.";
                 return false;
@@ -375,6 +379,33 @@ public static class UcliOperationContractValidator
 
         errorMessage = string.Empty;
         return true;
+    }
+
+    private static bool IsEmptyJsonElement (JsonElement jsonElement)
+    {
+        switch (jsonElement.ValueKind)
+        {
+            case JsonValueKind.Object:
+                return !HasAnyJsonObjectProperty(jsonElement);
+
+            case JsonValueKind.Array:
+                return !HasAnyJsonArrayItem(jsonElement);
+
+            default:
+                return false;
+        }
+    }
+
+    private static bool HasAnyJsonObjectProperty (JsonElement jsonElement)
+    {
+        using var enumerator = jsonElement.EnumerateObject();
+        return enumerator.MoveNext();
+    }
+
+    private static bool HasAnyJsonArrayItem (JsonElement jsonElement)
+    {
+        using var enumerator = jsonElement.EnumerateArray();
+        return enumerator.MoveNext();
     }
 
     private static bool TryConvertToDouble (

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Operations;
@@ -76,6 +77,19 @@ public sealed class UcliOperationContractValidatorTests
 
         Assert.False(isValid);
         Assert.Equal("Operation 'args.items' must not be empty.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidate_WhenNonEmptyJsonObjectIsEmpty_ReturnsFalse ()
+    {
+        using var document = JsonDocument.Parse("{}");
+        var args = new NonEmptyJsonObjectArgs(document.RootElement.Clone());
+
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(NonEmptyJsonObjectArgs), out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation 'args.value' must not be empty.", errorMessage);
     }
 
     [Fact]
@@ -213,6 +227,11 @@ public sealed class UcliOperationContractValidatorTests
         [property: UcliDescription("Items.")]
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
         IReadOnlyList<string> Items);
+
+    private sealed record NonEmptyJsonObjectArgs (
+        [property: UcliDescription("Value.")]
+        [property: UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+        JsonElement Value);
 
     private sealed record RangeArgs (
         [property: UcliDescription("Depth.")]

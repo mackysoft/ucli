@@ -92,7 +92,7 @@ public static class IpcPayloadCodec
         string path,
         out string duplicatePropertyPath)
     {
-        var names = new HashSet<string>(StringComparer.Ordinal);
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var property in element.EnumerateObject())
         {
             var propertyPath = $"{path}.{property.Name}";
