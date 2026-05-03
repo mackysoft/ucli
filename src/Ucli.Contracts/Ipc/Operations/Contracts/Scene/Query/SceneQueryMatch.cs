@@ -25,6 +25,6 @@ public sealed record SceneQueryMatch
     public string HierarchyPath { get; init; }
 
     [UcliDescription("Matched component type identifier for component matches.")]
-    [UcliNullable]
+    [UcliSchemaAllowNull]
     public string? ComponentType { get; init; }
 }

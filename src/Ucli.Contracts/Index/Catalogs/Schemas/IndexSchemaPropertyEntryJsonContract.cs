@@ -36,7 +36,7 @@ internal sealed record IndexSchemaPropertyEntryJsonContract
 
     /// <summary> Gets the declared-type identifier value. </summary>
     [UcliDescription("Declared managed type identifier when available.")]
-    [UcliNullable]
+    [UcliSchemaAllowNull]
     public string? DeclaredTypeId { get; init; }
 
     /// <summary> Gets a value indicating whether property value is an array-like collection. </summary>
@@ -46,7 +46,7 @@ internal sealed record IndexSchemaPropertyEntryJsonContract
 
     /// <summary> Gets the element-type identifier for array-like values. </summary>
     [UcliDescription("Array element type identifier when available.")]
-    [UcliNullable]
+    [UcliSchemaAllowNull]
     public string? ElementTypeId { get; init; }
 
     /// <summary> Gets a value indicating whether set-style operations must treat this property as read-only. </summary>

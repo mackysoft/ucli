@@ -30,6 +30,13 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
         Assert.Equal("integer", countProperty.GetProperty("type")[0].GetString());
         Assert.Equal("null", countProperty.GetProperty("type")[1].GetString());
         Assert.False(countProperty.TryGetProperty("minimum", out _));
+
+        var optionalTextProperty = root.GetProperty("properties").GetProperty("optionalText");
+        Assert.Equal("string", optionalTextProperty.GetProperty("type").GetString());
+
+        var explicitNullTextProperty = root.GetProperty("properties").GetProperty("explicitNullText");
+        Assert.Equal("string", explicitNullTextProperty.GetProperty("type")[0].GetString());
+        Assert.Equal("null", explicitNullTextProperty.GetProperty("type")[1].GetString());
     }
 
     [Fact]
@@ -103,7 +110,14 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
         string Name,
 
         [property: UcliDescription("Optional sample count.")]
-        int? Count);
+        int? Count,
+
+        [property: UcliDescription("Optional text omitted when absent.")]
+        string? OptionalText,
+
+        [property: UcliSchemaAllowNull]
+        [property: UcliDescription("Optional text emitted as null when explicitly unknown.")]
+        string? ExplicitNullText);
 
     private sealed record MissingDescriptionArgs (
         [property: JsonPropertyName("rawName")]
