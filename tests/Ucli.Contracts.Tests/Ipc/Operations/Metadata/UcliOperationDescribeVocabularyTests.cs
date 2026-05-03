@@ -19,6 +19,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(8, (int)UcliOperationInputConstraintKind.TypeExists);
         Assert.Equal(9, (int)UcliOperationInputConstraintKind.TypeAssignableTo);
         Assert.Equal(10, (int)UcliOperationInputConstraintKind.SerializedProperty);
+        Assert.Equal(11, (int)UcliOperationInputConstraintKind.AssetGuid);
     }
 
     [Fact]
@@ -36,6 +37,7 @@ public sealed class UcliOperationDescribeVocabularyTests
         Assert.Equal(UcliOperationInputConstraintKindValues.TypeExists, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.TypeExists));
         Assert.Equal(UcliOperationInputConstraintKindValues.TypeAssignableTo, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.TypeAssignableTo));
         Assert.Equal(UcliOperationInputConstraintKindValues.SerializedProperty, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.SerializedProperty));
+        Assert.Equal(UcliOperationInputConstraintKindValues.AssetGuid, UcliOperationInputConstraintKindCodec.ToValue(UcliOperationInputConstraintKind.AssetGuid));
     }
 
     [Fact]

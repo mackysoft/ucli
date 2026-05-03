@@ -11,7 +11,7 @@ public sealed record GameObjectReferenceArgs
 {
     [JsonConstructor]
     public GameObjectReferenceArgs (
-        string? alias,
+        UcliPlanAlias? alias,
         UnityGlobalObjectId? globalObjectId,
         PrefabAssetPath? prefab,
         SceneAssetPath? scene,
@@ -31,7 +31,7 @@ public sealed record GameObjectReferenceArgs
         string? scene,
         string? hierarchyPath)
         : this(
-            alias,
+            alias == null ? null : new UcliPlanAlias(alias),
             globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
             prefab == null ? null : new PrefabAssetPath(prefab),
             scene == null ? null : new SceneAssetPath(scene),
@@ -39,10 +39,10 @@ public sealed record GameObjectReferenceArgs
     {
     }
 
-    [UcliDescription("Temporary plan alias produced earlier in the same request.")]
+    [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Alias { get; init; }
+    public UcliPlanAlias? Alias { get; init; }
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

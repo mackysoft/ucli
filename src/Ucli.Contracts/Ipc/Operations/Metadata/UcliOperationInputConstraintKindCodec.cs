@@ -18,6 +18,7 @@ public static class UcliOperationInputConstraintKindCodec
         (UcliOperationInputConstraintKind.TypeExists, UcliOperationInputConstraintKindValues.TypeExists),
         (UcliOperationInputConstraintKind.TypeAssignableTo, UcliOperationInputConstraintKindValues.TypeAssignableTo),
         (UcliOperationInputConstraintKind.SerializedProperty, UcliOperationInputConstraintKindValues.SerializedProperty),
+        (UcliOperationInputConstraintKind.AssetGuid, UcliOperationInputConstraintKindValues.AssetGuid),
     };
 
     /// <summary> Converts one constraint kind enum value to its contract literal. </summary>

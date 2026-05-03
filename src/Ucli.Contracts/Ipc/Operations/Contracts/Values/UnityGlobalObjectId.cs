@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Unity GlobalObjectId string used for exact object resolution. </summary>
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity GlobalObjectId string used for exact object resolution.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.GlobalObjectId)]
 public sealed record UnityGlobalObjectId : UcliStringValue

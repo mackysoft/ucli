@@ -83,4 +83,23 @@ public sealed class UcliOperationDescribeContractBuilderTests
         Assert.Contains("$.target.globalObjectId", variant.ArgsPaths!);
         Assert.Contains(variant.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.GlobalObjectId);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenReferenceInputHasAssetGuidVariant_ReturnsAssetGuidConstraint ()
+    {
+        var describe = UcliOperationDescribeContractBuilder.Create<AssetSchemaArgs, UcliNoResult>(
+            "Returns serialized property schema for a Unity asset.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
+
+        var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "target");
+        var variant = Assert.Single(input.Variants!, candidate => candidate.Name == "byAssetGuid");
+        Assert.Contains("$.target.assetGuid", variant.ArgsPaths!);
+        Assert.Contains(variant.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.AssetGuid);
+    }
 }

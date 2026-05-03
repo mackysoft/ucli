@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Unity type identifier assignable to a Component type. </summary>
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity type identifier assignable to a Component type.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.TypeAssignableTo, TypeKind = UcliOperationTypeKind.Component)]

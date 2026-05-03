@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Project-relative path to an existing Unity prefab asset. </summary>
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Project-relative path to an existing Unity prefab asset.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]

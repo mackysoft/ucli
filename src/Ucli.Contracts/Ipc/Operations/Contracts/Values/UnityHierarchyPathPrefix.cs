@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Non-empty Unity hierarchy path prefix used to filter scene objects. </summary>
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Non-empty Unity hierarchy path prefix used to filter scene objects.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.HierarchyPath)]

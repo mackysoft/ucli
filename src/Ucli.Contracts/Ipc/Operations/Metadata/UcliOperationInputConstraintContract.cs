@@ -82,6 +82,13 @@ public sealed class UcliOperationInputConstraintContract
         return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.GlobalObjectId);
     }
 
+    /// <summary> Creates a Unity asset GUID syntax constraint. </summary>
+    /// <returns> The constraint contract. </returns>
+    public static UcliOperationInputConstraintContract AssetGuid ()
+    {
+        return new UcliOperationInputConstraintContract(UcliOperationInputConstraintKind.AssetGuid);
+    }
+
     /// <summary> Creates a Unity hierarchy path constraint. </summary>
     /// <returns> The constraint contract. </returns>
     public static UcliOperationInputConstraintContract HierarchyPath ()

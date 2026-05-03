@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Non-empty project-relative path prefix used to filter Unity assets. </summary>
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Non-empty project-relative path prefix used to filter Unity assets.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]

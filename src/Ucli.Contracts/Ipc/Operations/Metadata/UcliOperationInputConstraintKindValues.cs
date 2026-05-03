@@ -35,4 +35,7 @@ public static class UcliOperationInputConstraintKindValues
 
     /// <summary> Gets the serialized property constraint. </summary>
     public const string SerializedProperty = "serializedProperty";
+
+    /// <summary> Gets the Unity asset GUID constraint. </summary>
+    public const string AssetGuid = "assetGuid";
 }

@@ -7,18 +7,28 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcResolveOperationResult
 {
     [JsonConstructor]
-    public IpcResolveOperationResult (string GlobalObjectId)
+    public IpcResolveOperationResult (UnityGlobalObjectId globalObjectId)
     {
-        if (string.IsNullOrWhiteSpace(GlobalObjectId))
+        if (globalObjectId == null)
         {
-            throw new ArgumentException("GlobalObjectId must not be null, empty, or whitespace.", nameof(GlobalObjectId));
+            throw new ArgumentNullException(nameof(globalObjectId));
         }
 
-        this.GlobalObjectId = GlobalObjectId;
+        if (string.IsNullOrWhiteSpace(globalObjectId.Value))
+        {
+            throw new ArgumentException("GlobalObjectId must not be empty or whitespace.", nameof(globalObjectId));
+        }
+
+        GlobalObjectId = globalObjectId;
+    }
+
+    public IpcResolveOperationResult (string globalObjectId)
+        : this(new UnityGlobalObjectId(globalObjectId))
+    {
     }
 
     /// <summary> Gets the resolved GlobalObjectId string. </summary>
     [UcliRequired]
     [UcliDescription("Resolved Unity GlobalObjectId.")]
-    public string GlobalObjectId { get; init; }
+    public UnityGlobalObjectId GlobalObjectId { get; init; }
 }

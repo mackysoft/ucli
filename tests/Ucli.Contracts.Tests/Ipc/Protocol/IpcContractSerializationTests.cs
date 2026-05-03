@@ -98,6 +98,28 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcPayloadCodec_ReferenceSemanticStringValues_RoundTripAsJsonStrings ()
+    {
+        using var document = JsonDocument.Parse("{\"var\":\"created\",\"assetGuid\":\"11111111111111111111111111111111\"}");
+
+        var result = IpcPayloadCodec.TryDeserialize<AssetReferenceArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.True(result, error.Message);
+        Assert.Equal("created", args.Alias!.Value);
+        Assert.Equal("11111111111111111111111111111111", args.AssetGuid!.Value);
+
+        var payload = IpcPayloadCodec.SerializeToElement(args);
+
+        JsonAssert.For(payload)
+            .HasString("var", "created")
+            .HasString("assetGuid", "11111111111111111111111111111111");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcErrorCodes_ExposeCoreAndReadIndexConstants ()
     {
         Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
@@ -538,8 +560,7 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcResolveOperationResult_SerializesWithCamelCaseContractFields ()
     {
-        var payload = new IpcResolveOperationResult(
-            GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6");
+        var payload = new IpcResolveOperationResult("GlobalObjectId_V1-2-3-4-5-6");
 
         using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(payload, SerializerOptions));
 

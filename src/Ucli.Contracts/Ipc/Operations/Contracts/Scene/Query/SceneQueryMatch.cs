@@ -8,12 +8,23 @@ public sealed record SceneQueryMatch
     [JsonConstructor]
     public SceneQueryMatch (
         string kind,
-        string hierarchyPath,
-        string? componentType)
+        UnityHierarchyPath hierarchyPath,
+        UnityComponentTypeId? componentType)
     {
         Kind = kind;
         HierarchyPath = hierarchyPath;
         ComponentType = componentType;
+    }
+
+    public SceneQueryMatch (
+        string kind,
+        string hierarchyPath,
+        string? componentType)
+        : this(
+            kind,
+            new UnityHierarchyPath(hierarchyPath),
+            componentType == null ? null : new UnityComponentTypeId(componentType))
+    {
     }
 
     [UcliRequired]
@@ -22,9 +33,9 @@ public sealed record SceneQueryMatch
 
     [UcliRequired]
     [UcliDescription("Matched GameObject hierarchy path.")]
-    public string HierarchyPath { get; init; }
+    public UnityHierarchyPath HierarchyPath { get; init; }
 
     [UcliDescription("Matched component type identifier for component matches.")]
     [UcliSchemaAllowNull]
-    public string? ComponentType { get; init; }
+    public UnityComponentTypeId? ComponentType { get; init; }
 }

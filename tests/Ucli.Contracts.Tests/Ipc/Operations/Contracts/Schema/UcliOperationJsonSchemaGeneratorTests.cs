@@ -70,6 +70,18 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void CreateArgsSchemaJson_WhenReferenceUsesSemanticStringValues_EmitsStringStructure ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(AssetReferenceArgs));
+
+        using var document = JsonDocument.Parse(schemaJson);
+        var properties = document.RootElement.GetProperty("properties");
+        Assert.Equal("string", properties.GetProperty("var").GetProperty("type").GetString());
+        Assert.Equal("string", properties.GetProperty("assetGuid").GetProperty("type").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateResultSchemaJson_WhenResultIsNoResult_ReturnsNull ()
     {
         var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(UcliNoResult));

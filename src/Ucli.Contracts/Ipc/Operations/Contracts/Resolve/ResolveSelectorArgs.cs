@@ -15,7 +15,7 @@ public sealed record ResolveSelectorArgs
     [JsonConstructor]
     public ResolveSelectorArgs (
         UnityGlobalObjectId? globalObjectId,
-        string? assetGuid,
+        UnityAssetGuid? assetGuid,
         UnityAssetPath? assetPath,
         ProjectSettingsAssetPath? projectAssetPath,
         SceneAssetPath? scene,
@@ -39,7 +39,7 @@ public sealed record ResolveSelectorArgs
 
     [UcliDescription("Asset GUID selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? AssetGuid { get; init; }
+    public UnityAssetGuid? AssetGuid { get; init; }
 
     [UcliDescription("Asset path selector under the Unity project.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

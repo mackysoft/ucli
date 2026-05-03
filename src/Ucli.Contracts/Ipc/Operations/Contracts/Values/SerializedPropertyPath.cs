@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Unity SerializedProperty path. </summary>
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity SerializedProperty path.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 public sealed record SerializedPropertyPath : UcliStringValue

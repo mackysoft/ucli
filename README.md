@@ -137,7 +137,7 @@ ucli ops list --projectPath ./UnityProject
 ucli ops describe ucli.scene.open --projectPath ./UnityProject
 ```
 
-`ops describe` returns the agent-facing operation contract for one primitive operation. Agents should use `description`, `inputs[].constraints`, `resultContract`, and `assurance` to choose the operation, build `steps[].args`, and interpret results. Reusable input meanings such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, and Unity type identifiers are modeled as semantic Args value types in C#, while the IPC JSON remains primitive strings. Input descriptions and semantic constraints are generated from Args property attributes and those semantic value-type attributes. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
+`ops describe` returns the agent-facing operation contract for one primitive operation. Agents should use `description`, `inputs[].constraints`, `resultContract`, and `assurance` to choose the operation, build `steps[].args`, and interpret results. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, request-local aliases, and Unity type identifiers are modeled as semantic Args/Result value types in C#, while the IPC JSON remains primitive strings. Input descriptions and semantic constraints are generated from Args property attributes and those semantic value-type attributes. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
 
 ## Applying Changes
 

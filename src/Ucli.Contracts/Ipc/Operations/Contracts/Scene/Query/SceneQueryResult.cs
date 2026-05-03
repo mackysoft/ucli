@@ -7,7 +7,7 @@ public sealed record SceneQueryResult
 {
     [JsonConstructor]
     public SceneQueryResult (
-        string scene,
+        SceneAssetPath scene,
         IReadOnlyList<SceneQueryMatch> matches)
     {
         Scene = scene;
@@ -16,7 +16,7 @@ public sealed record SceneQueryResult
 
     [UcliRequired]
     [UcliDescription("Scene asset path that was queried.")]
-    public string Scene { get; init; }
+    public SceneAssetPath Scene { get; init; }
 
     [UcliRequired]
     [UcliDescription("Matched scene objects or components.")]

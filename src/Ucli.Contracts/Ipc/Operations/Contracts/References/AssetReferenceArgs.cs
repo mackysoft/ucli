@@ -12,9 +12,9 @@ public sealed record AssetReferenceArgs
 {
     [JsonConstructor]
     public AssetReferenceArgs (
-        string? alias,
+        UcliPlanAlias? alias,
         UnityGlobalObjectId? globalObjectId,
-        string? assetGuid,
+        UnityAssetGuid? assetGuid,
         UnityAssetPath? assetPath,
         ProjectSettingsAssetPath? projectAssetPath)
     {
@@ -32,18 +32,18 @@ public sealed record AssetReferenceArgs
         string? assetPath,
         string? projectAssetPath)
         : this(
-            alias,
+            alias == null ? null : new UcliPlanAlias(alias),
             globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
-            assetGuid,
+            assetGuid == null ? null : new UnityAssetGuid(assetGuid),
             assetPath == null ? null : new UnityAssetPath(assetPath),
             projectAssetPath == null ? null : new ProjectSettingsAssetPath(projectAssetPath))
     {
     }
 
-    [UcliDescription("Temporary plan alias produced earlier in the same request.")]
+    [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Alias { get; init; }
+    public UcliPlanAlias? Alias { get; init; }
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -51,7 +51,7 @@ public sealed record AssetReferenceArgs
 
     [UcliDescription("Asset GUID selector.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? AssetGuid { get; init; }
+    public UnityAssetGuid? AssetGuid { get; init; }
 
     [UcliDescription("Asset path selector under the Unity project.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

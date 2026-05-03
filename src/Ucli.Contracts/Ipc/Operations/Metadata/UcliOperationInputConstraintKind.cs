@@ -35,4 +35,7 @@ public enum UcliOperationInputConstraintKind
 
     /// <summary> Requires a serialized property access capability. </summary>
     SerializedProperty = 10,
+
+    /// <summary> Requires Unity asset GUID syntax. </summary>
+    AssetGuid = 11,
 }

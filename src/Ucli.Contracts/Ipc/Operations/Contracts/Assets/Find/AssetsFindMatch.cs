@@ -7,10 +7,10 @@ public sealed record AssetsFindMatch
 {
     [JsonConstructor]
     public AssetsFindMatch (
-        string assetPath,
-        string assetGuid,
+        UnityAssetPath assetPath,
+        UnityAssetGuid assetGuid,
         string name,
-        string typeId)
+        UnityTypeId typeId)
     {
         AssetPath = assetPath;
         AssetGuid = assetGuid;
@@ -20,11 +20,11 @@ public sealed record AssetsFindMatch
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path.")]
-    public string AssetPath { get; init; }
+    public UnityAssetPath AssetPath { get; init; }
 
     [UcliRequired]
     [UcliDescription("Unity asset GUID.")]
-    public string AssetGuid { get; init; }
+    public UnityAssetGuid AssetGuid { get; init; }
 
     [UcliRequired]
     [UcliDescription("Asset object name.")]
@@ -32,5 +32,5 @@ public sealed record AssetsFindMatch
 
     [UcliRequired]
     [UcliDescription("Asset type identifier.")]
-    public string TypeId { get; init; }
+    public UnityTypeId TypeId { get; init; }
 }
