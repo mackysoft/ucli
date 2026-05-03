@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 [UcliDescription("GameObject creation operation arguments.")]
-[UcliOneOfRequired("scene")]
-[UcliOneOfRequired("parent")]
+[UcliRequiredPropertyAlternative("scene")]
+[UcliRequiredPropertyAlternative("parent")]
 public sealed record GoCreateArgs
 {
     [JsonConstructor]

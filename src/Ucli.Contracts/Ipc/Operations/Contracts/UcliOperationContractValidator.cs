@@ -97,13 +97,13 @@ public static class UcliOperationContractValidator
             }
         }
 
-        if (!TryValidateOneOf(value, contractType, path, out errorMessage))
+        if (!TryValidateRequiredPropertyAlternatives(value, contractType, path, out errorMessage))
         {
             visitedTypes.Remove(contractType);
             return false;
         }
 
-        if (!TryValidateConditionalRules(value, contractType, path, out errorMessage))
+        if (!TryValidatePropertyDependencies(value, contractType, path, out errorMessage))
         {
             visitedTypes.Remove(contractType);
             return false;
@@ -187,13 +187,13 @@ public static class UcliOperationContractValidator
         return true;
     }
 
-    private static bool TryValidateOneOf (
+    private static bool TryValidateRequiredPropertyAlternatives (
         object value,
         Type contractType,
         string path,
         out string errorMessage)
     {
-        var alternatives = contractType.GetCustomAttributes<UcliOneOfRequiredAttribute>().ToArray();
+        var alternatives = contractType.GetCustomAttributes<UcliRequiredPropertyAlternativeAttribute>().ToArray();
         if (alternatives.Length == 0)
         {
             errorMessage = string.Empty;
@@ -203,7 +203,7 @@ public static class UcliOperationContractValidator
         var matchCount = 0;
         for (var i = 0; i < alternatives.Length; i++)
         {
-            if (IsAlternativeMatched(value, contractType, alternatives[i].PropertyNames))
+            if (IsAlternativeMatched(value, contractType, alternatives[i].RequiredPropertyNames))
             {
                 matchCount++;
             }
@@ -219,24 +219,24 @@ public static class UcliOperationContractValidator
         return false;
     }
 
-    private static bool TryValidateConditionalRules (
+    private static bool TryValidatePropertyDependencies (
         object value,
         Type contractType,
         string path,
         out string errorMessage)
     {
-        var conditionalRules = contractType.GetCustomAttributes<UcliIfRequiredThenOneOfRequiredAttribute>().ToArray();
-        for (var i = 0; i < conditionalRules.Length; i++)
+        var dependencies = contractType.GetCustomAttributes<UcliPropertyDependencyAttribute>().ToArray();
+        for (var i = 0; i < dependencies.Length; i++)
         {
-            var rule = conditionalRules[i];
-            if (!IsPropertyPresent(value, contractType, rule.ConditionPropertyName))
+            var rule = dependencies[i];
+            if (!IsPropertyPresent(value, contractType, rule.TriggerPropertyName))
             {
                 continue;
             }
 
-            if (!IsAlternativeMatched(value, contractType, rule.ThenPropertyNames))
+            if (!IsAlternativeMatched(value, contractType, rule.RequiredPropertyNames))
             {
-                errorMessage = $"Operation '{path}' requires one valid property group when '{rule.ConditionPropertyName}' is specified.";
+                errorMessage = $"Operation '{path}' requires dependent properties when '{rule.TriggerPropertyName}' is specified.";
                 return false;
             }
         }

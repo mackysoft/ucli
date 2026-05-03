@@ -378,61 +378,6 @@ public sealed class OperationCatalogTests
         }
     }
 
-    private static bool ContainsRequiredProperty (
-        JsonElement oneOfArray,
-        string propertyName)
-    {
-        foreach (var schema in oneOfArray.EnumerateArray())
-        {
-            if (!schema.TryGetProperty("required", out var requiredProperties))
-            {
-                continue;
-            }
-
-            if (requiredProperties.ValueKind != JsonValueKind.Array || requiredProperties.GetArrayLength() != 1)
-            {
-                continue;
-            }
-
-            var requiredProperty = requiredProperties[0].GetString();
-            if (string.Equals(requiredProperty, propertyName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsRequiredProperties (
-        JsonElement oneOfArray,
-        string firstPropertyName,
-        string secondPropertyName)
-    {
-        foreach (var schema in oneOfArray.EnumerateArray())
-        {
-            if (!schema.TryGetProperty("required", out var requiredProperties))
-            {
-                continue;
-            }
-
-            if (requiredProperties.ValueKind != JsonValueKind.Array || requiredProperties.GetArrayLength() != 2)
-            {
-                continue;
-            }
-
-            var firstRequired = requiredProperties[0].GetString();
-            var secondRequired = requiredProperties[1].GetString();
-            if (string.Equals(firstRequired, firstPropertyName, StringComparison.Ordinal)
-                && string.Equals(secondRequired, secondPropertyName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private static bool ContainsArrayLiteral (
         JsonElement arrayElement,
         string literal)

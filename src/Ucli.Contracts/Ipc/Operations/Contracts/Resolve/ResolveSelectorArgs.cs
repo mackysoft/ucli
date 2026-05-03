@@ -3,13 +3,13 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 [UcliDescription("Object selector accepted by ucli.resolve.")]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.GlobalObjectId)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.AssetGuid)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.AssetPath)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.ProjectAssetPath)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.Prefab, IpcResolveSelectorPropertyNames.HierarchyPath)]
-[UcliIfRequiredThenOneOfRequired(IpcResolveSelectorPropertyNames.ComponentType, IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.GlobalObjectId)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.AssetGuid)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.AssetPath)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.ProjectAssetPath)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.Prefab, IpcResolveSelectorPropertyNames.HierarchyPath)]
+[UcliPropertyDependency(IpcResolveSelectorPropertyNames.ComponentType, IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
 public sealed record ResolveSelectorArgs
 {
     [JsonConstructor]

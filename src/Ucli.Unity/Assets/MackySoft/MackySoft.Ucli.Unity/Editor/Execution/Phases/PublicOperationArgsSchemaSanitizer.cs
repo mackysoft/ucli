@@ -80,37 +80,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                if (string.Equals(parentPropertyName, "oneOf", StringComparison.Ordinal)
-                    && IsVarRequiredAlternative(item))
-                {
-                    continue;
-                }
-
                 WriteSanitizedElement(item, writer, parentPropertyName: null);
             }
 
             writer.WriteEndArray();
-        }
-
-        private static bool IsVarRequiredAlternative (JsonElement element)
-        {
-            if (element.ValueKind != JsonValueKind.Object
-                || !element.TryGetProperty("required", out var requiredElement)
-                || requiredElement.ValueKind != JsonValueKind.Array)
-            {
-                return false;
-            }
-
-            foreach (var requiredItem in requiredElement.EnumerateArray())
-            {
-                if (requiredItem.ValueKind == JsonValueKind.String
-                    && string.Equals(requiredItem.GetString(), "var", StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

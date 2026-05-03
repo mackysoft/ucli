@@ -2,14 +2,14 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Adds one internal required-property alternative for exactly-one validation. </summary>
+/// <summary> Declares one property set in an exclusive required-property group. </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true)]
-public sealed class UcliOneOfRequiredAttribute : Attribute
+public sealed class UcliRequiredPropertyAlternativeAttribute : Attribute
 {
-    /// <summary> Initializes a new instance of the <see cref="UcliOneOfRequiredAttribute" /> class. </summary>
-    /// <param name="propertyNames"> The property names required by this alternative. </param>
+    /// <summary> Initializes a new instance of the <see cref="UcliRequiredPropertyAlternativeAttribute" /> class. </summary>
+    /// <param name="propertyNames"> The property names that must be present for this alternative to match. </param>
     /// <exception cref="ArgumentException"> Thrown when no valid property name is supplied. </exception>
-    public UcliOneOfRequiredAttribute (params string[] propertyNames)
+    public UcliRequiredPropertyAlternativeAttribute (params string[] propertyNames)
     {
         if (propertyNames == null || propertyNames.Length == 0)
         {
@@ -24,9 +24,9 @@ public sealed class UcliOneOfRequiredAttribute : Attribute
             }
         }
 
-        PropertyNames = propertyNames;
+        RequiredPropertyNames = propertyNames;
     }
 
-    /// <summary> Gets the required property names for this alternative. </summary>
-    public string[] PropertyNames { get; }
+    /// <summary> Gets the property names that must be present for this alternative to match. </summary>
+    public string[] RequiredPropertyNames { get; }
 }

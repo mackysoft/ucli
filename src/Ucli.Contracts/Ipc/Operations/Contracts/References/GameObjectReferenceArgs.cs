@@ -3,10 +3,10 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 [UcliDescription("GameObject reference accepted by GameObject operations.")]
-[UcliOneOfRequired(UcliOperationContractPropertyNames.Alias)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.GlobalObjectId)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.Prefab, IpcResolveSelectorPropertyNames.HierarchyPath)]
-[UcliOneOfRequired(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
+[UcliRequiredPropertyAlternative(UcliOperationContractPropertyNames.Alias)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.GlobalObjectId)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.Prefab, IpcResolveSelectorPropertyNames.HierarchyPath)]
+[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
 public sealed record GameObjectReferenceArgs
 {
     [JsonConstructor]

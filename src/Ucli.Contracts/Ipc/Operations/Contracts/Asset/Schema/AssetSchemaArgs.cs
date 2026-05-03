@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 [UcliDescription("Asset schema operation arguments.")]
-[UcliOneOfRequired("type")]
-[UcliOneOfRequired("target")]
+[UcliRequiredPropertyAlternative("type")]
+[UcliRequiredPropertyAlternative("target")]
 public sealed record AssetSchemaArgs
 {
     [JsonConstructor]
