@@ -94,6 +94,11 @@ Except for `ucli logs`, the automation commands listed below write one JSON resu
 
 Automation should parse standard output and treat standard error as diagnostic text.
 
+The common JSON envelope contains `protocolVersion`, `command`, `status`, `exitCode`, `message`, `payload`, and `errors`.
+Use `status` and `errors[]` for command-level success or failure.
+For request commands, inspect `payload.opResults` to determine which steps applied, changed, or returned operation-specific result data.
+Use other command-specific `payload` fields for results such as `planToken`, `readIndex`, and test artifact paths.
+
 ## Reading Project State
 
 Read before you write. These commands emit machine-readable JSON.
@@ -150,6 +155,108 @@ An operation has three parts:
 3. Implement `UcliOperation<TArgs,TResult>` and mark the class with `[UcliOperation]`.
 
 Use `UcliNoResult` for operations that do not emit `opResults[].result`.
+
+The Args and Result CLR types are the source of truth for the public operation contract. `UcliOperationMetadata.Create<TArgs,TResult>` derives `inputs`, `resultContract`, `argsSchema`, and `resultSchema` from those types, their attributes, and the metadata passed to `Create`. Do not hand-write JSON Schema for a normal operation.
+
+Contract rules:
+
+| Rule | Why it matters |
+| --- | --- |
+| Put `[UcliDescription]` on every Args/Result contract type and every public contract property. | `ops describe` uses these descriptions as the user-facing and agent-facing explanation. |
+| Use `[UcliRequired]` for required properties. Do not use C# `required` for the uCLI contract. | Unity-compatible builds and schema generation read the uCLI attribute. |
+| Leave optional properties nullable and omit `[UcliRequired]`. | Optional inputs are not listed in `argsSchema.required`. |
+| Use `[JsonConstructor]` when the contract has a non-default constructor. | uCLI deserializes `steps[].args` with `System.Text.Json` before validation. |
+| Use `[JsonPropertyName]` when the JSON member name must differ from the C# property name. | `argsSchema`, `resultSchema`, and `ops describe` use the JSON name. |
+| Use `[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]` for optional result or selector properties that should be omitted when absent. | Omitted and explicit `null` have different meanings in the public JSON contract. |
+| Use `[UcliJsonAllowNull]` only when explicit JSON `null` is valid for a reference-type property. | Nullable value types such as `int?` already allow JSON `null`; nullable reference syntax alone does not change the runtime JSON contract. |
+| Use `[UcliJsonAnyValue]` only for intentional arbitrary JSON value slots, such as a serialized property value. | It disables structural validation for that property. |
+
+Use existing semantic value types before adding new primitive strings: `SceneAssetPath`, `PrefabAssetPath`, `UnityAssetPath`, `ProjectSettingsAssetPath`, `CreatableUnityAssetPath`, `CreatablePrefabAssetPath`, `ProjectRelativePathPrefix`, `UnityHierarchyPath`, `UnityHierarchyPathPrefix`, `UnityGlobalObjectId`, `UnityAssetGuid`, `UcliPlanAlias`, `UnityTypeId`, `UnityComponentTypeId`, and `SerializedPropertyPath`.
+User-defined semantic value objects are supported for string-shaped values that remain JSON strings on the IPC boundary.
+Create one only when the same meaning appears in multiple Args/Result contracts or when the meaning is important enough to name in the public contract.
+For one-off meaning, keep a normal property and put `[UcliDescription]` and `[UcliInputConstraint]` on that property instead.
+If you need a new string-shaped semantic value, derive from `UcliStringValue`, define a public `string` constructor, add `[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]`, add `[UcliDescription]`, and put `[UcliInputConstraint]` attributes on the value type.
+Do not use arbitrary custom scalar wrappers unless uCLI has a contract base type and schema generator support for that wire shape.
+
+```csharp
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Ipc;
+
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
+[UcliDescription("Addressable asset key used by this project.")]
+[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+public sealed record AddressableKey : UcliStringValue
+{
+    [JsonConstructor]
+    public AddressableKey (string value)
+        : base(value)
+    {
+    }
+}
+
+[UcliDescription("Arguments for setting an Addressables label.")]
+public sealed record SetAddressableLabelArgs
+{
+    [JsonConstructor]
+    public SetAddressableLabelArgs (
+        AddressableKey key,
+        string label)
+    {
+        Key = key;
+        Label = label;
+    }
+
+    [UcliRequired]
+    [UcliDescription("Addressable key to update.")]
+    public AddressableKey Key { get; init; }
+
+    [UcliRequired]
+    [UcliDescription("Label to assign.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+    public string Label { get; init; }
+}
+```
+
+`AddressableKey` remains a JSON string in `steps[].args`, so the generated `argsSchema` contains `"key": { "type": "string" }`.
+Because `Key` has its own `[UcliDescription]`, `ops describe` uses the property description for that input.
+If the property does not declare `[UcliDescription]`, uCLI falls back to the `UcliStringValue` type description.
+The `NonEmpty` constraint comes from the value type and appears in `ops describe` as input metadata.
+
+Input constraints describe the meaning of values in `ops describe`; they are not JSON Schema keywords. Put `[UcliInputConstraint]` on a semantic value type when every use of that type has the same meaning, or on a property when the meaning is specific to one operation.
+
+| Constraint kind | Required parameter | Use it for |
+| --- | --- | --- |
+| `NonEmpty` | none | Non-empty strings, arrays, or objects. |
+| `Range` | `Min`, `Max`, or both | Inclusive numeric bounds. |
+| `ProjectRelativePath` | none | Paths relative to the Unity project. |
+| `AssetExists` | `AssetKind` | Existing asset, scene, prefab, or project settings paths. |
+| `AssetCreatable` | `AssetKind` | Asset or prefab paths that an operation may create. |
+| `GlobalObjectId` | none | Unity GlobalObjectId strings. |
+| `HierarchyPath` | none | Unity scene or prefab hierarchy paths. |
+| `ReferenceResolvable` | `TargetKind` | Object references that must resolve to an asset, GameObject, or component. |
+| `TypeExists` | none | Unity type identifiers that must resolve in the project. |
+| `TypeAssignableTo` | `TypeKind` | Unity type identifiers assignable to a specific Unity kind, such as component. |
+| `SerializedProperty` | `Access` | SerializedProperty paths that must be writable for the operation. |
+| `AssetGuid` | none | Unity asset GUID strings. |
+
+For object references and selectors, prefer existing contract types such as `AssetReferenceArgs`, `GameObjectReferenceArgs`, `SceneGameObjectReferenceArgs`, `ComponentReferenceArgs`, and `ResolveSelectorArgs`. If an operation needs a new reference object, use `[UcliExclusiveRequiredPropertySet]` on the object type to define mutually exclusive selector shapes, and `[UcliPropertyRequires]` when one property requires other properties.
+
+Choose operation metadata deliberately:
+
+| Metadata | Values | Use it for |
+| --- | --- | --- |
+| `UcliOperationKind` | `Query`, `Command`, `Mutation` | `Query` observes only. `Command` changes Editor or AssetDatabase state without content mutation as the main purpose. `Mutation` can dirty or persist scene, prefab, asset, or project content. |
+| `OperationPolicy` | `Safe`, `Advanced`, `Dangerous` | `Safe` is suitable for normal guarded automation. `Advanced` covers writes and broader project effects. `Dangerous` is for escape hatches and requires explicit `ucli call --allowDangerous`. |
+| `UcliOperationAssuranceContract` | side effects, dirty/persist flags, touched kinds, plan mode | Machine-readable behavior that lets runners decide whether an operation is acceptable. |
+| `UcliOperationPlanMode` | `ValidationOnly`, `ObservesLiveUnity`, `MayCreatePreviewState` | How much the `Plan` phase may do before `Call`. |
+
+Keep phase behavior consistent:
+
+- `Validate` checks typed args and cheap preconditions.
+- `Plan` may inspect Unity state according to `planMode`, but must not persist content.
+- `Call` performs the operation.
+- `applied`, `changed`, and `touched` belong to the operation result envelope. Do not put those fields in `TResult`.
+- `TResult` should contain only the operation-specific main data. Use `UcliNoResult` when there is no main data.
 
 ```csharp
 using System;
@@ -612,6 +719,9 @@ ucli test run \
   --assemblyName MyGame.Tests.EditMode
 ```
 
+Use `--unityEditorPath <path>` when the runner must use a specific Unity executable or `.app` directory, or when Unity is not installed in a standard searchable location.
+For repeated test settings, generate a profile with `ucli test profile init --outputPath test.profile.json` and pass it to `ucli test run` with `--profilePath test.profile.json`.
+
 The command result includes `payload.artifactsDir` and `payload.summaryJsonPath`.
 Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
 
@@ -686,6 +796,7 @@ For bug reports, include:
 - Operating system
 - The command you ran
 - `--mode` and `--readIndexMode` values, when relevant
+- For `ucli test run` failures, `payload.artifactsDir` or `payload.summaryJsonPath` when available
 - Error output or logs from `ucli logs unity` / `ucli logs daemon`
 
 Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and README improvements.
