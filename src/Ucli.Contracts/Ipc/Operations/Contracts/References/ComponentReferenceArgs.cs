@@ -3,10 +3,10 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 [UcliDescription("Component reference accepted by component operations.")]
-[UcliRequiredPropertyAlternative(UcliOperationContractPropertyNames.Alias)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.GlobalObjectId)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath, IpcResolveSelectorPropertyNames.ComponentType)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.Prefab, IpcResolveSelectorPropertyNames.HierarchyPath, IpcResolveSelectorPropertyNames.ComponentType)]
+[UcliExclusiveRequiredPropertySet(UcliOperationContractPropertyNames.Alias)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.GlobalObjectId)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath, IpcResolveSelectorPropertyNames.ComponentType)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.Prefab, IpcResolveSelectorPropertyNames.HierarchyPath, IpcResolveSelectorPropertyNames.ComponentType)]
 public sealed record ComponentReferenceArgs
 {
     [JsonConstructor]

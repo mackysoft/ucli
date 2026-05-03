@@ -2,14 +2,14 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Declares one property set in an exclusive required-property group. </summary>
+/// <summary> Declares one required property set in an exclusive structural group. </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true)]
-public sealed class UcliRequiredPropertyAlternativeAttribute : Attribute
+public sealed class UcliExclusiveRequiredPropertySetAttribute : Attribute
 {
-    /// <summary> Initializes a new instance of the <see cref="UcliRequiredPropertyAlternativeAttribute" /> class. </summary>
-    /// <param name="propertyNames"> The property names that must be present for this alternative to match. </param>
+    /// <summary> Initializes a new instance of the <see cref="UcliExclusiveRequiredPropertySetAttribute" /> class. </summary>
+    /// <param name="propertyNames"> The property names that must be present for this required property set to match. </param>
     /// <exception cref="ArgumentException"> Thrown when no valid property name is supplied. </exception>
-    public UcliRequiredPropertyAlternativeAttribute (params string[] propertyNames)
+    public UcliExclusiveRequiredPropertySetAttribute (params string[] propertyNames)
     {
         if (propertyNames == null || propertyNames.Length == 0)
         {
@@ -27,6 +27,6 @@ public sealed class UcliRequiredPropertyAlternativeAttribute : Attribute
         RequiredPropertyNames = propertyNames;
     }
 
-    /// <summary> Gets the property names that must be present for this alternative to match. </summary>
+    /// <summary> Gets the property names that must be present for this required property set to match. </summary>
     public string[] RequiredPropertyNames { get; }
 }

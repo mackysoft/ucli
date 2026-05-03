@@ -3,11 +3,11 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 [UcliDescription("Asset reference accepted by asset operations.")]
-[UcliRequiredPropertyAlternative(UcliOperationContractPropertyNames.Alias)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.GlobalObjectId)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.AssetGuid)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.AssetPath)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.ProjectAssetPath)]
+[UcliExclusiveRequiredPropertySet(UcliOperationContractPropertyNames.Alias)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.GlobalObjectId)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.AssetGuid)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.AssetPath)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.ProjectAssetPath)]
 public sealed record AssetReferenceArgs
 {
     [JsonConstructor]

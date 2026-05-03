@@ -2,15 +2,15 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Declares properties that must be present when a trigger property is present. </summary>
+/// <summary> Declares properties required when a trigger property is present. </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true)]
-public sealed class UcliPropertyDependencyAttribute : Attribute
+public sealed class UcliPropertyRequiresAttribute : Attribute
 {
-    /// <summary> Initializes a new instance of the <see cref="UcliPropertyDependencyAttribute" /> class. </summary>
-    /// <param name="triggerPropertyName"> The property name that activates this dependency. </param>
+    /// <summary> Initializes a new instance of the <see cref="UcliPropertyRequiresAttribute" /> class. </summary>
+    /// <param name="triggerPropertyName"> The property name that activates this requirement. </param>
     /// <param name="requiredPropertyNames"> The property names required when the trigger property is present. </param>
     /// <exception cref="ArgumentException"> Thrown when one property name is invalid. </exception>
-    public UcliPropertyDependencyAttribute (
+    public UcliPropertyRequiresAttribute (
         string triggerPropertyName,
         params string[] requiredPropertyNames)
     {
@@ -36,7 +36,7 @@ public sealed class UcliPropertyDependencyAttribute : Attribute
         RequiredPropertyNames = requiredPropertyNames;
     }
 
-    /// <summary> Gets the property name that activates this dependency. </summary>
+    /// <summary> Gets the property name that activates this requirement. </summary>
     public string TriggerPropertyName { get; }
 
     /// <summary> Gets the property names required when the trigger property is present. </summary>

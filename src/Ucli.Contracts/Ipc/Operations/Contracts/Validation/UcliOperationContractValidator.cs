@@ -97,13 +97,13 @@ public static class UcliOperationContractValidator
             }
         }
 
-        if (!TryValidateRequiredPropertyAlternatives(value, contractType, path, out errorMessage))
+        if (!TryValidateExclusiveRequiredPropertySets(value, contractType, path, out errorMessage))
         {
             visitedTypes.Remove(contractType);
             return false;
         }
 
-        if (!TryValidatePropertyDependencies(value, contractType, path, out errorMessage))
+        if (!TryValidatePropertyRequirements(value, contractType, path, out errorMessage))
         {
             visitedTypes.Remove(contractType);
             return false;
@@ -126,7 +126,7 @@ public static class UcliOperationContractValidator
             return true;
         }
 
-        if (property.GetCustomAttribute<UcliSchemaAnyAttribute>() != null)
+        if (property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
         {
             return true;
         }
@@ -192,70 +192,70 @@ public static class UcliOperationContractValidator
         return true;
     }
 
-    private static bool TryValidateRequiredPropertyAlternatives (
+    private static bool TryValidateExclusiveRequiredPropertySets (
         object value,
         Type contractType,
         string path,
         out string errorMessage)
     {
-        var alternatives = contractType.GetCustomAttributes<UcliRequiredPropertyAlternativeAttribute>().ToArray();
-        if (alternatives.Length == 0)
+        var requiredPropertySets = contractType.GetCustomAttributes<UcliExclusiveRequiredPropertySetAttribute>().ToArray();
+        if (requiredPropertySets.Length == 0)
         {
             errorMessage = string.Empty;
             return true;
         }
 
         var matchCount = 0;
-        UcliRequiredPropertyAlternativeAttribute? matchedAlternative = null;
-        for (var i = 0; i < alternatives.Length; i++)
+        UcliExclusiveRequiredPropertySetAttribute? matchedRequiredPropertySet = null;
+        for (var i = 0; i < requiredPropertySets.Length; i++)
         {
-            if (IsAlternativeMatched(value, contractType, alternatives[i].RequiredPropertyNames))
+            if (IsRequiredPropertySetMatched(value, contractType, requiredPropertySets[i].RequiredPropertyNames))
             {
                 matchCount++;
-                matchedAlternative = alternatives[i];
+                matchedRequiredPropertySet = requiredPropertySets[i];
             }
         }
 
         if (matchCount == 1)
         {
-            return TryValidateAlternativePropertyExclusivity(
+            return TryValidateExclusiveRequiredPropertySetFields(
                 value,
                 contractType,
-                matchedAlternative!,
-                alternatives,
+                matchedRequiredPropertySet!,
+                requiredPropertySets,
                 path,
                 out errorMessage);
         }
 
-        errorMessage = $"Operation '{path}' must match exactly one required-property alternative.";
+        errorMessage = $"Operation '{path}' must match exactly one exclusive required property set.";
         return false;
     }
 
-    private static bool TryValidateAlternativePropertyExclusivity (
+    private static bool TryValidateExclusiveRequiredPropertySetFields (
         object value,
         Type contractType,
-        UcliRequiredPropertyAlternativeAttribute matchedAlternative,
-        IReadOnlyList<UcliRequiredPropertyAlternativeAttribute> alternatives,
+        UcliExclusiveRequiredPropertySetAttribute matchedRequiredPropertySet,
+        IReadOnlyList<UcliExclusiveRequiredPropertySetAttribute> requiredPropertySets,
         string path,
         out string errorMessage)
     {
-        var allowedPropertyNames = new HashSet<string>(matchedAlternative.RequiredPropertyNames, StringComparer.Ordinal);
-        var alternativePropertyNames = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < alternatives.Count; i++)
+        var allowedPropertyNames = new HashSet<string>(matchedRequiredPropertySet.RequiredPropertyNames, StringComparer.Ordinal);
+        var exclusivePropertyNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < requiredPropertySets.Count; i++)
         {
-            var propertyNames = alternatives[i].RequiredPropertyNames;
+            var propertyNames = requiredPropertySets[i].RequiredPropertyNames;
             for (var j = 0; j < propertyNames.Length; j++)
             {
-                alternativePropertyNames.Add(propertyNames[j]);
+                exclusivePropertyNames.Add(propertyNames[j]);
             }
         }
 
-        foreach (var propertyName in alternativePropertyNames)
+        foreach (var propertyName in exclusivePropertyNames)
         {
             if (!allowedPropertyNames.Contains(propertyName)
                 && IsPropertyPresent(value, contractType, propertyName))
             {
-                errorMessage = $"Operation '{path}' must not mix required-property alternatives.";
+                errorMessage = $"Operation '{path}' must not mix exclusive required property sets.";
                 return false;
             }
         }
@@ -264,24 +264,24 @@ public static class UcliOperationContractValidator
         return true;
     }
 
-    private static bool TryValidatePropertyDependencies (
+    private static bool TryValidatePropertyRequirements (
         object value,
         Type contractType,
         string path,
         out string errorMessage)
     {
-        var dependencies = contractType.GetCustomAttributes<UcliPropertyDependencyAttribute>().ToArray();
-        for (var i = 0; i < dependencies.Length; i++)
+        var requirements = contractType.GetCustomAttributes<UcliPropertyRequiresAttribute>().ToArray();
+        for (var i = 0; i < requirements.Length; i++)
         {
-            var rule = dependencies[i];
+            var rule = requirements[i];
             if (!IsPropertyPresent(value, contractType, rule.TriggerPropertyName))
             {
                 continue;
             }
 
-            if (!IsAlternativeMatched(value, contractType, rule.RequiredPropertyNames))
+            if (!IsRequiredPropertySetMatched(value, contractType, rule.RequiredPropertyNames))
             {
-                errorMessage = $"Operation '{path}' requires dependent properties when '{rule.TriggerPropertyName}' is specified.";
+                errorMessage = $"Operation '{path}' requires properties when '{rule.TriggerPropertyName}' is specified.";
                 return false;
             }
         }
@@ -449,7 +449,7 @@ public static class UcliOperationContractValidator
         }
     }
 
-    private static bool IsAlternativeMatched (
+    private static bool IsRequiredPropertySetMatched (
         object value,
         Type contractType,
         IReadOnlyList<string> propertyNames)

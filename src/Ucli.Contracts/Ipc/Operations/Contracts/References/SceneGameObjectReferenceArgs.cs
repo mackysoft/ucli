@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 [UcliDescription("Scene GameObject reference accepted by prefab creation.")]
-[UcliRequiredPropertyAlternative(UcliOperationContractPropertyNames.Alias)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.GlobalObjectId)]
-[UcliRequiredPropertyAlternative(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
+[UcliExclusiveRequiredPropertySet(UcliOperationContractPropertyNames.Alias)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.GlobalObjectId)]
+[UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
 public sealed record SceneGameObjectReferenceArgs
 {
     [JsonConstructor]

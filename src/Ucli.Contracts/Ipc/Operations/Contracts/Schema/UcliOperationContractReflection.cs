@@ -13,8 +13,7 @@ internal static class UcliOperationContractReflection
             .Where(static property =>
                 property.GetMethod != null
                 && property.GetIndexParameters().Length == 0
-                && !IsAlwaysJsonIgnored(property)
-                && property.GetCustomAttribute<UcliSchemaIgnoreAttribute>() == null)
+                && !IsAlwaysJsonIgnored(property))
             .OrderBy(static property => property.MetadataToken)
             .ToArray();
     }

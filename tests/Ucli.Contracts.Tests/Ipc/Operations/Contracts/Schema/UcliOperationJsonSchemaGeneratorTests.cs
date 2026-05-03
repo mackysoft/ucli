@@ -151,7 +151,7 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
         [property: UcliDescription("Optional text omitted when absent.")]
         string? OptionalText,
 
-        [property: UcliSchemaAllowNull]
+        [property: UcliJsonAllowNull]
         [property: UcliDescription("Optional text emitted as null when explicitly unknown.")]
         string? ExplicitNullText);
 

@@ -12,6 +12,6 @@ public sealed record GameObjectComponentDescriptionResult
     }
 
     [UcliDescription("Component type name, or null when the component script is missing.")]
-    [UcliSchemaAllowNull]
+    [UcliJsonAllowNull]
     public string? TypeName { get; init; }
 }

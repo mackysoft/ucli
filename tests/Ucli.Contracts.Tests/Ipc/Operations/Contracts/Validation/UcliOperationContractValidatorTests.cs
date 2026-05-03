@@ -92,11 +92,11 @@ public sealed class UcliOperationContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidate_WhenExactlyOneRequiredPropertyAlternativeMatches_ReturnsTrue ()
+    public void TryValidate_WhenExactlyOneExclusiveRequiredPropertySetMatches_ReturnsTrue ()
     {
-        var args = new AlternativeArgs("Assets/Scenes/Main.unity", null);
+        var args = new RequiredPropertySetArgs("Assets/Scenes/Main.unity", null);
 
-        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(AlternativeArgs), out var errorMessage);
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(RequiredPropertySetArgs), out var errorMessage);
 
         Assert.True(isValid, errorMessage);
         Assert.Equal(string.Empty, errorMessage);
@@ -104,47 +104,47 @@ public sealed class UcliOperationContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidate_WhenRequiredPropertyAlternativesDoNotMatchExactlyOne_ReturnsFalse ()
+    public void TryValidate_WhenExclusiveRequiredPropertySetsDoNotMatchExactlyOne_ReturnsFalse ()
     {
-        var args = new AlternativeArgs("Assets/Scenes/Main.unity", "/Root");
+        var args = new RequiredPropertySetArgs("Assets/Scenes/Main.unity", "/Root");
 
-        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(AlternativeArgs), out var errorMessage);
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(RequiredPropertySetArgs), out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal("Operation 'args' must match exactly one required-property alternative.", errorMessage);
+        Assert.Equal("Operation 'args' must match exactly one exclusive required property set.", errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidate_WhenMatchedAlternativeIncludesExtraAlternativeProperty_ReturnsFalse ()
+    public void TryValidate_WhenMatchedRequiredPropertySetIncludesExtraExclusiveProperty_ReturnsFalse ()
     {
-        var args = new SelectorAlternativeArgs("gid", null, "Root");
+        var args = new SelectorRequiredPropertySetArgs("gid", null, "Root");
 
-        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(SelectorAlternativeArgs), out var errorMessage);
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(SelectorRequiredPropertySetArgs), out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal("Operation 'args' must not mix required-property alternatives.", errorMessage);
+        Assert.Equal("Operation 'args' must not mix exclusive required property sets.", errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidate_WhenTriggerPropertyIsPresentWithoutDependency_ReturnsFalse ()
+    public void TryValidate_WhenTriggerPropertyIsPresentWithoutRequiredProperties_ReturnsFalse ()
     {
-        var args = new DependencyArgs(null, null, "UnityEngine.Camera");
+        var args = new PropertyRequiresArgs(null, null, "UnityEngine.Camera");
 
-        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(DependencyArgs), out var errorMessage);
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(PropertyRequiresArgs), out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal("Operation 'args' requires dependent properties when 'componentType' is specified.", errorMessage);
+        Assert.Equal("Operation 'args' requires properties when 'componentType' is specified.", errorMessage);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryValidate_WhenTriggerPropertyDependencyIsPresent_ReturnsTrue ()
+    public void TryValidate_WhenTriggerPropertyRequirementsArePresent_ReturnsTrue ()
     {
-        var args = new DependencyArgs("Assets/Scenes/Main.unity", "Root", "UnityEngine.Transform");
+        var args = new PropertyRequiresArgs("Assets/Scenes/Main.unity", "Root", "UnityEngine.Transform");
 
-        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(DependencyArgs), out var errorMessage);
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(PropertyRequiresArgs), out var errorMessage);
 
         Assert.True(isValid, errorMessage);
         Assert.Equal(string.Empty, errorMessage);
@@ -187,7 +187,7 @@ public sealed class UcliOperationContractValidatorTests
         var isValid = UcliOperationContractValidator.TryValidate(args, typeof(ResolveSelectorArgs), out var errorMessage);
 
         Assert.False(isValid);
-        Assert.Equal("Operation 'args' requires dependent properties when 'componentType' is specified.", errorMessage);
+        Assert.Equal("Operation 'args' requires properties when 'componentType' is specified.", errorMessage);
     }
 
     private sealed record RequiredStringArgs (
@@ -219,18 +219,18 @@ public sealed class UcliOperationContractValidatorTests
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
         int Depth);
 
-    [UcliRequiredPropertyAlternative("scene")]
-    [UcliRequiredPropertyAlternative("parent")]
-    private sealed record AlternativeArgs (
+    [UcliExclusiveRequiredPropertySet("scene")]
+    [UcliExclusiveRequiredPropertySet("parent")]
+    private sealed record RequiredPropertySetArgs (
         [property: UcliDescription("Scene path.")]
         string? Scene,
 
         [property: UcliDescription("Parent hierarchy path.")]
         string? Parent);
 
-    [UcliRequiredPropertyAlternative("globalObjectId")]
-    [UcliRequiredPropertyAlternative("scene", "hierarchyPath")]
-    private sealed record SelectorAlternativeArgs (
+    [UcliExclusiveRequiredPropertySet("globalObjectId")]
+    [UcliExclusiveRequiredPropertySet("scene", "hierarchyPath")]
+    private sealed record SelectorRequiredPropertySetArgs (
         [property: UcliDescription("GlobalObjectId.")]
         string? GlobalObjectId,
 
@@ -240,8 +240,8 @@ public sealed class UcliOperationContractValidatorTests
         [property: UcliDescription("Hierarchy path.")]
         string? HierarchyPath);
 
-    [UcliPropertyDependency("componentType", "scene", "hierarchyPath")]
-    private sealed record DependencyArgs (
+    [UcliPropertyRequires("componentType", "scene", "hierarchyPath")]
+    private sealed record PropertyRequiresArgs (
         [property: UcliDescription("Scene path.")]
         string? Scene,
 

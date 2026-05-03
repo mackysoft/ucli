@@ -158,7 +158,7 @@ public static class UcliOperationJsonSchemaGenerator
         PropertyInfo property,
         SchemaGenerationContext context)
     {
-        if (property.GetCustomAttribute<UcliSchemaAnyAttribute>() != null)
+        if (property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
         {
             writer.WriteStartObject();
             writer.WriteEndObject();
@@ -170,7 +170,7 @@ public static class UcliOperationJsonSchemaGenerator
         var propertyType = property.PropertyType;
         var nullableUnderlyingType = Nullable.GetUnderlyingType(propertyType);
         var actualType = nullableUnderlyingType ?? propertyType;
-        var includeNull = nullableUnderlyingType != null || property.GetCustomAttribute<UcliSchemaAllowNullAttribute>() != null;
+        var includeNull = nullableUnderlyingType != null || property.GetCustomAttribute<UcliJsonAllowNullAttribute>() != null;
 
         if (TryWriteScalarType(writer, actualType, includeNull))
         {

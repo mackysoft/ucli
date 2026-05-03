@@ -78,16 +78,16 @@ public static class UcliOperationDescribeContractBuilder
         string prefix)
     {
         var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-        var alternatives = propertyType.GetCustomAttributes<UcliRequiredPropertyAlternativeAttribute>().ToArray();
-        if (alternatives.Length == 0)
+        var requiredPropertySets = propertyType.GetCustomAttributes<UcliExclusiveRequiredPropertySetAttribute>().ToArray();
+        if (requiredPropertySets.Length == 0)
         {
             return Array.Empty<UcliOperationInputVariantContract>();
         }
 
-        var variants = new UcliOperationInputVariantContract[alternatives.Length];
-        for (var i = 0; i < alternatives.Length; i++)
+        var variants = new UcliOperationInputVariantContract[requiredPropertySets.Length];
+        for (var i = 0; i < requiredPropertySets.Length; i++)
         {
-            variants[i] = CreateVariant(propertyType, alternatives[i], prefix);
+            variants[i] = CreateVariant(propertyType, requiredPropertySets[i], prefix);
         }
 
         return variants;
@@ -95,10 +95,10 @@ public static class UcliOperationDescribeContractBuilder
 
     private static UcliOperationInputVariantContract CreateVariant (
         Type contractType,
-        UcliRequiredPropertyAlternativeAttribute alternative,
+        UcliExclusiveRequiredPropertySetAttribute requiredPropertySet,
         string prefix)
     {
-        var fields = ResolveAlternativeFields(contractType, alternative.RequiredPropertyNames);
+        var fields = ResolveRequiredPropertySetFields(contractType, requiredPropertySet.RequiredPropertyNames);
         var argsPaths = new string[fields.Length];
         var constraints = new List<UcliOperationInputConstraintContract>();
         for (var i = 0; i < fields.Length; i++)
@@ -115,7 +115,7 @@ public static class UcliOperationDescribeContractBuilder
             constraints);
     }
 
-    private static PropertyInfo[] ResolveAlternativeFields (
+    private static PropertyInfo[] ResolveRequiredPropertySetFields (
         Type contractType,
         IReadOnlyList<string> requiredPropertyNames)
     {
@@ -126,7 +126,7 @@ public static class UcliOperationDescribeContractBuilder
             var requiredPropertyName = requiredPropertyNames[i];
             fields[i] = properties.FirstOrDefault(property =>
                     string.Equals(UcliOperationContractReflection.GetJsonPropertyName(property), requiredPropertyName, StringComparison.Ordinal))
-                ?? throw new InvalidOperationException($"Required-property alternative references unknown property '{requiredPropertyName}' on '{contractType.FullName}'.");
+                ?? throw new InvalidOperationException($"Exclusive required property set references unknown property '{requiredPropertyName}' on '{contractType.FullName}'.");
         }
 
         return fields;

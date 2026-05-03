@@ -36,6 +36,6 @@ public sealed record SceneQueryMatch
     public UnityHierarchyPath HierarchyPath { get; init; }
 
     [UcliDescription("Matched component type identifier for component matches.")]
-    [UcliSchemaAllowNull]
+    [UcliJsonAllowNull]
     public UnityComponentTypeId? ComponentType { get; init; }
 }

@@ -29,6 +29,6 @@ public sealed record SerializedObjectSetItemArgs
 
     [UcliRequired]
     [UcliDescription("JSON value assigned to the serialized property.")]
-    [UcliSchemaAny]
+    [UcliJsonAnyValue]
     public JsonElement Value { get; init; }
 }
