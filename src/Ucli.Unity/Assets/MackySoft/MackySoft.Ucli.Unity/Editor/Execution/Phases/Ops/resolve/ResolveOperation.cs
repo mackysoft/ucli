@@ -10,9 +10,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements selector resolution flow for the <c>ucli.resolve</c> operation. </summary>
     [UcliOperation]
-    internal sealed class ResolveOperation : TypedUcliOperation<UcliOperationContracts.ResolveSelectorArgs, IpcResolveOperationResult>
+    internal sealed class ResolveOperation : TypedUcliOperation<ResolveSelectorArgs, IpcResolveOperationResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.ResolveSelectorArgs, IpcResolveOperationResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ResolveSelectorArgs, IpcResolveOperationResult>(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.ResolveSelectorArgs args,
+            ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -58,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.ResolveSelectorArgs args,
+            ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -73,7 +73,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.ResolveSelectorArgs args,
+            ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> ExecuteResolve (
             NormalizedOperation operation,
-            UcliOperationContracts.ResolveSelectorArgs args,
+            ResolveSelectorArgs args,
             OperationExecutionContext executionContext,
             bool applied)
         {

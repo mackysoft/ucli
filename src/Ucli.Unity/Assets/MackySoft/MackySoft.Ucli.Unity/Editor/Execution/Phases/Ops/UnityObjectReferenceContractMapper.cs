@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     internal static class UnityObjectReferenceContractMapper
     {
         public static bool TryMap (
-            UcliOperationContracts.ResolveSelectorArgs args,
+            ResolveSelectorArgs args,
             out ResolveSelector selector,
             out string errorMessage)
         {
@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         public static bool TryMap (
-            UcliOperationContracts.GameObjectReferenceArgs args,
+            GameObjectReferenceArgs args,
             string propertyPath,
             out UnityObjectReference reference,
             out string errorMessage)
@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         public static bool TryMap (
-            UcliOperationContracts.SceneGameObjectReferenceArgs args,
+            SceneGameObjectReferenceArgs args,
             string propertyPath,
             out UnityObjectReference reference,
             out string errorMessage)
@@ -68,7 +68,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         public static bool TryMap (
-            UcliOperationContracts.ComponentReferenceArgs args,
+            ComponentReferenceArgs args,
             string propertyPath,
             out UnityObjectReference reference,
             out string errorMessage)
@@ -89,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         public static bool TryMap (
-            UcliOperationContracts.AssetReferenceArgs args,
+            AssetReferenceArgs args,
             string propertyPath,
             out UnityObjectReference reference,
             out string errorMessage)

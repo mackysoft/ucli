@@ -13,9 +13,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.reparent</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoReparentOperation : TypedUcliOperation<UcliOperationContracts.GoReparentArgs, UcliNoResult>
+    internal sealed class GoReparentOperation : TypedUcliOperation<GoReparentArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.GoReparentArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoReparentArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoReparent,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.GoReparentArgs args,
+            GoReparentArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -38,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.GoReparentArgs args,
+            GoReparentArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -110,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.GoReparentArgs args,
+            GoReparentArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -139,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidate (
             NormalizedOperation operation,
-            UcliOperationContracts.GoReparentArgs args,
+            GoReparentArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState state,

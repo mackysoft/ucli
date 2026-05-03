@@ -12,9 +12,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.set</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetSetOperation : TypedUcliOperation<UcliOperationContracts.AssetSetArgs, UcliNoResult>
+    internal sealed class AssetSetOperation : TypedUcliOperation<AssetSetArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.AssetSetArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetSet,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSetArgs args,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSetArgs args,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -101,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSetArgs args,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -176,7 +176,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveValidateTarget (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSetArgs args,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             out ValidatedTargetState validatedTargetState,
             out OperationPhaseStepResult? failure)
@@ -220,7 +220,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePlanBinding (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSetArgs args,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             out TargetBinding binding,
             out IReadOnlyList<SerializedPropertyAssignment>? sets,
@@ -265,7 +265,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveCallBinding (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSetArgs args,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             out TargetBinding binding,
             out IReadOnlyList<SerializedPropertyAssignment>? sets,

@@ -19,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private const string ValuePropertyName = "value";
 
         public static bool TryParse (
-            UcliOperationContracts.AssetSetArgs args,
+            AssetSetArgs args,
             out SerializedObjectSetArguments parsedArguments,
             out string errorMessage)
         {
@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         public static bool TryParse (
-            UcliOperationContracts.ComponentSetArgs args,
+            ComponentSetArgs args,
             out SerializedObjectSetArguments parsedArguments,
             out string errorMessage)
         {
@@ -132,7 +132,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryParseAssignments (
-            IReadOnlyList<UcliOperationContracts.SerializedObjectSetItemArgs> sourceAssignments,
+            IReadOnlyList<SerializedObjectSetItemArgs> sourceAssignments,
             out List<SerializedPropertyAssignment>? assignments,
             out string errorMessage)
         {

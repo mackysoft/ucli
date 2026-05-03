@@ -12,9 +12,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.prefab.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class PrefabCreateOperation : TypedUcliOperation<UcliOperationContracts.PrefabCreateArgs, UcliNoResult>
+    internal sealed class PrefabCreateOperation : TypedUcliOperation<PrefabCreateArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.PrefabCreateArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.PrefabCreateArgs args,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.PrefabCreateArgs args,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.PrefabCreateArgs args,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            UcliOperationContracts.PrefabCreateArgs args,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,

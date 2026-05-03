@@ -12,9 +12,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.save</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneSaveOperation : TypedUcliOperation<UcliOperationContracts.PathArgs, UcliNoResult>
+    internal sealed class SceneSaveOperation : TypedUcliOperation<PathArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.PathArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.SceneSave,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -137,7 +137,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
@@ -163,7 +163,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePlanValidationState (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)

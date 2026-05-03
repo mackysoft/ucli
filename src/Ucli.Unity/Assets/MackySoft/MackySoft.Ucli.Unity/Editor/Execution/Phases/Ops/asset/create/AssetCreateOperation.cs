@@ -13,9 +13,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetCreateOperation : TypedUcliOperation<UcliOperationContracts.AssetCreateArgs, UcliNoResult>
+    internal sealed class AssetCreateOperation : TypedUcliOperation<AssetCreateArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.AssetCreateArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetCreateArgs args,
+            AssetCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetCreateArgs args,
+            AssetCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetCreateArgs args,
+            AssetCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -160,7 +160,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidate (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetCreateArgs args,
+            AssetCreateArgs args,
             out Type? assetType,
             out string? assetPath,
             out OperationPhaseStepResult? failure)

@@ -111,7 +111,7 @@ public static class UcliOperationDescribeCatalog
                 Input("pathPrefix", StringValueType, "Optional project-relative asset path prefix.", Constraints(C.NonEmpty(), C.ProjectRelativePath())),
                 Input("nameContains", StringValueType, "Optional case-sensitive asset name substring.", Constraints(C.NonEmpty())),
             },
-            UcliOperationResultContract.One<UcliOperationContracts.AssetsFindResult>("Asset search result containing matching assets."),
+            UcliOperationResultContract.One<AssetsFindResult>("Asset search result containing matching assets."),
             Assurance(Array.Empty<string>(), false, false, Array.Empty<string>(), UcliOperationPlanModeValues.ObservesLiveUnity));
     }
 
@@ -165,7 +165,7 @@ public static class UcliOperationDescribeCatalog
         return Describe(
             "Returns a GameObject description including components and child hierarchy.",
             new[] { GameObjectReferenceInput(), DepthInput("Maximum child hierarchy depth to include.") },
-            UcliOperationResultContract.One<UcliOperationContracts.GameObjectDescriptionResult>("GameObject description with components and child objects."),
+            UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description with components and child objects."),
             Assurance(Array.Empty<string>(), false, false, Array.Empty<string>(), UcliOperationPlanModeValues.ObservesLiveUnity));
     }
 
@@ -242,7 +242,7 @@ public static class UcliOperationDescribeCatalog
                 Input("pathPrefix", StringValueType, "Optional hierarchy path prefix filter.", Constraints(C.NonEmpty(), C.HierarchyPath())),
                 Input("componentType", StringValueType, "Optional component type identifier filter.", Constraints(C.TypeAssignableTo(TypeKindComponent))),
             },
-            UcliOperationResultContract.One<UcliOperationContracts.SceneQueryResult>("Scene query result containing matching objects or components."),
+            UcliOperationResultContract.One<SceneQueryResult>("Scene query result containing matching objects or components."),
             Assurance(Array.Empty<string>(), false, false, new[] { IpcExecuteTouchedResourceKindNames.Scene }, UcliOperationPlanModeValues.ObservesLiveUnity));
     }
 
@@ -260,7 +260,7 @@ public static class UcliOperationDescribeCatalog
         return Describe(
             "Returns the hierarchy tree for a Unity scene.",
             new[] { ScenePathInput("path", "Scene asset path to inspect."), DepthInput("Maximum hierarchy depth to include.") },
-            UcliOperationResultContract.One<UcliOperationContracts.SceneTreeResult>("Scene hierarchy tree result."),
+            UcliOperationResultContract.One<SceneTreeResult>("Scene hierarchy tree result."),
             Assurance(Array.Empty<string>(), false, false, new[] { IpcExecuteTouchedResourceKindNames.Scene }, UcliOperationPlanModeValues.ObservesLiveUnity));
     }
 

@@ -12,9 +12,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.query</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneQueryOperation : TypedUcliOperation<UcliOperationContracts.SceneQueryArgs, UcliOperationContracts.SceneQueryResult>
+    internal sealed class SceneQueryOperation : TypedUcliOperation<SceneQueryArgs, SceneQueryResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.SceneQueryArgs, UcliOperationContracts.SceneQueryResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneQueryArgs, SceneQueryResult>(
             operationName: UcliPrimitiveOperationNames.SceneQuery,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneQueryArgs args,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneQueryArgs args,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneQueryArgs args,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -57,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneQueryArgs args,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
             bool applied)
         {
@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
             }
 
-            var payload = new UcliOperationContracts.SceneQueryResult(
+            var payload = new SceneQueryResult(
                 scene: scenePath,
                 matches: CreatePayloadMatches(matches));
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -92,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidate (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneQueryArgs args,
+            SceneQueryArgs args,
             out string scenePath,
             out SceneQuerySelectionEngine.QueryArguments queryArguments,
             out OperationPhaseStepResult? failure)
@@ -117,13 +117,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        private static IReadOnlyList<UcliOperationContracts.SceneQueryMatch> CreatePayloadMatches (
+        private static IReadOnlyList<SceneQueryMatch> CreatePayloadMatches (
             IReadOnlyList<SceneQuerySelectionEngine.QueryMatch> matches)
         {
-            var payloadMatches = new UcliOperationContracts.SceneQueryMatch[matches.Count];
+            var payloadMatches = new SceneQueryMatch[matches.Count];
             for (var i = 0; i < matches.Count; i++)
             {
-                payloadMatches[i] = new UcliOperationContracts.SceneQueryMatch(
+                payloadMatches[i] = new SceneQueryMatch(
                     kind: matches[i].TargetKind == IpcEditTargetKind.Component ? "component" : "gameObject",
                     hierarchyPath: matches[i].HierarchyPath,
                     componentType: matches[i].ComponentType);

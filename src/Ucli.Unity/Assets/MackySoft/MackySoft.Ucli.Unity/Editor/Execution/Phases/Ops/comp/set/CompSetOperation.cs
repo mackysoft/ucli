@@ -13,9 +13,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.comp.set</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompSetOperation : TypedUcliOperation<UcliOperationContracts.ComponentSetArgs, UcliNoResult>
+    internal sealed class CompSetOperation : TypedUcliOperation<ComponentSetArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.ComponentSetArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.CompSet,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.ComponentSetArgs args,
+            ComponentSetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -38,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.ComponentSetArgs args,
+            ComponentSetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.ComponentSetArgs args,
+            ComponentSetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -155,7 +155,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveValidateTarget (
             NormalizedOperation operation,
-            UcliOperationContracts.ComponentSetArgs args,
+            ComponentSetArgs args,
             OperationExecutionContext executionContext,
             out ValidatedTargetState validatedTargetState,
             out OperationPhaseStepResult? failure)
@@ -185,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePlanBinding (
             NormalizedOperation operation,
-            UcliOperationContracts.ComponentSetArgs args,
+            ComponentSetArgs args,
             OperationExecutionContext executionContext,
             out ResolvedBindingState bindingState,
             out OperationPhaseStepResult? failure)
@@ -256,7 +256,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveCallBinding (
             NormalizedOperation operation,
-            UcliOperationContracts.ComponentSetArgs args,
+            ComponentSetArgs args,
             OperationExecutionContext executionContext,
             out ResolvedBindingState bindingState,
             out OperationPhaseStepResult? failure)

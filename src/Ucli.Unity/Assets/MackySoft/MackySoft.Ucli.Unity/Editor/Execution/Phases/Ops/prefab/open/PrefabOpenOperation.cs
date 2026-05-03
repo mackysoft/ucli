@@ -12,9 +12,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.prefab.open</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class PrefabOpenOperation : TypedUcliOperation<UcliOperationContracts.PathArgs, UcliNoResult>
+    internal sealed class PrefabOpenOperation : TypedUcliOperation<PathArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.PathArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabOpen,
             kind: UcliOperationKind.Command,
             policy: OperationPolicy.Safe,
@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -85,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -131,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            UcliOperationContracts.PathArgs args,
+            PathArgs args,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {

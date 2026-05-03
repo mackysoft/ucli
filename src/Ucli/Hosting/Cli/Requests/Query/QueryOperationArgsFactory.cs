@@ -12,7 +12,7 @@ internal static class QueryOperationArgsFactory
         int? depth)
     {
         ArgumentNullException.ThrowIfNull(target);
-        return IpcPayloadCodec.SerializeToElement(new UcliOperationContracts.GoDescribeArgs(
+        return IpcPayloadCodec.SerializeToElement(new GoDescribeArgs(
             target: CreateGameObjectReference(target),
             depth: depth));
     }
@@ -21,14 +21,14 @@ internal static class QueryOperationArgsFactory
     public static JsonElement CreateCompSchema (string typeId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
-        return IpcPayloadCodec.SerializeToElement(new UcliOperationContracts.TypeArgs(typeId));
+        return IpcPayloadCodec.SerializeToElement(new TypeArgs(typeId));
     }
 
     /// <summary> Creates <c>ucli.asset.schema</c> args for a type selector. </summary>
     public static JsonElement CreateAssetSchemaType (string typeId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
-        return IpcPayloadCodec.SerializeToElement(new UcliOperationContracts.AssetSchemaArgs(
+        return IpcPayloadCodec.SerializeToElement(new AssetSchemaArgs(
             type: typeId,
             target: null));
     }
@@ -37,15 +37,15 @@ internal static class QueryOperationArgsFactory
     public static JsonElement CreateAssetSchemaTarget (IReadOnlyDictionary<string, string> target)
     {
         ArgumentNullException.ThrowIfNull(target);
-        return IpcPayloadCodec.SerializeToElement(new UcliOperationContracts.AssetSchemaArgs(
+        return IpcPayloadCodec.SerializeToElement(new AssetSchemaArgs(
             type: null,
             target: CreateAssetReference(target)));
     }
 
-    private static UcliOperationContracts.GameObjectReferenceArgs CreateGameObjectReference (
+    private static GameObjectReferenceArgs CreateGameObjectReference (
         IReadOnlyDictionary<string, string> target)
     {
-        return new UcliOperationContracts.GameObjectReferenceArgs(
+        return new GameObjectReferenceArgs(
             alias: null,
             globalObjectId: GetValueOrNull(target, "globalObjectId"),
             prefab: GetValueOrNull(target, "prefab"),
@@ -53,10 +53,10 @@ internal static class QueryOperationArgsFactory
             hierarchyPath: GetValueOrNull(target, "hierarchyPath"));
     }
 
-    private static UcliOperationContracts.AssetReferenceArgs CreateAssetReference (
+    private static AssetReferenceArgs CreateAssetReference (
         IReadOnlyDictionary<string, string> target)
     {
-        return new UcliOperationContracts.AssetReferenceArgs(
+        return new AssetReferenceArgs(
             alias: null,
             globalObjectId: GetValueOrNull(target, "globalObjectId"),
             assetGuid: GetValueOrNull(target, "assetGuid"),

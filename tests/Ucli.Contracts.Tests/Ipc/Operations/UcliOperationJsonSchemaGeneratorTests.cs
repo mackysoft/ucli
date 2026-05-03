@@ -36,7 +36,7 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
     [Trait("Size", "Small")]
     public void CreateArgsSchemaJson_WhenSelectorAttributesArePresent_DoesNotEmitCompositionKeywords ()
     {
-        var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(UcliOperationContracts.ResolveSelectorArgs));
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(ResolveSelectorArgs));
 
         using var document = JsonDocument.Parse(schemaJson);
         var root = document.RootElement;
@@ -59,7 +59,7 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
     [Trait("Size", "Small")]
     public void CreateResultSchemaJson_WhenResultContainsRecursiveArray_EmitsDefsAndRefs ()
     {
-        var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(UcliOperationContracts.SceneTreeResult));
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(SceneTreeResult));
 
         using var document = JsonDocument.Parse(schemaJson!);
         var root = document.RootElement;

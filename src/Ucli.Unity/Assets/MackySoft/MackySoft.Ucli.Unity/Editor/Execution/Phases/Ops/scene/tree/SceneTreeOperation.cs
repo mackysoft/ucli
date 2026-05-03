@@ -13,9 +13,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.tree</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneTreeOperation : TypedUcliOperation<UcliOperationContracts.SceneTreeArgs, UcliOperationContracts.SceneTreeResult>
+    internal sealed class SceneTreeOperation : TypedUcliOperation<SceneTreeArgs, SceneTreeResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.SceneTreeArgs, UcliOperationContracts.SceneTreeResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneTreeArgs, SceneTreeResult>(
             operationName: UcliPrimitiveOperationNames.SceneTree,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
@@ -28,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneTreeArgs args,
+            SceneTreeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneTreeArgs args,
+            SceneTreeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneTreeArgs args,
+            SceneTreeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -78,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneTreeArgs args,
+            SceneTreeArgs args,
             OperationExecutionContext executionContext,
             bool applied)
         {
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var tree = new UcliOperationContracts.SceneTreeResult(
+            var tree = new SceneTreeResult(
                 validationState.ScenePath,
                 SceneTreeNodeSnapshotBuilder.BuildRoots(validationState.Scene, validationState.Depth, executionContext));
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            UcliOperationContracts.SceneTreeArgs args,
+            SceneTreeArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,

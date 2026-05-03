@@ -13,14 +13,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.schema</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetSchemaOperation : TypedUcliOperation<UcliOperationContracts.AssetSchemaArgs, IndexSchemaEntryJsonContract>
+    internal sealed class AssetSchemaOperation : TypedUcliOperation<AssetSchemaArgs, IndexSchemaEntryJsonContract>
     {
         private readonly AssetSchemaExtractor assetSchemaExtractor =
             new AssetSchemaExtractor(new IndexSchemaPropertyCollector());
 
         private readonly AssetTargetSchemaBuilder targetSchemaBuilder = new AssetTargetSchemaBuilder();
 
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.AssetSchemaArgs, IndexSchemaEntryJsonContract>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSchemaArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.AssetSchema,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
@@ -28,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSchemaArgs args,
+            AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override async Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSchemaArgs args,
+            AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -56,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override async Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSchemaArgs args,
+            AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -72,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private async Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSchemaArgs args,
+            AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             bool applied,
             bool allowTemporaryState,
@@ -110,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private bool TryValidate (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetSchemaArgs args,
+            AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,

@@ -13,9 +13,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.assets.find</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetsFindOperation : TypedUcliOperation<UcliOperationContracts.AssetsFindArgs, UcliOperationContracts.AssetsFindResult>
+    internal sealed class AssetsFindOperation : TypedUcliOperation<AssetsFindArgs, AssetsFindResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.AssetsFindArgs, UcliOperationContracts.AssetsFindResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetsFindArgs, AssetsFindResult>(
             operationName: UcliPrimitiveOperationNames.AssetsFind,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetsFindArgs args,
+            AssetsFindArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetsFindArgs args,
+            AssetsFindArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -45,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetsFindArgs args,
+            AssetsFindArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static OperationPhaseStepResult Execute (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetsFindArgs args,
+            AssetsFindArgs args,
             OperationExecutionContext executionContext,
             bool applied,
             bool includeTemporaryState)
@@ -68,10 +68,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var matches = includeTemporaryState
                 ? AssetsFindSearchEngine.SearchWithTemporaryState(validationState.Criteria, executionContext)
                 : AssetsFindSearchEngine.SearchLive(validationState.Criteria);
-            var payloadMatches = new UcliOperationContracts.AssetsFindMatch[matches.Count];
+            var payloadMatches = new AssetsFindMatch[matches.Count];
             for (var i = 0; i < matches.Count; i++)
             {
-                payloadMatches[i] = new UcliOperationContracts.AssetsFindMatch(
+                payloadMatches[i] = new AssetsFindMatch(
                     assetPath: matches[i].AssetPath,
                     assetGuid: matches[i].AssetGuid,
                     name: matches[i].Name,
@@ -81,12 +81,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(new UcliOperationContracts.AssetsFindResult(payloadMatches)));
+                result: IpcPayloadCodec.SerializeToElement(new AssetsFindResult(payloadMatches)));
         }
 
         private static bool TryValidate (
             NormalizedOperation operation,
-            UcliOperationContracts.AssetsFindArgs args,
+            AssetsFindArgs args,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {

@@ -19,22 +19,22 @@ namespace MackySoft.Ucli.Tests;
 
 internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvider
 {
-    private static readonly string ResolveArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.ResolveSelectorArgs));
-    private static readonly string ScenePathArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.PathArgs));
-    private static readonly string SceneTreeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.SceneTreeArgs));
-    private static readonly string GoCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.GoCreateArgs));
-    private static readonly string GoDescribeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.GoDescribeArgs));
-    private static readonly string SceneQueryArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.SceneQueryArgs));
-    private static readonly string ComponentEnsureArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.ComponentEnsureArgs));
-    private static readonly string ComponentSetArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.ComponentSetArgs));
-    private static readonly string GoDeleteArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.GoTargetArgs));
-    private static readonly string GoReparentArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.GoReparentArgs));
-    private static readonly string AssetCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.AssetCreateArgs));
-    private static readonly string AssetsFindArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.AssetsFindArgs));
-    private static readonly string AssetSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.AssetSchemaArgs));
-    private static readonly string CompSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.TypeArgs));
-    private static readonly string AssetSetArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.AssetSetArgs));
-    private static readonly string PrefabCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliOperationContracts.PrefabCreateArgs));
+    private static readonly string ResolveArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ResolveSelectorArgs));
+    private static readonly string ScenePathArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(PathArgs));
+    private static readonly string SceneTreeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(SceneTreeArgs));
+    private static readonly string GoCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoCreateArgs));
+    private static readonly string GoDescribeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoDescribeArgs));
+    private static readonly string SceneQueryArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(SceneQueryArgs));
+    private static readonly string ComponentEnsureArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ComponentEnsureArgs));
+    private static readonly string ComponentSetArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ComponentSetArgs));
+    private static readonly string GoDeleteArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoTargetArgs));
+    private static readonly string GoReparentArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoReparentArgs));
+    private static readonly string AssetCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetCreateArgs));
+    private static readonly string AssetsFindArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetsFindArgs));
+    private static readonly string AssetSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSchemaArgs));
+    private static readonly string CompSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(TypeArgs));
+    private static readonly string AssetSetArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSetArgs));
+    private static readonly string PrefabCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(PrefabCreateArgs));
     private static readonly string StrictEmptyObjectArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliEmptyArgs));
 
     private static readonly IReadOnlyList<UcliOperationDescriptor> Operations =
@@ -104,7 +104,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
                 writer.WriteStartObject();
                 foreach (var property in element.EnumerateObject())
                 {
-                    if (string.Equals(property.Name, UcliOperationContracts.AliasPropertyName, StringComparison.Ordinal))
+                    if (string.Equals(property.Name, UcliOperationContractPropertyNames.Alias, StringComparison.Ordinal))
                     {
                         continue;
                     }
@@ -121,7 +121,7 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
                 foreach (var item in element.EnumerateArray())
                 {
                     if (item.ValueKind == JsonValueKind.String
-                        && string.Equals(item.GetString(), UcliOperationContracts.AliasPropertyName, StringComparison.Ordinal))
+                        && string.Equals(item.GetString(), UcliOperationContractPropertyNames.Alias, StringComparison.Ordinal))
                     {
                         continue;
                     }

@@ -13,12 +13,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.comp.schema</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class CompSchemaOperation : TypedUcliOperation<UcliOperationContracts.TypeArgs, IndexSchemaEntryJsonContract>
+    internal sealed class CompSchemaOperation : TypedUcliOperation<TypeArgs, IndexSchemaEntryJsonContract>
     {
         private readonly ComponentSchemaExtractor schemaExtractor =
             new ComponentSchemaExtractor(new IndexSchemaPropertyCollector());
 
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.TypeArgs, IndexSchemaEntryJsonContract>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<TypeArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.CompSchema,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.TypeArgs args,
+            TypeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -41,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override async Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.TypeArgs args,
+            TypeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override async Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.TypeArgs args,
+            TypeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private async Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
-            UcliOperationContracts.TypeArgs args,
+            TypeArgs args,
             bool applied,
             CancellationToken cancellationToken)
         {
@@ -89,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            UcliOperationContracts.TypeArgs args,
+            TypeArgs args,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {

@@ -12,9 +12,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.delete</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoDeleteOperation : TypedUcliOperation<UcliOperationContracts.GoTargetArgs, UcliNoResult>
+    internal sealed class GoDeleteOperation : TypedUcliOperation<GoTargetArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.GoTargetArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoTargetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoDelete,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.GoTargetArgs args,
+            GoTargetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.GoTargetArgs args,
+            GoTargetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -86,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.GoTargetArgs args,
+            GoTargetArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -111,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidate (
             NormalizedOperation operation,
-            UcliOperationContracts.GoTargetArgs args,
+            GoTargetArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState state,

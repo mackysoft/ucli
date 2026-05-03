@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public static class IpcResolveSelectorArgsSchema
 {
     /// <summary> Gets the JSON schema text for <c>ucli.resolve</c> operation arguments. </summary>
-    public static string Json => UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(UcliOperationContracts.ResolveSelectorArgs));
+    public static string Json => UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(ResolveSelectorArgs));
 }

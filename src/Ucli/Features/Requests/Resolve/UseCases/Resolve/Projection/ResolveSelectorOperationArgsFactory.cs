@@ -13,7 +13,7 @@ internal static class ResolveSelectorOperationArgsFactory
 
         var args = selector switch
         {
-            ResolveGlobalObjectIdSelectorInput globalObjectId => new UcliOperationContracts.ResolveSelectorArgs(
+            ResolveGlobalObjectIdSelectorInput globalObjectId => new ResolveSelectorArgs(
                 globalObjectId: globalObjectId.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
@@ -22,7 +22,7 @@ internal static class ResolveSelectorOperationArgsFactory
                 prefab: null,
                 hierarchyPath: null,
                 componentType: null),
-            ResolveAssetGuidSelectorInput assetGuid => new UcliOperationContracts.ResolveSelectorArgs(
+            ResolveAssetGuidSelectorInput assetGuid => new ResolveSelectorArgs(
                 globalObjectId: null,
                 assetGuid: assetGuid.AssetGuid,
                 assetPath: null,
@@ -31,7 +31,7 @@ internal static class ResolveSelectorOperationArgsFactory
                 prefab: null,
                 hierarchyPath: null,
                 componentType: null),
-            ResolveAssetPathSelectorInput assetPath => new UcliOperationContracts.ResolveSelectorArgs(
+            ResolveAssetPathSelectorInput assetPath => new ResolveSelectorArgs(
                 globalObjectId: null,
                 assetGuid: null,
                 assetPath: assetPath.AssetPath,
@@ -40,7 +40,7 @@ internal static class ResolveSelectorOperationArgsFactory
                 prefab: null,
                 hierarchyPath: null,
                 componentType: null),
-            ResolveProjectAssetPathSelectorInput projectAssetPath => new UcliOperationContracts.ResolveSelectorArgs(
+            ResolveProjectAssetPathSelectorInput projectAssetPath => new ResolveSelectorArgs(
                 globalObjectId: null,
                 assetGuid: null,
                 assetPath: null,
@@ -49,7 +49,7 @@ internal static class ResolveSelectorOperationArgsFactory
                 prefab: null,
                 hierarchyPath: null,
                 componentType: null),
-            ResolveSceneHierarchySelectorInput sceneHierarchy => new UcliOperationContracts.ResolveSelectorArgs(
+            ResolveSceneHierarchySelectorInput sceneHierarchy => new ResolveSelectorArgs(
                 globalObjectId: null,
                 assetGuid: null,
                 assetPath: null,
@@ -58,7 +58,7 @@ internal static class ResolveSelectorOperationArgsFactory
                 prefab: null,
                 hierarchyPath: sceneHierarchy.HierarchyPath,
                 componentType: null),
-            ResolveSceneComponentSelectorInput sceneComponent => new UcliOperationContracts.ResolveSelectorArgs(
+            ResolveSceneComponentSelectorInput sceneComponent => new ResolveSelectorArgs(
                 globalObjectId: null,
                 assetGuid: null,
                 assetPath: null,
@@ -67,7 +67,7 @@ internal static class ResolveSelectorOperationArgsFactory
                 prefab: null,
                 hierarchyPath: sceneComponent.HierarchyPath,
                 componentType: sceneComponent.ComponentType),
-            ResolvePrefabHierarchySelectorInput prefabHierarchy => new UcliOperationContracts.ResolveSelectorArgs(
+            ResolvePrefabHierarchySelectorInput prefabHierarchy => new ResolveSelectorArgs(
                 globalObjectId: null,
                 assetGuid: null,
                 assetPath: null,

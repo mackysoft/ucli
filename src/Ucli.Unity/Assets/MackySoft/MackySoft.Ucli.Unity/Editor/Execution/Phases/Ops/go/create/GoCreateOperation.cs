@@ -13,9 +13,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoCreateOperation : TypedUcliOperation<UcliOperationContracts.GoCreateArgs, UcliNoResult>
+    internal sealed class GoCreateOperation : TypedUcliOperation<GoCreateArgs, UcliNoResult>
     {
-        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.GoCreateArgs, UcliNoResult>(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
@@ -28,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
-            UcliOperationContracts.GoCreateArgs args,
+            GoCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
-            UcliOperationContracts.GoCreateArgs args,
+            GoCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
-            UcliOperationContracts.GoCreateArgs args,
+            GoCreateArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
@@ -158,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
-            UcliOperationContracts.GoCreateArgs args,
+            GoCreateArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,
