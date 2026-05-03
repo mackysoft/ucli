@@ -129,6 +129,49 @@ If you manage `Assets/packages.config` directly, add:
 
 > **IMPORTANT:** Use a pinned `<version>` for both the CLI and Unity plugin in released automation.
 
+## 🚀 Quick Start
+
+Set the target Unity project once for your shell session:
+
+```bash
+export UCLI_PROJECT_PATH=./UnityProject
+```
+
+uCLI resolves the target project in this order:
+
+1. `--projectPath`
+2. `UCLI_PROJECT_PATH`
+3. command default, usually the current working directory
+
+If your shell is already in the Unity project root, you can omit both `UCLI_PROJECT_PATH` and `--projectPath` for most commands.
+
+Then confirm that uCLI can resolve the project:
+
+```bash
+ucli status
+```
+
+Inspect the installed operation catalog:
+
+```bash
+ucli ops list
+ucli ops describe ucli.scene.open
+```
+
+Read project state:
+
+```bash
+ucli query assets find --pathPrefix Assets --limit 10
+```
+
+For repeated local automation, start a daemon:
+
+```bash
+ucli daemon start
+```
+
+Use `--projectPath <path>` when a single command needs to override the environment value.
+
 ## 🧭 Compatibility and Stability
 
 - Pin `MackySoft.Ucli` and `MackySoft.Ucli.Unity` to compatible released versions and update them together.
@@ -150,13 +193,13 @@ ucli init
 Confirm that uCLI can resolve the target Unity project:
 
 ```bash
-ucli status --projectPath ./UnityProject
+ucli status
 ```
 
 Start a daemon when an interactive session or local automation will run several Unity-backed commands:
 
 ```bash
-ucli daemon start --projectPath ./UnityProject
+ucli daemon start
 ```
 
 > **NOTE:** For one-off local commands and CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when one is available and falls back to one-shot batchmode when it is not.
@@ -188,24 +231,20 @@ The request protocol does not change between these modes. Runtime choice is oper
 Use `ucli refresh` when Unity project state may be stale. It may trigger refresh or import work; query commands remain the read-only inspection path.
 
 ```bash
-ucli refresh --projectPath ./UnityProject
+ucli refresh
 
 ucli query assets find \
-  --projectPath ./UnityProject \
   --type "UnityEngine.Material, UnityEngine.CoreModule" \
   --limit 100
 
 ucli query scene tree \
-  --projectPath ./UnityProject \
   --path Assets/Scenes/Main.unity \
   --depth 1
 
 ucli query comp schema \
-  --projectPath ./UnityProject \
   --type "Game.EnemySpawner, Assembly-CSharp"
 
 ucli resolve \
-  --projectPath ./UnityProject \
   --scene Assets/Scenes/Main.unity \
   --hierarchyPath Root/Enemies/Spawner \
   --componentType "Game.EnemySpawner, Assembly-CSharp"
@@ -228,8 +267,8 @@ For read-heavy workflows, `--readIndexMode` controls whether query-like commands
 The operation catalog is also available from the CLI:
 
 ```bash
-ucli ops list --projectPath ./UnityProject
-ucli ops describe ucli.scene.open --projectPath ./UnityProject
+ucli ops list
+ucli ops describe ucli.scene.open
 ```
 
 ## 🛠️ Applying Changes
@@ -276,7 +315,7 @@ REQUEST_JSON='{
   ]
 }'
 
-printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --withPlan
+printf '%s' "$REQUEST_JSON" | ucli call --withPlan
 ```
 
 This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, edits the `Game.EnemySpawner` component, and saves the scene through `commit: "context"`.
@@ -284,11 +323,11 @@ This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, e
 Use `validate -> plan -> call --planToken` when a human review step, CI gate, or agent supervisor must inspect the plan before mutation:
 
 ```bash
-printf '%s' "$REQUEST_JSON" | ucli validate --projectPath ./UnityProject
-PLAN_JSON="$(printf '%s' "$REQUEST_JSON" | ucli plan --projectPath ./UnityProject)"
+printf '%s' "$REQUEST_JSON" | ucli validate
+PLAN_JSON="$(printf '%s' "$REQUEST_JSON" | ucli plan)"
 
 PLAN_TOKEN="$(printf '%s' "$PLAN_JSON" | jq -r '.payload.planToken')"
-printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken "$PLAN_TOKEN"
+printf '%s' "$REQUEST_JSON" | ucli call --planToken "$PLAN_TOKEN"
 ```
 
 `validate` checks request shape and static constraints. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
@@ -553,8 +592,8 @@ Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
 The installed Unity plugin exposes its primitive operation catalog at runtime.
 
 ```bash
-ucli ops list --projectPath ./UnityProject
-ucli ops describe ucli.comp.set --projectPath ./UnityProject
+ucli ops list
+ucli ops describe ucli.comp.set
 ```
 
 Use `ops describe` as the source of truth for:
@@ -593,7 +632,6 @@ Run Unity tests after applying edits:
 
 ```bash
 ucli test run \
-  --projectPath ./UnityProject \
   --testPlatform editmode \
   --assemblyName MyGame.Tests.EditMode
 ```
@@ -612,14 +650,14 @@ Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/
 > **TIP:** When a command or test fails, read Unity and daemon logs before retrying:
 
 ```bash
-ucli logs unity --projectPath ./UnityProject --tail 200 --level error
-ucli logs daemon --projectPath ./UnityProject --tail 200
+ucli logs unity --tail 200 --level error
+ucli logs daemon --tail 200
 ```
 
 Stop the daemon at the end of an interactive automation session:
 
 ```bash
-ucli daemon stop --projectPath ./UnityProject
+ucli daemon stop
 ```
 
 ## 🧰 Command Guide
@@ -643,7 +681,7 @@ Common options:
 
 | Option | Applies to | Meaning |
 | --- | --- | --- |
-| `--projectPath <path>` | Unity-backed commands | Target Unity project path. |
+| `--projectPath <path>` | Unity-backed commands | Target Unity project path. Overrides `UCLI_PROJECT_PATH` and current-directory resolution. |
 | `--mode auto\|daemon\|oneshot` | Unity-backed commands | Choose daemon reuse or one-shot batchmode. |
 | `--timeout <milliseconds>` | Unity-backed commands | Override the command timeout. |
 | `--readIndexMode disabled\|allowStale\|requireFresh` | Query-like commands | Control read-index use. |
