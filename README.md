@@ -40,18 +40,18 @@ uCLI is built around the review boundary: an automated Unity change should be in
 | Editor readiness | Whether Unity can accept the request now. | Lifecycle states are surfaced; execution waits or fails with structured errors. |
 | Reviewed plan drift | Whether Unity state still matches the reviewed plan. | `planToken` validates request and state before `call`. |
 | Project and worktree identity | Which project owns local state, indexes, artifacts, and writer exclusion. | Local state is scoped by `projectFingerprint`. |
-| Timeout recovery | Whether a retry is safe after timeout or disconnect. | `opResults`, touched units, and logs remain part of the result contract. |
+| Timeout recovery | Whether a retry is safe after timeout or disconnect. | Timeout is not proof of no-op; inspect returned results when available and logs before retrying. |
 | Persistence | Whether a mutation also saved project data. | `commit` makes save boundaries explicit. |
 | Evidence | What changed, what was touched, and where diagnostics live. | JSON envelopes, logs, and test artifacts are first-class outputs. |
-| Operation discovery | Which operation contract is installed for this project. | `ops describe` exposes the live operation kind, policy, and argument schema for the installed plugin. |
-| Read freshness | Whether indexed read data is advisory or authoritative. | readIndex accelerates reads, while `call` re-resolves against live Unity state. |
+| Operation discovery | Which operation contract is installed for this project. | `ops describe` exposes the installed operation's kind, policy, argument schema, and static constraints. |
+| Read freshness | Whether cached read data is fresh, stale, or advisory. | readIndex accelerates reads, while `call` re-resolves against live Unity state. |
 | Guarded execution | Which requests cross the normal edit boundary. | Dangerous operations are isolated and require explicit opt-in. |
 
-## 🧠 Design Guarantees
+## 🧠 Design Contracts
 
 uCLI is designed around assurance, not convenience-first automation.
 
-| Guarantee | uCLI contract |
+| Contract | What uCLI does |
 | --- | --- |
 | Unity remains the source of truth | Mutations go through Unity Editor APIs. |
 | Edits have context | Every edit declares a scene, prefab, asset, or project context. |
@@ -70,7 +70,7 @@ Use uCLI when you need to automate Unity from scripts, CI, or agents without los
 Agents should not hard-code operation arguments or guess Unity state from memory.
 
 - Discover available operations with `ucli ops list` and `ucli ops describe`.
-- Treat `ucli ops describe <operation>` as the runtime contract for operation kind, policy, and argument schema.
+- Treat `ucli ops describe <operation>` as the runtime contract for that operation's kind, policy, argument schema, and static constraints.
 - Inspect assets, scene trees, components, and serialized schemas before editing.
 - Build JSON requests with primitive `op` steps and higher-level `edit` steps.
 - Use `validate`, `plan`, and `call` to keep review and execution separate.
@@ -80,6 +80,7 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 - Run Unity in one-shot headless batchmode for isolated jobs.
 - Execute Unity Test Framework tests and collect normalized artifacts.
 - Parse one JSON result envelope from standard output for automation decisions.
+- Avoid log scraping by using structured result envelopes, exit codes, and test summaries.
 
 ### 🧰 For Local Tool Workflows
 
@@ -138,6 +139,14 @@ export UCLI_PROJECT_PATH=./UnityProject
 ```
 
 If your shell is already in the Unity project root, you can omit both `UCLI_PROJECT_PATH` and `--projectPath` for most commands.
+
+Create repository defaults when you want project-local configuration:
+
+```bash
+ucli init
+```
+
+This step is optional; the commands below can run with `UCLI_PROJECT_PATH` or current-directory resolution.
 
 Then confirm that uCLI can resolve the project:
 
@@ -592,10 +601,9 @@ ucli ops describe ucli.comp.set
 
 Use `ops describe` as the source of truth for:
 
-- operation kind
-- operation policy
-- argument schema
-- `readIndex` metadata
+- operation kind and policy
+- argument schema and static constraints
+- `readIndex` source and freshness metadata
 
 README examples show common operations only. The installed Unity plugin's operation catalog is the runtime contract.
 
