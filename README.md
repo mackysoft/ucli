@@ -139,6 +139,112 @@ ucli ops describe ucli.scene.open --projectPath ./UnityProject
 
 `ops describe` returns the agent-facing operation contract for one primitive operation. Agents should use `description`, `inputs[].constraints`, `resultContract`, and `assurance` to choose the operation, build `steps[].args`, and interpret results. Reusable operation values such as scene asset paths, prefab asset paths, hierarchy paths, GlobalObjectId strings, asset GUIDs, request-local aliases, and Unity type identifiers are modeled as semantic Args/Result value types in C#, while the IPC JSON remains primitive strings. Input descriptions and semantic constraints are generated from Args property attributes and those semantic value-type attributes. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
 
+## Authoring Custom Operations
+
+Custom operations are Unity Editor code. Put the implementation in an Editor assembly that references `MackySoft.Ucli.Unity`, and put reusable Args/Result contracts in a shared assembly when another tool should compile against them. If only the Unity-side implementation needs the CLR types, the public wire contract is still available through `ucli ops describe`.
+
+An operation has three parts:
+
+1. Define a typed Args contract and, when needed, a typed Result contract.
+2. Add descriptions and semantic constraints to Args properties or reusable semantic value types.
+3. Implement `UcliOperation<TArgs,TResult>` and mark the class with `[UcliOperation]`.
+
+Use `UcliNoResult` for operations that do not emit `opResults[].result`.
+
+```csharp
+using System;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.Requests;
+
+[UcliDescription("Arguments for counting GameObjects in a scene.")]
+public sealed record CountSceneObjectsArgs
+{
+    [JsonConstructor]
+    public CountSceneObjectsArgs (SceneAssetPath path)
+    {
+        Path = path;
+    }
+
+    [UcliRequired]
+    [UcliDescription("Scene asset path to inspect.")]
+    public SceneAssetPath Path { get; init; }
+}
+
+[UcliDescription("GameObject count result.")]
+public sealed record CountSceneObjectsResult
+{
+    [JsonConstructor]
+    public CountSceneObjectsResult (int count)
+    {
+        Count = count;
+    }
+
+    [UcliRequired]
+    [UcliDescription("Number of GameObjects found in the scene.")]
+    public int Count { get; init; }
+}
+
+[UcliOperation]
+internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjectsArgs, CountSceneObjectsResult>
+{
+    public override UcliOperationMetadata Metadata { get; } =
+        UcliOperationMetadata.Create<CountSceneObjectsArgs, CountSceneObjectsResult>(
+            operationName: "game.scene.countGameObjects",
+            kind: UcliOperationKind.Query,
+            policy: OperationPolicy.Safe,
+            description: "Counts GameObjects in a Unity scene.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                UcliOperationPlanMode.ObservesLiveUnity));
+
+    protected override Task<OperationPhaseStepResult> Validate (
+        NormalizedOperation operation,
+        CountSceneObjectsArgs args,
+        OperationExecutionContext executionContext,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(OperationPhaseStepResult.Success());
+    }
+
+    protected override Task<OperationPhaseStepResult> Plan (
+        NormalizedOperation operation,
+        CountSceneObjectsArgs args,
+        OperationExecutionContext executionContext,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: false, changed: false));
+    }
+
+    protected override Task<OperationPhaseStepResult> Call (
+        NormalizedOperation operation,
+        CountSceneObjectsArgs args,
+        OperationExecutionContext executionContext,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(SuccessWithResult(new CountSceneObjectsResult(0), applied: true, changed: false));
+    }
+}
+```
+
+The example leaves the Unity scene traversal out of the snippet so the contract shape is visible. In a real operation, keep Unity object resolution and mutation inside `Validate`, `Plan`, or `Call`, and keep `JsonElement` out of the operation body. Use existing semantic value types such as `SceneAssetPath`, `PrefabAssetPath`, `UnityHierarchyPath`, `UnityGlobalObjectId`, `UnityAssetGuid`, and `UnityTypeId` before introducing a new value type.
+
+After Unity recompiles the Editor assembly, confirm that the operation is discoverable and that its contract is usable by agents:
+
+```bash
+ucli ops describe game.scene.countGameObjects --projectPath ./UnityProject
+```
+
 ## Applying Changes
 
 Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.
