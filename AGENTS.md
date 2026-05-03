@@ -73,15 +73,15 @@ bash scripts/verify.sh
 Unity を含む変更
 ```bash
 bash scripts/test-unity.sh \
-  --project-path "src/Ucli.Unity" \
-  --assembly-name "MackySoft.Ucli.Unity.Tests.Editor"
+  --projectPath "src/Ucli.Unity" \
+  --assemblyName "MackySoft.Ucli.Unity.Tests.Editor"
 ```
 
 .NET と Unity の一括確認
 ```bash
 bash scripts/verify.sh --include-unity \
-  --project-path "src/Ucli.Unity" \
-  --assembly-name "MackySoft.Ucli.Unity.Tests.Editor"
+  --projectPath "src/Ucli.Unity" \
+  --assemblyName "MackySoft.Ucli.Unity.Tests.Editor"
 ```
 
 Unity Editor のインストールとライセンス有効化は実行環境の前提とし、スクリプト内では隠蔽しない。

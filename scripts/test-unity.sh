@@ -7,20 +7,20 @@ Usage:
   scripts/test-unity.sh [options]
 
 Options:
-  --repo-root <path>          Repository root. Defaults to git root.
-  --project-path <path>       Unity project root. Required unless UCLI_UNITY_PROJECT_PATH is set.
+  --repoRoot <path>           Repository root. Defaults to git root.
+  --projectPath <path>        Unity project root. Required unless UCLI_UNITY_PROJECT_PATH is set.
   --mode <mode>               ucli execution mode. Defaults to oneshot.
-  --unity-editor-path <path>  Unity editor executable or directory path.
-  --test-platform <value>     Unity test platform. Defaults to editmode.
-  --assembly-name <value>     Comma-separated assembly names. Required unless UCLI_UNITY_TEST_ASSEMBLY is set.
-  --test-filter <value>       Test name filter pattern.
-  --test-category <value>     Comma-separated test categories.
-  --test-settings-path <path> TestSettings.json path.
+  --unityEditorPath <path>    Unity editor executable or directory path.
+  --testPlatform <value>      Unity test platform. Defaults to editmode.
+  --assemblyName <value>      Comma-separated assembly names. Required unless UCLI_UNITY_TEST_ASSEMBLY is set.
+  --testFilter <value>        Test name filter pattern.
+  --testCategory <value>      Comma-separated test categories.
+  --testSettingsPath <path>   TestSettings.json path.
   --timeout <milliseconds>    Test timeout. Defaults to 1800000.
   --configuration <name>      .NET build configuration. Defaults to Release.
-  --result-dir <path>         Output directory. Defaults to artifacts/unity/local.
-  --no-restore                Skip dotnet restore for the ucli project build.
-  --no-prune                  Do not prune restored Unity package assets.
+  --resultDir <path>          Output directory. Defaults to artifacts/unity/local.
+  --noRestore                 Skip dotnet restore for the ucli project build.
+  --noPrune                   Do not prune restored Unity package assets.
 EOF
 }
 
@@ -41,22 +41,22 @@ prune=true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --repo-root)
+    --repoRoot|--repo-root)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       repository_root="$2"
       shift 2
       ;;
-    --repo-root=*)
-      repository_root="${1#--repo-root=}"
+    --repoRoot=*|--repo-root=*)
+      repository_root="${1#*=}"
       shift
       ;;
-    --project-path)
+    --projectPath|--project-path)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       project_path="$2"
       shift 2
       ;;
-    --project-path=*)
-      project_path="${1#--project-path=}"
+    --projectPath=*|--project-path=*)
+      project_path="${1#*=}"
       shift
       ;;
     --mode)
@@ -68,58 +68,58 @@ while [[ $# -gt 0 ]]; do
       execution_mode="${1#--mode=}"
       shift
       ;;
-    --unity-editor-path)
+    --unityEditorPath|--unity-editor-path)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       unity_editor_path="$2"
       shift 2
       ;;
-    --unity-editor-path=*)
-      unity_editor_path="${1#--unity-editor-path=}"
+    --unityEditorPath=*|--unity-editor-path=*)
+      unity_editor_path="${1#*=}"
       shift
       ;;
-    --test-platform)
+    --testPlatform|--test-platform)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       test_platform="$2"
       shift 2
       ;;
-    --test-platform=*)
-      test_platform="${1#--test-platform=}"
+    --testPlatform=*|--test-platform=*)
+      test_platform="${1#*=}"
       shift
       ;;
-    --assembly-name)
+    --assemblyName|--assembly-name)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       assembly_name="$2"
       shift 2
       ;;
-    --assembly-name=*)
-      assembly_name="${1#--assembly-name=}"
+    --assemblyName=*|--assembly-name=*)
+      assembly_name="${1#*=}"
       shift
       ;;
-    --test-filter)
+    --testFilter|--test-filter)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       test_filter="$2"
       shift 2
       ;;
-    --test-filter=*)
-      test_filter="${1#--test-filter=}"
+    --testFilter=*|--test-filter=*)
+      test_filter="${1#*=}"
       shift
       ;;
-    --test-category)
+    --testCategory|--test-category)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       test_category="$2"
       shift 2
       ;;
-    --test-category=*)
-      test_category="${1#--test-category=}"
+    --testCategory=*|--test-category=*)
+      test_category="${1#*=}"
       shift
       ;;
-    --test-settings-path)
+    --testSettingsPath|--test-settings-path)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       test_settings_path="$2"
       shift 2
       ;;
-    --test-settings-path=*)
-      test_settings_path="${1#--test-settings-path=}"
+    --testSettingsPath=*|--test-settings-path=*)
+      test_settings_path="${1#*=}"
       shift
       ;;
     --timeout)
@@ -140,20 +140,20 @@ while [[ $# -gt 0 ]]; do
       configuration="${1#--configuration=}"
       shift
       ;;
-    --result-dir)
+    --resultDir|--result-dir)
       [[ $# -ge 2 ]] || { print_usage; exit 2; }
       result_dir="$2"
       shift 2
       ;;
-    --result-dir=*)
-      result_dir="${1#--result-dir=}"
+    --resultDir=*|--result-dir=*)
+      result_dir="${1#*=}"
       shift
       ;;
-    --no-restore)
+    --noRestore|--no-restore)
       restore=false
       shift
       ;;
-    --no-prune)
+    --noPrune|--no-prune)
       prune=false
       shift
       ;;
@@ -183,12 +183,12 @@ if [[ -z "${configuration}" ]]; then
 fi
 
 if [[ -z "${project_path}" ]]; then
-  echo "ERROR: --project-path or UCLI_UNITY_PROJECT_PATH is required." >&2
+  echo "ERROR: --projectPath or UCLI_UNITY_PROJECT_PATH is required." >&2
   exit 2
 fi
 
 if [[ -z "${assembly_name}" ]]; then
-  echo "ERROR: --assembly-name or UCLI_UNITY_TEST_ASSEMBLY is required." >&2
+  echo "ERROR: --assemblyName or UCLI_UNITY_TEST_ASSEMBLY is required." >&2
   exit 2
 fi
 
