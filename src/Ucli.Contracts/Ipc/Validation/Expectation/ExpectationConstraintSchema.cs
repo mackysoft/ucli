@@ -16,7 +16,7 @@ internal static class ExpectationConstraintSchema
 
     public const string MaxPropertyName = "max";
 
-    private static readonly HashSet<string> allowedProperties = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> AllowedPropertyNames = new(StringComparer.Ordinal)
     {
         NonNullPropertyName,
         CountPropertyName,
@@ -25,5 +25,5 @@ internal static class ExpectationConstraintSchema
     };
 
     /// <summary> Gets allowed property names for one <c>expect</c> object. </summary>
-    public static ISet<string> AllowedProperties => allowedProperties;
+    public static ISet<string> AllowedProperties => AllowedPropertyNames;
 }
