@@ -170,10 +170,23 @@ public static class UcliOperationDescribeContractBuilder
         var constraints = new UcliOperationInputConstraintContract[attributes.Length];
         for (var i = 0; i < attributes.Length; i++)
         {
-            constraints[i] = attributes[i].ToContract();
+            constraints[i] = CreateConstraint(attributes[i]);
         }
 
         return constraints;
+    }
+
+    private static UcliOperationInputConstraintContract CreateConstraint (UcliInputConstraintAttribute attribute)
+    {
+        return new UcliOperationInputConstraintContract(attribute.Kind)
+        {
+            AssetKind = attribute.AssetKind == UcliOperationAssetKind.Unspecified ? null : UcliOperationAssetKindCodec.ToValue(attribute.AssetKind),
+            TargetKind = attribute.TargetKind == UcliOperationReferenceTargetKind.Unspecified ? null : UcliOperationReferenceTargetKindCodec.ToValue(attribute.TargetKind),
+            TypeKind = attribute.TypeKind == UcliOperationTypeKind.Unspecified ? null : UcliOperationTypeKindCodec.ToValue(attribute.TypeKind),
+            Access = attribute.Access == UcliOperationSerializedPropertyAccess.Unspecified ? null : UcliOperationSerializedPropertyAccessCodec.ToValue(attribute.Access),
+            Min = double.IsNaN(attribute.Min) ? null : attribute.Min,
+            Max = double.IsNaN(attribute.Max) ? null : attribute.Max,
+        };
     }
 
     private static UcliOperationResultContract CreateResultContract (Type resultType)

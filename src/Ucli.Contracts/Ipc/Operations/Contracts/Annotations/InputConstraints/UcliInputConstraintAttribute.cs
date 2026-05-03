@@ -34,16 +34,4 @@ public sealed class UcliInputConstraintAttribute : Attribute
     /// <summary> Gets or sets the inclusive maximum range value. Omit by leaving this value as <see cref="double.NaN" />. </summary>
     public double Max { get; set; } = double.NaN;
 
-    internal UcliOperationInputConstraintContract ToContract ()
-    {
-        return new UcliOperationInputConstraintContract(Kind)
-        {
-            AssetKind = AssetKind == UcliOperationAssetKind.Unspecified ? null : UcliOperationAssetKindCodec.ToValue(AssetKind),
-            TargetKind = TargetKind == UcliOperationReferenceTargetKind.Unspecified ? null : UcliOperationReferenceTargetKindCodec.ToValue(TargetKind),
-            TypeKind = TypeKind == UcliOperationTypeKind.Unspecified ? null : UcliOperationTypeKindCodec.ToValue(TypeKind),
-            Access = Access == UcliOperationSerializedPropertyAccess.Unspecified ? null : UcliOperationSerializedPropertyAccessCodec.ToValue(Access),
-            Min = double.IsNaN(Min) ? null : Min,
-            Max = double.IsNaN(Max) ? null : Max,
-        };
-    }
 }
