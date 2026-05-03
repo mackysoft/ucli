@@ -20,6 +20,5 @@ public sealed record PrefabCreateArgs
 
     [UcliRequired]
     [UcliDescription("Prefab asset path to create.")]
-    [UcliMinLength(1)]
     public string Path { get; init; }
 }

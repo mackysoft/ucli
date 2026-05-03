@@ -17,7 +17,6 @@ public sealed record AssetSchemaArgs
     }
 
     [UcliDescription("Unity asset type identifier to inspect.")]
-    [UcliMinLength(1)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Type { get; init; }
 

@@ -20,6 +20,5 @@ public sealed record ComponentEnsureArgs
 
     [UcliRequired]
     [UcliDescription("Component type identifier to ensure.")]
-    [UcliMinLength(1)]
     public string Type { get; init; }
 }

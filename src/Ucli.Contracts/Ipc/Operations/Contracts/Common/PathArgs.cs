@@ -13,6 +13,5 @@ public sealed record PathArgs
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path.")]
-    [UcliMinLength(1)]
     public string Path { get; init; }
 }

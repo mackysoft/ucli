@@ -16,11 +16,9 @@ public sealed record AssetCreateArgs
 
     [UcliRequired]
     [UcliDescription("Unity asset type identifier to create.")]
-    [UcliMinLength(1)]
     public string Type { get; init; }
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path to create.")]
-    [UcliMinLength(1)]
     public string Path { get; init; }
 }

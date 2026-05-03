@@ -116,6 +116,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
+            if (args.Depth < 0)
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Operation 'args.depth' must be greater than or equal to 0.");
+                return false;
+            }
+
             var scenePath = args.Path;
             if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {

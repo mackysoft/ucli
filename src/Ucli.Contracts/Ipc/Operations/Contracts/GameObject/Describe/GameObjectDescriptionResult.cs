@@ -20,12 +20,10 @@ public sealed record GameObjectDescriptionResult
 
     [UcliRequired]
     [UcliDescription("GameObject name.")]
-    [UcliMinLength(1)]
     public string Name { get; init; }
 
     [UcliRequired]
     [UcliDescription("GameObject GlobalObjectId.")]
-    [UcliMinLength(1)]
     public string GlobalObjectId { get; init; }
 
     [UcliRequired]

@@ -20,6 +20,5 @@ public sealed record AssetSetArgs
 
     [UcliRequired]
     [UcliDescription("Serialized property assignments.")]
-    [UcliMinItems(1)]
     public IReadOnlyList<SerializedObjectSetItemArgs> Sets { get; init; }
 }

@@ -26,28 +26,23 @@ public sealed record AssetReferenceArgs
     }
 
     [UcliDescription("Temporary plan alias produced earlier in the same request.")]
-    [UcliMinLength(1)]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Alias { get; init; }
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
-    [UcliMinLength(1)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GlobalObjectId { get; init; }
 
     [UcliDescription("Asset GUID selector.")]
-    [UcliMinLength(1)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AssetGuid { get; init; }
 
     [UcliDescription("Asset path selector under the Unity project.")]
-    [UcliMinLength(1)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AssetPath { get; init; }
 
     [UcliDescription("Project-scoped asset path selector.")]
-    [UcliMinLength(1)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ProjectAssetPath { get; init; }
 }

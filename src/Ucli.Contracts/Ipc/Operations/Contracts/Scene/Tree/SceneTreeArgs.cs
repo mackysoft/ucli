@@ -16,10 +16,8 @@ public sealed record SceneTreeArgs
 
     [UcliRequired]
     [UcliDescription("Scene asset path to inspect.")]
-    [UcliMinLength(1)]
     public string Path { get; init; }
 
     [UcliDescription("Maximum hierarchy depth to include; null means unbounded.")]
-    [UcliMinimum(0)]
     public int? Depth { get; init; }
 }

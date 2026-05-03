@@ -19,6 +19,5 @@ public sealed record GoDescribeArgs
     public GameObjectReferenceArgs Target { get; init; }
 
     [UcliDescription("Maximum child hierarchy depth to include; null means unbounded.")]
-    [UcliMinimum(0)]
     public int? Depth { get; init; }
 }

@@ -93,6 +93,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
+            if (string.IsNullOrWhiteSpace(args.Type)
+                && string.IsNullOrWhiteSpace(args.PathPrefix)
+                && string.IsNullOrWhiteSpace(args.NameContains))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Operation 'args' must specify at least one of 'type', 'pathPrefix', or 'nameContains'.");
+                return false;
+            }
+
             Type? typeFilter = null;
             if (args.Type != null)
             {
@@ -122,6 +132,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         $"Path prefix must be 'Assets' or one of its descendants. Actual: {normalizedPathPrefix}.");
                     return false;
                 }
+            }
+
+            if (args.NameContains != null && string.IsNullOrWhiteSpace(args.NameContains))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Operation 'args.nameContains' must not be empty or whitespace.");
+                return false;
             }
 
             validationState = new ValidationState(

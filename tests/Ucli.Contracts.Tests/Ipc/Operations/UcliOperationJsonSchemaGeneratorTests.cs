@@ -100,11 +100,9 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
     private sealed record SampleArgs (
         [property: UcliRequired]
         [property: UcliDescription("Stable sample name.")]
-        [property: UcliMinLength(1)]
         string Name,
 
         [property: UcliDescription("Optional sample count.")]
-        [property: UcliMinimum(0)]
         int? Count);
 
     private sealed record MissingDescriptionArgs (

@@ -20,21 +20,17 @@ public sealed record AssetsFindMatch
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path.")]
-    [UcliMinLength(1)]
     public string AssetPath { get; init; }
 
     [UcliRequired]
     [UcliDescription("Unity asset GUID.")]
-    [UcliMinLength(1)]
     public string AssetGuid { get; init; }
 
     [UcliRequired]
     [UcliDescription("Asset object name.")]
-    [UcliMinLength(1)]
     public string Name { get; init; }
 
     [UcliRequired]
     [UcliDescription("Asset type identifier.")]
-    [UcliMinLength(1)]
     public string TypeId { get; init; }
 }

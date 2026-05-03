@@ -13,6 +13,5 @@ public sealed record TypeArgs
 
     [UcliRequired]
     [UcliDescription("Assembly-qualified or otherwise resolvable Unity type identifier.")]
-    [UcliMinLength(1)]
     public string Type { get; init; }
 }

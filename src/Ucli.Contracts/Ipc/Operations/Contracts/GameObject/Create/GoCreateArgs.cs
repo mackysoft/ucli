@@ -20,11 +20,9 @@ public sealed record GoCreateArgs
 
     [UcliRequired]
     [UcliDescription("Name assigned to the created GameObject.")]
-    [UcliMinLength(1)]
     public string Name { get; init; }
 
     [UcliDescription("Scene asset path that receives the new root GameObject.")]
-    [UcliMinLength(1)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Scene { get; init; }
 

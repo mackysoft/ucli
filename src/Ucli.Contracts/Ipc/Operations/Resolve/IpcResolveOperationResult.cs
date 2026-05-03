@@ -20,6 +20,5 @@ public sealed record IpcResolveOperationResult
     /// <summary> Gets the resolved GlobalObjectId string. </summary>
     [UcliRequired]
     [UcliDescription("Resolved Unity GlobalObjectId.")]
-    [UcliMinLength(1)]
     public string GlobalObjectId { get; init; }
 }

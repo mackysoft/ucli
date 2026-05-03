@@ -16,7 +16,6 @@ public sealed record SceneQueryResult
 
     [UcliRequired]
     [UcliDescription("Scene asset path that was queried.")]
-    [UcliMinLength(1)]
     public string Scene { get; init; }
 
     [UcliRequired]

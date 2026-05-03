@@ -17,7 +17,6 @@ public sealed record SerializedObjectSetItemArgs
 
     [UcliRequired]
     [UcliDescription("SerializedProperty path to assign.")]
-    [UcliMinLength(1)]
     public string Path { get; init; }
 
     [UcliRequired]

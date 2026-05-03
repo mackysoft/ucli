@@ -17,7 +17,6 @@ public sealed record SceneTreeResult
 
     [UcliRequired]
     [UcliDescription("Scene asset path that was described.")]
-    [UcliMinLength(1)]
     public string Path { get; init; }
 
     [UcliRequired]

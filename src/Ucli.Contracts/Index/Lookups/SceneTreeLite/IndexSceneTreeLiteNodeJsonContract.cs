@@ -21,13 +21,11 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
     /// <summary> Gets the GameObject name. </summary>
     [UcliRequired]
     [UcliDescription("GameObject name.")]
-    [UcliMinLength(1)]
     public string? Name { get; init; }
 
     /// <summary> Gets the resolved GlobalObjectId, or an empty string when unavailable. </summary>
     [UcliRequired]
     [UcliDescription("Resolved Unity GlobalObjectId.")]
-    [UcliMinLength(1)]
     public string? GlobalObjectId { get; init; }
 
     /// <summary> Gets the child nodes in hierarchy order. </summary>

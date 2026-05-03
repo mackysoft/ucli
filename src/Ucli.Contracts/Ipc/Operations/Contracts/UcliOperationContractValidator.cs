@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Validates deserialized operation contract objects against uCLI schema attributes. </summary>
+/// <summary> Validates deserialized operation contract objects against structural uCLI contract attributes. </summary>
 public static class UcliOperationContractValidator
 {
     private static readonly Type StringType = typeof(string);
@@ -14,7 +14,7 @@ public static class UcliOperationContractValidator
 
     /// <summary> Validates one deserialized operation contract object. </summary>
     /// <param name="value"> The contract object value. </param>
-    /// <param name="contractType"> The contract type that defines schema attributes. </param>
+    /// <param name="contractType"> The contract type that defines structural contract attributes. </param>
     /// <param name="errorMessage"> The validation error message when validation fails. </param>
     /// <returns> <see langword="true" /> when the value satisfies the contract; otherwise <see langword="false" />. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="contractType" /> is <see langword="null" />. </exception>
@@ -77,16 +77,11 @@ public static class UcliOperationContractValidator
         }
 
         var properties = UcliOperationContractReflection.GetSchemaProperties(contractType);
-        var presentCount = 0;
         foreach (var property in properties)
         {
             var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
             var propertyValue = property.GetValue(value);
             var hasValue = HasValue(propertyValue);
-            if (hasValue)
-            {
-                presentCount++;
-            }
 
             if (property.GetCustomAttribute<UcliRequiredAttribute>() != null && !hasValue)
             {
@@ -100,14 +95,6 @@ public static class UcliOperationContractValidator
                 visitedTypes.Remove(contractType);
                 return false;
             }
-        }
-
-        var minProperties = contractType.GetCustomAttribute<UcliMinPropertiesAttribute>();
-        if (minProperties != null && presentCount < minProperties.MinProperties)
-        {
-            errorMessage = $"Operation '{path}' requires at least {minProperties.MinProperties.ToString(CultureInfo.InvariantCulture)} populated property.";
-            visitedTypes.Remove(contractType);
-            return false;
         }
 
         if (!TryValidateOneOf(value, contractType, path, out errorMessage))
@@ -144,25 +131,8 @@ public static class UcliOperationContractValidator
             return true;
         }
 
-        if (!TryValidateStringConstraints(property, value!, path, out errorMessage))
-        {
-            return false;
-        }
-
-        if (!TryValidateNumericConstraints(property, value!, path, out errorMessage))
-        {
-            return false;
-        }
-
         if (TryGetArrayElementType(property.PropertyType, out var elementType))
         {
-            var minItems = property.GetCustomAttribute<UcliMinItemsAttribute>();
-            if (minItems != null && CountItems(value!) < minItems.MinItems)
-            {
-                errorMessage = $"Operation '{path}' must contain at least {minItems.MinItems.ToString(CultureInfo.InvariantCulture)} item.";
-                return false;
-            }
-
             return TryValidateArray(value!, elementType!, path, visitedTypes, out errorMessage);
         }
 
@@ -173,45 +143,6 @@ public static class UcliOperationContractValidator
         }
 
         return TryValidateObject(value, actualType, path, visitedTypes, out errorMessage);
-    }
-
-    private static bool TryValidateStringConstraints (
-        PropertyInfo property,
-        object value,
-        string path,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        var minLength = property.GetCustomAttribute<UcliMinLengthAttribute>();
-        if (minLength == null || value is not string stringValue || stringValue.Length >= minLength.MinLength)
-        {
-            return true;
-        }
-
-        errorMessage = $"Operation '{path}' must contain at least {minLength.MinLength.ToString(CultureInfo.InvariantCulture)} character.";
-        return false;
-    }
-
-    private static bool TryValidateNumericConstraints (
-        PropertyInfo property,
-        object value,
-        string path,
-        out string errorMessage)
-    {
-        errorMessage = string.Empty;
-        var minimum = property.GetCustomAttribute<UcliMinimumAttribute>();
-        if (minimum == null || value is not IConvertible convertible)
-        {
-            return true;
-        }
-
-        if (convertible.ToDouble(CultureInfo.InvariantCulture) >= minimum.Minimum)
-        {
-            return true;
-        }
-
-        errorMessage = $"Operation '{path}' must be greater than or equal to {minimum.Minimum.ToString(CultureInfo.InvariantCulture)}.";
-        return false;
     }
 
     private static bool TryValidateArray (
@@ -355,29 +286,9 @@ public static class UcliOperationContractValidator
         return value switch
         {
             null => false,
-            string stringValue => stringValue.Length != 0,
             JsonElement jsonElement => jsonElement.ValueKind != JsonValueKind.Undefined,
             _ => true,
         };
-    }
-
-    private static int CountItems (object value)
-    {
-        if (value is ICollection collection)
-        {
-            return collection.Count;
-        }
-
-        var count = 0;
-        if (value is IEnumerable enumerable)
-        {
-            foreach (var _ in enumerable)
-            {
-                count++;
-            }
-        }
-
-        return count;
     }
 
     private static bool TryGetArrayElementType (
