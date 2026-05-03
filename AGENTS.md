@@ -60,22 +60,11 @@
   - **meta更新を回避する目的の設計変更は絶対に禁止**（例：本来別ファイルの型/責務を1ファイルにまとめる、ファイル追加を避けるための不自然な構造変更）
 
 ## テスト実行
-.NET の変更中確認では、影響範囲に対応する `bash scripts/test-code.sh` を実行する。
-.NET の最終確認では `bash scripts/verify.sh` を実行する。
-
-Unity を含む変更では `bash scripts/test-unity.sh` を実行する。`.NET` と Unity の両方を一括確認する場合は `bash scripts/verify.sh --include-unity` を使用する。
-
-Unityのテストは `ucli test run --mode oneshot` または Unity の `-runTests` を使い、`-testPlatform` と `-assemblyNames` を必ず明示する。Unity Editor のインストールとライセンス有効化は実行環境の前提とし、スクリプト内では隠蔽しない。
-
-汎用コマンド（PlayMode）
-```bash
-"<UNITY_BIN>" -batchmode -nographics -projectPath "<PROJECT_PATH>" -runTests -testPlatform PlayMode -assemblyNames "<TEST_ASSEMBLY>" -testResults "<RESULT_XML>" -logFile "<LOG_FILE>"
-```
-
-汎用コマンド（EditMode）
-```bash
-"<UNITY_BIN>" -batchmode -nographics -projectPath "<PROJECT_PATH>" -runTests -testPlatform EditMode -assemblyNames "<TEST_ASSEMBLY>" -testResults "<RESULT_XML>" -logFile "<LOG_FILE>"
-```
+- .NET の変更中確認では、影響範囲に対応する `bash scripts/test-code.sh` を実行する。
+- .NET の最終確認では `bash scripts/verify.sh` を実行する。
+- Unity を含む変更では `bash scripts/test-unity.sh` を実行する。
+- .NET と Unity の両方を一括確認する場合は `bash scripts/verify.sh --include-unity` を使用する。
+- Unity Editor のインストールとライセンス有効化は実行環境の前提とし、スクリプト内では隠蔽しない。
 
 ## コードフォーマット
 コードフォーマットは `.editorconfig` と `scripts/code-quality.sh` を正とする。`.editorconfig` は Unity コードベースにも適用する。
