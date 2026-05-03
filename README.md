@@ -137,12 +137,6 @@ Set the target Unity project once for your shell session:
 export UCLI_PROJECT_PATH=./UnityProject
 ```
 
-uCLI resolves the target project in this order:
-
-1. `--projectPath`
-2. `UCLI_PROJECT_PATH`
-3. command default, usually the current working directory
-
 If your shell is already in the Unity project root, you can omit both `UCLI_PROJECT_PATH` and `--projectPath` for most commands.
 
 Then confirm that uCLI can resolve the project:
@@ -689,6 +683,8 @@ Common options:
 | `--withPlan` | `ucli call` | Run a plan pass inside `call` and include it in the result. |
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
 | `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the operation catalog. |
+
+> **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
 
 ## 📦 Packages
 
