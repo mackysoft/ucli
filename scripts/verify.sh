@@ -80,16 +80,16 @@ fi
 
 bash scripts/code-quality.sh --no-restore --solution "$solution" verify
 dotnet build "$solution" --configuration "$configuration" --no-restore
-test_code_args=(
+test_dotnet_args=(
   --no-restore
   --solution "$solution"
   --configuration "$configuration"
   --no-build
 )
 if [ "${#test_args[@]}" -gt 0 ]; then
-  test_code_args+=("${test_args[@]}")
+  test_dotnet_args+=("${test_args[@]}")
 fi
-bash scripts/test-code.sh "${test_code_args[@]}"
+bash scripts/test-dotnet.sh "${test_dotnet_args[@]}"
 
 if [ "$include_unity" = true ]; then
   test_unity_args=(--configuration "$configuration")

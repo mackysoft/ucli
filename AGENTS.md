@@ -62,7 +62,7 @@
 ## テスト実行
 .NET の変更中確認
 ```bash
-bash scripts/test-code.sh
+bash scripts/test-dotnet.sh
 ```
 
 .NET の最終確認
