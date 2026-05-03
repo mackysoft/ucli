@@ -16,8 +16,8 @@ Unity automation usually fails in the control plane, not only in the edit API. S
 
 In short:
 
-- MCP-style tools make Unity callable.
-- uCLI makes Unity changes reviewable.
+- Unity is callable.
+- Unity changes should be reviewable.
 - The normal workflow is `read -> validate -> plan -> call -> verify`.
 
 uCLI focuses on those guarantees:
@@ -31,21 +31,21 @@ uCLI focuses on those guarantees:
 - **Worktree-safe sessions:** daemon state, indexes, artifacts, and writer exclusion are scoped by project identity.
 - **Dangerous operations are opt-in:** unsafe paths are isolated behind operation policy and `--allowDangerous`.
 
-## 🧭 What Makes uCLI Different?
+## 🧭 What uCLI Makes Explicit
 
-Many Unity automation tools focus on exposing editor actions to an agent or remote client. uCLI does not compete on tool count; it competes on whether an automated Unity change can be reviewed, gated, applied, and diagnosed as a contract.
+uCLI is built around the review boundary: an automated Unity change should be inspectable before mutation, attributable after execution, and diagnosable when the runtime state is uncertain.
 
-| Problem | Typical shortcut | uCLI contract |
+| Concern | What must be knowable | uCLI contract |
 | --- | --- | --- |
-| Editor readiness | Guess with `sleep` after compile or reload. | Lifecycle states are surfaced; execution waits or fails with structured errors. |
-| Reviewed plan drift | Apply after Unity changed. | `planToken` validates request and state before `call`. |
-| Wrong project or worktree | Reuse global editor state or path guesses. | Local state is scoped by `projectFingerprint`. |
-| Retry after timeout | Treat timeout as "not applied". | `opResults`, touched units, and logs remain part of the result contract. |
-| Hidden persistence | Mutate and save implicitly. | `commit` makes save boundaries explicit. |
-| Lost evidence | Scrape editor logs or console text. | JSON envelopes, logs, and test artifacts are first-class outputs. |
-| Tool discovery | Guess operation arguments from memory or stale instructions. | `ops describe` exposes the live operation kind, policy, and argument schema for the installed plugin. |
-| Read freshness | Treat cached project state as mutation truth. | readIndex accelerates reads, while `call` re-resolves against live Unity state. |
-| Unsafe escape hatches | Make arbitrary code execution the happy path. | Dangerous operations are isolated and require explicit opt-in. |
+| Editor readiness | Whether Unity can accept the request now. | Lifecycle states are surfaced; execution waits or fails with structured errors. |
+| Reviewed plan drift | Whether Unity state still matches the reviewed plan. | `planToken` validates request and state before `call`. |
+| Project and worktree identity | Which project owns local state, indexes, artifacts, and writer exclusion. | Local state is scoped by `projectFingerprint`. |
+| Timeout recovery | Whether a retry is safe after timeout or disconnect. | `opResults`, touched units, and logs remain part of the result contract. |
+| Persistence | Whether a mutation also saved project data. | `commit` makes save boundaries explicit. |
+| Evidence | What changed, what was touched, and where diagnostics live. | JSON envelopes, logs, and test artifacts are first-class outputs. |
+| Operation discovery | Which operation contract is installed for this project. | `ops describe` exposes the live operation kind, policy, and argument schema for the installed plugin. |
+| Read freshness | Whether indexed read data is advisory or authoritative. | readIndex accelerates reads, while `call` re-resolves against live Unity state. |
+| Guarded execution | Which requests cross the normal edit boundary. | Dangerous operations are isolated and require explicit opt-in. |
 
 ## 🧠 Design Guarantees
 
@@ -585,7 +585,7 @@ Custom operations are not hidden shortcuts. Once they are in the catalog, they p
 
 > **WARNING:** `ucli call` blocks operations marked `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous primitive operations.
 
-Dynamic or arbitrary execution paths are useful escape hatches, but uCLI keeps the normal edit path declarative, typed, planned, and reviewable.
+uCLI keeps the normal edit path declarative, typed, planned, and reviewable.
 
 ## 🧪 Verifying Changes
 
