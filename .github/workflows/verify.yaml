@@ -390,7 +390,7 @@ jobs:
 
   required:
     name: required
-    if: ${{ always() && !cancelled() }}
+    if: ${{ always() }}
     needs:
       - changes
       - access_guard
