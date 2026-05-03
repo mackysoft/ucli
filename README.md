@@ -8,23 +8,24 @@ uCLI is an execution protocol for Unity automation from a terminal, script, cont
 
 ## 🧠 Design Philosophy
 
-uCLI is built for Unity automation you can trust after it runs. The goal is not to make every edit as short as possible; it is to make each edit explainable, reviewable, repeatable, and recoverable in local shells, CI, and agent workflows.
+uCLI is for Unity teams, tool authors, CI maintainers, and agent workflows that need automation they can inspect instead of blindly accept. Its design favors trustworthy edits over the shortest possible command.
 
-- Unity-native edits: changes go through Unity Editor APIs, not direct YAML patches, so Scene, Prefab, Asset, and Project semantics stay intact.
-- Bounded intent: requests name the context they are allowed to touch, which keeps edits scoped and reviewable.
-- Plan before write: `validate`, `plan`, and `call --withPlan` let runners inspect intent and current Unity state before persistence.
-- Explicit saving: `commit` makes the save boundary visible instead of silently persisting every modification.
-- Evidence for automation: JSON envelopes, logs, test artifacts, and touched contexts give humans and agents something concrete to verify.
-- Same contract everywhere: daemon, headless one-shot batchmode, CI, and parallel Git worktrees use the same request and output model.
-- Risk stays visible: dangerous operations require explicit opt-in and stay outside the normal guarded edit path.
+- Preserve Unity semantics: Unity remains the source of truth for scenes, prefabs, assets, project settings, and serialization.
+- Make intent reviewable: automation declares what it is allowed to touch before it mutates Unity state.
+- Separate change from persistence: a modification and the decision to save it are different responsibilities.
+- Return evidence, not just success: results should explain what was inspected, planned, touched, saved, tested, or logged.
+- Keep runtime choice operational: local shells, CI, headless execution, daemons, and worktrees should not change the meaning of a request.
+- Keep risk explicit: unsafe operations are visible opt-ins, not hidden shortcuts in the normal workflow.
 
 ## ✨ What You Can Do
 
-- Query assets, scenes, GameObjects, components, schemas, and operation metadata.
-- Send context-bound JSON requests that combine primitive Unity operations and higher-level edit steps.
-- Validate, plan, and apply changes through `validate`, `plan`, `call`, or `call --withPlan`, with explicit `commit` behavior.
-- Run headless Unity automation with one-shot batchmode for isolated jobs, or a daemon for repeated Unity-backed commands.
-- Run multiple Git worktrees side by side with project-scoped daemon sessions, indexes, and artifacts.
+Use uCLI when you need to automate Unity from scripts, CI, or agents without losing visibility into project state and saved changes.
+
+- Inspect assets, scenes, GameObjects, components, schemas, and operation metadata.
+- Build JSON requests from primitive Unity operations and higher-level edit steps.
+- Run `validate`, `plan`, `call`, or `call --withPlan` with explicit `commit` behavior.
+- Choose one-shot headless batchmode for isolated jobs or a daemon for repeated Unity-backed commands.
+- Work across multiple Git worktrees with project-scoped daemon sessions, indexes, and artifacts.
 - Run Unity Test Framework tests and collect normalized artifacts.
 - Read Unity and daemon logs when automation fails.
 
