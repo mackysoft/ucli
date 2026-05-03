@@ -4,27 +4,38 @@
 
 **Created by Hiroya Aramaki ([Makihiro](https://twitter.com/makihiro_dev))**
 
-uCLI lets you inspect, plan, apply, and verify Unity Editor automation from a terminal, script, continuous integration job, or agent workflow. It is built for Unity project changes that should go through Unity Editor APIs instead of direct YAML editing.
+uCLI is an execution protocol for Unity automation from a terminal, script, continuous integration job, or agent workflow. It treats Unity changes as context-bound work: read the current state, describe the intended edit, validate and plan it, apply it through Unity Editor APIs instead of direct YAML editing, choose the save boundary, and return machine-readable evidence.
 
-## What You Can Do
+## 🧠 Design Philosophy
+
+uCLI is built for Unity automation you can trust after it runs. The goal is not to make every edit as short as possible; it is to make each edit explainable, reviewable, repeatable, and recoverable in local shells, CI, and agent workflows.
+
+- Unity-native edits: changes go through Unity Editor APIs, not direct YAML patches, so Scene, Prefab, Asset, and Project semantics stay intact.
+- Bounded intent: requests name the context they are allowed to touch, which keeps edits scoped and reviewable.
+- Plan before write: `validate`, `plan`, and `call --withPlan` let runners inspect intent and current Unity state before persistence.
+- Explicit saving: `commit` makes the save boundary visible instead of silently persisting every modification.
+- Evidence for automation: JSON envelopes, logs, test artifacts, and touched contexts give humans and agents something concrete to verify.
+- Same contract everywhere: daemon, headless one-shot batchmode, CI, and parallel Git worktrees use the same request and output model.
+- Risk stays visible: dangerous operations require explicit opt-in and stay outside the normal guarded edit path.
+
+## ✨ What You Can Do
 
 - Query assets, scenes, GameObjects, components, schemas, and operation metadata.
-- Send JSON requests that combine primitive Unity operations and higher-level edit steps.
-- Validate and plan requests before applying them.
-- Apply changes through Unity Editor APIs with `call`.
-- Use `call --withPlan` for a compact plan-and-apply flow.
-- Use a daemon for repeated Unity-backed commands, or one-shot batchmode for isolated jobs.
+- Send context-bound JSON requests that combine primitive Unity operations and higher-level edit steps.
+- Validate, plan, and apply changes through `validate`, `plan`, `call`, or `call --withPlan`, with explicit `commit` behavior.
+- Run headless Unity automation with one-shot batchmode for isolated jobs, or a daemon for repeated Unity-backed commands.
+- Run multiple Git worktrees side by side with project-scoped daemon sessions, indexes, and artifacts.
 - Run Unity Test Framework tests and collect normalized artifacts.
 - Read Unity and daemon logs when automation fails.
 
-## Installation
+## 📦 Installation
 
-### Requirements
+### ✅ Requirements
 
 - .NET 8 or later.
 - A Unity project with NuGetForUnity when installing the Unity plugin.
 
-### CLI
+### 💻 CLI
 
 ```bash
 dotnet tool install --global MackySoft.Ucli --version <version>
@@ -42,7 +53,7 @@ Confirm the command is available:
 ucli --version
 ```
 
-### Unity Plugin
+### 🎮 Unity Plugin
 
 Install `MackySoft.Ucli.Unity` into the Unity project with NuGetForUnity. The Unity project must be able to restore packages from nuget.org.
 
@@ -52,9 +63,9 @@ If you manage `Assets/packages.config` directly, add:
 <package id="MackySoft.Ucli.Unity" version="<version>" manuallyInstalled="true" targetFramework="netstandard2.1" />
 ```
 
-Use a pinned `<version>` for both the CLI and Unity plugin in released automation.
+> **IMPORTANT:** Use a pinned `<version>` for both the CLI and Unity plugin in released automation.
 
-## Compatibility and Stability
+## 🧭 Compatibility and Stability
 
 - Pin `MackySoft.Ucli` and `MackySoft.Ucli.Unity` to compatible released versions and update them together.
 - `protocolVersion: 1` is the current request protocol for automation workflows.
@@ -62,7 +73,7 @@ Use a pinned `<version>` for both the CLI and Unity plugin in released automatio
 - `MackySoft.Ucli.Infrastructure` is an advanced integration package for runtime support code.
 - Operations marked `dangerous` are outside the normal guarded edit path and require an explicit `ucli call --allowDangerous`.
 
-## Typical Workflow
+## 🔄 Typical Workflow
 
 uCLI is normally driven by a runner: a local shell script, a continuous integration job, or an agent. The runner reads Unity state, builds one JSON request, sends that request to uCLI, and decides whether to accept the result.
 
@@ -84,19 +95,19 @@ Start a daemon when an interactive session or local automation will run several 
 ucli daemon start --projectPath ./UnityProject
 ```
 
-For one-off local commands and CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when one is available and falls back to one-shot batchmode when it is not.
+> **NOTE:** For one-off local commands and CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when one is available and falls back to one-shot batchmode when it is not.
 
-## Automation Output Contract
+## 📤 Automation Output Contract
 
-Except for `ucli logs`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
+> **IMPORTANT:** Except for `ucli logs`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
 
 `ucli logs unity` and `ucli logs daemon` write log entries to standard output. Use `--format json` when a runner needs newline-delimited JSON log events.
 
-Automation should parse standard output and treat standard error as diagnostic text.
+> **IMPORTANT:** Automation should parse standard output and treat standard error as diagnostic text.
 
-## Reading Project State
+## 🔍 Reading Project State
 
-Read before you write. These commands emit machine-readable JSON.
+> **TIP:** Read before you write. These commands emit machine-readable JSON.
 
 ```bash
 ucli refresh --projectPath ./UnityProject
@@ -137,9 +148,9 @@ ucli ops list --projectPath ./UnityProject
 ucli ops describe ucli.scene.open --projectPath ./UnityProject
 ```
 
-## Applying Changes
+## 🛠️ Applying Changes
 
-Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.
+> **IMPORTANT:** Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.
 
 ```bash
 REQUEST_JSON='{
@@ -196,9 +207,9 @@ printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken
 
 `validate` checks request shape and static constraints. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
 
-Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
+> **TIP:** Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
 
-## Request DSL Core
+## 🧩 Request DSL Core
 
 This section covers the core request shape used by common automation. Operation-specific arguments and policies come from the operation catalog exposed by `ucli ops list` and `ucli ops describe`.
 
@@ -220,7 +231,7 @@ A request is one ordered unit of work:
 
 Each step is either `kind: "op"` or `kind: "edit"`.
 
-### Primitive Operation Step
+### ⚙️ Primitive Operation Step
 
 Use `op` when the operation you need is already in the operation catalog.
 
@@ -241,7 +252,7 @@ Use `op` when the operation you need is already in the operation catalog.
 | `op` | Operation name, such as `ucli.scene.open`. |
 | `args` | Operation-specific argument object. |
 
-### Edit Step
+### ✏️ Edit Step
 
 Use `edit` for common Unity edits where you want to name a context, select targets, apply actions, and choose the save boundary.
 
@@ -277,9 +288,9 @@ Use `edit` for common Unity edits where you want to name a context, select targe
 | `actions` | One or more edits to apply to the selected target. |
 | `commit` | Save behavior. Use `none`, `context`, or `project`. |
 
-`scene` and `prefab` edits that mutate or use `commit: "context"` need that context open. Put `ucli.scene.open` or `ucli.prefab.open` before the edit step when the runner has not opened it already.
+> **IMPORTANT:** `scene` and `prefab` edits that mutate or use `commit: "context"` need that context open. Put `ucli.scene.open` or `ucli.prefab.open` before the edit step when the runner has not opened it already.
 
-### Edit Contexts
+### 📍 Edit Contexts
 
 | Context | JSON | Use it for |
 | --- | --- | --- |
@@ -288,7 +299,7 @@ Use `edit` for common Unity edits where you want to name a context, select targe
 | Asset | `{ "asset": "Assets/Data/GameBalance.asset" }` | A main asset such as a ScriptableObject. |
 | Project | `{ "project": true }` | Project-scoped assets such as `ProjectSettings/TagManager.asset`. |
 
-### Selectors
+### 🎯 Selectors
 
 For scene and prefab contexts, select a GameObject by hierarchy path. Add `component` when the action should target a component on that GameObject.
 
@@ -344,11 +355,11 @@ For a scene context, select a set produced by `ucli.scene.query`:
 | `all` | Apply the same action to every matched target. |
 | `atMostOne` | Allow zero or one target. |
 
-`all` runs the same action list for every selected target in deterministic order. Actions that create a new global resource, such as `createAsset` and `createPrefab`, require the selection to resolve to at most one target.
+> **IMPORTANT:** `all` runs the same action list for every selected target in deterministic order. Actions that create a new global resource, such as `createAsset` and `createPrefab`, require the selection to resolve to at most one target.
 
-### Actions
+### ▶️ Actions
 
-If `target` is omitted, the action uses the current selected target. `createPrefab` is the exception: it always requires an explicit `target` and `path`. An action that creates or ensures an object can expose it with `as`, and later actions in the same step can refer to it with `"$name"`.
+> **NOTE:** If `target` is omitted, the action uses the current selected target. `createPrefab` is the exception: it always requires an explicit `target` and `path`. An action that creates or ensures an object can expose it with `as`, and later actions in the same step can refer to it with `"$name"`.
 
 ```json
 {
@@ -402,7 +413,7 @@ If `target` is omitted, the action uses the current selected target. `createPref
 }
 ```
 
-### Commit
+### 💾 Commit
 
 | Value | Behavior |
 | --- | --- |
@@ -410,9 +421,9 @@ If `target` is omitted, the action uses the current selected target. `createPref
 | `context` | Save the current scene, prefab, asset, or project context. |
 | `project` | Save project-scoped changes and request-attributed open scene or prefab contexts. |
 
-uCLI does not implicitly save an edit step. Choose `commit` intentionally.
+> **IMPORTANT:** uCLI does not implicitly save an edit step. Choose `commit` intentionally.
 
-### Primitive Target Selectors
+### 🧷 Primitive Target Selectors
 
 Primitive operations that take a `target` use one of these selector shapes:
 
@@ -449,11 +460,11 @@ Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
 }
 ```
 
-## Operation Catalog Summary
+## 📚 Operation Catalog Summary
 
 Use `edit` for common edits. Use `op` when you need an explicit primitive operation from the catalog. The live catalog for the installed Unity plugin is available through `ucli ops list` and `ucli ops describe`.
 
-### Read Operations
+### 📖 Read Operations
 
 | Operation | Type | Args | Use it for |
 | --- | --- | --- | --- |
@@ -465,7 +476,7 @@ Use `edit` for common edits. Use `op` when you need an explicit primitive operat
 | `ucli.scene.query` | query | `{ scene, pathPrefix?, componentType? }` | Find scene GameObjects or components for selection. |
 | `ucli.scene.tree` | query | `{ path, depth? }` | Read a scene hierarchy. |
 
-### Context And Save Operations
+### 🗂️ Context And Save Operations
 
 | Operation | Type | Args | Use it for |
 | --- | --- | --- | --- |
@@ -476,7 +487,7 @@ Use `edit` for common edits. Use `op` when you need an explicit primitive operat
 | `ucli.project.refresh` | mutation | `{}` | Refresh the Unity project and AssetDatabase. |
 | `ucli.project.save` | mutation | `{}` | Save project assets, project settings, and tracked open contexts. |
 
-### Mutation Operations
+### 🔧 Mutation Operations
 
 | Operation | Type | Args | Use it for |
 | --- | --- | --- | --- |
@@ -489,11 +500,11 @@ Use `edit` for common edits. Use `op` when you need an explicit primitive operat
 | `ucli.go.reparent` | mutation | `{ target, parent }` | Move a GameObject under a new parent. |
 | `ucli.prefab.create` | mutation | `{ target, path }` | Create a prefab asset from a GameObject. |
 
-### Dangerous Operations
+### ⚠️ Dangerous Operations
 
-`ucli call` blocks operations marked `dangerous` unless the command includes `--allowDangerous`. Prefer the normal `edit` flow and non-dangerous primitive operations. Use dangerous operations only when the catalog marks the required operation that way and the request has been reviewed.
+> **WARNING:** `ucli call` blocks operations marked `dangerous` unless the command includes `--allowDangerous`. Prefer the normal `edit` flow and non-dangerous primitive operations. Use dangerous operations only when the catalog marks the required operation that way and the request has been reviewed.
 
-## Verifying Changes
+## 🧪 Verifying Changes
 
 Run Unity tests after applying edits:
 
@@ -515,7 +526,7 @@ Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/
 | `editor.log` | Unity Editor diagnostics for setup failures, compiler errors, and runtime exceptions. |
 | `meta.json` | The resolved test run configuration and timestamps. |
 
-When a command or test fails, read Unity and daemon logs before retrying:
+> **TIP:** When a command or test fails, read Unity and daemon logs before retrying:
 
 ```bash
 ucli logs unity --projectPath ./UnityProject --tail 200 --level error
@@ -528,7 +539,7 @@ Stop the daemon at the end of an interactive automation session:
 ucli daemon stop --projectPath ./UnityProject
 ```
 
-## Command Guide
+## 🧰 Command Guide
 
 | Command | Use it when you need to |
 | --- | --- |
@@ -558,7 +569,7 @@ Common options:
 | `--planToken <token>` | `ucli call` | Apply a request using a token returned by `ucli plan`. |
 | `--allowDangerous` | `ucli call` | Allow operations marked dangerous by the operation catalog. |
 
-## Packages
+## 📦 Packages
 
 | Package | Install when |
 | --- | --- |
@@ -567,7 +578,7 @@ Common options:
 | `MackySoft.Ucli.Contracts` | You build advanced tooling that exchanges uCLI IPC contracts directly. |
 | `MackySoft.Ucli.Infrastructure` | You build advanced uCLI runtime integrations that need shared infrastructure helpers. |
 
-## Support
+## 💬 Support
 
 Use [GitHub Issues](https://github.com/mackysoft/ucli/issues) for bugs, feature requests, usage questions, and README problems.
 
@@ -582,13 +593,13 @@ For bug reports, include:
 
 Use [Pull Requests](https://github.com/mackysoft/ucli/pulls) for focused fixes and README improvements.
 
-## Sponsor
+## 💖 Sponsor
 
 If uCLI helps your Unity automation workflow, please support MackySoft through GitHub Sponsors:
 
 <https://github.com/sponsors/mackysoft>
 
-## Author
+## 👤 Author
 
 Hiroya Aramaki is an indie game developer in Japan.
 
@@ -596,6 +607,6 @@ Hiroya Aramaki is an indie game developer in Japan.
 - GitHub: <https://github.com/mackysoft>
 - Sponsors: <https://github.com/sponsors/mackysoft>
 
-## License
+## 📄 License
 
 uCLI is under the [MIT License](LICENSE).
