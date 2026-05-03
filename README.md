@@ -1,33 +1,86 @@
-# uCLI - CLI workflow for Unity automation
+# uCLI - Contract-first Unity automation for agents, CI, and tools
 
 [![verify](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml/badge.svg)](https://github.com/mackysoft/ucli/actions/workflows/verify.yaml) [![NuGet](https://img.shields.io/nuget/v/MackySoft.Ucli?label=MackySoft.Ucli)](https://www.nuget.org/packages/MackySoft.Ucli) [![NuGet Unity](https://img.shields.io/nuget/v/MackySoft.Ucli.Unity?label=MackySoft.Ucli.Unity)](https://www.nuget.org/packages/MackySoft.Ucli.Unity) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Created by Hiroya Aramaki ([Makihiro](https://twitter.com/makihiro_dev))**
 
-uCLI is an execution protocol for Unity automation from a terminal, script, continuous integration job, or agent workflow. It treats Unity changes as context-bound work: read the current state, describe the intended edit, validate and plan it, apply it through Unity Editor APIs instead of direct YAML editing, choose the save boundary, and return machine-readable evidence.
+uCLI turns Unity edits into reviewable, repeatable, machine-readable workflows for terminals, scripts, continuous integration jobs, and agent systems.
+
+It reads current Unity state, declares the intended change, validates and plans it, applies it through Unity Editor APIs instead of direct YAML editing, chooses the save boundary, and returns evidence about what happened.
+
+uCLI is not a remote-control wrapper around the Unity Editor. It is an execution protocol for workflows where automation must be inspected, replayed, gated, and trusted.
+
+## ❓ Why uCLI?
+
+Unity automation usually fails in the control plane, not only in the edit API. Scripts and agents need to know which Unity project they are talking to, whether the Editor is compiling or reloading, whether a request was applied before a timeout, what contexts were touched, and whether a reviewed plan is still valid when applied.
+
+uCLI focuses on those guarantees:
+
+- **Plan before call:** preview a request, receive a `planToken`, and apply only when the request and project state still match.
+- **Live Unity source of truth:** mutations go through Unity Editor APIs and are re-resolved against live Unity state.
+- **Context-bound edits:** every edit belongs to a scene, prefab, asset, or project boundary.
+- **Explicit persistence:** changing an object and saving a context are separate decisions.
+- **Machine-readable evidence:** automation receives structured JSON with `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts.
+- **Lifecycle-aware execution:** compile, domain reload, busy, play mode, shutdown, and blocked states are surfaced as protocol states or structured errors.
+- **Worktree-safe sessions:** daemon state, indexes, artifacts, and writer exclusion are scoped by project identity.
+- **Dangerous operations are opt-in:** unsafe paths are isolated behind operation policy and `--allowDangerous`.
+
+## 🧭 What Makes uCLI Different?
+
+Many Unity automation tools focus on exposing editor actions to an agent or remote client. uCLI focuses on making those actions reviewable and operationally safe.
+
+| Area | Common failure mode | uCLI approach |
+| --- | --- | --- |
+| Editor lifecycle | Scripts guess with `sleep` after compile or reload. | Lifecycle states are surfaced, and execution waits or fails with structured errors. |
+| State drift | A plan is reviewed, then Unity changes before apply. | `planToken` validates request and state before `call`. |
+| Target identity | Multiple Unity instances, projects, or worktrees get confused. | Local state is scoped by `projectFingerprint`. |
+| Timeout handling | Timeout is treated as proof that nothing happened. | Partial `opResults` and logs remain part of the result contract. |
+| Persistence | Tools mutate and save implicitly. | `commit` makes save boundaries explicit. |
+| Observability | Errors disappear into editor logs. | JSON envelopes, Unity logs, daemon logs, and test artifacts are first-class outputs. |
+| Risk control | Arbitrary code execution becomes the normal path. | Dangerous operations are isolated and require explicit opt-in. |
 
 ## 🧠 Design Philosophy
 
-uCLI is for Unity teams, tool authors, CI maintainers, and agent workflows that need automation they can inspect instead of blindly accept. Its design favors trustworthy edits over the shortest possible command.
+uCLI is designed around assurance, not convenience-first automation.
 
-- Preserve Unity semantics: Unity remains the source of truth for scenes, prefabs, assets, project settings, and serialization.
-- Make intent reviewable: automation declares what it is allowed to touch before it mutates Unity state.
-- Separate change from persistence: a modification and the decision to save it are different responsibilities.
-- Return evidence, not just success: results should explain what was inspected, planned, touched, saved, tested, or logged.
-- Keep runtime choice operational: local shells, CI, headless execution, daemons, and worktrees should not change the meaning of a request.
-- Keep risk explicit: unsafe operations are visible opt-ins, not hidden shortcuts in the normal workflow.
+| Principle | What it means in uCLI |
+| --- | --- |
+| Preserve Unity semantics | Mutations go through Unity Editor APIs instead of direct YAML editing. |
+| Context-first editing | Edits are scoped to scene, prefab, asset, or project boundaries. |
+| Plan before mutation | `ucli plan` produces a `planToken`; `ucli call` can verify request and state drift before applying. |
+| Modify is not persist | Edits declare `commit: "none"`, `"context"`, or `"project"`. |
+| Evidence over success text | JSON responses expose `opResults`, `applied`, `changed`, `touched`, errors, artifacts, and logs. |
+| Lifecycle is part of the protocol | Compile, domain reload, busy, play mode, shutdown, and blocked states are exposed as lifecycle state or structured errors. |
+| Runtime choice is operational | `daemon`, `auto`, and `oneshot` change execution mode, not request meaning. |
+| Unsafe paths are explicit | Dangerous operations require catalog policy and `--allowDangerous`. |
 
 ## ✨ What You Can Do
 
 Use uCLI when you need to automate Unity from scripts, CI, or agents without losing visibility into project state and saved changes.
 
-- Inspect assets, scenes, GameObjects, components, schemas, and operation metadata.
-- Build JSON requests from primitive Unity operations and higher-level edit steps.
-- Run `validate`, `plan`, `call`, or `call --withPlan` with explicit `commit` behavior.
-- Choose one-shot headless batchmode for isolated jobs or a daemon for repeated Unity-backed commands.
-- Work across multiple Git worktrees with project-scoped daemon sessions, indexes, and artifacts.
-- Run Unity Test Framework tests and collect normalized artifacts.
-- Read Unity and daemon logs when automation fails.
+### 🤖 For Agents
+
+- Discover available operations with `ucli ops list` and `ucli ops describe`.
+- Inspect assets, scene trees, components, and serialized schemas before editing.
+- Build JSON requests with primitive `op` steps and higher-level `edit` steps.
+- Use `validate`, `plan`, and `call` to keep review and execution separate.
+
+### 🧪 For CI
+
+- Run Unity in one-shot headless batchmode for isolated jobs.
+- Execute Unity Test Framework tests and collect normalized artifacts.
+- Parse one JSON result envelope from standard output for automation decisions.
+
+### 🧰 For Local Tool Workflows
+
+- Start a daemon for repeated Unity-backed commands.
+- Reuse read indexes for operation metadata, schemas, asset search, and scene inspection.
+- Read Unity and daemon logs from the same CLI.
+
+### 🌿 For Multi-Worktree Development
+
+- Scope sessions, indexes, artifacts, and writer exclusion by project identity.
+- Keep daemon state separate across Git worktrees.
 
 ## 📦 Installation
 
@@ -98,6 +151,18 @@ ucli daemon start --projectPath ./UnityProject
 
 > **NOTE:** For one-off local commands and CI jobs, you can skip the daemon. The default `--mode auto` uses a running daemon when one is available and falls back to one-shot batchmode when it is not.
 
+### 🧭 One Contract, Multiple Runtimes
+
+uCLI can run Unity-backed commands through three execution modes:
+
+| Mode | Use it for |
+| --- | --- |
+| `oneshot` | Start Unity in batchmode for isolated commands and CI jobs. |
+| `daemon` | Require an existing Unity-backed daemon for repeated local or agent requests. |
+| `auto` | Reuse a running daemon when available; otherwise fall back to one-shot batchmode. |
+
+The request protocol does not change between these modes. Runtime choice is operational, not semantic.
+
 ## 📤 Automation Output Contract
 
 > **IMPORTANT:** Except for `ucli logs`, the automation commands listed below write one JSON result envelope to standard output. Help and version output are human-readable command-line output. Progress messages and diagnostics that are not part of the JSON result contract are written to standard error.
@@ -133,6 +198,12 @@ ucli resolve \
   --hierarchyPath Root/Enemies/Spawner \
   --componentType "Game.EnemySpawner, Assembly-CSharp"
 ```
+
+### 🗃️ Read Index for Agent Loops
+
+uCLI includes a read index for read-heavy automation. It lets agents and scripts inspect operation metadata, schemas, asset search data, GUID/path mappings, and lightweight scene structure without reconnecting to Unity for every reasoning step.
+
+Mutations still re-resolve against live Unity state. The read index improves planning and validation, but it is never the source of truth for `call`.
 
 For read-heavy workflows, `--readIndexMode` controls whether query-like commands may use stored index data:
 
