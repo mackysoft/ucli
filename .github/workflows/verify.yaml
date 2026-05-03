@@ -211,10 +211,10 @@ jobs:
         continue-on-error: true
         run: |
           bash scripts/test-unity.sh \
-            --projectPath "src/Ucli.Unity" \
-            --unityEditorPath "${{ steps.unity_setup.outputs.unity-editor-path }}" \
-            --assemblyName "MackySoft.Ucli.Unity.Tests.Editor" \
-            --resultDir "artifacts/unity/${{ matrix.os_name }}"
+            --project-path "src/Ucli.Unity" \
+            --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
+            --assembly-name "MackySoft.Ucli.Unity.Tests.Editor" \
+            --result-dir "artifacts/unity/${{ matrix.os_name }}"
         shell: bash
 
       - name: Upload Unity artifacts

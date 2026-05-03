@@ -6,7 +6,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/dotnet-common.sh"
 
 usage() {
-  echo "usage: bash scripts/verify.sh [--no-restore] [--solution <path>] [--configuration <name>] [--include-unity --projectPath <path> --assemblyName <name> [test-unity-options...]] [-- dotnet-test-options...]" >&2
+  echo "usage: bash scripts/verify.sh [--no-restore] [--solution <path>] [--configuration <name>] [--include-unity --project-path <path> --assembly-name <name> [test-unity-options...]] [-- dotnet-test-options...]" >&2
 }
 
 restore=true
