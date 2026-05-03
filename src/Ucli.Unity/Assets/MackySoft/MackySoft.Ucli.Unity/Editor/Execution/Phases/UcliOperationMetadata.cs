@@ -95,6 +95,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(describeContract));
             }
 
+            if (!UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(argsType, out var reservedPropertyError))
+            {
+                throw new ArgumentException(reservedPropertyError, nameof(argsType));
+            }
+
             var argsSchemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(argsType);
             var resultSchemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(resultType);
 

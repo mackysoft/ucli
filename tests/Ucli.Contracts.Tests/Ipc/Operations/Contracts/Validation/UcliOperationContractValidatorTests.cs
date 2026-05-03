@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Operations;
@@ -204,6 +205,151 @@ public sealed class UcliOperationContractValidatorTests
         Assert.Equal("Operation 'args' requires properties when 'componentType' is specified.", errorMessage);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateNoRequestLocalAliases_WhenNestedAliasIsPresent_ReturnsFalse ()
+    {
+        var args = new ReferenceArgs(
+            new GameObjectReferenceArgs(
+                alias: "created",
+                globalObjectId: null,
+                prefab: null,
+                scene: null,
+                hierarchyPath: null));
+
+        var isValid = UcliOperationContractValidator.TryValidateNoRequestLocalAliases(
+            args,
+            typeof(ReferenceArgs),
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateNoRequestLocalAliases_WhenAliasPropertyIsNotPresent_ReturnsTrue ()
+    {
+        var args = new ReferenceArgs(
+            new GameObjectReferenceArgs(
+                alias: null,
+                globalObjectId: null,
+                prefab: null,
+                scene: new SceneAssetPath("Assets/Scenes/Main.unity"),
+                hierarchyPath: new UnityHierarchyPath("Root")));
+
+        var isValid = UcliOperationContractValidator.TryValidateNoRequestLocalAliases(
+            args,
+            typeof(ReferenceArgs),
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(string.Empty, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateNoRequestLocalAliases_WhenAnyJsonValueContainsVarProperty_ReturnsTrue ()
+    {
+        using var document = JsonDocument.Parse("""{"var":"literal"}""");
+        var args = new AnyJsonValueArgs(document.RootElement.Clone());
+
+        var isValid = UcliOperationContractValidator.TryValidateNoRequestLocalAliases(
+            args,
+            typeof(AnyJsonValueArgs),
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(string.Empty, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateNoRequestLocalAliasProperties_WhenAliasPropertyIsNull_ReturnsFalse ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "target": {
+                "var": null,
+                "scene": "Assets/Scenes/Main.unity",
+                "hierarchyPath": "Root"
+              }
+            }
+            """);
+
+        var isValid = UcliOperationContractValidator.TryValidateNoRequestLocalAliasProperties(
+            document.RootElement,
+            typeof(ReferenceArgs),
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidateNoRequestLocalAliasProperties_WhenAnyJsonValueContainsVarProperty_ReturnsTrue ()
+    {
+        using var document = JsonDocument.Parse("""{"value":{"var":null}}""");
+
+        var isValid = UcliOperationContractValidator.TryValidateNoRequestLocalAliasProperties(
+            document.RootElement,
+            typeof(AnyJsonValueArgs),
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(string.Empty, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpReservedProperties_WhenNonAliasPropertyUsesVar_ReturnsFalse ()
+    {
+        var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
+            typeof(ReservedVarArgs),
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation contract property 'args.var' uses reserved public raw-op property name 'var'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpReservedProperties_WhenTopLevelAliasTypeUsesVar_ReturnsFalse ()
+    {
+        var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
+            typeof(TopLevelPlanAliasVarArgs),
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation contract property 'args.var' uses internal request-local alias type 'UcliPlanAlias'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpReservedProperties_WhenCustomAliasPropertyUsesAliasType_ReturnsFalse ()
+    {
+        var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
+            typeof(CustomPlanAliasArgs),
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation contract property 'args.alias' uses internal request-local alias type 'UcliPlanAlias'.", errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpReservedProperties_WhenAliasReferenceTypeUsesVar_ReturnsTrue ()
+    {
+        var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
+            typeof(ReferenceArgs),
+            out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(string.Empty, errorMessage);
+    }
+
     private sealed record RequiredStringArgs (
         [property: UcliRequired]
         [property: UcliDescription("Required string.")]
@@ -269,4 +415,27 @@ public sealed class UcliOperationContractValidatorTests
 
         [property: UcliDescription("Component type.")]
         string? ComponentType);
+
+    private sealed record ReferenceArgs (
+        [property: UcliDescription("Target GameObject reference.")]
+        GameObjectReferenceArgs? Target);
+
+    private sealed record AnyJsonValueArgs (
+        [property: UcliDescription("Arbitrary JSON value.")]
+        [property: UcliJsonAnyValue]
+        JsonElement Value);
+
+    private sealed record ReservedVarArgs (
+        [property: UcliDescription("Reserved property name.")]
+        [property: JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
+        string? Alias);
+
+    private sealed record TopLevelPlanAliasVarArgs (
+        [property: UcliDescription("Request-local alias.")]
+        [property: JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
+        UcliPlanAlias? Alias);
+
+    private sealed record CustomPlanAliasArgs (
+        [property: UcliDescription("Request-local alias.")]
+        UcliPlanAlias? Alias);
 }

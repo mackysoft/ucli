@@ -12,6 +12,16 @@ public static class UcliOperationContractValidator
 
     private static readonly Type JsonElementType = typeof(JsonElement);
 
+    private static readonly Type UcliPlanAliasType = typeof(UcliPlanAlias);
+
+    private static readonly HashSet<Type> InternalRequestLocalAliasContainerTypes = new()
+    {
+        typeof(AssetReferenceArgs),
+        typeof(ComponentReferenceArgs),
+        typeof(GameObjectReferenceArgs),
+        typeof(SceneGameObjectReferenceArgs),
+    };
+
     /// <summary> Validates one deserialized operation contract object. </summary>
     /// <param name="value"> The contract object value. </param>
     /// <param name="contractType"> The contract type that defines structural contract attributes. </param>
@@ -29,6 +39,61 @@ public static class UcliOperationContractValidator
         }
 
         return TryValidateValue(value, contractType, "args", new HashSet<Type>(), out errorMessage);
+    }
+
+    /// <summary> Validates that one deserialized public raw-op contract does not contain request-local alias references. </summary>
+    /// <param name="value"> The contract object value. </param>
+    /// <param name="contractType"> The contract type to inspect. </param>
+    /// <param name="errorMessage"> The validation error message when validation fails. </param>
+    /// <returns> <see langword="true" /> when the value does not contain request-local aliases; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="contractType" /> is <see langword="null" />. </exception>
+    public static bool TryValidateNoRequestLocalAliases (
+        object? value,
+        Type contractType,
+        out string errorMessage)
+    {
+        if (contractType == null)
+        {
+            throw new ArgumentNullException(nameof(contractType));
+        }
+
+        return TryValidateNoRequestLocalAliasesValue(value, contractType, "args", new HashSet<Type>(), out errorMessage);
+    }
+
+    /// <summary> Validates that one public raw-op JSON args object does not contain request-local alias properties. </summary>
+    /// <param name="value"> The raw JSON args value. </param>
+    /// <param name="contractType"> The contract type to inspect. </param>
+    /// <param name="errorMessage"> The validation error message when validation fails. </param>
+    /// <returns> <see langword="true" /> when the JSON args object does not contain request-local alias properties; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="contractType" /> is <see langword="null" />. </exception>
+    public static bool TryValidateNoRequestLocalAliasProperties (
+        JsonElement value,
+        Type contractType,
+        out string errorMessage)
+    {
+        if (contractType == null)
+        {
+            throw new ArgumentNullException(nameof(contractType));
+        }
+
+        return TryValidateNoRequestLocalAliasPropertiesValue(value, contractType, "args", new HashSet<Type>(), out errorMessage);
+    }
+
+    /// <summary> Validates that one args contract type does not expose reserved public raw-op property names. </summary>
+    /// <param name="contractType"> The contract type to inspect. </param>
+    /// <param name="errorMessage"> The validation error message when validation fails. </param>
+    /// <returns> <see langword="true" /> when the type can be exposed through public raw-op metadata; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="contractType" /> is <see langword="null" />. </exception>
+    public static bool TryValidatePublicRawOpReservedProperties (
+        Type contractType,
+        out string errorMessage)
+    {
+        if (contractType == null)
+        {
+            throw new ArgumentNullException(nameof(contractType));
+        }
+
+        return TryValidatePublicRawOpReservedProperties(contractType, "args", new HashSet<Type>(), out errorMessage);
     }
 
     private static bool TryValidateValue (
@@ -56,6 +121,316 @@ public static class UcliOperationContractValidator
         }
 
         return TryValidateObject(value, actualType, path, visitedTypes, out errorMessage);
+    }
+
+    private static bool TryValidateNoRequestLocalAliasesValue (
+        object? value,
+        Type contractType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
+        if (!HasValue(value))
+        {
+            return true;
+        }
+
+        if (actualType == UcliPlanAliasType || value is UcliPlanAlias)
+        {
+            errorMessage = $"Operation '{path}' cannot use request-local alias references in public op steps.";
+            return false;
+        }
+
+        if (TryGetArrayElementType(actualType, out var elementType))
+        {
+            return TryValidateNoRequestLocalAliasesArray(value!, elementType!, path, visitedTypes, out errorMessage);
+        }
+
+        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
+        {
+            return true;
+        }
+
+        return TryValidateNoRequestLocalAliasesObject(value, actualType, path, visitedTypes, out errorMessage);
+    }
+
+    private static bool TryValidateNoRequestLocalAliasesObject (
+        object? value,
+        Type contractType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (value == null)
+        {
+            return true;
+        }
+
+        if (!visitedTypes.Add(contractType))
+        {
+            return true;
+        }
+
+        var properties = UcliOperationContractReflection.GetSchemaProperties(contractType);
+        foreach (var property in properties)
+        {
+            var propertyValue = property.GetValue(value);
+            var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
+            if (IsRequestLocalAliasPropertyName(propertyName))
+            {
+                if (HasValue(propertyValue))
+                {
+                    errorMessage = $"Operation '{path}.{propertyName}' cannot use reserved request-local alias property '{UcliOperationContractPropertyNames.Alias}' in public op steps.";
+                    visitedTypes.Remove(contractType);
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (!HasValue(propertyValue) || property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
+            {
+                continue;
+            }
+
+            if (!TryValidateNoRequestLocalAliasesValue(
+                    propertyValue,
+                    property.PropertyType,
+                    $"{path}.{propertyName}",
+                    visitedTypes,
+                    out errorMessage))
+            {
+                visitedTypes.Remove(contractType);
+                return false;
+            }
+        }
+
+        visitedTypes.Remove(contractType);
+        return true;
+    }
+
+    private static bool TryValidateNoRequestLocalAliasesArray (
+        object value,
+        Type elementType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (value is not IEnumerable enumerable)
+        {
+            return true;
+        }
+
+        var index = 0;
+        foreach (var item in enumerable)
+        {
+            if (!TryValidateNoRequestLocalAliasesValue(item, elementType, $"{path}[{index.ToString(CultureInfo.InvariantCulture)}]", visitedTypes, out errorMessage))
+            {
+                return false;
+            }
+
+            index++;
+        }
+
+        return true;
+    }
+
+    private static bool TryValidateNoRequestLocalAliasPropertiesValue (
+        JsonElement value,
+        Type contractType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
+        if (actualType == UcliPlanAliasType)
+        {
+            errorMessage = $"Operation '{path}' cannot use request-local alias references in public op steps.";
+            return false;
+        }
+
+        if (TryGetArrayElementType(actualType, out var elementType))
+        {
+            return TryValidateNoRequestLocalAliasPropertiesArray(value, elementType!, path, visitedTypes, out errorMessage);
+        }
+
+        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
+        {
+            return true;
+        }
+
+        return TryValidateNoRequestLocalAliasPropertiesObject(value, actualType, path, visitedTypes, out errorMessage);
+    }
+
+    private static bool TryValidateNoRequestLocalAliasPropertiesObject (
+        JsonElement value,
+        Type contractType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            return true;
+        }
+
+        if (!visitedTypes.Add(contractType))
+        {
+            return true;
+        }
+
+        var properties = UcliOperationContractReflection.GetSchemaProperties(contractType);
+        foreach (var property in properties)
+        {
+            var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
+            if (!value.TryGetProperty(propertyName, out var propertyValue))
+            {
+                continue;
+            }
+
+            if (IsRequestLocalAliasPropertyName(propertyName))
+            {
+                errorMessage = $"Operation '{path}.{propertyName}' cannot use reserved request-local alias property '{UcliOperationContractPropertyNames.Alias}' in public op steps.";
+                visitedTypes.Remove(contractType);
+                return false;
+            }
+
+            if (property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
+            {
+                continue;
+            }
+
+            if (!TryValidateNoRequestLocalAliasPropertiesValue(
+                propertyValue,
+                property.PropertyType,
+                $"{path}.{propertyName}",
+                visitedTypes,
+                out errorMessage))
+            {
+                visitedTypes.Remove(contractType);
+                return false;
+            }
+        }
+
+        visitedTypes.Remove(contractType);
+        return true;
+    }
+
+    private static bool TryValidateNoRequestLocalAliasPropertiesArray (
+        JsonElement value,
+        Type elementType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        if (value.ValueKind != JsonValueKind.Array)
+        {
+            return true;
+        }
+
+        var index = 0;
+        foreach (var item in value.EnumerateArray())
+        {
+            if (!TryValidateNoRequestLocalAliasPropertiesValue(item, elementType, $"{path}[{index.ToString(CultureInfo.InvariantCulture)}]", visitedTypes, out errorMessage))
+            {
+                return false;
+            }
+
+            index++;
+        }
+
+        return true;
+    }
+
+    private static bool TryValidatePublicRawOpReservedProperties (
+        Type contractType,
+        string path,
+        HashSet<Type> visitedTypes,
+        out string errorMessage)
+    {
+        errorMessage = string.Empty;
+        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
+        if (actualType == UcliPlanAliasType)
+        {
+            errorMessage = $"Operation contract property '{path}' uses internal request-local alias type '{nameof(UcliPlanAlias)}'.";
+            return false;
+        }
+
+        if (IsScalar(actualType) || actualType == JsonElementType || actualType == typeof(object))
+        {
+            return true;
+        }
+
+        if (TryGetArrayElementType(actualType, out var elementType))
+        {
+            return TryValidatePublicRawOpReservedProperties(elementType!, path + "[]", visitedTypes, out errorMessage);
+        }
+
+        if (!visitedTypes.Add(actualType))
+        {
+            return true;
+        }
+
+        var properties = UcliOperationContractReflection.GetSchemaProperties(actualType);
+        foreach (var property in properties)
+        {
+            var propertyName = UcliOperationContractReflection.GetJsonPropertyName(property);
+            var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            if (IsInternalRequestLocalAliasProperty(actualType, propertyName, propertyType))
+            {
+                continue;
+            }
+
+            if (propertyType == UcliPlanAliasType)
+            {
+                errorMessage = $"Operation contract property '{path}.{propertyName}' uses internal request-local alias type '{nameof(UcliPlanAlias)}'.";
+                visitedTypes.Remove(actualType);
+                return false;
+            }
+
+            if (IsRequestLocalAliasPropertyName(propertyName))
+            {
+                errorMessage = $"Operation contract property '{path}.{propertyName}' uses reserved public raw-op property name '{UcliOperationContractPropertyNames.Alias}'.";
+                visitedTypes.Remove(actualType);
+                return false;
+            }
+
+            if (property.GetCustomAttribute<UcliJsonAnyValueAttribute>() != null)
+            {
+                continue;
+            }
+
+            if (!TryValidatePublicRawOpReservedProperties(property.PropertyType, $"{path}.{propertyName}", visitedTypes, out errorMessage))
+            {
+                visitedTypes.Remove(actualType);
+                return false;
+            }
+        }
+
+        visitedTypes.Remove(actualType);
+        return true;
+    }
+
+    private static bool IsInternalRequestLocalAliasProperty (
+        Type containerType,
+        string propertyName,
+        Type propertyType)
+    {
+        return propertyType == UcliPlanAliasType
+            && IsRequestLocalAliasPropertyName(propertyName)
+            && InternalRequestLocalAliasContainerTypes.Contains(containerType);
+    }
+
+    private static bool IsRequestLocalAliasPropertyName (string propertyName)
+    {
+        return string.Equals(propertyName, UcliOperationContractPropertyNames.Alias, StringComparison.Ordinal);
     }
 
     private static bool TryValidateObject (

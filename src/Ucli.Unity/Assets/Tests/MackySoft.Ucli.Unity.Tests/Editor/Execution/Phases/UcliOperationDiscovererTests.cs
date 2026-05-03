@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -91,12 +92,52 @@ namespace MackySoft.Ucli.Unity.Tests
                             emitted: true,
                             resultType: "DifferentResult",
                             description: "Wrong result contract."),
-                        new UcliOperationAssuranceContract(
-                            Array.Empty<UcliOperationSideEffect>(),
-                            mayDirty: false,
-                            mayPersist: false,
-                            Array.Empty<string>(),
-                            UcliOperationPlanMode.ValidationOnly)));
+                    new UcliOperationAssuranceContract(
+                        Array.Empty<UcliOperationSideEffect>(),
+                        mayDirty: false,
+                        mayPersist: false,
+                        Array.Empty<string>(),
+                        UcliOperationPlanMode.ValidationOnly)));
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenArgsUseReservedRawOpPropertyName_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = UcliOperationMetadata.Create<ReservedVarArgs, UcliNoResult>(
+                    operationName: "ucli.tests.reserved-var",
+                    kind: UcliOperationKind.Query,
+                    policy: OperationPolicy.Safe,
+                    description: "Reserved var property operation.",
+                    assurance: new UcliOperationAssuranceContract(
+                        Array.Empty<UcliOperationSideEffect>(),
+                        mayDirty: false,
+                        mayPersist: false,
+                        Array.Empty<string>(),
+                        UcliOperationPlanMode.ValidationOnly));
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenArgsUseRequestLocalAliasType_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = UcliOperationMetadata.Create<ReservedAliasTypeArgs, UcliNoResult>(
+                    operationName: "ucli.tests.reserved-alias-type",
+                    kind: UcliOperationKind.Query,
+                    policy: OperationPolicy.Safe,
+                    description: "Reserved alias type operation.",
+                    assurance: new UcliOperationAssuranceContract(
+                        Array.Empty<UcliOperationSideEffect>(),
+                        mayDirty: false,
+                        mayPersist: false,
+                        Array.Empty<string>(),
+                        UcliOperationPlanMode.ValidationOnly));
             });
         }
 
@@ -523,6 +564,21 @@ namespace MackySoft.Ucli.Unity.Tests
         [UcliDescription("Generic discoverable operation result.")]
         private sealed class GenericDiscoverableResult
         {
+        }
+
+        [UcliDescription("Reserved var args.")]
+        private sealed class ReservedVarArgs
+        {
+            [UcliDescription("Reserved property name.")]
+            [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
+            public string? Alias { get; set; }
+        }
+
+        [UcliDescription("Reserved alias type args.")]
+        private sealed class ReservedAliasTypeArgs
+        {
+            [UcliDescription("Reserved alias type.")]
+            public UcliPlanAlias? Alias { get; set; }
         }
 
         [UcliOperation]

@@ -149,6 +149,68 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator TypedOperation_WhenPublicOpUsesRequestLocalAlias_ReturnsInvalidArgumentWithoutCallingBody () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AliasReferenceTypedOperation();
+            using var executionContext = new OperationExecutionContext();
+            var normalizedOperation = new NormalizedOperation(
+                Id: "op-alias",
+                Op: "ucli.tests.alias-reference",
+                Args: JsonSerializer.SerializeToElement(new
+                {
+                    target = new
+                    {
+                        @var = "created",
+                    },
+                }),
+                As: null,
+                Expect: null,
+                AllowRequestLocalAliases: false);
+
+            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(
+                result.Failure.Message,
+                Is.EqualTo("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps."));
+            Assert.That(operation.ValidateBodyCalled, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator TypedOperation_WhenPublicOpIncludesNullRequestLocalAliasProperty_ReturnsInvalidArgumentWithoutCallingBody () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AliasReferenceTypedOperation();
+            using var executionContext = new OperationExecutionContext();
+            var normalizedOperation = new NormalizedOperation(
+                Id: "op-alias",
+                Op: "ucli.tests.alias-reference",
+                Args: JsonSerializer.SerializeToElement(new
+                {
+                    target = new
+                    {
+                        @var = (string?)null,
+                        scene = "Assets/Scenes/Main.unity",
+                        hierarchyPath = "Root",
+                    },
+                }),
+                As: null,
+                Expect: null,
+                AllowRequestLocalAliases: false);
+
+            var result = await operation.Validate(normalizedOperation, executionContext, CancellationToken.None);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Failure!.Code, Is.EqualTo(IpcErrorCodes.InvalidArgument));
+            Assert.That(
+                result.Failure.Message,
+                Is.EqualTo("Operation 'args.target.var' cannot use reserved request-local alias property 'var' in public op steps."));
+            Assert.That(operation.ValidateBodyCalled, Is.False);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCommandIsPlan_ExecutesValidateAndPlanOnly () => UniTask.ToCoroutine(async () =>
         {
             var operation = new RecordingPhaseOperation(
@@ -1288,6 +1350,59 @@ namespace MackySoft.Ucli.Unity.Tests
             [UcliRequired]
             [UcliDescription("Required name.")]
             public string? Name { get; set; }
+        }
+
+        private sealed class AliasReferenceTypedOperation : UcliOperation<AliasReferenceTypedArgs, UcliNoResult>
+        {
+            public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AliasReferenceTypedArgs, UcliNoResult>(
+                operationName: "ucli.tests.alias-reference",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe,
+                description: "Test operation accepting one object reference.",
+                assurance: new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ValidationOnly));
+
+            public bool ValidateBodyCalled { get; private set; }
+
+            protected override Task<OperationPhaseStepResult> Validate (
+                NormalizedOperation operation,
+                AliasReferenceTypedArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                ValidateBodyCalled = true;
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Plan (
+                NormalizedOperation operation,
+                AliasReferenceTypedArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+
+            protected override Task<OperationPhaseStepResult> Call (
+                NormalizedOperation operation,
+                AliasReferenceTypedArgs args,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken)
+            {
+                return Task.FromResult(OperationPhaseStepResult.Success());
+            }
+        }
+
+        [UcliDescription("Alias reference operation args.")]
+        private sealed class AliasReferenceTypedArgs
+        {
+            [UcliRequired]
+            [UcliDescription("Target GameObject reference.")]
+            public GameObjectReferenceArgs? Target { get; set; }
         }
 
         private sealed class RecordingPhaseOperation : IUcliOperation

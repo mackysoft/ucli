@@ -109,9 +109,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            if (!operation.AllowRequestLocalAliases
+                && !UcliOperationContractValidator.TryValidateNoRequestLocalAliasProperties(operation.Args, typeof(TArgs), out var aliasPropertyValidationError))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, aliasPropertyValidationError);
+                return false;
+            }
+
             if (!UcliOperationContractValidator.TryValidate(value, typeof(TArgs), out var validationError))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, validationError);
+                return false;
+            }
+
+            if (!operation.AllowRequestLocalAliases
+                && !UcliOperationContractValidator.TryValidateNoRequestLocalAliases(value, typeof(TArgs), out var aliasValidationError))
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, aliasValidationError);
                 return false;
             }
 

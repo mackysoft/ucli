@@ -67,6 +67,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sets!,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
+                operation.AllowRequestLocalAliases,
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -134,6 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sets!,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
+                operation.AllowRequestLocalAliases,
                 out var changed,
                 out var applyErrorMessage))
             {
