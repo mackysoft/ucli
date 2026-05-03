@@ -8,11 +8,11 @@ Usage:
 
 Options:
   --repo-root <path>          Repository root. Defaults to git root.
-  --project-path <path>       Unity project root. Defaults to src/Ucli.Unity.
+  --project-path <path>       Unity project root. Required unless UCLI_UNITY_PROJECT_PATH is set.
   --mode <mode>               ucli execution mode. Defaults to oneshot.
   --unity-editor-path <path>  Unity editor executable or directory path.
   --test-platform <value>     Unity test platform. Defaults to editmode.
-  --assembly-name <value>     Comma-separated assembly names.
+  --assembly-name <value>     Comma-separated assembly names. Required unless UCLI_UNITY_TEST_ASSEMBLY is set.
   --test-filter <value>       Test name filter pattern.
   --test-category <value>     Comma-separated test categories.
   --test-settings-path <path> TestSettings.json path.
@@ -25,11 +25,11 @@ EOF
 }
 
 repository_root=""
-project_path="src/Ucli.Unity"
+project_path="${UCLI_UNITY_PROJECT_PATH:-}"
 execution_mode="oneshot"
 unity_editor_path=""
 test_platform="editmode"
-assembly_name="MackySoft.Ucli.Unity.Tests.Editor"
+assembly_name="${UCLI_UNITY_TEST_ASSEMBLY:-}"
 test_filter=""
 test_category=""
 test_settings_path=""
@@ -179,6 +179,16 @@ fi
 
 if [[ -z "${configuration}" ]]; then
   echo "ERROR: --configuration must not be empty." >&2
+  exit 2
+fi
+
+if [[ -z "${project_path}" ]]; then
+  echo "ERROR: --project-path or UCLI_UNITY_PROJECT_PATH is required." >&2
+  exit 2
+fi
+
+if [[ -z "${assembly_name}" ]]; then
+  echo "ERROR: --assembly-name or UCLI_UNITY_TEST_ASSEMBLY is required." >&2
   exit 2
 fi
 
