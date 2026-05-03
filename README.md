@@ -4,15 +4,21 @@
 
 **Created by Hiroya Aramaki ([Makihiro](https://twitter.com/makihiro_dev))**
 
-uCLI turns Unity edits into reviewable, repeatable, machine-readable workflows for terminals, scripts, continuous integration jobs, and agent systems.
+uCLI turns Unity Editor changes into reviewable, repeatable, machine-readable workflows for scripts, CI, and AI agents.
 
-It reads current Unity state, declares the intended change, validates and plans it, applies it through Unity Editor APIs instead of direct YAML editing, chooses the save boundary, and returns evidence about what happened.
+It reads Unity state, declares the intended change, validates and plans it, applies it through Unity Editor APIs, chooses the save boundary, and returns structured evidence.
 
 uCLI is not a remote-control wrapper around the Unity Editor. It is an execution protocol for workflows where automation must be inspected, replayed, gated, and trusted.
 
 ## ❓ Why uCLI?
 
 Unity automation usually fails in the control plane, not only in the edit API. Scripts and agents need to know which Unity project they are talking to, whether the Editor is compiling or reloading, whether a request was applied before a timeout, what contexts were touched, and whether a reviewed plan is still valid when applied.
+
+In short:
+
+- MCP-style tools make Unity callable.
+- uCLI makes Unity changes reviewable.
+- The normal workflow is `read -> validate -> plan -> call -> verify`.
 
 uCLI focuses on those guarantees:
 
@@ -27,32 +33,33 @@ uCLI focuses on those guarantees:
 
 ## 🧭 What Makes uCLI Different?
 
-Many Unity automation tools focus on exposing editor actions to an agent or remote client. uCLI focuses on making those actions reviewable and operationally safe.
+Many Unity automation tools focus on exposing editor actions to an agent or remote client. uCLI does not compete on tool count; it competes on whether an automated Unity change can be reviewed, gated, applied, and diagnosed as a contract.
 
-| Area | Common failure mode | uCLI approach |
+| Problem | Typical shortcut | uCLI contract |
 | --- | --- | --- |
-| Editor lifecycle | Scripts guess with `sleep` after compile or reload. | Lifecycle states are surfaced, and execution waits or fails with structured errors. |
-| State drift | A plan is reviewed, then Unity changes before apply. | `planToken` validates request and state before `call`. |
-| Target identity | Multiple Unity instances, projects, or worktrees get confused. | Local state is scoped by `projectFingerprint`. |
-| Timeout handling | Timeout is treated as proof that nothing happened. | Partial `opResults` and logs remain part of the result contract. |
-| Persistence | Tools mutate and save implicitly. | `commit` makes save boundaries explicit. |
-| Observability | Errors disappear into editor logs. | JSON envelopes, Unity logs, daemon logs, and test artifacts are first-class outputs. |
-| Risk control | Arbitrary code execution becomes the normal path. | Dangerous operations are isolated and require explicit opt-in. |
+| Editor readiness | Guess with `sleep` after compile or reload. | Lifecycle states are surfaced; execution waits or fails with structured errors. |
+| Reviewed plan drift | Apply after Unity changed. | `planToken` validates request and state before `call`. |
+| Wrong project or worktree | Reuse global editor state or path guesses. | Local state is scoped by `projectFingerprint`. |
+| Retry after timeout | Treat timeout as "not applied". | `opResults`, touched units, and logs remain part of the result contract. |
+| Hidden persistence | Mutate and save implicitly. | `commit` makes save boundaries explicit. |
+| Lost evidence | Scrape editor logs or console text. | JSON envelopes, logs, and test artifacts are first-class outputs. |
+| Tool discovery | Guess operation arguments from memory or stale instructions. | `ops describe` exposes the live operation kind, policy, and argument schema for the installed plugin. |
+| Read freshness | Treat cached project state as mutation truth. | readIndex accelerates reads, while `call` re-resolves against live Unity state. |
+| Unsafe escape hatches | Make arbitrary code execution the happy path. | Dangerous operations are isolated and require explicit opt-in. |
 
-## 🧠 Design Philosophy
+## 🧠 Design Guarantees
 
 uCLI is designed around assurance, not convenience-first automation.
 
-| Principle | What it means in uCLI |
+| Guarantee | uCLI contract |
 | --- | --- |
-| Preserve Unity semantics | Mutations go through Unity Editor APIs instead of direct YAML editing. |
-| Context-first editing | Edits are scoped to scene, prefab, asset, or project boundaries. |
-| Plan before mutation | `ucli plan` produces a `planToken`; `ucli call` can verify request and state drift before applying. |
-| Modify is not persist | Edits declare `commit: "none"`, `"context"`, or `"project"`. |
-| Evidence over success text | JSON responses expose `opResults`, `applied`, `changed`, `touched`, errors, artifacts, and logs. |
-| Lifecycle is part of the protocol | Compile, domain reload, busy, play mode, shutdown, and blocked states are exposed as lifecycle state or structured errors. |
-| Runtime choice is operational | `daemon`, `auto`, and `oneshot` change execution mode, not request meaning. |
-| Unsafe paths are explicit | Dangerous operations require catalog policy and `--allowDangerous`. |
+| Unity remains the source of truth | Mutations go through Unity Editor APIs. |
+| Edits have context | Every edit declares a scene, prefab, asset, or project context. |
+| Plans are checked before write | `ucli plan` produces a `planToken`; `ucli call` can verify request and state drift before applying. |
+| Saves are explicit | `commit` controls persistence with `"none"`, `"context"`, or `"project"`. |
+| Results are evidence | JSON exposes `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts. |
+| Runtime is operational | `daemon`, `auto`, and `oneshot` do not change request meaning. |
+| Unsafe paths are isolated | Dangerous operations require catalog policy and `--allowDangerous`. |
 
 ## ✨ What You Can Do
 
@@ -60,8 +67,10 @@ Use uCLI when you need to automate Unity from scripts, CI, or agents without los
 
 ### 🤖 For Agents
 
+Agents should not hard-code operation arguments or guess Unity state from memory.
+
 - Discover available operations with `ucli ops list` and `ucli ops describe`.
-- Treat `ucli ops describe <operation>` as the runtime contract for arguments, constraints, results, and assurance metadata instead of guessing from memory.
+- Treat `ucli ops describe <operation>` as the runtime contract for operation kind, policy, and argument schema.
 - Inspect assets, scene trees, components, and serialized schemas before editing.
 - Build JSON requests with primitive `op` steps and higher-level `edit` steps.
 - Use `validate`, `plan`, and `call` to keep review and execution separate.
@@ -176,6 +185,8 @@ The request protocol does not change between these modes. Runtime choice is oper
 
 > **TIP:** Read before you write. These commands emit machine-readable JSON.
 
+Use `ucli refresh` when Unity project state may be stale. It may trigger refresh or import work; query commands remain the read-only inspection path.
+
 ```bash
 ucli refresh --projectPath ./UnityProject
 
@@ -225,6 +236,8 @@ ucli ops describe ucli.scene.open --projectPath ./UnityProject
 
 > **IMPORTANT:** Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.
 
+Use `call --withPlan` for compact local automation where the same runner plans and applies immediately.
+
 ```bash
 REQUEST_JSON='{
   "protocolVersion": 1,
@@ -268,7 +281,7 @@ printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --withPlan
 
 This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, edits the `Game.EnemySpawner` component, and saves the scene through `commit: "context"`.
 
-When a human review step or quality gate must inspect the plan before applying changes, split execution into `validate`, `plan`, and `call`:
+Use `validate -> plan -> call --planToken` when a human review step, CI gate, or agent supervisor must inspect the plan before mutation:
 
 ```bash
 printf '%s' "$REQUEST_JSON" | ucli validate --projectPath ./UnityProject
@@ -535,51 +548,44 @@ Raw `set` operations use `sets`, while edit steps use the shorter `values` form:
 }
 ```
 
-## 📚 Operation Catalog Summary
+## 📚 Operation Catalog
 
-Use `edit` for common edits. Use `op` when you need an explicit primitive operation from the catalog. The live catalog for the installed Unity plugin is available through `ucli ops list` and `ucli ops describe`.
+The installed Unity plugin exposes its primitive operation catalog at runtime.
 
-> **TIP:** Agents should use `ucli ops describe <operation>` as the runtime contract before constructing primitive `op` steps. Do not hard-code operation arguments from memory.
+```bash
+ucli ops list --projectPath ./UnityProject
+ucli ops describe ucli.comp.set --projectPath ./UnityProject
+```
 
-### 📖 Read Operations
+Use `ops describe` as the source of truth for:
 
-| Operation | Type | Args | Use it for |
-| --- | --- | --- | --- |
-| `ucli.assets.find` | query | `{ type?, pathPrefix?, nameContains? }` | Find main assets under `Assets/`. At least one filter is required. |
-| `ucli.asset.schema` | query | `{ type }` or `{ target }` | Read writable serialized fields for an asset type or existing asset. |
-| `ucli.comp.schema` | query | `{ type }` | Read writable serialized fields for a component type. |
-| `ucli.go.describe` | query | `{ target, depth? }` | Inspect one GameObject and its components. |
-| `ucli.resolve` | query | selector object | Resolve a selector to a Unity object identifier. |
-| `ucli.scene.query` | query | `{ scene, pathPrefix?, componentType? }` | Find scene GameObjects or components for selection. |
-| `ucli.scene.tree` | query | `{ path, depth? }` | Read a scene hierarchy. |
+- operation kind
+- operation policy
+- argument schema
+- `readIndex` metadata
 
-### 🗂️ Context And Save Operations
+README examples show common operations only. The installed Unity plugin's operation catalog is the runtime contract.
 
-| Operation | Type | Args | Use it for |
-| --- | --- | --- | --- |
-| `ucli.scene.open` | query | `{ path }` | Ensure a scene is loaded. |
-| `ucli.scene.save` | mutation | `{ path }` | Save a loaded scene. |
-| `ucli.prefab.open` | query | `{ path }` | Open a prefab editing context. |
-| `ucli.prefab.save` | mutation | `{ path }` | Save the opened prefab context. |
-| `ucli.project.refresh` | mutation | `{}` | Refresh the Unity project and AssetDatabase. |
-| `ucli.project.save` | mutation | `{}` | Save project assets, project settings, and tracked open contexts. |
+Common operation groups include:
 
-### 🔧 Mutation Operations
+- `ucli.scene.*` - open, inspect, and save scenes.
+- `ucli.prefab.*` - open, edit, save, and create prefabs.
+- `ucli.assets.*` / `ucli.asset.*` - find assets, inspect schemas, and update asset values.
+- `ucli.go.*` - create, describe, delete, and reparent GameObjects.
+- `ucli.comp.*` - inspect, ensure, and set components.
+- `ucli.project.*` - refresh and save project-scoped state.
 
-| Operation | Type | Args | Use it for |
-| --- | --- | --- | --- |
-| `ucli.asset.create` | mutation | `{ type, path }` | Create a ScriptableObject main asset under `Assets/`. |
-| `ucli.asset.set` | mutation | `{ target, sets[] }` | Set serialized properties on an asset or project-scoped asset. |
-| `ucli.comp.ensure` | mutation | `{ target, type }` | Ensure a component exists on a GameObject. |
-| `ucli.comp.set` | mutation | `{ target, sets[] }` | Set serialized properties on a component. |
-| `ucli.go.create` | mutation | `{ name, scene }` or `{ name, parent }` | Create a GameObject at a scene root or under a parent. |
-| `ucli.go.delete` | mutation | `{ target }` | Delete a GameObject. |
-| `ucli.go.reparent` | mutation | `{ target, parent }` | Move a GameObject under a new parent. |
-| `ucli.prefab.create` | mutation | `{ target, path }` | Create a prefab asset from a GameObject. |
+## 🧱 Extensible by Contract
 
-### ⚠️ Dangerous Operations
+Extensions can expose operations under names such as `myorg.navmesh.bake`.
 
-> **WARNING:** `ucli call` blocks operations marked `dangerous` unless the command includes `--allowDangerous`. Prefer the normal `edit` flow and non-dangerous primitive operations. Use dangerous operations only when the catalog marks the required operation that way and the request has been reviewed.
+Custom operations are not hidden shortcuts. Once they are in the catalog, they participate in the same policy, schema, and JSON result envelope contracts as built-in operations, so agents and CI can discover them with `ucli ops list` and inspect them with `ucli ops describe`.
+
+## ⚠️ Dangerous Operations
+
+> **WARNING:** `ucli call` blocks operations marked `dangerous` unless every guard allows them: project policy, operation allowlist, and the explicit `--allowDangerous` flag. Prefer the normal `edit` flow and non-dangerous primitive operations.
+
+Dynamic or arbitrary execution paths are useful escape hatches, but uCLI keeps the normal edit path declarative, typed, planned, and reviewable.
 
 ## 🧪 Verifying Changes
 
