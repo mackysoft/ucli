@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Features.OperationCatalog.Common.Contracts;
@@ -54,14 +55,25 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
                 IpcErrorCodes.InternalError);
         }
 
+        if (!TryValidateDescribeContract(operation, out var describeError))
+        {
+            return OpsDescribeServiceResult.Failure(
+                $"Operation '{operationName}' describe contract is invalid: {describeError}",
+                IpcErrorCodes.InternalError);
+        }
+
         return OpsDescribeServiceResult.Success(
             new OpsDescribeExecutionOutput(
                 Operation: new OpsOperationDetail(
-                    Name: operation.Name!,
-                    Kind: operation.Kind!,
-                    Policy: operation.Policy!,
-                    ArgsSchema: argsSchema,
-                    ResultSchema: resultSchema),
+                    name: operation.Name!,
+                    kind: operation.Kind!,
+                    policy: operation.Policy!,
+                    description: operation.Description!,
+                    inputs: operation.Inputs!,
+                    resultContract: operation.ResultContract!,
+                    assurance: operation.Assurance!,
+                    argsSchema: argsSchema,
+                    resultSchema: resultSchema),
                 ReadIndex: readIndexInfoMapper.Map(output.AccessInfo)),
             $"uCLI ops describe completed for '{operationName}'.");
     }
@@ -107,5 +119,54 @@ internal sealed class OpsDescribeResultMapper : IOpsDescribeResultMapper
             schema = default;
             return false;
         }
+    }
+
+    private static bool TryValidateDescribeContract (
+        IndexOpEntryJsonContract operation,
+        out string? error)
+    {
+        if (string.IsNullOrWhiteSpace(operation.Description))
+        {
+            error = "description is missing.";
+            return false;
+        }
+
+        if (operation.Inputs == null)
+        {
+            error = "inputs is missing.";
+            return false;
+        }
+
+        if (operation.ResultContract == null
+            || string.IsNullOrWhiteSpace(operation.ResultContract.ResultType)
+            || string.IsNullOrWhiteSpace(operation.ResultContract.Description))
+        {
+            error = "resultContract is incomplete.";
+            return false;
+        }
+
+        if (operation.ResultContract.Emitted && operation.ResultSchemaJson == null)
+        {
+            error = "resultSchema is required when resultContract.emitted is true.";
+            return false;
+        }
+
+        if (!operation.ResultContract.Emitted && operation.ResultSchemaJson != null)
+        {
+            error = "resultSchema must be null when resultContract.emitted is false.";
+            return false;
+        }
+
+        if (operation.Assurance == null
+            || operation.Assurance.SideEffects == null
+            || operation.Assurance.TouchedKinds == null
+            || string.IsNullOrWhiteSpace(operation.Assurance.PlanMode))
+        {
+            error = "assurance is incomplete.";
+            return false;
+        }
+
+        error = null;
+        return true;
     }
 }

@@ -15,7 +15,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.ResolveSelectorArgs, IpcResolveOperationResult>(
             operationName: UcliPrimitiveOperationNames.Resolve,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe);
+            policy: OperationPolicy.Safe,
+            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.Resolve));
 
         /// <summary> Executes validate phase for <c>ucli.resolve</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

@@ -279,10 +279,554 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
 | `name` | string | yes | operation 名 |
-| `kind` | string | yes | `query` または `mutation` |
+| `kind` | string | yes | `query`、`command`、または `mutation`。`command` は Editor 状態や AssetDatabase 状態を変えるが、永続化対象の内容変更を主目的にしない |
 | `policy` | string | yes | `safe`、`advanced`、または `dangerous` |
-| `argsSchema` | object | yes | Args contract 型から生成された JSON Schema |
-| `resultSchema` | object \| null | yes | Result contract 型から生成された JSON Schema。`UcliNoResult` operation では `null` |
+| `description` | string | yes | operation の目的、使いどころ、注意点 |
+| `inputs` | array | yes | ユーザー入力から `steps[].args` を組み立てるための主契約。shape は `payload.operation.inputs[]` を参照 |
+| `resultContract` | object | yes | `opResults[].result` の有無、Result contract 型名、読み方。shape は `payload.operation.resultContract` を参照 |
+| `assurance` | object | yes | 副作用と plan / touched の保証情報。shape は `payload.operation.assurance` を参照 |
+| `argsSchema` | object | yes | `steps[].args` の JSON 構造検証用 JSON Schema |
+| `resultSchema` | object \| null | yes | `opResults[].result` の JSON 構造検証用 JSON Schema。`UcliNoResult` operation では `null` |
+
+`argsSchema` / `resultSchema` は検証用 schema であり、agent 向けの主契約ではない。operation 選択、`args` の組み立て、結果解釈は `description` / `inputs[].constraints` / `resultContract` / `assurance` を参照する。schema には説明文や意味制約を置かない。
+
+#### `ucli ops describe payload.operation.inputs[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | yes | input 名。通常は対応する args property 名 |
+| `description` | string | yes | 入力値の意味 |
+| `valueType` | string | yes | JSON 値型。`string`、`boolean`、`integer`、`number`、`object`、`array` のいずれか |
+| `constraints` | array | yes | 入力値の意味制約。shape は `payload.operation.inputs[].constraints[]` を参照 |
+| `argsPath` | string | no | 対応する `steps[].args` 内 JSON path。省略時は `$.<name>` |
+| `variants` | array | no | selector / reference の表現方法。shape は `payload.operation.inputs[].variants[]` を参照 |
+
+必須性は `argsSchema.required` で表す。optional input は `argsSchema.required` に含めない。`inputs[]` には `required` field を持たせない。
+
+`argsPath` は例外用である。input 名と args property 名が一致する通常ケースでは省略する。root object 全体を 1 input として扱う場合や、input 名と JSON property 名が一致しない場合だけ指定する。
+
+`constraints` は常に出す。意味制約がない input は `constraints: []` とする。
+
+`argsPath` と `variants[].argsPaths` は JSONPath ではなく uCLI args path である。許可形は `$`、`$.property`、`$.property.nestedProperty` だけとし、配列添字、wildcard、filter、quoted property name は扱わない。`variants[].argsPaths` は同じ input の `argsPath`、または省略時の `$.<name>` と同じ path か、その descendant path でなければならない。
+
+`argsPath` を指定する例:
+
+```json
+{
+  "name": "patch",
+  "valueType": "object",
+  "description": "Serialized property values to apply.",
+  "constraints": [
+    { "kind": "serializedProperty", "access": "write" }
+  ],
+  "argsPath": "$.values"
+}
+```
+
+この例では agent-facing input 名は `patch` だが、実際の `steps[].args` では `values` property を組み立てる。
+
+#### `ucli ops describe payload.operation.inputs[].variants[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | yes | variant 名 |
+| `description` | string | yes | この表現方法の意味 |
+| `argsPaths` | string[] | yes | この variant を成立させるために埋める `steps[].args` 内 leaf path 群 |
+| `constraints` | array | yes | この表現方法に固有の意味制約 |
+
+variant は operation の意味差ではなく、同じ input を表現する方法だけを表す。同一 `input` 内の `variants` は相互排他である。operation の `description` が複数のユーザー意図を説明する場合、その operation は分割対象である。
+
+variant を選ぶ場合、agent はその `variants[].argsPaths` に列挙された path をすべて埋める。variant 固有の optional field は `argsPaths` には含めず、`argsSchema` の optional property と operation / input の `description` で表す。
+
+variant の `constraints` も常に出す。variant 固有の意味制約がない場合は `constraints: []` とする。
+
+#### `ucli ops describe payload.operation.inputs[].constraints[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `kind` | string | yes | 制約の種類 |
+| `min` | number | no | `kind:"range"` の下限 |
+| `max` | number | no | `kind:"range"` の上限 |
+| `assetKind` | string | no | `asset`、`scene`、`prefab`、または `projectSettings` |
+| `targetKind` | string | no | `asset`、`gameObject`、または `component` |
+| `typeKind` | string | no | `unityObject`、`component`、または `scriptableObject` |
+| `access` | string | no | `read` または `write` |
+
+`constraints` は入力値の意味を表す機械判定用 contract である。自由文ではなく、定義済み `kind` と必要なパラメータで表す。
+
+初期 vocabulary は次に限定する。
+
+| kind | Parameters | Meaning |
+| --- | --- | --- |
+| `nonEmpty` | none | 空文字、空配列、空 object を受け付けない |
+| `range` | `min?`, `max?` | 数値が指定範囲に入る。下限だけ、上限だけ、両方を同じ kind で表す |
+| `projectRelativePath` | none | Unity project 相対 path として扱う |
+| `assetExists` | `assetKind` | 指定 kind の既存 asset を指す |
+| `assetCreatable` | `assetKind` | 指定 kind の asset 作成先として使える |
+| `globalObjectId` | none | Unity GlobalObjectId として解決できる |
+| `hierarchyPath` | none | scene / prefab hierarchy path として解釈する |
+| `referenceResolvable` | `targetKind` | 指定 kind の Unity 参照へ解決できる |
+| `typeExists` | none | Unity runtime type として解決できる |
+| `typeAssignableTo` | `typeKind` | 指定 kind に代入可能な Unity type である |
+| `serializedProperty` | `access` | serialized property path として読み取りまたは書き込みに使える |
+
+kind ごとの parameter 規則:
+
+| kind | Required parameters | Forbidden parameters |
+| --- | --- | --- |
+| `nonEmpty` | none | `min`, `max`, `assetKind`, `targetKind`, `typeKind`, `access` |
+| `range` | `min` または `max` の少なくとも一方 | `assetKind`, `targetKind`, `typeKind`, `access` |
+| `projectRelativePath` | none | `min`, `max`, `assetKind`, `targetKind`, `typeKind`, `access` |
+| `assetExists` | `assetKind` | `min`, `max`, `targetKind`, `typeKind`, `access` |
+| `assetCreatable` | `assetKind` | `min`, `max`, `targetKind`, `typeKind`, `access` |
+| `globalObjectId` | none | `min`, `max`, `assetKind`, `targetKind`, `typeKind`, `access` |
+| `hierarchyPath` | none | `min`, `max`, `assetKind`, `targetKind`, `typeKind`, `access` |
+| `referenceResolvable` | `targetKind` | `min`, `max`, `assetKind`, `typeKind`, `access` |
+| `typeExists` | none | `min`, `max`, `assetKind`, `targetKind`, `typeKind`, `access` |
+| `typeAssignableTo` | `typeKind` | `min`, `max`, `assetKind`, `targetKind`, `access` |
+| `serializedProperty` | `access` | `min`, `max`, `assetKind`, `targetKind`, `typeKind` |
+
+#### `ucli ops describe payload.operation.resultContract`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `emitted` | boolean | yes | `opResults[].result` が出るか |
+| `resultType` | string | yes | result の contract 型名。result を返さない operation は `UcliNoResult` |
+| `description` | string | yes | result の意味と読み方 |
+
+`resultContract` は `opResults[].result` の読み方だけを表す。step 間データフロー、binding、durable output はこの property では表さない。
+
+`emitted:false` の operation は `opResults[].result` property 自体を出さない。`null` は返さない。この場合、`resultType` は `UcliNoResult`、`resultSchema` は `null` になる。
+
+`UcliNoResult` は `{}` または `null` を意味しない。operation 固有の result field を出力しないことを意味する。
+
+#### `ucli ops describe payload.operation.assurance`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `sideEffects` | string[] | yes | `call` で起こり得る副作用の分類 |
+| `mayDirty` | boolean | yes | `call` が Unity object や project state を dirty にし得るか |
+| `mayPersist` | boolean | yes | `call` が project file へ永続化し得るか |
+| `touchedKinds` | string[] | yes | `touched[]` に出現し得る resource kind |
+| `planMode` | string | yes | `validationOnly`、`observesLiveUnity`、または `mayCreatePreviewState` |
+
+`sideEffects` は閉じた語彙で表す。副作用がない operation は `sideEffects: []` とする。
+
+| sideEffects value | Meaning |
+| --- | --- |
+| `opensSceneInEditor` | Unity Editor で Scene を開く |
+| `opensPrefabStage` | Prefab editing stage を開く |
+| `refreshesAssetDatabase` | AssetDatabase refresh を実行する |
+| `importsAssets` | asset import を発生させ得る |
+| `mayTriggerCompile` | C# compile を発生させ得る |
+| `mayTriggerDomainReload` | Editor domain reload を発生させ得る |
+| `writesScene` | Scene file を保存または dirty にし得る |
+| `writesPrefab` | Prefab asset を保存または dirty にし得る |
+| `writesAsset` | project asset を保存または dirty にし得る |
+| `writesProjectSettings` | ProjectSettings 配下を保存または dirty にし得る |
+| `executesUserCode` | ユーザーコードを実行し得る |
+
+`touchedKinds` は閉じた語彙で表す。touched resource がない operation は `touchedKinds: []` とする。
+
+| touchedKinds value | Meaning |
+| --- | --- |
+| `scene` | Scene resource |
+| `prefab` | Prefab resource |
+| `asset` | AssetDatabase 管理下の project asset |
+| `projectSettings` | ProjectSettings 配下の project setting |
+
+`planMode` は次のいずれかに限定する。
+
+| planMode value | Meaning |
+| --- | --- |
+| `validationOnly` | Plan は typed args と静的 contract の検証だけを行う |
+| `observesLiveUnity` | Plan は live Unity state または readIndex を観測して結果を作る |
+| `mayCreatePreviewState` | Plan が preview scene や prefab stage など一時状態を作り得る |
+
+`kind` と `assurance` の整合は次を満たす。
+
+| kind | Assurance rule | Examples |
+| --- | --- | --- |
+| `query` | 観測のみ。`mayDirty:false`、`mayPersist:false`、`sideEffects:[]`、`touchedKinds:[]` とする | `ucli.scene.tree`, `ucli.assets.find` |
+| `command` | Editor 状態や AssetDatabase 状態を変え得る。永続化対象の内容変更を主目的にしないため、通常は `mayDirty:false`、`mayPersist:false` とし、副作用は `sideEffects` で表す | `ucli.scene.open`, `ucli.prefab.open`, `ucli.project.refresh` |
+| `mutation` | Scene / Prefab / Asset / ProjectSettings を dirty または保存し得る。対象種別は `touchedKinds`、永続化可能性は `mayPersist` で表す | `ucli.comp.set`, `ucli.scene.save` |
+
+#### `ucli ops describe payload.operation.argsSchema`
+
+`argsSchema` は `steps[].args` の JSON 構造だけを表す。使用する語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。
+
+schema には説明文や意味制約を出さない。説明は `description`、意味制約は `inputs[].constraints` に置く。
+
+#### `ucli ops describe payload.operation.resultSchema`
+
+`argsSchema` / `resultSchema` は JSON Schema の完全実装ではなく、uCLI-supported JSON Schema subset である。この subset は JSON object の構造検証だけを contract し、外部 JSON Schema validator への完全互換入力として扱えることは保証しない。
+
+subset で使用できる語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。`$schema` は出力しない。closed value set は schema の `enum` ではなく、この property reference の語彙表または `inputs[].constraints` で表す。composition、condition、default、example、format、scalar constraint 系の JSON Schema keyword は公開 contract として使用しない。
+
+`resultSchema` は `opResults[].result` の JSON 構造だけを表す。result を返さない operation では `null` になる。配列 property は `items` で要素構造を表し、ネスト型や再帰型は `$defs` の名前付き schema と `$ref` で表す。
+
+`$defs` は配列ではなく object である。複数定義は `"SceneTreeNode"` や `"AssetReference"` のような名前を key にして並べ、参照側は `"$ref":"#/$defs/SceneTreeNode"` の形で参照する。
+
+#### `ucli ops describe` no result command 例
+
+```json
+{
+  "operation": {
+    "name": "ucli.scene.open",
+    "kind": "command",
+    "policy": "safe",
+    "description": "Open a Unity scene in the Editor before reading or editing scene objects.",
+    "inputs": [
+      {
+        "name": "path",
+        "valueType": "string",
+        "description": "Project-relative path to a scene asset.",
+        "constraints": [
+          { "kind": "nonEmpty" },
+          { "kind": "assetExists", "assetKind": "scene" }
+        ]
+      }
+    ],
+    "resultContract": {
+      "emitted": false,
+      "resultType": "UcliNoResult",
+      "description": "No operation-specific result is emitted."
+    },
+    "assurance": {
+      "sideEffects": [
+        "opensSceneInEditor"
+      ],
+      "mayDirty": false,
+      "mayPersist": false,
+      "touchedKinds": [
+        "scene"
+      ],
+      "planMode": "observesLiveUnity"
+    },
+    "argsSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "resultSchema": null
+  },
+  "readIndex": {}
+}
+```
+
+#### object result と nested `$defs` 例
+
+```json
+{
+  "operation": {
+    "name": "ucli.scene.tree",
+    "kind": "query",
+    "policy": "safe",
+    "description": "Read the hierarchy tree for a loaded or indexed Unity scene.",
+    "inputs": [
+      {
+        "name": "path",
+        "valueType": "string",
+        "description": "Project-relative path to a scene asset.",
+        "constraints": [
+          { "kind": "assetExists", "assetKind": "scene" }
+        ]
+      },
+      {
+        "name": "maxDepth",
+        "valueType": "integer",
+        "description": "Optional hierarchy depth limit to include.",
+        "constraints": [
+          { "kind": "range", "min": 0 }
+        ]
+      }
+    ],
+    "resultContract": {
+      "emitted": true,
+      "resultType": "SceneTreeResult",
+      "description": "Scene hierarchy tree for the requested scene."
+    },
+    "assurance": {
+      "sideEffects": [],
+      "mayDirty": false,
+      "mayPersist": false,
+      "touchedKinds": [],
+      "planMode": "observesLiveUnity"
+    },
+    "argsSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "maxDepth": {
+          "type": "integer"
+        }
+      }
+    },
+    "resultSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "roots"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SceneTreeNode"
+          }
+        }
+      },
+      "$defs": {
+        "SceneTreeNode": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "hierarchyPath",
+            "children"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "hierarchyPath": {
+              "type": "string"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SceneTreeNode"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "readIndex": {}
+}
+```
+
+`maxDepth` は optional input なので `argsSchema.required` に含めない。`inputs[]` に `required` は置かない。
+
+#### object input と selector variants 例
+
+```json
+{
+  "input": {
+    "name": "target",
+    "valueType": "object",
+    "description": "Object reference to resolve.",
+    "argsPath": "$.target",
+    "constraints": [
+      { "kind": "referenceResolvable", "targetKind": "gameObject" }
+    ],
+    "variants": [
+      {
+        "name": "globalObjectId",
+        "description": "Use when an exact Unity GlobalObjectId is already known.",
+        "argsPaths": [
+          "$.target.globalObjectId"
+        ],
+        "constraints": [
+          { "kind": "globalObjectId" }
+        ]
+      },
+      {
+        "name": "sceneHierarchy",
+        "description": "Use when the scene path and hierarchy path are known.",
+        "argsPaths": [
+          "$.target.scene",
+          "$.target.hierarchyPath"
+        ],
+        "constraints": [
+          { "kind": "assetExists", "assetKind": "scene" },
+          { "kind": "hierarchyPath" }
+        ]
+      }
+    ]
+  },
+  "argsSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "target"
+    ],
+    "properties": {
+      "target": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "globalObjectId": {
+            "type": "string"
+          },
+          "scene": {
+            "type": "string"
+          },
+          "hierarchyPath": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+object input の内部構造は `argsSchema.properties` で表す。selector の表現差は `variants` に置くが、operation の意味差は variant にしない。
+
+selector の各 variant は同じ `target` object の異なる表現方法を説明する。`variants[].argsPaths` はその variant を選ぶときに埋める leaf path を表し、`argsSchema.properties.target.properties` はそれらの leaf property の JSON 構造だけを表す。
+
+複数表現の排他性は `inputs[].variants[]` の仕様で表し、JSON Schema の `oneOf` では表さない。
+
+#### root object input の `argsPath` 例
+
+```json
+{
+  "input": {
+    "name": "request",
+    "valueType": "object",
+    "description": "Complete operation argument object.",
+    "constraints": [],
+    "argsPath": "$"
+  },
+  "argsSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "path",
+      "values"
+    ],
+    "properties": {
+      "path": {
+        "type": "string"
+      },
+      "values": {
+        "type": "object"
+      }
+    }
+  }
+}
+```
+
+`argsPath:"$"` は input が `steps[].args` 全体に対応することを表す。通常の property input では `argsPath` を省略する。
+
+#### no constraints 例
+
+```json
+{
+  "name": "includeInactive",
+  "valueType": "boolean",
+  "description": "Whether inactive objects are included.",
+  "constraints": []
+}
+```
+
+意味制約がない input でも `constraints` は省略しない。
+
+#### 複数 `$defs` 例
+
+```json
+{
+  "resultSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "matches"
+    ],
+    "properties": {
+      "matches": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/AssetMatch"
+        }
+      },
+      "selected": {
+        "$ref": "#/$defs/AssetReference"
+      }
+    },
+    "$defs": {
+      "AssetMatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assetPath",
+          "assetGuid"
+        ],
+        "properties": {
+          "assetPath": {
+            "type": "string"
+          },
+          "assetGuid": {
+            "type": "string"
+          }
+        }
+      },
+      "AssetReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "assetGuid"
+        ],
+        "properties": {
+          "assetGuid": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`$defs` は名前付き schema の object であり、複数定義を持つ場合も配列にはしない。
+
+#### 禁止される表現
+
+`description` が複数のユーザー意図を説明する operation は分割対象である。`variants` は同じ input の参照方法だけに使う。
+
+schema の property に説明文や意味制約を置かない。説明は `inputs[].description`、意味制約は `inputs[].constraints` に置く。空文字禁止は `inputs[].constraints` の `{ "kind": "nonEmpty" }` で表す。
+
+#### 不正な result 例
+
+```json
+{
+  "resultContract": {
+    "emitted": false,
+    "resultType": "UcliNoResult",
+    "description": "No operation-specific result is emitted."
+  },
+  "resultSchema": null,
+  "opResults": [
+    {
+      "id": "openMainScene",
+      "phase": "call",
+      "applied": true,
+      "changed": false,
+      "result": null
+    }
+  ]
+}
+```
+
+`emitted:false` では `opResults[].result` property 自体を出さない。`null` は返さない。
 
 ### `ucli validate`
 

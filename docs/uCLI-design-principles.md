@@ -113,7 +113,13 @@ transport は搬送路であり、意味論を変える理由ではない。
 差異がある場合は、黙って欠落させず capability として明示する。
 ### Contract 型を唯一の正本にする
 README、help、skill、tool description を別々に人手で保守しない。  
-operation ごとの Args/Result contract 型を唯一の正本にし、機械可読な `argsSchema` / `resultSchema` / metadata はそこから生成する。
+operation ごとの Args/Result contract 型と、operation description / input constraints / resultContract / assurance metadata を公開 contract の正本にする。
+`argsSchema` / `resultSchema` はその contract から生成される JSON 構造検証用 schema とし、agent 向けの主契約にはしない。意味制約は JSON Schema の低レベル keyword ではなく `inputs[].constraints` に置く。
+### Operation は1つのユーザー意図を表す
+1つの operation に複数の意味 variant を持たせない。
+description が「A または B」になる operation、必須入力セットによってユーザー意図が変わる operation、result 解釈や policy / sideEffects / planMode が変わる operation は分割対象とする。
+
+同じ対象を指定する複数の方法は operation variant ではなく input variant として扱う。たとえば `globalObjectId`、`sceneHierarchy`、`prefabHierarchy` は `GameObjectReferenceArgs` などの reference input の表現方法であり、`ucli.go.delete` 自体の意味を増やすものではない。
 ### Unsafe path は隔離する
 任意コード実行や危険操作は認めてもよいが、safe 系の主経路とは分ける。  
 危険操作に safe と同じ保証を与えない。

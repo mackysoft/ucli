@@ -111,13 +111,19 @@ public sealed class OpsCommandTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             LastDescribeInput = input;
+            var describe = UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDescribe);
             return ValueTask.FromResult(OpsDescribeServiceResult.Success(
                 new OpsDescribeExecutionOutput(
                     Operation: new OpsOperationDetail(
-                        Name: "ucli.go.describe",
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchema: EmptySchema),
+                        name: "ucli.go.describe",
+                        kind: "query",
+                        policy: "safe",
+                        description: describe.Description!,
+                        inputs: describe.Inputs!,
+                        resultContract: describe.ResultContract!,
+                        assurance: describe.Assurance!,
+                        argsSchema: EmptySchema,
+                        resultSchema: null),
                     ReadIndex: new ReadIndexInfo(false, false, "index", "probable", null, null)),
                 "uCLI ops describe completed."));
         }

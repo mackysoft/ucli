@@ -21,7 +21,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.TypeArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.CompSchema,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe);
+            policy: OperationPolicy.Safe,
+            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.CompSchema));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

@@ -2,7 +2,7 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Adds one generated JSON Schema conditional required-property rule. </summary>
+/// <summary> Adds one internal conditional required-property validation rule. </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true)]
 public sealed class UcliIfRequiredThenOneOfRequiredAttribute : Attribute
 {

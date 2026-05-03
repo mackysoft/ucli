@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
@@ -14,4 +15,17 @@ public sealed record IndexOpEntryJsonContract (
     string? Policy,
     string? ArgsSchemaJson,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? ResultSchemaJson = null);
+    string? ResultSchemaJson = null)
+{
+    /// <summary> Gets or initializes the operation purpose description. </summary>
+    public string? Description { get; init; }
+
+    /// <summary> Gets or initializes input contracts used to build <c>steps[].args</c>. </summary>
+    public IReadOnlyList<UcliOperationInputContract>? Inputs { get; init; }
+
+    /// <summary> Gets or initializes the contract for interpreting <c>opResults[].result</c>. </summary>
+    public UcliOperationResultContract? ResultContract { get; init; }
+
+    /// <summary> Gets or initializes machine-readable assurance metadata. </summary>
+    public UcliOperationAssuranceContract? Assurance { get; init; }
+}

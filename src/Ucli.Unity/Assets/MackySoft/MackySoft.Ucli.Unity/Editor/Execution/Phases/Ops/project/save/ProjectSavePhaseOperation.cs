@@ -20,7 +20,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliEmptyArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.ProjectSave,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced);
+            policy: OperationPolicy.Advanced,
+            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.ProjectSave));
 
         /// <summary> Executes validate phase for <c>ucli.project.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

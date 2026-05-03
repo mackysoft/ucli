@@ -2,7 +2,7 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Provides the machine-readable description used by generated operation schemas. </summary>
+/// <summary> Provides a description for operation contract documentation and linting. </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property)]
 public sealed class UcliDescriptionAttribute : Attribute
 {

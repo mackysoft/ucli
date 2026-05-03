@@ -2,7 +2,7 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Defines the generated JSON Schema <c>minItems</c> value for an array property. </summary>
+/// <summary> Defines the internal minimum item-count validation for an array property. </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public sealed class UcliMinItemsAttribute : Attribute
 {

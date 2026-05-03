@@ -2,7 +2,7 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Defines the generated JSON Schema <c>minimum</c> value for a numeric property. </summary>
+/// <summary> Defines the internal minimum numeric validation for a numeric property. </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public sealed class UcliMinimumAttribute : Attribute
 {

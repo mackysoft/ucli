@@ -13,15 +13,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="operationName" /> is invalid. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy)
+            OperationPolicy policy,
+            UcliOperationDescribeContract describeContract)
             : this(
                 operationName,
                 kind,
                 policy,
+                describeContract,
                 typeof(UcliEmptyArgs),
                 typeof(UcliNoResult),
                 requiresPreCallPlanReplay: false)
@@ -32,6 +35,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="argsType"> The operation args contract type. </param>
         /// <param name="resultType"> The operation result contract type. </param>
         /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
@@ -40,9 +44,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy,
+            UcliOperationDescribeContract describeContract,
             Type argsType,
             Type resultType)
-            : this(operationName, kind, policy, argsType, resultType, requiresPreCallPlanReplay: false)
+            : this(operationName, kind, policy, describeContract, argsType, resultType, requiresPreCallPlanReplay: false)
         {
         }
 
@@ -50,6 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="argsType"> The operation args contract type. </param>
         /// <param name="resultType"> The operation result contract type. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
@@ -59,6 +65,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy,
+            UcliOperationDescribeContract describeContract,
             Type argsType,
             Type resultType,
             bool requiresPreCallPlanReplay)
@@ -83,6 +90,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(resultType));
             }
 
+            if (describeContract == null)
+            {
+                throw new ArgumentNullException(nameof(describeContract));
+            }
+
             var argsSchemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(argsType);
             var resultSchemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(resultType);
 
@@ -97,9 +109,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ValidateSchemaJson(resultSchemaJson, nameof(resultSchemaJson), "Result schema JSON");
             }
 
+            ValidateDescribeContract(describeContract, resultType);
+
             OperationName = operationName;
             Kind = kind;
             Policy = policy;
+            DescribeContract = describeContract;
             ArgsType = argsType;
             ResultType = resultType;
             ArgsSchemaJson = argsSchemaJson;
@@ -113,18 +128,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
         /// <returns> The created operation metadata. </returns>
         public static UcliOperationMetadata Create<TArgs, TResult> (
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy,
+            UcliOperationDescribeContract describeContract,
             bool requiresPreCallPlanReplay = false)
         {
             return new UcliOperationMetadata(
                 operationName,
                 kind,
                 policy,
+                describeContract,
                 typeof(TArgs),
                 typeof(TResult),
                 requiresPreCallPlanReplay);
@@ -138,6 +156,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets the operation policy metadata. </summary>
         public OperationPolicy Policy { get; }
+
+        /// <summary> Gets the agent-facing operation describe contract. </summary>
+        public UcliOperationDescribeContract DescribeContract { get; }
 
         /// <summary> Gets the operation args contract type. </summary>
         public Type ArgsType { get; }
@@ -153,6 +174,54 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Gets a value indicating whether call execution must replay plan immediately beforehand. </summary>
         public bool RequiresPreCallPlanReplay { get; }
+
+        private static void ValidateDescribeContract (
+            UcliOperationDescribeContract describeContract,
+            Type resultType)
+        {
+            if (string.IsNullOrWhiteSpace(describeContract.Description)
+                || describeContract.Inputs == null
+                || describeContract.ResultContract == null
+                || describeContract.Assurance == null)
+            {
+                throw new ArgumentException("Describe contract must include description, inputs, resultContract, and assurance.", nameof(describeContract));
+            }
+
+            if (describeContract.Assurance.SideEffects == null
+                || describeContract.Assurance.TouchedKinds == null
+                || string.IsNullOrWhiteSpace(describeContract.Assurance.PlanMode))
+            {
+                throw new ArgumentException("Describe contract assurance fields must be complete.", nameof(describeContract));
+            }
+
+            if (resultType == typeof(UcliNoResult))
+            {
+                ValidateNoResultContract(describeContract.ResultContract);
+                return;
+            }
+
+            ValidateEmittedResultContract(describeContract.ResultContract);
+        }
+
+        private static void ValidateNoResultContract (UcliOperationResultContract resultContract)
+        {
+            if (resultContract.Emitted
+                || !string.Equals(resultContract.ResultType, nameof(UcliNoResult), StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(resultContract.Description))
+            {
+                throw new ArgumentException("No-result operations must declare a matching resultContract.", nameof(resultContract));
+            }
+        }
+
+        private static void ValidateEmittedResultContract (UcliOperationResultContract resultContract)
+        {
+            if (!resultContract.Emitted
+                || string.IsNullOrWhiteSpace(resultContract.ResultType)
+                || string.IsNullOrWhiteSpace(resultContract.Description))
+            {
+                throw new ArgumentException("Result-emitting operations must declare a matching resultContract.", nameof(resultContract));
+            }
+        }
 
         private static void ValidateSchemaJson (
             string schemaJson,

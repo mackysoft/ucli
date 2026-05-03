@@ -2,7 +2,7 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Adds one generated JSON Schema <c>oneOf</c> alternative based on required property names. </summary>
+/// <summary> Adds one internal required-property alternative for exactly-one validation. </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true)]
 public sealed class UcliOneOfRequiredAttribute : Attribute
 {

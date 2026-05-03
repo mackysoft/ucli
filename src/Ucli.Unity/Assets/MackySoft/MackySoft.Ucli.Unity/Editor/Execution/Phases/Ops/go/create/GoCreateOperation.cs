@@ -18,7 +18,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.GoCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoCreate,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced);
+            policy: OperationPolicy.Advanced,
+            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoCreate));
 
         /// <summary> Executes validate phase for <c>ucli.go.create</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>

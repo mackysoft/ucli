@@ -24,8 +24,9 @@
 ## 公開コマンド
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
-  - `describe <opName>` は特定オペレーションの `argsSchema` と `resultSchema` を返す。
-  - `argsSchema` / `resultSchema` は Args/Result contract 型から生成された JSON Schema であり、request 作成時の機械可読な正本とする。
+  - `describe <opName>` は特定オペレーションの agent 向け contract と検証用 schema を返す。
+  - `description` / `inputs[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
+  - `argsSchema` / `resultSchema` は Args/Result contract 型から生成された JSON Schema であり、`steps[].args` と `opResults[].result` の JSON 構造検証だけに使う。
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
   - `mode` / `timeout` は readIndex hit 時も妥当性を検証し、不正値は `INVALID_ARGUMENT` を返す。

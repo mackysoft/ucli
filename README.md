@@ -137,7 +137,7 @@ ucli ops list --projectPath ./UnityProject
 ucli ops describe ucli.scene.open --projectPath ./UnityProject
 ```
 
-`ops describe` returns the generated `argsSchema` and `resultSchema` for one primitive operation. uCLI operation contracts are authored as typed Args/Result contract types in `MackySoft.Ucli.Contracts`; JSON Schema is generated from those types and their schema attributes. Agents should inspect `ops describe` instead of copying raw JSON examples into requests.
+`ops describe` returns the agent-facing operation contract for one primitive operation. Agents should use `description`, `inputs[].constraints`, `resultContract`, and `assurance` to choose the operation, build `steps[].args`, and interpret results. The generated `argsSchema` and `resultSchema` validate only JSON structure; descriptions and semantic constraints live in the describe contract, not in JSON Schema constraint keywords.
 
 ## Applying Changes
 
@@ -196,7 +196,7 @@ PLAN_TOKEN="$(printf '%s' "$PLAN_JSON" | jq -r '.payload.planToken')"
 printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken "$PLAN_TOKEN"
 ```
 
-`validate` checks request shape and static constraints. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
+`validate` checks request shape and operation argument structure. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
 
 Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
 
@@ -471,11 +471,11 @@ Use `edit` for common edits. Use `op` when you need an explicit primitive operat
 
 | Operation | Type | Args | Use it for |
 | --- | --- | --- | --- |
-| `ucli.scene.open` | query | `{ path }` | Ensure a scene is loaded. |
+| `ucli.scene.open` | command | `{ path }` | Ensure a scene is loaded. |
 | `ucli.scene.save` | mutation | `{ path }` | Save a loaded scene. |
-| `ucli.prefab.open` | query | `{ path }` | Open a prefab editing context. |
+| `ucli.prefab.open` | command | `{ path }` | Open a prefab editing context. |
 | `ucli.prefab.save` | mutation | `{ path }` | Save the opened prefab context. |
-| `ucli.project.refresh` | mutation | `{}` | Refresh the Unity project and AssetDatabase. |
+| `ucli.project.refresh` | command | `{}` | Refresh the Unity project and AssetDatabase. |
 | `ucli.project.save` | mutation | `{}` | Save project assets, project settings, and tracked open contexts. |
 
 ### Mutation Operations

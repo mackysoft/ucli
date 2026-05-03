@@ -14,7 +14,7 @@ internal sealed class RefreshService : IRefreshService
         OperationId: "refresh",
         Descriptor: new UcliOperationDescriptor(
             Name: UcliPrimitiveOperationNames.ProjectRefresh,
-            Kind: UcliOperationKind.Mutation,
+            Kind: UcliOperationKind.Command,
             Policy: OperationPolicy.Advanced,
             ArgsSchemaJson: UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(UcliEmptyArgs)),
             ResultSchemaJson: null),

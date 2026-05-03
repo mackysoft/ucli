@@ -2,7 +2,7 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Defines the generated JSON Schema <c>minLength</c> value for a string property. </summary>
+/// <summary> Defines the internal minimum length validation for a string property. </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public sealed class UcliMinLengthAttribute : Attribute
 {

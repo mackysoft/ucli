@@ -20,7 +20,7 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 
 - IPC request and response contracts.
 - Typed primitive operation Args/Result contract types.
-- Attributes used to generate operation `argsSchema` and `resultSchema`.
+- Attributes used to describe operation inputs, results, and generated validation schemas.
 - `UcliNoResult` for operations that intentionally omit `opResults[].result`.
 - Protocol constants and shared protocol metadata.
 - Configuration and storage contract models.
@@ -29,7 +29,9 @@ dotnet add package MackySoft.Ucli.Contracts --version <version>
 
 ## Operation Contracts
 
-Primitive operation contracts are authored as CLR Args/Result types. Required fields, descriptions, JSON property names, and simple constraints are declared on those contract properties. uCLI generates JSON Schema from the typed contract and exposes it through `ops describe`.
+Primitive operation contracts are authored as CLR Args/Result types plus operation metadata. Args/Result types define the public JSON structure, while operation metadata defines the agent-facing description, inputs, semantic constraints, result contract, and assurance metadata. uCLI exposes `description`, `inputs`, `resultContract`, and `assurance` through `ops describe`, and also generates `argsSchema` / `resultSchema` for JSON structure validation.
+
+`argsSchema` and `resultSchema` validate only the JSON structure of `steps[].args` and `opResults[].result`; they are not the primary agent UX contract. Operation selection, input construction, and result interpretation should use the higher-level describe contract. Semantic constraints are exposed as `inputs[].constraints`, not as JSON Schema constraint keywords.
 
 Selectors are also contract types, such as `GameObjectReferenceArgs`, `ComponentReferenceArgs`, and `AssetReferenceArgs`. Operation authors consume those typed references and keep resolved Unity objects inside the Unity implementation layer.
 

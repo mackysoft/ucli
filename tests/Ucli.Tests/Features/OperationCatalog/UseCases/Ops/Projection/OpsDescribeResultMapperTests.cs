@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Features.OperationCatalog.Common.Contracts;
@@ -17,12 +18,12 @@ public sealed class OpsDescribeResultMapperTests
             new OpsCatalogReadOutput(
                 Operations:
                 [
-                    new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object"}""",
-                        ResultSchemaJson: """{"type":"object","properties":{"globalObjectId":{"type":"string"}}}"""),
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.Resolve,
+                        kind: "query",
+                        policy: "safe",
+                        argsSchemaJson: """{"type":"object"}""",
+                        resultSchemaJson: """{"type":"object","properties":{"globalObjectId":{"type":"string"}}}"""),
                 ],
                 AccessInfo: new OpsCatalogAccessInfo(
                     true,
@@ -31,10 +32,14 @@ public sealed class OpsDescribeResultMapperTests
                     MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
                     DateTimeOffset.UtcNow,
                     null)),
-            MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
+            UcliPrimitiveOperationNames.Resolve);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("object", result.Output!.Operation.ArgsSchema.GetProperty("type").GetString());
+        Assert.Equal("Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.", result.Output.Operation.Description);
+        Assert.Equal("IpcResolveOperationResult", result.Output.Operation.ResultContract.ResultType);
+        Assert.True(result.Output.Operation.ResultContract.Emitted);
+        Assert.Null(result.Output.Operation.GetType().GetProperty("Outputs"));
         Assert.Equal("object", result.Output.Operation.ResultSchema!.Value.GetProperty("type").GetString());
         Assert.True(result.Output.Operation.ResultSchema.Value.GetProperty("properties").TryGetProperty("globalObjectId", out _));
     }
@@ -71,11 +76,11 @@ public sealed class OpsDescribeResultMapperTests
             new OpsCatalogReadOutput(
                 Operations:
                 [
-                    new MackySoft.Ucli.Contracts.Index.IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: "\"not-an-object\""),
+                    CreateDescribedEntry(
+                        name: UcliPrimitiveOperationNames.Resolve,
+                        kind: "query",
+                        policy: "safe",
+                        argsSchemaJson: "\"not-an-object\""),
                 ],
                 AccessInfo: new OpsCatalogAccessInfo(
                     true,
@@ -84,9 +89,31 @@ public sealed class OpsDescribeResultMapperTests
                     MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh,
                     DateTimeOffset.UtcNow,
                     null)),
-            MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve);
+            UcliPrimitiveOperationNames.Resolve);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+    }
+
+    private static IndexOpEntryJsonContract CreateDescribedEntry (
+        string name,
+        string kind,
+        string policy,
+        string argsSchemaJson,
+        string? resultSchemaJson = null)
+    {
+        var describe = UcliOperationDescribeCatalog.Get(name);
+        return new IndexOpEntryJsonContract(
+            name,
+            kind,
+            policy,
+            argsSchemaJson,
+            resultSchemaJson)
+        {
+            Description = describe.Description,
+            Inputs = describe.Inputs,
+            ResultContract = describe.ResultContract,
+            Assurance = describe.Assurance,
+        };
     }
 }

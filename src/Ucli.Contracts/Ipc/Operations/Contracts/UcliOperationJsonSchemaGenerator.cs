@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Globalization;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -68,16 +69,17 @@ public static class UcliOperationJsonSchemaGenerator
         var buffer = new ArrayBufferWriter<byte>();
         using (var writer = new Utf8JsonWriter(buffer))
         {
-            WriteSchema(writer, contractType, new HashSet<Type>());
+            var context = new SchemaGenerationContext();
+            WriteRootSchema(writer, contractType, context);
         }
 
         return Encoding.UTF8.GetString(buffer.WrittenSpan);
     }
 
-    private static void WriteSchema (
+    private static void WriteRootSchema (
         Utf8JsonWriter writer,
         Type contractType,
-        HashSet<Type> visitedTypes)
+        SchemaGenerationContext context)
     {
         var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
         if (actualType == StringType)
@@ -116,75 +118,53 @@ public static class UcliOperationJsonSchemaGenerator
             writer.WriteStartObject();
             writer.WriteString("type", "array");
             writer.WritePropertyName("items");
-            WriteSchema(writer, elementType!, visitedTypes);
+            WriteSchemaReferenceOrInline(writer, elementType!, context);
+            WriteDefinitionsIfNeeded(writer, context);
             writer.WriteEndObject();
             return;
         }
 
-        WriteObjectSchema(writer, actualType, visitedTypes);
+        writer.WriteStartObject();
+        context.PushActive(actualType);
+        WriteObjectSchemaBody(writer, actualType, context);
+        context.PopActive(actualType);
+        WriteDefinitionsIfNeeded(writer, context);
+        writer.WriteEndObject();
     }
 
-    private static void WriteObjectSchema (
+    private static void WriteObjectSchemaBody (
         Utf8JsonWriter writer,
         Type contractType,
-        HashSet<Type> visitedTypes)
+        SchemaGenerationContext context)
     {
-        if (!visitedTypes.Add(contractType))
-        {
-            writer.WriteStartObject();
-            writer.WriteString("type", "object");
-            writer.WriteBoolean("additionalProperties", true);
-            writer.WriteEndObject();
-            return;
-        }
-
         var properties = UcliOperationContractReflection.GetSchemaProperties(contractType);
-        writer.WriteStartObject();
         writer.WriteString("type", "object");
-        var description = contractType.GetCustomAttribute<UcliDescriptionAttribute>();
-        if (description != null)
-        {
-            writer.WriteString("description", description.Description);
-        }
-
         writer.WriteBoolean("additionalProperties", false);
-        var minProperties = contractType.GetCustomAttribute<UcliMinPropertiesAttribute>();
-        if (minProperties != null)
-        {
-            writer.WriteNumber("minProperties", minProperties.MinProperties);
-        }
-
         writer.WritePropertyName("properties");
         writer.WriteStartObject();
         foreach (var property in properties)
         {
             writer.WritePropertyName(UcliOperationContractReflection.GetJsonPropertyName(property));
-            WritePropertySchema(writer, property, visitedTypes);
+            WritePropertySchema(writer, property, context);
         }
 
         writer.WriteEndObject();
         WriteRequiredProperties(writer, properties);
-        WriteOneOf(writer, contractType);
-        WriteConditionalRules(writer, contractType);
-        writer.WriteEndObject();
-        visitedTypes.Remove(contractType);
     }
 
     private static void WritePropertySchema (
         Utf8JsonWriter writer,
         PropertyInfo property,
-        HashSet<Type> visitedTypes)
+        SchemaGenerationContext context)
     {
         if (property.GetCustomAttribute<UcliSchemaAnyAttribute>() != null)
         {
             writer.WriteStartObject();
-            WriteDescription(writer, property);
             writer.WriteEndObject();
             return;
         }
 
         writer.WriteStartObject();
-        WriteDescription(writer, property);
 
         var propertyType = property.PropertyType;
         var nullableUnderlyingType = Nullable.GetUnderlyingType(propertyType);
@@ -193,7 +173,6 @@ public static class UcliOperationJsonSchemaGenerator
 
         if (TryWriteScalarType(writer, actualType, includeNull))
         {
-            WritePropertyConstraints(writer, property);
             writer.WriteEndObject();
             return;
         }
@@ -201,56 +180,112 @@ public static class UcliOperationJsonSchemaGenerator
         if (TryGetArrayElementType(actualType, out var elementType))
         {
             writer.WriteString("type", "array");
-            var minItems = property.GetCustomAttribute<UcliMinItemsAttribute>();
-            if (minItems != null)
-            {
-                writer.WriteNumber("minItems", minItems.MinItems);
-            }
-
             writer.WritePropertyName("items");
-            WriteSchema(writer, elementType!, visitedTypes);
+            WriteSchemaReferenceOrInline(writer, elementType!, context);
             writer.WriteEndObject();
             return;
         }
 
-        WriteNestedObjectSchema(writer, actualType, visitedTypes);
+        if (context.IsActive(actualType))
+        {
+            WriteObjectReference(writer, actualType, context);
+        }
+        else
+        {
+            context.PushActive(actualType);
+            WriteObjectSchemaBody(writer, actualType, context);
+            context.PopActive(actualType);
+        }
+
         writer.WriteEndObject();
     }
 
-    private static void WriteNestedObjectSchema (
+    private static void WriteSchemaReferenceOrInline (
         Utf8JsonWriter writer,
         Type contractType,
-        HashSet<Type> visitedTypes)
+        SchemaGenerationContext context)
     {
-        if (!visitedTypes.Add(contractType))
+        var actualType = Nullable.GetUnderlyingType(contractType) ?? contractType;
+        if (actualType == StringType)
         {
-            writer.WriteString("type", "object");
-            writer.WriteBoolean("additionalProperties", true);
+            WriteType(writer, "string");
             return;
         }
 
-        var properties = UcliOperationContractReflection.GetSchemaProperties(contractType);
-        writer.WriteString("type", "object");
-        writer.WriteBoolean("additionalProperties", false);
-        var minProperties = contractType.GetCustomAttribute<UcliMinPropertiesAttribute>();
-        if (minProperties != null)
+        if (actualType == typeof(bool))
         {
-            writer.WriteNumber("minProperties", minProperties.MinProperties);
+            WriteType(writer, "boolean");
+            return;
         }
 
-        writer.WritePropertyName("properties");
-        writer.WriteStartObject();
-        foreach (var nestedProperty in properties)
+        if (IsInteger(actualType))
         {
-            writer.WritePropertyName(UcliOperationContractReflection.GetJsonPropertyName(nestedProperty));
-            WritePropertySchema(writer, nestedProperty, visitedTypes);
+            WriteType(writer, "integer");
+            return;
+        }
+
+        if (IsNumber(actualType))
+        {
+            WriteType(writer, "number");
+            return;
+        }
+
+        if (actualType == JsonElementType || actualType == typeof(object))
+        {
+            writer.WriteStartObject();
+            writer.WriteEndObject();
+            return;
+        }
+
+        if (TryGetArrayElementType(actualType, out var elementType))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("type", "array");
+            writer.WritePropertyName("items");
+            WriteSchemaReferenceOrInline(writer, elementType!, context);
+            writer.WriteEndObject();
+            return;
+        }
+
+        writer.WriteStartObject();
+        WriteObjectReference(writer, actualType, context);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteObjectReference (
+        Utf8JsonWriter writer,
+        Type contractType,
+        SchemaGenerationContext context)
+    {
+        var definitionName = context.GetOrAddDefinition(contractType);
+        writer.WriteString("$ref", "#/$defs/" + definitionName);
+    }
+
+    private static void WriteDefinitionsIfNeeded (
+        Utf8JsonWriter writer,
+        SchemaGenerationContext context)
+    {
+        if (context.DefinitionCount == 0)
+        {
+            return;
+        }
+
+        writer.WritePropertyName("$defs");
+        writer.WriteStartObject();
+        var index = 0;
+        while (index < context.DefinitionCount)
+        {
+            var definition = context.GetDefinition(index);
+            writer.WritePropertyName(definition.Name);
+            writer.WriteStartObject();
+            context.PushActive(definition.Type);
+            WriteObjectSchemaBody(writer, definition.Type, context);
+            context.PopActive(definition.Type);
+            writer.WriteEndObject();
+            index++;
         }
 
         writer.WriteEndObject();
-        WriteRequiredProperties(writer, properties);
-        WriteOneOf(writer, contractType);
-        WriteConditionalRules(writer, contractType);
-        visitedTypes.Remove(contractType);
     }
 
     private static bool TryWriteScalarType (
@@ -302,34 +337,6 @@ public static class UcliOperationJsonSchemaGenerator
         return true;
     }
 
-    private static void WritePropertyConstraints (
-        Utf8JsonWriter writer,
-        PropertyInfo property)
-    {
-        var minLength = property.GetCustomAttribute<UcliMinLengthAttribute>();
-        if (minLength != null)
-        {
-            writer.WriteNumber("minLength", minLength.MinLength);
-        }
-
-        var minimum = property.GetCustomAttribute<UcliMinimumAttribute>();
-        if (minimum != null)
-        {
-            writer.WriteNumber("minimum", minimum.Minimum);
-        }
-    }
-
-    private static void WriteDescription (
-        Utf8JsonWriter writer,
-        PropertyInfo property)
-    {
-        var description = property.GetCustomAttribute<UcliDescriptionAttribute>();
-        if (description != null)
-        {
-            writer.WriteString("description", description.Description);
-        }
-    }
-
     private static void WriteRequiredProperties (
         Utf8JsonWriter writer,
         IReadOnlyList<PropertyInfo> properties)
@@ -356,73 +363,6 @@ public static class UcliOperationJsonSchemaGenerator
         }
 
         writer.WriteEndArray();
-    }
-
-    private static void WriteOneOf (
-        Utf8JsonWriter writer,
-        Type contractType)
-    {
-        var alternatives = contractType.GetCustomAttributes<UcliOneOfRequiredAttribute>().ToArray();
-        if (alternatives.Length == 0)
-        {
-            return;
-        }
-
-        writer.WritePropertyName("oneOf");
-        writer.WriteStartArray();
-        for (var i = 0; i < alternatives.Length; i++)
-        {
-            WriteRequiredAlternative(writer, alternatives[i].PropertyNames);
-        }
-
-        writer.WriteEndArray();
-    }
-
-    private static void WriteConditionalRules (
-        Utf8JsonWriter writer,
-        Type contractType)
-    {
-        var conditionalRules = contractType.GetCustomAttributes<UcliIfRequiredThenOneOfRequiredAttribute>().ToArray();
-        if (conditionalRules.Length == 0)
-        {
-            return;
-        }
-
-        writer.WritePropertyName("allOf");
-        writer.WriteStartArray();
-        for (var i = 0; i < conditionalRules.Length; i++)
-        {
-            var rule = conditionalRules[i];
-            writer.WriteStartObject();
-            writer.WritePropertyName("if");
-            WriteRequiredAlternative(writer, new[] { rule.ConditionPropertyName });
-            writer.WritePropertyName("then");
-            writer.WriteStartObject();
-            writer.WritePropertyName("oneOf");
-            writer.WriteStartArray();
-            WriteRequiredAlternative(writer, rule.ThenPropertyNames);
-            writer.WriteEndArray();
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-        }
-
-        writer.WriteEndArray();
-    }
-
-    private static void WriteRequiredAlternative (
-        Utf8JsonWriter writer,
-        IReadOnlyList<string> propertyNames)
-    {
-        writer.WriteStartObject();
-        writer.WritePropertyName("required");
-        writer.WriteStartArray();
-        for (var i = 0; i < propertyNames.Count; i++)
-        {
-            writer.WriteStringValue(propertyNames[i]);
-        }
-
-        writer.WriteEndArray();
-        writer.WriteEndObject();
     }
 
     private static void WriteType (
@@ -478,5 +418,84 @@ public static class UcliOperationJsonSchemaGenerator
         return type == typeof(float)
             || type == typeof(double)
             || type == typeof(decimal);
+    }
+
+    private sealed class SchemaGenerationContext
+    {
+        private readonly Dictionary<Type, string> m_definitionNames = new Dictionary<Type, string>();
+
+        private readonly List<SchemaDefinition> m_definitions = new List<SchemaDefinition>();
+
+        private readonly HashSet<Type> m_activeTypes = new HashSet<Type>();
+
+        private readonly HashSet<string> m_usedNames = new HashSet<string>(StringComparer.Ordinal);
+
+        public int DefinitionCount => m_definitions.Count;
+
+        public string GetOrAddDefinition (Type type)
+        {
+            if (m_definitionNames.TryGetValue(type, out var existingName))
+            {
+                return existingName;
+            }
+
+            var definitionName = CreateUniqueDefinitionName(type);
+            m_definitionNames.Add(type, definitionName);
+            m_definitions.Add(new SchemaDefinition(definitionName, type));
+            return definitionName;
+        }
+
+        public SchemaDefinition GetDefinition (int index)
+        {
+            return m_definitions[index];
+        }
+
+        public bool IsActive (Type type)
+        {
+            return m_activeTypes.Contains(type);
+        }
+
+        public void PushActive (Type type)
+        {
+            m_activeTypes.Add(type);
+        }
+
+        public void PopActive (Type type)
+        {
+            m_activeTypes.Remove(type);
+        }
+
+        private string CreateUniqueDefinitionName (Type type)
+        {
+            var baseName = type.Name;
+            var tickIndex = baseName.IndexOf('`');
+            if (tickIndex >= 0)
+            {
+                baseName = baseName.Substring(0, tickIndex);
+            }
+
+            var candidate = baseName;
+            var suffix = 2;
+            while (!m_usedNames.Add(candidate))
+            {
+                candidate = baseName + suffix.ToString(CultureInfo.InvariantCulture);
+                suffix++;
+            }
+
+            return candidate;
+        }
+    }
+
+    private readonly struct SchemaDefinition
+    {
+        public SchemaDefinition (string name, Type type)
+        {
+            Name = name;
+            Type = type;
+        }
+
+        public string Name { get; }
+
+        public Type Type { get; }
     }
 }

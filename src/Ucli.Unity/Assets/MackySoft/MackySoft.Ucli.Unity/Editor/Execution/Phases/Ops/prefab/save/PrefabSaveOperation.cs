@@ -18,7 +18,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.PathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabSave,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced);
+            policy: OperationPolicy.Advanced,
+            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.PrefabSave));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

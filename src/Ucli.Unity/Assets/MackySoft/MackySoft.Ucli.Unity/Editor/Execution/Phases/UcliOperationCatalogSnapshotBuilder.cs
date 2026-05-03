@@ -37,7 +37,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
                     Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
                     ArgsSchemaJson: PublicOperationArgsSchemaSanitizer.Sanitize(registration.Metadata.ArgsSchemaJson),
-                    ResultSchemaJson: registration.Metadata.ResultSchemaJson))
+                    ResultSchemaJson: registration.Metadata.ResultSchemaJson)
+                {
+                    Description = registration.Metadata.DescribeContract.Description,
+                    Inputs = registration.Metadata.DescribeContract.Inputs,
+                    ResultContract = registration.Metadata.DescribeContract.ResultContract,
+                    Assurance = registration.Metadata.DescribeContract.Assurance,
+                })
                 .ToArray();
 
             return new UcliOperationCatalogSnapshot(

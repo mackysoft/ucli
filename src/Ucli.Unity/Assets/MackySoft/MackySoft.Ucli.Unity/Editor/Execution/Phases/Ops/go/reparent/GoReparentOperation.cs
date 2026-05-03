@@ -18,7 +18,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.GoReparentArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.GoReparent,
             kind: UcliOperationKind.Mutation,
-            policy: OperationPolicy.Advanced);
+            policy: OperationPolicy.Advanced,
+            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoReparent));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

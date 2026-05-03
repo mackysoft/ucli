@@ -18,7 +18,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<UcliOperationContracts.AssetsFindArgs, UcliOperationContracts.AssetsFindResult>(
             operationName: UcliPrimitiveOperationNames.AssetsFind,
             kind: UcliOperationKind.Query,
-            policy: OperationPolicy.Safe);
+            policy: OperationPolicy.Safe,
+            describeContract: UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.AssetsFind));
 
         protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,

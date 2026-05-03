@@ -2,7 +2,7 @@ using System;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Defines the generated JSON Schema <c>minProperties</c> value for an object contract. </summary>
+/// <summary> Defines the internal minimum populated-property validation for an object contract. </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
 public sealed class UcliMinPropertiesAttribute : Attribute
 {

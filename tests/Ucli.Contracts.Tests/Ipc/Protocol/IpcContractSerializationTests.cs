@@ -162,15 +162,23 @@ public sealed class IpcContractSerializationTests
     public void IpcOpsReadContracts_SerializeWithCamelCaseFields ()
     {
         var requestPayload = new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true);
+        var describe = UcliOperationDescribeCatalog.Get(UcliPrimitiveOperationNames.GoDescribe);
         var responsePayload = new IpcOpsReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             Operations:
             [
                 new IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                    Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}"""),
+                    ArgsSchemaJson: """{"type":"object"}""",
+                    ResultSchemaJson: """{"type":"object"}""")
+                {
+                    Description = describe.Description,
+                    Inputs = describe.Inputs,
+                    ResultContract = describe.ResultContract,
+                    Assurance = describe.Assurance,
+                },
             ]);
 
         using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
@@ -183,9 +191,17 @@ public sealed class IpcContractSerializationTests
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasArrayLength("operations", 1)
             .HasProperty("operations", 0, operation => operation
-                .HasString("name", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe)
+                .HasString("name", UcliPrimitiveOperationNames.GoDescribe)
                 .HasString("kind", "query")
                 .HasString("policy", "safe")
+                .HasString("description", describe.Description!)
+                .HasProperty("resultContract", resultContract => resultContract
+                    .HasBoolean("emitted", true)
+                    .HasString("resultType", "GameObjectDescriptionResult"))
+                .HasProperty("assurance", assurance => assurance
+                    .HasBoolean("mayDirty", false)
+                    .HasBoolean("mayPersist", false)
+                    .HasString("planMode", "observesLiveUnity"))
                 .HasString("argsSchemaJson", """{"type":"object"}"""));
     }
 
