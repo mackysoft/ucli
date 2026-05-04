@@ -32,11 +32,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var generatedAtUtc = DateTimeOffset.UtcNow;
             var operations = registrations
                 .OrderBy(static registration => registration.Metadata.OperationName, StringComparer.Ordinal)
-                .Select(static registration => new IndexOpEntryJsonContract(
-                    Name: registration.Metadata.OperationName,
-                    Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
-                    Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
-                    ArgsSchemaJson: PublicOperationArgsSchemaSanitizer.Sanitize(registration.Metadata.ArgsSchemaJson)))
+                .Select(static registration =>
+                {
+                    var describeContract = registration.Metadata.DescribeContract;
+                    return new IndexOpEntryJsonContract(
+                        Name: registration.Metadata.OperationName,
+                        Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
+                        Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
+                        ArgsSchemaJson: registration.Metadata.ArgsSchemaJson,
+                        ResultSchemaJson: registration.Metadata.ResultSchemaJson)
+                    {
+                        Description = describeContract.Description,
+                        Inputs = describeContract.Inputs,
+                        ResultContract = describeContract.ResultContract,
+                        Assurance = describeContract.Assurance,
+                    };
+                })
                 .ToArray();
 
             return new UcliOperationCatalogSnapshot(

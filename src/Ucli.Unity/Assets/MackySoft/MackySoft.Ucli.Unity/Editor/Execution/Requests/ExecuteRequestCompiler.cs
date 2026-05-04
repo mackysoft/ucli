@@ -166,7 +166,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     Op: step.OperationName!,
                     Args: step.Element.GetProperty("args").Clone(),
                     As: null,
-                    Expect: null),
+                    Expect: null,
+                    AllowRequestLocalAliases: false),
             };
             compiledStep = new NormalizedRequestStep(
                 Id: step.Id!,

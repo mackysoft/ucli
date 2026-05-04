@@ -12,46 +12,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.prefab.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class PrefabCreateOperation : IUcliOperation
+    internal sealed class PrefabCreateOperation : UcliOperation<PrefabCreateArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""target"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""scene"", ""hierarchyPath""] }
-                  ]
-                },
-                ""path"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""target"", ""path""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Creates a prefab asset from a scene GameObject.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesPrefab, UcliOperationSideEffect.WritesScene },
+                mayDirty: true,
+                mayPersist: true,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
+            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -59,14 +41,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryValidateArguments(
                 operation,
+                args,
                 executionContext,
                 allowTemporaryState: true,
                 out var validationState,
@@ -89,14 +73,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!TryValidateArguments(
                 operation,
+                args,
                 executionContext,
                 allowTemporaryState: false,
                 out var validationState,
@@ -127,6 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            PrefabCreateArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,
@@ -134,14 +121,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!PrefabCreateArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
             if (!GoOperationUtilities.TryResolveEditableGameObject(
-                parsedArguments.TargetReference,
+                targetReference,
                 executionContext,
                 allowTemporaryState,
                 out var targetResolution,
@@ -159,7 +146,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(parsedArguments.PrefabPath, out errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(args.Path, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -168,7 +155,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = new ValidationState(
                 targetResolution.GameObject!,
                 targetResolution.Resource,
-                parsedArguments.PrefabPath);
+                args.Path);
             return true;
         }
 

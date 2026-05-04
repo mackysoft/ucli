@@ -28,5 +28,6 @@ public sealed class ConfigValueLiteralContractTests
     {
         Assert.Equal("mutation", UcliOperationKindValues.Mutation);
         Assert.Equal("query", UcliOperationKindValues.Query);
+        Assert.Equal("command", UcliOperationKindValues.Command);
     }
 }

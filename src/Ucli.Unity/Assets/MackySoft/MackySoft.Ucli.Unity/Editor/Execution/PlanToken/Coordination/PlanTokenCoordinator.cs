@@ -61,8 +61,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             try
             {
                 var snapshot = environment.Capture();
-                var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span);
-                var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.Span);
+                var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.ToArray());
+                var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.ToArray());
                 var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);
 
                 if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
@@ -182,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 var payload = decodedToken.Payload;
                 if (!string.IsNullOrWhiteSpace(payload.CompiledExecutionDigest))
                 {
-                    var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.Span);
+                    var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.ToArray());
                     if (!string.Equals(compiledExecutionDigest, payload.CompiledExecutionDigest, StringComparison.Ordinal))
                     {
                         return PlanTokenValidationResult.Failed(new OperationFailure(
@@ -292,7 +292,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 return false;
             }
 
-            var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.Span);
+            var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.ToArray());
             if (!string.Equals(requestDigest, payload.RequestDigest, StringComparison.Ordinal))
             {
                 failure = new OperationFailure(

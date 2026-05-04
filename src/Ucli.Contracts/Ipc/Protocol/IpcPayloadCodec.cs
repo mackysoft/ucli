@@ -25,9 +25,49 @@ public static class IpcPayloadCodec
         out T value,
         out IpcPayloadReadError error)
     {
+        return TryDeserialize(
+            element,
+            IpcJsonSerializerOptions.Default,
+            out value,
+            out error);
+    }
+
+    /// <summary> Tries to deserialize one JSON element payload while requiring exact JSON property names. </summary>
+    /// <typeparam name="T"> The target model type. </typeparam>
+    /// <param name="element"> The source payload element. </param>
+    /// <param name="value"> The deserialized payload value when operation succeeds. </param>
+    /// <param name="error"> The machine-readable payload read error when operation fails. </param>
+    /// <returns> <see langword="true" /> when payload is valid and deserialized; otherwise <see langword="false" />. </returns>
+    public static bool TryDeserializeStrict<T> (
+        JsonElement element,
+        out T value,
+        out IpcPayloadReadError error)
+    {
+        return TryDeserialize(
+            element,
+            IpcJsonSerializerOptions.StrictPropertyNames,
+            out value,
+            out error);
+    }
+
+    private static bool TryDeserialize<T> (
+        JsonElement element,
+        JsonSerializerOptions options,
+        out T value,
+        out IpcPayloadReadError error)
+    {
+        if (!TryValidateUniqueObjectProperties(element, "$", out var duplicatePropertyPath))
+        {
+            value = default!;
+            error = new IpcPayloadReadError(
+                IpcPayloadReadErrorKind.DeserializeFailed,
+                $"IPC payload contains duplicated property: {duplicatePropertyPath}.");
+            return false;
+        }
+
         try
         {
-            var parsedValue = element.Deserialize<T>(IpcJsonSerializerOptions.Default);
+            var parsedValue = element.Deserialize<T>(options);
             if (parsedValue is null)
             {
                 value = default!;
@@ -39,11 +79,67 @@ public static class IpcPayloadCodec
             error = IpcPayloadReadError.None;
             return true;
         }
-        catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException)
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException or NotSupportedException or ArgumentException)
         {
             value = default!;
             error = new IpcPayloadReadError(IpcPayloadReadErrorKind.DeserializeFailed, exception.Message);
             return false;
         }
+    }
+
+    private static bool TryValidateUniqueObjectProperties (
+        JsonElement element,
+        string path,
+        out string duplicatePropertyPath)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                return TryValidateUniqueObjectPropertyNames(element, path, out duplicatePropertyPath);
+
+            case JsonValueKind.Array:
+                var index = 0;
+                foreach (var item in element.EnumerateArray())
+                {
+                    if (!TryValidateUniqueObjectProperties(item, $"{path}[{index}]", out duplicatePropertyPath))
+                    {
+                        return false;
+                    }
+
+                    index++;
+                }
+
+                duplicatePropertyPath = string.Empty;
+                return true;
+
+            default:
+                duplicatePropertyPath = string.Empty;
+                return true;
+        }
+    }
+
+    private static bool TryValidateUniqueObjectPropertyNames (
+        JsonElement element,
+        string path,
+        out string duplicatePropertyPath)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in element.EnumerateObject())
+        {
+            var propertyPath = $"{path}.{property.Name}";
+            if (!names.Add(property.Name))
+            {
+                duplicatePropertyPath = propertyPath;
+                return false;
+            }
+
+            if (!TryValidateUniqueObjectProperties(property.Value, propertyPath, out duplicatePropertyPath))
+            {
+                return false;
+            }
+        }
+
+        duplicatePropertyPath = string.Empty;
+        return true;
     }
 }

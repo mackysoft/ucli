@@ -78,6 +78,48 @@ public sealed class IpcContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcPayloadCodec_SemanticStringValue_RoundTripsAsJsonString ()
+    {
+        using var document = JsonDocument.Parse("{\"path\":\"Assets/Scenes/Main.unity\"}");
+
+        var result = IpcPayloadCodec.TryDeserialize<ScenePathArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.True(result, error.Message);
+        Assert.Equal("Assets/Scenes/Main.unity", args.Path.Value);
+
+        var payload = IpcPayloadCodec.SerializeToElement(args);
+
+        JsonAssert.For(payload)
+            .HasString("path", "Assets/Scenes/Main.unity");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPayloadCodec_ReferenceSemanticStringValues_RoundTripAsJsonStrings ()
+    {
+        using var document = JsonDocument.Parse("{\"var\":\"created\",\"assetGuid\":\"11111111111111111111111111111111\"}");
+
+        var result = IpcPayloadCodec.TryDeserialize<AssetReferenceArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.True(result, error.Message);
+        Assert.Equal("created", args.Alias!.Value);
+        Assert.Equal("11111111111111111111111111111111", args.AssetGuid!.Value);
+
+        var payload = IpcPayloadCodec.SerializeToElement(args);
+
+        JsonAssert.For(payload)
+            .HasString("var", "created")
+            .HasString("assetGuid", "11111111111111111111111111111111");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcErrorCodes_ExposeCoreAndReadIndexConstants ()
     {
         Assert.Equal("INVALID_ARGUMENT", IpcErrorCodes.InvalidArgument);
@@ -162,15 +204,23 @@ public sealed class IpcContractSerializationTests
     public void IpcOpsReadContracts_SerializeWithCamelCaseFields ()
     {
         var requestPayload = new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true);
+        var describe = CreateGoDescribeContract();
         var responsePayload = new IpcOpsReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             Operations:
             [
                 new IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                    Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}"""),
+                    ArgsSchemaJson: """{"type":"object"}""",
+                    ResultSchemaJson: """{"type":"object"}""")
+                {
+                    Description = describe.Description,
+                    Inputs = describe.Inputs,
+                    ResultContract = describe.ResultContract,
+                    Assurance = describe.Assurance,
+                },
             ]);
 
         using var requestDocument = JsonDocument.Parse(JsonSerializer.Serialize(requestPayload, SerializerOptions));
@@ -183,9 +233,17 @@ public sealed class IpcContractSerializationTests
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
             .HasArrayLength("operations", 1)
             .HasProperty("operations", 0, operation => operation
-                .HasString("name", MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe)
+                .HasString("name", UcliPrimitiveOperationNames.GoDescribe)
                 .HasString("kind", "query")
                 .HasString("policy", "safe")
+                .HasString("description", describe.Description!)
+                .HasProperty("resultContract", resultContract => resultContract
+                    .HasBoolean("emitted", true)
+                    .HasString("resultType", "GameObjectDescriptionResult"))
+                .HasProperty("assurance", assurance => assurance
+                    .HasBoolean("mayDirty", false)
+                    .HasBoolean("mayPersist", false)
+                    .HasString("planMode", "observesLiveUnity"))
                 .HasString("argsSchemaJson", """{"type":"object"}"""));
     }
 
@@ -502,8 +560,7 @@ public sealed class IpcContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcResolveOperationResult_SerializesWithCamelCaseContractFields ()
     {
-        var payload = new IpcResolveOperationResult(
-            GlobalObjectId: "GlobalObjectId_V1-2-3-4-5-6");
+        var payload = new IpcResolveOperationResult("GlobalObjectId_V1-2-3-4-5-6");
 
         using var jsonDocument = JsonDocument.Parse(JsonSerializer.Serialize(payload, SerializerOptions));
 
@@ -656,4 +713,15 @@ public sealed class IpcContractSerializationTests
         Assert.Equal("projectSettings", IpcExecuteTouchedResourceKindNames.ProjectSettings);
     }
 
+    private static UcliOperationDescribeContract CreateGoDescribeContract ()
+    {
+        return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+            "Returns a GameObject description including components and child hierarchy.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
+    }
 }

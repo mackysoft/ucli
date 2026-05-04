@@ -9,6 +9,7 @@ public static class UcliOperationKindCodec
     {
         (UcliOperationKind.Query, UcliOperationKindValues.Query),
         (UcliOperationKind.Mutation, UcliOperationKindValues.Mutation),
+        (UcliOperationKind.Command, UcliOperationKindValues.Command),
     };
 
     /// <summary> Converts one operation-kind enum value to contract literal. </summary>

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,33 +13,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.query</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneQueryOperation : IUcliOperation
+    internal sealed class SceneQueryOperation : UcliOperation<SceneQueryArgs, SceneQueryResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                ""pathPrefix"": { ""type"": ""string"", ""minLength"": 1 },
-                ""componentType"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""scene""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<SceneQueryArgs, SceneQueryResult>(
             operationName: UcliPrimitiveOperationNames.SceneQuery,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                UcliOperationPlanMode.ObservesLiveUnity));
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, out _, out _, out var failure))
+            if (!TryValidate(operation, args, out _, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -46,30 +42,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, executionContext, applied: false);
+            return Execute(operation, args, executionContext, applied: false);
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, executionContext, applied: true);
+            return Execute(operation, args, executionContext, applied: true);
         }
 
         private static Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
+            SceneQueryArgs args,
             OperationExecutionContext executionContext,
             bool applied)
         {
-            if (!TryValidate(operation, out var scenePath, out var queryArguments, out var failure))
+            if (!TryValidate(operation, args, out var scenePath, out var queryArguments, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -86,8 +85,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var payload = new SceneQueryResult(
-                Scene: scenePath,
-                Matches: CreatePayloadMatches(matches));
+                scene: scenePath,
+                matches: CreatePayloadMatches(matches));
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: applied,
                 changed: false,
@@ -100,20 +99,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidate (
             NormalizedOperation operation,
+            SceneQueryArgs args,
             out string scenePath,
             out SceneQuerySelectionEngine.QueryArguments queryArguments,
             out OperationPhaseStepResult? failure)
         {
-            scenePath = string.Empty;
-            queryArguments = default;
             failure = null;
-            if (!SceneQuerySelectionEngine.TryParseOpArgs(operation.Args, out scenePath, out queryArguments, out var errorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
-                return false;
-            }
+            scenePath = args.Scene;
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(args.PathPrefix, args.ComponentType);
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out errorMessage))
+            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -129,28 +124,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        private static IReadOnlyList<SceneQueryMatchPayload> CreatePayloadMatches (
+        private static IReadOnlyList<SceneQueryMatch> CreatePayloadMatches (
             IReadOnlyList<SceneQuerySelectionEngine.QueryMatch> matches)
         {
-            var payloadMatches = new SceneQueryMatchPayload[matches.Count];
+            var payloadMatches = new SceneQueryMatch[matches.Count];
             for (var i = 0; i < matches.Count; i++)
             {
-                payloadMatches[i] = new SceneQueryMatchPayload(
-                    Kind: matches[i].TargetKind == IpcEditTargetKind.Component ? "component" : "gameObject",
-                    HierarchyPath: matches[i].HierarchyPath,
-                    ComponentType: matches[i].ComponentType);
+                payloadMatches[i] = new SceneQueryMatch(
+                    kind: matches[i].TargetKind == IpcEditTargetKind.Component ? "component" : "gameObject",
+                    hierarchyPath: matches[i].HierarchyPath,
+                    componentType: matches[i].ComponentType);
             }
 
             return payloadMatches;
         }
-
-        private sealed record SceneQueryResult (
-            string Scene,
-            IReadOnlyList<SceneQueryMatchPayload> Matches);
-
-        private sealed record SceneQueryMatchPayload (
-            string Kind,
-            string HierarchyPath,
-            string? ComponentType);
     }
 }

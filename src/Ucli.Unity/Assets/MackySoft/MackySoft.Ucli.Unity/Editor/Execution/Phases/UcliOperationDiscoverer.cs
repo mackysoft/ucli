@@ -142,6 +142,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         $"Type '{type.FullName}' returned null metadata.");
                 }
 
+                ValidateTypedOperationContract(type, metadata);
+
                 registrations.Add(new UcliOperationRegistration(metadata, instance));
             }
 
@@ -289,6 +291,60 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static bool IsCreatableOperationType (Type type)
         {
             return type.IsClass && !type.IsAbstract && !type.IsGenericTypeDefinition;
+        }
+
+        /// <summary> Validates that typed operation metadata matches the operation implementation contract. </summary>
+        /// <param name="type"> The operation implementation type. </param>
+        /// <param name="metadata"> The operation metadata returned by the instance. </param>
+        /// <exception cref="InvalidOperationException"> Thrown when the typed operation contract and metadata disagree. </exception>
+        private static void ValidateTypedOperationContract (
+            Type type,
+            UcliOperationMetadata metadata)
+        {
+            var typedOperationInterface = FindTypedOperationInterface(type);
+            if (typedOperationInterface == null)
+            {
+                return;
+            }
+
+            var typeArguments = typedOperationInterface.GetGenericArguments();
+            var argsType = typeArguments[0];
+            var resultType = typeArguments[1];
+            if (metadata.ArgsType != argsType
+                || metadata.ResultType != resultType)
+            {
+                throw new InvalidOperationException(
+                    $"Type '{type.FullName}' implements '{nameof(IUcliOperation)}<{argsType.Name}, {resultType.Name}>' but metadata declares '{metadata.ArgsType.Name}' args and '{metadata.ResultType.Name}' result.");
+            }
+        }
+
+        /// <summary> Finds the single typed operation interface implemented by an operation type. </summary>
+        /// <param name="type"> The operation implementation type. </param>
+        /// <returns> The typed operation interface, or <see langword="null" /> for untyped operations. </returns>
+        /// <exception cref="InvalidOperationException"> Thrown when multiple typed operation contracts are implemented. </exception>
+        private static Type? FindTypedOperationInterface (Type type)
+        {
+            Type? typedOperationInterface = null;
+            var interfaces = type.GetInterfaces();
+            for (var interfaceIndex = 0; interfaceIndex < interfaces.Length; interfaceIndex++)
+            {
+                var interfaceType = interfaces[interfaceIndex];
+                if (!interfaceType.IsGenericType
+                    || interfaceType.GetGenericTypeDefinition() != typeof(IUcliOperation<,>))
+                {
+                    continue;
+                }
+
+                if (typedOperationInterface != null)
+                {
+                    throw new InvalidOperationException(
+                        $"Type '{type.FullName}' implements multiple typed operation contracts.");
+                }
+
+                typedOperationInterface = interfaceType;
+            }
+
+            return typedOperationInterface;
         }
 
         /// <summary> Creates one operation instance through parameterless constructor invocation. </summary>

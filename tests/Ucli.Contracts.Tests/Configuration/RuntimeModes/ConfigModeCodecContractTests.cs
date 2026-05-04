@@ -114,6 +114,7 @@ public sealed class ConfigModeCodecContractTests
     {
         Assert.Equal(0, (int)UcliOperationKind.Query);
         Assert.Equal(1, (int)UcliOperationKind.Mutation);
+        Assert.Equal(2, (int)UcliOperationKind.Command);
     }
 
     [Fact]
@@ -122,6 +123,7 @@ public sealed class ConfigModeCodecContractTests
     {
         Assert.Equal(UcliOperationKindValues.Mutation, UcliOperationKindCodec.ToValue(UcliOperationKind.Mutation));
         Assert.Equal(UcliOperationKindValues.Query, UcliOperationKindCodec.ToValue(UcliOperationKind.Query));
+        Assert.Equal(UcliOperationKindValues.Command, UcliOperationKindCodec.ToValue(UcliOperationKind.Command));
     }
 
     [Theory]
@@ -129,6 +131,8 @@ public sealed class ConfigModeCodecContractTests
     [InlineData("mutation", UcliOperationKind.Mutation)]
     [InlineData("MUTATION", UcliOperationKind.Mutation)]
     [InlineData("query", UcliOperationKind.Query)]
+    [InlineData("COMMAND", UcliOperationKind.Command)]
+    [InlineData("command", UcliOperationKind.Command)]
     public void UcliOperationKindCodec_TryParse_ParsesCaseInsensitiveLiterals (
         string value,
         UcliOperationKind expected)

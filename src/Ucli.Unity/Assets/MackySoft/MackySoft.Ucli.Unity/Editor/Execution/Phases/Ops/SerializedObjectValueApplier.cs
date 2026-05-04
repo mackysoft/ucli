@@ -17,6 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             IReadOnlyList<SerializedPropertyAssignment> assignments,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             out bool changed,
             out string errorMessage)
         {
@@ -52,6 +53,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     assignment.Value,
                     executionContext,
                     referenceResolutionPolicy,
+                    allowRequestLocalAliases,
                     assignment.Path,
                     out var assignmentChanged,
                     out errorMessage))
@@ -78,6 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement value,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -115,6 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     value,
                     executionContext,
                     referenceResolutionPolicy,
+                    allowRequestLocalAliases,
                     logicalPath,
                     out changed,
                     out errorMessage);
@@ -139,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return TryApplyColor(property, value, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.ObjectReference:
-                    return TryApplyObjectReference(property, value, executionContext, referenceResolutionPolicy, logicalPath, out changed, out errorMessage);
+                    return TryApplyObjectReference(property, value, executionContext, referenceResolutionPolicy, allowRequestLocalAliases, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.Enum:
                     return TryApplyEnum(serializedObject, property, rootType, value, logicalPath, out changed, out errorMessage);
@@ -172,7 +176,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return TryApplyQuaternion(property, value, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.ExposedReference:
-                    return TryApplyExposedReference(property, value, executionContext, referenceResolutionPolicy, logicalPath, out changed, out errorMessage);
+                    return TryApplyExposedReference(property, value, executionContext, referenceResolutionPolicy, allowRequestLocalAliases, logicalPath, out changed, out errorMessage);
 
                 case SerializedPropertyType.Vector2Int:
                     return TryApplyVector2Int(property, value, logicalPath, out changed, out errorMessage);
@@ -194,6 +198,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         value,
                         executionContext,
                         referenceResolutionPolicy,
+                        allowRequestLocalAliases,
                         logicalPath,
                         out changed,
                         out errorMessage);
@@ -209,6 +214,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         value,
                         executionContext,
                         referenceResolutionPolicy,
+                        allowRequestLocalAliases,
                         logicalPath,
                         out changed,
                         out errorMessage);
@@ -226,6 +232,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement value,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -250,6 +257,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     element,
                     executionContext,
                     referenceResolutionPolicy,
+                    allowRequestLocalAliases,
                     $"{logicalPath}.Array.data[{index}]",
                     out var elementChanged,
                     out errorMessage))
@@ -452,12 +460,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement value,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             string logicalPath,
             out bool changed,
             out string errorMessage)
         {
             changed = false;
-            if (!TryResolveUnityObjectValue(value, executionContext, referenceResolutionPolicy, logicalPath, out var unityObject, out errorMessage))
+            if (!TryResolveUnityObjectValue(value, executionContext, referenceResolutionPolicy, allowRequestLocalAliases, logicalPath, out var unityObject, out errorMessage))
             {
                 return false;
             }
@@ -666,12 +675,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement value,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             string logicalPath,
             out bool changed,
             out string errorMessage)
         {
             changed = false;
-            if (!TryResolveUnityObjectValue(value, executionContext, referenceResolutionPolicy, logicalPath, out var unityObject, out errorMessage))
+            if (!TryResolveUnityObjectValue(value, executionContext, referenceResolutionPolicy, allowRequestLocalAliases, logicalPath, out var unityObject, out errorMessage))
             {
                 return false;
             }
@@ -761,6 +771,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement value,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -822,6 +833,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 contract.Payload,
                 executionContext,
                 referenceResolutionPolicy,
+                allowRequestLocalAliases,
                 logicalPath,
                 out var payloadChanged,
                 out errorMessage))
@@ -870,6 +882,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement value,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             string logicalPath,
             out bool changed,
             out string errorMessage)
@@ -898,6 +911,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     child.Value,
                     executionContext,
                     referenceResolutionPolicy,
+                    allowRequestLocalAliases,
                     $"{logicalPath}.{child.Name}",
                     out var childChanged,
                     out errorMessage))
@@ -970,6 +984,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             JsonElement value,
             OperationExecutionContext executionContext,
             OperationObjectReferenceUtilities.ReferenceResolutionPolicy referenceResolutionPolicy,
+            bool allowRequestLocalAliases,
             string logicalPath,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
@@ -983,6 +998,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!UnityObjectReferenceCodec.TryParse(value, logicalPath, out var reference, out errorMessage))
             {
+                return false;
+            }
+
+            if (!allowRequestLocalAliases && reference.Kind == UnityObjectReferenceKind.Alias)
+            {
+                errorMessage = $"Operation '{logicalPath}' cannot use request-local alias references in public op steps.";
                 return false;
             }
 

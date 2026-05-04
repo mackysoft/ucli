@@ -1,3 +1,4 @@
+using System;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
@@ -70,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     || !loadedScene.isLoaded
                     || EditorSceneManager.IsPreviewScene(loadedScene)
                     || !loadedScene.isDirty
-                    || string.Equals(loadedScene.path, scenePath, System.StringComparison.Ordinal))
+                    || string.Equals(loadedScene.path, scenePath, StringComparison.Ordinal))
                 {
                     continue;
                 }

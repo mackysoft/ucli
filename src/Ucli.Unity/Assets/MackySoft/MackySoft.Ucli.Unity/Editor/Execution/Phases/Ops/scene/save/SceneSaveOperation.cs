@@ -12,35 +12,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.save</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneSaveOperation : IUcliOperation
+    internal sealed class SceneSaveOperation : UcliOperation<ScenePathArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""path"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""path""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ScenePathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.SceneSave,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Saves a loaded or previewed Unity scene asset.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesScene },
+                mayDirty: false,
+                mayPersist: true,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         /// <summary> Executes validate phase for <c>ucli.scene.save</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            if (!TryResolvePlanValidationState(operation, executionContext, out _, out var failure))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!TryResolvePlanValidationState(operation, args, executionContext, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -53,12 +51,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            if (!TryResolvePlanValidationState(operation, executionContext, out var validationState, out var failure))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!TryResolvePlanValidationState(operation, args, executionContext, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -80,12 +80,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            if (!TryValidateArguments(operation, executionContext, out var validationState, out var failure))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!TryValidateArguments(operation, args, executionContext, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -141,79 +143,71 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
             validationState = default;
             failure = null;
-            if (!SceneOperationArgumentsCodec.TryParsePathArguments(operation.Args, out var scenePath, out var parseErrorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
-                return false;
-            }
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
+            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            if (!SceneOperationUtilities.TryGetLoadedScene(scenePath, out var scene, out sceneErrorMessage))
+            if (!SceneOperationUtilities.TryGetLoadedScene(args.Path, out var scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            validationState = new ValidationState(scenePath, scene);
+            validationState = new ValidationState(args.Path, scene);
             return true;
         }
 
         private static bool TryResolvePlanValidationState (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
             validationState = default;
             failure = null;
-            if (!SceneOperationArgumentsCodec.TryParsePathArguments(operation.Args, out var scenePath, out var parseErrorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
-                return false;
-            }
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
+            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            var hasLoadedScene = SceneOperationUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _);
+            var hasLoadedScene = SceneOperationUtilities.TryGetLoadedScene(args.Path, out var loadedScene, out _);
             if (!hasLoadedScene
-                && !executionContext.HasPlannedLiveSceneOpen(scenePath))
+                && !executionContext.HasPlannedLiveSceneOpen(args.Path))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
-                    $"Scene is not loaded: {scenePath}. Use 'ucli.scene.open' first.");
+                    $"Scene is not loaded: {args.Path}. Use 'ucli.scene.open' first.");
                 return false;
             }
 
-            if (executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
+            if (executionContext.TryGetTemporaryScene(args.Path, out var temporaryScene))
             {
-                validationState = new ValidationState(scenePath, temporaryScene);
+                validationState = new ValidationState(args.Path, temporaryScene);
                 return true;
             }
 
             if (hasLoadedScene)
             {
-                validationState = new ValidationState(scenePath, loadedScene);
+                validationState = new ValidationState(args.Path, loadedScene);
                 return true;
             }
 
             failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                 operation.Id,
-                $"Scene plan state is not available: {scenePath}.");
+                $"Scene plan state is not available: {args.Path}.");
             return false;
         }
 

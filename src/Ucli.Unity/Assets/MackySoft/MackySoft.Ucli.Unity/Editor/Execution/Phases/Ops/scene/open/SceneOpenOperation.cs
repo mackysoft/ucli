@@ -11,35 +11,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.scene.open</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class SceneOpenOperation : IUcliOperation
+    internal sealed class SceneOpenOperation : UcliOperation<ScenePathArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""path"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""path""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ScenePathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.SceneOpen,
-            kind: UcliOperationKind.Query,
+            kind: UcliOperationKind.Command,
             policy: OperationPolicy.Safe,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Opens a Unity scene asset in the editor.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.OpensSceneInEditor },
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
         /// <summary> Executes validate phase for <c>ucli.scene.open</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            if (!TryValidateArguments(operation, out _, out var failure))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!TryValidateArguments(operation, args, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -52,12 +50,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!TryValidateArguments(operation, args, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -93,12 +93,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            ScenePathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!TryValidateArguments(operation, args, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -145,24 +147,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            ScenePathArgs args,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
             validationState = default;
             failure = null;
-            if (!SceneOperationArgumentsCodec.TryParsePathArguments(operation.Args, out var scenePath, out var parseErrorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
-                return false;
-            }
 
-            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
+            if (!SceneOperationUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            validationState = new ValidationState(scenePath);
+            validationState = new ValidationState(args.Path);
             return true;
         }
 
