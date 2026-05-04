@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>MackySoft.Ucli.Skills</AssemblyName>
+    <RootNamespace>MackySoft.Ucli.Skills</RootNamespace>
+    <LangVersion>13.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

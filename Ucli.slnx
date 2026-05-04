@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Ucli.Contracts/Ucli.Contracts.csproj" />
     <Project Path="src/Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
+    <Project Path="src/Ucli.Skills/Ucli.Skills.csproj" />
     <Project Path="src/Ucli/Ucli.csproj" />
   </Folder>
   <Folder Name="/tests/">
