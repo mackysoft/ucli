@@ -6,7 +6,6 @@ public sealed class OfficialSkillDefinitionSourceTests
 {
     private static readonly string[] ExpectedSkillNames =
     [
-        "ucli-author-operation",
         "ucli-plan-apply",
         "ucli-read-project",
         "ucli-troubleshoot",
@@ -19,16 +18,7 @@ public sealed class OfficialSkillDefinitionSourceTests
         "skillName",
         "displayName",
         "description",
-        "skillSet",
         "references",
-        "hosts",
-    ];
-
-    private static readonly string[] ExpectedHosts =
-    [
-        "openai",
-        "claude",
-        "copilot",
     ];
 
     [Fact]
@@ -57,16 +47,6 @@ public sealed class OfficialSkillDefinitionSourceTests
             var description = root.GetProperty("description").GetString();
             Assert.False(string.IsNullOrWhiteSpace(description));
             Assert.InRange(description.Length, 1, 1024);
-
-            var expectedSkillSet = skillName == "ucli-author-operation" ? "optional" : "core";
-            Assert.Equal(expectedSkillSet, root.GetProperty("skillSet").GetString());
-            Assert.Equal(ExpectedHosts, root.GetProperty("hosts").EnumerateObject().Select(static property => property.Name).ToArray());
-
-            foreach (var host in root.GetProperty("hosts").EnumerateObject())
-            {
-                Assert.Equal(JsonValueKind.Object, host.Value.ValueKind);
-                Assert.Empty(host.Value.EnumerateObject());
-            }
         }
     }
 
