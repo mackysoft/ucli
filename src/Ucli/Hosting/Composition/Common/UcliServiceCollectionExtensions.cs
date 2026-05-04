@@ -23,6 +23,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddUcliDaemonFeatureServices();
         services.AddUcliTestingFeatureServices();
         services.AddUcliStatusFeatureServices();
+        services.AddUcliSkillsFeatureServices();
         return services;
     }
 }

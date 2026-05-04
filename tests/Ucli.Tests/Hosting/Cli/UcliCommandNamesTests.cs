@@ -93,6 +93,36 @@ public sealed class UcliCommandNamesTests
 
     [Theory]
     [Trait("Size", "Small")]
+    [InlineData(UcliCommandNames.ListSubcommand, UcliCommandNames.SkillsList)]
+    [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    [InlineData("foo", UcliCommandNames.Skills)]
+    [InlineData(null, UcliCommandNames.Skills)]
+    public void ResolveResultCommandName_WhenSkillsCommandSpecified_ReturnsExpectedCommandName (
+        string? subcommand,
+        string expected)
+    {
+        var args = subcommand is null
+            ? [UcliCommandNames.Skills]
+            : new[] { UcliCommandNames.Skills, subcommand };
+
+        var commandName = UcliCommandNames.ResolveResultCommandName(args);
+
+        Assert.Equal(expected, commandName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsRegistered_WhenSkillsCommandSpecified_ReturnsTrue ()
+    {
+        var result = UcliCommandNames.IsRegistered(UcliCommandNames.Skills);
+
+        Assert.True(result);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
     [InlineData(UcliCommandNames.AssetsSubcommand, UcliCommandNames.FindSubcommand, UcliCommandNames.QueryAssetsFind)]
     [InlineData(UcliCommandNames.SceneSubcommand, UcliCommandNames.TreeSubcommand, UcliCommandNames.QuerySceneTree)]
     [InlineData(UcliCommandNames.GoSubcommand, UcliCommandNames.DescribeSubcommand, UcliCommandNames.QueryGoDescribe)]

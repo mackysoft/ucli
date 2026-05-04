@@ -44,6 +44,14 @@ internal static class Program
         UcliCommandNames.DescribeSubcommand,
     ];
 
+    private static readonly string[] SkillsSubcommands =
+    [
+        UcliCommandNames.ListSubcommand,
+        UcliCommandNames.ExportSubcommand,
+        UcliCommandNames.InstallSubcommand,
+        UcliCommandNames.DoctorSubcommand,
+    ];
+
     private static readonly string[] QuerySubcommands =
     [
         UcliCommandNames.AssetsSubcommand,
@@ -222,6 +230,23 @@ internal static class Program
             return true;
         }
 
+        if (string.Equals(firstArgument, UcliCommandNames.Skills, StringComparison.Ordinal)
+            && TryHandleInvalidSubcommand(args, UcliCommandNames.Skills, SkillsSubcommands))
+        {
+            return true;
+        }
+
+        if (string.Equals(firstArgument, UcliCommandNames.Skills, StringComparison.Ordinal)
+            && TryHandleUnexpectedLeafArgument(
+                args,
+                UcliCommandNames.Skills,
+                UcliCommandNames.ListSubcommand,
+                UcliCommandNames.SkillsList,
+                expectedArgumentCount: 2))
+        {
+            return true;
+        }
+
         if (string.Equals(firstArgument, UcliCommandNames.Query, StringComparison.Ordinal)
             && TryHandleInvalidSubcommand(args, UcliCommandNames.Query, QuerySubcommands))
         {
@@ -338,6 +363,39 @@ internal static class Program
             message: $"Subcommand '{subcommand}' is not recognized for command 'query {group}'.");
         CommandResultWriter.WriteToStandardOutput(invalidResult);
         Environment.ExitCode = invalidResult.ExitCode;
+        return true;
+    }
+
+    /// <summary> Handles unexpected extra arguments for leaf commands before framework dispatch starts. </summary>
+    /// <param name="args"> The command-line arguments passed to the process. </param>
+    /// <param name="commandName"> The top-level command name. </param>
+    /// <param name="subcommandName"> The leaf subcommand name. </param>
+    /// <param name="resultCommandName"> The command name emitted in the error envelope. </param>
+    /// <param name="expectedArgumentCount"> The total argument count accepted by the leaf command. </param>
+    /// <returns>
+    /// <para> <see langword="true" /> when this method writes an error response and sets <see cref="Environment.ExitCode" />. </para>
+    /// <para> Otherwise, <see langword="false" />. </para>
+    /// </returns>
+    private static bool TryHandleUnexpectedLeafArgument (
+        string[] args,
+        string commandName,
+        string subcommandName,
+        string resultCommandName,
+        int expectedArgumentCount)
+    {
+        var result = SubcommandValidationHelper.TryCreateUnexpectedLeafArgumentResult(
+            args,
+            commandName,
+            subcommandName,
+            resultCommandName,
+            expectedArgumentCount);
+        if (result == null)
+        {
+            return false;
+        }
+
+        CommandResultWriter.WriteToStandardOutput(result);
+        Environment.ExitCode = result.ExitCode;
         return true;
     }
 }
