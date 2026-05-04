@@ -4,6 +4,16 @@ namespace MackySoft.Ucli.Skills.Tests;
 
 public sealed class ProjectBoundaryTests
 {
+    private static readonly string[] ConcreteHostReferences =
+    [
+        "MackySoft.Ucli.Skills.Hosts.Claude",
+        "MackySoft.Ucli.Skills.Hosts.Copilot",
+        "MackySoft.Ucli.Skills.Hosts.OpenAi",
+        "ClaudeSkillHostAdapter",
+        "CopilotSkillHostAdapter",
+        "OpenAiSkillHostAdapter",
+    ];
+
     [Fact]
     [Trait("Size", "Small")]
     public void UcliSkillsProject_DoesNotReferenceInfrastructureOrContracts ()
@@ -68,8 +78,97 @@ public sealed class ProjectBoundaryTests
         Assert.Empty(offenders);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Distribution")]
+    [InlineData("Doctor")]
+    [InlineData("Generation")]
+    [InlineData("Installation")]
+    [InlineData("Manifests")]
+    [InlineData("Materialization")]
+    public void NonHostDirectory_DoesNotReferenceConcreteHostImplementations (string directoryName)
+    {
+        var sourceRoot = GetSourceRoot();
+        var directoryPath = Path.Combine(sourceRoot, directoryName);
+
+        AssertDirectoryDoesNotContainAny(sourceRoot, directoryPath, ConcreteHostReferences);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Contracts")]
+    [InlineData("Yaml")]
+    public void HostInfrastructureDirectory_DoesNotReferenceConcreteHostImplementations (string directoryName)
+    {
+        var sourceRoot = GetSourceRoot();
+        var directoryPath = Path.Combine(sourceRoot, "Hosts", directoryName);
+
+        AssertDirectoryDoesNotContainAny(sourceRoot, directoryPath, ConcreteHostReferences);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Claude", "ClaudeSkillHostAdapter.cs")]
+    [InlineData("Copilot", "CopilotSkillHostAdapter.cs")]
+    [InlineData("OpenAi", "OpenAiSkillHostAdapter.cs")]
+    public void ConcreteHostImplementation_IsLocatedUnderConcreteHostDirectory (
+        string hostDirectoryName,
+        string fileName)
+    {
+        var sourceRoot = GetSourceRoot();
+        var hostsRoot = Path.Combine(sourceRoot, "Hosts");
+        var expectedPath = Path.GetFullPath(Path.Combine(hostsRoot, hostDirectoryName, fileName));
+
+        Assert.True(File.Exists(expectedPath), $"Expected concrete host implementation file: {expectedPath}");
+
+        var misplacedFiles = Directory.EnumerateFiles(hostsRoot, fileName, SearchOption.AllDirectories)
+            .Select(Path.GetFullPath)
+            .Where(filePath => !string.Equals(filePath, expectedPath, StringComparison.Ordinal))
+            .Select(filePath => Path.GetRelativePath(sourceRoot, filePath).Replace(Path.DirectorySeparatorChar, '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(misplacedFiles);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Claude", "Copilot")]
+    [InlineData("Claude", "OpenAi")]
+    [InlineData("Copilot", "Claude")]
+    [InlineData("Copilot", "OpenAi")]
+    [InlineData("OpenAi", "Claude")]
+    [InlineData("OpenAi", "Copilot")]
+    public void ConcreteHostDirectory_DoesNotReferenceSiblingConcreteHostImplementation (
+        string hostDirectoryName,
+        string siblingHostDirectoryName)
+    {
+        var sourceRoot = GetSourceRoot();
+        var directoryPath = Path.Combine(sourceRoot, "Hosts", hostDirectoryName);
+
+        AssertDirectoryDoesNotContainAny(
+            sourceRoot,
+            directoryPath,
+            [$"MackySoft.Ucli.Skills.Hosts.{siblingHostDirectoryName}", $"{siblingHostDirectoryName}SkillHostAdapter"]);
+    }
+
     private static string GetSourceRoot ()
     {
         return Path.GetFullPath(Path.Combine(SkillTestData.GetDefinitionsRoot(), ".."));
+    }
+
+    private static void AssertDirectoryDoesNotContainAny (
+        string sourceRoot,
+        string directoryPath,
+        IReadOnlyList<string> forbiddenTexts)
+    {
+        var offenders = Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories)
+            .SelectMany(filePath => forbiddenTexts
+                .Where(forbiddenText => File.ReadAllText(filePath).Contains(forbiddenText, StringComparison.Ordinal))
+                .Select(forbiddenText => $"{Path.GetRelativePath(sourceRoot, filePath).Replace(Path.DirectorySeparatorChar, '/')} contains {forbiddenText}"))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
     }
 }

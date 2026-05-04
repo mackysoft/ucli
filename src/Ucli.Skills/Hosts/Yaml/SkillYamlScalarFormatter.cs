@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Skills.Hosts;
+namespace MackySoft.Ucli.Skills.Hosts.Yaml;
 
 /// <summary> Formats minimal deterministic YAML scalar values for generated host metadata. </summary>
 internal static class SkillYamlScalarFormatter

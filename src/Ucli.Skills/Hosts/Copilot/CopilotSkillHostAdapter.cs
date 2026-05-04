@@ -1,6 +1,8 @@
+using MackySoft.Ucli.Skills.Hosts.Contracts;
+using MackySoft.Ucli.Skills.Hosts.Yaml;
 using MackySoft.Ucli.Skills.Sources;
 
-namespace MackySoft.Ucli.Skills.Hosts;
+namespace MackySoft.Ucli.Skills.Hosts.Copilot;
 
 /// <summary> Materializes SKILL files for GitHub Copilot CLI. </summary>
 public sealed class CopilotSkillHostAdapter : ISkillHostAdapter

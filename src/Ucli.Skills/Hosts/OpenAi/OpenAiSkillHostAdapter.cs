@@ -1,7 +1,9 @@
+using MackySoft.Ucli.Skills.Hosts.Contracts;
+using MackySoft.Ucli.Skills.Hosts.Yaml;
 using MackySoft.Ucli.Skills.Shared;
 using MackySoft.Ucli.Skills.Sources;
 
-namespace MackySoft.Ucli.Skills.Hosts;
+namespace MackySoft.Ucli.Skills.Hosts.OpenAi;
 
 /// <summary> Materializes SKILL files for OpenAI / Codex. </summary>
 public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter

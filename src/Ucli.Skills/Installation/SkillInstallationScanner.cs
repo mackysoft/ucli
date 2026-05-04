@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Skills.Generation;
-using MackySoft.Ucli.Skills.Hosts;
+using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Packaging;

@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Skills.Hosts;
+namespace MackySoft.Ucli.Skills.Hosts.Contracts;
 
 /// <summary> Describes one supported SKILL host adapter. </summary>
 /// <param name="HostKey"> The canonical host key. </param>

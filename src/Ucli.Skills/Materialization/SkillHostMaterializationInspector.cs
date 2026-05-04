@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Skills.Digests;
-using MackySoft.Ucli.Skills.Hosts;
+using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;

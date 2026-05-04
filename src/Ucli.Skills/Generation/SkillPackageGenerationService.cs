@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Skills.Digests;
-using MackySoft.Ucli.Skills.Hosts;
+using MackySoft.Ucli.Skills.Hosts.Contracts;
+using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Shared;
 using MackySoft.Ucli.Skills.Sources;

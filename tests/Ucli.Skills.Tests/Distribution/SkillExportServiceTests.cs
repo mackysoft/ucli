@@ -1,6 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Skills.Distribution;
-using MackySoft.Ucli.Skills.Hosts;
+using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Distribution;

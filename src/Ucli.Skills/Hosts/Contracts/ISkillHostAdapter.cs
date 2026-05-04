@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Skills.Sources;
 
-namespace MackySoft.Ucli.Skills.Hosts;
+namespace MackySoft.Ucli.Skills.Hosts.Contracts;
 
 /// <summary> Provides deterministic materialization policy for one supported SKILL host. </summary>
 public interface ISkillHostAdapter

@@ -1,6 +1,10 @@
+using MackySoft.Ucli.Skills.Hosts.Claude;
+using MackySoft.Ucli.Skills.Hosts.Contracts;
+using MackySoft.Ucli.Skills.Hosts.Copilot;
+using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Hosts;
+namespace MackySoft.Ucli.Skills.Hosts.Registration;
 
 /// <summary> Provides the deterministic global host adapter set. </summary>
 public sealed class SkillHostAdapterSet

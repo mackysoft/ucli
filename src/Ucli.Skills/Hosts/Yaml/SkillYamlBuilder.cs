@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace MackySoft.Ucli.Skills.Hosts;
+namespace MackySoft.Ucli.Skills.Hosts.Yaml;
 
 /// <summary> Builds deterministic minimal YAML used by supported host adapters. </summary>
 internal sealed class SkillYamlBuilder

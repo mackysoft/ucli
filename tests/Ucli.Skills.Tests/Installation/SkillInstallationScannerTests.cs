@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Skills.Generation;
-using MackySoft.Ucli.Skills.Hosts;
+using MackySoft.Ucli.Skills.Hosts.Claude;
+using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Shared;
 
