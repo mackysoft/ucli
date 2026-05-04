@@ -343,8 +343,8 @@ CLI は JSON リクエストを redirected `stdin` から読み、static preflig
 
 ### `plan` 実行例
 ```bash
-ucli plan --projectPath ./UnityProject --readIndexMode allowStale < request.json
-ucli plan --projectPath ./UnityProject --mode daemon --failFast < request.json
+printf '%s' "$REQUEST_JSON" | ucli plan --projectPath ./UnityProject --readIndexMode allowStale
+printf '%s' "$REQUEST_JSON" | ucli plan --projectPath ./UnityProject --mode daemon --failFast
 ```
 
 ## `ucli call`
@@ -390,8 +390,8 @@ ucli plan --projectPath ./UnityProject --mode daemon --failFast < request.json
 
 ### `call` 実行例
 ```bash
-ucli call --projectPath ./UnityProject --planToken "<token>" < request.json
-ucli call --projectPath ./UnityProject --withPlan --allowDangerous --mode daemon --failFast < request.json
+printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --planToken "<token>"
+printf '%s' "$REQUEST_JSON" | ucli call --projectPath ./UnityProject --withPlan --allowDangerous --mode daemon --failFast
 ```
 
 ## `ucli refresh`

@@ -4,7 +4,7 @@ using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests.Input;
 
-/// <summary> Reads JSON request input from one source and validates basic input constraints. </summary>
+/// <summary> Reads JSON request input from redirected standard input and validates basic input constraints. </summary>
 internal sealed class RequestInputReader : IRequestInputReader
 {
     private readonly Func<bool> isStandardInputRedirected;
