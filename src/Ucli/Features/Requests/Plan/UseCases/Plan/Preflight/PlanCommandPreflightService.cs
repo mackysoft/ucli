@@ -22,7 +22,6 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
 
     /// <inheritdoc />
     public async ValueTask<PlanCommandPreflightResult> Prepare (
-        string? requestPath,
         string? projectPath,
         ReadIndexMode? readIndexMode,
         CancellationToken cancellationToken = default)
@@ -30,7 +29,6 @@ internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService
         cancellationToken.ThrowIfCancellationRequested();
 
         var requestPreparationResult = await requestPreparationService.Prepare(
-                requestPath,
                 projectPath,
                 cancellationToken)
             .ConfigureAwait(false);

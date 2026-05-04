@@ -2,8 +2,8 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Context.Project;
@@ -28,22 +28,19 @@ public sealed class RequestPreparationServiceTests
         const string requestJson = """{"steps":[]}""";
         var parsedRequest = CreateRequest();
         var inputReader = new StubRequestInputReader(
-            RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput));
+            RequestInputReadResult.Success(requestJson));
         var parser = new SpyValidateRequestJsonParser(
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
         var service = CreateService(inputReader, parser, projectContextResolver);
 
-        var result = await service.ReadAndParse(
-            requestPath: "request.json",
-            cancellationToken: CancellationToken.None);
+        var result = await service.ReadAndParse(CancellationToken.None);
 
         var normalizedRequestJson = CreateNormalizedRequestJson();
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.ParsedRequest);
         Assert.Equal(normalizedRequestJson, result.ParsedRequest!.RequestJson);
-        Assert.Equal(RequestInputSource.StandardInput, result.ParsedRequest.InputSource);
         Assert.Same(parsedRequest, result.ParsedRequest.Request);
         Assert.Equal(normalizedRequestJson, parser.ReceivedRequestJson);
         Assert.Equal(0, projectContextResolver.CallCount);
@@ -57,7 +54,7 @@ public sealed class RequestPreparationServiceTests
         var parsedRequest = CreateRequest();
         var projectContext = CreateProjectContext();
         var inputReader = new StubRequestInputReader(
-            RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput));
+            RequestInputReadResult.Success(requestJson));
         var parser = new SpyValidateRequestJsonParser(
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
@@ -65,7 +62,6 @@ public sealed class RequestPreparationServiceTests
         var service = CreateService(inputReader, parser, projectContextResolver);
 
         var result = await service.Prepare(
-            requestPath: "request.json",
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -73,7 +69,6 @@ public sealed class RequestPreparationServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PreparedRequest);
         Assert.Equal(normalizedRequestJson, result.PreparedRequest!.RequestJson);
-        Assert.Equal(RequestInputSource.StandardInput, result.PreparedRequest.InputSource);
         Assert.Same(parsedRequest, result.PreparedRequest.Request);
         Assert.Same(projectContext, result.PreparedRequest.ProjectContext);
         Assert.Equal(normalizedRequestJson, parser.ReceivedRequestJson);
@@ -90,7 +85,6 @@ public sealed class RequestPreparationServiceTests
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -105,12 +99,11 @@ public sealed class RequestPreparationServiceTests
     {
         var error = ExecutionError.InvalidArgument("request JSON is invalid.");
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""", RequestInputSource.StandardInput)),
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""")),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Failure(error)),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -125,12 +118,11 @@ public sealed class RequestPreparationServiceTests
     {
         var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""", RequestInputSource.StandardInput)),
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""")),
             parser,
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -149,12 +141,11 @@ public sealed class RequestPreparationServiceTests
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{}""", RequestInputSource.StandardInput)),
+            new StubRequestInputReader(RequestInputReadResult.Success("""{}""")),
             parser,
             projectContextResolver);
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -172,12 +163,11 @@ public sealed class RequestPreparationServiceTests
     {
         var error = ExecutionError.InvalidArgument("project path is invalid.");
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""", RequestInputSource.StandardInput)),
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""")),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest())),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Failure(error)));
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -192,14 +182,13 @@ public sealed class RequestPreparationServiceTests
     {
         var token = new CancellationTokenSource().Token;
         var inputReader = new SpyRequestInputReader(
-            RequestInputReadResult.Success("""{"steps":[]}""", RequestInputSource.StandardInput));
+            RequestInputReadResult.Success("""{"steps":[]}"""));
         var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
         var service = CreateService(inputReader, parser, projectContextResolver);
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: token);
 
@@ -254,9 +243,7 @@ public sealed class RequestPreparationServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<RequestInputReadResult> ReadAsync (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
@@ -274,9 +261,7 @@ public sealed class RequestPreparationServiceTests
 
         public CancellationToken ReceivedToken { get; private set; }
 
-        public ValueTask<RequestInputReadResult> ReadAsync (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
         {
             ReceivedToken = cancellationToken;
             return ValueTask.FromResult(result);

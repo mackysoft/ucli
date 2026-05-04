@@ -47,7 +47,6 @@ internal sealed class PlanService : IPlanService
         ArgumentNullException.ThrowIfNull(input);
 
         var requestPreparationResult = await requestPreparationService.Prepare(
-                input.RequestPath,
                 input.ProjectPath,
                 cancellationToken)
             .ConfigureAwait(false);

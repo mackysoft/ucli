@@ -1,27 +1,22 @@
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Hosting.Cli.Requests.Input;
+namespace MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
 
 /// <summary> Represents the result of reading JSON request input. </summary>
 /// <param name="Json"> The raw JSON request content, or <see langword="null" /> when reading fails. </param>
-/// <param name="Source"> The input source that produced <paramref name="Json" />, or <see langword="null" /> on failure. </param>
 /// <param name="Error"> The structured read error, or <see langword="null" /> on success. </param>
 internal sealed record RequestInputReadResult (
     string? Json,
-    RequestInputSource? Source,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether request input was read successfully. </summary>
-    public bool IsSuccess => Json is not null && Source is not null && Error is null;
+    public bool IsSuccess => Json is not null && Error is null;
 
     /// <summary> Creates a successful request-input read result. </summary>
     /// <param name="json"> The raw JSON request content. </param>
-    /// <param name="source"> The input source that provided request JSON. </param>
     /// <returns> The successful read result. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="json" /> is empty or whitespace. </exception>
-    public static RequestInputReadResult Success (
-        string json,
-        RequestInputSource source)
+    public static RequestInputReadResult Success (string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -30,7 +25,6 @@ internal sealed record RequestInputReadResult (
 
         return new RequestInputReadResult(
             Json: json,
-            Source: source,
             Error: null);
     }
 
@@ -44,7 +38,6 @@ internal sealed record RequestInputReadResult (
 
         return new RequestInputReadResult(
             Json: null,
-            Source: null,
             Error: error);
     }
 }

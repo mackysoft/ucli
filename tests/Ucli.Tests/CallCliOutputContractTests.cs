@@ -37,55 +37,6 @@ public sealed class CallCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Call_WithoutSuppliedRequestInput_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Call);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Call,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.Contains(
-            "Request JSON from standard input must not be empty.",
-            outputJson.RootElement.GetProperty("message").GetString(),
-            StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Call_WithRequestPathAndStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        using var scope = TestDirectories.CreateTempScope("call-cli-output-contract", "ambiguous-input");
-        var requestPath = Path.Combine(scope.FullPath, "request.json");
-        await scope.WriteFileAsync("request.json", CreateRequestJson());
-
-        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAndStandardInput(
-            scope.FullPath,
-            CreateRequestJson(),
-            UcliCommandNames.Call,
-            UcliContractConstants.CliOption.RequestPath,
-            requestPath);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Call,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.Contains(
-            "Request input source is ambiguous. Specify either --requestPath or redirected standard input.",
-            outputJson.RootElement.GetProperty("message").GetString(),
-            StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Call_WithNewOptions_IsAcceptedByParser ()
     {
         using var scope = TestDirectories.CreateTempScope("call-cli-output-contract", "new-options-parser");
