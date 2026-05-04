@@ -67,7 +67,7 @@ SKILL の詳細な仕様、生成方針、責務境界は [uCLI-skills.md](uCLI-
 - `skills/`: canonical generated output。CLI package、release artifact、install/export の配布元
 - host install target: `.claude/skills/`、`.github/skills/`、`.agents/skills/` など host ごとの配置先
 
-`MackySoft.Ucli` CLI package は `skills/**` を同梱する。`ucli skills list/export/install/doctor` は canonical `ucli-skill.json` を使って SKILL 配布物を扱う。
+`MackySoft.Ucli` CLI package は `skills/**` を同梱する。`ucli skills list/export/install/doctor` は canonical `ucli-skill.json` を使って SKILL 配布物を扱う。公式 SKILL は選択した host 向けに一括で install / export し、SKILL ごとの host allowlist や個別導入 metadata は持たない。
 
 ## CLI Global Tool Distribution
 `MackySoft.Ucli` は nuget.org へ .NET global tool として公開する。利用者は追加 NuGet source を設定せず、次のコマンドで導入する。
