@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Shared.Foundation;
 
-namespace MackySoft.Ucli.Hosting.Cli.Requests.Input;
+namespace MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
 
 /// <summary> Represents the result of reading JSON request input. </summary>
 /// <param name="Json"> The raw JSON request content, or <see langword="null" /> when reading fails. </param>
