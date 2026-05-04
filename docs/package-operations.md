@@ -7,6 +7,8 @@
 - Unity開発プロジェクト（`src/Ucli.Unity`）は NuGetForUnity と `packages.config` で `MackySoft.Ucli.Contracts` と `MackySoft.Ucli.Infrastructure` を参照する。
 - 配布用Unityプラグインは `MackySoft.Ucli.Unity` nupkg として生成し、NuGetForUnity で導入する。
 
+Project 責務境界、依存方向、公開パッケージにしない内部 project の扱いは [uCLI-architecture.md](uCLI-architecture.md) を参照する。`Ucli.Application` は追加後も `MackySoft.Ucli` の内部 assembly として扱い、単独の NuGet package にはしない。`Ucli.Skills` も単独の NuGet package にはせず、`Ucli` から参照する場合は `MackySoft.Ucli` package 内部の assembly として扱う。SKILL 配布物は `MackySoft.Ucli` package、release artifact、または `ucli skills install/export` の出力として扱う。
+
 ## Unity Dependency Restore
 - `src/Ucli.Unity/Assets/NuGet.config` で以下のソースを利用する。
   - `LocalNuGet`: `../Packages/nuget-local-source`

@@ -9,6 +9,7 @@
 ## 文書マップ
 - [uCLI.md](uCLI.md)：製品概要、実行契約、コマンド仕様、`ucli test` 統合仕様の入口
 - [uCLI-design-principles.md](uCLI-design-principles.md)：設計原則の正本
+- [uCLI-architecture.md](uCLI-architecture.md)：project 責務境界、依存方向、型の配置判断の正本
 - [json-request-spec.md](json-request-spec.md)：JSON リクエスト入力契約の正本
 - [uCLI-command-reference.md](uCLI-command-reference.md)：コマンド一覧、option table、終了コード、実行例
 - [uCLI-property-reference.md](uCLI-property-reference.md)：JSON 契約と `payload` / catalog のプロパティ定義
