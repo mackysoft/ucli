@@ -287,6 +287,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれていなければならない
 - Nested Prefab / Variant の apply 先は暗黙推論しない
 - `propertyPaths` は任意で、指定時は exact `SerializedProperty.propertyPath` の配列とする
+- 実装上の DTO / primitive args 名は `PropertyPaths` / `propertyPaths` に揃え、Prefab override action の対象指定に `Properties` / `properties` は使わない
 - `propertyPaths` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
 - `propertyPaths` 指定時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path の subset だけを許可する
 - `propertyPaths: []`、重複 path、先行 `set` に由来しない path、effective changed でない path は拒否する
