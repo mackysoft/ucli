@@ -4,6 +4,9 @@ namespace MackySoft.Ucli.Skills.Tests.SkillDefinitions;
 
 public sealed class OfficialSkillDefinitionSourceTests
 {
+    private const UnixFileMode ExecutableFileModes =
+        UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+
     private static readonly string[] ExpectedSkillNames =
     [
         "ucli-plan-apply",
@@ -19,6 +22,19 @@ public sealed class OfficialSkillDefinitionSourceTests
         "displayName",
         "description",
         "references",
+    ];
+
+    private static readonly string[] ForbiddenCanonicalSchemaTerms =
+    [
+        "argsSchema",
+        "resultSchema",
+    ];
+
+    private static readonly string[] ForbiddenDangerousWorkflowExamples =
+    [
+        "ucli call --allowDangerous",
+        "ucli plan --allowDangerous",
+        "ucli validate --allowDangerous",
     ];
 
     [Fact]
@@ -58,17 +74,19 @@ public sealed class OfficialSkillDefinitionSourceTests
 
         foreach (var skillName in ExpectedSkillNames)
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(definitionsRoot, skillName, "skill.json")));
+            var skillDirectory = Path.Combine(definitionsRoot, skillName);
+            using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(skillDirectory, "skill.json")));
             var references = document.RootElement.GetProperty("references").EnumerateArray().Select(static element => element.GetString()).ToArray();
 
-            Assert.Single(references);
+            Assert.NotEmpty(references);
 
             foreach (var reference in references)
             {
                 Assert.False(string.IsNullOrWhiteSpace(reference));
                 Assert.EndsWith(".md", reference, StringComparison.Ordinal);
                 Assert.DoesNotContain("/", reference, StringComparison.Ordinal);
-                Assert.True(File.Exists(Path.Combine(definitionsRoot, skillName, "references", reference + ".template")), reference);
+                Assert.DoesNotContain("\\", reference, StringComparison.Ordinal);
+                Assert.True(File.Exists(Path.Combine(skillDirectory, "references", reference + ".template")), reference);
             }
         }
     }
@@ -84,7 +102,7 @@ public sealed class OfficialSkillDefinitionSourceTests
             var template = File.ReadAllText(Path.Combine(definitionsRoot, skillName, "SKILL.md.template"));
 
             Assert.False(template.TrimStart().StartsWith("---", StringComparison.Ordinal));
-            Assert.InRange(template.Split('\n').Length, 1, 499);
+            Assert.InRange(CountLogicalLines(template), 1, 499);
             Assert.Contains("ucli ops describe <opName>", template, StringComparison.Ordinal);
             Assert.Contains("read -> describe -> build request -> validate -> plan -> call -> verify", template, StringComparison.Ordinal);
             Assert.Contains("fixed sleep", template, StringComparison.Ordinal);
@@ -98,6 +116,59 @@ public sealed class OfficialSkillDefinitionSourceTests
             Assert.DoesNotContain("resultSchema", template, StringComparison.Ordinal);
             Assert.False(Directory.Exists(Path.Combine(definitionsRoot, skillName, "scripts")), skillName);
             Assert.False(Directory.Exists(Path.Combine(definitionsRoot, skillName, "assets")), skillName);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OfficialSkillDefinitions_KeepReferenceTemplatesBoundedAndNonCanonical ()
+    {
+        var definitionsRoot = GetDefinitionsRoot();
+
+        foreach (var skillName in ExpectedSkillNames)
+        {
+            var skillDirectory = Path.Combine(definitionsRoot, skillName);
+            using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(skillDirectory, "skill.json")));
+            var references = document.RootElement.GetProperty("references").EnumerateArray().Select(static element => element.GetString()).ToArray();
+
+            foreach (var reference in references)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(reference));
+
+                var referencePath = Path.Combine(skillDirectory, "references", reference + ".template");
+                var template = File.ReadAllText(referencePath);
+
+                Assert.InRange(CountLogicalLines(template), 1, 999);
+
+                foreach (var forbiddenTerm in ForbiddenCanonicalSchemaTerms)
+                {
+                    Assert.DoesNotContain(forbiddenTerm, template, StringComparison.OrdinalIgnoreCase);
+                }
+
+                foreach (var forbiddenTerm in ForbiddenDangerousWorkflowExamples)
+                {
+                    Assert.DoesNotContain(forbiddenTerm, template, StringComparison.OrdinalIgnoreCase);
+                }
+
+                Assert.False(ContainsOperationCatalogTableCopy(template), reference);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OfficialSkillDefinitions_DoNotIncludeExecutableFiles ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var definitionsRoot = GetDefinitionsRoot();
+
+        foreach (var path in Directory.EnumerateFiles(definitionsRoot, "*", SearchOption.AllDirectories))
+        {
+            Assert.Equal((UnixFileMode)0, File.GetUnixFileMode(path) & ExecutableFileModes);
         }
     }
 
@@ -118,5 +189,35 @@ public sealed class OfficialSkillDefinitionSourceTests
         }
 
         throw new DirectoryNotFoundException("Could not locate src/Ucli.Skills/SkillDefinitions from the test output directory.");
+    }
+
+    private static int CountLogicalLines (string text)
+    {
+        var lineCount = 0;
+        using var reader = new StringReader(text);
+
+        while (reader.ReadLine() is not null)
+        {
+            lineCount++;
+        }
+
+        return lineCount;
+    }
+
+    private static bool ContainsOperationCatalogTableCopy (string text)
+    {
+        var operationTableRows = 0;
+        using var reader = new StringReader(text);
+
+        while (reader.ReadLine() is { } line)
+        {
+            if (line.TrimStart().StartsWith("|", StringComparison.Ordinal)
+                && line.Contains("ucli.", StringComparison.OrdinalIgnoreCase))
+            {
+                operationTableRows++;
+            }
+        }
+
+        return operationTableRows >= 3;
     }
 }
