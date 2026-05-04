@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 internal interface IValidateRequestJsonParser
 {
     /// <summary> Parses request JSON into a validation model. </summary>
-    /// <param name="requestJson"> The raw request JSON string. </param>
+    /// <param name="requestJson"> The internal execute-request JSON string. </param>
     /// <returns> The parse result. </returns>
     ValidateRequestJsonParseResult Parse (string requestJson);
 }
