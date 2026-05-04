@@ -276,7 +276,7 @@ ucli ops describe ucli.scene.open
 
 ## 🛠️ Applying Changes
 
-> **IMPORTANT:** Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.
+> **IMPORTANT:** Request commands read JSON only from redirected standard input. Keep the request in your runner and pipe it to uCLI.
 
 Use `call --withPlan` for compact local automation where the same runner plans and applies immediately.
 
