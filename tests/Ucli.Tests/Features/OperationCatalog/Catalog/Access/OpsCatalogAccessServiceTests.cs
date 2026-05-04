@@ -1,23 +1,13 @@
-using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
-using MackySoft.Ucli.Features.OperationCatalog.UseCases.Ops.Preflight;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
 using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
 namespace MackySoft.Ucli.Tests.Ops.Access;
 
@@ -32,11 +22,7 @@ public sealed class OpsCatalogAccessServiceTests
         {
             Result = PersistedOpsCatalogReadResult.Success(
                 [
-                    new IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object"}"""),
+                    CreateGoDescribeEntry(),
                 ],
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
                 IndexFreshness.Probable),
@@ -79,11 +65,7 @@ public sealed class OpsCatalogAccessServiceTests
         {
             Result = PersistedOpsCatalogReadResult.Success(
                 [
-                    new IndexOpEntryJsonContract(
-                        Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                        Kind: "query",
-                        Policy: "safe",
-                        ArgsSchemaJson: """{"type":"object"}"""),
+                    CreateGoDescribeEntry(),
                 ],
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
                 IndexFreshness.Stale),
@@ -96,11 +78,7 @@ public sealed class OpsCatalogAccessServiceTests
                     GeneratedAtUtc: generatedAtUtc,
                     Operations:
                     [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
-                            Kind: "mutation",
-                            Policy: "advanced",
-                            ArgsSchemaJson: """{"type":"object"}"""),
+                        CreateSceneSaveEntry(),
                     ])),
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
@@ -156,11 +134,7 @@ public sealed class OpsCatalogAccessServiceTests
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
                     Operations:
                     [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object","properties":{"path":{"type":"string"}}}"""),
+                        CreateGoDescribeEntry("""{"type":"object","properties":{"path":{"type":"string"}}}"""),
                     ])),
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
@@ -212,11 +186,7 @@ public sealed class OpsCatalogAccessServiceTests
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
                     Operations:
                     [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
+                        CreateGoDescribeEntry(),
                     ])),
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
@@ -282,11 +252,7 @@ public sealed class OpsCatalogAccessServiceTests
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
                     Operations:
                     [
-                        new IndexOpEntryJsonContract(
-                            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Kind: "query",
-                            Policy: "safe",
-                            ArgsSchemaJson: """{"type":"object"}"""),
+                        CreateGoDescribeEntry(),
                     ])),
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
@@ -341,6 +307,47 @@ public sealed class OpsCatalogAccessServiceTests
                 PathSource: UnityProjectPathSource.CommandOption),
             UcliConfig.CreateDefault(),
             ConfigSource.Default);
+    }
+
+    private static IndexOpEntryJsonContract CreateGoDescribeEntry (string argsSchemaJson = """{"type":"object"}""")
+    {
+        return new IndexOpEntryJsonContract(
+            Name: UcliPrimitiveOperationNames.GoDescribe,
+            Kind: "query",
+            Policy: "safe",
+            ArgsSchemaJson: argsSchemaJson,
+            ResultSchemaJson: """{"type":"object"}""")
+        {
+            Description = "Returns a GameObject description including components and child hierarchy.",
+            Inputs = Array.Empty<UcliOperationInputContract>(),
+            ResultContract = UcliOperationResultContract.One<GameObjectDescriptionResult>("GameObject description result."),
+            Assurance = new UcliOperationAssuranceContract(
+                Array.Empty<string>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanModeValues.ObservesLiveUnity),
+        };
+    }
+
+    private static IndexOpEntryJsonContract CreateSceneSaveEntry ()
+    {
+        return new IndexOpEntryJsonContract(
+            Name: UcliPrimitiveOperationNames.SceneSave,
+            Kind: "mutation",
+            Policy: "advanced",
+            ArgsSchemaJson: """{"type":"object"}""")
+        {
+            Description = "Saves a Unity scene asset.",
+            Inputs = Array.Empty<UcliOperationInputContract>(),
+            ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
+            Assurance = new UcliOperationAssuranceContract(
+                Array.Empty<string>(),
+                mayDirty: false,
+                mayPersist: true,
+                Array.Empty<string>(),
+                UcliOperationPlanModeValues.ObservesLiveUnity),
+        };
     }
 
     private static OpsCatalogAccessService CreateService (

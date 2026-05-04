@@ -31,8 +31,8 @@ public sealed class OperationExecuteServiceTests
         Command: UcliCommandIds.Refresh,
         OperationId: "refresh",
         Descriptor: new UcliOperationDescriptor(
-            Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
-            Kind: UcliOperationKind.Mutation,
+            Name: UcliPrimitiveOperationNames.ProjectRefresh,
+            Kind: UcliOperationKind.Command,
             Policy: OperationPolicy.Advanced,
             ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
         Args: EmptyArgs);
@@ -52,7 +52,7 @@ public sealed class OperationExecuteServiceTests
                     [
                         new IpcExecuteOperationResult(
                             OpId: "refresh",
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Op: UcliPrimitiveOperationNames.ProjectRefresh,
                             Phase: IpcExecuteOperationPhaseNames.Call,
                             Applied: true,
                             Changed: true,
@@ -83,7 +83,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Empty(result.Errors);
         Assert.Single(result.OpResults);
 
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh, authorizationService.CapturedOperation!.Name);
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, authorizationService.CapturedOperation!.Name);
         Assert.Equal(OperationPolicy.Advanced, authorizationService.CapturedOperation.Policy);
 
         Assert.Equal(UcliCommandIds.Refresh, ipcRequestExecutor.CapturedCommand);
@@ -105,7 +105,7 @@ public sealed class OperationExecuteServiceTests
         var step = Assert.Single(executeRequest.Arguments.GetProperty("steps").EnumerateArray());
         Assert.Equal("op", step.GetProperty("kind").GetString());
         Assert.Equal("refresh", step.GetProperty("id").GetString());
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh, step.GetProperty("op").GetString());
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, step.GetProperty("op").GetString());
         Assert.Equal(JsonValueKind.Object, step.GetProperty("args").ValueKind);
     }
 
@@ -125,7 +125,7 @@ public sealed class OperationExecuteServiceTests
                     [
                         new IpcExecuteOperationResult(
                             OpId: "refresh",
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Op: UcliPrimitiveOperationNames.ProjectRefresh,
                             Phase: IpcExecuteOperationPhaseNames.Call,
                             Applied: true,
                             Changed: true,
@@ -170,7 +170,7 @@ public sealed class OperationExecuteServiceTests
         {
             new IpcExecuteOperationResult(
                 OpId: "refresh",
-                Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                Op: UcliPrimitiveOperationNames.ProjectRefresh,
                 Phase: IpcExecuteOperationPhaseNames.Call,
                 Applied: true,
                 Changed: true,
@@ -222,7 +222,7 @@ public sealed class OperationExecuteServiceTests
                     [
                         new IpcExecuteOperationResult(
                             OpId: "refresh",
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Op: UcliPrimitiveOperationNames.ProjectRefresh,
                             Phase: IpcExecuteOperationPhaseNames.Plan,
                             Applied: false,
                             Changed: false,
@@ -237,7 +237,7 @@ public sealed class OperationExecuteServiceTests
                     [
                         new IpcExecuteOperationResult(
                             OpId: "refresh",
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Op: UcliPrimitiveOperationNames.ProjectRefresh,
                             Phase: IpcExecuteOperationPhaseNames.Call,
                             Applied: true,
                             Changed: false,
@@ -298,7 +298,7 @@ public sealed class OperationExecuteServiceTests
                     [
                         new IpcExecuteOperationResult(
                             OpId: "refresh",
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Op: UcliPrimitiveOperationNames.ProjectRefresh,
                             Phase: IpcExecuteOperationPhaseNames.Plan,
                             Applied: false,
                             Changed: false,
@@ -313,7 +313,7 @@ public sealed class OperationExecuteServiceTests
                     [
                         new IpcExecuteOperationResult(
                             OpId: "refresh",
-                            Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                            Op: UcliPrimitiveOperationNames.ProjectRefresh,
                             Phase: IpcExecuteOperationPhaseNames.Call,
                             Applied: true,
                             Changed: false,
@@ -364,7 +364,7 @@ public sealed class OperationExecuteServiceTests
                 [
                     new IpcExecuteOperationResult(
                         OpId: "refresh",
-                        Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        Op: UcliPrimitiveOperationNames.ProjectRefresh,
                         Phase: IpcExecuteOperationPhaseNames.Plan,
                         Applied: false,
                         Changed: false,
@@ -478,7 +478,7 @@ public sealed class OperationExecuteServiceTests
                 [
                     new IpcExecuteOperationResult(
                         OpId: "refresh",
-                        Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
+                        Op: UcliPrimitiveOperationNames.ProjectRefresh,
                         Phase: IpcExecuteOperationPhaseNames.Call,
                         Applied: true,
                         Changed: false,

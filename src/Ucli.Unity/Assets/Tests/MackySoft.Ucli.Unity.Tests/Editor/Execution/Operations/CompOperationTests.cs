@@ -499,6 +499,56 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Set_Call_WhenPublicOpObjectReferenceValueUsesAlias_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            using var scope = new EditorTestScope();
+            var operation = new CompSetOperation();
+            var scenePath = scope.CreateScenePath(nameof(CompOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<CompOperationTestComponent>();
+            var child = new GameObject("Child");
+            EditorSceneManager.SaveScene(scene, scenePath);
+
+            var context = scope.CreateExecutionContext();
+            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            context.SetTemporaryAlias("child", child, resource);
+
+            var requestOperation = CreateOperation(
+                opId: "op-set",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = scenePath,
+                        hierarchyPath = "Root",
+                        componentType = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)),
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "objectReferenceValue",
+                            value = new
+                            {
+                                @var = "child",
+                            },
+                        },
+                    },
+                },
+                allowRequestLocalAliases: false);
+
+            var result = await operation.Call(requestOperation, context, CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-set");
+            Assert.That(
+                result.Failure!.Message,
+                Is.EqualTo("Operation 'objectReferenceValue' cannot use request-local alias references in public op steps."));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Set_Plan_WhenRawObjectReferenceValueSelectorMatchesPreviewOnlySceneObject_UsesRequestLocalPlanState () => UniTask.ToCoroutine(async () =>
         {
             using var scope = new EditorTestScope();
@@ -629,6 +679,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 parsedArguments.Sets,
                 scope.CreateExecutionContext(),
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
+                allowRequestLocalAliases: true,
                 out var changed,
                 out var errorMessage);
 
@@ -1106,14 +1157,16 @@ namespace MackySoft.Ucli.Unity.Tests
             string opId,
             string opName,
             object args,
-            string? alias = null)
+            string? alias = null,
+            bool allowRequestLocalAliases = true)
         {
             return new NormalizedOperation(
                 Id: opId,
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
                 As: alias,
-                Expect: null);
+                Expect: null,
+                AllowRequestLocalAliases: allowRequestLocalAliases);
         }
 
         private static void AssertInvalidArgument (

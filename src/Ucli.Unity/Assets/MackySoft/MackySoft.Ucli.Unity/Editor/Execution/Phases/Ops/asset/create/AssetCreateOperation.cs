@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -12,32 +13,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.create</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetCreateOperation : IUcliOperation
+    internal sealed class AssetCreateOperation : UcliOperation<AssetCreateArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""type"": { ""type"": ""string"", ""minLength"": 1 },
-                ""path"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""type"", ""path""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetCreateArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetCreate,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Creates a Unity asset at a project-relative path.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesAsset },
+                mayDirty: false,
+                mayPersist: true,
+                new[] { IpcExecuteTouchedResourceKindNames.Asset },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            AssetCreateArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, out _, out var assetPath, out var failure))
+            if (!TryValidate(operation, args, out _, out var assetPath, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -47,13 +44,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : failure!);
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            AssetCreateArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, out var assetType, out var assetPath, out var failure))
+            if (!TryValidate(operation, args, out var assetType, out var assetPath, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -99,13 +97,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }));
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            AssetCreateArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidate(operation, out var assetType, out var assetPath, out var failure))
+            if (!TryValidate(operation, args, out var assetType, out var assetPath, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -160,33 +159,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 if (!created && asset != null)
                 {
-                    Object.DestroyImmediate(asset);
+                    ScriptableObject.DestroyImmediate(asset);
                 }
             }
         }
 
         private static bool TryValidate (
             NormalizedOperation operation,
-            out System.Type? assetType,
+            AssetCreateArgs args,
+            out Type? assetType,
             out string? assetPath,
             out OperationPhaseStepResult? failure)
         {
             assetType = null;
             assetPath = null;
             failure = null;
-            if (!AssetCreateArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var errorMessage))
+
+            if (!AssetTypeResolver.TryResolveCreateAssetType(args.Type, out assetType, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            if (!AssetTypeResolver.TryResolveCreateAssetType(parsedArguments.TypeId, out assetType, out errorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
-                return false;
-            }
-
-            if (!AssetOperationUtilities.TryValidateCreateAssetPath(parsedArguments.AssetPath, out assetPath, out errorMessage))
+            if (!AssetOperationUtilities.TryValidateCreateAssetPath(args.Path, out assetPath, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -207,7 +202,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (string.Equals(plannedAssetState.OwnerExecutionKey, operation.EffectiveExecutionKey, System.StringComparison.Ordinal))
+            if (string.Equals(plannedAssetState.OwnerExecutionKey, operation.EffectiveExecutionKey, StringComparison.Ordinal))
             {
                 return true;
             }

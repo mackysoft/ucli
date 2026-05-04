@@ -211,7 +211,7 @@ public sealed class RequestStaticValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenCompSetArgsViolateMinItems_AddsOperationArgsInvalidError ()
+    public async Task Validate_WhenCompSetSetsIsEmpty_ReturnsValidForStructureOnlySchema ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -229,13 +229,12 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
 
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+        Assert.True(result.IsValid);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenAssetsFindArgsContainNoFilters_AddsOperationArgsInvalidError ()
+    public async Task Validate_WhenAssetsFindArgsContainNoFilters_ReturnsValidForStructureOnlySchema ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -248,13 +247,12 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+        Assert.True(result.IsValid);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Validate_WhenResolvePrefabSelectorIncludesComponentType_AddsOperationArgsInvalidError ()
+    public async Task Validate_WhenResolvePrefabSelectorIncludesComponentType_ReturnsValidForStructureOnlySchema ()
     {
         var validator = CreateValidator();
         var request = CreateRequest(
@@ -270,8 +268,7 @@ public sealed class RequestStaticValidatorTests
 
         var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Safe, "^ucli\\."), CancellationToken.None);
 
-        Assert.False(result.IsValid);
-        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+        Assert.True(result.IsValid);
     }
 
     [Fact]
@@ -358,6 +355,96 @@ public sealed class RequestStaticValidatorTests
         Assert.True(result.IsValid);
         Assert.Empty(result.Errors);
         Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Validate_WhenCompSetItemMissesRequiredPath_AddsOperationArgsInvalidError ()
+    {
+        var validator = CreateValidator();
+        var request = CreateRequest(
+            steps:
+            [
+                CreateOpStep("step-comp-set", UcliPrimitiveOperationNames.CompSet, new
+                {
+                    target = new
+                    {
+                        globalObjectId = "GlobalObjectId_V1-2-3-4-5-6",
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            value = 1,
+                        },
+                    },
+                }),
+            ]);
+
+        var result = await validator.Validate(request, CreateUnityProject(), CreateConfig(OperationPolicy.Advanced, "^ucli\\."), CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        AssertContainsError(result, ValidationErrorCodes.OperationArgsInvalid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OperationArgsStaticSchemaValidator_WhenRefIsCircular_ReturnsSchemaInvalid ()
+    {
+        const string schemaJson = """
+            {
+              "type": "object",
+              "properties": {
+                "node": {
+                  "$ref": "#/$defs/Node"
+                }
+              },
+              "$defs": {
+                "Node": {
+                  "$ref": "#/$defs/Node"
+                }
+              }
+            }
+            """;
+        using var argsDocument = JsonDocument.Parse("""{"node":{}}""");
+
+        var isValid = OperationArgsStaticSchemaValidator.TryValidate(
+            schemaJson,
+            argsDocument.RootElement,
+            out var schemaInvalid,
+            out var error);
+
+        Assert.False(isValid);
+        Assert.True(schemaInvalid);
+        Assert.Contains("circular reference", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OperationArgsStaticSchemaValidator_WhenArgsPropertyIsDuplicated_ReturnsInvalid ()
+    {
+        const string schemaJson = """
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              }
+            }
+            """;
+        using var argsDocument = JsonDocument.Parse("""{"path":"Assets/A.unity","path":"Assets/B.unity"}""");
+
+        var isValid = OperationArgsStaticSchemaValidator.TryValidate(
+            schemaJson,
+            argsDocument.RootElement,
+            out var schemaInvalid,
+            out var error);
+
+        Assert.False(isValid);
+        Assert.False(schemaInvalid);
+        Assert.Equal("Property 'args.path' is duplicated.", error);
     }
 
     [Fact]

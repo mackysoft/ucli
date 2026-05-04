@@ -1,9 +1,125 @@
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Execution.ReadIndex;
 
 public sealed class IndexCatalogContractValidatorTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractIsComplete ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenDescribeContractIsMissing ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                new IndexOpEntryJsonContract(
+                    Name: "ucli.scene.open",
+                    Kind: UcliOperationKindValues.Command,
+                    Policy: OperationPolicyValues.Safe,
+                    ArgsSchemaJson: """{"type":"object"}"""),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenArgsSchemaUsesUnsupportedKeyword ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(argsSchemaJson: """{"type":"object","oneOf":[]}"""),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenNoResultEntryHasResultSchema ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(resultSchemaJson: """{"type":"object"}"""),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenVariantArgsPathIsOutsideInput ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(
+                    argsSchemaJson: """{"type":"object","additionalProperties":false,"properties":{"target":{"type":"object","additionalProperties":false,"properties":{"globalObjectId":{"type":"string"}}}}}""",
+                    inputs:
+                    [
+                        new UcliOperationInputContract(
+                            name: "target",
+                            valueType: "object",
+                            description: "Object reference to resolve.",
+                            constraints: Array.Empty<UcliOperationInputConstraintContract>(),
+                            variants:
+                            [
+                                new UcliOperationInputVariantContract(
+                                    name: "globalObjectId",
+                                    description: "Use an exact Unity GlobalObjectId.",
+                                    argsPaths:
+                                    [
+                                        "$.other.globalObjectId",
+                                    ],
+                                    constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+                            ]),
+                    ]),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IsValidTypesCatalog_ReturnsTrue_WhenContractIsComplete ()
@@ -430,5 +546,36 @@ public sealed class IndexCatalogContractValidatorTests
         var result = IndexCatalogContractValidator.IsValidGuidPathLookup(contract);
 
         Assert.False(result);
+    }
+
+    private static IndexOpEntryJsonContract CreateValidOpsEntry (
+        string argsSchemaJson = """{"type":"object","additionalProperties":false,"properties":{}}""",
+        string? resultSchemaJson = null,
+        IReadOnlyList<UcliOperationInputContract>? inputs = null)
+    {
+        return new IndexOpEntryJsonContract(
+            Name: "ucli.scene.open",
+            Kind: UcliOperationKindValues.Command,
+            Policy: OperationPolicyValues.Safe,
+            ArgsSchemaJson: argsSchemaJson,
+            ResultSchemaJson: resultSchemaJson)
+        {
+            Description = "Opens a Unity scene asset in the editor.",
+            Inputs = inputs ??
+            [
+                new UcliOperationInputContract(
+                    name: "path",
+                    valueType: "string",
+                    description: "Project-relative path to an existing Unity scene asset.",
+                    constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+            ],
+            ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
+            Assurance = new UcliOperationAssuranceContract(
+                Array.Empty<string>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanModeValues.ValidationOnly),
+        };
     }
 }
