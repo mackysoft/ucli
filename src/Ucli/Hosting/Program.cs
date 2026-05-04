@@ -237,7 +237,12 @@ internal static class Program
         }
 
         if (string.Equals(firstArgument, UcliCommandNames.Skills, StringComparison.Ordinal)
-            && TryHandleInvalidSkillsListArgument(args))
+            && TryHandleUnexpectedLeafArgument(
+                args,
+                UcliCommandNames.Skills,
+                UcliCommandNames.ListSubcommand,
+                UcliCommandNames.SkillsList,
+                expectedArgumentCount: 2))
         {
             return true;
         }
@@ -361,25 +366,34 @@ internal static class Program
         return true;
     }
 
-    private static bool TryHandleInvalidSkillsListArgument (string[] args)
+    /// <summary> Handles unexpected extra arguments for leaf commands before framework dispatch starts. </summary>
+    /// <param name="args"> The command-line arguments passed to the process. </param>
+    /// <param name="commandName"> The top-level command name. </param>
+    /// <param name="subcommandName"> The leaf subcommand name. </param>
+    /// <param name="resultCommandName"> The command name emitted in the error envelope. </param>
+    /// <param name="expectedArgumentCount"> The total argument count accepted by the leaf command. </param>
+    /// <returns>
+    /// <para> <see langword="true" /> when this method writes an error response and sets <see cref="Environment.ExitCode" />. </para>
+    /// <para> Otherwise, <see langword="false" />. </para>
+    /// </returns>
+    private static bool TryHandleUnexpectedLeafArgument (
+        string[] args,
+        string commandName,
+        string subcommandName,
+        string resultCommandName,
+        int expectedArgumentCount)
     {
-        ArgumentNullException.ThrowIfNull(args);
-
-        if (args.Length <= 2
-            || !string.Equals(args[1], UcliCommandNames.ListSubcommand, StringComparison.Ordinal))
+        var result = SubcommandValidationHelper.TryCreateUnexpectedLeafArgumentResult(
+            args,
+            commandName,
+            subcommandName,
+            resultCommandName,
+            expectedArgumentCount);
+        if (result == null)
         {
             return false;
         }
 
-        var argument = args[2];
-        if (CommandTokenClassifier.IsHelpOptionToken(argument)
-            || CommandTokenClassifier.IsVersionOptionToken(argument))
-        {
-            return false;
-        }
-
-        var message = $"Argument '{argument}' is not recognized.";
-        var result = CommandResult.InvalidArgument(UcliCommandNames.SkillsList, message);
         CommandResultWriter.WriteToStandardOutput(result);
         Environment.ExitCode = result.ExitCode;
         return true;
