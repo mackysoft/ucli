@@ -309,7 +309,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 
 `constraints` は常に出す。意味制約がない input は `constraints: []` とする。
 
-`argsPath` と `variants[].argsPaths` は JSONPath ではなく uCLI args path である。許可形は `$`、`$.property`、`$.property.nestedProperty` だけとし、配列添字、wildcard、filter、quoted property name は扱わない。`variants[].argsPaths` は同じ input の `argsPath`、または省略時の `$.<name>` と同じ path か、その descendant path でなければならない。
+`argsPath` と `variants[].fields[].argsPath` は JSONPath ではなく uCLI args path である。許可形は `$`、`$.property`、`$.property.nestedProperty` だけとし、配列添字、wildcard、filter、quoted property name は扱わない。`variants[].fields[].argsPath` は同じ input の `argsPath`、または省略時の `$.<name>` と同じ path か、その descendant path でなければならない。
 
 `argsPath` を指定する例:
 
@@ -333,14 +333,24 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | --- | --- | --- | --- |
 | `name` | string | yes | variant 名 |
 | `description` | string | yes | この表現方法の意味 |
-| `argsPaths` | string[] | yes | この variant を成立させるために埋める `steps[].args` 内 leaf path 群 |
-| `constraints` | array | yes | この表現方法に固有の意味制約 |
+| `fields` | array | yes | この variant を成立させるために埋める field 群。shape は `payload.operation.inputs[].variants[].fields[]` を参照 |
 
 variant は operation の意味差ではなく、同じ input を表現する方法だけを表す。同一 `input` 内の `variants` は相互排他である。operation の `description` が複数のユーザー意図を説明する場合、その operation は分割対象である。
 
-variant を選ぶ場合、agent はその `variants[].argsPaths` に列挙された path をすべて埋める。variant 固有の optional field は `argsPaths` には含めず、`argsSchema` の optional property と operation / input の `description` で表す。
+variant を選ぶ場合、agent はその `variants[].fields[]` に列挙された field をすべて埋める。variant 固有の optional field は `fields[]` には含めず、`argsSchema` の optional property と operation / input の `description` で表す。
 
-variant の `constraints` も常に出す。variant 固有の意味制約がない場合は `constraints: []` とする。
+path と constraint は field object に閉じ込める。variant 直下に constraint を置かない。
+
+#### `ucli ops describe payload.operation.inputs[].variants[].fields[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | yes | variant 内 field 名 |
+| `argsPath` | string | yes | この field が対応する `steps[].args` 内 path |
+| `description` | string | yes | field 値の意味 |
+| `constraints` | array | yes | field 値の意味制約。shape は `payload.operation.inputs[].constraints[]` と同じ |
+
+field の `constraints` は常に出す。意味制約がない field は `constraints: []` とする。
 
 #### `ucli ops describe payload.operation.inputs[].constraints[]`
 
@@ -661,23 +671,37 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
       {
         "name": "globalObjectId",
         "description": "Use when an exact Unity GlobalObjectId is already known.",
-        "argsPaths": [
-          "$.target.globalObjectId"
-        ],
-        "constraints": [
-          { "kind": "globalObjectId" }
+        "fields": [
+          {
+            "name": "globalObjectId",
+            "argsPath": "$.target.globalObjectId",
+            "description": "Resolved Unity GlobalObjectId.",
+            "constraints": [
+              { "kind": "globalObjectId" }
+            ]
+          }
         ]
       },
       {
         "name": "sceneHierarchy",
         "description": "Use when the scene path and hierarchy path are known.",
-        "argsPaths": [
-          "$.target.scene",
-          "$.target.hierarchyPath"
-        ],
-        "constraints": [
-          { "kind": "assetExists", "assetKind": "scene" },
-          { "kind": "hierarchyPath" }
+        "fields": [
+          {
+            "name": "scene",
+            "argsPath": "$.target.scene",
+            "description": "Scene asset path for a hierarchy selector.",
+            "constraints": [
+              { "kind": "assetExists", "assetKind": "scene" }
+            ]
+          },
+          {
+            "name": "hierarchyPath",
+            "argsPath": "$.target.hierarchyPath",
+            "description": "Unity hierarchy path inside the selected scene or prefab.",
+            "constraints": [
+              { "kind": "hierarchyPath" }
+            ]
+          }
         ]
       }
     ]
@@ -711,7 +735,7 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
 
 object input の内部構造は `argsSchema.properties` で表す。selector の表現差は `variants` に置くが、operation の意味差は variant にしない。
 
-selector の各 variant は同じ `target` object の異なる表現方法を説明する。`variants[].argsPaths` はその variant を選ぶときに埋める leaf path を表し、`argsSchema.properties.target.properties` はそれらの leaf property の JSON 構造だけを表す。
+selector の各 variant は同じ `target` object の異なる表現方法を説明する。`variants[].fields[]` はその variant を選ぶときに埋める leaf property と、各 property に掛かる説明・意味制約を表す。`argsSchema.properties.target.properties` はそれらの leaf property の JSON 構造だけを表す。
 
 複数表現の排他性は `inputs[].variants[]` の仕様で表し、JSON Schema の `oneOf` では表さない。
 
