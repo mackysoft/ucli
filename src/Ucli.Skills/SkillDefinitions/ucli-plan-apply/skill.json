@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "skillName": "ucli-plan-apply",
+  "displayName": "uCLI Plan Apply",
+  "description": "Use when building, validating, planning, and applying a uCLI JSON request for Unity changes. Enforces read -> describe -> build request -> validate -> plan -> call -> verify.",
+  "skillSet": "core",
+  "references": [
+    "request-workflow.md"
+  ],
+  "hosts": {
+    "openai": {},
+    "claude": {},
+    "copilot": {}
+  }
+}

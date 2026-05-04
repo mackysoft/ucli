@@ -1,0 +1,21 @@
+# Operation Authoring Workflow
+
+Use this reference when adding or changing operation behavior inside the uCLI repository.
+
+## Design Order
+1. Inspect nearby operation directories and tests for the same operation family.
+2. Define the public operation name, policy, argument validation, result evidence, and assurance.
+3. Keep shared IPC contracts separate from Unity implementation details.
+4. Keep request validation separate from Unity runtime execution.
+5. Ensure plan behavior is reviewable before call behavior mutates Unity state.
+
+## Implementation Boundaries
+- Operation metadata must remain discoverable through `ucli ops list` and `ucli ops describe <opName>`.
+- The Unity operation should return enough result evidence for `payload.opResults[].applied`, `changed`, and `touched` to be meaningful.
+- Mutation that makes read surfaces stale should return `readPostcondition`.
+- Dangerous or arbitrary code execution operations must not be added to the core skill set.
+
+## Tests And Docs
+- Add the narrowest contract tests that fail for missing metadata, invalid arguments, or incorrect result shape.
+- Add Unity-side tests when behavior depends on Unity Editor APIs or serialized object state.
+- Update docs only for user-facing behavior that cannot be discovered from `ucli ops describe <opName>`.
