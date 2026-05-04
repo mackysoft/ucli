@@ -80,7 +80,7 @@
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
 | `ucli.prefab.create` | mutation | advanced | mvp-core | Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | `{ target, path }` |
-| `ucli.prefab.open` | query | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `{ path }` |
+| `ucli.prefab.open` | command | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `{ path }` |
 | `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `{ path }` |
 | `ucli.prefab.applyOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。raw `kind:"op"` では呼び出せない。Scene 上の Prefab instance に対する request-attributed property override を明示した Prefab asset へ反映する。 | `{ target, targetAssetPath, propertyPaths[] }` |
 | `ucli.prefab.revertOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。raw `kind:"op"` では呼び出せない。Scene 上の Prefab instance に対する request-attributed property override を Prefab asset 値へ戻す。 | `{ target, targetAssetPath, propertyPaths[] }` |
@@ -89,7 +89,7 @@
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.project.refresh` | mutation | advanced | mvp-support | AssetDatabase更新やインポートを実行する。 | `{}` |
+| `ucli.project.refresh` | command | advanced | mvp-support | AssetDatabase更新やインポートを実行する。 | `{}` |
 | `ucli.project.save` | mutation | advanced | mvp-support | project-wide save を実行し、request 中に追跡した open Scene / opened Prefab の変更と、Unity の project save が扱う asset / project settings を保存する。対象限定保存ではない。保存はトランザクションではなく、失敗時でも先行保存が残り得る。 | `{}` |
 
 ## resolve
@@ -102,7 +102,7 @@
 
 | op | kind | policy | status | 概要 | argsSchema |
 | --- | --- | --- | --- | --- | --- |
-| `ucli.scene.open` | query | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。閉じている Scene を live で開くときは `OpenSceneMode.Single` を使う。 | `{ path }` |
+| `ucli.scene.open` | command | safe | mvp-core | 指定 Scene が loaded であることを保証する。既に loaded なら再オープンしない。閉じている Scene を live で開くときは `OpenSceneMode.Single` を使う。 | `{ path }` |
 | `ucli.scene.query` | query | safe | mvp-core | scene context 内で selection candidate を列挙する。`/` を含む GameObject 名は `hierarchyPath` で表現できないため candidate に含めない。 | `{ scene, pathPrefix?, componentType? }` |
 | `ucli.scene.save` | mutation | advanced | mvp-core | loaded Scene に dirty または request-attributed change があるとき保存する。loaded scene 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `{ path }` |
 | `ucli.scene.tree` | query | safe | mvp-support | Sceneの階層構造を取得する。 | `{ path, depth? }` |

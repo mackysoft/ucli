@@ -478,7 +478,7 @@ ucli call --requestPath ./playmode-mutation.json --projectPath ./UnityProject --
 
 ## `ucli refresh`
 `ucli refresh` は独立コマンドであり、未公開の request 系 CLI surface の別名ではない。  
-CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity 側の既存 `ucli.project.refresh` 実装へ流す。
+CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity 側の既存 `ucli.project.refresh` に流す。`ucli.project.refresh` は `command` kind の標準 operation として扱う。
 
 ### `refresh` options
 | Option | Short | Description |
