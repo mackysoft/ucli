@@ -63,21 +63,18 @@ internal sealed class RequestInputReader : IRequestInputReader
                 $"Failed to read request JSON from standard input. {exception.Message}"));
         }
 
-        return ValidateJson(json, "standard input");
+        return ValidateJson(json);
     }
 
     /// <summary> Validates that request input is non-empty and JSON-parseable. </summary>
     /// <param name="json"> The JSON content to validate. </param>
-    /// <param name="sourceLabel"> The source label used in error messages. </param>
     /// <returns> The read result. </returns>
-    private static RequestInputReadResult ValidateJson (
-        string json,
-        string sourceLabel)
+    private static RequestInputReadResult ValidateJson (string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
             return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Request JSON from {sourceLabel} must not be empty."));
+                "Request JSON must not be empty."));
         }
 
         try
@@ -87,7 +84,7 @@ internal sealed class RequestInputReader : IRequestInputReader
         catch (JsonException exception)
         {
             return RequestInputReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Request JSON from {sourceLabel} is invalid. {exception.Message}"));
+                $"Request JSON is invalid. {exception.Message}"));
         }
 
         return RequestInputReadResult.Success(json);
