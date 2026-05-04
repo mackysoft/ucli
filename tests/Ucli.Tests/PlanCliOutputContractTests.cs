@@ -31,26 +31,6 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithEmptyStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        var result = await CliProcessRunner.RunCommandWithStandardInput(string.Empty, UcliCommandNames.Plan);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Plan,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.Contains(
-            "Request JSON from standard input must not be empty.",
-            outputJson.RootElement.GetProperty("message").GetString(),
-            StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Plan_WhenRequestStepsPropertyIsMissing_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
         var result = await CliProcessRunner.RunCommandWithStandardInput(

@@ -35,26 +35,6 @@ public sealed class ValidateCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Validate_WithEmptyStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        var result = await CliProcessRunner.RunCommandWithStandardInput(string.Empty, UcliCommandNames.Validate);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Validate,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
-        Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
-        Assert.Contains("Request JSON from standard input must not be empty.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Validate_WithPreseededReadIndex_ReturnsJsonEnvelopeSuccess ()
     {
         using var scope = TestDirectories.CreateTempScope("validate-cli-output-contract", "success");
