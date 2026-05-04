@@ -63,10 +63,12 @@ timeout は mode decision、plugin verify、IPC dispatch、readiness wait をま
   - 既に対象 project を開いている GUI Editor の uCLI endpoint を検出し、同一 session 管理へ参加させる
   - 起動済み GUI に uCLI endpoint がまだ登録されていない場合、同じ GUI process に対する endpoint と session 登録が完了するまで待機する
   - 起動済み GUI が存在しない場合、Unity GUI Editor を起動し、uCLI endpoint と session 登録が完了するまで待機する
-  - ユーザー起動 GUI の `daemon stop` は endpoint 登録を解除するだけで Unity process を終了しない
+  - ユーザー起動 GUI の `daemon stop` は endpoint / session 登録と session token を無効化し、Unity process は終了しない
   - CLI 起動 GUI の `daemon stop` は `canShutdownProcess = true` の session に限り Unity process の終了まで管理する
 
 既存 GUI Editor に接続した session は `ownerKind = user`、`canShutdownProcess = false` とする。CLI が新規起動した GUI Editor は `ownerKind = cli` とし、process 終了まで管理できる場合だけ `canShutdownProcess = true` とする。明示した `--editorMode` と既存 running session または検出済み GUI Editor process の editorMode が一致しない場合は `DAEMON_EDITOR_MODE_MISMATCH` を返し、暗黙に別 Editor session を追加起動しない。
+
+`daemon start` の成功は endpoint と session の登録完了を意味し、`lifecycleState = ready` を保証しない。成功 payload は起動直後または attach 直後の `lifecycleState`、`canAcceptExecutionRequests`、`blockingReason` を返し、実行可否はその snapshot または `ucli status` / `ucli daemon status` で判断する。
 
 `daemon start` が Unity process を新規起動する場合、`batchmode` / `gui` のどちらでも同じ Unity Editor path resolver を使う。`ProjectSettings/ProjectVersion.txt` の `m_EditorVersion` から Unity version を解決し、既定の Unity install search roots から一致する Unity Editor executable を自動探索する。解決できない場合は `INVALID_ARGUMENT` を返す。既存 GUI Editor へ attach する場合は Editor path resolver を使わず、session probe、`Library/EditorInstance.json`、`projectFingerprint` で対象 process を確定する。
 
@@ -78,13 +80,15 @@ timeout は mode decision、plugin verify、IPC dispatch、readiness wait をま
 3. `Library/EditorInstance.json` で既存 GUI Editor process を検出したが uCLI endpoint が未登録の場合、同じ process が session 登録を完了するまで `--timeout` budget 内で待機する
 4. `Library/EditorInstance.json` が無い、process が終了済み、同一ユーザーでない、または batchmode process と判定される場合は既存 GUI Editor として扱わない
 
-`Library/EditorInstance.json` は Unity Editor が対象 project の `Library/` に書く Editor process marker として扱う。uCLI が契約上必ず読む field は `process_id` のみとし、`version`、`app_path`、`app_contents_path` 等が存在する場合でも診断と process 検証の補助に留める。project 同一性は JSON 内の値ではなく、marker を読み出した解決済み project root と endpoint probe が返す `projectFingerprint` で確定する。
+`Library/EditorInstance.json` は Unity Editor が対象 project の `Library/` に書く Editor process marker として扱う。uCLI が契約上必ず読む field は `process_id` のみとし、`version`、`app_path`、`app_contents_path` 等が存在する場合でも診断と process 検証の補助に留める。project 同一性は JSON 内の値ではなく、marker を読み出した解決済み project root と endpoint probe が返す `projectFingerprint` で確定する。記録された process の開始時刻が marker 更新時刻より新しい場合は PID reuse の疑いがある stale marker とみなし、既存 GUI Editor として attach しない。
 
 既存 GUI Editor の project 同一性は、global process scan ではなく対象 project 配下の `Library/EditorInstance.json` と `projectFingerprint` で判定する。process 名だけ、Unity version だけ、最近開いた project 履歴だけを根拠に attach してはならない。
 
 別 worktree にある同じ相対パスの Unity project は、`projectFingerprint = SHA256(normalize(repoRoot) + "\n" + normalize(relativeUnityProjectPathFromRepoRoot))` により別 project として扱う。既存 GUI 検出時も、解決済み project root 配下の `Library/EditorInstance.json` だけを読むため、別 worktree の GUI Editor process を候補にしてはならない。symlink 等で解決済み project root が同一物理ディレクトリになる場合は同一 project として扱う。
 
-`--editorMode=gui` で既存 GUI Editor process を検出した場合、新しい GUI Editor は起動しない。uCLI endpoint が timeout まで登録されなければ `IPC_TIMEOUT` と診断情報を返す。`--editorMode=batchmode` で既存 GUI Editor process を検出した場合、同一 project に別 Editor session を暗黙起動せず `DAEMON_EDITOR_MODE_MISMATCH` を返す。
+`--editorMode=gui` で既存 GUI Editor process を検出した場合、新しい GUI Editor は起動しない。uCLI endpoint が timeout まで登録されなければ `IPC_TIMEOUT` と `reason = guiEndpointNotRegistered` の診断情報を返す。診断情報には `Library/EditorInstance.json` の path と process ID を含める。`--editorMode=batchmode` で既存 GUI Editor process を検出した場合、同一 project に別 Editor session を暗黙起動せず `DAEMON_EDITOR_MODE_MISMATCH` を返す。
+
+GUI Editor session も `projectFingerprint` 単位の uCLI single-writer 排他に参加するが、同じ GUI Editor 内でユーザーが行う Inspector / Scene / Prefab Stage 操作は排他できない。reviewed mutation workflow では `planToken` と state drift 検知を使い、`plan` 後の手動変更を `call` 前に検出する。GUI session の `query` / `resolve` / `plan` は、selection、active Scene、Prefab Stage、dirty state、Undo stack に観測由来の変更を残してはならない。復元できない観測副作用が発生した場合は warning として返す。
 
 ### `projectPath` 解決順序
 `--projectPath` を受け取るコマンドは、対象 Unity project を次の順で解決する。
@@ -394,9 +398,11 @@ Play Mode 中の変更 request は通常の `plan` / `call` では拒否し、`-
   - raw `kind: "op"` として送られた Prefab apply / revert primitive
   - `ucli.scene.save`
 
-Scene 上の Prefab instance は Scene context として扱い、`commit: "none"` のみ許可する。Prefab instance の override を Prefab asset へ反映する場合は、`commit` ではなく `applyPrefabOverrides` action を明示する。Prefab instance の override を Prefab asset の値へ戻す場合は、`revertPrefabOverrides` action を明示する。どちらも `targetAssetPath` を必須とし、Nested Prefab / Variant の apply / revert 先を暗黙推論しない。
+Scene 上の Prefab instance は Scene context として扱い、`commit: "none"` のみ許可する。Scene context の `commit: "none"` は Scene 保存を行わない指定であり、`applyPrefabOverrides` による対象 Prefab asset 保存とは矛盾しない。Prefab instance の override を Prefab asset へ反映する場合は、`commit` ではなく `applyPrefabOverrides` action を明示する。`applyPrefabOverrides` は Scene context から明示 Prefab asset へ保存する secondary persistence action であり、Scene asset は保存しない。Prefab instance の override を Prefab asset の値へ戻す場合は、`revertPrefabOverrides` action を明示する。
 
-`applyPrefabOverrides` / `revertPrefabOverrides` の対象は、同一 edit step / 同一 current target の先行 `set` が effective changed にした exact `SerializedProperty.propertyPath` だけとする。`properties` を省略した場合は対象 path 全部、指定した場合はその subset だけを対象にする。parent path 指定で child property を再帰対象にせず、child GameObject / child Component へも潜らない。`ensureComponent` / `createObject` / `delete` / `reparent` 由来の構造変更 override は v1.1 では対象外とする。`revertPrefabOverrides` は pre-request 時点ですでに override だった property を拒否する。
+`applyPrefabOverrides` / `revertPrefabOverrides` の `targetAssetPath` は既存の `Assets/.../*.prefab` で、current target の Prefab instance lineage / valid target chain に含まれる必要がある。Nested Prefab / Variant の apply / revert 先は暗黙推論しない。対象 property は、同一 edit step / 同一 current target の先行 `set` が effective changed にした exact `SerializedProperty.propertyPath` だけとする。`properties` を省略した場合は対象 path 全部、指定した場合はその subset だけを対象にする。`properties: []`、重複 path、先行 `set` に由来しない path、effective changed でない path、parent path 指定による child property 対象化は拒否する。同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外とする。child GameObject / child Component へは潜らず、`ensureComponent` / `createObject` / `delete` / `reparent` 由来の構造変更 override は v1.1 では対象外とする。
+
+`revertPrefabOverrides` は pre-request 時点ですでに override だった property を拒否する。`applyPrefabOverrides` は pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する。apply / revert は全対象 property を preflight 検証してから実行し、検証エラーでは action 全体を適用しない。Unity API 実行後に失敗した場合は失敗診断を返し、成功扱いの `touched` / `readPostcondition` は返さない。
 
 Prefab asset 自体は Prefab context として扱い、runtime は必要に応じて対象 Prefab asset を編集用 context として開き、通常の `edit` と同じ action / commit / dangerous guard を適用する。Asset / project context も同じく通常の `edit` と同じ契約で保存できる。Prefab / asset / project の `commit: "context"` は対象永続化単位だけを保存し、Scene 保存や open Scene を巻き込む一括 project save を伴ってはならない。`commit: "project"` は project-wide save であり、Play Mode 変更では許可しない。
 

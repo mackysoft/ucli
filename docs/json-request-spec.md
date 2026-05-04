@@ -73,6 +73,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `op` は自己完結 primitive とする
 - 前段 step の結果や束縛に依存しない
 - step 間データフローは持たない
+- `ucli.prefab.applyOverrides` / `ucli.prefab.revertOverrides` は edit lowering 専用 primitive であり、ユーザー入力の raw `kind:"op"` から直接呼び出してはならない。全モードで `INVALID_ARGUMENT` とする
 
 ### 代表例: `ucli.assets.find`
 
@@ -281,13 +282,19 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 
 #### 意味
 - Scene context の Prefab instance に対する request-attributed override を、明示した Prefab asset へ反映する
-- `targetAssetPath` は必須とし、Nested Prefab / Variant の apply 先を暗黙推論しない
+- `targetAssetPath` は必須とし、既存の `Assets/.../*.prefab` でなければならない
+- `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれていなければならない
+- Nested Prefab / Variant の apply 先は暗黙推論しない
 - `properties` は任意で、指定時は exact `SerializedProperty.propertyPath` の配列とする
 - `properties` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
 - `properties` 指定時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path の subset だけを許可する
+- `properties: []`、重複 path、先行 `set` に由来しない path、effective changed でない path は拒否する
+- 同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外とする
 - parent path 指定で child property を再帰対象にしない。child GameObject / child Component へも潜らない
-- Scene 保存ではなく Prefab asset への明示反映であり、`commit` の代替として扱わない
+- pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する
+- Scene context から明示 Prefab asset へ保存する secondary persistence action であり、Scene 保存ではなく、`commit` の代替として扱わない
 - `ensureComponent` / `createObject` / `delete` / `reparent` 由来の構造変更 override は対象外とする
+- 全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用しない
 
 ### `revertPrefabOverrides`
 
@@ -306,6 +313,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `targetAssetPath` と `properties` の契約は `applyPrefabOverrides` と同じとする
 - `properties` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
 - pre-request 時点ですでに override だった property は v1.1 では拒否する
+- 全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用しない
 - Scene 保存、Prefab asset 保存、Unity Undo stack の代替として扱わない
 
 ### `target` の原則
@@ -548,13 +556,21 @@ Play Mode 変更で許可される step は `kind: "edit"` のみである。
 - Scene 上の Prefab instance は `scene` context として扱い、Prefab asset 自体は `prefab` context として扱う
 - Scene 上の Prefab instance 変更を Prefab asset へ反映する場合は `applyPrefabOverrides` action を明示し、`targetAssetPath` で apply 先を指定する
 - Scene 上の Prefab instance 変更を Prefab asset 値へ戻す場合は `revertPrefabOverrides` action を明示し、pre-request 時点ですでに override だった property は拒否する
+- Scene context の `commit:"none"` は Scene 保存を行わない指定であり、`applyPrefabOverrides` による対象 Prefab asset 保存とは矛盾しない
+- `applyPrefabOverrides` は Scene context から明示 Prefab asset へ保存する secondary persistence action であり、Scene asset は保存しない
 - `applyPrefabOverrides` / `revertPrefabOverrides` は同一 edit step / 同一 current target の先行 `set` が effective changed にした exact property path だけを対象にし、child object へ再帰しない
+- `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれる既存の `Assets/.../*.prefab` に限定する
+- `properties: []`、重複 path、先行 `set` に由来しない path、effective changed でない path、parent path 指定による child property 対象化は拒否する
+- 同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外にする
+- `applyPrefabOverrides` は pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する
+- apply / revert は全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用しない
 - `prefab` / `asset` / `project` context は通常の `edit` と同じ action / commit / dangerous guard を適用し、明示 `commit` に従って保存できる
 - Play Mode 変更で Prefab / asset / project を保存する場合は対象永続化単位に限定し、open Scene を巻き込む一括 project save は使わない
 - Play Mode の live object を正本とし、readIndex を対象解決や scene / prefab / asset / project 観測に使わない
 - Scene context の実行結果は Play Mode の live object にだけ作用し、Scene asset へ保存しない
 - Scene context の `applyPrefabOverrides` は Scene asset を保存しないが、明示した Prefab asset を保存対象として `touched` に返す
 - Scene context の `revertPrefabOverrides` は Scene live object だけを戻し、`touched` は空配列、`readPostcondition` は返さない
+- apply / revert の Unity API 実行後に失敗した場合は失敗診断を返し、成功扱いの `touched` / `readPostcondition` は返さない
 - Prefab / asset / project context の保存を伴う実行結果は、通常の永続化変更と同じく保存した永続化単位を `touched` に返す
 
 ## 複数 Scene / 複数 context の扱い

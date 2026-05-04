@@ -4,6 +4,8 @@
 > この文書は補助カタログである。
 > 入力 DSL の正本は [json-request-spec.md](json-request-spec.md)、全体契約とコマンド仕様は [uCLI.md](uCLI.md) を参照する。
 
+`ucli.prefab.applyOverrides` と `ucli.prefab.revertOverrides` は全モードで edit lowering 専用 primitive とする。ユーザー入力 JSON の raw `kind:"op"` から直接呼び出された場合は `INVALID_ARGUMENT` で拒否する。
+
 ## Play Mode 変更での扱い
 
 `--allowPlayMode` 付きの Play Mode 変更では、`kind:"edit"` の lowering から発生する Scene / GameObject / Component / Prefab / Asset / ProjectSettings 操作だけを許可する。公開 query-only request を許可するための契約ではない。
@@ -80,8 +82,8 @@
 | `ucli.prefab.create` | mutation | advanced | mvp-core | Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | `{ target, path }` |
 | `ucli.prefab.open` | query | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `{ path }` |
 | `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `{ path }` |
-| `ucli.prefab.applyOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。Scene 上の Prefab instance に対する request-attributed property override を明示した Prefab asset へ反映する。 | `{ target, targetAssetPath, propertyPaths[] }` |
-| `ucli.prefab.revertOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。Scene 上の Prefab instance に対する request-attributed property override を Prefab asset 値へ戻す。 | `{ target, targetAssetPath, propertyPaths[] }` |
+| `ucli.prefab.applyOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。raw `kind:"op"` では呼び出せない。Scene 上の Prefab instance に対する request-attributed property override を明示した Prefab asset へ反映する。 | `{ target, targetAssetPath, propertyPaths[] }` |
+| `ucli.prefab.revertOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。raw `kind:"op"` では呼び出せない。Scene 上の Prefab instance に対する request-attributed property override を Prefab asset 値へ戻す。 | `{ target, targetAssetPath, propertyPaths[] }` |
 
 ## project
 
