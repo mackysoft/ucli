@@ -119,9 +119,9 @@
 - 明示した `--editorMode` と既存 running session または検出済み GUI Editor process の editorMode が一致しない場合は `DAEMON_EDITOR_MODE_MISMATCH` を返す。
 - `daemon stop` は `session.canShutdownProcess=false` の GUI Editor session では Unity process を終了せず、endpoint 登録解除に留める。
 
-### `daemon start` Unity Editor path 解決
+### `daemon start` Unity Editor 解決
 - `daemon start` が Unity process を新規起動する場合、`--editorMode=batchmode` / `--editorMode=gui` のどちらでも同じ Unity Editor path resolver を使う。
-- v1.1 の `daemon start` は `--unityEditorPath` を公開引数として持たない。Editor executable は `ProjectSettings/ProjectVersion.txt` の `m_EditorVersion` から Unity version を解決し、既定の Unity install search roots で一致する Editor を探索する。
+- Editor executable は `ProjectSettings/ProjectVersion.txt` の `m_EditorVersion` から Unity version を解決し、既定の Unity install search roots で一致する Editor を探索する。
 - Editor executable を解決できない場合は `INVALID_ARGUMENT` を返す。
 - 既存 GUI Editor へ attach する場合は Editor path resolver を使わない。対象 process の同一性は session probe、`Library/EditorInstance.json`、`projectFingerprint` で確定する。
 
