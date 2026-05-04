@@ -88,7 +88,7 @@ timeout は mode decision、plugin verify、IPC dispatch、readiness wait をま
 
 `--editorMode=gui` で既存 GUI Editor process を検出した場合、新しい GUI Editor は起動しない。uCLI endpoint が timeout まで登録されなければ `IPC_TIMEOUT` と `reason = guiEndpointNotRegistered` の診断情報を返す。診断情報には `Library/EditorInstance.json` の path と process ID を含める。`--editorMode=batchmode` で既存 GUI Editor process を検出した場合、同一 project に別 Editor session を暗黙起動せず `DAEMON_EDITOR_MODE_MISMATCH` を返す。
 
-GUI Editor session も `projectFingerprint` 単位の uCLI single-writer 排他に参加するが、同じ GUI Editor 内でユーザーが行う Inspector / Scene / Prefab Stage 操作は排他できない。reviewed mutation workflow では `planToken` と state drift 検知を使い、`plan` 後の手動変更を `call` 前に検出する。GUI session の `query` / `resolve` / `plan` は、selection、active Scene、Prefab Stage、dirty state、Undo stack に観測由来の変更を残してはならない。復元できない観測副作用が発生した場合は warning として返す。
+GUI Editor session も `projectFingerprint` 単位の uCLI single-writer 排他に参加するが、同じ GUI Editor 内でユーザーが行う Inspector / Scene / Prefab Stage 操作は排他できない。reviewed mutation workflow では `planToken` と state drift 検知を使い、`plan` 後の手動変更を `call` 前に検出する。GUI session の `query` / `resolve` / `plan` は、selection、active Scene、Prefab Stage、dirty state、Undo stack に観測由来の変更を残してはならない。観測由来の Editor state を復元できない場合、その `query` / `resolve` / `plan` は成功として扱わない。
 
 ### `projectPath` 解決順序
 `--projectPath` を受け取るコマンドは、対象 Unity project を次の順で解決する。

@@ -139,7 +139,7 @@
 ### GUI session 保証境界
 - GUI Editor session は uCLI 同士の single-writer 排他に参加するが、同じ GUI Editor 内の手動操作は排他できない。
 - `query` / `resolve` / `plan` は selection、active Scene、Prefab Stage、dirty state、Undo stack に観測由来の変更を残してはならない。
-- 観測副作用を復元できない場合は warning を返す。
+- 観測由来の Editor state を復元できない場合、その `query` / `resolve` / `plan` は成功として扱わない。
 
 ### `daemon` 出力契約（共通）
 - `ucli daemon` は共通エンベロープを返す。
