@@ -28,13 +28,11 @@ internal sealed class RequestPreparationService : IRequestPreparationService
     }
 
     /// <inheritdoc />
-    public async ValueTask<ParsedRequestResult> ReadAndParse (
-        string? requestPath,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var inputReadResult = await requestInputReader.ReadAsync(requestPath, cancellationToken).ConfigureAwait(false);
+        var inputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
         if (!inputReadResult.IsSuccess)
         {
             return ParsedRequestResult.Failure(inputReadResult.Error!);
@@ -55,13 +53,12 @@ internal sealed class RequestPreparationService : IRequestPreparationService
 
     /// <inheritdoc />
     public async ValueTask<RequestPreparationResult> Prepare (
-        string? requestPath,
         string? projectPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var parseRequestResult = await ReadAndParse(requestPath, cancellationToken).ConfigureAwait(false);
+        var parseRequestResult = await ReadAndParse(cancellationToken).ConfigureAwait(false);
         if (!parseRequestResult.IsSuccess)
         {
             return RequestPreparationResult.Failure(parseRequestResult.Error!);

@@ -5,7 +5,4 @@ internal enum RequestInputSource
 {
     /// <summary> Indicates standard input was used. </summary>
     StandardInput = 0,
-
-    /// <summary> Indicates a request file path was used. </summary>
-    RequestPath = 1,
 }
