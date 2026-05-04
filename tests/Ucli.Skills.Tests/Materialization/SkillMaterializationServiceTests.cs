@@ -53,11 +53,16 @@ public sealed class SkillMaterializationServiceTests
         var service = SkillTestData.CreateMaterializationService();
 
         var openAi = service.Materialize(package, OpenAiSkillHostAdapter.HostKey);
-        var claude = service.Materialize(package, ClaudeSkillHostAdapter.HostKey);
 
         Assert.True(openAi.IsSuccess, openAi.Failure?.Message);
-        Assert.True(claude.IsSuccess, claude.Failure?.Message);
         Assert.Contains(openAi.Value!.Files, static file => file.RelativePath == "agents/openai.yaml");
-        Assert.DoesNotContain(claude.Value!.Files, static file => file.RelativePath == "agents/openai.yaml");
+
+        foreach (var host in new[] { ClaudeSkillHostAdapter.HostKey, CopilotSkillHostAdapter.HostKey })
+        {
+            var nonOpenAi = service.Materialize(package, host);
+
+            Assert.True(nonOpenAi.IsSuccess, nonOpenAi.Failure?.Message);
+            Assert.DoesNotContain(nonOpenAi.Value!.Files, static file => file.RelativePath == "agents/openai.yaml");
+        }
     }
 }

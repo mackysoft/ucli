@@ -13,8 +13,8 @@ public sealed class OpenAiSkillHostAdapterTests
         var metadata = new SkillSourceMetadata(
             SkillSourceMetadata.CurrentSchemaVersion,
             "ucli-sample",
-            "Sample \"Skill\"",
-            "Use C:\\Unity",
+            "Sample \"Skill\"\rName",
+            "Use C:\\Unity\r\nNext",
             []);
 
         var artifacts = adapter.BuildArtifacts(metadata);
@@ -22,14 +22,14 @@ public sealed class OpenAiSkillHostAdapterTests
         Assert.Equal(
             "---\n"
             + "name: \"ucli-sample\"\n"
-            + "description: \"Use C:\\\\Unity\"\n"
+            + "description: \"Use C:\\\\Unity\\r\\nNext\"\n"
             + "---\n",
             artifacts.Frontmatter);
         Assert.Equal(
             "interface:\n"
-            + "  display_name: \"Sample \\\"Skill\\\"\"\n"
-            + "  short_description: \"Use C:\\\\Unity\"\n"
-            + "  default_prompt: \"Use $ucli-sample to follow the Sample \\\"Skill\\\" workflow.\"\n"
+            + "  display_name: \"Sample \\\"Skill\\\"\\rName\"\n"
+            + "  short_description: \"Use C:\\\\Unity\\r\\nNext\"\n"
+            + "  default_prompt: \"Use $ucli-sample to follow the Sample \\\"Skill\\\"\\rName workflow.\"\n"
             + "\n"
             + "policy:\n"
             + "  allow_implicit_invocation: true\n",

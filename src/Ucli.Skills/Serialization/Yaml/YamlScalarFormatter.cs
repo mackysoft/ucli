@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Skills.Hosts.Yaml;
+namespace MackySoft.Ucli.Skills.Serialization.Yaml;
 
-/// <summary> Formats minimal deterministic YAML scalar values for generated host metadata. </summary>
-internal static class SkillYamlScalarFormatter
+/// <summary> Formats deterministic YAML scalar values for generated SKILL artifacts. </summary>
+internal static class YamlScalarFormatter
 {
     /// <summary> Formats one value as a double-quoted YAML scalar. </summary>
     /// <param name="value"> The value to format. </param>
@@ -13,6 +13,7 @@ internal static class SkillYamlScalarFormatter
         return "\"" + value
             .Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("\"", "\\\"", StringComparison.Ordinal)
+            .Replace("\r", "\\r", StringComparison.Ordinal)
             .Replace("\n", "\\n", StringComparison.Ordinal) + "\"";
     }
 }

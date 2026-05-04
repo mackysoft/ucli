@@ -1,9 +1,9 @@
 using System.Text;
 
-namespace MackySoft.Ucli.Skills.Hosts.Yaml;
+namespace MackySoft.Ucli.Skills.Serialization.Yaml;
 
-/// <summary> Builds deterministic minimal YAML used by supported host adapters. </summary>
-internal sealed class SkillYamlBuilder
+/// <summary> Builds deterministic minimal YAML for generated SKILL artifacts. </summary>
+internal sealed class DeterministicYamlBuilder
 {
     private const int SpacesPerIndentLevel = 2;
 
@@ -11,7 +11,7 @@ internal sealed class SkillYamlBuilder
 
     /// <summary> Appends a YAML document marker. </summary>
     /// <returns> This builder. </returns>
-    public SkillYamlBuilder DocumentMarker ()
+    public DeterministicYamlBuilder DocumentMarker ()
     {
         builder.Append("---\n");
         return this;
@@ -22,14 +22,14 @@ internal sealed class SkillYamlBuilder
     /// <param name="value"> The mapping value. </param>
     /// <param name="indentationLevel"> The indentation level. </param>
     /// <returns> This builder. </returns>
-    public SkillYamlBuilder Mapping (
+    public DeterministicYamlBuilder Mapping (
         string key,
         string value,
         int indentationLevel = 0)
     {
         AppendKey(key, indentationLevel);
         builder.Append(' ');
-        builder.Append(SkillYamlScalarFormatter.DoubleQuoted(value));
+        builder.Append(YamlScalarFormatter.DoubleQuoted(value));
         builder.Append('\n');
         return this;
     }
@@ -39,7 +39,7 @@ internal sealed class SkillYamlBuilder
     /// <param name="value"> The mapping value. </param>
     /// <param name="indentationLevel"> The indentation level. </param>
     /// <returns> This builder. </returns>
-    public SkillYamlBuilder Mapping (
+    public DeterministicYamlBuilder Mapping (
         string key,
         bool value,
         int indentationLevel = 0)
@@ -55,7 +55,7 @@ internal sealed class SkillYamlBuilder
     /// <param name="key"> The section key. </param>
     /// <param name="indentationLevel"> The indentation level. </param>
     /// <returns> This builder. </returns>
-    public SkillYamlBuilder Section (
+    public DeterministicYamlBuilder Section (
         string key,
         int indentationLevel = 0)
     {
@@ -66,7 +66,7 @@ internal sealed class SkillYamlBuilder
 
     /// <summary> Appends an empty line. </summary>
     /// <returns> This builder. </returns>
-    public SkillYamlBuilder BlankLine ()
+    public DeterministicYamlBuilder BlankLine ()
     {
         builder.Append('\n');
         return this;

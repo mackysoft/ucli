@@ -59,9 +59,11 @@ public sealed class ProjectBoundaryTests
     [InlineData("Generation", "agents/openai.yaml")]
     [InlineData("Manifests", "agents/openai.yaml")]
     [InlineData("Materialization", "agents/openai.yaml")]
+    [InlineData("Serialization", "agents/openai.yaml")]
     [InlineData("Generation", "OpenAiSkillHostAdapter.HostKey")]
     [InlineData("Manifests", "OpenAiSkillHostAdapter.HostKey")]
     [InlineData("Materialization", "OpenAiSkillHostAdapter.HostKey")]
+    [InlineData("Serialization", "OpenAiSkillHostAdapter.HostKey")]
     public void NonHostDirectory_DoesNotReferenceConcreteHostArtifacts (
         string directoryName,
         string concreteHostArtifact)
@@ -86,6 +88,7 @@ public sealed class ProjectBoundaryTests
     [InlineData("Installation")]
     [InlineData("Manifests")]
     [InlineData("Materialization")]
+    [InlineData("Serialization")]
     public void NonHostDirectory_DoesNotReferenceConcreteHostImplementations (string directoryName)
     {
         var sourceRoot = GetSourceRoot();
@@ -98,7 +101,6 @@ public sealed class ProjectBoundaryTests
     [Trait("Size", "Small")]
     [InlineData("Contracts")]
     [InlineData("Registration")]
-    [InlineData("Yaml")]
     public void HostInfrastructureDirectory_DoesNotReferenceConcreteHostImplementations (string directoryName)
     {
         var sourceRoot = GetSourceRoot();

@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Skills.Hosts.Contracts;
-using MackySoft.Ucli.Skills.Hosts.Yaml;
+using MackySoft.Ucli.Skills.Serialization.Yaml;
 using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Hosts.Copilot;
@@ -21,7 +21,7 @@ public sealed class CopilotSkillHostAdapter : ISkillHostAdapter
     {
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var frontmatter = new SkillYamlBuilder()
+        var frontmatter = new DeterministicYamlBuilder()
             .DocumentMarker()
             .Mapping("name", metadata.SkillName)
             .Mapping("description", metadata.Description)

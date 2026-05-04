@@ -1,5 +1,5 @@
 using MackySoft.Ucli.Skills.Hosts.Contracts;
-using MackySoft.Ucli.Skills.Hosts.Yaml;
+using MackySoft.Ucli.Skills.Serialization.Yaml;
 using MackySoft.Ucli.Skills.Shared;
 using MackySoft.Ucli.Skills.Sources;
 
@@ -22,14 +22,14 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
     {
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var frontmatter = new SkillYamlBuilder()
+        var frontmatter = new DeterministicYamlBuilder()
             .DocumentMarker()
             .Mapping("name", metadata.SkillName)
             .Mapping("description", metadata.Description)
             .DocumentMarker()
             .Build();
 
-        var openAiYaml = new SkillYamlBuilder()
+        var openAiYaml = new DeterministicYamlBuilder()
             .Section("interface")
             .Mapping("display_name", metadata.DisplayName, indentationLevel: 1)
             .Mapping("short_description", metadata.Description, indentationLevel: 1)
