@@ -15,13 +15,13 @@ public sealed class SkillDoctorServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-healthy");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var installService = new SkillInstallService();
+        var installService = SkillTestData.CreateInstallService();
         var installResult = await installService.InstallAsync(
             packages,
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value!.TargetRoot, CancellationToken.None);
 
@@ -35,7 +35,7 @@ public sealed class SkillDoctorServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-missing");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
         var targetRoot = scope.CreateDirectory(".agents/skills");
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, targetRoot, CancellationToken.None);
@@ -50,13 +50,13 @@ public sealed class SkillDoctorServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-host-conflict");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var installService = new SkillInstallService();
+        var installService = SkillTestData.CreateInstallService();
         var installResult = await installService.InstallAsync(
             packages,
             new SkillInstallRequest(ClaudeSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, "shared-skills"),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value!.TargetRoot, CancellationToken.None);
 
@@ -70,14 +70,14 @@ public sealed class SkillDoctorServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-body-drift");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var installService = new SkillInstallService();
+        var installService = SkillTestData.CreateInstallService();
         var installResult = await installService.InstallAsync(
             packages,
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"), "\nInjected instruction.\n");
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
@@ -91,7 +91,7 @@ public sealed class SkillDoctorServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-reference-missing");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var installService = new SkillInstallService();
+        var installService = SkillTestData.CreateInstallService();
         var installResult = await installService.InstallAsync(
             packages,
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
@@ -102,7 +102,7 @@ public sealed class SkillDoctorServiceTests
             packages[0].SkillName,
             packages[0].Files.First(static file => file.RelativePath.StartsWith("references/", StringComparison.Ordinal)).RelativePath);
         File.Delete(referencePath);
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
 
@@ -118,7 +118,7 @@ public sealed class SkillDoctorServiceTests
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var targetRoot = scope.CreateDirectory(".agents/skills");
         scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "ucli-skill.json"), "{}");
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, targetRoot, CancellationToken.None);
 
@@ -154,7 +154,7 @@ public sealed class SkillDoctorServiceTests
             return;
         }
 
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, targetRoot, CancellationToken.None);
 
@@ -168,7 +168,7 @@ public sealed class SkillDoctorServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-unsupported-host");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var doctor = new SkillDoctorService();
+        var doctor = SkillTestData.CreateDoctorService();
 
         var result = await doctor.DiagnoseAsync(packages, "generic", scope.FullPath, CancellationToken.None);
 

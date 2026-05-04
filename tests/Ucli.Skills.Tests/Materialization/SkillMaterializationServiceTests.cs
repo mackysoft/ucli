@@ -13,7 +13,7 @@ public sealed class SkillMaterializationServiceTests
     public async Task Materialize_AllOfficialSkills_ForAllSupportedHosts ()
     {
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillMaterializationService();
+        var service = SkillTestData.CreateMaterializationService();
 
         foreach (var package in packages)
         {
@@ -37,7 +37,7 @@ public sealed class SkillMaterializationServiceTests
     public async Task Materialize_ReturnsUnsupportedHostFailure_WhenHostIsUnknown ()
     {
         var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
-        var service = new SkillMaterializationService();
+        var service = SkillTestData.CreateMaterializationService();
 
         var result = service.Materialize(package, "generic");
 
@@ -50,7 +50,7 @@ public sealed class SkillMaterializationServiceTests
     public async Task Materialize_OpenAiAddsOpenAiMetadataOnly ()
     {
         var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
-        var service = new SkillMaterializationService();
+        var service = SkillTestData.CreateMaterializationService();
 
         var openAi = service.Materialize(package, OpenAiSkillHostAdapter.HostKey);
         var claude = service.Materialize(package, ClaudeSkillHostAdapter.HostKey);

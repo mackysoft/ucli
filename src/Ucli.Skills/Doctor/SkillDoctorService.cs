@@ -25,19 +25,19 @@ public sealed class SkillDoctorService
     /// <param name="contentDigestVerifier"> The installed content digest verifier. </param>
     /// <param name="materializationService"> The host materialization service. </param>
     public SkillDoctorService (
-        SkillHostAdapterSet? hostAdapters = null,
+        SkillHostAdapterSet hostAdapters,
         SkillManifestJsonSerializer? manifestSerializer = null,
         SkillManifestValidator? manifestValidator = null,
         SkillHostMaterializationInspector? hostInspector = null,
         SkillInstalledContentDigestVerifier? contentDigestVerifier = null,
         SkillMaterializationService? materializationService = null)
     {
-        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
+        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
-        this.manifestValidator = manifestValidator ?? new SkillManifestValidator();
-        this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector();
+        this.manifestValidator = manifestValidator ?? new SkillManifestValidator(hostAdapters);
+        this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector(hostAdapters);
         this.contentDigestVerifier = contentDigestVerifier ?? new SkillInstalledContentDigestVerifier();
-        this.materializationService = materializationService ?? new SkillMaterializationService();
+        this.materializationService = materializationService ?? new SkillMaterializationService(hostAdapters);
     }
 
     /// <summary> Diagnoses one host target root against canonical packages. </summary>

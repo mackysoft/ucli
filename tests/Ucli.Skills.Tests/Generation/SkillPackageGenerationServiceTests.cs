@@ -13,7 +13,7 @@ public sealed class SkillPackageGenerationServiceTests
     public async Task GenerateAllAsync_GeneratesCanonicalPackagesWithValidManifests ()
     {
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var validator = new SkillManifestValidator();
+        var validator = SkillTestData.CreateManifestValidator();
 
         Assert.Equal(SkillTestData.ExpectedSkillNames, packages.Select(static package => package.SkillName).ToArray());
         foreach (var package in packages)

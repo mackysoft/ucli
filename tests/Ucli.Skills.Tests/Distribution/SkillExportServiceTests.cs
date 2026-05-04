@@ -16,7 +16,7 @@ public sealed class SkillExportServiceTests
         {
             SkillName = "../escape",
         };
-        var service = new SkillExportService();
+        var service = SkillTestData.CreateExportService();
 
         var result = await service.ExportAsync([package], OpenAiSkillHostAdapter.HostKey, scope.FullPath, CancellationToken.None);
 
@@ -50,7 +50,7 @@ public sealed class SkillExportServiceTests
             return;
         }
 
-        var service = new SkillExportService();
+        var service = SkillTestData.CreateExportService();
 
         var result = await service.ExportAsync(packages, OpenAiSkillHostAdapter.HostKey, outputScope.FullPath, CancellationToken.None);
 

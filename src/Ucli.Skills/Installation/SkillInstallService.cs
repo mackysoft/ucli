@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Skills.Generation;
+using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Packaging;
@@ -17,6 +18,7 @@ public sealed class SkillInstallService
     private readonly SkillInstalledContentDigestVerifier contentDigestVerifier;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstallService" /> class. </summary>
+    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="targetResolver"> The target resolver. </param>
     /// <param name="materializationService"> The materialization service. </param>
     /// <param name="manifestSerializer"> The manifest serializer. </param>
@@ -24,6 +26,7 @@ public sealed class SkillInstallService
     /// <param name="hostInspector"> The host materialization inspector. </param>
     /// <param name="contentDigestVerifier"> The installed content digest verifier. </param>
     public SkillInstallService (
+        SkillHostAdapterSet hostAdapters,
         SkillInstallTargetResolver? targetResolver = null,
         SkillMaterializationService? materializationService = null,
         SkillManifestJsonSerializer? manifestSerializer = null,
@@ -31,11 +34,13 @@ public sealed class SkillInstallService
         SkillHostMaterializationInspector? hostInspector = null,
         SkillInstalledContentDigestVerifier? contentDigestVerifier = null)
     {
-        this.targetResolver = targetResolver ?? new SkillInstallTargetResolver();
-        this.materializationService = materializationService ?? new SkillMaterializationService();
+        ArgumentNullException.ThrowIfNull(hostAdapters);
+
+        this.targetResolver = targetResolver ?? new SkillInstallTargetResolver(hostAdapters);
+        this.materializationService = materializationService ?? new SkillMaterializationService(hostAdapters);
         this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
-        this.manifestValidator = manifestValidator ?? new SkillManifestValidator();
-        this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector();
+        this.manifestValidator = manifestValidator ?? new SkillManifestValidator(hostAdapters);
+        this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector(hostAdapters);
         this.contentDigestVerifier = contentDigestVerifier ?? new SkillInstalledContentDigestVerifier();
     }
 

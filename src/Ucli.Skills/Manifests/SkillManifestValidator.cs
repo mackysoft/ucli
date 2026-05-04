@@ -10,9 +10,9 @@ public sealed class SkillManifestValidator
 
     /// <summary> Initializes a new instance of the <see cref="SkillManifestValidator" /> class. </summary>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
-    public SkillManifestValidator (SkillHostAdapterSet? hostAdapters = null)
+    public SkillManifestValidator (SkillHostAdapterSet hostAdapters)
     {
-        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
+        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
     }
 
     /// <summary> Validates one manifest. </summary>

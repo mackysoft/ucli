@@ -1,8 +1,7 @@
-using MackySoft.Ucli.Skills.Hosts.Claude;
-using MackySoft.Ucli.Skills.Hosts.Copilot;
-using MackySoft.Ucli.Skills.Hosts.OpenAi;
+using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Shared;
+using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests.Hosts.Registration;
 
@@ -10,24 +9,27 @@ public sealed class SkillHostAdapterSetTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void AdapterSet_ContainsSupportedHostsOnly ()
+    public void AdapterSet_UsesInjectedAdaptersOnlyInDeterministicOrder ()
     {
-        var adapterSet = new SkillHostAdapterSet();
+        var adapterSet = new SkillHostAdapterSet(
+        [
+            new TestSkillHostAdapter("beta", ".beta/skills"),
+            new TestSkillHostAdapter("alpha", ".alpha/skills"),
+        ]);
 
         Assert.Equal(
-            new[] { ClaudeSkillHostAdapter.HostKey, CopilotSkillHostAdapter.HostKey, OpenAiSkillHostAdapter.HostKey },
+            new[] { "alpha", "beta" },
             adapterSet.Adapters.Select(static adapter => adapter.Descriptor.HostKey).ToArray());
 
-        Assert.Equal(".claude/skills", adapterSet.GetAdapter(ClaudeSkillHostAdapter.HostKey).Value!.Descriptor.ProjectTargetDirectory);
-        Assert.Equal(".github/skills", adapterSet.GetAdapter(CopilotSkillHostAdapter.HostKey).Value!.Descriptor.ProjectTargetDirectory);
-        Assert.Equal(".agents/skills", adapterSet.GetAdapter(OpenAiSkillHostAdapter.HostKey).Value!.Descriptor.ProjectTargetDirectory);
+        Assert.Equal(".alpha/skills", adapterSet.GetAdapter("alpha").Value!.Descriptor.ProjectTargetDirectory);
+        Assert.Equal(".beta/skills", adapterSet.GetAdapter("beta").Value!.Descriptor.ProjectTargetDirectory);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void GetAdapter_ReturnsUnsupportedHostFailure ()
     {
-        var adapterSet = new SkillHostAdapterSet();
+        var adapterSet = new SkillHostAdapterSet([new TestSkillHostAdapter("alpha", ".alpha/skills")]);
 
         var result = adapterSet.GetAdapter("generic");
 
@@ -39,11 +41,53 @@ public sealed class SkillHostAdapterSetTests
     [Trait("Size", "Small")]
     public void GetAdapter_CanonicalizesHostKey ()
     {
-        var adapterSet = new SkillHostAdapterSet();
+        var adapterSet = new SkillHostAdapterSet([new TestSkillHostAdapter("openai", ".agents/skills")]);
 
         var result = adapterSet.GetAdapter("OpenAI");
 
         Assert.True(result.IsSuccess, result.Failure?.Message);
-        Assert.Equal(OpenAiSkillHostAdapter.HostKey, result.Value!.Descriptor.HostKey);
+        Assert.Equal("openai", result.Value!.Descriptor.HostKey);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_RejectsEmptyAdapters ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new SkillHostAdapterSet([]));
+
+        Assert.Contains("At least one host adapter", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_RejectsDuplicateHostKeys ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new SkillHostAdapterSet(
+        [
+            new TestSkillHostAdapter("openai", ".agents/skills"),
+            new TestSkillHostAdapter("OpenAI", ".other/skills"),
+        ]));
+
+        Assert.Contains("Host adapter key must be unique", exception.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class TestSkillHostAdapter : ISkillHostAdapter
+    {
+        public TestSkillHostAdapter (
+            string hostKey,
+            string projectTargetDirectory)
+        {
+            Descriptor = new SkillHostDescriptor(hostKey, projectTargetDirectory);
+        }
+
+        public SkillHostDescriptor Descriptor { get; }
+
+        public string? MetadataArtifactPath => null;
+
+        public SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata)
+        {
+            ArgumentNullException.ThrowIfNull(metadata);
+            return new SkillHostArtifactSet(string.Empty, []);
+        }
     }
 }

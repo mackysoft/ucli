@@ -16,10 +16,10 @@ public sealed class SkillHostMaterializationInspector
     /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="digestCalculator"> The digest calculator. </param>
     public SkillHostMaterializationInspector (
-        SkillHostAdapterSet? hostAdapters = null,
+        SkillHostAdapterSet hostAdapters,
         SkillDigestCalculator? digestCalculator = null)
     {
-        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
+        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.digestCalculator = digestCalculator ?? new SkillDigestCalculator();
     }
 

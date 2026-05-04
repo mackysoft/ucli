@@ -11,9 +11,9 @@ public sealed class SkillInstallTargetResolver
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstallTargetResolver" /> class. </summary>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
-    public SkillInstallTargetResolver (SkillHostAdapterSet? hostAdapters = null)
+    public SkillInstallTargetResolver (SkillHostAdapterSet hostAdapters)
     {
-        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
+        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
     }
 
     /// <summary> Resolves the target root for one install request. </summary>

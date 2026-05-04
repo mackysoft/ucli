@@ -16,18 +16,20 @@ public sealed class SkillPackageGenerationService
     private readonly SkillManifestJsonSerializer manifestSerializer;
 
     /// <summary> Initializes a new instance of the <see cref="SkillPackageGenerationService" /> class. </summary>
-    /// <param name="sourceReader"> The source definition reader. </param>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
+    /// <param name="sourceReader"> The source definition reader. </param>
     /// <param name="digestCalculator"> The digest calculator. </param>
     /// <param name="manifestSerializer"> The manifest serializer. </param>
     public SkillPackageGenerationService (
+        SkillHostAdapterSet hostAdapters,
         SkillSourceDefinitionReader? sourceReader = null,
-        SkillHostAdapterSet? hostAdapters = null,
         SkillDigestCalculator? digestCalculator = null,
         SkillManifestJsonSerializer? manifestSerializer = null)
     {
+        ArgumentNullException.ThrowIfNull(hostAdapters);
+
         this.sourceReader = sourceReader ?? new SkillSourceDefinitionReader();
-        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
+        this.hostAdapters = hostAdapters;
         this.digestCalculator = digestCalculator ?? new SkillDigestCalculator();
         this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
     }

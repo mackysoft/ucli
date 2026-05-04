@@ -14,7 +14,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-noop");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
 
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
@@ -40,7 +40,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-host-conflict");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         var targetRoot = "shared-skills";
 
         var claude = await service.InstallAsync(
@@ -63,7 +63,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-unmanaged");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "SKILL.md"), "# Existing\n");
 
         var result = await service.InstallAsync(
@@ -81,7 +81,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-digest-mismatch");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
@@ -102,7 +102,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-body-drift");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
@@ -122,7 +122,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-reference-drift");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
@@ -145,7 +145,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-extra-file");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
@@ -163,7 +163,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-invalid-manifest");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "ucli-skill.json"), "{}");
 
         var result = await service.InstallAsync(
@@ -187,7 +187,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-manifest-symlink");
         using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "install-manifest-symlink-outside");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
         scope.CreateDirectory(Path.Combine(".agents", "skills", packages[0].SkillName));
         var outsideManifest = outsideScope.WriteFile("ucli-skill.json", packages[0].Files.Single(static file => file.RelativePath == "ucli-skill.json").Content);
         try
@@ -218,7 +218,7 @@ public sealed class SkillInstallServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-unsupported-host");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
 
         var result = await service.InstallAsync(
             packages,
@@ -238,7 +238,7 @@ public sealed class SkillInstallServiceTests
         {
             SkillName = "../escape",
         };
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
 
         var result = await service.InstallAsync(
             [package],
@@ -256,7 +256,7 @@ public sealed class SkillInstallServiceTests
         using var repoScope = TestDirectories.CreateTempScope("ucli-skills", "install-path-repo");
         using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "install-path-outside");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
 
         var result = await service.InstallAsync(
             packages,
@@ -293,7 +293,7 @@ public sealed class SkillInstallServiceTests
         }
 
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
 
         var result = await service.InstallAsync(
             packages,
@@ -331,7 +331,7 @@ public sealed class SkillInstallServiceTests
             return;
         }
 
-        var service = new SkillInstallService();
+        var service = SkillTestData.CreateInstallService();
 
         var result = await service.InstallAsync(
             packages,

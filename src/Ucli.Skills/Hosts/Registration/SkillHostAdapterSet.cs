@@ -1,7 +1,4 @@
-using MackySoft.Ucli.Skills.Hosts.Claude;
 using MackySoft.Ucli.Skills.Hosts.Contracts;
-using MackySoft.Ucli.Skills.Hosts.Copilot;
-using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Hosts.Registration;
@@ -9,12 +6,44 @@ namespace MackySoft.Ucli.Skills.Hosts.Registration;
 /// <summary> Provides the deterministic global host adapter set. </summary>
 public sealed class SkillHostAdapterSet
 {
-    private readonly ISkillHostAdapter[] adapters =
-    [
-        new ClaudeSkillHostAdapter(),
-        new CopilotSkillHostAdapter(),
-        new OpenAiSkillHostAdapter(),
-    ];
+    private readonly ISkillHostAdapter[] adapters;
+
+    /// <summary> Initializes a new instance of the <see cref="SkillHostAdapterSet" /> class. </summary>
+    /// <param name="adapters"> The supported host adapters. </param>
+    public SkillHostAdapterSet (IEnumerable<ISkillHostAdapter> adapters)
+    {
+        ArgumentNullException.ThrowIfNull(adapters);
+
+        var adapterArray = adapters
+            .Select(static adapter => adapter ?? throw new ArgumentException("Host adapter collection must not contain null.", nameof(adapters)))
+            .ToArray();
+
+        if (adapterArray.Length == 0)
+        {
+            throw new ArgumentException("At least one host adapter must be provided.", nameof(adapters));
+        }
+
+        foreach (var adapter in adapterArray)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.HostKey, nameof(adapters));
+            ArgumentException.ThrowIfNullOrWhiteSpace(adapter.Descriptor.ProjectTargetDirectory, nameof(adapters));
+        }
+
+        var duplicateHost = adapterArray
+            .GroupBy(static adapter => adapter.Descriptor.HostKey, StringComparer.OrdinalIgnoreCase)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
+            .FirstOrDefault();
+
+        if (duplicateHost is not null)
+        {
+            throw new ArgumentException($"Host adapter key must be unique: {duplicateHost}", nameof(adapters));
+        }
+
+        this.adapters = adapterArray
+            .OrderBy(static adapter => adapter.Descriptor.HostKey, StringComparer.Ordinal)
+            .ToArray();
+    }
 
     /// <summary> Gets all host adapters in deterministic order. </summary>
     public IReadOnlyList<ISkillHostAdapter> Adapters => adapters;

@@ -97,6 +97,7 @@ public sealed class ProjectBoundaryTests
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("Contracts")]
+    [InlineData("Registration")]
     [InlineData("Yaml")]
     public void HostInfrastructureDirectory_DoesNotReferenceConcreteHostImplementations (string directoryName)
     {

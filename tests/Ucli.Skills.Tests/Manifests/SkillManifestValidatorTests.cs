@@ -9,7 +9,7 @@ public sealed class SkillManifestValidatorTests
     [Trait("Size", "Small")]
     public void Validate_AcceptsSafeSkillName ()
     {
-        var validator = new SkillManifestValidator();
+        var validator = SkillTestData.CreateManifestValidator();
 
         var result = validator.Validate(CreateManifest("sample-skill"));
 
@@ -26,7 +26,7 @@ public sealed class SkillManifestValidatorTests
     [Trait("Size", "Small")]
     public void Validate_RejectsUnsafeSkillName (string skillName)
     {
-        var validator = new SkillManifestValidator();
+        var validator = SkillTestData.CreateManifestValidator();
 
         var result = validator.Validate(CreateManifest(skillName));
 

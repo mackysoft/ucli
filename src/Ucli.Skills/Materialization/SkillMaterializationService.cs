@@ -11,9 +11,9 @@ public sealed class SkillMaterializationService
 
     /// <summary> Initializes a new instance of the <see cref="SkillMaterializationService" /> class. </summary>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
-    public SkillMaterializationService (SkillHostAdapterSet? hostAdapters = null)
+    public SkillMaterializationService (SkillHostAdapterSet hostAdapters)
     {
-        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
+        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
     }
 
     /// <summary> Materializes one canonical package for one host. </summary>

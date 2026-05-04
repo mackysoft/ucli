@@ -12,9 +12,9 @@ public sealed class SkillExportService
 
     /// <summary> Initializes a new instance of the <see cref="SkillExportService" /> class. </summary>
     /// <param name="materializationService"> The materialization service. </param>
-    public SkillExportService (SkillMaterializationService? materializationService = null)
+    public SkillExportService (SkillMaterializationService materializationService)
     {
-        this.materializationService = materializationService ?? new SkillMaterializationService();
+        this.materializationService = materializationService ?? throw new ArgumentNullException(nameof(materializationService));
     }
 
     /// <summary> Exports all packages into an output root. </summary>
