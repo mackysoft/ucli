@@ -281,7 +281,8 @@ ucli ops describe ucli.scene.open
 Use `call --withPlan` for compact local automation where the same runner plans and applies immediately.
 
 ```bash
-REQUEST_JSON='{
+ucli call --withPlan <<'JSON'
+{
   "steps": [
     {
       "kind": "op",
@@ -314,9 +315,8 @@ REQUEST_JSON='{
       "commit": "context"
     }
   ]
-}'
-
-printf '%s' "$REQUEST_JSON" | ucli call --withPlan
+}
+JSON
 ```
 
 This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, edits the `Game.EnemySpawner` component, and saves the scene through `commit: "context"`.
@@ -324,11 +324,17 @@ This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, e
 Use `validate -> plan -> call --planToken` when a human review step, CI gate, or agent supervisor must inspect the plan before mutation:
 
 ```bash
-printf '%s' "$REQUEST_JSON" | ucli validate
-PLAN_JSON="$(printf '%s' "$REQUEST_JSON" | ucli plan)"
+ucli validate <<'JSON'
+{"steps":[]}
+JSON
 
-PLAN_TOKEN="$(printf '%s' "$PLAN_JSON" | jq -r '.payload.planToken')"
-printf '%s' "$REQUEST_JSON" | ucli call --planToken "$PLAN_TOKEN"
+ucli plan <<'JSON'
+{"steps":[]}
+JSON
+
+ucli call --planToken "<token-from-plan>" <<'JSON'
+{"steps":[]}
+JSON
 ```
 
 `validate` checks request shape and static constraints. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
