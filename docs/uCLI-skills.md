@@ -10,7 +10,7 @@
 - SKILL は agent に安全な作業順序を教える薄い workflow layer とする。
 - SKILL には operation catalog、operation args、result schema、README、command reference の内容を手書きで複製しない。
 - primitive operation を使う前に、agent は `ucli ops describe <opName>` を読む。
-- `argsSchema` / `resultSchema` は JSON 構造検証に使い、operation 選択、入力構築、結果解釈は `description`、`inputs[].constraints`、`resultContract`、`assurance` を主契約として扱う。
+- `argsSchema` / `resultSchema` は JSON 構造検証に使い、operation 選択、入力構築、結果解釈は `description`、`inputs[].constraints`、`inputs[].variants[].fields[].constraints`、`resultContract`、`assurance` を主契約として扱う。
 - 任意 C# 実行、任意 shell 実行、Unity YAML 直編集、`--allowDangerous` が必要な operation は通常導線に含めない。
 
 ## ディレクトリ方針

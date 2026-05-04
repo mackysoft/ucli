@@ -288,7 +288,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `argsSchema` | object | yes | `steps[].args` の JSON 構造検証用 JSON Schema |
 | `resultSchema` | object \| null | yes | `opResults[].result` の JSON 構造検証用 JSON Schema。`UcliNoResult` operation では `null` |
 
-`argsSchema` / `resultSchema` は検証用 schema であり、agent 向けの主契約ではない。operation 選択、`args` の組み立て、結果解釈は `description` / `inputs[].constraints` / `resultContract` / `assurance` を参照する。schema には説明文や意味制約を置かない。
+`argsSchema` / `resultSchema` は検証用 schema であり、agent 向けの主契約ではない。operation 選択、`args` の組み立て、結果解釈は `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` を参照する。schema には説明文や意味制約を置かない。
 
 #### `ucli ops describe payload.operation.inputs[]`
 
@@ -351,6 +351,8 @@ path と constraint は field object に閉じ込める。variant 直下に cons
 | `constraints` | array | yes | field 値の意味制約。shape は `payload.operation.inputs[].constraints[]` と同じ |
 
 field の `constraints` は常に出す。意味制約がない field は `constraints: []` とする。
+
+field の `name` は `argsPath` の最後の property segment と一致しなければならない。たとえば `argsPath:"$.target.globalObjectId"` の field 名は `globalObjectId` である。
 
 #### `ucli ops describe payload.operation.inputs[].constraints[]`
 
@@ -465,13 +467,13 @@ kind ごとの parameter 規則:
 
 `argsSchema` は `steps[].args` の JSON 構造だけを表す。使用する語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。`type` は string または string array で、値は `object`、`array`、`string`、`integer`、`number`、`boolean`、`null` のいずれかである。
 
-schema には説明文や意味制約を出さない。説明は `description`、意味制約は `inputs[].constraints` に置く。
+schema には説明文や意味制約を出さない。説明は `description`、input 全体の意味制約は `inputs[].constraints`、variant field の意味制約は `inputs[].variants[].fields[].constraints` に置く。
 
 #### `ucli ops describe payload.operation.resultSchema`
 
 `argsSchema` / `resultSchema` は JSON Schema の完全実装ではなく、uCLI-supported JSON Schema subset である。この subset は JSON object の構造検証だけを contract し、外部 JSON Schema validator への完全互換入力として扱えることは保証しない。
 
-subset で使用できる語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。`type` は string または string array で、nullable property は `["<type>","null"]` で表す。`$schema` は出力しない。closed value set は schema の `enum` ではなく、この property reference の語彙表または `inputs[].constraints` で表す。composition、condition、default、example、format、scalar constraint 系の JSON Schema keyword は公開 contract として使用しない。
+subset で使用できる語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。`type` は string または string array で、nullable property は `["<type>","null"]` で表す。`$schema` は出力しない。closed value set は schema の `enum` ではなく、この property reference の語彙表、`inputs[].constraints`、または `inputs[].variants[].fields[].constraints` で表す。composition、condition、default、example、format、scalar constraint 系の JSON Schema keyword は公開 contract として使用しない。
 
 `resultSchema` は `opResults[].result` の JSON 構造だけを表す。result を返さない operation では `null` になる。配列 property は `items` で要素構造を表し、ネスト型や再帰型は `$defs` の名前付き schema と `$ref` で表す。
 
@@ -845,7 +847,7 @@ selector の各 variant は同じ `target` object の異なる表現方法を説
 
 `description` が複数のユーザー意図を説明する operation は分割対象である。`variants` は同じ input の参照方法だけに使う。
 
-schema の property に説明文や意味制約を置かない。説明は `inputs[].description`、意味制約は `inputs[].constraints` に置く。空文字禁止は `inputs[].constraints` の `{ "kind": "nonEmpty" }` で表す。
+schema の property に説明文や意味制約を置かない。説明は `inputs[].description` または `inputs[].variants[].fields[].description`、意味制約は `inputs[].constraints` または `inputs[].variants[].fields[].constraints` に置く。空文字禁止は該当 input または field の `constraints` の `{ "kind": "nonEmpty" }` で表す。
 
 #### 不正な result 例
 
