@@ -152,9 +152,9 @@ public sealed class PlanCliOutputContractTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                 .HasArrayLength("opResults", 0)
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", false)
@@ -188,9 +188,9 @@ public sealed class PlanCliOutputContractTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                 .HasArrayLength("opResults", 0)
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", false)
@@ -224,9 +224,9 @@ public sealed class PlanCliOutputContractTests
             UcliCommandNames.Plan,
             IpcProtocol.StatusError,
             (int)CliExitCode.ToolError);
+        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                 .HasArrayLength("opResults", 0)
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", false)
@@ -241,11 +241,15 @@ public sealed class PlanCliOutputContractTests
     {
         return """
             {
-              "protocolVersion": 1,
-              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "steps": []
             }
             """;
+    }
+
+    private static void AssertPayloadHasGeneratedRequestId (JsonElement root)
+    {
+        var requestId = root.GetProperty("payload").GetProperty("requestId").GetString();
+        Assert.True(Guid.TryParseExact(requestId, "D", out _));
     }
 
     private static Task WriteUnityPluginMarker (

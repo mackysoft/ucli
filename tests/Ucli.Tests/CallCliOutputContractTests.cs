@@ -163,9 +163,9 @@ public sealed class CallCliOutputContractTests
             UcliCommandNames.Call,
             IpcProtocol.StatusError,
             (int)CliExitCode.ToolError);
+        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                 .HasArrayLength("opResults", 0))
             .HasProperty("errors", 0, error => error
                 .HasString("code", UnityExecutionModeDecisionErrorCodes.DaemonNotRunning));
@@ -193,9 +193,9 @@ public sealed class CallCliOutputContractTests
             UcliCommandNames.Call,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                 .HasArrayLength("opResults", 0));
     }
 
@@ -221,9 +221,9 @@ public sealed class CallCliOutputContractTests
             UcliCommandNames.Call,
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
+        AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
                 .HasArrayLength("opResults", 0));
     }
 
@@ -231,10 +231,14 @@ public sealed class CallCliOutputContractTests
     {
         return JsonSerializer.Serialize(new
         {
-            protocolVersion = IpcProtocol.CurrentVersion,
-            requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             steps = Array.Empty<object>(),
         });
+    }
+
+    private static void AssertPayloadHasGeneratedRequestId (JsonElement root)
+    {
+        var requestId = root.GetProperty("payload").GetProperty("requestId").GetString();
+        Assert.True(Guid.TryParseExact(requestId, "D", out _));
     }
 
     private static Task WriteUnityPluginMarker (

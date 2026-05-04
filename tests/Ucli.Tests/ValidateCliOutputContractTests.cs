@@ -129,8 +129,6 @@ public sealed class ValidateCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("validate-cli-output-contract", "disabled-syntax-only");
         var requestJson = """
             {
-              "protocolVersion": 1,
-              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "steps": []
             }
             """;
@@ -175,8 +173,6 @@ public sealed class ValidateCliOutputContractTests
     {
         return $$"""
             {
-              "protocolVersion": 1,
-              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "steps": [
                 {
                   "kind": "op",
