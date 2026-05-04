@@ -12,7 +12,7 @@ internal sealed record PhaseExecutionPreparedRequest (
     PreparedRequestContext PreparedRequest,
     IReadOnlyDictionary<string, UcliOperationDescriptor> OperationsByName)
 {
-    /// <summary> Gets the raw request JSON string. </summary>
+    /// <summary> Gets the normalized internal execute-request JSON string. </summary>
     public string RequestJson => PreparedRequest.RequestJson;
 
     /// <summary> Gets the request input source. </summary>

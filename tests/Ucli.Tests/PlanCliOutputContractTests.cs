@@ -80,6 +80,29 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Plan_WhenRequestStepsPropertyIsMissing_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommandWithStandardInput(
+            """{}""",
+            UcliCommandNames.Plan);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Plan,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        Assert.Contains(
+            "Request property 'steps' is required.",
+            outputJson.RootElement.GetProperty("message").GetString(),
+            StringComparison.Ordinal);
+        Assert.False(outputJson.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Plan_WithInvalidReadIndexMode_ReturnsInvalidArgumentErrorWithoutPayload ()
     {
         var result = await CliProcessRunner.RunCommand(

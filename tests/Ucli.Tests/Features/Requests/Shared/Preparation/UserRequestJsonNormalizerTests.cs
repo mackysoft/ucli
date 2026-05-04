@@ -90,6 +90,35 @@ public sealed class UserRequestJsonNormalizerTests
         Assert.Contains("unknown", result.Error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Normalize_WhenUserRequestRootIsNotObject_ReturnsInvalidArgument ()
+    {
+        var normalizer = CreateNormalizer();
+
+        var result = normalizer.Normalize("""[]""");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.RequestJson);
+        Assert.NotNull(result.Error);
+        Assert.Contains("root must be an object", result.Error!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Normalize_WhenStepsPropertyIsMissing_ReturnsInvalidArgument ()
+    {
+        var normalizer = CreateNormalizer();
+
+        var result = normalizer.Normalize("""{}""");
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.RequestJson);
+        Assert.NotNull(result.Error);
+        Assert.Contains("steps", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("required", result.Error.Message, StringComparison.Ordinal);
+    }
+
     private static UserRequestJsonNormalizer CreateNormalizer ()
     {
         return new UserRequestJsonNormalizer(new FixedRequestIdFactory(RequestId));

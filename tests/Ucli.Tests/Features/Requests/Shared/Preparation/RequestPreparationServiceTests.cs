@@ -143,6 +143,31 @@ public sealed class RequestPreparationServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Prepare_WhenUserRequestStepsPropertyIsMissing_ReturnsFailureWithoutParsingOrResolvingProject ()
+    {
+        var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
+        var projectContextResolver = new SpyProjectContextResolver(
+            ProjectContextResolutionResult.Success(CreateProjectContext()));
+        var service = CreateService(
+            new StubRequestInputReader(RequestInputReadResult.Success("""{}""", RequestInputSource.StandardInput)),
+            parser,
+            projectContextResolver);
+
+        var result = await service.Prepare(
+            requestPath: null,
+            projectPath: "/tmp/project",
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Contains("steps", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Null(parser.ReceivedRequestJson);
+        Assert.Equal(0, projectContextResolver.CallCount);
+        Assert.Null(result.PreparedRequest);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Prepare_WhenProjectContextResolutionFails_ReturnsFailure ()
     {
         var error = ExecutionError.InvalidArgument("project path is invalid.");

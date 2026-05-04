@@ -56,6 +56,12 @@ internal sealed class UserRequestJsonNormalizer : IUserRequestJsonNormalizer
                 }
             }
 
+            if (!root.TryGetProperty(StepsPropertyName, out _))
+            {
+                return UserRequestJsonNormalizationResult.Failure(ExecutionError.InvalidArgument(
+                    "Request property 'steps' is required."));
+            }
+
             return UserRequestJsonNormalizationResult.Success(CreateNormalizedRequestJson(root));
         }
         catch (JsonException exception)
@@ -74,11 +80,8 @@ internal sealed class UserRequestJsonNormalizer : IUserRequestJsonNormalizer
             writer.WriteNumber(ProtocolVersionPropertyName, IpcProtocol.CurrentVersion);
             writer.WriteString(RequestIdPropertyName, requestIdFactory.Create());
 
-            if (root.TryGetProperty(StepsPropertyName, out var stepsElement))
-            {
-                writer.WritePropertyName(StepsPropertyName);
-                stepsElement.WriteTo(writer);
-            }
+            writer.WritePropertyName(StepsPropertyName);
+            root.GetProperty(StepsPropertyName).WriteTo(writer);
 
             writer.WriteEndObject();
         }
