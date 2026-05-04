@@ -6,6 +6,22 @@
 > operation ごとの agent 向け contract は `ops describe` の `description` / `inputs[].constraints` / `resultContract` / `assurance` で表す。`argsSchema` / `resultSchema` は `steps[].args` と `opResults[].result` の JSON 構造検証用 schema である。
 > 1つの operation は1つのユーザー意図だけを表す。複数の意味を含む既存 operation は分割候補とし、同じ input の参照方法の差だけを `inputs[].variants[]` として扱う。
 
+`ucli.prefab.applyOverrides` と `ucli.prefab.revertOverrides` は全モードで edit lowering 専用 primitive とする。ユーザー入力 JSON の raw `kind:"op"` から直接呼び出された場合は `INVALID_ARGUMENT` で拒否する。
+
+## Play Mode 変更での扱い
+
+`--allowPlayMode` 付きの Play Mode 変更では、`kind:"edit"` の lowering から発生する Scene / GameObject / Component / Prefab / Asset / ProjectSettings 操作だけを許可する。公開 query-only request を許可するための契約ではない。
+
+- Scene context は Play Mode の live object への変更だけを許可し、`ucli.scene.save` へ lower される形は許可しない
+- Prefab / asset / project context は通常の `edit` と同じ primitive、commit、dangerous guard を適用し、明示 `commit` に従って保存できる
+- `commit:"project"` は project-wide save であるため Play Mode 変更では許可しない
+- Play Mode 変更では raw `kind:"op"` を許可せず、Prefab apply / revert primitive は `edit` lowering から発生した場合だけ許可する
+- Scene context の Prefab instance override を Prefab asset へ反映する場合は `applyPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` から `ucli.prefab.applyOverrides` へ lower する
+- Scene context の Prefab instance override を Prefab asset 値へ戻す場合は `revertPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` から `ucli.prefab.revertOverrides` へ lower する
+- Prefab / asset / project の保存は対象永続化単位に限定し、open Scene を巻き込む一括 project save は使わない
+- readIndex は対象解決や scene / prefab / asset / project 観測に使わない
+- Scene context の `opResults[].touched` は永続化単位を表さないため、Prefab apply を含まない場合は空配列を返す
+
 ## asset
 
 > [!NOTE]
@@ -67,6 +83,8 @@
 | `ucli.prefab.create` | mutation | advanced | mvp-core | Loaded Scene 上の GameObject から Prefab を新規作成する。`target` 必須、空 Prefab は作らない。 | `PrefabCreateArgs` | `UcliNoResult` | result は返さない |
 | `ucli.prefab.open` | command | safe | mvp-core | 指定 Prefab を編集コンテキストとして開く。 | `PrefabPathArgs` | `UcliNoResult` | result は返さない |
 | `ucli.prefab.save` | mutation | advanced | mvp-core | opened Prefab に dirty または request-attributed change があるとき保存する。opened stage 必須。`Plan` は request-local plan state と計画時に観測できる dirty を基に評価し、`Call` は保存時点の live dirty も保存し得る。 | `PrefabPathArgs` | `UcliNoResult` | result は返さない |
+| `ucli.prefab.applyOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。raw `kind:"op"` では呼び出せない。Scene 上の Prefab instance に対する request-attributed property override を明示した Prefab asset へ反映する。 | `{ target, targetAssetPath, propertyPaths[] }` | `UcliNoResult` | result は返さない |
+| `ucli.prefab.revertOverrides` | mutation | advanced | mvp-core | Edit lowering 専用。raw `kind:"op"` では呼び出せない。Scene 上の Prefab instance に対する request-attributed property override を Prefab asset 値へ戻す。 | `{ target, targetAssetPath, propertyPaths[] }` | `UcliNoResult` | result は返さない |
 
 ## project
 
