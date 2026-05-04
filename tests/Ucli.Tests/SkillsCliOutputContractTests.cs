@@ -8,6 +8,7 @@ namespace MackySoft.Ucli.Tests;
 public sealed class SkillsCliOutputContractTests
 {
     private const string HostUnsupportedCode = "SKILL_HOST_UNSUPPORTED";
+    private const string InstallTargetDigestMismatchCode = "SKILL_INSTALL_TARGET_DIGEST_MISMATCH";
     private const string InstallTargetHostConflictCode = "SKILL_INSTALL_TARGET_HOST_CONFLICT";
     private const string InstallTargetUnmanagedCode = "SKILL_INSTALL_TARGET_UNMANAGED";
     private const string InvalidArgumentCode = "INVALID_ARGUMENT";
@@ -157,17 +158,40 @@ public sealed class SkillsCliOutputContractTests
         }
     }
 
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsSubcommand_WithoutHost_ReturnsInvalidArgument (
+        string subcommand,
+        string expectedCommand)
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"missing-host-{subcommand}");
+        var repoRoot = scope.CreateDirectory("repo");
+        var args = CreateRequiredHostScenarioArgs(subcommand, repoRoot, scope.GetPath("exported"));
+
+        var result = await CliProcessRunner.RunCommand(args);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task SkillsExport_WithoutHost_ReturnsInvalidArgument ()
+    public async Task SkillsExport_WithoutOutput_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "export-missing-host");
-
         var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Skills,
             UcliCommandNames.ExportSubcommand,
-            "--output",
-            scope.GetPath("exported"));
+            "--host",
+            "openai");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -179,56 +203,73 @@ public sealed class SkillsCliOutputContractTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Medium")]
-    public async Task SkillsInstall_WithoutScope_ReturnsInvalidArgument ()
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsScopedSubcommand_WithoutScope_ReturnsInvalidArgument (
+        string subcommand,
+        string expectedCommand)
     {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-missing-scope");
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"missing-scope-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await CliProcessRunner.RunCommand(
-            UcliCommandNames.Skills,
-            UcliCommandNames.InstallSubcommand,
-            "--host",
-            "openai",
-            "--repoRoot",
-            repoRoot);
+        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: null, targetDir: null);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            command: UcliCommandNames.SkillsInstall,
+            command: expectedCommand,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Medium")]
-    public async Task SkillsInstall_WithUnsupportedHostAndTargetDir_ReturnsHostUnsupported ()
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsScopedSubcommand_WithInvalidScope_ReturnsInvalidArgument (
+        string subcommand,
+        string expectedCommand)
     {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-unsupported-host");
-        using var outsideScope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-unsupported-host-outside");
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"invalid-scope-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await CliProcessRunner.RunCommand(
-            UcliCommandNames.Skills,
-            UcliCommandNames.InstallSubcommand,
-            "--host",
-            "generic",
-            "--scope",
-            "project",
-            "--repoRoot",
-            repoRoot,
-            "--targetDir",
-            outsideScope.FullPath);
+        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "user", targetDir: null);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            command: UcliCommandNames.SkillsInstall,
+            command: expectedCommand,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsSubcommand_WithUnsupportedHost_ReturnsHostUnsupported (
+        string subcommand,
+        string expectedCommand)
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"unsupported-host-{subcommand}");
+        using var outsideScope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"unsupported-host-outside-{subcommand}");
+        var repoRoot = scope.CreateDirectory("repo");
+        var args = CreateUnsupportedHostScenarioArgs(subcommand, repoRoot, outsideScope.FullPath, scope.GetPath("exported"));
+
+        var result = await CliProcessRunner.RunCommand(args);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: expectedCommand,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, HostUnsupportedCode);
@@ -303,21 +344,25 @@ public sealed class SkillsCliOutputContractTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetHostConflictCode);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Medium")]
-    public async Task SkillsInstall_WithTargetDirOutsideRepositoryRoot_ReturnsPathUnsafe ()
+    [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
+    public async Task SkillsScopedSubcommand_WithTargetDirOutsideRepositoryRoot_ReturnsPathUnsafe (
+        string subcommand,
+        string expectedCommand)
     {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-outside-target");
-        using var outsideScope = TestDirectories.CreateTempScope("skills-cli-output-contract", "install-outside-target-root");
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"outside-target-{subcommand}");
+        using var outsideScope = TestDirectories.CreateTempScope("skills-cli-output-contract", $"outside-target-root-{subcommand}");
         var repoRoot = scope.CreateDirectory("repo");
 
-        var result = await RunInstall(repoRoot, host: "openai", targetDir: outsideScope.FullPath);
+        var result = await RunScopedCommand(subcommand, repoRoot, host: "openai", scope: "project", targetDir: outsideScope.FullPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
-            command: UcliCommandNames.SkillsInstall,
+            command: expectedCommand,
             status: "error",
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PathUnsafeCode);
@@ -351,6 +396,40 @@ public sealed class SkillsCliOutputContractTests
                 .HasArrayLength("diagnostics", 1)
                 .HasProperty("diagnostics", 0, static diagnostic => diagnostic
                     .HasString("severity", "info")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsDoctor_WithDriftedTarget_ReturnsUnhealthyDiagnostics ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "doctor-drift");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+
+        using (var installJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(install.StdOut))
+        {
+            var targetRoot = installJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+            await File.AppendAllTextAsync(Path.Combine(targetRoot, ExpectedSkillNames[0], "SKILL.md"), "\nDrifted content.\n");
+        }
+
+        var doctor = await RunOpenAiDoctor(repoRoot);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(doctor.StdOut);
+        Assert.Equal((int)CliExitCode.ToolError, doctor.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.SkillsDoctor,
+            status: "error",
+            exitCode: (int)CliExitCode.ToolError);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetDigestMismatchCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasBoolean("isHealthy", false)
+                .HasProperty("diagnostics", 0, static diagnostic => diagnostic
+                    .HasString("severity", "error")
+                    .HasString("code", InstallTargetDigestMismatchCode)
+                    .HasString("skillName", ExpectedSkillNames[0])));
     }
 
     [Fact]
@@ -389,17 +468,38 @@ public sealed class SkillsCliOutputContractTests
         string host,
         string? targetDir)
     {
+        return RunScopedCommand(UcliCommandNames.InstallSubcommand, repoRoot, host, "project", targetDir);
+    }
+
+    private static Task<CommandExecutionResult> RunScopedCommand (
+        string subcommand,
+        string repoRoot,
+        string? host,
+        string? scope,
+        string? targetDir)
+    {
         var args = new List<string>
         {
             UcliCommandNames.Skills,
-            UcliCommandNames.InstallSubcommand,
-            "--host",
-            host,
-            "--scope",
-            "project",
+            subcommand,
+        };
+        if (host is not null)
+        {
+            args.Add("--host");
+            args.Add(host);
+        }
+
+        if (scope is not null)
+        {
+            args.Add("--scope");
+            args.Add(scope);
+        }
+
+        args.AddRange([
             "--repoRoot",
             repoRoot,
-        };
+        ]);
+
         if (targetDir is not null)
         {
             args.Add("--targetDir");
@@ -411,14 +511,35 @@ public sealed class SkillsCliOutputContractTests
 
     private static Task<CommandExecutionResult> RunOpenAiDoctor (string repoRoot)
     {
-        return CliProcessRunner.RunCommand(
-            UcliCommandNames.Skills,
-            UcliCommandNames.DoctorSubcommand,
-            "--host",
-            "openai",
-            "--scope",
-            "project",
-            "--repoRoot",
-            repoRoot);
+        return RunScopedCommand(UcliCommandNames.DoctorSubcommand, repoRoot, "openai", "project", targetDir: null);
+    }
+
+    private static string[] CreateRequiredHostScenarioArgs (
+        string subcommand,
+        string repoRoot,
+        string outputRoot)
+    {
+        return subcommand switch
+        {
+            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--output", outputRoot],
+            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
+            _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
+        };
+    }
+
+    private static string[] CreateUnsupportedHostScenarioArgs (
+        string subcommand,
+        string repoRoot,
+        string targetDir,
+        string outputRoot)
+    {
+        return subcommand switch
+        {
+            UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--output", outputRoot],
+            UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
+        };
     }
 }
