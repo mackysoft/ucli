@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
@@ -8,16 +10,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Represents one operation metadata definition. </summary>
     public class UcliOperationMetadata
     {
+        private readonly UcliOperationDescribeContract describeContract;
+
         /// <summary> Initializes a new instance of the <see cref="UcliOperationMetadata" /> class. </summary>
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
         /// <exception cref="ArgumentException"> Thrown when <paramref name="operationName" /> is invalid. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
-            OperationPolicy policy)
-            : this(operationName, kind, policy, "{\"type\":\"object\"}", requiresPreCallPlanReplay: false)
+            OperationPolicy policy,
+            UcliOperationDescribeContract describeContract)
+            : this(
+                operationName,
+                kind,
+                policy,
+                describeContract,
+                typeof(UcliEmptyArgs),
+                typeof(UcliNoResult),
+                requiresPreCallPlanReplay: false)
         {
         }
 
@@ -25,14 +38,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
-        /// <param name="argsSchemaJson"> The args-schema JSON object text. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
+        /// <param name="argsType"> The operation args contract type. </param>
+        /// <param name="resultType"> The operation result contract type. </param>
         /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when one contract type is <see langword="null" />. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy,
-            string argsSchemaJson)
-            : this(operationName, kind, policy, argsSchemaJson, requiresPreCallPlanReplay: false)
+            UcliOperationDescribeContract describeContract,
+            Type argsType,
+            Type resultType)
+            : this(operationName, kind, policy, describeContract, argsType, resultType, requiresPreCallPlanReplay: false)
         {
         }
 
@@ -40,14 +58,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
         /// <param name="policy"> The operation policy metadata. </param>
-        /// <param name="argsSchemaJson"> The args-schema JSON object text. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
+        /// <param name="argsType"> The operation args contract type. </param>
+        /// <param name="resultType"> The operation result contract type. </param>
         /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
         /// <exception cref="ArgumentException"> Thrown when one argument is invalid. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when one contract type is <see langword="null" />. </exception>
         public UcliOperationMetadata (
             string operationName,
             UcliOperationKind kind,
             OperationPolicy policy,
-            string argsSchemaJson,
+            UcliOperationDescribeContract describeContract,
+            Type argsType,
+            Type resultType,
             bool requiresPreCallPlanReplay)
         {
             if (string.IsNullOrWhiteSpace(operationName))
@@ -60,29 +83,104 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentException("Operation name must not contain leading or trailing whitespace.", nameof(operationName));
             }
 
+            if (argsType == null)
+            {
+                throw new ArgumentNullException(nameof(argsType));
+            }
+
+            if (resultType == null)
+            {
+                throw new ArgumentNullException(nameof(resultType));
+            }
+
+            if (describeContract == null)
+            {
+                throw new ArgumentNullException(nameof(describeContract));
+            }
+
+            if (!UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(argsType, out var reservedPropertyError))
+            {
+                throw new ArgumentException(reservedPropertyError, nameof(argsType));
+            }
+
+            var argsSchemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(argsType);
+            var resultSchemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(resultType);
+
             if (string.IsNullOrWhiteSpace(argsSchemaJson))
             {
                 throw new ArgumentException("Args schema JSON must not be null, empty, or whitespace.", nameof(argsSchemaJson));
             }
 
-            try
+            ValidateSchemaJson(argsSchemaJson, nameof(argsSchemaJson), "Args schema JSON");
+            if (resultSchemaJson != null)
             {
-                using var document = JsonDocument.Parse(argsSchemaJson);
-                if (document.RootElement.ValueKind != JsonValueKind.Object)
-                {
-                    throw new ArgumentException("Args schema JSON must be a JSON object.", nameof(argsSchemaJson));
-                }
+                ValidateSchemaJson(resultSchemaJson, nameof(resultSchemaJson), "Result schema JSON");
             }
-            catch (JsonException exception)
-            {
-                throw new ArgumentException($"Args schema JSON is invalid. {exception.Message}", nameof(argsSchemaJson), exception);
-            }
+
+            ValidateDescribeContract(describeContract, resultType);
+            var ownedDescribeContract = CopyDescribeContract(describeContract);
 
             OperationName = operationName;
             Kind = kind;
             Policy = policy;
+            this.describeContract = ownedDescribeContract;
+            ArgsType = argsType;
+            ResultType = resultType;
             ArgsSchemaJson = argsSchemaJson;
+            ResultSchemaJson = resultSchemaJson;
             RequiresPreCallPlanReplay = requiresPreCallPlanReplay;
+        }
+
+        /// <summary> Creates typed operation metadata from args and result contract types. </summary>
+        /// <typeparam name="TArgs"> The operation args contract type. </typeparam>
+        /// <typeparam name="TResult"> The operation result contract type. </typeparam>
+        /// <param name="operationName"> The operation name. </param>
+        /// <param name="kind"> The operation kind metadata. </param>
+        /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="describeContract"> The agent-facing operation describe contract. </param>
+        /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <returns> The created operation metadata. </returns>
+        public static UcliOperationMetadata Create<TArgs, TResult> (
+            string operationName,
+            UcliOperationKind kind,
+            OperationPolicy policy,
+            UcliOperationDescribeContract describeContract,
+            bool requiresPreCallPlanReplay = false)
+        {
+            return new UcliOperationMetadata(
+                operationName,
+                kind,
+                policy,
+                describeContract,
+                typeof(TArgs),
+                typeof(TResult),
+                requiresPreCallPlanReplay);
+        }
+
+        /// <summary> Creates typed operation metadata and derives the input contract from args attributes. </summary>
+        /// <typeparam name="TArgs"> The operation args contract type. </typeparam>
+        /// <typeparam name="TResult"> The operation result contract type. </typeparam>
+        /// <param name="operationName"> The operation name. </param>
+        /// <param name="kind"> The operation kind metadata. </param>
+        /// <param name="policy"> The operation policy metadata. </param>
+        /// <param name="description"> The operation purpose description. </param>
+        /// <param name="assurance"> The agent-facing assurance metadata. </param>
+        /// <param name="requiresPreCallPlanReplay"> Whether call execution must replay plan immediately beforehand. </param>
+        /// <returns> The created operation metadata. </returns>
+        public static UcliOperationMetadata Create<TArgs, TResult> (
+            string operationName,
+            UcliOperationKind kind,
+            OperationPolicy policy,
+            string description,
+            UcliOperationAssuranceContract assurance,
+            bool requiresPreCallPlanReplay = false)
+        {
+            return Create<TArgs, TResult>(
+                operationName,
+                kind,
+                policy,
+                UcliOperationDescribeContractBuilder.Create<TArgs, TResult>(description, assurance),
+                requiresPreCallPlanReplay);
         }
 
         /// <summary> Gets the registered operation name. </summary>
@@ -94,10 +192,221 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary> Gets the operation policy metadata. </summary>
         public OperationPolicy Policy { get; }
 
+        /// <summary> Gets the agent-facing operation describe contract. </summary>
+        public UcliOperationDescribeContract DescribeContract => CopyDescribeContract(describeContract);
+
+        /// <summary> Gets the operation args contract type. </summary>
+        public Type ArgsType { get; }
+
+        /// <summary> Gets the operation result contract type. </summary>
+        public Type ResultType { get; }
+
         /// <summary> Gets the args-schema JSON object text. </summary>
         public string ArgsSchemaJson { get; }
 
+        /// <summary> Gets the result-schema JSON object text, or <see langword="null" /> when no result payload is emitted. </summary>
+        public string? ResultSchemaJson { get; }
+
         /// <summary> Gets a value indicating whether call execution must replay plan immediately beforehand. </summary>
         public bool RequiresPreCallPlanReplay { get; }
+
+        private static void ValidateDescribeContract (
+            UcliOperationDescribeContract describeContract,
+            Type resultType)
+        {
+            if (string.IsNullOrWhiteSpace(describeContract.Description)
+                || describeContract.Inputs == null
+                || describeContract.ResultContract == null
+                || describeContract.Assurance == null)
+            {
+                throw new ArgumentException("Describe contract must include description, inputs, resultContract, and assurance.", nameof(describeContract));
+            }
+
+            if (describeContract.Assurance.SideEffects == null
+                || describeContract.Assurance.TouchedKinds == null
+                || string.IsNullOrWhiteSpace(describeContract.Assurance.PlanMode))
+            {
+                throw new ArgumentException("Describe contract assurance fields must be complete.", nameof(describeContract));
+            }
+
+            if (!UcliRequestLocalAliasDescribeContractValidator.TryValidatePublicRawOpInputs(describeContract.Inputs, out var describeInputError))
+            {
+                throw new ArgumentException(describeInputError, nameof(describeContract));
+            }
+
+            if (resultType == typeof(UcliNoResult))
+            {
+                ValidateNoResultContract(describeContract.ResultContract);
+                return;
+            }
+
+            ValidateEmittedResultContract(describeContract.ResultContract, resultType);
+        }
+
+        private static UcliOperationDescribeContract CopyDescribeContract (UcliOperationDescribeContract source)
+        {
+            return new UcliOperationDescribeContract(
+                source.Description,
+                CopyInputs(source.Inputs),
+                CopyResultContract(source.ResultContract),
+                CopyAssurance(source.Assurance));
+        }
+
+        private static IReadOnlyList<UcliOperationInputContract>? CopyInputs (IReadOnlyList<UcliOperationInputContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var inputs = new UcliOperationInputContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                inputs[i] = CopyInput(source[i]);
+            }
+
+            return inputs;
+        }
+
+        private static UcliOperationInputContract CopyInput (UcliOperationInputContract source)
+        {
+            return new UcliOperationInputContract(
+                source.Name,
+                source.ValueType,
+                source.Description,
+                CopyConstraints(source.Constraints),
+                source.ArgsPath,
+                CopyVariants(source.Variants));
+        }
+
+        private static IReadOnlyList<UcliOperationInputVariantContract>? CopyVariants (IReadOnlyList<UcliOperationInputVariantContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var variants = new UcliOperationInputVariantContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                variants[i] = new UcliOperationInputVariantContract(
+                    source[i].Name,
+                    source[i].Description,
+                    CopyStrings(source[i].ArgsPaths),
+                    CopyConstraints(source[i].Constraints));
+            }
+
+            return variants;
+        }
+
+        private static IReadOnlyList<UcliOperationInputConstraintContract>? CopyConstraints (IReadOnlyList<UcliOperationInputConstraintContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var constraints = new UcliOperationInputConstraintContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                constraints[i] = new UcliOperationInputConstraintContract(source[i].Kind)
+                {
+                    Access = source[i].Access,
+                    AssetKind = source[i].AssetKind,
+                    Max = source[i].Max,
+                    Min = source[i].Min,
+                    TargetKind = source[i].TargetKind,
+                    TypeKind = source[i].TypeKind,
+                };
+            }
+
+            return constraints;
+        }
+
+        private static UcliOperationResultContract? CopyResultContract (UcliOperationResultContract? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new UcliOperationResultContract(
+                source.Emitted,
+                source.ResultType,
+                source.Description);
+        }
+
+        private static UcliOperationAssuranceContract? CopyAssurance (UcliOperationAssuranceContract? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new UcliOperationAssuranceContract(
+                CopyStrings(source.SideEffects),
+                source.MayDirty,
+                source.MayPersist,
+                CopyStrings(source.TouchedKinds),
+                source.PlanMode);
+        }
+
+        private static IReadOnlyList<string>? CopyStrings (IReadOnlyList<string>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var values = new string[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                values[i] = source[i];
+            }
+
+            return values;
+        }
+
+        private static void ValidateNoResultContract (UcliOperationResultContract resultContract)
+        {
+            if (resultContract.Emitted
+                || !string.Equals(resultContract.ResultType, nameof(UcliNoResult), StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(resultContract.Description))
+            {
+                throw new ArgumentException("No-result operations must declare a matching resultContract.", nameof(resultContract));
+            }
+        }
+
+        private static void ValidateEmittedResultContract (
+            UcliOperationResultContract resultContract,
+            Type resultType)
+        {
+            if (!resultContract.Emitted
+                || string.IsNullOrWhiteSpace(resultContract.ResultType)
+                || !string.Equals(resultContract.ResultType, resultType.Name, StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(resultContract.Description))
+            {
+                throw new ArgumentException("Result-emitting operations must declare a matching resultContract.", nameof(resultContract));
+            }
+        }
+
+        private static void ValidateSchemaJson (
+            string schemaJson,
+            string parameterName,
+            string displayName)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(schemaJson);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    throw new ArgumentException($"{displayName} must be a JSON object.", parameterName);
+                }
+            }
+            catch (JsonException exception)
+            {
+                throw new ArgumentException($"{displayName} is invalid. {exception.Message}", parameterName, exception);
+            }
+        }
     }
 }

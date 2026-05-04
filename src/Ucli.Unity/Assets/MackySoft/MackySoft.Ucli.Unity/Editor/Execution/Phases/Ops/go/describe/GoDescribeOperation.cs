@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -11,56 +12,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.go.describe</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class GoDescribeOperation : IUcliOperation
+    internal sealed class GoDescribeOperation : UcliOperation<GoDescribeArgs, GameObjectDescriptionResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""target"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""prefab"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""scene"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""hierarchyPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""prefab"", ""hierarchyPath""] },
-                    { ""required"": [""scene"", ""hierarchyPath""] }
-                  ]
-                },
-                ""depth"": {
-                  ""type"": [""integer"", ""null""],
-                  ""minimum"": 0
-                }
-              },
-              ""required"": [""target""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<GoDescribeArgs, GameObjectDescriptionResult>(
             operationName: UcliPrimitiveOperationNames.GoDescribe,
             kind: UcliOperationKind.Query,
             policy: OperationPolicy.Safe,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Returns a GameObject description including components and child hierarchy.",
+            assurance: new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Scene, IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.ObservesLiveUnity));
 
         /// <summary> Executes validate phase for <c>ucli.go.describe</c>. </summary>
         /// <param name="operation"> The normalized operation. </param>
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            GoDescribeArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, executionContext, allowTemporaryState: true, out _, out var failure))
+            if (!TryValidateArguments(operation, args, executionContext, allowTemporaryState: true, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -73,13 +51,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            GoDescribeArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, executionContext, applied: false);
+            return Execute(operation, args, executionContext, applied: false);
         }
 
         /// <summary> Executes call phase for <c>ucli.go.describe</c>. </summary>
@@ -87,13 +66,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The per-request execution context shared by all operations. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The phase-step result. </returns>
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            GoDescribeArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Execute(operation, executionContext, applied: true);
+            return Execute(operation, args, executionContext, applied: true);
         }
 
         /// <summary> Executes the shared plan/call flow. </summary>
@@ -103,11 +83,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The phase-step result. </returns>
         private static Task<OperationPhaseStepResult> Execute (
             NormalizedOperation operation,
+            GoDescribeArgs args,
             OperationExecutionContext executionContext,
             bool applied)
         {
             if (!TryValidateArguments(
                 operation,
+                args,
                 executionContext,
                 allowTemporaryState: !applied,
                 out var validationState,
@@ -142,6 +124,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when validation succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            GoDescribeArgs args,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out ValidationState validationState,
@@ -149,18 +132,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!GoDescribeArgumentsCodec.TryParse(operation.Args, out var parsedArguments, out var parseErrorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var targetErrorMessage))
             {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, targetErrorMessage);
                 return false;
             }
 
             if (!GoOperationUtilities.TryResolveEditableGameObject(
-                parsedArguments.TargetReference,
+                targetReference,
                 executionContext,
                 allowTemporaryState,
                 out var targetResolution,
-                out var targetErrorMessage))
+                out targetErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, targetErrorMessage);
                 return false;
@@ -169,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = new ValidationState(
                 targetResolution.GameObject!,
                 targetResolution.Resource,
-                parsedArguments.Depth);
+                args.Depth);
             return true;
         }
 

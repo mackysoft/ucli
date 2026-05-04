@@ -57,6 +57,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
             Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Op));
             Assert.That(normalizedRequest.SourceSteps[0].OperationName, Is.EqualTo(UcliPrimitiveOperationNames.Resolve));
+            var (_, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
+            Assert.That(compiledOperations[0].AllowRequestLocalAliases, Is.False);
 
             var canonicalPayload = Encoding.UTF8.GetString(normalizedRequest.CanonicalDigestPayloadUtf8.ToArray());
             Assert.That(canonicalPayload, Does.Not.Contain("requestId"));

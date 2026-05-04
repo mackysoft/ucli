@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -11,72 +12,40 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.asset.set</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class AssetSetOperation : IUcliOperation
+    internal sealed class AssetSetOperation : UcliOperation<AssetSetArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""target"": {
-                  ""type"": ""object"",
-                  ""additionalProperties"": false,
-                  ""properties"": {
-                    ""var"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""globalObjectId"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""assetGuid"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""assetPath"": { ""type"": ""string"", ""minLength"": 1 },
-                    ""projectAssetPath"": { ""type"": ""string"", ""minLength"": 1 }
-                  },
-                  ""oneOf"": [
-                    { ""required"": [""var""] },
-                    { ""required"": [""globalObjectId""] },
-                    { ""required"": [""assetGuid""] },
-                    { ""required"": [""assetPath""] },
-                    { ""required"": [""projectAssetPath""] }
-                  ]
-                },
-                ""sets"": {
-                  ""type"": ""array"",
-                  ""minItems"": 1,
-                  ""items"": {
-                    ""type"": ""object"",
-                    ""additionalProperties"": false,
-                    ""properties"": {
-                      ""path"": { ""type"": ""string"", ""minLength"": 1 },
-                      ""value"": {}
-                    },
-                    ""required"": [""path"", ""value""]
-                  }
-                }
-              },
-              ""required"": [""target"", ""sets""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<AssetSetArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.AssetSet,
             kind: UcliOperationKind.Mutation,
             policy: OperationPolicy.Advanced,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Assigns serialized property values on an asset or project asset target.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.WritesAsset, UcliOperationSideEffect.WritesProjectSettings },
+                mayDirty: true,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Asset, IpcExecuteTouchedResourceKindNames.ProjectSettings },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(TryResolveValidateTarget(operation, executionContext, out _, out var failure)
+            return Task.FromResult(TryResolveValidateTarget(operation, args, executionContext, out _, out var failure)
                 ? OperationPhaseStepResult.Success(applied: false, changed: false)
                 : failure!);
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolvePlanBinding(operation, executionContext, out var binding, out var sets, out var failure))
+            if (!TryResolvePlanBinding(operation, args, executionContext, out var binding, out var sets, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -98,6 +67,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sets!,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
+                operation.AllowRequestLocalAliases,
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -136,13 +106,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }));
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryResolveCallBinding(operation, executionContext, out var binding, out var sets, out var failure))
+            if (!TryResolveCallBinding(operation, args, executionContext, out var binding, out var sets, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -164,6 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sets!,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
+                operation.AllowRequestLocalAliases,
                 out var changed,
                 out var applyErrorMessage))
             {
@@ -212,13 +184,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveValidateTarget (
             NormalizedOperation operation,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             out ValidatedTargetState validatedTargetState,
             out OperationPhaseStepResult? failure)
         {
             validatedTargetState = default;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -255,15 +228,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePlanBinding (
             NormalizedOperation operation,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             out TargetBinding binding,
-            out System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment>? sets,
+            out IReadOnlyList<SerializedPropertyAssignment>? sets,
             out OperationPhaseStepResult? failure)
         {
             binding = default;
             sets = null;
             failure = null;
-            if (!TryResolveValidateTarget(operation, executionContext, out var validatedTargetState, out failure))
+            if (!TryResolveValidateTarget(operation, args, executionContext, out var validatedTargetState, out failure))
             {
                 return false;
             }
@@ -299,15 +273,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveCallBinding (
             NormalizedOperation operation,
+            AssetSetArgs args,
             OperationExecutionContext executionContext,
             out TargetBinding binding,
-            out System.Collections.Generic.IReadOnlyList<SerializedPropertyAssignment>? sets,
+            out IReadOnlyList<SerializedPropertyAssignment>? sets,
             out OperationPhaseStepResult? failure)
         {
             binding = default;
             sets = null;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(operation.Args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

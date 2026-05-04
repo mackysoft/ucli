@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
@@ -29,7 +30,8 @@ public sealed class RefreshServiceTests
         Assert.NotNull(operationExecuteService.CapturedDefinition);
         Assert.Equal(UcliCommandIds.Refresh, operationExecuteService.CapturedDefinition!.Command);
         Assert.Equal("refresh", operationExecuteService.CapturedDefinition.OperationId);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh, operationExecuteService.CapturedDefinition.Descriptor.Name);
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, operationExecuteService.CapturedDefinition.Descriptor.Name);
+        Assert.Equal(UcliOperationKind.Command, operationExecuteService.CapturedDefinition.Descriptor.Kind);
         Assert.Equal(OperationPolicy.Advanced, operationExecuteService.CapturedDefinition.Descriptor.Policy);
         Assert.Equal(JsonValueKind.Object, operationExecuteService.CapturedDefinition.Args.ValueKind);
         Assert.NotNull(operationExecuteService.CapturedInput);

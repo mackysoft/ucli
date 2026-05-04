@@ -45,7 +45,8 @@ internal static class OperationDescriptorMapper
                 Name: operation.Name!,
                 Kind: kind,
                 Policy: policy,
-                ArgsSchemaJson: operation.ArgsSchemaJson!);
+                ArgsSchemaJson: operation.ArgsSchemaJson!,
+                ResultSchemaJson: operation.ResultSchemaJson);
         }
 
         return descriptors;

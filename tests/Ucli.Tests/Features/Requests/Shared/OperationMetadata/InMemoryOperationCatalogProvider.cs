@@ -1,4 +1,8 @@
+using System.Buffers;
+using System.Text;
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
@@ -15,388 +19,48 @@ namespace MackySoft.Ucli.Tests;
 
 internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvider
 {
-    private static readonly string AssetTargetArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "globalObjectId": { "type": "string", "minLength": 1 },
-            "assetGuid": { "type": "string", "minLength": 1 },
-            "assetPath": { "type": "string", "minLength": 1 },
-            "projectAssetPath": { "type": "string", "minLength": 1 }
-          },
-          "oneOf": [
-            { "required": ["globalObjectId"] },
-            { "required": ["assetGuid"] },
-            { "required": ["assetPath"] },
-            { "required": ["projectAssetPath"] }
-          ]
-        }
-        """;
-
-    private static readonly string GameObjectTargetArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "globalObjectId": { "type": "string", "minLength": 1 },
-            "scene": { "type": "string", "minLength": 1 },
-            "prefab": { "type": "string", "minLength": 1 },
-            "hierarchyPath": { "type": "string", "minLength": 1 }
-          },
-          "oneOf": [
-            { "required": ["globalObjectId"] },
-            { "required": ["scene", "hierarchyPath"] },
-            { "required": ["prefab", "hierarchyPath"] }
-          ]
-        }
-        """;
-
-    private static readonly string SceneGameObjectTargetArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "globalObjectId": { "type": "string", "minLength": 1 },
-            "scene": { "type": "string", "minLength": 1 },
-            "hierarchyPath": { "type": "string", "minLength": 1 }
-          },
-          "oneOf": [
-            { "required": ["globalObjectId"] },
-            { "required": ["scene", "hierarchyPath"] }
-          ]
-        }
-        """;
-
-    private static readonly string ComponentTargetArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "globalObjectId": { "type": "string", "minLength": 1 },
-            "scene": { "type": "string", "minLength": 1 },
-            "prefab": { "type": "string", "minLength": 1 },
-            "hierarchyPath": { "type": "string", "minLength": 1 },
-            "componentType": { "type": "string", "minLength": 1 }
-          },
-          "oneOf": [
-            { "required": ["globalObjectId"] },
-            { "required": ["scene", "hierarchyPath", "componentType"] },
-            { "required": ["prefab", "hierarchyPath", "componentType"] }
-          ]
-        }
-        """;
-
-    private const string ResolveArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "globalObjectId": { "type": "string", "minLength": 1 },
-            "assetGuid": { "type": "string", "minLength": 1 },
-            "assetPath": { "type": "string", "minLength": 1 },
-            "projectAssetPath": { "type": "string", "minLength": 1 },
-            "scene": { "type": "string", "minLength": 1 },
-            "prefab": { "type": "string", "minLength": 1 },
-            "hierarchyPath": { "type": "string", "minLength": 1 },
-            "componentType": { "type": "string", "minLength": 1 }
-          },
-          "oneOf": [
-            { "required": ["globalObjectId"] },
-            { "required": ["assetGuid"] },
-            { "required": ["assetPath"] },
-            { "required": ["projectAssetPath"] },
-            { "required": ["scene", "hierarchyPath"] },
-            { "required": ["prefab", "hierarchyPath"] }
-          ],
-          "allOf": [
-            {
-              "if": { "required": ["componentType"] },
-              "then": {
-                "oneOf": [
-                  { "required": ["scene", "hierarchyPath"] }
-                ]
-              }
-            }
-          ]
-        }
-        """;
-
-    private const string ScenePathArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "path": { "type": "string", "minLength": 1 }
-          },
-          "required": ["path"]
-        }
-        """;
-
-    private const string SceneTreeArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "path": { "type": "string", "minLength": 1 },
-            "depth": {
-              "type": ["integer", "null"],
-              "minimum": 0
-            }
-          },
-          "required": ["path"]
-        }
-        """;
-
-    private const string GoCreateArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "name": { "type": "string", "minLength": 1 },
-            "scene": { "type": "string", "minLength": 1 },
-            "parent": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "globalObjectId": { "type": "string", "minLength": 1 },
-                "scene": { "type": "string", "minLength": 1 },
-                "prefab": { "type": "string", "minLength": 1 },
-                "hierarchyPath": { "type": "string", "minLength": 1 }
-              },
-              "oneOf": [
-                { "required": ["globalObjectId"] },
-                { "required": ["scene", "hierarchyPath"] },
-                { "required": ["prefab", "hierarchyPath"] }
-              ]
-            }
-          },
-          "required": ["name"],
-          "oneOf": [
-            { "required": ["scene"] },
-            { "required": ["parent"] }
-          ]
-        }
-        """;
-
-    private const string GoDescribeArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "globalObjectId": { "type": "string", "minLength": 1 },
-                "prefab": { "type": "string", "minLength": 1 },
-                "scene": { "type": "string", "minLength": 1 },
-                "hierarchyPath": { "type": "string", "minLength": 1 }
-              },
-              "oneOf": [
-                { "required": ["globalObjectId"] },
-                { "required": ["prefab", "hierarchyPath"] },
-                { "required": ["scene", "hierarchyPath"] }
-              ]
-            },
-            "depth": {
-              "type": ["integer", "null"],
-              "minimum": 0
-            }
-          },
-          "required": ["target"]
-        }
-        """;
-
-    private const string SceneQueryArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "scene": { "type": "string", "minLength": 1 },
-            "pathPrefix": { "type": "string", "minLength": 1 },
-            "componentType": { "type": "string", "minLength": 1 }
-          },
-          "required": ["scene"]
-        }
-        """;
-
-    private static readonly string ComponentEnsureArgsSchemaJson = $$"""
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "target": {{GameObjectTargetArgsSchemaJson}},
-            "type": { "type": "string", "minLength": 1 }
-          },
-          "required": ["target", "type"]
-        }
-        """;
-
-    private static readonly string ComponentSetArgsSchemaJson = $$"""
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "target": {{ComponentTargetArgsSchemaJson}},
-            "sets": {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "path": { "type": "string", "minLength": 1 },
-                  "value": {}
-                },
-                "required": ["path", "value"]
-              }
-            }
-          },
-          "required": ["target", "sets"]
-        }
-        """;
-
-    private static readonly string GoDeleteArgsSchemaJson = $$"""
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "target": {{GameObjectTargetArgsSchemaJson}}
-          },
-          "required": ["target"]
-        }
-        """;
-
-    private static readonly string GoReparentArgsSchemaJson = $$"""
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "target": {{GameObjectTargetArgsSchemaJson}},
-            "parent": {{GameObjectTargetArgsSchemaJson}}
-          },
-          "required": ["target", "parent"]
-        }
-        """;
-
-    private const string AssetCreateArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "path": { "type": "string", "minLength": 1 },
-            "type": { "type": "string", "minLength": 1 }
-          },
-          "required": ["path", "type"]
-        }
-        """;
-
-    private const string AssetsFindArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "type": { "type": "string", "minLength": 1 },
-            "pathPrefix": { "type": "string", "minLength": 1 },
-            "nameContains": { "type": "string", "minLength": 1 }
-          },
-          "minProperties": 1
-        }
-        """;
-
-    private static readonly string AssetSchemaArgsSchemaJson = $$"""
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "type": { "type": "string", "minLength": 1 },
-            "target": {{AssetTargetArgsSchemaJson}}
-          },
-          "oneOf": [
-            { "required": ["type"] },
-            { "required": ["target"] }
-          ]
-        }
-        """;
-
-    private const string CompSchemaArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "type": { "type": "string", "minLength": 1 }
-          },
-          "required": ["type"]
-        }
-        """;
-
-    private static readonly string AssetSetArgsSchemaJson = $$"""
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "target": {{AssetTargetArgsSchemaJson}},
-            "sets": {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "path": { "type": "string", "minLength": 1 },
-                  "value": {}
-                },
-                "required": ["path", "value"]
-              }
-            }
-          },
-          "required": ["target", "sets"]
-        }
-        """;
-
-    private static readonly string PrefabCreateArgsSchemaJson = $$"""
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "target": {{SceneGameObjectTargetArgsSchemaJson}},
-            "path": { "type": "string", "minLength": 1 }
-          },
-          "required": ["target", "path"]
-        }
-        """;
-
-    private const string StrictEmptyObjectArgsSchemaJson = """
-        {
-          "type": "object",
-          "additionalProperties": false
-        }
-        """;
+    private static readonly string ResolveArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ResolveSelectorArgs));
+    private static readonly string ScenePathArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ScenePathArgs));
+    private static readonly string PrefabPathArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(PrefabPathArgs));
+    private static readonly string SceneTreeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(SceneTreeArgs));
+    private static readonly string GoCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoCreateArgs));
+    private static readonly string GoDescribeArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoDescribeArgs));
+    private static readonly string SceneQueryArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(SceneQueryArgs));
+    private static readonly string ComponentEnsureArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ComponentEnsureArgs));
+    private static readonly string ComponentSetArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ComponentSetArgs));
+    private static readonly string GoDeleteArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoTargetArgs));
+    private static readonly string GoReparentArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(GoReparentArgs));
+    private static readonly string AssetCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetCreateArgs));
+    private static readonly string AssetsFindArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetsFindArgs));
+    private static readonly string AssetSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSchemaArgs));
+    private static readonly string CompSchemaArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(ComponentTypeArgs));
+    private static readonly string AssetSetArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(AssetSetArgs));
+    private static readonly string PrefabCreateArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(PrefabCreateArgs));
+    private static readonly string StrictEmptyObjectArgsSchemaJson = CreatePublicArgsSchemaJson(typeof(UcliEmptyArgs));
 
     private static readonly IReadOnlyList<UcliOperationDescriptor> Operations =
     [
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetCreateArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind, UcliOperationKind.Query, OperationPolicy.Safe, AssetsFindArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSchema, UcliOperationKind.Query, OperationPolicy.Safe, AssetSchemaArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetSetArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompEnsure, UcliOperationKind.Mutation, OperationPolicy.Advanced, ComponentEnsureArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSchema, UcliOperationKind.Query, OperationPolicy.Safe, CompSchemaArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, ComponentSetArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ScenePathArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneQuery, UcliOperationKind.Query, OperationPolicy.Safe, SceneQueryArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneTree, UcliOperationKind.Query, OperationPolicy.Safe, SceneTreeArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, ScenePathArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, GoCreateArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDelete, UcliOperationKind.Mutation, OperationPolicy.Advanced, GoDeleteArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, UcliOperationKind.Query, OperationPolicy.Safe, GoDescribeArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoReparent, UcliOperationKind.Mutation, OperationPolicy.Advanced, GoReparentArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.PrefabCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, PrefabCreateArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.PrefabOpen, UcliOperationKind.Query, OperationPolicy.Safe, ScenePathArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.PrefabSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, ScenePathArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh, UcliOperationKind.Mutation, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
-        new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.Resolve, UcliOperationKind.Query, OperationPolicy.Safe, ResolveArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetCreateArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetsFind, UcliOperationKind.Query, OperationPolicy.Safe, AssetsFindArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetSchema, UcliOperationKind.Query, OperationPolicy.Safe, AssetSchemaArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.AssetSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, AssetSetArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.CompEnsure, UcliOperationKind.Mutation, OperationPolicy.Advanced, ComponentEnsureArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.CompSchema, UcliOperationKind.Query, OperationPolicy.Safe, CompSchemaArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.CompSet, UcliOperationKind.Mutation, OperationPolicy.Advanced, ComponentSetArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, ScenePathArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneQuery, UcliOperationKind.Query, OperationPolicy.Safe, SceneQueryArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneTree, UcliOperationKind.Query, OperationPolicy.Safe, SceneTreeArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, ScenePathArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.GoCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, GoCreateArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.GoDelete, UcliOperationKind.Mutation, OperationPolicy.Advanced, GoDeleteArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.GoDescribe, UcliOperationKind.Query, OperationPolicy.Safe, GoDescribeArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.GoReparent, UcliOperationKind.Mutation, OperationPolicy.Advanced, GoReparentArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabCreate, UcliOperationKind.Mutation, OperationPolicy.Advanced, PrefabCreateArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabOpen, UcliOperationKind.Command, OperationPolicy.Safe, PrefabPathArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.PrefabSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, PrefabPathArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.ProjectRefresh, UcliOperationKind.Command, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
+        new UcliOperationDescriptor(UcliPrimitiveOperationNames.ProjectSave, UcliOperationKind.Mutation, OperationPolicy.Advanced, StrictEmptyObjectArgsSchemaJson),
     ];
 
     public ValueTask<IReadOnlyList<UcliOperationDescriptor>> GetOperations (CancellationToken cancellationToken = default)
@@ -417,5 +81,61 @@ internal sealed class InMemoryOperationCatalogProvider : IOperationCatalogProvid
         ArgumentNullException.ThrowIfNull(config);
         cancellationToken.ThrowIfCancellationRequested();
         return ValueTask.FromResult(Operations);
+    }
+
+    private static string CreatePublicArgsSchemaJson (Type type)
+    {
+        using var document = JsonDocument.Parse(UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(type));
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            WritePublicSchema(document.RootElement, writer);
+        }
+
+        return Encoding.UTF8.GetString(buffer.WrittenSpan);
+    }
+
+    private static void WritePublicSchema (
+        JsonElement element,
+        Utf8JsonWriter writer)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                writer.WriteStartObject();
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (string.Equals(property.Name, UcliOperationContractPropertyNames.Alias, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    writer.WritePropertyName(property.Name);
+                    WritePublicSchema(property.Value, writer);
+                }
+
+                writer.WriteEndObject();
+                return;
+
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (var item in element.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String
+                        && string.Equals(item.GetString(), UcliOperationContractPropertyNames.Alias, StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    WritePublicSchema(item, writer);
+                }
+
+                writer.WriteEndArray();
+                return;
+
+            default:
+                element.WriteTo(writer);
+                return;
+        }
     }
 }
