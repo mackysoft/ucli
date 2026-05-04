@@ -143,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void UcliOperationMetadata_WhenDescribeVariantUsesRequestLocalAliasArgsPath_ThrowsArgumentException ()
+        public void UcliOperationMetadata_WhenDescribeVariantFieldUsesRequestLocalAliasArgsPath_ThrowsArgumentException ()
         {
             Assert.Throws<ArgumentException>(() =>
             {
@@ -165,8 +165,14 @@ namespace MackySoft.Ucli.Unity.Tests
                                     new UcliOperationInputVariantContract(
                                         "byAlias",
                                         "Use request-local alias.",
-                                        new[] { "$.target.var" },
-                                        Array.Empty<UcliOperationInputConstraintContract>()),
+                                        new[]
+                                        {
+                                            new UcliOperationInputVariantFieldContract(
+                                                "var",
+                                                "$.target.var",
+                                                "Request-local alias.",
+                                                Array.Empty<UcliOperationInputConstraintContract>()),
+                                        }),
                                 }),
                         },
                         UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
@@ -183,11 +189,24 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void UcliOperationMetadata_WhenDescribeContractIsMutatedAfterCreation_DoesNotExposeMutation ()
         {
+            var fieldConstraint = new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.GlobalObjectId);
+            var variantField = new UcliOperationInputVariantFieldContract(
+                "globalObjectId",
+                "$.target.globalObjectId",
+                "Resolved Unity GlobalObjectId.",
+                new[] { fieldConstraint });
             var input = new UcliOperationInputContract(
-                "path",
-                "string",
-                "Project-relative path.",
-                Array.Empty<UcliOperationInputConstraintContract>());
+                "target",
+                "object",
+                "Target reference.",
+                Array.Empty<UcliOperationInputConstraintContract>(),
+                variants: new[]
+                {
+                    new UcliOperationInputVariantContract(
+                        "byGlobalObjectId",
+                        "Use an exact Unity GlobalObjectId.",
+                        new[] { variantField }),
+                });
             var describeContract = new UcliOperationDescribeContract(
                 "Defensive copy operation.",
                 new[] { input },
@@ -206,9 +225,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 describeContract: describeContract);
 
             input.ArgsPath = "$.target.var";
+            variantField.ArgsPath = "$.target.var";
+            fieldConstraint.Kind = UcliOperationInputConstraintKindValues.HierarchyPath;
             metadata.DescribeContract.Inputs![0].ArgsPath = "$.target.var";
+            metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].ArgsPath = "$.target.var";
+            metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind = UcliOperationInputConstraintKindValues.HierarchyPath;
 
             Assert.That(metadata.DescribeContract.Inputs![0].ArgsPath, Is.Null);
+            Assert.That(metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].ArgsPath, Is.EqualTo("$.target.globalObjectId"));
+            Assert.That(metadata.DescribeContract.Inputs![0].Variants![0].Fields![0].Constraints![0].Kind, Is.EqualTo(UcliOperationInputConstraintKindValues.GlobalObjectId));
         }
 
         [Test]
@@ -426,7 +451,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
                 AssertContainsNoVarBranch(schemaDocument.RootElement);
-                AssertContainsNoVarVariantArgsPath(snapshot.Catalog.Operations[i].Inputs);
+                AssertContainsNoVarVariantField(snapshot.Catalog.Operations[i].Inputs);
             }
         }
 
@@ -728,7 +753,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static void AssertContainsNoVarVariantArgsPath (IReadOnlyList<UcliOperationInputContract>? inputs)
+        private static void AssertContainsNoVarVariantField (IReadOnlyList<UcliOperationInputContract>? inputs)
         {
             if (inputs == null)
             {
@@ -745,15 +770,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 for (var variantIndex = 0; variantIndex < variants.Count; variantIndex++)
                 {
-                    var argsPaths = variants[variantIndex].ArgsPaths;
-                    if (argsPaths == null)
+                    var fields = variants[variantIndex].Fields;
+                    if (fields == null)
                     {
                         continue;
                     }
 
-                    for (var pathIndex = 0; pathIndex < argsPaths.Count; pathIndex++)
+                    for (var fieldIndex = 0; fieldIndex < fields.Count; fieldIndex++)
                     {
-                        Assert.That(argsPaths[pathIndex], Does.Not.EndWith(".var"));
+                        Assert.That(fields[fieldIndex].Name, Is.Not.EqualTo("var"));
+                        Assert.That(fields[fieldIndex].ArgsPath, Does.Not.EndWith(".var"));
                     }
                 }
             }

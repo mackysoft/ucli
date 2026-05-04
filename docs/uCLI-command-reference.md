@@ -25,7 +25,7 @@
 - `ucli ops`
   - `list` は利用可能なオペレーション一覧を返す。
   - `describe <opName>` は特定オペレーションの agent 向け contract と検証用 schema を返す。
-  - `description` / `inputs[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
+  - `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` は operation 選択、入力構築、結果解釈の主契約である。
   - `argsSchema` / `resultSchema` は Args/Result contract 型から生成された JSON Schema であり、`steps[].args` と `opResults[].result` の JSON 構造検証だけに使う。
   - `--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
   - `--failFast` は live source fallback に対してのみ適用し、readIndex hit では Unity 接続も readiness wait も行わない。
@@ -37,6 +37,7 @@
   - redirected `stdin` から JSON リクエストを読み、snapshot lint を返す。
   - `--projectPath <string?>` と `--readIndexMode <disabled|allowStale|requireFresh>` を受け付ける。
   - `--mode` / `--timeout` は受け付けず、Unity IPC に接続しない。
+  - Play Mode 変更の runtime 条件、対象 live object、Prefab instance lineage、request-attributed property path は保証しない。これらは `plan --allowPlayMode` で検証する。
   - 成功時 payload は `readIndex` のみを返す。
   - `allowStale` では snapshot 欠落時に syntax-only へ縮退し、`requireFresh` では `READ_INDEX_BOOTSTRAP_FAILED` / `READ_INDEX_FORMAT_INVALID` / `READ_INDEX_FRESH_REQUIRED` を返す。
 - `ucli resolve`
@@ -52,12 +53,13 @@
   - 成功時 payload は `requestId`、`opResults`、`readIndex` を返す。
 - `ucli plan`
   - redirected `stdin` から JSON リクエストを読み、static preflight 後に Unity IPC `plan` を実行する。
-  - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--failFast` を受け付ける。
+  - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--readIndexMode <disabled|allowStale|requireFresh>`、`--allowPlayMode`、`--failFast` を受け付ける。
   - 成功時 payload は `requestId`、`opResults`、`readIndex`、`planToken` を返す。
   - `allowStale` では snapshot 欠落時に syntax-only へ縮退して継続し、`requireFresh` では snapshot 欠落・破損・非 fresh で失敗する。
+  - `--allowPlayMode` と明示 `--readIndexMode` の併用は `INVALID_ARGUMENT` とし、`--readIndexMode` 未指定時だけ実効 readIndex mode を `disabled` とする。
 - `ucli call`
   - redirected `stdin` から JSON リクエストを読み、static preflight 後に Unity IPC `call` を実行する。
-  - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--planToken <string?>`、`--withPlan`、`--allowDangerous`、`--failFast` を受け付ける。
+  - `--projectPath <string?>`、`--mode <auto|daemon|oneshot>`、`--timeout <int>`、`--planToken <string?>`、`--withPlan`、`--allowDangerous`、`--allowPlayMode`、`--failFast` を受け付ける。
   - `--readIndexMode` は受け付けない。
   - 成功時 payload は `requestId`、`opResults`、必要時のみ `plan` を返す。
 
@@ -73,7 +75,8 @@
 - `domainReloading` は AppDomain reload を跨いで要求を再開しないため、既定でも待機せず `EDITOR_DOMAIN_RELOADING` を返す。
 - `--failFast` 指定時だけ `lifecycleState != ready` を即時エラーとして返す。
 - `blockedByModal`, `safeMode`, `playmode`, `shuttingDown` は待機中でも即時失敗する。
-- current batchmode daemon が実際に観測・返却する非 ready 状態は `starting`, `busy`, `compiling`, `domainReloading`, `playmode`, `shuttingDown`。`blockedByModal` と `safeMode` は reserved literal だが batchmode ではまだ返さない。
+- `--allowPlayMode` 付きの `ucli plan` / `ucli call` は、GUI Editor session の `playmode` に限り Play Mode 変更として実行できる。この option は mutation request 用の明示ガードであり、`query` / `resolve` / `validate` / `ops` には適用しない。
+- batchmode Editor session が観測・返却する非 ready 状態は `starting`, `busy`, `compiling`, `domainReloading`, `playmode`, `shuttingDown`。GUI Editor session は `blockedByModal` と `safeMode` も返す。
 - 待機は既存の `--timeout` budget を消費し、budget を使い切った場合は `IPC_TIMEOUT` を返す。
 - `ucli ops list` / `ucli ops describe` では live source fallback に対してのみ意味を持つ。readIndex hit では readiness wait を行わない。
 - `ucli query assets find` / `ucli query scene tree` では readIndex hit 時に Unity 接続も readiness wait も行わない。live source fallback または Unity 専用 query では `--failFast` を IPC に渡す。
@@ -89,6 +92,12 @@
   - `EDITOR_MODAL_BLOCKED`
   - `EDITOR_SAFE_MODE`
   - `EDITOR_SHUTTING_DOWN`
+- Play Mode 変更専用エラー
+  - `PLAYMODE_NOT_ACTIVE`
+  - `PLAYMODE_REQUIRES_GUI_EDITOR`
+  - `PLAYMODE_PERSISTENCE_FORBIDDEN`
+- daemon Editor mode エラー
+  - `DAEMON_EDITOR_MODE_MISMATCH`
 - timeout
   - 既定待機の timeout も既存の `IPC_TIMEOUT` を使用する。
 
@@ -100,6 +109,41 @@
 | --- | --- | --- |
 | `--projectPath <string?>` | `-p` | 対象Unity project root path |
 | `--timeout <int?>` | - | IPC待機タイムアウト（ミリ秒）。`1..2147483647` |
+
+### `daemon start` options
+| Option | Short | Description |
+| --- | --- | --- |
+| `--editorMode <string?>` | - | `batchmode` or `gui`。未指定時は既存 running session、対象 project の既存 GUI Editor、batchmode 起動の順に選ぶ |
+
+### `daemon start` Editor mode 契約
+- `--editorMode=batchmode` は Unity を `-batchmode -nographics` で起動する。
+- `--editorMode=gui` は既に開かれている対象 project の GUI Editor endpoint へ接続し、endpoint が未登録なら同じ GUI process の session 登録完了まで待機する。対象 GUI Editor が存在しない場合だけ GUI Editor を起動する。
+- 既存 GUI Editor に接続した session は `ownerKind=user`、`canShutdownProcess=false` とする。CLI が新規起動した GUI Editor は `ownerKind=cli` とし、process 終了まで管理できる場合だけ `canShutdownProcess=true` とする。
+- `--editorMode` 未指定時は既存 running session の editorMode を優先し、session が無くても対象 project の GUI Editor process を検出できる場合は GUI Editor session として接続待ちする。どちらも無い場合だけ `batchmode` を起動する。
+- 明示した `--editorMode` と既存 running session または検出済み GUI Editor process の editorMode が一致しない場合は `DAEMON_EDITOR_MODE_MISMATCH` を返す。
+- `daemon start` の成功は endpoint と session の登録完了を意味し、`lifecycleState=ready` を保証しない。成功 payload は `lifecycleState`、`canAcceptExecutionRequests`、`blockingReason` の snapshot を返す。
+- `daemon stop` は `session.canShutdownProcess=false` の GUI Editor session では Unity process を終了せず、endpoint / session 登録と session token を無効化する。
+
+### `daemon start` Unity Editor 解決
+- `daemon start` が Unity process を新規起動する場合、`--editorMode=batchmode` / `--editorMode=gui` のどちらでも同じ Unity Editor path resolver を使う。
+- Editor executable は `ProjectSettings/ProjectVersion.txt` の `m_EditorVersion` から Unity version を解決し、既定の Unity install search roots で一致する Editor を探索する。
+- Editor executable を解決できない場合は `INVALID_ARGUMENT` を返す。
+- 既存 GUI Editor へ attach する場合は Editor path resolver を使わない。対象 process の同一性は session probe、`Library/EditorInstance.json`、`projectFingerprint` で確定する。
+
+### 既存 GUI Editor 検出
+- まず `<repoRoot>/.ucli/local/fingerprints/<projectFingerprint>/session.json` の valid GUI session を probe し、到達でき、probe 応答の `projectFingerprint` が対象 project と一致すれば既存 GUI Editor session として扱う。
+- valid session が無い、または stale の場合、対象 project の `Library/EditorInstance.json` を読み、記録された process が生存し、同一ユーザーの Unity GUI Editor process であることを確認する。
+- `Library/EditorInstance.json` から契約上必ず読む値は `process_id` のみとする。`version` / `app_path` / `app_contents_path` 等は存在する場合だけ診断と process 検証の補助に使い、project 同一性は marker の path と endpoint probe の `projectFingerprint` で確定する。記録された process の開始時刻が marker 更新時刻より新しい場合は PID reuse の疑いがある stale marker として扱う。
+- `Library/EditorInstance.json` で GUI Editor process を検出したが uCLI endpoint が未登録の場合、同じ process の session 登録完了まで `--timeout` budget 内で待機する。
+- 別 worktree の同じ相対 path にある Unity project は別 `projectFingerprint` になり、既存 GUI 検出では解決済み対象 project root 配下の `Library/EditorInstance.json` だけを読む。
+- process 名、Unity version、最近開いた project 履歴だけを根拠に attach しない。
+- `--editorMode=gui` で既存 GUI Editor process を検出した場合は新しい GUI Editor を起動しない。endpoint 登録が timeout まで完了しなければ `IPC_TIMEOUT` と `reason=guiEndpointNotRegistered` の診断情報を返す。診断情報には `Library/EditorInstance.json` の path と process ID を含める。
+- `--editorMode=batchmode` で既存 GUI Editor process を検出した場合は `DAEMON_EDITOR_MODE_MISMATCH` を返す。
+
+### GUI session 保証境界
+- GUI Editor session は uCLI 同士の single-writer 排他に参加するが、同じ GUI Editor 内の手動操作は排他できない。
+- `query` / `resolve` / `plan` は selection、active Scene、Prefab Stage、dirty state、Undo stack に観測由来の変更を残してはならない。
+- 観測由来の Editor state を復元できない場合、その `query` / `resolve` / `plan` は成功として扱わない。
 
 ### `daemon` 出力契約（共通）
 - `ucli daemon` は共通エンベロープを返す。
@@ -117,8 +161,13 @@
 - `INVALID_ARGUMENT`
   - `--timeout` が空文字、空白、非数値、`0` 以下
   - `--projectPath` が Unity プロジェクトとして解決不能
+  - `--editorMode` が `batchmode` / `gui` 以外
+  - 新規 Unity process 起動時に Editor executable を解決できない
   - `ucli daemon list` の対象 project が Git worktree 配下にない
+- `DAEMON_EDITOR_MODE_MISMATCH`
+  - running session または検出済み GUI Editor process の `editorMode` と `daemon start --editorMode` の明示値が一致しない
 - `IPC_TIMEOUT`
+  - `daemon start --editorMode=gui` で検出済み GUI Editor process の endpoint 登録が timeout まで完了しなかった
   - `ucli daemon cleanup` が project lifecycle lock 待機中、または安全判定用 probe 開始前に timeout budget を使い切った
   - `daemon list` 全体の共有 timeout budget が Git worktree 列挙の完了前に尽きた
   - item 単位の probe が共有 budget 消費前に individual timeout として失敗した場合は、コマンド全体は成功のまま `items[*].reason = probeTimeout` を返す
@@ -130,6 +179,7 @@
 ### `daemon` 実行例
 ```bash
 ucli daemon start --projectPath ./UnityProject
+ucli daemon start --projectPath ./UnityProject --editorMode gui
 ucli daemon stop --projectPath ./UnityProject --timeout 5000
 ucli daemon cleanup --projectPath ./UnityProject
 ucli daemon status --projectPath ./UnityProject
@@ -318,6 +368,7 @@ CLI は JSON リクエストを redirected `stdin` から読み、static preflig
 | `--mode <string?>` | - | `auto` (default), `daemon`, or `oneshot` |
 | `--timeout <int?>` | - | IPC待機タイムアウト（ミリ秒）。`1..2147483647` |
 | `--readIndexMode <string?>` | - | `disabled`, `allowStale`, or `requireFresh` |
+| `--allowPlayMode` | - | GUI Editor session の Play Mode 中に変更 plan を許可する |
 | `--failFast` | - | `ready` になる前なら待機せず即失敗する |
 
 ### `plan` 実行契約
@@ -327,7 +378,20 @@ CLI は JSON リクエストを redirected `stdin` から読み、static preflig
 - `--readIndexMode=disabled` は validate と同じ syntax-only preflight に縮退し、`payload.readIndex` は `used=false`、`hit=false`、`source=index`、`freshness=probable`、`fallbackReason="readIndex disabled by mode."` を返す。
 - `--readIndexMode=allowStale` は snapshot 欠落時に syntax-only preflight へ縮退し、Unity IPC `plan` を継続する。
 - `--readIndexMode=requireFresh` は snapshot 欠落・破損・非 fresh なら Unity IPC 前に失敗する。
+- `--allowPlayMode` と明示 `--readIndexMode` の併用は `INVALID_ARGUMENT` とし、`--readIndexMode` 未指定時だけ実効 readIndex mode を `disabled` とする。
 - Unity へ送る execute request は `command=plan` とし、`IpcExecuteRequest.FailFast` に `--failFast` をそのまま写像する。request 側の `planToken` は常に送らない。
+- `--allowPlayMode` 指定時だけ、GUI Editor session かつ `lifecycleState=playmode` の Play Mode 変更 plan を許可する。
+- Play Mode 変更 plan は `kind:"edit"` と `on.scene` / `on.prefab` / `on.asset` / `on.project` の step だけを受け付ける。Scene context は `commit:"none"` のみ許可し、Scene asset へ保存しない。Scene context の `commit:"none"` は Scene 保存を行わない指定であり、`applyPrefabOverrides` による対象 Prefab asset 保存とは矛盾しない。Prefab / asset / project context は通常の `edit` と同じ commit 契約で扱う。`commit:"project"` は project-wide save であるため Play Mode 変更では拒否する。
+- Scene context の Prefab instance override を Prefab asset へ反映する場合は、`applyPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` action を明示する。Prefab asset 値へ戻す場合は `revertPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` action を明示する。
+- `applyPrefabOverrides` は Scene context から明示 Prefab asset へ保存する secondary persistence action であり、Scene asset は保存しない。
+- `applyPrefabOverrides` / `revertPrefabOverrides` の `targetAssetPath` は既存の `Assets/.../*.prefab` で、current target の Prefab instance lineage / valid target chain に含まれる必要がある。
+- `applyPrefabOverrides` / `revertPrefabOverrides` は、同一 edit step / 同一 current target の先行 `set` が effective changed にした exact property path だけを対象にする。`propertyPaths` 省略時は対象 path 全部、指定時は subset だけを許可する。`propertyPaths: []`、重複 path、先行 `set` に由来しない path、effective changed でない path、parent path 指定による child property 対象化は `INVALID_ARGUMENT` で拒否する。
+- 同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外にする。
+- `revertPrefabOverrides` は同一 step の先行 `set` に由来する request-attributed override だけを Prefab asset 値へ戻し、pre-request 時点ですでに存在した override は拒否する。`applyPrefabOverrides` は pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する。
+- apply / revert は全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用せず、Unity API 実行後に失敗した場合は失敗診断を返し、成功扱いの `touched` / `readPostcondition` は返さない。
+- Play Mode 変更では raw `kind:"op"` を許可せず、Prefab apply / revert primitive は `edit` lowering から発生した場合だけ許可する。
+- Play Mode 変更の Prefab context は opened stage を要求せず、runtime が対象 Prefab asset を編集用 context として開ける。
+- Play Mode 変更 plan は Play Mode の live object を正本とし、readIndex を対象解決や scene / prefab / asset / project 観測に使わない。`--readIndexMode` 未指定時の `payload.readIndex` は `used=false`、`source=unity`、`fallbackReason="Play Mode mutation uses live Unity state."` を返す。
 - `--mode` / `--timeout` が不正な場合でも、request parse と static preflight が完了していれば失敗 payload に `requestId` と `readIndex` を残す。
 
 ### `plan` のレスポンス契約
@@ -353,6 +417,8 @@ JSON
 ucli plan --projectPath ./UnityProject --mode daemon --failFast <<'JSON'
 {"steps":[]}
 JSON
+
+ucli plan --projectPath ./UnityProject --mode daemon --allowPlayMode < playmode-mutation.json
 ```
 
 ## `ucli call`
@@ -367,6 +433,7 @@ JSON
 | `--planToken <string?>` | - | 既存 `plan` 実行で取得した plan token |
 | `--withPlan` | - | `call` 前に CLI が `plan` を実行し、その結果を `payload.plan` に同梱する |
 | `--allowDangerous` | - | `dangerous` operation の実行を明示許可する |
+| `--allowPlayMode` | - | GUI Editor session の Play Mode 中に変更 call を許可する |
 | `--failFast` | - | `ready` になる前なら待機せず即失敗する |
 
 ### `call` 実行契約
@@ -379,12 +446,25 @@ JSON
 - `--planToken` 未指定で `--withPlan` が plan token を発行した場合、CLI はその token を後続の `call` request に転送する。
 - `--planToken` 指定時はユーザー指定値を優先し、`payload.plan` は表示用としてのみ保持する。
 - `call` 全体の timeout budget は 1 本であり、`--withPlan` 時は pre-plan と call で残り時間を順に消費する。
+- `--allowPlayMode` 指定時だけ、GUI Editor session かつ `lifecycleState=playmode` の Play Mode 変更 call を許可する。
+- Play Mode 変更 call は `kind:"edit"` と `on.scene` / `on.prefab` / `on.asset` / `on.project` の step だけを受け付ける。Scene context は `commit:"none"` のみ許可し、Scene asset へ保存しない。Scene context の `commit:"none"` は Scene 保存を行わない指定であり、`applyPrefabOverrides` による対象 Prefab asset 保存とは矛盾しない。Prefab / asset / project context は通常の `edit` と同じ commit 契約で扱い、明示 `commit` に従って保存できる。`commit:"project"` は project-wide save であるため Play Mode 変更では拒否する。
+- Scene context の Prefab instance override を Prefab asset へ反映する場合は、`applyPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` action を明示する。Prefab asset 値へ戻す場合は `revertPrefabOverrides(targetAssetPath:"...", propertyPaths:[...])` action を明示する。
+- `applyPrefabOverrides` は Scene context から明示 Prefab asset へ保存する secondary persistence action であり、Scene asset は保存しない。
+- `applyPrefabOverrides` / `revertPrefabOverrides` の `targetAssetPath` は既存の `Assets/.../*.prefab` で、current target の Prefab instance lineage / valid target chain に含まれる必要がある。
+- `applyPrefabOverrides` / `revertPrefabOverrides` は、同一 edit step / 同一 current target の先行 `set` が effective changed にした exact property path だけを対象にする。`propertyPaths` 省略時は対象 path 全部、指定時は subset だけを許可する。`propertyPaths: []`、重複 path、先行 `set` に由来しない path、effective changed でない path、parent path 指定による child property 対象化は `INVALID_ARGUMENT` で拒否する。
+- 同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外にする。
+- `revertPrefabOverrides` は同一 step の先行 `set` に由来する request-attributed override だけを Prefab asset 値へ戻し、pre-request 時点ですでに存在した override は拒否する。`applyPrefabOverrides` は pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する。
+- apply / revert は全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用せず、Unity API 実行後に失敗した場合は失敗診断を返し、成功扱いの `touched` / `readPostcondition` は返さない。
+- Play Mode 変更では raw `kind:"op"` を許可せず、Prefab apply / revert primitive は `edit` lowering から発生した場合だけ許可する。
+- Play Mode 変更の Prefab context は opened stage を要求せず、runtime が対象 Prefab asset を編集用 context として開ける。Prefab / asset / project の保存は対象永続化単位に限定し、open Scene を巻き込む一括 project save は使わない。
+- Play Mode 変更 call は Play Mode の live object を正本とし、readIndex を対象解決や scene / prefab / asset / project 観測に使わない。
 
 ### `call` のレスポンス契約
 - 出力は共通の `CommandResult` エンベロープを返す。
 - 成功時 payload は `requestId`、`opResults`、必要時のみ `plan` を返す。
 - `payload.plan` は `requestId`、`opResults`、必要時のみ `planToken` を返す。
 - `payload.readIndex` は返さない。
+- Scene context の Play Mode 変更成功時、Prefab apply / revert を含まない場合の `opResults[].touched` は空配列になり、`readPostcondition` は返さない。`applyPrefabOverrides` で Prefab asset へ反映した場合は、その Prefab asset を `touched` に返し、必要な `readPostcondition` を返す。`revertPrefabOverrides` は Scene live object だけを戻すため、`touched` は空配列、`readPostcondition` は返さない。Prefab / asset / project context の保存を伴う Play Mode 変更は、通常の永続化変更と同じく保存した永続化単位を `touched` に返し、必要な `readPostcondition` を返す。
 - request parse / project 解決より前で失敗した場合は空 payload を返す。
 - preflight 以降で失敗した場合は `payload.requestId` を返し、`payload.opResults` は `[]` または Unity 応答の部分結果を返す。
 - `--withPlan` の pre-plan が成功済みで、その後の `call` が失敗した場合でも `payload.plan` は保持する。
@@ -405,11 +485,13 @@ JSON
 ucli call --projectPath ./UnityProject --withPlan --allowDangerous --mode daemon --failFast <<'JSON'
 {"steps":[]}
 JSON
+
+ucli call --projectPath ./UnityProject --mode daemon --allowPlayMode < playmode-mutation.json
 ```
 
 ## `ucli refresh`
 `ucli refresh` は独立コマンドであり、未公開の request 系 CLI surface の別名ではない。  
-CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity 側の既存 `ucli.project.refresh` 実装へ流す。
+CLI は内部で固定の標準 `execute` リクエストを組み立て、Unity 側の既存 `ucli.project.refresh` に流す。`ucli.project.refresh` は `command` kind の標準 operation として扱う。
 
 ### `refresh` options
 | Option | Short | Description |

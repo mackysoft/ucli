@@ -69,7 +69,7 @@ internal static class IndexCatalogContractValidator
             || string.IsNullOrWhiteSpace(entry.Name)
             || !UcliOperationKindCodec.TryParse(entry.Kind, out _)
             || !OperationPolicyCodec.TryParse(entry.Policy, out _)
-            || !IsValidSchemaObject(entry.ArgsSchemaJson)
+            || !IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(entry.ArgsSchemaJson)
             || !IsValidOptionalSchemaObject(entry.ResultSchemaJson)
             || !TryValidateOpsDescribeContract(entry, out error))
         {
@@ -85,195 +85,19 @@ internal static class IndexCatalogContractValidator
         IndexOpEntryJsonContract entry,
         out string? error)
     {
-        if (string.IsNullOrWhiteSpace(entry.Description))
+        var describeContract = new UcliOperationDescribeContract(
+            entry.Description,
+            entry.Inputs,
+            entry.ResultContract,
+            entry.Assurance);
+        if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describeContract, $"Operation entry '{entry.Name}'", out var inputError))
         {
-            error = $"Operation entry '{entry.Name}' is missing description.";
+            error = inputError;
             return false;
         }
 
-        if (!TryValidateOperationInputs(entry.Inputs, entry.Name!, out error)
-            || !TryValidateOperationResultContract(entry, out error)
-            || !TryValidateOperationAssurance(entry.Assurance, entry.Name!, out error))
+        if (!TryValidateOperationResultSchema(entry, out error))
         {
-            return false;
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateOperationInputs (
-        IReadOnlyList<UcliOperationInputContract>? inputs,
-        string operationName,
-        out string? error)
-    {
-        if (inputs == null)
-        {
-            error = $"Operation entry '{operationName}' is missing inputs.";
-            return false;
-        }
-
-        var inputNames = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < inputs.Count; i++)
-        {
-            var input = inputs[i];
-            if (input == null
-                || string.IsNullOrWhiteSpace(input.Name)
-                || string.IsNullOrWhiteSpace(input.Description)
-                || !IsSupportedInputValueType(input.ValueType)
-                || (input.ArgsPath != null && !IsValidInputArgsPath(input.ArgsPath))
-                || input.Constraints == null
-                || !inputNames.Add(input.Name))
-            {
-                error = $"Operation entry '{operationName}' has an invalid input at index {i}.";
-                return false;
-            }
-
-            if (!TryValidateInputConstraints(input.Constraints, operationName, out error)
-                || !TryValidateInputVariants(
-                    input.Variants,
-                    operationName,
-                    input.ArgsPath ?? ("$." + input.Name),
-                    out error))
-            {
-                return false;
-            }
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateInputVariants (
-        IReadOnlyList<UcliOperationInputVariantContract>? variants,
-        string operationName,
-        string inputArgsPath,
-        out string? error)
-    {
-        if (variants == null)
-        {
-            error = null;
-            return true;
-        }
-
-        var variantNames = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < variants.Count; i++)
-        {
-            var variant = variants[i];
-            if (variant == null
-                || string.IsNullOrWhiteSpace(variant.Name)
-                || string.IsNullOrWhiteSpace(variant.Description)
-                || variant.ArgsPaths == null
-                || variant.ArgsPaths.Count == 0
-                || variant.Constraints == null
-                || !variantNames.Add(variant.Name))
-            {
-                error = $"Operation entry '{operationName}' has an invalid input variant at index {i}.";
-                return false;
-            }
-
-            for (var pathIndex = 0; pathIndex < variant.ArgsPaths.Count; pathIndex++)
-            {
-                if (!IsValidArgsPath(variant.ArgsPaths[pathIndex])
-                    || !IsVariantArgsPathWithinInput(variant.ArgsPaths[pathIndex], inputArgsPath))
-                {
-                    error = $"Operation entry '{operationName}' has an invalid input variant args path.";
-                    return false;
-                }
-            }
-
-            if (!TryValidateInputConstraints(variant.Constraints, operationName, out error))
-            {
-                return false;
-            }
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool IsVariantArgsPathWithinInput (
-        string variantArgsPath,
-        string inputArgsPath)
-    {
-        return string.Equals(inputArgsPath, "$", StringComparison.Ordinal)
-            || string.Equals(variantArgsPath, inputArgsPath, StringComparison.Ordinal)
-            || variantArgsPath.StartsWith(inputArgsPath + ".", StringComparison.Ordinal);
-    }
-
-    private static bool TryValidateInputConstraints (
-        IReadOnlyList<UcliOperationInputConstraintContract> constraints,
-        string operationName,
-        out string? error)
-    {
-        for (var i = 0; i < constraints.Count; i++)
-        {
-            if (!TryValidateInputConstraint(constraints[i], out error))
-            {
-                error = $"Operation entry '{operationName}' has an invalid input constraint at index {i}. {error}";
-                return false;
-            }
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateInputConstraint (
-        UcliOperationInputConstraintContract? constraint,
-        out string? error)
-    {
-        if (constraint == null
-            || string.IsNullOrWhiteSpace(constraint.Kind))
-        {
-            error = "Constraint kind is missing.";
-            return false;
-        }
-
-        switch (constraint.Kind)
-        {
-            case UcliOperationInputConstraintKindValues.NonEmpty:
-            case UcliOperationInputConstraintKindValues.ProjectRelativePath:
-            case UcliOperationInputConstraintKindValues.GlobalObjectId:
-            case UcliOperationInputConstraintKindValues.HierarchyPath:
-            case UcliOperationInputConstraintKindValues.TypeExists:
-            case UcliOperationInputConstraintKindValues.AssetGuid:
-                return TryValidateNoConstraintParameters(constraint, out error);
-
-            case UcliOperationInputConstraintKindValues.Range:
-                return TryValidateRangeConstraint(constraint, out error);
-
-            case UcliOperationInputConstraintKindValues.AssetExists:
-            case UcliOperationInputConstraintKindValues.AssetCreatable:
-                return TryValidateAssetKindConstraint(constraint, out error);
-
-            case UcliOperationInputConstraintKindValues.ReferenceResolvable:
-                return TryValidateReferenceTargetKindConstraint(constraint, out error);
-
-            case UcliOperationInputConstraintKindValues.TypeAssignableTo:
-                return TryValidateTypeKindConstraint(constraint, out error);
-
-            case UcliOperationInputConstraintKindValues.SerializedProperty:
-                return TryValidateSerializedPropertyConstraint(constraint, out error);
-
-            default:
-                error = $"Unsupported constraint kind '{constraint.Kind}'.";
-                return false;
-        }
-    }
-
-    private static bool TryValidateNoConstraintParameters (
-        UcliOperationInputConstraintContract constraint,
-        out string? error)
-    {
-        if (constraint.AssetKind != null
-            || constraint.TargetKind != null
-            || constraint.TypeKind != null
-            || constraint.Access != null
-            || constraint.Min != null
-            || constraint.Max != null)
-        {
-            error = "Constraint has unsupported parameters.";
             return false;
         }
 
@@ -281,112 +105,11 @@ internal static class IndexCatalogContractValidator
         return true;
     }
 
-    private static bool TryValidateRangeConstraint (
-        UcliOperationInputConstraintContract constraint,
-        out string? error)
-    {
-        if (constraint.AssetKind != null
-            || constraint.TargetKind != null
-            || constraint.TypeKind != null
-            || constraint.Access != null
-            || (constraint.Min == null && constraint.Max == null))
-        {
-            error = "Range constraint must only define min, max, or both.";
-            return false;
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateAssetKindConstraint (
-        UcliOperationInputConstraintContract constraint,
-        out string? error)
-    {
-        if (!IsSupportedAssetKind(constraint.AssetKind)
-            || constraint.TargetKind != null
-            || constraint.TypeKind != null
-            || constraint.Access != null
-            || constraint.Min != null
-            || constraint.Max != null)
-        {
-            error = "Asset constraint must define one supported asset kind.";
-            return false;
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateReferenceTargetKindConstraint (
-        UcliOperationInputConstraintContract constraint,
-        out string? error)
-    {
-        if (!IsSupportedReferenceTargetKind(constraint.TargetKind)
-            || constraint.AssetKind != null
-            || constraint.TypeKind != null
-            || constraint.Access != null
-            || constraint.Min != null
-            || constraint.Max != null)
-        {
-            error = "Reference constraint must define one supported target kind.";
-            return false;
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateTypeKindConstraint (
-        UcliOperationInputConstraintContract constraint,
-        out string? error)
-    {
-        if (!IsSupportedTypeKind(constraint.TypeKind)
-            || constraint.AssetKind != null
-            || constraint.TargetKind != null
-            || constraint.Access != null
-            || constraint.Min != null
-            || constraint.Max != null)
-        {
-            error = "Type assignability constraint must define one supported type kind.";
-            return false;
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateSerializedPropertyConstraint (
-        UcliOperationInputConstraintContract constraint,
-        out string? error)
-    {
-        if (!IsSupportedSerializedPropertyAccess(constraint.Access)
-            || constraint.AssetKind != null
-            || constraint.TargetKind != null
-            || constraint.TypeKind != null
-            || constraint.Min != null
-            || constraint.Max != null)
-        {
-            error = "Serialized-property constraint must define one supported access value.";
-            return false;
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateOperationResultContract (
+    private static bool TryValidateOperationResultSchema (
         IndexOpEntryJsonContract entry,
         out string? error)
     {
-        var resultContract = entry.ResultContract;
-        if (resultContract == null
-            || string.IsNullOrWhiteSpace(resultContract.ResultType)
-            || string.IsNullOrWhiteSpace(resultContract.Description))
-        {
-            error = $"Operation entry '{entry.Name}' has an invalid resultContract.";
-            return false;
-        }
+        var resultContract = entry.ResultContract!;
 
         if (resultContract.Emitted)
         {
@@ -406,42 +129,6 @@ internal static class IndexCatalogContractValidator
         {
             error = $"Operation entry '{entry.Name}' has an inconsistent no-result contract.";
             return false;
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateOperationAssurance (
-        UcliOperationAssuranceContract? assurance,
-        string operationName,
-        out string? error)
-    {
-        if (assurance == null
-            || assurance.SideEffects == null
-            || assurance.TouchedKinds == null
-            || !IsSupportedPlanMode(assurance.PlanMode))
-        {
-            error = $"Operation entry '{operationName}' has invalid assurance metadata.";
-            return false;
-        }
-
-        for (var i = 0; i < assurance.SideEffects.Count; i++)
-        {
-            if (!IsSupportedSideEffect(assurance.SideEffects[i]))
-            {
-                error = $"Operation entry '{operationName}' has an unsupported side effect.";
-                return false;
-            }
-        }
-
-        for (var i = 0; i < assurance.TouchedKinds.Count; i++)
-        {
-            if (!IsSupportedTouchedKind(assurance.TouchedKinds[i]))
-            {
-                error = $"Operation entry '{operationName}' has an unsupported touched kind.";
-                return false;
-            }
         }
 
         error = null;
@@ -744,135 +431,6 @@ internal static class IndexCatalogContractValidator
     private static bool IsSupportedSchemaVersion (int schemaVersion)
     {
         return schemaVersion == SupportedSchemaVersion;
-    }
-
-    private static bool IsSupportedInputValueType (string? valueType)
-    {
-        switch (valueType)
-        {
-            case "string":
-            case "boolean":
-            case "integer":
-            case "number":
-            case "object":
-            case "array":
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private static bool IsValidArgsPath (string? argsPath)
-    {
-        if (string.IsNullOrWhiteSpace(argsPath)
-            || !argsPath.StartsWith("$.", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var parts = argsPath.Substring(2).Split('.');
-        for (var i = 0; i < parts.Length; i++)
-        {
-            if (string.IsNullOrWhiteSpace(parts[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsValidInputArgsPath (string argsPath)
-    {
-        return string.Equals(argsPath, "$", StringComparison.Ordinal)
-            || IsValidArgsPath(argsPath);
-    }
-
-    private static bool IsSupportedAssetKind (string? assetKind)
-    {
-        switch (assetKind)
-        {
-            case UcliOperationAssetKindValues.Asset:
-            case UcliOperationAssetKindValues.Prefab:
-            case UcliOperationAssetKindValues.ProjectSettings:
-            case UcliOperationAssetKindValues.Scene:
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private static bool IsSupportedReferenceTargetKind (string? targetKind)
-    {
-        switch (targetKind)
-        {
-            case UcliOperationReferenceTargetKindValues.Asset:
-            case UcliOperationReferenceTargetKindValues.Component:
-            case UcliOperationReferenceTargetKindValues.GameObject:
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private static bool IsSupportedTypeKind (string? typeKind)
-    {
-        return string.Equals(typeKind, UcliOperationTypeKindValues.Component, StringComparison.Ordinal);
-    }
-
-    private static bool IsSupportedSerializedPropertyAccess (string? access)
-    {
-        return string.Equals(access, UcliOperationSerializedPropertyAccessValues.Write, StringComparison.Ordinal);
-    }
-
-    private static bool IsSupportedPlanMode (string? planMode)
-    {
-        switch (planMode)
-        {
-            case UcliOperationPlanModeValues.ValidationOnly:
-            case UcliOperationPlanModeValues.ObservesLiveUnity:
-            case UcliOperationPlanModeValues.MayCreatePreviewState:
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private static bool IsSupportedSideEffect (string? sideEffect)
-    {
-        switch (sideEffect)
-        {
-            case UcliOperationSideEffectValues.OpensSceneInEditor:
-            case UcliOperationSideEffectValues.OpensPrefabStage:
-            case UcliOperationSideEffectValues.RefreshesAssetDatabase:
-            case UcliOperationSideEffectValues.WritesAsset:
-            case UcliOperationSideEffectValues.WritesScene:
-            case UcliOperationSideEffectValues.WritesPrefab:
-            case UcliOperationSideEffectValues.WritesProjectSettings:
-                return true;
-
-            default:
-                return false;
-        }
-    }
-
-    private static bool IsSupportedTouchedKind (string? touchedKind)
-    {
-        switch (touchedKind)
-        {
-            case IpcExecuteTouchedResourceKindNames.Scene:
-            case IpcExecuteTouchedResourceKindNames.Prefab:
-            case IpcExecuteTouchedResourceKindNames.Asset:
-            case IpcExecuteTouchedResourceKindNames.ProjectSettings:
-                return true;
-
-            default:
-                return false;
-        }
     }
 
     private static bool TryValidateSceneTreeLiteNode (

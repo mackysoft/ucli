@@ -84,7 +84,7 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsValidOpsCatalog_ReturnsFalse_WhenVariantArgsPathIsOutsideInput ()
+    public void IsValidOpsCatalog_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
     {
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -93,7 +93,6 @@ public sealed class IndexCatalogContractValidatorTests
             Entries:
             [
                 CreateValidOpsEntry(
-                    argsSchemaJson: """{"type":"object","additionalProperties":false,"properties":{"target":{"type":"object","additionalProperties":false,"properties":{"globalObjectId":{"type":"string"}}}}}""",
                     inputs:
                     [
                         new UcliOperationInputContract(
@@ -104,15 +103,79 @@ public sealed class IndexCatalogContractValidatorTests
                             variants:
                             [
                                 new UcliOperationInputVariantContract(
-                                    name: "globalObjectId",
-                                    description: "Use an exact Unity GlobalObjectId.",
-                                    argsPaths:
+                                    name: "sceneHierarchy",
+                                    description: "Use scene and hierarchy path.",
+                                    fields:
                                     [
-                                        "$.other.globalObjectId",
-                                    ],
-                                    constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+                                        new UcliOperationInputVariantFieldContract(
+                                            name: "scene",
+                                            argsPath: "$.target.scene",
+                                            description: "Scene asset path.",
+                                            constraints:
+                                            [
+                                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                                                {
+                                                    AssetKind = UcliOperationAssetKindValues.Scene,
+                                                },
+                                            ]),
+                                        new UcliOperationInputVariantFieldContract(
+                                            name: "hierarchyPath",
+                                            argsPath: "$.target.hierarchyPath",
+                                            description: "Hierarchy path.",
+                                            constraints:
+                                            [
+                                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.HierarchyPath),
+                                            ]),
+                                    ]),
                             ]),
                     ]),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenDescribeContractInputIsInvalid ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(
+                    inputs:
+                    [
+                        new UcliOperationInputContract(
+                            name: "var",
+                            valueType: "object",
+                            description: "Object reference to resolve.",
+                            constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+                    ]),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""{"type":"object","additionalProperties":false,"properties":{"var":{"type":"string"}}}""")]
+    [InlineData("""{"type":"object","additionalProperties":false,"properties":{"target":{"type":"object","additionalProperties":false,"properties":{"var":{"type":"string"}}}}}""")]
+    [InlineData("""{"type":"object","additionalProperties":false,"required":["var"],"properties":{"target":{"type":"string"}}}""")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenArgsSchemaExposesRequestLocalAliasProperty (string argsSchemaJson)
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(argsSchemaJson: argsSchemaJson),
             ]);
 
         var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
