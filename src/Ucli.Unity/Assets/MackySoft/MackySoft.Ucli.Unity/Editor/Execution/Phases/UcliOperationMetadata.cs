@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -9,6 +10,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Represents one operation metadata definition. </summary>
     public class UcliOperationMetadata
     {
+        private readonly UcliOperationDescribeContract describeContract;
+
         /// <summary> Initializes a new instance of the <see cref="UcliOperationMetadata" /> class. </summary>
         /// <param name="operationName"> The operation name. </param>
         /// <param name="kind"> The operation kind metadata. </param>
@@ -115,11 +118,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             ValidateDescribeContract(describeContract, resultType);
+            var ownedDescribeContract = CopyDescribeContract(describeContract);
 
             OperationName = operationName;
             Kind = kind;
             Policy = policy;
-            DescribeContract = describeContract;
+            this.describeContract = ownedDescribeContract;
             ArgsType = argsType;
             ResultType = resultType;
             ArgsSchemaJson = argsSchemaJson;
@@ -189,7 +193,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public OperationPolicy Policy { get; }
 
         /// <summary> Gets the agent-facing operation describe contract. </summary>
-        public UcliOperationDescribeContract DescribeContract { get; }
+        public UcliOperationDescribeContract DescribeContract => CopyDescribeContract(describeContract);
 
         /// <summary> Gets the operation args contract type. </summary>
         public Type ArgsType { get; }
@@ -225,6 +229,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentException("Describe contract assurance fields must be complete.", nameof(describeContract));
             }
 
+            if (!UcliRequestLocalAliasDescribeContractValidator.TryValidatePublicRawOpInputs(describeContract.Inputs, out var describeInputError))
+            {
+                throw new ArgumentException(describeInputError, nameof(describeContract));
+            }
+
             if (resultType == typeof(UcliNoResult))
             {
                 ValidateNoResultContract(describeContract.ResultContract);
@@ -232,6 +241,130 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             ValidateEmittedResultContract(describeContract.ResultContract, resultType);
+        }
+
+        private static UcliOperationDescribeContract CopyDescribeContract (UcliOperationDescribeContract source)
+        {
+            return new UcliOperationDescribeContract(
+                source.Description,
+                CopyInputs(source.Inputs),
+                CopyResultContract(source.ResultContract),
+                CopyAssurance(source.Assurance));
+        }
+
+        private static IReadOnlyList<UcliOperationInputContract>? CopyInputs (IReadOnlyList<UcliOperationInputContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var inputs = new UcliOperationInputContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                inputs[i] = CopyInput(source[i]);
+            }
+
+            return inputs;
+        }
+
+        private static UcliOperationInputContract CopyInput (UcliOperationInputContract source)
+        {
+            return new UcliOperationInputContract(
+                source.Name,
+                source.ValueType,
+                source.Description,
+                CopyConstraints(source.Constraints),
+                source.ArgsPath,
+                CopyVariants(source.Variants));
+        }
+
+        private static IReadOnlyList<UcliOperationInputVariantContract>? CopyVariants (IReadOnlyList<UcliOperationInputVariantContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var variants = new UcliOperationInputVariantContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                variants[i] = new UcliOperationInputVariantContract(
+                    source[i].Name,
+                    source[i].Description,
+                    CopyStrings(source[i].ArgsPaths),
+                    CopyConstraints(source[i].Constraints));
+            }
+
+            return variants;
+        }
+
+        private static IReadOnlyList<UcliOperationInputConstraintContract>? CopyConstraints (IReadOnlyList<UcliOperationInputConstraintContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var constraints = new UcliOperationInputConstraintContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                constraints[i] = new UcliOperationInputConstraintContract(source[i].Kind)
+                {
+                    Access = source[i].Access,
+                    AssetKind = source[i].AssetKind,
+                    Max = source[i].Max,
+                    Min = source[i].Min,
+                    TargetKind = source[i].TargetKind,
+                    TypeKind = source[i].TypeKind,
+                };
+            }
+
+            return constraints;
+        }
+
+        private static UcliOperationResultContract? CopyResultContract (UcliOperationResultContract? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new UcliOperationResultContract(
+                source.Emitted,
+                source.ResultType,
+                source.Description);
+        }
+
+        private static UcliOperationAssuranceContract? CopyAssurance (UcliOperationAssuranceContract? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new UcliOperationAssuranceContract(
+                CopyStrings(source.SideEffects),
+                source.MayDirty,
+                source.MayPersist,
+                CopyStrings(source.TouchedKinds),
+                source.PlanMode);
+        }
+
+        private static IReadOnlyList<string>? CopyStrings (IReadOnlyList<string>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var values = new string[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                values[i] = source[i];
+            }
+
+            return values;
         }
 
         private static void ValidateNoResultContract (UcliOperationResultContract resultContract)

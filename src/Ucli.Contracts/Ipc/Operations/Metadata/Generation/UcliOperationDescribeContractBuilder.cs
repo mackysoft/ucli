@@ -41,7 +41,7 @@ public static class UcliOperationDescribeContractBuilder
 
     private static IReadOnlyList<UcliOperationInputContract> CreateInputs (Type argsType)
     {
-        var properties = UcliOperationContractReflection.GetSchemaProperties(argsType);
+        var properties = UcliOperationSchemaPropertySelector.GetSchemaProperties(argsType);
         if (properties.Count == 0)
         {
             return Array.Empty<UcliOperationInputContract>();
@@ -84,21 +84,30 @@ public static class UcliOperationDescribeContractBuilder
             return Array.Empty<UcliOperationInputVariantContract>();
         }
 
-        var variants = new UcliOperationInputVariantContract[requiredPropertySets.Length];
+        var variants = new List<UcliOperationInputVariantContract>(requiredPropertySets.Length);
         for (var i = 0; i < requiredPropertySets.Length; i++)
         {
-            variants[i] = CreateVariant(propertyType, requiredPropertySets[i], prefix);
+            if (TryCreateVariant(propertyType, requiredPropertySets[i], prefix, out var variant))
+            {
+                variants.Add(variant);
+            }
         }
 
         return variants;
     }
 
-    private static UcliOperationInputVariantContract CreateVariant (
+    private static bool TryCreateVariant (
         Type contractType,
         UcliExclusiveRequiredPropertySetAttribute requiredPropertySet,
-        string prefix)
+        string prefix,
+        out UcliOperationInputVariantContract variant)
     {
-        var fields = ResolveRequiredPropertySetFields(contractType, requiredPropertySet.RequiredPropertyNames);
+        if (!TryResolveRequiredPropertySetFields(contractType, requiredPropertySet.RequiredPropertyNames, out var fields))
+        {
+            variant = null!;
+            return false;
+        }
+
         var argsPaths = new string[fields.Length];
         var constraints = new List<UcliOperationInputConstraintContract>();
         for (var i = 0; i < fields.Length; i++)
@@ -108,28 +117,37 @@ public static class UcliOperationDescribeContractBuilder
             constraints.AddRange(CreateConstraints(fields[i]));
         }
 
-        return new UcliOperationInputVariantContract(
+        variant = new UcliOperationInputVariantContract(
             CreateVariantName(fields),
             CreateVariantDescription(fields),
             argsPaths,
             constraints);
+        return true;
     }
 
-    private static PropertyInfo[] ResolveRequiredPropertySetFields (
+    private static bool TryResolveRequiredPropertySetFields (
         Type contractType,
-        IReadOnlyList<string> requiredPropertyNames)
+        IReadOnlyList<string> requiredPropertyNames,
+        out PropertyInfo[] fields)
     {
-        var properties = UcliOperationContractReflection.GetSchemaProperties(contractType);
-        var fields = new PropertyInfo[requiredPropertyNames.Count];
+        var properties = UcliOperationContractReflection.GetContractProperties(contractType);
+        var resolvedFields = new PropertyInfo[requiredPropertyNames.Count];
         for (var i = 0; i < requiredPropertyNames.Count; i++)
         {
             var requiredPropertyName = requiredPropertyNames[i];
-            fields[i] = properties.FirstOrDefault(property =>
+            resolvedFields[i] = properties.FirstOrDefault(property =>
                     string.Equals(UcliOperationContractReflection.GetJsonPropertyName(property), requiredPropertyName, StringComparison.Ordinal))
                 ?? throw new InvalidOperationException($"Exclusive required property set references unknown property '{requiredPropertyName}' on '{contractType.FullName}'.");
+
+            if (UcliRequestLocalAliasContractPolicy.IsInternalRequestLocalAliasBranchProperty(resolvedFields[i]))
+            {
+                fields = Array.Empty<PropertyInfo>();
+                return false;
+            }
         }
 
-        return fields;
+        fields = resolvedFields;
+        return true;
     }
 
     private static string CreateVariantName (IReadOnlyList<PropertyInfo> fields)

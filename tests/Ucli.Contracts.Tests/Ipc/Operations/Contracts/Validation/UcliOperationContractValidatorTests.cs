@@ -350,6 +350,18 @@ public sealed class UcliOperationContractValidatorTests
         Assert.Equal(string.Empty, errorMessage);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryValidatePublicRawOpReservedProperties_WhenCustomReferenceLikeTypeUsesVarAlias_ReturnsFalse ()
+    {
+        var isValid = UcliOperationContractValidator.TryValidatePublicRawOpReservedProperties(
+            typeof(CustomReferenceLikeArgs),
+            out var errorMessage);
+
+        Assert.False(isValid);
+        Assert.Equal("Operation contract property 'args.target.var' uses internal request-local alias type 'UcliPlanAlias'.", errorMessage);
+    }
+
     private sealed record RequiredStringArgs (
         [property: UcliRequired]
         [property: UcliDescription("Required string.")]
@@ -437,5 +449,14 @@ public sealed class UcliOperationContractValidatorTests
 
     private sealed record CustomPlanAliasArgs (
         [property: UcliDescription("Request-local alias.")]
+        UcliPlanAlias? Alias);
+
+    private sealed record CustomReferenceLikeArgs (
+        [property: UcliDescription("Custom reference-like target.")]
+        CustomReferenceLikeSelector? Target);
+
+    private sealed record CustomReferenceLikeSelector (
+        [property: UcliDescription("Request-local alias.")]
+        [property: JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
         UcliPlanAlias? Alias);
 }

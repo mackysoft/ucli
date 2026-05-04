@@ -143,6 +143,76 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenDescribeVariantUsesRequestLocalAliasArgsPath_ThrowsArgumentException ()
+        {
+            Assert.Throws<ArgumentException>(() =>
+            {
+                _ = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
+                    operationName: "ucli.tests.describe-alias-path",
+                    kind: UcliOperationKind.Query,
+                    policy: OperationPolicy.Safe,
+                    describeContract: new UcliOperationDescribeContract(
+                        "Describe alias path operation.",
+                        new[]
+                        {
+                            new UcliOperationInputContract(
+                                "target",
+                                "object",
+                                "Target reference.",
+                                Array.Empty<UcliOperationInputConstraintContract>(),
+                                variants: new[]
+                                {
+                                    new UcliOperationInputVariantContract(
+                                        "byAlias",
+                                        "Use request-local alias.",
+                                        new[] { "$.target.var" },
+                                        Array.Empty<UcliOperationInputConstraintContract>()),
+                                }),
+                        },
+                        UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
+                        new UcliOperationAssuranceContract(
+                            Array.Empty<UcliOperationSideEffect>(),
+                            mayDirty: false,
+                            mayPersist: false,
+                            Array.Empty<string>(),
+                            UcliOperationPlanMode.ValidationOnly)));
+            });
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliOperationMetadata_WhenDescribeContractIsMutatedAfterCreation_DoesNotExposeMutation ()
+        {
+            var input = new UcliOperationInputContract(
+                "path",
+                "string",
+                "Project-relative path.",
+                Array.Empty<UcliOperationInputConstraintContract>());
+            var describeContract = new UcliOperationDescribeContract(
+                "Defensive copy operation.",
+                new[] { input },
+                UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
+                new UcliOperationAssuranceContract(
+                    Array.Empty<UcliOperationSideEffect>(),
+                    mayDirty: false,
+                    mayPersist: false,
+                    Array.Empty<string>(),
+                    UcliOperationPlanMode.ValidationOnly));
+
+            var metadata = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
+                operationName: "ucli.tests.describe-defensive-copy",
+                kind: UcliOperationKind.Query,
+                policy: OperationPolicy.Safe,
+                describeContract: describeContract);
+
+            input.ArgsPath = "$.target.var";
+            metadata.DescribeContract.Inputs![0].ArgsPath = "$.target.var";
+
+            Assert.That(metadata.DescribeContract.Inputs![0].ArgsPath, Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void DiscoverFromTypes_WhenAttributedTypeDoesNotImplementOperation_ThrowsInvalidOperationException ()
         {
             Assert.Throws<InvalidOperationException>(() =>

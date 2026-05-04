@@ -32,17 +32,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var generatedAtUtc = DateTimeOffset.UtcNow;
             var operations = registrations
                 .OrderBy(static registration => registration.Metadata.OperationName, StringComparer.Ordinal)
-                .Select(static registration => new IndexOpEntryJsonContract(
-                    Name: registration.Metadata.OperationName,
-                    Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
-                    Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
-                    ArgsSchemaJson: PublicOperationContractSanitizer.Sanitize(registration.Metadata.ArgsSchemaJson),
-                    ResultSchemaJson: registration.Metadata.ResultSchemaJson)
+                .Select(static registration =>
                 {
-                    Description = registration.Metadata.DescribeContract.Description,
-                    Inputs = PublicOperationContractSanitizer.SanitizeInputs(registration.Metadata.DescribeContract.Inputs!),
-                    ResultContract = registration.Metadata.DescribeContract.ResultContract,
-                    Assurance = registration.Metadata.DescribeContract.Assurance,
+                    var describeContract = registration.Metadata.DescribeContract;
+                    return new IndexOpEntryJsonContract(
+                        Name: registration.Metadata.OperationName,
+                        Kind: UcliOperationKindCodec.ToValue(registration.Metadata.Kind),
+                        Policy: OperationPolicyCodec.ToValue(registration.Metadata.Policy),
+                        ArgsSchemaJson: registration.Metadata.ArgsSchemaJson,
+                        ResultSchemaJson: registration.Metadata.ResultSchemaJson)
+                    {
+                        Description = describeContract.Description,
+                        Inputs = describeContract.Inputs,
+                        ResultContract = describeContract.ResultContract,
+                        Assurance = describeContract.Assurance,
+                    };
                 })
                 .ToArray();
 

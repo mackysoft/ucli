@@ -82,6 +82,7 @@ public sealed class UcliOperationDescribeContractBuilderTests
         var variant = Assert.Single(input.Variants!, candidate => candidate.Name == "byGlobalObjectId");
         Assert.Contains("$.target.globalObjectId", variant.ArgsPaths!);
         Assert.Contains(variant.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.GlobalObjectId);
+        Assert.DoesNotContain(input.Variants!, candidate => candidate.ArgsPaths!.Any(path => path.EndsWith(".var", StringComparison.Ordinal)));
     }
 
     [Fact]

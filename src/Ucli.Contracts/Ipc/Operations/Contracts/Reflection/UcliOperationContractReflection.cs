@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 
 internal static class UcliOperationContractReflection
 {
-    public static IReadOnlyList<PropertyInfo> GetSchemaProperties (Type contractType)
+    public static IReadOnlyList<PropertyInfo> GetContractProperties (Type contractType)
     {
         return contractType
             .GetProperties(BindingFlags.Instance | BindingFlags.Public)

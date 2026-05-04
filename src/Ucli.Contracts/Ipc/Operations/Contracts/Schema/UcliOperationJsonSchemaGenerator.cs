@@ -53,7 +53,7 @@ public static class UcliOperationJsonSchemaGenerator
         }
 
         var missing = new List<string>();
-        foreach (var property in UcliOperationContractReflection.GetSchemaProperties(contractType))
+        foreach (var property in UcliOperationSchemaPropertySelector.GetSchemaProperties(contractType))
         {
             if (GetDescriptionOrNull(property) == null)
             {
@@ -138,7 +138,7 @@ public static class UcliOperationJsonSchemaGenerator
         SchemaGenerationContext context,
         bool includeNull = false)
     {
-        var properties = UcliOperationContractReflection.GetSchemaProperties(contractType);
+        var properties = UcliOperationSchemaPropertySelector.GetSchemaProperties(contractType);
         WriteTypeProperty(writer, "object", includeNull);
         writer.WriteBoolean("additionalProperties", false);
         writer.WritePropertyName("properties");
