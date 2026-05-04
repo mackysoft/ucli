@@ -4,6 +4,7 @@ using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Skills;
 using MackySoft.Ucli.Hosting.Cli.Status;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
@@ -41,6 +42,10 @@ internal static class CliCommandRegistrar
         app.Add<LogsUnityCommand>("logs");
         app.Add<OpsListCommand>("ops");
         app.Add<OpsDescribeCommand>("ops");
+        app.Add<SkillsListCommand>("skills");
+        app.Add<SkillsExportCommand>("skills");
+        app.Add<SkillsInstallCommand>("skills");
+        app.Add<SkillsDoctorCommand>("skills");
         app.Add<TestRunCommand>("test");
         app.Add<TestProfileInitCommand>("test profile");
         return app;

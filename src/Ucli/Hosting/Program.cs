@@ -44,6 +44,14 @@ internal static class Program
         UcliCommandNames.DescribeSubcommand,
     ];
 
+    private static readonly string[] SkillsSubcommands =
+    [
+        UcliCommandNames.ListSubcommand,
+        UcliCommandNames.ExportSubcommand,
+        UcliCommandNames.InstallSubcommand,
+        UcliCommandNames.DoctorSubcommand,
+    ];
+
     private static readonly string[] QuerySubcommands =
     [
         UcliCommandNames.AssetsSubcommand,
@@ -222,6 +230,18 @@ internal static class Program
             return true;
         }
 
+        if (string.Equals(firstArgument, UcliCommandNames.Skills, StringComparison.Ordinal)
+            && TryHandleInvalidSubcommand(args, UcliCommandNames.Skills, SkillsSubcommands))
+        {
+            return true;
+        }
+
+        if (string.Equals(firstArgument, UcliCommandNames.Skills, StringComparison.Ordinal)
+            && TryHandleInvalidSkillsListArgument(args))
+        {
+            return true;
+        }
+
         if (string.Equals(firstArgument, UcliCommandNames.Query, StringComparison.Ordinal)
             && TryHandleInvalidSubcommand(args, UcliCommandNames.Query, QuerySubcommands))
         {
@@ -338,6 +358,30 @@ internal static class Program
             message: $"Subcommand '{subcommand}' is not recognized for command 'query {group}'.");
         CommandResultWriter.WriteToStandardOutput(invalidResult);
         Environment.ExitCode = invalidResult.ExitCode;
+        return true;
+    }
+
+    private static bool TryHandleInvalidSkillsListArgument (string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
+        if (args.Length <= 2
+            || !string.Equals(args[1], UcliCommandNames.ListSubcommand, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var argument = args[2];
+        if (CommandTokenClassifier.IsHelpOptionToken(argument)
+            || CommandTokenClassifier.IsVersionOptionToken(argument))
+        {
+            return false;
+        }
+
+        var message = $"Argument '{argument}' is not recognized.";
+        var result = CommandResult.InvalidArgument(UcliCommandNames.SkillsList, message);
+        CommandResultWriter.WriteToStandardOutput(result);
+        Environment.ExitCode = result.ExitCode;
         return true;
     }
 }

@@ -74,6 +74,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for ops. </summary>
     public const string Ops = "ops";
 
+    /// <summary> Gets the top-level command name for skills. </summary>
+    public const string Skills = "skills";
+
     /// <summary> Gets the command name for <c>logs daemon</c> result payloads. </summary>
     public const string LogsDaemon = "logs.daemon";
 
@@ -85,6 +88,18 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the command name for <c>ops describe</c> result payloads. </summary>
     public const string OpsDescribe = "ops.describe";
+
+    /// <summary> Gets the command name for <c>skills list</c> result payloads. </summary>
+    public const string SkillsList = "skills.list";
+
+    /// <summary> Gets the command name for <c>skills export</c> result payloads. </summary>
+    public const string SkillsExport = "skills.export";
+
+    /// <summary> Gets the command name for <c>skills install</c> result payloads. </summary>
+    public const string SkillsInstall = "skills.install";
+
+    /// <summary> Gets the command name for <c>skills doctor</c> result payloads. </summary>
+    public const string SkillsDoctor = "skills.doctor";
 
     /// <summary> Gets the top-level command name for test. </summary>
     public const string Test = "test";
@@ -109,6 +124,15 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for <c>ops describe</c>. </summary>
     public const string DescribeSubcommand = "describe";
+
+    /// <summary> Gets the nested command name for <c>skills export</c>. </summary>
+    public const string ExportSubcommand = "export";
+
+    /// <summary> Gets the nested command name for <c>skills install</c>. </summary>
+    public const string InstallSubcommand = "install";
+
+    /// <summary> Gets the nested command name for <c>skills doctor</c>. </summary>
+    public const string DoctorSubcommand = "doctor";
 
     /// <summary> Gets the nested command name for daemon start. </summary>
     public const string StartSubcommand = "start";
@@ -159,6 +183,7 @@ internal static class UcliCommandNames
         Daemon,
         Logs,
         Ops,
+        Skills,
         Test,
     };
 
@@ -317,6 +342,35 @@ internal static class UcliCommandNames
             }
 
             return Ops;
+        }
+
+        if (string.Equals(firstArgument, Skills, StringComparison.Ordinal))
+        {
+            if (args.Length >= 2
+                && string.Equals(args[1], ListSubcommand, StringComparison.Ordinal))
+            {
+                return SkillsList;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], ExportSubcommand, StringComparison.Ordinal))
+            {
+                return SkillsExport;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], InstallSubcommand, StringComparison.Ordinal))
+            {
+                return SkillsInstall;
+            }
+
+            if (args.Length >= 2
+                && string.Equals(args[1], DoctorSubcommand, StringComparison.Ordinal))
+            {
+                return SkillsDoctor;
+            }
+
+            return Skills;
         }
 
         return IsRegistered(firstArgument) ? firstArgument : Root;
