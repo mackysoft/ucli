@@ -261,6 +261,28 @@ public sealed class IpcContractSerializationTests
             .HasArrayLength("constraints", 1)
             .HasProperty("constraints", 0, constraint => constraint
                 .HasString("kind", UcliOperationInputConstraintKindValues.GlobalObjectId));
+
+        var sceneHierarchyVariantElement = targetInputElement.GetProperty("variants").EnumerateArray().Single(variant =>
+            string.Equals(variant.GetProperty("name").GetString(), "bySceneHierarchyPath", StringComparison.Ordinal));
+        var sceneFieldElement = sceneHierarchyVariantElement.GetProperty("fields").EnumerateArray().Single(candidate =>
+            string.Equals(candidate.GetProperty("name").GetString(), "scene", StringComparison.Ordinal));
+        var hierarchyPathFieldElement = sceneHierarchyVariantElement.GetProperty("fields").EnumerateArray().Single(candidate =>
+            string.Equals(candidate.GetProperty("name").GetString(), "hierarchyPath", StringComparison.Ordinal));
+
+        Assert.False(sceneHierarchyVariantElement.TryGetProperty("argsPaths", out _));
+        Assert.False(sceneHierarchyVariantElement.TryGetProperty("constraints", out _));
+        JsonAssert.For(sceneFieldElement)
+            .HasString("argsPath", "$.target.scene")
+            .HasString("description", "Scene asset path for a hierarchy selector.");
+        var assetExistsConstraint = sceneFieldElement.GetProperty("constraints").EnumerateArray().Single(constraint =>
+            string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.AssetExists, StringComparison.Ordinal));
+        JsonAssert.For(assetExistsConstraint)
+            .HasString("assetKind", UcliOperationAssetKindValues.Scene);
+        JsonAssert.For(hierarchyPathFieldElement)
+            .HasString("argsPath", "$.target.hierarchyPath")
+            .HasString("description", "Unity hierarchy path inside the selected scene or prefab.");
+        Assert.Contains(hierarchyPathFieldElement.GetProperty("constraints").EnumerateArray(), constraint =>
+            string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.HierarchyPath, StringComparison.Ordinal));
     }
 
     [Fact]

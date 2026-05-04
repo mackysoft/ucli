@@ -500,6 +500,33 @@ public sealed class OpsCliOutputContractTests
 
         var constraint = Assert.Single(field.GetProperty("constraints").EnumerateArray());
         Assert.Equal(UcliOperationInputConstraintKindValues.GlobalObjectId, constraint.GetProperty("kind").GetString());
+
+        var sceneHierarchyVariant = Assert.Single(
+            targetInput.GetProperty("variants").EnumerateArray(),
+            candidate => string.Equals(candidate.GetProperty("name").GetString(), "bySceneHierarchyPath", StringComparison.Ordinal));
+        Assert.False(sceneHierarchyVariant.TryGetProperty("argsPaths", out _));
+        Assert.False(sceneHierarchyVariant.TryGetProperty("constraints", out _));
+
+        var sceneField = Assert.Single(
+            sceneHierarchyVariant.GetProperty("fields").EnumerateArray(),
+            candidate => string.Equals(candidate.GetProperty("name").GetString(), "scene", StringComparison.Ordinal));
+        Assert.Equal("$.target.scene", sceneField.GetProperty("argsPath").GetString());
+        Assert.Equal("Scene asset path for a hierarchy selector.", sceneField.GetProperty("description").GetString());
+        var sceneConstraint = Assert.Single(
+            sceneField.GetProperty("constraints").EnumerateArray(),
+            constraint => string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.AssetExists, StringComparison.Ordinal));
+        Assert.Equal(UcliOperationInputConstraintKindValues.AssetExists, sceneConstraint.GetProperty("kind").GetString());
+        Assert.Equal(UcliOperationAssetKindValues.Scene, sceneConstraint.GetProperty("assetKind").GetString());
+
+        var hierarchyPathField = Assert.Single(
+            sceneHierarchyVariant.GetProperty("fields").EnumerateArray(),
+            candidate => string.Equals(candidate.GetProperty("name").GetString(), "hierarchyPath", StringComparison.Ordinal));
+        Assert.Equal("$.target.hierarchyPath", hierarchyPathField.GetProperty("argsPath").GetString());
+        Assert.Equal("Unity hierarchy path inside the selected scene or prefab.", hierarchyPathField.GetProperty("description").GetString());
+        var hierarchyPathConstraint = Assert.Single(
+            hierarchyPathField.GetProperty("constraints").EnumerateArray(),
+            constraint => string.Equals(constraint.GetProperty("kind").GetString(), UcliOperationInputConstraintKindValues.HierarchyPath, StringComparison.Ordinal));
+        Assert.Equal(UcliOperationInputConstraintKindValues.HierarchyPath, hierarchyPathConstraint.GetProperty("kind").GetString());
     }
 
     private static UcliOperationDescribeContract CreateGoDescribeContract ()
