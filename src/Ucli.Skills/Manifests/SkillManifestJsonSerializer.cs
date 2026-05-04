@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Manifests;
 
@@ -50,7 +51,8 @@ public sealed class SkillManifestJsonSerializer
             writer.WriteEndObject();
         }
 
-        return Encoding.UTF8.GetString(stream.ToArray()) + "\n";
+        var json = SkillTextNormalizer.NormalizeToLf(Encoding.UTF8.GetString(stream.ToArray()));
+        return json.EndsWith('\n') ? json : json + "\n";
     }
 
     /// <summary> Reads one manifest from JSON text. </summary>
@@ -77,5 +79,22 @@ public sealed class SkillManifestJsonSerializer
             SkillName: root.GetProperty("skillName").GetString() ?? string.Empty,
             ContentDigest: root.GetProperty("contentDigest").GetString() ?? string.Empty,
             HostArtifacts: artifacts);
+    }
+
+    /// <summary> Reads one manifest from JSON text without leaking parse exceptions. </summary>
+    /// <param name="json"> The JSON text. </param>
+    /// <returns> The parsed manifest or manifest-invalid failure. </returns>
+    public SkillOperationResult<SkillManifest> TryDeserialize (string json)
+    {
+        try
+        {
+            return SkillOperationResult<SkillManifest>.Success(Deserialize(json));
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException or KeyNotFoundException or FormatException)
+        {
+            return SkillOperationResult<SkillManifest>.FailureResult(
+                SkillFailureCodes.ManifestInvalid,
+                "ucli-skill.json is invalid.");
+        }
     }
 }

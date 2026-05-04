@@ -31,12 +31,24 @@ public sealed class SkillSourceDefinitionReader
             return Failure($"SkillDefinitions directory does not exist: {definitionsRoot}");
         }
 
+        var rootResult = SkillSourcePathBoundary.ResolveDirectoryUnderRoot(definitionsRoot, definitionsRoot);
+        if (!rootResult.IsSuccess)
+        {
+            return Failure(rootResult.Failure!.Message);
+        }
+
         var definitions = new List<SkillSourceDefinition>();
-        foreach (var skillDirectory in Directory.GetDirectories(definitionsRoot).Order(StringComparer.Ordinal))
+        foreach (var skillDirectory in Directory.GetDirectories(rootResult.Value!).Order(StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var result = await ReadOneAsync(skillDirectory, cancellationToken).ConfigureAwait(false);
+            var skillDirectoryResult = SkillSourcePathBoundary.ResolveDirectoryUnderRoot(rootResult.Value!, skillDirectory);
+            if (!skillDirectoryResult.IsSuccess)
+            {
+                return Failure(skillDirectoryResult.Failure!.Message);
+            }
+
+            var result = await ReadOneCoreAsync(skillDirectoryResult.Value!, cancellationToken).ConfigureAwait(false);
             if (!result.IsSuccess)
             {
                 return Failure(result.Failure!.Message);
@@ -59,11 +71,24 @@ public sealed class SkillSourceDefinitionReader
         ArgumentException.ThrowIfNullOrWhiteSpace(skillDirectory);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var skillDirectoryResult = SkillSourcePathBoundary.ResolveDirectoryUnderRoot(skillDirectory, skillDirectory);
+        if (!skillDirectoryResult.IsSuccess)
+        {
+            return SkillOperationResult<SkillSourceDefinition>.FailureResult(SkillFailureCodes.SourceInvalid, skillDirectoryResult.Failure!.Message);
+        }
+
+        return await ReadOneCoreAsync(skillDirectoryResult.Value!, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async ValueTask<SkillOperationResult<SkillSourceDefinition>> ReadOneCoreAsync (
+        string skillDirectory,
+        CancellationToken cancellationToken)
+    {
         var skillName = Path.GetFileName(Path.GetFullPath(skillDirectory));
         SkillOperationResult<SkillSourceMetadata> metadataResult;
         try
         {
-            metadataResult = await ReadMetadataAsync(Path.Combine(skillDirectory, "skill.json"), skillName, cancellationToken).ConfigureAwait(false);
+            metadataResult = await ReadMetadataAsync(skillDirectory, skillName, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
@@ -83,7 +108,13 @@ public sealed class SkillSourceDefinitionReader
             return SkillOperationResult<SkillSourceDefinition>.FailureResult(SkillFailureCodes.SourceInvalid, $"SKILL.md.template is missing for '{skillName}'.");
         }
 
-        var skillTemplate = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(templatePath, cancellationToken).ConfigureAwait(false));
+        var templatePathResult = SkillSourcePathBoundary.ResolveFileUnderRoot(skillDirectory, templatePath);
+        if (!templatePathResult.IsSuccess)
+        {
+            return SkillOperationResult<SkillSourceDefinition>.FailureResult(SkillFailureCodes.SourceInvalid, templatePathResult.Failure!.Message);
+        }
+
+        var skillTemplate = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(templatePathResult.Value!, cancellationToken).ConfigureAwait(false));
         if (skillTemplate.TrimStart().StartsWith("---", StringComparison.Ordinal))
         {
             return SkillOperationResult<SkillSourceDefinition>.FailureResult(SkillFailureCodes.SourceInvalid, $"SKILL.md.template must not contain frontmatter: {skillName}");
@@ -100,7 +131,13 @@ public sealed class SkillSourceDefinitionReader
                     $"Reference template '{reference}.template' is missing for '{skillName}'.");
             }
 
-            var referenceTemplate = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(referenceTemplatePath, cancellationToken).ConfigureAwait(false));
+            var referenceTemplatePathResult = SkillSourcePathBoundary.ResolveFileUnderRoot(skillDirectory, referenceTemplatePath);
+            if (!referenceTemplatePathResult.IsSuccess)
+            {
+                return SkillOperationResult<SkillSourceDefinition>.FailureResult(SkillFailureCodes.SourceInvalid, referenceTemplatePathResult.Failure!.Message);
+            }
+
+            var referenceTemplate = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(referenceTemplatePathResult.Value!, cancellationToken).ConfigureAwait(false));
             references.Add(new SkillSourceReference(reference, referenceTemplate));
         }
 
@@ -108,16 +145,23 @@ public sealed class SkillSourceDefinitionReader
     }
 
     private static async ValueTask<SkillOperationResult<SkillSourceMetadata>> ReadMetadataAsync (
-        string metadataPath,
+        string skillDirectory,
         string expectedSkillName,
         CancellationToken cancellationToken)
     {
+        var metadataPath = Path.Combine(skillDirectory, "skill.json");
         if (!File.Exists(metadataPath))
         {
             return SkillOperationResult<SkillSourceMetadata>.FailureResult(SkillFailureCodes.SourceInvalid, $"skill.json is missing for '{expectedSkillName}'.");
         }
 
-        using var stream = File.OpenRead(metadataPath);
+        var metadataPathResult = SkillSourcePathBoundary.ResolveFileUnderRoot(skillDirectory, metadataPath);
+        if (!metadataPathResult.IsSuccess)
+        {
+            return SkillOperationResult<SkillSourceMetadata>.FailureResult(SkillFailureCodes.SourceInvalid, metadataPathResult.Failure!.Message);
+        }
+
+        using var stream = File.OpenRead(metadataPathResult.Value!);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
         var root = document.RootElement;
 
@@ -146,6 +190,13 @@ public sealed class SkillSourceDefinitionReader
             return SkillOperationResult<SkillSourceMetadata>.FailureResult(
                 SkillFailureCodes.SourceInvalid,
                 $"skill.json skillName '{skillName}' must match directory name '{expectedSkillName}'.");
+        }
+
+        if (!IsSafeSkillName(skillName))
+        {
+            return SkillOperationResult<SkillSourceMetadata>.FailureResult(
+                SkillFailureCodes.SourceInvalid,
+                $"skill.json skillName is unsafe: {skillName}");
         }
 
         var displayName = root.GetProperty("displayName").GetString() ?? string.Empty;
@@ -179,5 +230,29 @@ public sealed class SkillSourceDefinitionReader
     private static SkillOperationResult<IReadOnlyList<SkillSourceDefinition>> Failure (string message)
     {
         return SkillOperationResult<IReadOnlyList<SkillSourceDefinition>>.FailureResult(SkillFailureCodes.SourceInvalid, message);
+    }
+
+    private static bool IsSafeSkillName (string skillName)
+    {
+        if (string.IsNullOrWhiteSpace(skillName) || !IsAsciiLowercaseLetterOrDigit(skillName[0]))
+        {
+            return false;
+        }
+
+        for (var i = 1; i < skillName.Length; i++)
+        {
+            var character = skillName[i];
+            if (character != '-' && !IsAsciiLowercaseLetterOrDigit(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsAsciiLowercaseLetterOrDigit (char character)
+    {
+        return character is (>= 'a' and <= 'z') or (>= '0' and <= '9');
     }
 }

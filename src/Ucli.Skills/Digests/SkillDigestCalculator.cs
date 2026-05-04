@@ -1,5 +1,5 @@
+using System.Security.Cryptography;
 using System.Text;
-using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Digests;
@@ -9,6 +9,8 @@ public sealed class SkillDigestCalculator
 {
     private const string DigestPrefix = "sha256:";
 
+    private static readonly byte[] Separator = [0];
+
     /// <summary> Computes one digest from normalized digest input files. </summary>
     /// <param name="files"> The files included in the digest input. </param>
     /// <returns> The digest in <c>sha256:&lt;lowerhex&gt;</c> form. </returns>
@@ -16,16 +18,16 @@ public sealed class SkillDigestCalculator
     {
         ArgumentNullException.ThrowIfNull(files);
 
-        using var stream = new MemoryStream();
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         foreach (var file in files.OrderBy(static file => file.RelativePath, StringComparer.Ordinal))
         {
             ValidateRelativePath(file.RelativePath);
-            WriteUtf8(stream, file.RelativePath);
-            stream.WriteByte(0);
-            WriteUtf8(stream, SkillTextNormalizer.NormalizeToLf(file.Content));
+            AppendUtf8(hash, file.RelativePath);
+            hash.AppendData(Separator);
+            AppendUtf8(hash, SkillTextNormalizer.NormalizeToLf(file.Content));
         }
 
-        return DigestPrefix + Sha256LowerHex.Compute(stream.ToArray());
+        return DigestPrefix + ToLowerHex(hash.GetHashAndReset());
     }
 
     /// <summary> Computes one digest for a single text artifact. </summary>
@@ -51,11 +53,28 @@ public sealed class SkillDigestCalculator
         }
     }
 
-    private static void WriteUtf8 (
-        Stream stream,
+    private static void AppendUtf8 (
+        IncrementalHash hash,
         string value)
     {
         var bytes = Encoding.UTF8.GetBytes(value);
-        stream.Write(bytes, 0, bytes.Length);
+        hash.AppendData(bytes);
+    }
+
+    private static string ToLowerHex (byte[] bytes)
+    {
+        const string HexChars = "0123456789abcdef";
+
+        var chars = new char[bytes.Length * 2];
+        var index = 0;
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            var value = bytes[i];
+            chars[index] = HexChars[value >> 4];
+            chars[index + 1] = HexChars[value & 0x0F];
+            index += 2;
+        }
+
+        return new string(chars);
     }
 }

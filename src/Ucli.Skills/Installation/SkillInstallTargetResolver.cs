@@ -30,7 +30,13 @@ public sealed class SkillInstallTargetResolver
         }
 
         var repositoryRoot = Path.GetFullPath(request.RepositoryRoot);
-        var descriptor = hostRegistry.GetDescriptor(request.Host);
+        var descriptorResult = hostRegistry.TryGetDescriptor(request.Host);
+        if (!descriptorResult.IsSuccess)
+        {
+            return SkillOperationResult<string>.FailureResult(descriptorResult.Failure!.Code, descriptorResult.Failure.Message);
+        }
+
+        var descriptor = descriptorResult.Value!;
         var targetRoot = string.IsNullOrWhiteSpace(request.TargetRoot)
             ? Path.Combine(repositoryRoot, descriptor.ProjectTargetDirectory)
             : Path.IsPathRooted(request.TargetRoot)

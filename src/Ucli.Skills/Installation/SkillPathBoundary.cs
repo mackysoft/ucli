@@ -40,9 +40,7 @@ internal static class SkillPathBoundary
         ArgumentException.ThrowIfNullOrWhiteSpace(targetDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
 
-        if (Path.IsPathRooted(relativePath)
-            || relativePath.Contains('\\', StringComparison.Ordinal)
-            || relativePath.Split('/').Any(static segment => string.IsNullOrWhiteSpace(segment) || segment is "." or ".."))
+        if (!IsSafePackageRelativePath(relativePath))
         {
             return SkillOperationResult<string>.FailureResult(
                 SkillFailureCodes.PathUnsafe,
@@ -50,6 +48,52 @@ internal static class SkillPathBoundary
         }
 
         return ResolveUnderRoot(targetDirectory, Path.Combine(targetDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    /// <summary> Verifies that a package directory name is a safe single path segment under a root. </summary>
+    /// <param name="rootDirectory"> The root directory. </param>
+    /// <param name="directoryName"> The package directory name. </param>
+    /// <returns> The canonical package directory path or path-safety failure. </returns>
+    public static SkillOperationResult<string> ResolvePackageDirectory (
+        string rootDirectory,
+        string directoryName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(directoryName);
+
+        if (!IsSafePathSegment(directoryName))
+        {
+            return SkillOperationResult<string>.FailureResult(
+                SkillFailureCodes.PathUnsafe,
+                $"Package directory name is unsafe: {directoryName}");
+        }
+
+        return ResolveUnderRoot(rootDirectory, Path.Combine(rootDirectory, directoryName));
+    }
+
+    /// <summary> Verifies that a package file path remains under both the root and target directory. </summary>
+    /// <param name="rootDirectory"> The root directory. </param>
+    /// <param name="targetDirectory"> The target package directory. </param>
+    /// <param name="relativePath"> The package-relative path. </param>
+    /// <returns> The canonical file path or path-safety failure. </returns>
+    public static SkillOperationResult<string> ResolvePackageFilePathUnderRoot (
+        string rootDirectory,
+        string targetDirectory,
+        string relativePath)
+    {
+        var targetResult = ResolveUnderRoot(rootDirectory, targetDirectory);
+        if (!targetResult.IsSuccess)
+        {
+            return targetResult;
+        }
+
+        var fileResult = ResolvePackageFilePath(targetResult.Value!, relativePath);
+        if (!fileResult.IsSuccess)
+        {
+            return fileResult;
+        }
+
+        return ResolveUnderRoot(rootDirectory, fileResult.Value!);
     }
 
     private static bool IsUnderOrEqual (
@@ -77,11 +121,21 @@ internal static class SkillPathBoundary
             [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
             StringSplitOptions.RemoveEmptyEntries);
 
-        foreach (var segment in segments)
+        for (var i = 0; i < segments.Length; i++)
         {
-            currentPath = Path.Combine(currentPath, segment);
+            currentPath = Path.Combine(currentPath, segments[i]);
             if (!Directory.Exists(currentPath))
             {
+                if (i == segments.Length - 1 && File.Exists(currentPath))
+                {
+                    var file = new FileInfo(currentPath);
+                    var resolvedFile = file.ResolveLinkTarget(returnFinalTarget: true);
+                    if (resolvedFile is not null)
+                    {
+                        currentPath = resolvedFile.FullName;
+                    }
+                }
+
                 continue;
             }
 
@@ -101,5 +155,21 @@ internal static class SkillPathBoundary
         return path.EndsWith(Path.DirectorySeparatorChar)
             ? path
             : path + Path.DirectorySeparatorChar;
+    }
+
+    private static bool IsSafePackageRelativePath (string relativePath)
+    {
+        return !Path.IsPathRooted(relativePath)
+            && !relativePath.Contains('\\', StringComparison.Ordinal)
+            && relativePath.Split('/').All(static segment => IsSafePathSegment(segment));
+    }
+
+    private static bool IsSafePathSegment (string segment)
+    {
+        return !string.IsNullOrWhiteSpace(segment)
+            && segment is not "." and not ".."
+            && !Path.IsPathRooted(segment)
+            && !segment.Contains('/', StringComparison.Ordinal)
+            && !segment.Contains('\\', StringComparison.Ordinal);
     }
 }

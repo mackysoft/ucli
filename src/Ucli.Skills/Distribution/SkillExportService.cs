@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts;
 using MackySoft.Ucli.Skills.Installation;
@@ -44,16 +43,22 @@ public sealed class SkillExportService
                 return SkillOperationResult<string>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
             }
 
-            var skillDirectory = Path.Combine(fullOutputRoot, package.SkillName);
+            var skillDirectoryResult = SkillPathBoundary.ResolvePackageDirectory(fullOutputRoot, package.SkillName);
+            if (!skillDirectoryResult.IsSuccess)
+            {
+                return SkillOperationResult<string>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);
+            }
+
+            var skillDirectory = skillDirectoryResult.Value!;
             foreach (var file in materializedResult.Value!.Files)
             {
-                var filePathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, file.RelativePath);
+                var filePathResult = SkillPathBoundary.ResolvePackageFilePathUnderRoot(fullOutputRoot, skillDirectory, file.RelativePath);
                 if (!filePathResult.IsSuccess)
                 {
                     return SkillOperationResult<string>.FailureResult(filePathResult.Failure!.Code, filePathResult.Failure.Message);
                 }
 
-                await FileUtilities.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
+                await SkillFileUtilities.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
             }
         }
 

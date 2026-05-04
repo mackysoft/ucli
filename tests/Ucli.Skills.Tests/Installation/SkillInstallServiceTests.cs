@@ -23,7 +23,13 @@ public sealed class SkillInstallServiceTests
         Assert.True(noOp.IsSuccess, noOp.Failure?.Message);
         Assert.All(created.Value!.Actions, static action => Assert.Equal(SkillInstallActionKind.Created, action.ActionKind));
         Assert.All(noOp.Value!.Actions, static action => Assert.Equal(SkillInstallActionKind.NoOp, action.ActionKind));
-        Assert.True(File.Exists(Path.Combine(scope.FullPath, ".agents", "skills", packages[0].SkillName, "ucli-skill.json")));
+        foreach (var package in packages)
+        {
+            var expectedManifest = package.Files.Single(static file => file.RelativePath == "ucli-skill.json").Content;
+            var actualManifest = File.ReadAllText(Path.Combine(scope.FullPath, ".agents", "skills", package.SkillName, "ucli-skill.json"));
+            Assert.Equal(expectedManifest, actualManifest);
+        }
+
         Assert.True(File.Exists(Path.Combine(scope.FullPath, ".agents", "skills", packages[0].SkillName, "agents", "openai.yaml")));
     }
 
@@ -91,6 +97,159 @@ public sealed class SkillInstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsModifiedInstalledSkillBody ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-body-drift");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = new SkillInstallService();
+        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var created = await service.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(created.IsSuccess, created.Failure?.Message);
+
+        var skillPath = Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "SKILL.md");
+        File.AppendAllText(skillPath, "\nInjected instruction.\n");
+
+        var result = await service.InstallAsync(packages, request, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsModifiedInstalledReference ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-reference-drift");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = new SkillInstallService();
+        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var created = await service.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(created.IsSuccess, created.Failure?.Message);
+
+        var referencePath = Path.Combine(
+            created.Value!.TargetRoot,
+            packages[0].SkillName,
+            packages[0].Files.First(static file => file.RelativePath.StartsWith("references/", StringComparison.Ordinal)).RelativePath);
+        File.AppendAllText(referencePath, "\nInjected reference.\n");
+
+        var result = await service.InstallAsync(packages, request, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsUnexpectedInstalledFile ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-extra-file");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = new SkillInstallService();
+        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var created = await service.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(created.IsSuccess, created.Failure?.Message);
+        File.WriteAllText(Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "references", "extra.md"), "# Extra\n");
+
+        var result = await service.InstallAsync(packages, request, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsInvalidExistingManifestWithoutThrowing ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-invalid-manifest");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = new SkillInstallService();
+        scope.WriteFile(Path.Combine(".agents", "skills", packages[0].SkillName, "ucli-skill.json"), "{}");
+
+        var result = await service.InstallAsync(
+            packages,
+            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsManifestSymlinkThatEscapesTarget ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-manifest-symlink");
+        using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "install-manifest-symlink-outside");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = new SkillInstallService();
+        scope.CreateDirectory(Path.Combine(".agents", "skills", packages[0].SkillName));
+        var outsideManifest = outsideScope.WriteFile("ucli-skill.json", packages[0].Files.Single(static file => file.RelativePath == "ucli-skill.json").Content);
+        try
+        {
+            File.CreateSymbolicLink(Path.Combine(scope.FullPath, ".agents", "skills", packages[0].SkillName, "ucli-skill.json"), outsideManifest);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var result = await service.InstallAsync(
+            packages,
+            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_ReturnsUnsupportedHostFailure_WhenHostIsUnknown ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-unsupported-host");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = new SkillInstallService();
+
+        var result = await service.InstallAsync(
+            packages,
+            new SkillInstallRequest((SkillHostKind)999, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.HostUnsupported, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsUnsafePackageName ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-unsafe-package");
+        var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First() with
+        {
+            SkillName = "../escape",
+        };
+        var service = new SkillInstallService();
+
+        var result = await service.InstallAsync(
+            [package],
+            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task InstallAsync_RejectsTargetRootOutsideRepository ()
     {
         using var repoScope = TestDirectories.CreateTempScope("ucli-skills", "install-path-repo");
@@ -138,6 +297,44 @@ public sealed class SkillInstallServiceTests
         var result = await service.InstallAsync(
             packages,
             new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, repoScope.FullPath, "linked/skills"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsExistingSkillDirectoryThatEscapesThroughSymlink ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var repoScope = TestDirectories.CreateTempScope("ucli-skills", "install-skill-symlink-repo");
+        using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "install-skill-symlink-outside");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var targetRoot = repoScope.CreateDirectory(".agents/skills");
+        var symlinkPath = Path.Combine(targetRoot, packages[0].SkillName);
+        try
+        {
+            Directory.CreateSymbolicLink(symlinkPath, outsideScope.FullPath);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var service = new SkillInstallService();
+
+        var result = await service.InstallAsync(
+            packages,
+            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, repoScope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

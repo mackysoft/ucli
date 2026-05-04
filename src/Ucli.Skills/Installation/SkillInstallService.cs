@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
@@ -14,6 +13,7 @@ public sealed class SkillInstallService
     private readonly SkillManifestJsonSerializer manifestSerializer;
     private readonly SkillManifestValidator manifestValidator;
     private readonly SkillHostMaterializationInspector hostInspector;
+    private readonly SkillInstalledContentDigestVerifier contentDigestVerifier;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstallService" /> class. </summary>
     /// <param name="targetResolver"> The target resolver. </param>
@@ -21,18 +21,21 @@ public sealed class SkillInstallService
     /// <param name="manifestSerializer"> The manifest serializer. </param>
     /// <param name="manifestValidator"> The manifest validator. </param>
     /// <param name="hostInspector"> The host materialization inspector. </param>
+    /// <param name="contentDigestVerifier"> The installed content digest verifier. </param>
     public SkillInstallService (
         SkillInstallTargetResolver? targetResolver = null,
         SkillMaterializationService? materializationService = null,
         SkillManifestJsonSerializer? manifestSerializer = null,
         SkillManifestValidator? manifestValidator = null,
-        SkillHostMaterializationInspector? hostInspector = null)
+        SkillHostMaterializationInspector? hostInspector = null,
+        SkillInstalledContentDigestVerifier? contentDigestVerifier = null)
     {
         this.targetResolver = targetResolver ?? new SkillInstallTargetResolver();
         this.materializationService = materializationService ?? new SkillMaterializationService();
         this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
         this.manifestValidator = manifestValidator ?? new SkillManifestValidator();
         this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector();
+        this.contentDigestVerifier = contentDigestVerifier ?? new SkillInstalledContentDigestVerifier();
     }
 
     /// <summary> Installs official SKILL packages. </summary>
@@ -61,7 +64,13 @@ public sealed class SkillInstallService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var skillDirectory = Path.Combine(targetRoot, package.SkillName);
+            var skillDirectoryResult = SkillPathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
+            if (!skillDirectoryResult.IsSuccess)
+            {
+                return SkillOperationResult<SkillInstallResult>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);
+            }
+
+            var skillDirectory = skillDirectoryResult.Value!;
             var identity = new SkillInstallIdentity(request.Host, request.Scope, targetRoot, package.SkillName);
             if (Directory.Exists(skillDirectory))
             {
@@ -83,13 +92,13 @@ public sealed class SkillInstallService
 
             foreach (var file in materializedResult.Value!.Files)
             {
-                var filePathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, file.RelativePath);
+                var filePathResult = SkillPathBoundary.ResolvePackageFilePathUnderRoot(targetRoot, skillDirectory, file.RelativePath);
                 if (!filePathResult.IsSuccess)
                 {
                     return SkillOperationResult<SkillInstallResult>.FailureResult(filePathResult.Failure!.Code, filePathResult.Failure.Message);
                 }
 
-                await FileUtilities.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
+                await SkillFileUtilities.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
             }
 
             actions.Add(new SkillInstallAction(identity, SkillInstallActionKind.Created));
@@ -104,7 +113,13 @@ public sealed class SkillInstallService
         SkillInstallRequest request,
         CancellationToken cancellationToken)
     {
-        var manifestPath = Path.Combine(skillDirectory, "ucli-skill.json");
+        var manifestPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "ucli-skill.json");
+        if (!manifestPathResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(manifestPathResult.Failure!.Code, manifestPathResult.Failure.Message);
+        }
+
+        var manifestPath = manifestPathResult.Value!;
         if (!File.Exists(manifestPath))
         {
             return SkillOperationResult<bool>.FailureResult(
@@ -112,18 +127,13 @@ public sealed class SkillInstallService
                 $"Target skill directory is missing ucli-skill.json: {skillDirectory}");
         }
 
-        SkillManifest manifest;
-        try
+        var manifestResult = manifestSerializer.TryDeserialize(await File.ReadAllTextAsync(manifestPath, cancellationToken).ConfigureAwait(false));
+        if (!manifestResult.IsSuccess)
         {
-            manifest = manifestSerializer.Deserialize(await File.ReadAllTextAsync(manifestPath, cancellationToken).ConfigureAwait(false));
-        }
-        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException)
-        {
-            return SkillOperationResult<bool>.FailureResult(
-                SkillFailureCodes.ManifestInvalid,
-                $"Target skill manifest is invalid: {manifestPath}");
+            return SkillOperationResult<bool>.FailureResult(manifestResult.Failure!.Code, $"Target skill manifest is invalid: {manifestPath}");
         }
 
+        var manifest = manifestResult.Value!;
         var validationResult = manifestValidator.Validate(manifest);
         if (!validationResult.IsSuccess)
         {
@@ -135,6 +145,29 @@ public sealed class SkillInstallService
             return SkillOperationResult<bool>.FailureResult(
                 SkillFailureCodes.InstallTargetDigestMismatch,
                 $"Target skill contentDigest does not match canonical package: {package.SkillName}");
+        }
+
+        var materializedResult = materializationService.Materialize(package, request.Host);
+        if (!materializedResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
+        }
+
+        var installedDigestResult = await contentDigestVerifier.MatchesContentDigestAsync(
+            skillDirectory,
+            package,
+            materializedResult.Value!.Files,
+            cancellationToken).ConfigureAwait(false);
+        if (!installedDigestResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(installedDigestResult.Failure!.Code, installedDigestResult.Failure.Message);
+        }
+
+        if (!installedDigestResult.Value)
+        {
+            return SkillOperationResult<bool>.FailureResult(
+                SkillFailureCodes.InstallTargetDigestMismatch,
+                $"Target skill files do not match canonical package contentDigest: {package.SkillName}");
         }
 
         var hostMatchResult = await hostInspector.MatchesHostAsync(skillDirectory, manifest, request.Host, cancellationToken).ConfigureAwait(false);

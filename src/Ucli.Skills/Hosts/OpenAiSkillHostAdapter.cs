@@ -17,7 +17,7 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
         var frontmatter = string.Join(
             "\n",
             "---",
-            $"name: {metadata.SkillName}",
+            $"name: {SkillYamlScalarFormatter.DoubleQuoted(metadata.SkillName)}",
             $"description: {SkillYamlScalarFormatter.DoubleQuoted(metadata.Description)}",
             "---",
             string.Empty);

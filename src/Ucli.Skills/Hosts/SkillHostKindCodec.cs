@@ -11,13 +11,28 @@ public static class SkillHostKindCodec
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="host" /> is unsupported. </exception>
     public static string ToValue (SkillHostKind host)
     {
-        return host switch
+        return TryToValue(host, out var value)
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(host), host, "Unsupported SKILL host.");
+    }
+
+    /// <summary> Tries to convert one host enum value to the canonical literal. </summary>
+    /// <param name="host"> The host value. </param>
+    /// <param name="value"> The canonical literal. </param>
+    /// <returns> <see langword="true" /> when the host is supported; otherwise <see langword="false" />. </returns>
+    public static bool TryToValue (
+        SkillHostKind host,
+        out string value)
+    {
+        value = host switch
         {
             SkillHostKind.Claude => SkillHostKindValues.Claude,
             SkillHostKind.Copilot => SkillHostKindValues.Copilot,
             SkillHostKind.OpenAi => SkillHostKindValues.OpenAi,
-            _ => throw new ArgumentOutOfRangeException(nameof(host), host, "Unsupported SKILL host."),
+            _ => string.Empty,
         };
+
+        return value.Length != 0;
     }
 
     /// <summary> Tries to parse one host literal. </summary>

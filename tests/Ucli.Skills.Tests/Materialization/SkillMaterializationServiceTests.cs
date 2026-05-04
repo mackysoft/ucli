@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Skills.Hosts;
 using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Materialization;
 
@@ -22,9 +23,24 @@ public sealed class SkillMaterializationServiceTests
                 Assert.True(first.IsSuccess, first.Failure?.Message);
                 Assert.True(second.IsSuccess, second.Failure?.Message);
                 Assert.Equal(first.Value!.Files, second.Value!.Files);
-                Assert.StartsWith("---\n", first.Value.Files.Single(static file => file.RelativePath == "SKILL.md").Content, StringComparison.Ordinal);
+                var skillText = first.Value.Files.Single(static file => file.RelativePath == "SKILL.md").Content;
+                Assert.StartsWith("---\n", skillText, StringComparison.Ordinal);
+                Assert.Contains($"name: \"{package.SkillName}\"", skillText, StringComparison.Ordinal);
             }
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Materialize_ReturnsUnsupportedHostFailure_WhenHostIsUnknown ()
+    {
+        var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
+        var service = new SkillMaterializationService();
+
+        var result = service.Materialize(package, (SkillHostKind)999);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.HostUnsupported, result.Failure!.Code);
     }
 
     [Fact]

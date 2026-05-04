@@ -27,9 +27,9 @@ public sealed class SkillManifestValidator
             return Failure($"Unsupported ucli-skill.json schemaVersion: {manifest.SchemaVersion}");
         }
 
-        if (string.IsNullOrWhiteSpace(manifest.SkillName))
+        if (!IsSafeSkillName(manifest.SkillName))
         {
-            return Failure("ucli-skill.json skillName must not be empty.");
+            return Failure("ucli-skill.json skillName must be a safe SKILL identifier.");
         }
 
         if (!IsSha256Digest(manifest.ContentDigest))
@@ -80,5 +80,29 @@ public sealed class SkillManifestValidator
         }
 
         return value.AsSpan("sha256:".Length).IndexOfAnyExcept("0123456789abcdef") < 0;
+    }
+
+    private static bool IsSafeSkillName (string? skillName)
+    {
+        if (string.IsNullOrWhiteSpace(skillName) || !IsAsciiLowercaseLetterOrDigit(skillName[0]))
+        {
+            return false;
+        }
+
+        for (var i = 1; i < skillName.Length; i++)
+        {
+            var character = skillName[i];
+            if (character != '-' && !IsAsciiLowercaseLetterOrDigit(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsAsciiLowercaseLetterOrDigit (char character)
+    {
+        return character is (>= 'a' and <= 'z') or (>= '0' and <= '9');
     }
 }

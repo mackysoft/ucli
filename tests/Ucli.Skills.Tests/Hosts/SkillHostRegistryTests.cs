@@ -28,4 +28,16 @@ public sealed class SkillHostRegistryTests
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.HostUnsupported, result.Failure!.Code);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AdapterSet_MatchesHostRegistryDescriptors ()
+    {
+        var registry = new SkillHostRegistry();
+        var adapterSet = new SkillHostAdapterSet();
+
+        Assert.Equal(
+            registry.Descriptors.Select(static descriptor => (descriptor.Host, descriptor.HostName, descriptor.ProjectTargetDirectory)).ToArray(),
+            adapterSet.Adapters.Select(static adapter => (adapter.Descriptor.Host, adapter.Descriptor.HostName, adapter.Descriptor.ProjectTargetDirectory)).ToArray());
+    }
 }

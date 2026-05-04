@@ -33,14 +33,26 @@ public sealed class SkillHostMaterializationInspector
         ArgumentNullException.ThrowIfNull(manifest);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var hostName = SkillHostKindCodec.ToValue(host);
+        if (!SkillHostKindCodec.TryToValue(host, out var hostName))
+        {
+            return SkillOperationResult<bool>.FailureResult(
+                SkillFailureCodes.HostUnsupported,
+                $"Unsupported SKILL host: {host}");
+        }
+
         var expectedArtifact = manifest.HostArtifacts.SingleOrDefault(artifact => string.Equals(artifact.Host, hostName, StringComparison.Ordinal));
         if (expectedArtifact is null)
         {
             return SkillOperationResult<bool>.FailureResult(SkillFailureCodes.ManifestInvalid, $"Manifest does not contain host artifact '{hostName}'.");
         }
 
-        var skillPath = Path.Combine(skillDirectory, "SKILL.md");
+        var skillPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "SKILL.md");
+        if (!skillPathResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(skillPathResult.Failure!.Code, skillPathResult.Failure.Message);
+        }
+
+        var skillPath = skillPathResult.Value!;
         if (!File.Exists(skillPath))
         {
             return SkillOperationResult<bool>.Success(false);
@@ -58,7 +70,13 @@ public sealed class SkillHostMaterializationInspector
             return SkillOperationResult<bool>.Success(false);
         }
 
-        var openAiMetadataPath = Path.Combine(skillDirectory, "agents", "openai.yaml");
+        var openAiMetadataPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "agents/openai.yaml");
+        if (!openAiMetadataPathResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(openAiMetadataPathResult.Failure!.Code, openAiMetadataPathResult.Failure.Message);
+        }
+
+        var openAiMetadataPath = openAiMetadataPathResult.Value!;
         if (host == SkillHostKind.OpenAi)
         {
             if (!File.Exists(openAiMetadataPath) || string.IsNullOrWhiteSpace(expectedArtifact.Path) || string.IsNullOrWhiteSpace(expectedArtifact.Digest))
