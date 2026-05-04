@@ -31,9 +31,9 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithoutSuppliedRequestInput_ReturnsInvalidArgumentErrorAsSingleJson ()
+    public async Task Plan_WithEmptyStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Plan);
+        var result = await CliProcessRunner.RunCommandWithStandardInput(string.Empty, UcliCommandNames.Plan);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);

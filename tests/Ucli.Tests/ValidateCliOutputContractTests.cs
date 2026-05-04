@@ -56,9 +56,9 @@ public sealed class ValidateCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Validate_WithoutSuppliedRequestInput_ReturnsInvalidArgumentErrorAsSingleJson ()
+    public async Task Validate_WithEmptyStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Validate);
+        var result = await CliProcessRunner.RunCommandWithStandardInput(string.Empty, UcliCommandNames.Validate);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);

@@ -37,9 +37,9 @@ public sealed class CallCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Call_WithoutSuppliedRequestInput_ReturnsInvalidArgumentErrorAsSingleJson ()
+    public async Task Call_WithEmptyStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Call);
+        var result = await CliProcessRunner.RunCommandWithStandardInput(string.Empty, UcliCommandNames.Call);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
