@@ -1,6 +1,0 @@
-interface:
-  display_name: "Start Work"
-  short_description: "新規開始時に性質/サイズを確定し、必要なら分割と docs/agents 初期化を行う"
-  default_prompt: "Use $start-work at new-task kickoff to classify task nature and size, split Large tasks, invoke $branch-create, and initialize docs/agents artifacts only for issue-based work."
-policy:
-  allow_implicit_invocation: false

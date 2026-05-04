@@ -19,11 +19,13 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class RequestPreparationServiceTests
 {
+    private const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task ReadAndParse_WhenDependenciesSucceed_ReturnsParsedRequestWithoutResolvingProject ()
     {
-        const string requestJson = """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""";
+        const string requestJson = """{"steps":[]}""";
         var parsedRequest = CreateRequest();
         var inputReader = new StubRequestInputReader(
             RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput));
@@ -31,18 +33,19 @@ public sealed class RequestPreparationServiceTests
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
-        var service = new RequestPreparationService(inputReader, parser, projectContextResolver);
+        var service = CreateService(inputReader, parser, projectContextResolver);
 
         var result = await service.ReadAndParse(
             requestPath: "request.json",
             cancellationToken: CancellationToken.None);
 
+        var normalizedRequestJson = CreateNormalizedRequestJson();
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.ParsedRequest);
-        Assert.Equal(requestJson, result.ParsedRequest!.RequestJson);
+        Assert.Equal(normalizedRequestJson, result.ParsedRequest!.RequestJson);
         Assert.Equal(RequestInputSource.StandardInput, result.ParsedRequest.InputSource);
         Assert.Same(parsedRequest, result.ParsedRequest.Request);
-        Assert.Equal(requestJson, parser.ReceivedRequestJson);
+        Assert.Equal(normalizedRequestJson, parser.ReceivedRequestJson);
         Assert.Equal(0, projectContextResolver.CallCount);
     }
 
@@ -50,7 +53,7 @@ public sealed class RequestPreparationServiceTests
     [Trait("Size", "Small")]
     public async Task Prepare_WhenDependenciesSucceed_ReturnsPreparedRequest ()
     {
-        const string requestJson = """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""";
+        const string requestJson = """{"steps":[]}""";
         var parsedRequest = CreateRequest();
         var projectContext = CreateProjectContext();
         var inputReader = new StubRequestInputReader(
@@ -59,20 +62,21 @@ public sealed class RequestPreparationServiceTests
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(projectContext));
-        var service = new RequestPreparationService(inputReader, parser, projectContextResolver);
+        var service = CreateService(inputReader, parser, projectContextResolver);
 
         var result = await service.Prepare(
             requestPath: "request.json",
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
+        var normalizedRequestJson = CreateNormalizedRequestJson();
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PreparedRequest);
-        Assert.Equal(requestJson, result.PreparedRequest!.RequestJson);
+        Assert.Equal(normalizedRequestJson, result.PreparedRequest!.RequestJson);
         Assert.Equal(RequestInputSource.StandardInput, result.PreparedRequest.InputSource);
         Assert.Same(parsedRequest, result.PreparedRequest.Request);
         Assert.Same(projectContext, result.PreparedRequest.ProjectContext);
-        Assert.Equal(requestJson, parser.ReceivedRequestJson);
+        Assert.Equal(normalizedRequestJson, parser.ReceivedRequestJson);
     }
 
     [Fact]
@@ -80,7 +84,7 @@ public sealed class RequestPreparationServiceTests
     public async Task Prepare_WhenInputReadFails_ReturnsFailure ()
     {
         var error = ExecutionError.InvalidArgument("request input is invalid.");
-        var service = new RequestPreparationService(
+        var service = CreateService(
             new StubRequestInputReader(RequestInputReadResult.Failure(error)),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest())),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
@@ -100,8 +104,8 @@ public sealed class RequestPreparationServiceTests
     public async Task Prepare_WhenParseFails_ReturnsFailure ()
     {
         var error = ExecutionError.InvalidArgument("request JSON is invalid.");
-        var service = new RequestPreparationService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"protocolVersion":1}""", RequestInputSource.StandardInput)),
+        var service = CreateService(
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""", RequestInputSource.StandardInput)),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Failure(error)),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
@@ -117,11 +121,58 @@ public sealed class RequestPreparationServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Prepare_WhenUserRequestNormalizationFails_ReturnsFailureWithoutParsing ()
+    {
+        var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
+        var service = CreateService(
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""", RequestInputSource.StandardInput)),
+            parser,
+            new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
+
+        var result = await service.Prepare(
+            requestPath: null,
+            projectPath: "/tmp/project",
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Contains("requestId", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Null(parser.ReceivedRequestJson);
+        Assert.Null(result.PreparedRequest);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Prepare_WhenUserRequestStepsPropertyIsMissing_ReturnsFailureWithoutParsingOrResolvingProject ()
+    {
+        var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
+        var projectContextResolver = new SpyProjectContextResolver(
+            ProjectContextResolutionResult.Success(CreateProjectContext()));
+        var service = CreateService(
+            new StubRequestInputReader(RequestInputReadResult.Success("""{}""", RequestInputSource.StandardInput)),
+            parser,
+            projectContextResolver);
+
+        var result = await service.Prepare(
+            requestPath: null,
+            projectPath: "/tmp/project",
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Contains("steps", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Null(parser.ReceivedRequestJson);
+        Assert.Equal(0, projectContextResolver.CallCount);
+        Assert.Null(result.PreparedRequest);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Prepare_WhenProjectContextResolutionFails_ReturnsFailure ()
     {
         var error = ExecutionError.InvalidArgument("project path is invalid.");
-        var service = new RequestPreparationService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""", RequestInputSource.StandardInput)),
+        var service = CreateService(
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""", RequestInputSource.StandardInput)),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest())),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Failure(error)));
 
@@ -141,11 +192,11 @@ public sealed class RequestPreparationServiceTests
     {
         var token = new CancellationTokenSource().Token;
         var inputReader = new SpyRequestInputReader(
-            RequestInputReadResult.Success("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""", RequestInputSource.StandardInput));
+            RequestInputReadResult.Success("""{"steps":[]}""", RequestInputSource.StandardInput));
         var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
-        var service = new RequestPreparationService(inputReader, parser, projectContextResolver);
+        var service = CreateService(inputReader, parser, projectContextResolver);
 
         var result = await service.Prepare(
             requestPath: null,
@@ -161,7 +212,7 @@ public sealed class RequestPreparationServiceTests
     {
         return new ValidateRequest(
             ProtocolVersion: 1,
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            RequestId: RequestId,
             Steps: Array.Empty<ValidateRequestStep?>());
     }
 
@@ -175,6 +226,23 @@ public sealed class RequestPreparationServiceTests
                 PathSource: UnityProjectPathSource.CommandOption),
             UcliConfig.CreateDefault(),
             ConfigSource.Default);
+    }
+
+    private static string CreateNormalizedRequestJson ()
+    {
+        return $$"""{"protocolVersion":1,"requestId":"{{RequestId}}","steps":[]}""";
+    }
+
+    private static RequestPreparationService CreateService (
+        IRequestInputReader inputReader,
+        IValidateRequestJsonParser parser,
+        IProjectContextResolver projectContextResolver)
+    {
+        return new RequestPreparationService(
+            inputReader,
+            new UserRequestJsonNormalizer(new FixedRequestIdFactory(RequestId)),
+            parser,
+            projectContextResolver);
     }
 
     private sealed class StubRequestInputReader : IRequestInputReader
@@ -230,6 +298,21 @@ public sealed class RequestPreparationServiceTests
         {
             ReceivedRequestJson = requestJson;
             return result;
+        }
+    }
+
+    private sealed class FixedRequestIdFactory : IRequestIdFactory
+    {
+        private readonly string requestId;
+
+        public FixedRequestIdFactory (string requestId)
+        {
+            this.requestId = requestId;
+        }
+
+        public string Create ()
+        {
+            return requestId;
         }
     }
 

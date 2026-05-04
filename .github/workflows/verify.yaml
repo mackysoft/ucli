@@ -1,5 +1,8 @@
 name: verify
 
+env:
+  DOTNET_SOLUTION: Ucli.slnx
+
 on:
   pull_request:
   push:
@@ -112,13 +115,17 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
       - name: Restore
-        run: dotnet restore Ucli.slnx
+        run: dotnet restore "$DOTNET_SOLUTION"
 
-      - name: Build
-        run: dotnet build Ucli.slnx --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test Ucli.slnx --configuration Release --no-build --logger "trx;LogFileName=${{ matrix.os_name }}.trx" --results-directory artifacts/test-results/${{ matrix.os_name }}
+      - name: Verify code
+        run: >-
+          bash scripts/verify.sh
+          --no-restore
+          --solution "$DOTNET_SOLUTION"
+          --configuration Release
+          --
+          --logger "trx;LogFileName=${{ matrix.os_name }}.trx"
+          --results-directory "artifacts/test-results/${{ matrix.os_name }}"
 
       - name: Upload test results
         if: always()
@@ -161,14 +168,6 @@ jobs:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('Ucli.slnx', '**/*.csproj') }}
 
-      - name: Restore uCLI
-        run: dotnet restore src/Ucli/Ucli.csproj
-        shell: bash
-
-      - name: Build uCLI
-        run: dotnet build src/Ucli/Ucli.csproj --configuration Release --no-restore
-        shell: bash
-
       - name: Setup NuGet CLI on Linux or macOS
         if: ${{ runner.os != 'Windows' }}
         run: ./scripts/setup-nuget-cli.sh
@@ -207,77 +206,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-unity-library-
 
-      - name: Restore Unity dependencies
-        run: ./scripts/update-local-shared-packages.sh --prune
-        shell: bash
-
-      - name: Run Unity EditMode tests on Linux or macOS
-        id: unity_test_unix
-        if: ${{ runner.os != 'Windows' }}
+      - name: Run Unity EditMode tests
+        id: unity_test
         continue-on-error: true
         run: |
-          set -euo pipefail
-
-          result_dir="${GITHUB_WORKSPACE}/artifacts/unity/${{ matrix.os_name }}"
-          json_path="${result_dir}/command-result.json"
-          stderr_path="${result_dir}/command-stderr.log"
-          mkdir -p "${result_dir}"
-
-          set +e
-          dotnet "${GITHUB_WORKSPACE}/src/Ucli/bin/Release/net8.0/MackySoft.Ucli.dll" test run \
-            --projectPath "${GITHUB_WORKSPACE}/src/Ucli.Unity" \
-            --mode oneshot \
-            --unityEditorPath "${{ steps.unity_setup.outputs.unity-editor-path }}" \
-            --testPlatform editmode \
-            --assemblyName "MackySoft.Ucli.Unity.Tests.Editor" \
-            --timeout 1800000 \
-            > "${json_path}" 2> "${stderr_path}"
-          exit_code=$?
-          set -e
-
-          if [[ -s "${stderr_path}" ]]; then
-            cat "${stderr_path}"
-          fi
-
-          if [[ -s "${json_path}" ]]; then
-            cat "${json_path}"
-          fi
-
-          echo "exit_code=${exit_code}" >> "${GITHUB_OUTPUT}"
+          bash scripts/test-unity.sh \
+            --project-path "src/Ucli.Unity" \
+            --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
+            --assembly-name "MackySoft.Ucli.Unity.Tests.Editor" \
+            --result-dir "artifacts/unity/${{ matrix.os_name }}"
         shell: bash
-
-      - name: Run Unity EditMode tests on Windows
-        id: unity_test_windows
-        if: ${{ runner.os == 'Windows' }}
-        continue-on-error: true
-        run: |
-          $resultDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/unity/${{ matrix.os_name }}'
-          $jsonPath = Join-Path $resultDir 'command-result.json'
-          $stderrPath = Join-Path $resultDir 'command-stderr.log'
-          $ucliDllPath = Join-Path $env:GITHUB_WORKSPACE 'src/Ucli/bin/Release/net8.0/MackySoft.Ucli.dll'
-          New-Item -ItemType Directory -Force -Path $resultDir | Out-Null
-
-          & dotnet $ucliDllPath test run `
-            --projectPath (Join-Path $env:GITHUB_WORKSPACE 'src/Ucli.Unity') `
-            --mode oneshot `
-            --unityEditorPath '${{ steps.unity_setup.outputs.unity-editor-path }}' `
-            --testPlatform editmode `
-            --assemblyName 'MackySoft.Ucli.Unity.Tests.Editor' `
-            --timeout 1800000 `
-            1> $jsonPath 2> $stderrPath
-
-          $exitCode = $LASTEXITCODE
-
-          if ((Test-Path -Path $stderrPath) -and ((Get-Item -Path $stderrPath).Length -gt 0)) {
-            Get-Content -Path $stderrPath
-          }
-
-          if ((Test-Path -Path $jsonPath) -and ((Get-Item -Path $jsonPath).Length -gt 0)) {
-            Get-Content -Path $jsonPath
-          }
-
-          "exit_code=$exitCode" >> $env:GITHUB_OUTPUT
-        shell: pwsh
 
       - name: Upload Unity artifacts
         if: always()
@@ -291,7 +229,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Validate Unity command result on Linux or macOS
-        if: ${{ runner.os != 'Windows' && steps.unity_test_unix.outputs.exit_code == '0' }}
+        if: ${{ runner.os != 'Windows' && steps.unity_test.outputs.exit_code == '0' }}
         run: |
           set -euo pipefail
 
@@ -304,7 +242,7 @@ jobs:
         shell: bash
 
       - name: Validate Unity command result on Windows
-        if: ${{ runner.os == 'Windows' && steps.unity_test_windows.outputs.exit_code == '0' }}
+        if: ${{ runner.os == 'Windows' && steps.unity_test.outputs.exit_code == '0' }}
         run: |
           $jsonPath = Join-Path $env:GITHUB_WORKSPACE 'artifacts/unity/${{ matrix.os_name }}/command-result.json'
           $result = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
@@ -315,16 +253,16 @@ jobs:
         shell: pwsh
 
       - name: Fail when Unity tests fail on Linux or macOS
-        if: ${{ runner.os != 'Windows' && steps.unity_test_unix.outputs.exit_code != '0' }}
+        if: ${{ runner.os != 'Windows' && steps.unity_test.outputs.exit_code != '0' }}
         run: |
-          echo "Unity EditMode tests failed with exit code ${{ steps.unity_test_unix.outputs.exit_code }}." >&2
+          echo "Unity EditMode tests failed with exit code ${{ steps.unity_test.outputs.exit_code }}." >&2
           exit 1
         shell: bash
 
       - name: Fail when Unity tests fail on Windows
-        if: ${{ runner.os == 'Windows' && steps.unity_test_windows.outputs.exit_code != '0' }}
+        if: ${{ runner.os == 'Windows' && steps.unity_test.outputs.exit_code != '0' }}
         run: |
-          Write-Error "Unity EditMode tests failed with exit code ${{ steps.unity_test_windows.outputs.exit_code }}."
+          Write-Error "Unity EditMode tests failed with exit code ${{ steps.unity_test.outputs.exit_code }}."
         shell: pwsh
 
   shared_pack:
