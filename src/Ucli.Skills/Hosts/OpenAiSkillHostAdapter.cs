@@ -17,24 +17,22 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
     {
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var frontmatter = string.Join(
-            "\n",
-            "---",
-            $"name: {SkillYamlScalarFormatter.DoubleQuoted(metadata.SkillName)}",
-            $"description: {SkillYamlScalarFormatter.DoubleQuoted(metadata.Description)}",
-            "---",
-            string.Empty);
+        var frontmatter = new SkillYamlBuilder()
+            .DocumentMarker()
+            .Mapping("name", metadata.SkillName)
+            .Mapping("description", metadata.Description)
+            .DocumentMarker()
+            .Build();
 
-        var openAiYaml = string.Join(
-            "\n",
-            "interface:",
-            $"  display_name: {SkillYamlScalarFormatter.DoubleQuoted(metadata.DisplayName)}",
-            $"  short_description: {SkillYamlScalarFormatter.DoubleQuoted(metadata.Description)}",
-            $"  default_prompt: {SkillYamlScalarFormatter.DoubleQuoted($"Use ${metadata.SkillName} to follow the {metadata.DisplayName} workflow.")}",
-            string.Empty,
-            "policy:",
-            "  allow_implicit_invocation: true",
-            string.Empty);
+        var openAiYaml = new SkillYamlBuilder()
+            .Section("interface")
+            .Mapping("display_name", metadata.DisplayName, indentationLevel: 1)
+            .Mapping("short_description", metadata.Description, indentationLevel: 1)
+            .Mapping("default_prompt", $"Use ${metadata.SkillName} to follow the {metadata.DisplayName} workflow.", indentationLevel: 1)
+            .BlankLine()
+            .Section("policy")
+            .Mapping("allow_implicit_invocation", true, indentationLevel: 1)
+            .Build();
 
         return new SkillHostArtifactSet(
             frontmatter,

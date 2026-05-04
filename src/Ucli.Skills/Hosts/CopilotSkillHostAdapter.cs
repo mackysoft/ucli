@@ -16,14 +16,13 @@ public sealed class CopilotSkillHostAdapter : ISkillHostAdapter
     {
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var frontmatter = string.Join(
-            "\n",
-            "---",
-            $"name: {SkillYamlScalarFormatter.DoubleQuoted(metadata.SkillName)}",
-            $"description: {SkillYamlScalarFormatter.DoubleQuoted(metadata.Description)}",
-            "user-invocable: true",
-            "---",
-            string.Empty);
+        var frontmatter = new SkillYamlBuilder()
+            .DocumentMarker()
+            .Mapping("name", metadata.SkillName)
+            .Mapping("description", metadata.Description)
+            .Mapping("user-invocable", true)
+            .DocumentMarker()
+            .Build();
 
         return new SkillHostArtifactSet(frontmatter, []);
     }

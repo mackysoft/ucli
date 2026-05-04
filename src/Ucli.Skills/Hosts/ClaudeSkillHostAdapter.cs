@@ -16,14 +16,13 @@ public sealed class ClaudeSkillHostAdapter : ISkillHostAdapter
     {
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var frontmatter = string.Join(
-            "\n",
-            "---",
-            $"name: {SkillYamlScalarFormatter.DoubleQuoted(metadata.SkillName)}",
-            $"description: {SkillYamlScalarFormatter.DoubleQuoted(metadata.Description)}",
-            "disable-model-invocation: false",
-            "---",
-            string.Empty);
+        var frontmatter = new SkillYamlBuilder()
+            .DocumentMarker()
+            .Mapping("name", metadata.SkillName)
+            .Mapping("description", metadata.Description)
+            .Mapping("disable-model-invocation", false)
+            .DocumentMarker()
+            .Build();
 
         return new SkillHostArtifactSet(frontmatter, []);
     }
