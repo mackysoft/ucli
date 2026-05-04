@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "skillName": "ucli-verify-changes",
+  "displayName": "uCLI Verify Changes",
+  "description": "Use when verifying uCLI-driven Unity changes with follow-up reads, ucli test, logs, artifacts, and opResults evidence after validation, plan, or call execution.",
+  "references": [
+    "verification-workflow.md"
+  ]
+}
