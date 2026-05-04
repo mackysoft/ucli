@@ -337,7 +337,7 @@ printf '%s' "$REQUEST_JSON" | ucli call --planToken "$PLAN_TOKEN"
 
 > **IMPORTANT:** A timeout or disconnect does not prove that nothing was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
 
-> **TIP:** Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
+> **TIP:** Use shell redirection, such as `ucli call < request.json`, when a file path is the natural interface for your tool.
 
 ## 🧩 Request DSL Core
 
