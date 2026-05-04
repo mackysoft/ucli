@@ -1,0 +1,16 @@
+namespace MackySoft.Ucli.Skills.Hosts.Contracts;
+
+/// <summary> Provides deterministic materialization policy for one supported SKILL host. </summary>
+public interface ISkillHostAdapter
+{
+    /// <summary> Gets the host descriptor. </summary>
+    SkillHostDescriptor Descriptor { get; }
+
+    /// <summary> Gets the host-specific metadata artifact path, or <see langword="null" /> when the host uses frontmatter only. </summary>
+    string? MetadataArtifactPath { get; }
+
+    /// <summary> Builds host-specific artifacts for one skill. </summary>
+    /// <param name="metadata"> The host-independent metadata. </param>
+    /// <returns> The host-specific artifact set. </returns>
+    SkillHostArtifactSet BuildArtifacts (SkillHostMetadata metadata);
+}

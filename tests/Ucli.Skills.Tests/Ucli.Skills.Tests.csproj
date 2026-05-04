@@ -18,6 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/Ucli.Skills/Ucli.Skills.csproj" />
+    <ProjectReference Include="../Tests.Helper/Tests.Helper.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
