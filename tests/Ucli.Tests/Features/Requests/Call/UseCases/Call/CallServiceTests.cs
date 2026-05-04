@@ -64,7 +64,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: "/repo/request.json",
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1234"),
@@ -142,7 +141,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -205,7 +203,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -241,7 +238,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -279,7 +275,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -320,7 +315,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -356,7 +350,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -393,7 +386,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -448,7 +440,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -515,7 +506,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -573,7 +563,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -621,7 +610,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -678,7 +666,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -743,7 +730,6 @@ public sealed class CallServiceTests
 
         var result = await service.Execute(
             new CallCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
@@ -966,16 +952,13 @@ public sealed class CallServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             throw new NotSupportedException();
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
-            string? requestPath,
             string? projectPath,
             CancellationToken cancellationToken = default)
         {

@@ -51,18 +51,11 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithRequestPathAndStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
+    public async Task Plan_WithRequestPathOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
-        using var scope = TestDirectories.CreateTempScope("plan-cli-output-contract", "ambiguous-input");
-        var requestPath = Path.Combine(scope.FullPath, "request.json");
-        await scope.WriteFileAsync("request.json", CreateRequestJson());
-
-        var result = await CliProcessRunner.RunCommandWithWorkingDirectoryAndStandardInput(
-            scope.FullPath,
-            CreateRequestJson(),
+        var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Plan,
-            UcliContractConstants.CliOption.RequestPath,
-            requestPath);
+            "--requestPath");
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -72,10 +65,7 @@ public sealed class PlanCliOutputContractTests
             IpcProtocol.StatusError,
             (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.Contains(
-            "Request input source is ambiguous. Specify either --requestPath or redirected standard input.",
-            outputJson.RootElement.GetProperty("message").GetString(),
-            StringComparison.Ordinal);
+        Assert.Contains("Argument '--requestPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
     }
 
     [Fact]

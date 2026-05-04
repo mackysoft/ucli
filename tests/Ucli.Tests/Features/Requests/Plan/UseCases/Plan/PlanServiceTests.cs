@@ -53,7 +53,6 @@ public sealed class PlanServiceTests
 
         var result = await service.Execute(
             new PlanCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1234"),
@@ -107,7 +106,6 @@ public sealed class PlanServiceTests
 
         var result = await service.Execute(
             new PlanCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -143,7 +141,6 @@ public sealed class PlanServiceTests
 
         var result = await service.Execute(
             new PlanCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -176,7 +173,6 @@ public sealed class PlanServiceTests
 
         var result = await service.Execute(
             new PlanCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -218,7 +214,6 @@ public sealed class PlanServiceTests
 
         var result = await service.Execute(
             new PlanCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -265,7 +260,6 @@ public sealed class PlanServiceTests
 
         var result = await service.Execute(
             new PlanCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -304,7 +298,6 @@ public sealed class PlanServiceTests
 
         var result = await service.Execute(
             new PlanCommandInput(
-                RequestPath: null,
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
@@ -413,15 +406,12 @@ public sealed class PlanServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
-            string? requestPath,
             string? projectPath,
             CancellationToken cancellationToken = default)
         {

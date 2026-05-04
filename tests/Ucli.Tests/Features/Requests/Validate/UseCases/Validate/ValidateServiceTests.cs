@@ -31,7 +31,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -59,7 +59,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -94,7 +94,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -121,7 +121,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -152,7 +152,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, null, ReadIndexMode.Disabled),
+            new ValidateCommandInput(null, ReadIndexMode.Disabled),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -237,9 +237,7 @@ public sealed class ValidateServiceTests
 
         public int PrepareCallCount { get; private set; }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ReadAndParseCallCount++;
@@ -247,7 +245,6 @@ public sealed class ValidateServiceTests
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
-            string? requestPath,
             string? projectPath,
             CancellationToken cancellationToken = default)
         {

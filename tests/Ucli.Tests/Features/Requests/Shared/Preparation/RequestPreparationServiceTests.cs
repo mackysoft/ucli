@@ -33,9 +33,7 @@ public sealed class RequestPreparationServiceTests
             ProjectContextResolutionResult.Success(CreateProjectContext()));
         var service = new RequestPreparationService(inputReader, parser, projectContextResolver);
 
-        var result = await service.ReadAndParse(
-            requestPath: "request.json",
-            cancellationToken: CancellationToken.None);
+        var result = await service.ReadAndParse(CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.ParsedRequest);
@@ -62,7 +60,6 @@ public sealed class RequestPreparationServiceTests
         var service = new RequestPreparationService(inputReader, parser, projectContextResolver);
 
         var result = await service.Prepare(
-            requestPath: "request.json",
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -86,7 +83,6 @@ public sealed class RequestPreparationServiceTests
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -106,7 +102,6 @@ public sealed class RequestPreparationServiceTests
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -126,7 +121,6 @@ public sealed class RequestPreparationServiceTests
             new SpyProjectContextResolver(ProjectContextResolutionResult.Failure(error)));
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: CancellationToken.None);
 
@@ -148,7 +142,6 @@ public sealed class RequestPreparationServiceTests
         var service = new RequestPreparationService(inputReader, parser, projectContextResolver);
 
         var result = await service.Prepare(
-            requestPath: null,
             projectPath: "/tmp/project",
             cancellationToken: token);
 
@@ -186,9 +179,7 @@ public sealed class RequestPreparationServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<RequestInputReadResult> ReadAsync (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
@@ -206,9 +197,7 @@ public sealed class RequestPreparationServiceTests
 
         public CancellationToken ReceivedToken { get; private set; }
 
-        public ValueTask<RequestInputReadResult> ReadAsync (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
         {
             ReceivedToken = cancellationToken;
             return ValueTask.FromResult(result);
