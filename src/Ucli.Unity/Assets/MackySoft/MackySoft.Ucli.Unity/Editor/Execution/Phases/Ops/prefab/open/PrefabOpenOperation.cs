@@ -12,31 +12,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Implements <c>ucli.prefab.open</c> operation flow. </summary>
     [UcliOperation]
-    internal sealed class PrefabOpenOperation : IUcliOperation
+    internal sealed class PrefabOpenOperation : UcliOperation<PrefabPathArgs, UcliNoResult>
     {
-        private const string ArgsSchemaJson =
-            @"{
-              ""type"": ""object"",
-              ""additionalProperties"": false,
-              ""properties"": {
-                ""path"": { ""type"": ""string"", ""minLength"": 1 }
-              },
-              ""required"": [""path""]
-            }";
-
-        public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
+        public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<PrefabPathArgs, UcliNoResult>(
             operationName: UcliPrimitiveOperationNames.PrefabOpen,
-            kind: UcliOperationKind.Query,
+            kind: UcliOperationKind.Command,
             policy: OperationPolicy.Safe,
-            argsSchemaJson: ArgsSchemaJson);
+            description: "Opens a prefab asset in the Unity editor.",
+            assurance: new UcliOperationAssuranceContract(
+                new[] { UcliOperationSideEffect.OpensPrefabStage },
+                mayDirty: false,
+                mayPersist: false,
+                new[] { IpcExecuteTouchedResourceKindNames.Prefab },
+                UcliOperationPlanMode.MayCreatePreviewState));
 
-        public Task<OperationPhaseStepResult> Validate (
+        protected override Task<OperationPhaseStepResult> Validate (
             NormalizedOperation operation,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, out _, out var failure))
+            if (!TryValidateArguments(operation, args, out _, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -44,13 +41,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        public Task<OperationPhaseStepResult> Plan (
+        protected override Task<OperationPhaseStepResult> Plan (
             NormalizedOperation operation,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, args, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -91,13 +89,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }));
         }
 
-        public Task<OperationPhaseStepResult> Call (
+        protected override Task<OperationPhaseStepResult> Call (
             NormalizedOperation operation,
+            PrefabPathArgs args,
             OperationExecutionContext executionContext,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!TryValidateArguments(operation, out var validationState, out var failure))
+            if (!TryValidateArguments(operation, args, out var validationState, out var failure))
             {
                 return Task.FromResult(failure!);
             }
@@ -138,24 +137,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateArguments (
             NormalizedOperation operation,
+            PrefabPathArgs args,
             out ValidationState validationState,
             out OperationPhaseStepResult? failure)
         {
             validationState = default;
             failure = null;
-            if (!PrefabOperationArgumentsCodec.TryParsePathArguments(operation.Args, out var prefabPath, out var parseErrorMessage))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parseErrorMessage);
-                return false;
-            }
 
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(prefabPath, out var errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(args.Path, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            validationState = new ValidationState(prefabPath);
+            validationState = new ValidationState(args.Path);
             return true;
         }
 

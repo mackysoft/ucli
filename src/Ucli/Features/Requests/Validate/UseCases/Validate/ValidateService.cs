@@ -41,7 +41,6 @@ internal sealed class ValidateService : IValidateService
         if (input.ReadIndexMode == ReadIndexMode.Disabled)
         {
             var parsedRequestResult = await requestPreparationService.ReadAndParse(
-                    input.RequestPath,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!parsedRequestResult.IsSuccess)
@@ -80,7 +79,6 @@ internal sealed class ValidateService : IValidateService
         }
 
         var requestPreparationResult = await requestPreparationService.Prepare(
-                input.RequestPath,
                 input.ProjectPath,
                 cancellationToken)
             .ConfigureAwait(false);

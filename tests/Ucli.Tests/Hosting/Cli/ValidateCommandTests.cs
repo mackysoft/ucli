@@ -28,15 +28,13 @@ public sealed class ValidateCommandTests
         var command = new ValidateCommand(service);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Validate(
-            requestPath: "/repo/request.json",
             projectPath: "/repo/UnityProject",
             readIndexMode: "disabled",
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.NotNull(service.CapturedInput);
-        Assert.Equal("/repo/request.json", service.CapturedInput!.RequestPath);
-        Assert.Equal("/repo/UnityProject", service.CapturedInput.ProjectPath);
+        Assert.Equal("/repo/UnityProject", service.CapturedInput!.ProjectPath);
         Assert.Equal(ReadIndexMode.Disabled, service.CapturedInput.ReadIndexMode);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);

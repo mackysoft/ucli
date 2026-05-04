@@ -54,7 +54,8 @@ internal sealed class UnityTestExecutor : IUnityTestExecutor
                 new ProcessRunRequest(
                     FileName: configuration.UnityEditorPath,
                     Arguments: arguments,
-                    Timeout: timeout),
+                    Timeout: timeout,
+                    OutputDrainMode: ProcessOutputDrainMode.BestEffort),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

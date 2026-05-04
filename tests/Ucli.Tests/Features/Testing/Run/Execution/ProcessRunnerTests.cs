@@ -84,6 +84,73 @@ public sealed class ProcessRunnerTests
         Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WhenProcessExceedsTimeout_ReturnsTimedOut ()
+    {
+        var runner = new ProcessRunner();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                CreateLongRunningRequest(TimeSpan.FromMilliseconds(200)),
+                CancellationToken.None),
+            "Process runner timeout result",
+            SignalWaitTimeout);
+
+        Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
+        Assert.Null(result.ExitCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WhenOutputDrainModeIsBestEffortAndDescendantKeepsOutputOpen_ReturnsAfterParentExit ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var runner = new ProcessRunner();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                CreateExitedProcessWithInheritedOutputHandleRequest(
+                    TimeSpan.FromSeconds(10),
+                    ProcessOutputDrainMode.BestEffort),
+                CancellationToken.None),
+            "Process runner inherited output handle result",
+            TimeSpan.FromSeconds(8));
+
+        Assert.Equal(ProcessRunStatus.Exited, result.Status);
+        Assert.Equal(0, result.ExitCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WhenOutputCompletionIsRequiredAndDescendantKeepsOutputOpen_ReturnsTimedOut ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var runner = new ProcessRunner();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                CreateExitedProcessWithInheritedOutputHandleRequest(
+                    TimeSpan.FromMilliseconds(200),
+                    ProcessOutputDrainMode.WaitForCompletion),
+                CancellationToken.None),
+            "Process runner required output completion timeout result",
+            SignalWaitTimeout);
+
+        Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
+        Assert.Null(result.ExitCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+    }
+
     private static ProcessRunRequest CreateLongOutputRequest (bool captureStandardOutput)
     {
         if (OperatingSystem.IsWindows())
@@ -111,7 +178,9 @@ public sealed class ProcessRunnerTests
             CaptureStandardOutput: captureStandardOutput);
     }
 
-    private static ProcessRunRequest CreateLongRunningRequest (TimeSpan timeout)
+    private static ProcessRunRequest CreateLongRunningRequest (
+        TimeSpan timeout,
+        ProcessOutputDrainMode outputDrainMode = ProcessOutputDrainMode.WaitForCompletion)
     {
         if (OperatingSystem.IsWindows())
         {
@@ -123,7 +192,8 @@ public sealed class ProcessRunnerTests
                     "-Command",
                     "Start-Sleep -Seconds 30",
                 ],
-                Timeout: timeout);
+                Timeout: timeout,
+                OutputDrainMode: outputDrainMode);
         }
 
         return new ProcessRunRequest(
@@ -133,6 +203,22 @@ public sealed class ProcessRunnerTests
                 "-c",
                 "sleep 30",
             ],
-            Timeout: timeout);
+            Timeout: timeout,
+            OutputDrainMode: outputDrainMode);
+    }
+
+    private static ProcessRunRequest CreateExitedProcessWithInheritedOutputHandleRequest (
+        TimeSpan timeout,
+        ProcessOutputDrainMode outputDrainMode)
+    {
+        return new ProcessRunRequest(
+            FileName: "/bin/sh",
+            Arguments:
+            [
+                "-c",
+                "sleep 15 & exit 0",
+            ],
+            Timeout: timeout,
+            OutputDrainMode: outputDrainMode);
     }
 }

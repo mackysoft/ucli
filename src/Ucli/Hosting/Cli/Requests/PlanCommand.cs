@@ -26,7 +26,6 @@ internal sealed class PlanCommand
     }
 
     /// <summary> Executes the plan command and emits the JSON result contract. </summary>
-    /// <param name="requestPath">--requestPath, Optional path to one request JSON file.</param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -36,7 +35,6 @@ internal sealed class PlanCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Plan)]
     public async Task<int> Plan (
-        string? requestPath = null,
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -61,7 +59,6 @@ internal sealed class PlanCommand
         if (!normalizedTimeoutResult.IsSuccess)
         {
             var preflightResult = await planCommandPreflightService.Prepare(
-                    requestPath,
                     projectPath,
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
@@ -76,7 +73,6 @@ internal sealed class PlanCommand
         if (!normalizedModeResult.IsSuccess)
         {
             var preflightResult = await planCommandPreflightService.Prepare(
-                    requestPath,
                     projectPath,
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
@@ -89,7 +85,6 @@ internal sealed class PlanCommand
 
         var serviceResult = await planService.Execute(
                 new PlanCommandInput(
-                    RequestPath: requestPath,
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,
                     TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,

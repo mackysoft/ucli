@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
@@ -27,11 +28,11 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.SceneOpen, CancellationToken.None);
 
         Assert.NotNull(descriptor);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, descriptor.Name);
-        Assert.Equal(UcliOperationKind.Query, descriptor.Kind);
+        Assert.Equal(UcliPrimitiveOperationNames.SceneOpen, descriptor.Name);
+        Assert.Equal(UcliOperationKind.Command, descriptor.Kind);
         Assert.Equal(OperationPolicy.Safe, descriptor.Policy);
     }
 
@@ -41,7 +42,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.Resolve, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.Resolve, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -49,15 +50,16 @@ public sealed class OperationCatalogTests
         Assert.Equal(JsonValueKind.Object, schemaRoot.ValueKind);
         Assert.True(schemaRoot.TryGetProperty("additionalProperties", out var additionalProperties));
         Assert.False(additionalProperties.GetBoolean());
-        Assert.True(schemaRoot.TryGetProperty("oneOf", out var oneOf));
-        Assert.Equal(JsonValueKind.Array, oneOf.ValueKind);
-        Assert.Equal(6, oneOf.GetArrayLength());
-        Assert.True(ContainsRequiredProperty(oneOf, "globalObjectId"));
-        Assert.True(ContainsRequiredProperty(oneOf, "assetGuid"));
-        Assert.True(ContainsRequiredProperty(oneOf, "assetPath"));
-        Assert.True(ContainsRequiredProperty(oneOf, "projectAssetPath"));
-        Assert.True(ContainsRequiredProperties(oneOf, "scene", "hierarchyPath"));
-        Assert.True(ContainsRequiredProperties(oneOf, "prefab", "hierarchyPath"));
+        Assert.False(schemaRoot.TryGetProperty("oneOf", out _));
+        Assert.False(schemaRoot.TryGetProperty("allOf", out _));
+        var properties = schemaRoot.GetProperty("properties");
+        Assert.True(properties.TryGetProperty("globalObjectId", out _));
+        Assert.True(properties.TryGetProperty("assetGuid", out _));
+        Assert.True(properties.TryGetProperty("assetPath", out _));
+        Assert.True(properties.TryGetProperty("projectAssetPath", out _));
+        Assert.True(properties.TryGetProperty("scene", out _));
+        Assert.True(properties.TryGetProperty("prefab", out _));
+        Assert.True(properties.TryGetProperty("hierarchyPath", out _));
     }
 
     [Fact]
@@ -66,7 +68,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneTree, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.SceneTree, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -83,8 +85,7 @@ public sealed class OperationCatalogTests
         Assert.Equal(JsonValueKind.Array, depthType.ValueKind);
         Assert.True(ContainsArrayLiteral(depthType, "integer"));
         Assert.True(ContainsArrayLiteral(depthType, "null"));
-        Assert.True(depthProperty.TryGetProperty("minimum", out var depthMinimum));
-        Assert.Equal(0, depthMinimum.GetInt32());
+        Assert.False(depthProperty.TryGetProperty("minimum", out _));
     }
 
     [Fact]
@@ -93,7 +94,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoCreate, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoCreate, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -105,15 +106,8 @@ public sealed class OperationCatalogTests
         Assert.True(properties.TryGetProperty("scene", out _));
         Assert.True(properties.TryGetProperty("parent", out var parentProperty));
         Assert.True(parentProperty.GetProperty("properties").TryGetProperty("prefab", out _));
-        Assert.True(parentProperty.TryGetProperty("oneOf", out var parentOneOf));
-        Assert.Equal(3, parentOneOf.GetArrayLength());
-        Assert.True(ContainsRequiredProperty(parentOneOf, "globalObjectId"));
-        Assert.True(ContainsRequiredProperties(parentOneOf, "scene", "hierarchyPath"));
-        Assert.True(ContainsRequiredProperties(parentOneOf, "prefab", "hierarchyPath"));
-        Assert.True(schemaRoot.TryGetProperty("oneOf", out var rootOneOf));
-        Assert.Equal(2, rootOneOf.GetArrayLength());
-        Assert.True(ContainsRequiredProperty(rootOneOf, "scene"));
-        Assert.True(ContainsRequiredProperty(rootOneOf, "parent"));
+        Assert.False(parentProperty.TryGetProperty("oneOf", out _));
+        Assert.False(schemaRoot.TryGetProperty("oneOf", out _));
     }
 
     [Fact]
@@ -122,7 +116,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoDescribe, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -132,18 +126,13 @@ public sealed class OperationCatalogTests
         Assert.True(ContainsArrayLiteral(required, "target"));
         Assert.True(schemaRoot.TryGetProperty("properties", out var properties));
         Assert.True(properties.TryGetProperty("target", out var targetProperty));
-        Assert.True(targetProperty.TryGetProperty("oneOf", out var targetOneOf));
-        Assert.Equal(3, targetOneOf.GetArrayLength());
-        Assert.True(ContainsRequiredProperty(targetOneOf, "globalObjectId"));
-        Assert.True(ContainsRequiredProperties(targetOneOf, "prefab", "hierarchyPath"));
-        Assert.True(ContainsRequiredProperties(targetOneOf, "scene", "hierarchyPath"));
+        Assert.False(targetProperty.TryGetProperty("oneOf", out _));
         Assert.True(properties.TryGetProperty("depth", out var depthProperty));
         Assert.True(depthProperty.TryGetProperty("type", out var depthType));
         Assert.Equal(JsonValueKind.Array, depthType.ValueKind);
         Assert.True(ContainsArrayLiteral(depthType, "integer"));
         Assert.True(ContainsArrayLiteral(depthType, "null"));
-        Assert.True(depthProperty.TryGetProperty("minimum", out var depthMinimum));
-        Assert.Equal(0, depthMinimum.GetInt32());
+        Assert.False(depthProperty.TryGetProperty("minimum", out _));
     }
 
     [Fact]
@@ -152,7 +141,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSet, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.CompSet, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -160,8 +149,8 @@ public sealed class OperationCatalogTests
         var targetProperty = properties.GetProperty("target");
         Assert.True(targetProperty.GetProperty("properties").TryGetProperty("componentType", out _));
         Assert.True(targetProperty.GetProperty("properties").TryGetProperty("prefab", out _));
-        Assert.Equal(3, targetProperty.GetProperty("oneOf").GetArrayLength());
-        Assert.Equal(1, properties.GetProperty("sets").GetProperty("minItems").GetInt32());
+        Assert.False(targetProperty.TryGetProperty("oneOf", out _));
+        Assert.False(properties.GetProperty("sets").TryGetProperty("minItems", out _));
     }
 
     [Fact]
@@ -170,15 +159,15 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSet, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.AssetSet, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
         var properties = schemaDocument.RootElement.GetProperty("properties");
         var targetProperty = properties.GetProperty("target");
         Assert.True(targetProperty.GetProperty("properties").TryGetProperty("projectAssetPath", out _));
-        Assert.Equal(4, targetProperty.GetProperty("oneOf").GetArrayLength());
-        Assert.Equal(1, properties.GetProperty("sets").GetProperty("minItems").GetInt32());
+        Assert.False(targetProperty.TryGetProperty("oneOf", out _));
+        Assert.False(properties.GetProperty("sets").TryGetProperty("minItems", out _));
     }
 
     [Fact]
@@ -187,12 +176,12 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetSchema, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.AssetSchema, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
         var root = schemaDocument.RootElement;
-        Assert.Equal(2, root.GetProperty("oneOf").GetArrayLength());
+        Assert.False(root.TryGetProperty("oneOf", out _));
         var properties = root.GetProperty("properties");
         Assert.True(properties.TryGetProperty("type", out _));
         Assert.True(properties.GetProperty("target").GetProperty("properties").TryGetProperty("projectAssetPath", out _));
@@ -204,16 +193,16 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.AssetsFind, CancellationToken.None);
 
         Assert.NotNull(descriptor);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.AssetsFind, descriptor.Name);
+        Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, descriptor.Name);
         Assert.Equal(UcliOperationKind.Query, descriptor.Kind);
         Assert.Equal(OperationPolicy.Safe, descriptor.Policy);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
         var root = schemaDocument.RootElement;
         Assert.Equal(JsonValueKind.Object, root.ValueKind);
-        Assert.Equal(1, root.GetProperty("minProperties").GetInt32());
+        Assert.False(root.TryGetProperty("minProperties", out _));
         var properties = root.GetProperty("properties");
         Assert.True(properties.TryGetProperty("type", out _));
         Assert.True(properties.TryGetProperty("pathPrefix", out _));
@@ -227,7 +216,7 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.CompSchema, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.CompSchema, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
@@ -244,13 +233,13 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDelete, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoDelete, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
         var targetProperty = schemaDocument.RootElement.GetProperty("properties").GetProperty("target");
         Assert.True(targetProperty.GetProperty("properties").TryGetProperty("prefab", out _));
-        Assert.Equal(3, targetProperty.GetProperty("oneOf").GetArrayLength());
+        Assert.False(targetProperty.TryGetProperty("oneOf", out _));
     }
 
     [Fact]
@@ -259,13 +248,13 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoReparent, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.GoReparent, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
         var properties = schemaDocument.RootElement.GetProperty("properties");
-        Assert.Equal(3, properties.GetProperty("target").GetProperty("oneOf").GetArrayLength());
-        Assert.Equal(3, properties.GetProperty("parent").GetProperty("oneOf").GetArrayLength());
+        Assert.False(properties.GetProperty("target").TryGetProperty("oneOf", out _));
+        Assert.False(properties.GetProperty("parent").TryGetProperty("oneOf", out _));
     }
 
     [Fact]
@@ -274,19 +263,19 @@ public sealed class OperationCatalogTests
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
 
-        var descriptor = await catalog.Get(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.PrefabCreate, CancellationToken.None);
+        var descriptor = await catalog.Get(UcliPrimitiveOperationNames.PrefabCreate, CancellationToken.None);
 
         Assert.NotNull(descriptor);
         using var schemaDocument = JsonDocument.Parse(descriptor.ArgsSchemaJson);
         var targetProperty = schemaDocument.RootElement.GetProperty("properties").GetProperty("target");
         Assert.False(targetProperty.GetProperty("properties").TryGetProperty("prefab", out _));
-        Assert.Equal(2, targetProperty.GetProperty("oneOf").GetArrayLength());
+        Assert.False(targetProperty.TryGetProperty("oneOf", out _));
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh)]
-    [InlineData(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectSave)]
+    [InlineData(UcliPrimitiveOperationNames.ProjectRefresh)]
+    [InlineData(UcliPrimitiveOperationNames.ProjectSave)]
     public async Task Get_WhenOperationIsProjectMutation_ReturnsStrictEmptyObjectSchema (string operationName)
     {
         var catalog = new OperationCatalog(new InMemoryOperationCatalogProvider());
@@ -301,7 +290,10 @@ public sealed class OperationCatalogTests
         Assert.Equal("object", typeProperty.GetString());
         Assert.True(schemaRoot.TryGetProperty("additionalProperties", out var additionalProperties));
         Assert.False(additionalProperties.GetBoolean());
-        Assert.False(schemaRoot.TryGetProperty("properties", out _));
+        if (schemaRoot.TryGetProperty("properties", out var properties))
+        {
+            Assert.Empty(properties.EnumerateObject());
+        }
     }
 
     [Fact]
@@ -330,8 +322,8 @@ public sealed class OperationCatalogTests
     {
         var provider = new TestOperationCatalogProvider(
         [
-            new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
-            new UcliOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Query, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, ArgsSchemaJson),
+            new UcliOperationDescriptor(UcliPrimitiveOperationNames.SceneOpen, UcliOperationKind.Command, OperationPolicy.Safe, ArgsSchemaJson),
         ]);
         var catalog = new OperationCatalog(provider);
 
@@ -384,61 +376,6 @@ public sealed class OperationCatalogTests
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(operations);
         }
-    }
-
-    private static bool ContainsRequiredProperty (
-        JsonElement oneOfArray,
-        string propertyName)
-    {
-        foreach (var schema in oneOfArray.EnumerateArray())
-        {
-            if (!schema.TryGetProperty("required", out var requiredProperties))
-            {
-                continue;
-            }
-
-            if (requiredProperties.ValueKind != JsonValueKind.Array || requiredProperties.GetArrayLength() != 1)
-            {
-                continue;
-            }
-
-            var requiredProperty = requiredProperties[0].GetString();
-            if (string.Equals(requiredProperty, propertyName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool ContainsRequiredProperties (
-        JsonElement oneOfArray,
-        string firstPropertyName,
-        string secondPropertyName)
-    {
-        foreach (var schema in oneOfArray.EnumerateArray())
-        {
-            if (!schema.TryGetProperty("required", out var requiredProperties))
-            {
-                continue;
-            }
-
-            if (requiredProperties.ValueKind != JsonValueKind.Array || requiredProperties.GetArrayLength() != 2)
-            {
-                continue;
-            }
-
-            var firstRequired = requiredProperties[0].GetString();
-            var secondRequired = requiredProperties[1].GetString();
-            if (string.Equals(firstRequired, firstPropertyName, StringComparison.Ordinal)
-                && string.Equals(secondRequired, secondPropertyName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool ContainsArrayLiteral (

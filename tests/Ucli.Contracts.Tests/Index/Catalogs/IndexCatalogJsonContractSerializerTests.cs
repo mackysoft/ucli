@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
@@ -218,6 +219,7 @@ public sealed class IndexCatalogJsonContractSerializerTests
     [Trait("Size", "Small")]
     public void IndexOpsCatalogJsonContractSerializer_RoundTripsContract ()
     {
+        var describe = CreateGoDescribeContract();
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
@@ -225,10 +227,17 @@ public sealed class IndexCatalogJsonContractSerializerTests
             Entries:
             [
                 new IndexOpEntryJsonContract(
-                    Name: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
+                    Name: UcliPrimitiveOperationNames.GoDescribe,
                     Kind: "query",
                     Policy: "safe",
-                    ArgsSchemaJson: """{"type":"object"}"""),
+                    ArgsSchemaJson: """{"type":"object"}""",
+                    ResultSchemaJson: """{"type":"object"}""")
+                {
+                    Description = describe.Description,
+                    Inputs = describe.Inputs,
+                    ResultContract = describe.ResultContract,
+                    Assurance = describe.Assurance,
+                },
             ]);
 
         var json = IndexOpsCatalogJsonContractSerializer.Serialize(contract);
@@ -239,7 +248,12 @@ public sealed class IndexCatalogJsonContractSerializerTests
         Assert.Equal(contract.SourceInputsHash, deserialized.SourceInputsHash);
         Assert.NotNull(deserialized.Entries);
         Assert.Single(deserialized.Entries);
-        Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, deserialized.Entries[0].Name);
+        Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, deserialized.Entries[0].Name);
+        Assert.Equal(describe.Description, deserialized.Entries[0].Description);
+        Assert.NotNull(deserialized.Entries[0].Inputs);
+        Assert.NotNull(deserialized.Entries[0].ResultContract);
+        Assert.Equal("GameObjectDescriptionResult", deserialized.Entries[0].ResultContract!.ResultType);
+        Assert.NotNull(deserialized.Entries[0].Assurance);
     }
 
     [Fact]
@@ -330,5 +344,16 @@ public sealed class IndexCatalogJsonContractSerializerTests
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("scenePath", out _));
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("sourceInputsHash", out _));
         Assert.True(sceneTreeLiteDocument.RootElement.TryGetProperty("roots", out _));
+    }
+    private static UcliOperationDescribeContract CreateGoDescribeContract ()
+    {
+        return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(
+            "Returns a GameObject description including components and child hierarchy.",
+            new UcliOperationAssuranceContract(
+                Array.Empty<UcliOperationSideEffect>(),
+                mayDirty: false,
+                mayPersist: false,
+                Array.Empty<string>(),
+                UcliOperationPlanMode.ObservesLiveUnity));
     }
 }

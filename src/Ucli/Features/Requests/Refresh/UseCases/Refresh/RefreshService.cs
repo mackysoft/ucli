@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -15,10 +14,11 @@ internal sealed class RefreshService : IRefreshService
         OperationId: "refresh",
         Descriptor: new UcliOperationDescriptor(
             Name: UcliPrimitiveOperationNames.ProjectRefresh,
-            Kind: UcliOperationKind.Mutation,
+            Kind: UcliOperationKind.Command,
             Policy: OperationPolicy.Advanced,
-            ArgsSchemaJson: """{"type":"object","additionalProperties":false}"""),
-        Args: JsonSerializer.SerializeToElement(new { }));
+            ArgsSchemaJson: UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(UcliEmptyArgs)),
+            ResultSchemaJson: null),
+        Args: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()));
 
     private readonly IOperationExecuteService operationExecuteService;
 

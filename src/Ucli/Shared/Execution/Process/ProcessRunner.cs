@@ -10,6 +10,8 @@ internal sealed class ProcessRunner : IProcessRunner
 {
     private const int MaxCapturedOutputChars = 4096;
 
+    private static readonly TimeSpan ProcessKillWaitTimeout = TimeSpan.FromSeconds(5);
+
     /// <summary> Runs one process request. </summary>
     /// <param name="request"> The process request values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by the caller. </param>
@@ -19,6 +21,7 @@ internal sealed class ProcessRunner : IProcessRunner
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateOutputDrainMode(request.OutputDrainMode);
 
         using var process = new DiagnosticsProcess();
         var startInfo = process.StartInfo;
@@ -64,12 +67,17 @@ internal sealed class ProcessRunner : IProcessRunner
 
         try
         {
-            await process.WaitForExitAsync(linkedCancellationTokenSource.Token).ConfigureAwait(false);
+            await WaitForProcessExitOnlyAsync(process, linkedCancellationTokenSource.Token).ConfigureAwait(false);
+            await DrainOutputAsync(
+                standardOutputCompleted.Task,
+                standardErrorCompleted.Task,
+                request.OutputDrainMode,
+                linkedCancellationTokenSource.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await TryKillProcessAsync(process).ConfigureAwait(false);
-            await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+            await TryDrainOutputBestEffortAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
             return ProcessRunResult.Canceled(
                 $"Process execution was canceled.{BuildOutputSnippet(standardError, standardOutput)}",
                 standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
@@ -78,13 +86,11 @@ internal sealed class ProcessRunner : IProcessRunner
                                                  && !cancellationToken.IsCancellationRequested)
         {
             await TryKillProcessAsync(process).ConfigureAwait(false);
-            await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+            await TryDrainOutputBestEffortAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
             return ProcessRunResult.TimedOut(
                 $"Process timed out after {request.Timeout.TotalMilliseconds:0} milliseconds.{BuildOutputSnippet(standardError, standardOutput)}",
                 standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
         }
-
-        await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
 
         if (process.ExitCode == 0)
         {
@@ -97,6 +103,18 @@ internal sealed class ProcessRunner : IProcessRunner
             process.ExitCode,
             $"Process exited with code {process.ExitCode}.{BuildOutputSnippet(standardError, standardOutput)}",
             standardOutput: GetCapturedStandardOutput(standardOutput, fullStandardOutput));
+    }
+
+    /// <summary> Validates one output drain mode value before process execution starts. </summary>
+    /// <param name="outputDrainMode"> The output drain mode to validate. </param>
+    private static void ValidateOutputDrainMode (ProcessOutputDrainMode outputDrainMode)
+    {
+        if (outputDrainMode is ProcessOutputDrainMode.WaitForCompletion or ProcessOutputDrainMode.BestEffort)
+        {
+            return;
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(outputDrainMode), outputDrainMode, "Unknown process output drain mode.");
     }
 
     /// <summary> Tries to terminate one running process and waits for process exit. </summary>
@@ -121,7 +139,8 @@ internal sealed class ProcessRunner : IProcessRunner
 
         try
         {
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            using var killWaitCancellationTokenSource = new CancellationTokenSource(ProcessKillWaitTimeout);
+            await WaitForProcessExitOnlyAsync(process, killWaitCancellationTokenSource.Token).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -129,14 +148,88 @@ internal sealed class ProcessRunner : IProcessRunner
         }
     }
 
-    /// <summary> Waits for redirected output stream completion. </summary>
+    /// <summary> Waits only for the process exit signal without waiting for redirected stream completion. </summary>
+    /// <param name="process"> The process to observe. </param>
+    /// <param name="cancellationToken"> A cancellation token for the wait operation. </param>
+    private static async Task WaitForProcessExitOnlyAsync (
+        DiagnosticsProcess process,
+        CancellationToken cancellationToken)
+    {
+        if (process.HasExited)
+        {
+            return;
+        }
+
+        var completionSource = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnExited (object? _, EventArgs __)
+        {
+            completionSource.TrySetResult(null);
+        }
+
+        process.EnableRaisingEvents = true;
+        process.Exited += OnExited;
+
+        try
+        {
+            if (process.HasExited)
+            {
+                return;
+            }
+
+            using var cancellationRegistration = cancellationToken.Register(
+                static state => ((TaskCompletionSource<object?>)state!).TrySetCanceled(),
+                completionSource);
+            await completionSource.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            process.Exited -= OnExited;
+        }
+    }
+
+    /// <summary> Drains redirected output streams according to the requested contract. </summary>
     /// <param name="standardOutputCompleted"> The standard-output completion task. </param>
     /// <param name="standardErrorCompleted"> The standard-error completion task. </param>
+    /// <param name="outputDrainMode"> The output drain mode requested by the caller. </param>
+    /// <param name="cancellationToken"> A cancellation token for required output completion. </param>
     private static async Task DrainOutputAsync (
+        Task standardOutputCompleted,
+        Task standardErrorCompleted,
+        ProcessOutputDrainMode outputDrainMode,
+        CancellationToken cancellationToken)
+    {
+        switch (outputDrainMode)
+        {
+            case ProcessOutputDrainMode.WaitForCompletion:
+                await Task.WhenAll(standardOutputCompleted, standardErrorCompleted)
+                    .WaitAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+
+            case ProcessOutputDrainMode.BestEffort:
+                await TryDrainOutputBestEffortAsync(standardOutputCompleted, standardErrorCompleted).ConfigureAwait(false);
+                return;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(outputDrainMode), outputDrainMode, "Unknown process output drain mode.");
+        }
+    }
+
+    /// <summary> Observes redirected output stream completion only when it is already available. </summary>
+    /// <param name="standardOutputCompleted"> The standard-output completion task. </param>
+    /// <param name="standardErrorCompleted"> The standard-error completion task. </param>
+    private static async Task TryDrainOutputBestEffortAsync (
         Task standardOutputCompleted,
         Task standardErrorCompleted)
     {
-        await Task.WhenAll(standardOutputCompleted, standardErrorCompleted).ConfigureAwait(false);
+        var drainTask = Task.WhenAll(standardOutputCompleted, standardErrorCompleted);
+        if (!drainTask.IsCompleted)
+        {
+            return;
+        }
+
+        await drainTask.ConfigureAwait(false);
     }
 
     /// <summary> Handles one redirected output line. </summary>

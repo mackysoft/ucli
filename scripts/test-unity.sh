@@ -18,7 +18,7 @@ Options:
   --test-settings-path <path> TestSettings.json path.
   --timeout <milliseconds>    Test timeout. Defaults to 1800000.
   --configuration <name>      .NET build configuration. Defaults to Release.
-  --result-dir <path>         Output directory. Defaults to artifacts/unity/local.
+  --result-dir <path>         Output directory. Defaults to a temporary directory.
   --no-restore                Skip dotnet restore for the ucli project build.
   --no-prune                  Do not prune restored Unity package assets.
 EOF
@@ -35,7 +35,7 @@ test_category=""
 test_settings_path=""
 timeout_milliseconds="1800000"
 configuration="Release"
-result_dir="artifacts/unity/local"
+result_dir=""
 restore=true
 prune=true
 
@@ -202,7 +202,7 @@ cd "${repository_root}"
 to_absolute_path() {
   case "$1" in
     /*|[A-Za-z]:/*|[A-Za-z]:\\*)
-      printf '%s\n' "$1"
+      printf '%s\n' "${1//\\//}"
       ;;
     *)
       printf '%s/%s\n' "${repository_root}" "$1"
@@ -210,12 +210,86 @@ to_absolute_path() {
   esac
 }
 
+is_supported_unity_editor_executable_file_name() {
+  local file_name
+  file_name="$(basename "${1//\\//}")"
+  [[ "${file_name}" == "Unity" || "${file_name}" == "Unity.exe" ]]
+}
+
+resolve_unity_editor_executable_path() {
+  local preferred_path="$1"
+  local normalized_path
+  normalized_path="$(to_absolute_path "${preferred_path}")"
+
+  if [[ -f "${normalized_path}" ]]; then
+    if ! is_supported_unity_editor_executable_file_name "${normalized_path}"; then
+      echo "ERROR: --unity-editor-path must point to a Unity executable (Unity or Unity.exe): ${normalized_path}" >&2
+      return 2
+    fi
+
+    printf '%s\n' "${normalized_path}"
+    return 0
+  fi
+
+  if [[ ! -d "${normalized_path}" ]]; then
+    echo "ERROR: --unity-editor-path does not exist: ${normalized_path}" >&2
+    return 2
+  fi
+
+  local executable_relative_paths=(
+    "Contents/MacOS/Unity"
+    "Unity.app/Contents/MacOS/Unity"
+    "Editor/Unity.exe"
+    "Editor/Unity"
+    "Unity.exe"
+    "Unity"
+  )
+
+  local relative_path
+  local executable_path
+  for relative_path in "${executable_relative_paths[@]}"; do
+    executable_path="${normalized_path}/${relative_path}"
+    if [[ ! -f "${executable_path}" ]]; then
+      continue
+    fi
+
+    if ! is_supported_unity_editor_executable_file_name "${executable_path}"; then
+      continue
+    fi
+
+    printf '%s\n' "${executable_path}"
+    return 0
+  done
+
+  echo "ERROR: --unity-editor-path does not contain a Unity executable: ${normalized_path}" >&2
+  return 2
+}
+
 project_path="$(to_absolute_path "${project_path}")"
-result_dir="$(to_absolute_path "${result_dir}")"
+
+if [[ -n "${unity_editor_path}" ]]; then
+  unity_editor_path="$(resolve_unity_editor_executable_path "${unity_editor_path}")" || exit $?
+fi
+
+temporary_result_dir=""
+if [[ -z "${result_dir}" ]]; then
+  temporary_result_dir="$(mktemp -d "${TMPDIR:-/tmp}/ucli-unity-test.XXXXXX")"
+  result_dir="${temporary_result_dir}"
+else
+  result_dir="$(to_absolute_path "${result_dir}")"
+fi
 command_result_path="${result_dir}/command-result.json"
 command_stderr_path="${result_dir}/command-stderr.log"
 ucli_project_path="${repository_root}/src/Ucli/Ucli.csproj"
 ucli_dll_path="${repository_root}/src/Ucli/bin/${configuration}/net8.0/MackySoft.Ucli.dll"
+
+cleanup_temporary_result_dir() {
+  if [[ -n "${temporary_result_dir}" && -d "${temporary_result_dir}" ]]; then
+    rm -rf "${temporary_result_dir}"
+  fi
+}
+
+trap cleanup_temporary_result_dir EXIT
 
 if [[ ! -d "${project_path}" ]]; then
   echo "ERROR: Unity project path not found: ${project_path}" >&2
@@ -283,8 +357,10 @@ fi
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     echo "exit_code=${exit_code}"
-    echo "command_result_path=${command_result_path}"
-    echo "command_stderr_path=${command_stderr_path}"
+    if [[ -z "${temporary_result_dir}" ]]; then
+      echo "command_result_path=${command_result_path}"
+      echo "command_stderr_path=${command_stderr_path}"
+    fi
   } >> "${GITHUB_OUTPUT}"
 fi
 

@@ -61,7 +61,6 @@ internal sealed class CallService : ICallService
         ArgumentNullException.ThrowIfNull(input);
 
         var requestPreparationResult = await requestPreparationService.Prepare(
-                input.RequestPath,
                 input.ProjectPath,
                 cancellationToken)
             .ConfigureAwait(false);

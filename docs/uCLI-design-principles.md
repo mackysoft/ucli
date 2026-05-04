@@ -111,15 +111,23 @@ file、log、session、artifact は reload generation をまたいで reopen で
 ### Transport は意味を変えない
 transport は搬送路であり、意味論を変える理由ではない。
 差異がある場合は、黙って欠落させず capability として明示する。
-### Schema を唯一の正本にする
+### Contract 型を唯一の正本にする
 README、help、skill、tool description を別々に人手で保守しない。  
-**機械可読な schema / metadata を唯一の正本**にする。
+operation ごとの Args/Result contract 型と operation metadata を公開 contract の正本にする。複数 operation で同じ意味を持つ scalar 入力/出力は C# contract 上の semantic value type として表し、IPC JSON では primitive JSON 値のまま扱う。asset path、hierarchy path、GlobalObjectId、asset GUID、type identifier のような値は、必要な制約属性を持つ dedicated value type に寄せる。入力ごとの説明と意味制約は Args property または semantic value type の属性に置き、`inputs[]` はそこから生成する。operation 全体の description / resultContract / assurance metadata は operation metadata に置く。request-local alias は `edit` lowering の内部 primitive 間だけで使い、public raw `op` の contract には出さない。
+`argsSchema` / `resultSchema` はその contract から生成される JSON 構造検証用 schema とし、agent 向けの主契約にはしない。意味制約は JSON Schema の低レベル keyword ではなく Args 属性から生成される `inputs[].constraints` に置く。
+### Operation は1つのユーザー意図を表す
+1つの operation に複数の意味 variant を持たせない。
+description が「A または B」になる operation、必須入力セットによってユーザー意図が変わる operation、result 解釈や policy / sideEffects / planMode が変わる operation は分割対象とする。
+
+同じ対象を指定する複数の方法は operation variant ではなく input variant として扱う。たとえば `globalObjectId`、`sceneHierarchy`、`prefabHierarchy` は `GameObjectReferenceArgs` などの reference input の表現方法であり、`ucli.go.delete` 自体の意味を増やすものではない。
 ### Unsafe path は隔離する
 任意コード実行や危険操作は認めてもよいが、safe 系の主経路とは分ける。  
 危険操作に safe と同じ保証を与えない。
 ### Safe core は typed operation で閉じる
 safe 系主経路は `typed reference + typed op + explicit context` を基準にする。
 generic setter や任意コード実行を safe core の前提にしない。
+selector は `GameObjectReferenceArgs`、`ComponentReferenceArgs`、`AssetReferenceArgs` などの contract 型で受け取り、解決済み `UnityEngine.Object` は Unity 実装層の内部状態に閉じ込める。
+operation 本体は `JsonElement` 起点ではなく typed Args を受け取り、JSON は IPC と schema validation の境界に閉じ込める。
 ### Sugar は正本ではない
 
 短縮構文は許容してよい。  

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 
 #nullable enable
@@ -14,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="depth"> The maximum child depth to include. <see langword="null" /> means unlimited depth. </param>
         /// <returns> The built GameObject description. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="root" /> is <see langword="null" />. </exception>
-        public static GameObjectDescription Build (
+        public static GameObjectDescriptionResult Build (
             GameObject root,
             int? depth)
         {
@@ -27,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The optional request execution context. </param>
         /// <param name="includeTemporaryState"> Whether request-local ensured components may augment the description. </param>
         /// <returns> The built GameObject description. </returns>
-        public static GameObjectDescription Build (
+        public static GameObjectDescriptionResult Build (
             GameObject root,
             int? depth,
             OperationExecutionContext? executionContext,
@@ -47,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="currentDepth"> The current recursion depth. </param>
         /// <param name="maxDepth"> The maximum recursion depth. </param>
         /// <returns> The built description node. </returns>
-        private static GameObjectDescription Build (
+        private static GameObjectDescriptionResult Build (
             Transform transform,
             int currentDepth,
             int maxDepth,
@@ -58,16 +59,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var componentDescriptions = BuildComponentDescriptions(gameObject, executionContext, includeTemporaryState);
 
             var children = currentDepth >= maxDepth
-                ? Array.Empty<GameObjectDescription>()
+                ? Array.Empty<GameObjectDescriptionResult>()
                 : BuildChildren(transform, currentDepth, maxDepth, executionContext, includeTemporaryState);
             var globalObjectId = ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
                 ? resolvedReference!.GlobalObjectId
                 : string.Empty;
-            return new GameObjectDescription(
-                Name: gameObject.name,
-                GlobalObjectId: globalObjectId,
-                Components: componentDescriptions,
-                Children: children);
+            return new GameObjectDescriptionResult(
+                name: gameObject.name,
+                globalObjectId: globalObjectId,
+                components: componentDescriptions,
+                children: children);
         }
 
         /// <summary> Builds child descriptions for the specified transform. </summary>
@@ -75,14 +76,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="currentDepth"> The current recursion depth. </param>
         /// <param name="maxDepth"> The maximum recursion depth. </param>
         /// <returns> The built child description list. </returns>
-        private static GameObjectDescription[] BuildChildren (
+        private static GameObjectDescriptionResult[] BuildChildren (
             Transform transform,
             int currentDepth,
             int maxDepth,
             OperationExecutionContext? executionContext,
             bool includeTemporaryState)
         {
-            var childDescriptions = new GameObjectDescription[transform.childCount];
+            var childDescriptions = new GameObjectDescriptionResult[transform.childCount];
             for (var childIndex = 0; childIndex < transform.childCount; childIndex++)
             {
                 childDescriptions[childIndex] = Build(
@@ -96,13 +97,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return childDescriptions;
         }
 
-        private static GameObjectComponentDescription[] BuildComponentDescriptions (
+        private static GameObjectComponentDescriptionResult[] BuildComponentDescriptions (
             GameObject gameObject,
             OperationExecutionContext? executionContext,
             bool includeTemporaryState)
         {
             var components = gameObject.GetComponents<Component>();
-            List<GameObjectComponentDescription>? ensuredComponentDescriptions = null;
+            List<GameObjectComponentDescriptionResult>? ensuredComponentDescriptions = null;
             if (includeTemporaryState
                 && executionContext != null)
             {
@@ -111,7 +112,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.CollectEnsuredComponentStates(targetTrackingKey, ensuredComponents);
                 if (ensuredComponents.Count > 0)
                 {
-                    ensuredComponentDescriptions = new List<GameObjectComponentDescription>(ensuredComponents.Count);
+                    ensuredComponentDescriptions = new List<GameObjectComponentDescriptionResult>(ensuredComponents.Count);
                     for (var ensuredIndex = 0; ensuredIndex < ensuredComponents.Count; ensuredIndex++)
                     {
                         var ensuredComponent = ensuredComponents[ensuredIndex].Component;
@@ -120,17 +121,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             continue;
                         }
 
-                        ensuredComponentDescriptions.Add(new GameObjectComponentDescription(ensuredComponent.GetType().FullName));
+                        ensuredComponentDescriptions.Add(new GameObjectComponentDescriptionResult(ensuredComponent.GetType().FullName));
                     }
                 }
             }
 
             var componentDescriptionCount = components.Length + (ensuredComponentDescriptions != null ? ensuredComponentDescriptions.Count : 0);
-            var componentDescriptions = new GameObjectComponentDescription[componentDescriptionCount];
+            var componentDescriptions = new GameObjectComponentDescriptionResult[componentDescriptionCount];
             for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
             {
                 var component = components[componentIndex];
-                componentDescriptions[componentIndex] = new GameObjectComponentDescription(component != null ? component.GetType().FullName : null);
+                componentDescriptions[componentIndex] = new GameObjectComponentDescriptionResult(component != null ? component.GetType().FullName : null);
             }
 
             if (ensuredComponentDescriptions == null)

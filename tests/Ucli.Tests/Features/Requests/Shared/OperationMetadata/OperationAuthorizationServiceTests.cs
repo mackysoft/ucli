@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
@@ -11,15 +12,15 @@ public sealed class OperationAuthorizationServiceTests
 
     public static TheoryData<string, string, string, string, string> AllowedAuthorizationCases => new()
     {
-        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "query", "safe", "safe", "^ucli\\." },
+        { UcliPrimitiveOperationNames.SceneOpen, "command", "safe", "safe", "^ucli\\." },
         { "ucli.cs.invoke", "mutation", "dangerous", "dangerous", "^ucli\\." },
     };
 
     public static TheoryData<string, string, string, string, string, string?> DeniedAuthorizationCases => new()
     {
-        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced", "safe", "^ucli\\.", null },
-        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "query", "safe", "safe", "^myorg\\.", null },
-        { MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "query", "safe", "safe", "[", "invalid regex" },
+        { UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced", "safe", "^ucli\\.", null },
+        { UcliPrimitiveOperationNames.SceneOpen, "command", "safe", "safe", "^myorg\\.", null },
+        { UcliPrimitiveOperationNames.SceneOpen, "command", "safe", "safe", "[", "invalid regex" },
     };
 
     [Theory]
@@ -98,6 +99,7 @@ public sealed class OperationAuthorizationServiceTests
         return operationKind switch
         {
             "query" => UcliOperationKind.Query,
+            "command" => UcliOperationKind.Command,
             "mutation" => UcliOperationKind.Mutation,
             _ => throw new ArgumentOutOfRangeException(nameof(operationKind), operationKind, "Unsupported operation kind case."),
         };

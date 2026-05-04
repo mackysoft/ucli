@@ -60,6 +60,25 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `id`: step 識別子
 - `op`: 実行する op 名
 - `args`: op 固有引数
+
+JSON リクエスト入力の機械構造は `RequestEnvelopeSchema + operation ごとの argsSchema + edit DSL` で定義する。`RequestEnvelopeSchema` は `protocolVersion` / `requestId` / `steps[]` / step 共通 field を定義し、`kind:"op"` の `args` だけを operation ごとの `argsSchema` に委譲する。
+
+現行 contract では `RequestEnvelopeSchema` を取得する個別コマンドまたは standalone schema file は定義しない。この文書の `protocolVersion` / `requestId` / `steps[]` / step 共通 field の定義を request envelope の正本とする。
+
+`argsSchema` は `steps[].args` の JSON 構造検証だけを担う。利用者やエージェントは `ucli ops describe <opName>` の `operation.description` / `inputs[]` / `inputs[].constraints` を先に読み、operation 選択と `args` の組み立てを行う。最後に `operation.argsSchema` で `args` の構造を検証する。
+
+public raw `op` の `args` では request-local alias selector branch の `var` を使用しない。`var` は予約済み property であり、値が `null` でも raw `op` 実行時に拒否する。`ops describe` の `argsSchema` / `inputs[].variants[]` にも出さない。
+
+`opResults[].result` は operation ごとの Result contract 型に対応する主データであり、実行状態や副作用情報は envelope の `phase` / `applied` / `changed` / `touched` / `errors` を参照する。結果の有無と読み方は `ops describe` の `operation.resultContract` と `operation.resultSchema` を参照する。
+
+`steps` は空配列を許可する。`steps: []` は no-op request であり、Unity state、project file、readIndex を変更しない。
+
+- `validate`：成功し、実行 step は生成しない。
+- `plan`：成功し、`opResults: []` を返す。永続化、副作用、`touched` は発生しない。
+- `call`：成功し、`opResults: []` を返す。永続化、副作用、`touched` は発生しない。
+
+現行 contract では no-op 専用の warning field や message field は定義しない。
+
 ### 用途
 `op` は少なくとも次を表現する。
 - scene / prefab / project の open / save / refresh

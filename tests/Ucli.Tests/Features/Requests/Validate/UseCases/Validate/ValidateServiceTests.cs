@@ -4,7 +4,6 @@ using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Context.Project;
@@ -31,7 +30,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -59,7 +58,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -94,7 +93,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -121,7 +120,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, "/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -152,7 +151,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, null, ReadIndexMode.Disabled),
+            new ValidateCommandInput(null, ReadIndexMode.Disabled),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -170,7 +169,6 @@ public sealed class ValidateServiceTests
     {
         return new ParsedRequestContext(
             RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""",
-            InputSource: RequestInputSource.StandardInput,
             Request: new ValidateRequest(
                 ProtocolVersion: 1,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
@@ -181,7 +179,6 @@ public sealed class ValidateServiceTests
     {
         return new PreparedRequestContext(
             RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""",
-            InputSource: RequestInputSource.StandardInput,
             Request: new ValidateRequest(
                 ProtocolVersion: 1,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
@@ -237,9 +234,7 @@ public sealed class ValidateServiceTests
 
         public int PrepareCallCount { get; private set; }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (
-            string? requestPath,
-            CancellationToken cancellationToken = default)
+        public ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ReadAndParseCallCount++;
@@ -247,7 +242,6 @@ public sealed class ValidateServiceTests
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
-            string? requestPath,
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
@@ -268,7 +262,6 @@ public sealed class ValidateServiceTests
             var preparedRequest = prepareResult.PreparedRequest!;
             return ParsedRequestResult.Success(new ParsedRequestContext(
                 preparedRequest.RequestJson,
-                preparedRequest.InputSource,
                 preparedRequest.Request));
         }
     }
