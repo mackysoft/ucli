@@ -2,6 +2,7 @@ using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Installation;
@@ -70,7 +71,7 @@ public sealed class SkillInstallationScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var skillDirectoryResult = SkillPathBoundary.ResolveUnderRoot(fullTargetRoot, skillDirectory);
+            var skillDirectoryResult = SkillPackagePathBoundary.ResolveUnderRoot(fullTargetRoot, skillDirectory);
             if (!skillDirectoryResult.IsSuccess)
             {
                 return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
@@ -79,7 +80,7 @@ public sealed class SkillInstallationScanner
             }
 
             var resolvedSkillDirectory = skillDirectoryResult.Value!;
-            var manifestPathResult = SkillPathBoundary.ResolvePackageFilePathUnderRoot(fullTargetRoot, resolvedSkillDirectory, "ucli-skill.json");
+            var manifestPathResult = SkillPackagePathBoundary.ResolvePackageFilePathUnderRoot(fullTargetRoot, resolvedSkillDirectory, "ucli-skill.json");
             if (!manifestPathResult.IsSuccess)
             {
                 return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Skills.Hosts;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Installation;
@@ -43,6 +44,6 @@ public sealed class SkillInstallTargetResolver
                 ? request.TargetRoot
                 : Path.Combine(repositoryRoot, request.TargetRoot);
 
-        return SkillPathBoundary.ResolveUnderRoot(repositoryRoot, targetRoot);
+        return SkillPackagePathBoundary.ResolveUnderRoot(repositoryRoot, targetRoot);
     }
 }

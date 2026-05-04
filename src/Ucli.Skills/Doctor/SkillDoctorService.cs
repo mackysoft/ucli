@@ -1,8 +1,8 @@
 using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts;
-using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Doctor;
@@ -96,7 +96,7 @@ public sealed class SkillDoctorService
         List<SkillDoctorDiagnostic> diagnostics,
         CancellationToken cancellationToken)
     {
-        var skillDirectoryResult = SkillPathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
+        var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
         if (!skillDirectoryResult.IsSuccess)
         {
             diagnostics.Add(Error(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message, package.SkillName));
@@ -110,7 +110,7 @@ public sealed class SkillDoctorService
             return;
         }
 
-        var manifestPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "ucli-skill.json");
+        var manifestPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "ucli-skill.json");
         if (!manifestPathResult.IsSuccess)
         {
             diagnostics.Add(Error(manifestPathResult.Failure!.Code, manifestPathResult.Failure.Message, package.SkillName));

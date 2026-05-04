@@ -1,9 +1,10 @@
 using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Hosts;
 using MackySoft.Ucli.Skills.Manifests;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Installation;
+namespace MackySoft.Ucli.Skills.Materialization;
 
 /// <summary> Inspects installed files to determine whether they belong to the requested host. </summary>
 public sealed class SkillHostMaterializationInspector
@@ -46,7 +47,7 @@ public sealed class SkillHostMaterializationInspector
             return SkillOperationResult<bool>.FailureResult(SkillFailureCodes.ManifestInvalid, $"Manifest does not contain host artifact '{hostName}'.");
         }
 
-        var skillPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "SKILL.md");
+        var skillPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "SKILL.md");
         if (!skillPathResult.IsSuccess)
         {
             return SkillOperationResult<bool>.FailureResult(skillPathResult.Failure!.Code, skillPathResult.Failure.Message);
@@ -70,7 +71,7 @@ public sealed class SkillHostMaterializationInspector
             return SkillOperationResult<bool>.Success(false);
         }
 
-        var openAiMetadataPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "agents/openai.yaml");
+        var openAiMetadataPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "agents/openai.yaml");
         if (!openAiMetadataPathResult.IsSuccess)
         {
             return SkillOperationResult<bool>.FailureResult(openAiMetadataPathResult.Failure!.Code, openAiMetadataPathResult.Failure.Message);

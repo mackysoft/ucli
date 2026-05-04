@@ -1,7 +1,7 @@
-namespace MackySoft.Ucli.Skills.Installation;
+namespace MackySoft.Ucli.Skills.Packaging;
 
 /// <summary> Provides file operations needed while installing or exporting materialized SKILL files. </summary>
-internal static class SkillFileUtilities
+internal static class SkillPackageFileWriter
 {
     /// <summary> Writes text atomically to the target file path. </summary>
     /// <param name="path"> The target file path. </param>

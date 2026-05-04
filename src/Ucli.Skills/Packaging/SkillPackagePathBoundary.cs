@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Installation;
+namespace MackySoft.Ucli.Skills.Packaging;
 
 /// <summary> Validates filesystem paths against an allowed root boundary. </summary>
-internal static class SkillPathBoundary
+internal static class SkillPackagePathBoundary
 {
     /// <summary> Resolves a target path and verifies that it remains under the allowed root. </summary>
     /// <param name="rootPath"> The allowed root path. </param>

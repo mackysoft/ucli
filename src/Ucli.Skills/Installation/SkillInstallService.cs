@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Installation;
@@ -64,7 +65,7 @@ public sealed class SkillInstallService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var skillDirectoryResult = SkillPathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
+            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
             if (!skillDirectoryResult.IsSuccess)
             {
                 return SkillOperationResult<SkillInstallResult>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);
@@ -92,13 +93,13 @@ public sealed class SkillInstallService
 
             foreach (var file in materializedResult.Value!.Files)
             {
-                var filePathResult = SkillPathBoundary.ResolvePackageFilePathUnderRoot(targetRoot, skillDirectory, file.RelativePath);
+                var filePathResult = SkillPackagePathBoundary.ResolvePackageFilePathUnderRoot(targetRoot, skillDirectory, file.RelativePath);
                 if (!filePathResult.IsSuccess)
                 {
                     return SkillOperationResult<SkillInstallResult>.FailureResult(filePathResult.Failure!.Code, filePathResult.Failure.Message);
                 }
 
-                await SkillFileUtilities.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
+                await SkillPackageFileWriter.WriteAllTextAtomically(filePathResult.Value!, file.Content, cancellationToken).ConfigureAwait(false);
             }
 
             actions.Add(new SkillInstallAction(identity, SkillInstallActionKind.Created));
@@ -113,7 +114,7 @@ public sealed class SkillInstallService
         SkillInstallRequest request,
         CancellationToken cancellationToken)
     {
-        var manifestPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "ucli-skill.json");
+        var manifestPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "ucli-skill.json");
         if (!manifestPathResult.IsSuccess)
         {
             return SkillOperationResult<bool>.FailureResult(manifestPathResult.Failure!.Code, manifestPathResult.Failure.Message);

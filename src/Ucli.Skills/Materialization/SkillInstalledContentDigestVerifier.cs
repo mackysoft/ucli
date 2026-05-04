@@ -1,8 +1,9 @@
 using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Generation;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Installation;
+namespace MackySoft.Ucli.Skills.Materialization;
 
 /// <summary> Verifies installed host materialization against canonical host-independent content. </summary>
 public sealed class SkillInstalledContentDigestVerifier
@@ -63,7 +64,7 @@ public sealed class SkillInstalledContentDigestVerifier
             .Where(static file => file.RelativePath.StartsWith("references/", StringComparison.Ordinal))
             .OrderBy(static file => file.RelativePath, StringComparer.Ordinal))
         {
-            var referencePathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, reference.RelativePath);
+            var referencePathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, reference.RelativePath);
             if (!referencePathResult.IsSuccess)
             {
                 return SkillOperationResult<bool>.FailureResult(referencePathResult.Failure!.Code, referencePathResult.Failure.Message);
@@ -88,7 +89,7 @@ public sealed class SkillInstalledContentDigestVerifier
     {
         foreach (var filePath in Directory.EnumerateFiles(skillDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
         {
-            var filePathResult = SkillPathBoundary.ResolveUnderRoot(skillDirectory, filePath);
+            var filePathResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, filePath);
             if (!filePathResult.IsSuccess)
             {
                 return SkillOperationResult<bool>.FailureResult(filePathResult.Failure!.Code, filePathResult.Failure.Message);
@@ -108,7 +109,7 @@ public sealed class SkillInstalledContentDigestVerifier
         string skillDirectory,
         CancellationToken cancellationToken)
     {
-        var skillPathResult = SkillPathBoundary.ResolvePackageFilePath(skillDirectory, "SKILL.md");
+        var skillPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "SKILL.md");
         if (!skillPathResult.IsSuccess)
         {
             return SkillOperationResult<string?>.FailureResult(skillPathResult.Failure!.Code, skillPathResult.Failure.Message);
