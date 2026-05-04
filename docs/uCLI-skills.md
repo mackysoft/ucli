@@ -163,15 +163,13 @@ Official SKILL は通常 workflow example に `--allowDangerous` を含めない
 ## Scripts Policy
 公式 SKILL に executable script を含めない。
 
-## Manifest と Digest
+## Manifest と Install State
 各 generated skill は `ucli-skill.json` を持つ。
 
 ```json
 {
   "schemaVersion": 1,
   "skillName": "ucli-plan-apply",
-  "skillVersion": "<skill-version>",
-  "ucliVersionRange": "<supported-ucli-version-range>",
   "contentDigest": "sha256:...",
   "hostArtifacts": [
     {
@@ -183,37 +181,69 @@ Official SKILL は通常 workflow example に `--allowDangerous` を含めない
       "host": "claude",
       "materializedFrontmatterDigest": "sha256:..."
     }
-  ],
-  "generatedFrom": {
-    "ucliVersion": "<ucli-version>",
-    "templateDigest": "sha256:...",
-    "docsDigest": "sha256:..."
-  }
+  ]
 }
 ```
 
-`contentDigest` は `SKILL.md` と host 非依存 `references/` の内容から算出する。host 固有 artifact の digest は別枠で扱い、OpenAI 用 `agents/openai.yaml` などの drift を共通本文の drift と混ぜない。
+`ucli-skill.json` は canonical manifest として扱い、install 後も内容を変えない。
 
-`ucli-skill.json` は canonical manifest として扱い、install 後も内容を変えない。installed copy の metadata は `ucli-install.json` に分離する。
+`contentDigest` は `SKILL.md` と host 非依存 `references/` の内容から算出する。host 固有 artifact の digest は `hostArtifacts` で別枠にし、OpenAI 用 `agents/openai.yaml` などの drift を共通本文の drift と混ぜない。
+
+Digest input は次の規則で正規化する。
+
+- text は UTF-8 と LF 改行へ正規化する。
+- path は `/` 区切りに正規化する。
+- file list は path の ordinal 昇順に並べる。
+- directory entry は digest input に含めない。
+- `ucli-skill.json`、`.ucli/skills.lock.json`、host 固有 artifact は `contentDigest` に含めない。
+- digest input は `path + NUL + content` の列として構成し、path と content の境界を曖昧にしない。
+
+Project-local install では `.ucli/skills.lock.json` を持つ。lock は project に install された SKILL の一覧であり、install 状態の正本である。
 
 ```json
 {
   "schemaVersion": 1,
-  "host": "claude",
-  "scope": "project",
-  "targetPath": ".claude/skills/ucli-plan-apply",
-  "installedAtUtc": "2026-05-03T00:00:00Z",
-  "installedByUcliVersion": "<ucli-version>"
+  "entries": [
+    {
+      "host": "claude",
+      "scope": "project",
+      "targetRoot": ".claude/skills",
+      "skillName": "ucli-plan-apply",
+      "contentDigest": "sha256:..."
+    }
+  ]
 }
 ```
 
-install metadata は `contentDigest` の対象外とする。
-
-Project-local install では `.ucli/skills.lock.json` を持つ。lock は installed skill の path、version、content digest、host artifact digest、host、scope を記録する。
+installed skill directory に個別の install metadata file は置かない。install 状態は `.ucli/skills.lock.json` で管理し、skill directory 側は canonical `SKILL.md`、`ucli-skill.json`、`references/`、host 固有 artifact だけを持つ。
 
 複数 host へ install する場合は、`host + scope + targetRoot + skillName` を install identity とする。同じ skill 名でも host が異なれば別 install として扱い、lock も host ごとの entry を持つ。installed skill を対象にする command は指定 host の install だけを対象にし、別 host の target は変更しない。
 
 同じ target root を複数 host で共有する install は衝突として扱い、拒否する。host 固有 frontmatter や `agents/openai.yaml` の有無が混ざると、materialized output の対象 host を安全に判定できないためである。
+
+## Install Safety
+host ごとの既定 target は次のとおり。
+
+| Host | Project scope target | 備考 |
+| --- | --- | --- |
+| `claude` | `.claude/skills` | Claude Code project skill |
+| `copilot` | `.github/skills` | GitHub Copilot CLI project skill |
+| `openai` | `.agents/skills` | OpenAI / Codex 向け metadata を `agents/openai.yaml` として含める |
+
+`install` は既存 target を暗黙上書きしない。
+
+- target skill directory が存在しない場合は新規作成する。
+- target skill directory が存在し、`ucli-skill.json` の `contentDigest` が一致する場合は no-op とする。
+- target skill directory が存在し、`contentDigest` が一致しない場合は失敗する。
+- target skill directory が存在するが `ucli-skill.json` が無い場合は失敗する。
+
+path safety は次の規則で扱う。
+
+- `--targetDir` は canonical absolute path に正規化してから検証する。
+- project scope の install target は repository root 配下に限定する。
+- `..` や symlink により repository root または target root の外へ出る path は拒否する。
+- materialized artifact の各 file path が target root 外へ出ないことを検証する。
+- official SKILL に executable file が含まれる場合は scripts policy 違反として失敗する。
 
 ## 責務境界
 | 領域 | 責務 |
@@ -228,7 +258,7 @@ Project-local install では `.ucli/skills.lock.json` を持つ。lock は insta
 `src/Ucli.Skills` は原則として `src/Ucli.Contracts` に依存しない。`Ucli.Skills` は operation contract を反射・再定義しない。SKILL は operation catalog を含まないため、operation の正確な args、result、assurance は実行時に `ucli ops describe` から取得する。
 
 ## Doctor Scope
-`ucli skills doctor` は SKILL 配布物だけを診断する。対象は target directory、host adapter、`SKILL.md`、`ucli-skill.json`、`ucli-install.json`、lock、digest、version range、dangerous core skill の有無とする。
+`ucli skills doctor` は SKILL 配布物だけを診断する。対象は target directory、host adapter、`SKILL.md`、`ucli-skill.json`、lock、digest、dangerous core skill の有無とする。
 
 Unity plugin、daemon、project status は `ucli status` や既存の daemon / logs command に委ねる。
 
@@ -238,7 +268,7 @@ CI は SKILL を正本化させないための drift gate として扱う。
 - `skills-src/` から `skills/` を再生成し、差分があれば失敗する。
 - `ucli-skill.json` の必須 field と digest を検証する。
 - `hostArtifacts` の digest を検証する。
-- `ucli-install.json` と lock の整合性を検証する。
+- `.ucli/skills.lock.json` と install target の整合性を検証する。
 - 公式 SKILL に `scripts/` または executable file が含まれていたら失敗する。
 - `SKILL.md` に `ucli ops describe` 誘導が無い場合は失敗する。
 - dangerous operation が通常 workflow として書かれていたら失敗する。
