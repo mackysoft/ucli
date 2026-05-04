@@ -9,12 +9,17 @@ namespace MackySoft.Ucli.Skills.Materialization;
 /// <summary> Inspects installed files to determine whether they belong to the requested host. </summary>
 public sealed class SkillHostMaterializationInspector
 {
+    private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillDigestCalculator digestCalculator;
 
     /// <summary> Initializes a new instance of the <see cref="SkillHostMaterializationInspector" /> class. </summary>
+    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="digestCalculator"> The digest calculator. </param>
-    public SkillHostMaterializationInspector (SkillDigestCalculator? digestCalculator = null)
+    public SkillHostMaterializationInspector (
+        SkillHostAdapterSet? hostAdapters = null,
+        SkillDigestCalculator? digestCalculator = null)
     {
+        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
         this.digestCalculator = digestCalculator ?? new SkillDigestCalculator();
     }
 
@@ -34,13 +39,16 @@ public sealed class SkillHostMaterializationInspector
         ArgumentNullException.ThrowIfNull(manifest);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!SkillHostKindCodec.TryToValue(host, out var hostName))
+        var adapterResult = hostAdapters.GetAdapter(host);
+        if (!adapterResult.IsSuccess)
         {
             return SkillOperationResult<bool>.FailureResult(
-                SkillFailureCodes.HostUnsupported,
-                $"Unsupported SKILL host: {host}");
+                adapterResult.Failure!.Code,
+                adapterResult.Failure.Message);
         }
 
+        var adapter = adapterResult.Value!;
+        var hostName = adapter.Descriptor.HostName;
         var expectedArtifact = manifest.HostArtifacts.SingleOrDefault(artifact => string.Equals(artifact.Host, hostName, StringComparison.Ordinal));
         if (expectedArtifact is null)
         {
@@ -71,26 +79,40 @@ public sealed class SkillHostMaterializationInspector
             return SkillOperationResult<bool>.Success(false);
         }
 
-        var openAiMetadataPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "agents/openai.yaml");
-        if (!openAiMetadataPathResult.IsSuccess)
+        if (adapter.MetadataArtifactPath is null)
         {
-            return SkillOperationResult<bool>.FailureResult(openAiMetadataPathResult.Failure!.Code, openAiMetadataPathResult.Failure.Message);
+            return expectedArtifact.Path is null && expectedArtifact.Digest is null
+                ? SkillOperationResult<bool>.Success(true)
+                : SkillOperationResult<bool>.FailureResult(
+                    SkillFailureCodes.ManifestInvalid,
+                    $"Manifest host artifact '{hostName}' must not contain metadata artifact fields.");
         }
 
-        var openAiMetadataPath = openAiMetadataPathResult.Value!;
-        if (host == SkillHostKind.OpenAi)
+        var metadataArtifactPath = expectedArtifact.Path;
+        var metadataArtifactDigest = expectedArtifact.Digest;
+        if (metadataArtifactPath is null
+            || !string.Equals(metadataArtifactPath, adapter.MetadataArtifactPath, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(metadataArtifactDigest))
         {
-            if (!File.Exists(openAiMetadataPath) || string.IsNullOrWhiteSpace(expectedArtifact.Path) || string.IsNullOrWhiteSpace(expectedArtifact.Digest))
-            {
-                return SkillOperationResult<bool>.Success(false);
-            }
-
-            var openAiMetadata = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(openAiMetadataPath, cancellationToken).ConfigureAwait(false));
-            var actualDigest = digestCalculator.ComputeSingleFileDigest(expectedArtifact.Path, openAiMetadata);
-            return SkillOperationResult<bool>.Success(string.Equals(actualDigest, expectedArtifact.Digest, StringComparison.Ordinal));
+            return SkillOperationResult<bool>.FailureResult(
+                SkillFailureCodes.ManifestInvalid,
+                $"Manifest host artifact '{hostName}' must contain metadata artifact fields.");
         }
 
-        return SkillOperationResult<bool>.Success(!File.Exists(openAiMetadataPath));
+        var metadataPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, metadataArtifactPath);
+        if (!metadataPathResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(metadataPathResult.Failure!.Code, metadataPathResult.Failure.Message);
+        }
+
+        if (!File.Exists(metadataPathResult.Value!))
+        {
+            return SkillOperationResult<bool>.Success(false);
+        }
+
+        var metadata = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(metadataPathResult.Value!, cancellationToken).ConfigureAwait(false));
+        var actualDigest = digestCalculator.ComputeSingleFileDigest(metadataArtifactPath, metadata);
+        return SkillOperationResult<bool>.Success(string.Equals(actualDigest, metadataArtifactDigest, StringComparison.Ordinal));
     }
 
     /// <summary> Extracts YAML frontmatter from a materialized <c>SKILL.md</c>. </summary>

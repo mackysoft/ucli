@@ -44,6 +44,30 @@ public sealed class ProjectBoundaryTests
         Assert.Empty(offenders);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Generation", "agents/openai.yaml")]
+    [InlineData("Manifests", "agents/openai.yaml")]
+    [InlineData("Materialization", "agents/openai.yaml")]
+    [InlineData("Generation", "SkillHostKind.OpenAi")]
+    [InlineData("Manifests", "SkillHostKindValues.OpenAi")]
+    [InlineData("Materialization", "SkillHostKind.OpenAi")]
+    public void NonHostDirectory_DoesNotReferenceConcreteHostArtifacts (
+        string directoryName,
+        string concreteHostArtifact)
+    {
+        var sourceRoot = GetSourceRoot();
+        var directoryPath = Path.Combine(sourceRoot, directoryName);
+
+        var offenders = Directory.EnumerateFiles(directoryPath, "*.cs", SearchOption.AllDirectories)
+            .Where(filePath => File.ReadAllText(filePath).Contains(concreteHostArtifact, StringComparison.Ordinal))
+            .Select(filePath => Path.GetRelativePath(sourceRoot, filePath).Replace(Path.DirectorySeparatorChar, '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
     private static string GetSourceRoot ()
     {
         return Path.GetFullPath(Path.Combine(SkillTestData.GetDefinitionsRoot(), ".."));

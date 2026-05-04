@@ -10,6 +10,9 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
     public SkillHostDescriptor Descriptor { get; } = new(SkillHostKind.OpenAi, SkillHostKindValues.OpenAi, ".agents/skills");
 
     /// <inheritdoc />
+    public string MetadataArtifactPath => "agents/openai.yaml";
+
+    /// <inheritdoc />
     public SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
@@ -35,6 +38,6 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
 
         return new SkillHostArtifactSet(
             frontmatter,
-            [SkillPackageFile.Create("agents/openai.yaml", openAiYaml)]);
+            [SkillPackageFile.Create(MetadataArtifactPath, openAiYaml)]);
     }
 }

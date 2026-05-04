@@ -9,6 +9,9 @@ public sealed class ClaudeSkillHostAdapter : ISkillHostAdapter
     public SkillHostDescriptor Descriptor { get; } = new(SkillHostKind.Claude, SkillHostKindValues.Claude, ".claude/skills");
 
     /// <inheritdoc />
+    public string? MetadataArtifactPath => null;
+
+    /// <inheritdoc />
     public SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);

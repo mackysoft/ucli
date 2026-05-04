@@ -6,13 +6,13 @@ namespace MackySoft.Ucli.Skills.Manifests;
 /// <summary> Validates canonical SKILL manifests. </summary>
 public sealed class SkillManifestValidator
 {
-    private readonly SkillHostRegistry hostRegistry;
+    private readonly SkillHostAdapterSet hostAdapters;
 
     /// <summary> Initializes a new instance of the <see cref="SkillManifestValidator" /> class. </summary>
-    /// <param name="hostRegistry"> The supported host registry. </param>
-    public SkillManifestValidator (SkillHostRegistry? hostRegistry = null)
+    /// <param name="hostAdapters"> The supported host adapter set. </param>
+    public SkillManifestValidator (SkillHostAdapterSet? hostAdapters = null)
     {
-        this.hostRegistry = hostRegistry ?? new SkillHostRegistry();
+        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
     }
 
     /// <summary> Validates one manifest. </summary>
@@ -37,30 +37,35 @@ public sealed class SkillManifestValidator
             return Failure("ucli-skill.json contentDigest must be a sha256 digest.");
         }
 
-        var expectedHosts = hostRegistry.Descriptors.Select(static descriptor => descriptor.HostName).ToArray();
+        var expectedHosts = hostAdapters.Adapters.Select(static adapter => adapter.Descriptor.HostName).Order(StringComparer.Ordinal).ToArray();
         var artifactHosts = manifest.HostArtifacts.Select(static artifact => artifact.Host).Order(StringComparer.Ordinal).ToArray();
-        if (!expectedHosts.Order(StringComparer.Ordinal).SequenceEqual(artifactHosts))
+        if (!expectedHosts.SequenceEqual(artifactHosts))
         {
             return Failure("ucli-skill.json hostArtifacts must contain exactly all supported hosts.");
         }
 
-        foreach (var artifact in manifest.HostArtifacts)
+        var artifactByHost = manifest.HostArtifacts.ToDictionary(static artifact => artifact.Host, StringComparer.Ordinal);
+        foreach (var adapter in hostAdapters.Adapters)
         {
+            var artifact = artifactByHost[adapter.Descriptor.HostName];
             if (!IsSha256Digest(artifact.MaterializedFrontmatterDigest))
             {
                 return Failure($"Host artifact '{artifact.Host}' frontmatter digest must be a sha256 digest.");
             }
 
-            if (string.Equals(artifact.Host, SkillHostKindValues.OpenAi, StringComparison.Ordinal))
+            if (adapter.MetadataArtifactPath is null)
             {
-                if (!string.Equals(artifact.Path, "agents/openai.yaml", StringComparison.Ordinal) || !IsSha256Digest(artifact.Digest))
+                if (artifact.Path is not null || artifact.Digest is not null)
                 {
-                    return Failure("OpenAI host artifact must contain agents/openai.yaml digest.");
+                    return Failure($"Host artifact '{artifact.Host}' must not contain file artifact fields.");
                 }
+
+                continue;
             }
-            else if (artifact.Path is not null || artifact.Digest is not null)
+
+            if (!string.Equals(artifact.Path, adapter.MetadataArtifactPath, StringComparison.Ordinal) || !IsSha256Digest(artifact.Digest))
             {
-                return Failure($"Host artifact '{artifact.Host}' must not contain file artifact fields.");
+                return Failure($"Host artifact '{artifact.Host}' must contain metadata artifact digest.");
             }
         }
 

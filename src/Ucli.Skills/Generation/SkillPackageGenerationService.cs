@@ -103,14 +103,28 @@ public sealed class SkillPackageGenerationService
     {
         var artifacts = adapter.BuildArtifacts(metadata);
         var frontmatterDigest = digestCalculator.ComputeSingleFileDigest("SKILL.md.frontmatter", artifacts.Frontmatter);
+        var additionalFiles = artifacts.AdditionalFiles.OrderBy(static file => file.RelativePath, StringComparer.Ordinal).ToArray();
 
-        var fileArtifact = artifacts.AdditionalFiles.SingleOrDefault(static file => string.Equals(file.RelativePath, "agents/openai.yaml", StringComparison.Ordinal));
-        return fileArtifact is null
-            ? new SkillHostArtifactManifest(adapter.Descriptor.HostName, null, null, frontmatterDigest)
-            : new SkillHostArtifactManifest(
-                adapter.Descriptor.HostName,
-                fileArtifact.RelativePath,
-                digestCalculator.ComputeSingleFileDigest(fileArtifact.RelativePath, fileArtifact.Content),
-                frontmatterDigest);
+        if (adapter.MetadataArtifactPath is null)
+        {
+            if (additionalFiles.Length != 0)
+            {
+                throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostName}' must not emit metadata artifacts.");
+            }
+
+            return new SkillHostArtifactManifest(adapter.Descriptor.HostName, null, null, frontmatterDigest);
+        }
+
+        if (additionalFiles.Length != 1 || !string.Equals(additionalFiles[0].RelativePath, adapter.MetadataArtifactPath, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostName}' must emit metadata artifact '{adapter.MetadataArtifactPath}'.");
+        }
+
+        var fileArtifact = additionalFiles[0];
+        return new SkillHostArtifactManifest(
+            adapter.Descriptor.HostName,
+            fileArtifact.RelativePath,
+            digestCalculator.ComputeSingleFileDigest(fileArtifact.RelativePath, fileArtifact.Content),
+            frontmatterDigest);
     }
 }

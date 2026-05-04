@@ -2,18 +2,23 @@ using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Hosts;
 
-/// <summary> Provides the global supported host adapter set. </summary>
+/// <summary> Provides descriptors for the global supported host set. </summary>
 public sealed class SkillHostRegistry
 {
-    private static readonly SkillHostDescriptor[] HostDescriptors =
-    [
-        new SkillHostDescriptor(SkillHostKind.Claude, SkillHostKindValues.Claude, ".claude/skills"),
-        new SkillHostDescriptor(SkillHostKind.Copilot, SkillHostKindValues.Copilot, ".github/skills"),
-        new SkillHostDescriptor(SkillHostKind.OpenAi, SkillHostKindValues.OpenAi, ".agents/skills"),
-    ];
+    private readonly SkillHostDescriptor[] descriptors;
+
+    /// <summary> Initializes a new instance of the <see cref="SkillHostRegistry" /> class. </summary>
+    /// <param name="hostAdapters"> The supported host adapter set. </param>
+    public SkillHostRegistry (SkillHostAdapterSet? hostAdapters = null)
+    {
+        descriptors = (hostAdapters ?? new SkillHostAdapterSet()).Adapters
+            .Select(static adapter => adapter.Descriptor)
+            .OrderBy(static descriptor => descriptor.HostName, StringComparer.Ordinal)
+            .ToArray();
+    }
 
     /// <summary> Gets all supported host descriptors in deterministic order. </summary>
-    public IReadOnlyList<SkillHostDescriptor> Descriptors => HostDescriptors;
+    public IReadOnlyList<SkillHostDescriptor> Descriptors => descriptors;
 
     /// <summary> Gets the descriptor for one host. </summary>
     /// <param name="host"> The host value. </param>
@@ -34,7 +39,7 @@ public sealed class SkillHostRegistry
     /// <returns> The host descriptor or unsupported-host failure. </returns>
     public SkillOperationResult<SkillHostDescriptor> TryGetDescriptor (SkillHostKind host)
     {
-        foreach (var descriptor in HostDescriptors)
+        foreach (var descriptor in descriptors)
         {
             if (descriptor.Host == host)
             {

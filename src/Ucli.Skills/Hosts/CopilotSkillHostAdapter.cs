@@ -9,6 +9,9 @@ public sealed class CopilotSkillHostAdapter : ISkillHostAdapter
     public SkillHostDescriptor Descriptor { get; } = new(SkillHostKind.Copilot, SkillHostKindValues.Copilot, ".github/skills");
 
     /// <inheritdoc />
+    public string? MetadataArtifactPath => null;
+
+    /// <inheritdoc />
     public SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
