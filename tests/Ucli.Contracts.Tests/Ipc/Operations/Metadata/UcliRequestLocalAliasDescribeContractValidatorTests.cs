@@ -40,8 +40,14 @@ public sealed class UcliRequestLocalAliasDescribeContractValidatorTests
                     new UcliOperationInputVariantContract(
                         "byAlias",
                         "Use request-local alias.",
-                        new[] { "$.target.var" },
-                        Array.Empty<UcliOperationInputConstraintContract>()),
+                        new[]
+                        {
+                            new UcliOperationInputVariantFieldContract(
+                                "var",
+                                "$.target.var",
+                                "Request-local alias.",
+                                Array.Empty<UcliOperationInputConstraintContract>()),
+                        }),
                 }),
         };
 

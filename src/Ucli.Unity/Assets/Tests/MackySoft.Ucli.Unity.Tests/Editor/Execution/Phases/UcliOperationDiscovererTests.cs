@@ -165,8 +165,14 @@ namespace MackySoft.Ucli.Unity.Tests
                                     new UcliOperationInputVariantContract(
                                         "byAlias",
                                         "Use request-local alias.",
-                                        new[] { "$.target.var" },
-                                        Array.Empty<UcliOperationInputConstraintContract>()),
+                                        new[]
+                                        {
+                                            new UcliOperationInputVariantFieldContract(
+                                                "var",
+                                                "$.target.var",
+                                                "Request-local alias.",
+                                                Array.Empty<UcliOperationInputConstraintContract>()),
+                                        }),
                                 }),
                         },
                         UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
@@ -426,7 +432,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 using var schemaDocument = JsonDocument.Parse(snapshot.Catalog.Operations[i].ArgsSchemaJson!);
                 AssertContainsNoVarBranch(schemaDocument.RootElement);
-                AssertContainsNoVarVariantArgsPath(snapshot.Catalog.Operations[i].Inputs);
+                AssertContainsNoVarVariantField(snapshot.Catalog.Operations[i].Inputs);
             }
         }
 
@@ -728,7 +734,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static void AssertContainsNoVarVariantArgsPath (IReadOnlyList<UcliOperationInputContract>? inputs)
+        private static void AssertContainsNoVarVariantField (IReadOnlyList<UcliOperationInputContract>? inputs)
         {
             if (inputs == null)
             {
@@ -745,15 +751,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 for (var variantIndex = 0; variantIndex < variants.Count; variantIndex++)
                 {
-                    var argsPaths = variants[variantIndex].ArgsPaths;
-                    if (argsPaths == null)
+                    var fields = variants[variantIndex].Fields;
+                    if (fields == null)
                     {
                         continue;
                     }
 
-                    for (var pathIndex = 0; pathIndex < argsPaths.Count; pathIndex++)
+                    for (var fieldIndex = 0; fieldIndex < fields.Count; fieldIndex++)
                     {
-                        Assert.That(argsPaths[pathIndex], Does.Not.EndWith(".var"));
+                        Assert.That(fields[fieldIndex].Name, Is.Not.EqualTo("var"));
+                        Assert.That(fields[fieldIndex].ArgsPath, Does.Not.EndWith(".var"));
                     }
                 }
             }

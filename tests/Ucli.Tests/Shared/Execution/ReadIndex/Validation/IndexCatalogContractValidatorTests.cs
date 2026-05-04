@@ -84,7 +84,7 @@ public sealed class IndexCatalogContractValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsValidOpsCatalog_ReturnsFalse_WhenVariantArgsPathIsOutsideInput ()
+    public void IsValidOpsCatalog_ReturnsFalse_WhenVariantFieldArgsPathIsOutsideInput ()
     {
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -106,11 +106,90 @@ public sealed class IndexCatalogContractValidatorTests
                                 new UcliOperationInputVariantContract(
                                     name: "globalObjectId",
                                     description: "Use an exact Unity GlobalObjectId.",
-                                    argsPaths:
+                                    fields:
                                     [
-                                        "$.other.globalObjectId",
-                                    ],
-                                    constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+                                        new UcliOperationInputVariantFieldContract(
+                                            name: "globalObjectId",
+                                            argsPath: "$.other.globalObjectId",
+                                            description: "Resolved Unity GlobalObjectId.",
+                                            constraints: Array.Empty<UcliOperationInputConstraintContract>()),
+                                    ]),
+                            ]),
+                    ]),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenVariantFieldsAreMissing ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(
+                    inputs:
+                    [
+                        new UcliOperationInputContract(
+                            name: "target",
+                            valueType: "object",
+                            description: "Object reference to resolve.",
+                            constraints: Array.Empty<UcliOperationInputConstraintContract>(),
+                            variants:
+                            [
+                                new UcliOperationInputVariantContract(
+                                    name: "globalObjectId",
+                                    description: "Use an exact Unity GlobalObjectId.",
+                                    fields: null),
+                            ]),
+                    ]),
+            ]);
+
+        var result = IndexCatalogContractValidator.IsValidOpsCatalog(contract);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsValidOpsCatalog_ReturnsFalse_WhenVariantFieldConstraintIsUnsupported ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "source-hash",
+            Entries:
+            [
+                CreateValidOpsEntry(
+                    inputs:
+                    [
+                        new UcliOperationInputContract(
+                            name: "target",
+                            valueType: "object",
+                            description: "Object reference to resolve.",
+                            constraints: Array.Empty<UcliOperationInputConstraintContract>(),
+                            variants:
+                            [
+                                new UcliOperationInputVariantContract(
+                                    name: "globalObjectId",
+                                    description: "Use an exact Unity GlobalObjectId.",
+                                    fields:
+                                    [
+                                        new UcliOperationInputVariantFieldContract(
+                                            name: "globalObjectId",
+                                            argsPath: "$.target.globalObjectId",
+                                            description: "Resolved Unity GlobalObjectId.",
+                                            constraints:
+                                            [
+                                                new UcliOperationInputConstraintContract("unsupported"),
+                                            ]),
+                                    ]),
                             ]),
                     ]),
             ]);
