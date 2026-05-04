@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Doctor;
 using MackySoft.Ucli.Skills.Generation;
@@ -6,8 +7,10 @@ using MackySoft.Ucli.Skills.Hosts.Copilot;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation;
+using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests;
 
@@ -60,7 +63,11 @@ internal static class SkillTestData
 
     internal static SkillPackageGenerationService CreatePackageGenerationService ()
     {
-        return new SkillPackageGenerationService(CreateOfficialHostAdapterSet());
+        return new SkillPackageGenerationService(
+            new SkillSourceDefinitionReader(),
+            CreateOfficialHostAdapterSet(),
+            new SkillDigestCalculator(),
+            new SkillManifestJsonSerializer());
     }
 
     internal static SkillManifestValidator CreateManifestValidator ()
@@ -80,16 +87,42 @@ internal static class SkillTestData
 
     internal static SkillInstallService CreateInstallService ()
     {
-        return new SkillInstallService(CreateOfficialHostAdapterSet());
+        var hostAdapters = CreateOfficialHostAdapterSet();
+        return new SkillInstallService(
+            new SkillInstallTargetResolver(hostAdapters),
+            new SkillMaterializationService(hostAdapters),
+            CreateInstalledPackageValidator(hostAdapters));
     }
 
     internal static SkillInstallationScanner CreateInstallationScanner ()
     {
-        return new SkillInstallationScanner(CreateOfficialHostAdapterSet());
+        var hostAdapters = CreateOfficialHostAdapterSet();
+        return new SkillInstallationScanner(
+            hostAdapters,
+            CreateInstalledManifestReader(hostAdapters),
+            CreateInstalledPackageValidator(hostAdapters));
     }
 
     internal static SkillDoctorService CreateDoctorService ()
     {
-        return new SkillDoctorService(CreateOfficialHostAdapterSet());
+        var hostAdapters = CreateOfficialHostAdapterSet();
+        return new SkillDoctorService(hostAdapters, CreateInstalledPackageValidator(hostAdapters));
+    }
+
+    internal static SkillInstalledPackageValidator CreateInstalledPackageValidator (SkillHostAdapterSet hostAdapters)
+    {
+        return new SkillInstalledPackageValidator(
+            CreateInstalledManifestReader(hostAdapters),
+            new SkillMaterializationService(hostAdapters),
+            new SkillInstalledContentDigestVerifier(new SkillDigestCalculator()),
+            new SkillInstalledFileSetVerifier(),
+            new SkillHostMaterializationInspector(hostAdapters, new SkillDigestCalculator()));
+    }
+
+    internal static SkillInstalledManifestReader CreateInstalledManifestReader (SkillHostAdapterSet hostAdapters)
+    {
+        return new SkillInstalledManifestReader(
+            new SkillManifestJsonSerializer(),
+            new SkillManifestValidator(hostAdapters));
     }
 }

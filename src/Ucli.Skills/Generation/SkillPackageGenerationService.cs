@@ -16,22 +16,20 @@ public sealed class SkillPackageGenerationService
     private readonly SkillManifestJsonSerializer manifestSerializer;
 
     /// <summary> Initializes a new instance of the <see cref="SkillPackageGenerationService" /> class. </summary>
-    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="sourceReader"> The source definition reader. </param>
+    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="digestCalculator"> The digest calculator. </param>
     /// <param name="manifestSerializer"> The manifest serializer. </param>
     public SkillPackageGenerationService (
+        SkillSourceDefinitionReader sourceReader,
         SkillHostAdapterSet hostAdapters,
-        SkillSourceDefinitionReader? sourceReader = null,
-        SkillDigestCalculator? digestCalculator = null,
-        SkillManifestJsonSerializer? manifestSerializer = null)
+        SkillDigestCalculator digestCalculator,
+        SkillManifestJsonSerializer manifestSerializer)
     {
-        ArgumentNullException.ThrowIfNull(hostAdapters);
-
-        this.sourceReader = sourceReader ?? new SkillSourceDefinitionReader();
-        this.hostAdapters = hostAdapters;
-        this.digestCalculator = digestCalculator ?? new SkillDigestCalculator();
-        this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
+        this.sourceReader = sourceReader ?? throw new ArgumentNullException(nameof(sourceReader));
+        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
+        this.digestCalculator = digestCalculator ?? throw new ArgumentNullException(nameof(digestCalculator));
+        this.manifestSerializer = manifestSerializer ?? throw new ArgumentNullException(nameof(manifestSerializer));
     }
 
     /// <summary> Generates all official SKILL packages under one source definitions root. </summary>

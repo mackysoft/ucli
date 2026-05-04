@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Skills.Generation;
-using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Packaging;
@@ -17,27 +16,23 @@ public sealed class SkillInstalledPackageValidator
     private readonly SkillHostMaterializationInspector hostInspector;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstalledPackageValidator" /> class. </summary>
-    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="installedManifestReader"> The installed manifest reader. </param>
     /// <param name="materializationService"> The materialization service. </param>
     /// <param name="contentDigestVerifier"> The installed content digest verifier. </param>
     /// <param name="fileSetVerifier"> The installed materialized file-set verifier. </param>
     /// <param name="hostInspector"> The host materialization inspector. </param>
     public SkillInstalledPackageValidator (
-        SkillHostAdapterSet hostAdapters,
-        SkillInstalledManifestReader? installedManifestReader = null,
-        SkillMaterializationService? materializationService = null,
-        SkillInstalledContentDigestVerifier? contentDigestVerifier = null,
-        SkillInstalledFileSetVerifier? fileSetVerifier = null,
-        SkillHostMaterializationInspector? hostInspector = null)
+        SkillInstalledManifestReader installedManifestReader,
+        SkillMaterializationService materializationService,
+        SkillInstalledContentDigestVerifier contentDigestVerifier,
+        SkillInstalledFileSetVerifier fileSetVerifier,
+        SkillHostMaterializationInspector hostInspector)
     {
-        ArgumentNullException.ThrowIfNull(hostAdapters);
-
-        this.installedManifestReader = installedManifestReader ?? new SkillInstalledManifestReader(hostAdapters);
-        this.materializationService = materializationService ?? new SkillMaterializationService(hostAdapters);
-        this.contentDigestVerifier = contentDigestVerifier ?? new SkillInstalledContentDigestVerifier();
-        this.fileSetVerifier = fileSetVerifier ?? new SkillInstalledFileSetVerifier();
-        this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector(hostAdapters);
+        this.installedManifestReader = installedManifestReader ?? throw new ArgumentNullException(nameof(installedManifestReader));
+        this.materializationService = materializationService ?? throw new ArgumentNullException(nameof(materializationService));
+        this.contentDigestVerifier = contentDigestVerifier ?? throw new ArgumentNullException(nameof(contentDigestVerifier));
+        this.fileSetVerifier = fileSetVerifier ?? throw new ArgumentNullException(nameof(fileSetVerifier));
+        this.hostInspector = hostInspector ?? throw new ArgumentNullException(nameof(hostInspector));
     }
 
     /// <summary> Validates one installed package directory. </summary>

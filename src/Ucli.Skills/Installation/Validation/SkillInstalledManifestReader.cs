@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
@@ -12,18 +11,14 @@ public sealed class SkillInstalledManifestReader
     private readonly SkillManifestValidator manifestValidator;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstalledManifestReader" /> class. </summary>
-    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="manifestSerializer"> The manifest serializer. </param>
     /// <param name="manifestValidator"> The manifest validator. </param>
     public SkillInstalledManifestReader (
-        SkillHostAdapterSet hostAdapters,
-        SkillManifestJsonSerializer? manifestSerializer = null,
-        SkillManifestValidator? manifestValidator = null)
+        SkillManifestJsonSerializer manifestSerializer,
+        SkillManifestValidator manifestValidator)
     {
-        ArgumentNullException.ThrowIfNull(hostAdapters);
-
-        this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
-        this.manifestValidator = manifestValidator ?? new SkillManifestValidator(hostAdapters);
+        this.manifestSerializer = manifestSerializer ?? throw new ArgumentNullException(nameof(manifestSerializer));
+        this.manifestValidator = manifestValidator ?? throw new ArgumentNullException(nameof(manifestValidator));
     }
 
     /// <summary> Reads and validates the required installed manifest from one skill directory. </summary>

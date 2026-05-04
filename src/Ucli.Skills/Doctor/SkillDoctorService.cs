@@ -17,10 +17,10 @@ public sealed class SkillDoctorService
     /// <param name="installedPackageValidator"> The installed package validator. </param>
     public SkillDoctorService (
         SkillHostAdapterSet hostAdapters,
-        SkillInstalledPackageValidator? installedPackageValidator = null)
+        SkillInstalledPackageValidator installedPackageValidator)
     {
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
-        this.installedPackageValidator = installedPackageValidator ?? new SkillInstalledPackageValidator(hostAdapters);
+        this.installedPackageValidator = installedPackageValidator ?? throw new ArgumentNullException(nameof(installedPackageValidator));
     }
 
     /// <summary> Diagnoses one host target root against canonical packages. </summary>

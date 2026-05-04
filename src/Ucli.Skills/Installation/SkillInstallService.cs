@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Skills.Generation;
-using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Packaging;
@@ -15,21 +14,17 @@ public sealed class SkillInstallService
     private readonly SkillInstalledPackageValidator installedPackageValidator;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstallService" /> class. </summary>
-    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="targetResolver"> The target resolver. </param>
     /// <param name="materializationService"> The materialization service. </param>
     /// <param name="installedPackageValidator"> The installed package validator. </param>
     public SkillInstallService (
-        SkillHostAdapterSet hostAdapters,
-        SkillInstallTargetResolver? targetResolver = null,
-        SkillMaterializationService? materializationService = null,
-        SkillInstalledPackageValidator? installedPackageValidator = null)
+        SkillInstallTargetResolver targetResolver,
+        SkillMaterializationService materializationService,
+        SkillInstalledPackageValidator installedPackageValidator)
     {
-        ArgumentNullException.ThrowIfNull(hostAdapters);
-
-        this.targetResolver = targetResolver ?? new SkillInstallTargetResolver(hostAdapters);
-        this.materializationService = materializationService ?? new SkillMaterializationService(hostAdapters);
-        this.installedPackageValidator = installedPackageValidator ?? new SkillInstalledPackageValidator(hostAdapters);
+        this.targetResolver = targetResolver ?? throw new ArgumentNullException(nameof(targetResolver));
+        this.materializationService = materializationService ?? throw new ArgumentNullException(nameof(materializationService));
+        this.installedPackageValidator = installedPackageValidator ?? throw new ArgumentNullException(nameof(installedPackageValidator));
     }
 
     /// <summary> Installs official SKILL packages. </summary>

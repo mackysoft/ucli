@@ -17,10 +17,10 @@ public sealed class SkillHostMaterializationInspector
     /// <param name="digestCalculator"> The digest calculator. </param>
     public SkillHostMaterializationInspector (
         SkillHostAdapterSet hostAdapters,
-        SkillDigestCalculator? digestCalculator = null)
+        SkillDigestCalculator digestCalculator)
     {
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
-        this.digestCalculator = digestCalculator ?? new SkillDigestCalculator();
+        this.digestCalculator = digestCalculator ?? throw new ArgumentNullException(nameof(digestCalculator));
     }
 
     /// <summary> Determines whether a skill directory is materialized for the requested host. </summary>

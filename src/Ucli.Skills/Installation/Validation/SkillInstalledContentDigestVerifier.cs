@@ -12,9 +12,9 @@ public sealed class SkillInstalledContentDigestVerifier
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstalledContentDigestVerifier" /> class. </summary>
     /// <param name="digestCalculator"> The digest calculator. </param>
-    public SkillInstalledContentDigestVerifier (SkillDigestCalculator? digestCalculator = null)
+    public SkillInstalledContentDigestVerifier (SkillDigestCalculator digestCalculator)
     {
-        this.digestCalculator = digestCalculator ?? new SkillDigestCalculator();
+        this.digestCalculator = digestCalculator ?? throw new ArgumentNullException(nameof(digestCalculator));
     }
 
     /// <summary> Checks whether installed files match the canonical content digest. </summary>

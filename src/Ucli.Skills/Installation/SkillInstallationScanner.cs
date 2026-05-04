@@ -19,12 +19,12 @@ public sealed class SkillInstallationScanner
     /// <param name="installedPackageValidator"> The installed package validator. </param>
     public SkillInstallationScanner (
         SkillHostAdapterSet hostAdapters,
-        SkillInstalledManifestReader? installedManifestReader = null,
-        SkillInstalledPackageValidator? installedPackageValidator = null)
+        SkillInstalledManifestReader installedManifestReader,
+        SkillInstalledPackageValidator installedPackageValidator)
     {
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
-        this.installedManifestReader = installedManifestReader ?? new SkillInstalledManifestReader(hostAdapters);
-        this.installedPackageValidator = installedPackageValidator ?? new SkillInstalledPackageValidator(hostAdapters);
+        this.installedManifestReader = installedManifestReader ?? throw new ArgumentNullException(nameof(installedManifestReader));
+        this.installedPackageValidator = installedPackageValidator ?? throw new ArgumentNullException(nameof(installedPackageValidator));
     }
 
     /// <summary> Scans installed SKILL manifests. </summary>
