@@ -56,6 +56,19 @@ NuGetForUnity のUIで導入した場合は依存パッケージも `packages.co
 - `shared/<version>`: `MackySoft.Ucli.Contracts.<version>.nupkg` / `MackySoft.Ucli.Infrastructure.<version>.nupkg`
 - `unity/<version>`: `MackySoft.Ucli.Unity.<version>.nupkg`
 
+## Agent Skill Distribution
+uCLI 公式 SKILL は agent 向け workflow 配布物であり、operation contract の正本ではない。正本は `Ucli.Contracts`、operation metadata、`ucli ops describe`、[json-request-spec.md](json-request-spec.md) に置く。
+
+SKILL の詳細な仕様、生成方針、責務境界は [uCLI-skills.md](uCLI-skills.md) を参照する。
+
+配布上の役割は次のとおり。
+
+- `src/Ucli.Skills/SkillDefinitions/`: 人間が編集する template と metadata の定義
+- `skills/`: canonical generated output。CLI package、release artifact、install/export の配布元
+- host install target: `.claude/skills/`、`.github/skills/`、`.agents/skills/` など host ごとの配置先
+
+`MackySoft.Ucli` CLI package は `skills/**` を同梱する。`ucli skills list/export/install/doctor` は canonical `ucli-skill.json` を使って SKILL 配布物を扱う。
+
 ## CLI Global Tool Distribution
 `MackySoft.Ucli` は nuget.org へ .NET global tool として公開する。利用者は追加 NuGet source を設定せず、次のコマンドで導入する。
 
