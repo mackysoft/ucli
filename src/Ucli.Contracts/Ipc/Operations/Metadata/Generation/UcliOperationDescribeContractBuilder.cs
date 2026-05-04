@@ -108,20 +108,21 @@ public static class UcliOperationDescribeContractBuilder
             return false;
         }
 
-        var argsPaths = new string[fields.Length];
-        var constraints = new List<UcliOperationInputConstraintContract>();
+        var variantFields = new UcliOperationInputVariantFieldContract[fields.Length];
         for (var i = 0; i < fields.Length; i++)
         {
             var fieldName = UcliOperationContractReflection.GetJsonPropertyName(fields[i]);
-            argsPaths[i] = prefix + "." + fieldName;
-            constraints.AddRange(CreateConstraints(fields[i]));
+            variantFields[i] = new UcliOperationInputVariantFieldContract(
+                fieldName,
+                prefix + "." + fieldName,
+                GetDescription(fields[i]),
+                CreateConstraints(fields[i]));
         }
 
         variant = new UcliOperationInputVariantContract(
             CreateVariantName(fields),
             CreateVariantDescription(fields),
-            argsPaths,
-            constraints);
+            variantFields);
         return true;
     }
 

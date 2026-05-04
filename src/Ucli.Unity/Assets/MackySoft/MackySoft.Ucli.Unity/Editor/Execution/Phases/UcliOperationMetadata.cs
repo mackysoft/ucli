@@ -292,11 +292,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 variants[i] = new UcliOperationInputVariantContract(
                     source[i].Name,
                     source[i].Description,
-                    CopyStrings(source[i].ArgsPaths),
-                    CopyConstraints(source[i].Constraints));
+                    CopyVariantFields(source[i].Fields));
             }
 
             return variants;
+        }
+
+        private static IReadOnlyList<UcliOperationInputVariantFieldContract>? CopyVariantFields (IReadOnlyList<UcliOperationInputVariantFieldContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var fields = new UcliOperationInputVariantFieldContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                fields[i] = new UcliOperationInputVariantFieldContract(
+                    source[i].Name,
+                    source[i].ArgsPath,
+                    source[i].Description,
+                    CopyConstraints(source[i].Constraints));
+            }
+
+            return fields;
         }
 
         private static IReadOnlyList<UcliOperationInputConstraintContract>? CopyConstraints (IReadOnlyList<UcliOperationInputConstraintContract>? source)

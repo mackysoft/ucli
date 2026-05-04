@@ -57,7 +57,7 @@ internal static class UcliRequestLocalAliasDescribeContractValidator
                 return false;
             }
 
-            if (!TryValidatePublicRawOpVariantArgsPaths(input, variant, out errorMessage))
+            if (!TryValidatePublicRawOpVariantFields(input, variant, out errorMessage))
             {
                 return false;
             }
@@ -67,21 +67,21 @@ internal static class UcliRequestLocalAliasDescribeContractValidator
         return true;
     }
 
-    private static bool TryValidatePublicRawOpVariantArgsPaths (
+    private static bool TryValidatePublicRawOpVariantFields (
         UcliOperationInputContract input,
         UcliOperationInputVariantContract variant,
         out string errorMessage)
     {
-        var argsPaths = variant.ArgsPaths;
-        if (argsPaths == null)
+        var fields = variant.Fields;
+        if (fields == null)
         {
             errorMessage = string.Empty;
             return true;
         }
 
-        for (var pathIndex = 0; pathIndex < argsPaths.Count; pathIndex++)
+        for (var fieldIndex = 0; fieldIndex < fields.Count; fieldIndex++)
         {
-            var argsPath = argsPaths[pathIndex];
+            var argsPath = fields[fieldIndex]?.ArgsPath;
             if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasArgsPath(argsPath))
             {
                 errorMessage = $"Describe contract input '{input.Name}' variant '{variant.Name}' must not expose request-local alias args path '{argsPath}'.";

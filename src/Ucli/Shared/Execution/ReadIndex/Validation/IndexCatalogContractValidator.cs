@@ -163,26 +163,47 @@ internal static class IndexCatalogContractValidator
             if (variant == null
                 || string.IsNullOrWhiteSpace(variant.Name)
                 || string.IsNullOrWhiteSpace(variant.Description)
-                || variant.ArgsPaths == null
-                || variant.ArgsPaths.Count == 0
-                || variant.Constraints == null
+                || variant.Fields == null
+                || variant.Fields.Count == 0
                 || !variantNames.Add(variant.Name))
             {
                 error = $"Operation entry '{operationName}' has an invalid input variant at index {i}.";
                 return false;
             }
 
-            for (var pathIndex = 0; pathIndex < variant.ArgsPaths.Count; pathIndex++)
+            if (!TryValidateInputVariantFields(variant.Fields, operationName, inputArgsPath, out error))
             {
-                if (!IsValidArgsPath(variant.ArgsPaths[pathIndex])
-                    || !IsVariantArgsPathWithinInput(variant.ArgsPaths[pathIndex], inputArgsPath))
-                {
-                    error = $"Operation entry '{operationName}' has an invalid input variant args path.";
-                    return false;
-                }
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
+    }
+
+    private static bool TryValidateInputVariantFields (
+        IReadOnlyList<UcliOperationInputVariantFieldContract> fields,
+        string operationName,
+        string inputArgsPath,
+        out string? error)
+    {
+        var fieldNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < fields.Count; i++)
+        {
+            var field = fields[i];
+            if (field == null
+                || string.IsNullOrWhiteSpace(field.Name)
+                || string.IsNullOrWhiteSpace(field.Description)
+                || !IsValidArgsPath(field.ArgsPath)
+                || !IsVariantArgsPathWithinInput(field.ArgsPath!, inputArgsPath)
+                || field.Constraints == null
+                || !fieldNames.Add(field.Name))
+            {
+                error = $"Operation entry '{operationName}' has an invalid input variant field at index {i}.";
+                return false;
             }
 
-            if (!TryValidateInputConstraints(variant.Constraints, operationName, out error))
+            if (!TryValidateInputConstraints(field.Constraints, operationName, out error))
             {
                 return false;
             }
