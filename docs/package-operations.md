@@ -63,7 +63,7 @@ SKILL の詳細な仕様、生成方針、責務境界は [uCLI-skills.md](uCLI-
 
 配布上の役割は次のとおり。
 
-- `skills-src/`: 人間が編集する template と metadata の正本
+- `src/Ucli.Skills/SkillDefinitions/`: 人間が編集する template と metadata の定義
 - `skills/`: canonical generated output。CLI package、release artifact、install/export の配布元
 - host install target: `.claude/skills/`、`.github/skills/`、`.agents/skills/` など host ごとの配置先
 
