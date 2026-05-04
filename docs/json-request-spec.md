@@ -139,6 +139,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - Play Mode 変更は `--allowPlayMode` 指定時だけ有効で、`scene` context は `commit: "none"` のみ、`prefab` / `asset` / `project` context は通常の `edit` と同じ commit 契約で扱う
 - Play Mode 変更の `prefab` context は opened stage 前提の例外であり、runtime は対象 Prefab asset を編集用 context として開き、`commit` に従って保存または破棄できる
 - CLI の static validation / preflight は構造・登録 schema・primitive 参照・認可だけを検証し、Scene / Prefab の live open 状態までは保証しない
+- Play Mode 変更の runtime 条件、対象 live object、Prefab instance lineage、request-attributed property path は static validation では保証せず、`plan --allowPlayMode` で検証する
 - CLI の static validation / preflight は `select` の実ヒット件数を見ず、structural lowering で参照される primitive を認可対象に含める。`cardinality: "all"` や `"atMostOne"` が runtime で 0 件になって no-op になる step でも、その action primitive は事前認可が必要である
 ## `on` の仕様
 `on` は編集コンテキストであり、**永続化境界**を表す。
@@ -274,7 +275,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 {
   "kind": "applyPrefabOverrides",
   "targetAssetPath": "Assets/Prefabs/Enemy.prefab",
-  "properties": [
+  "propertyPaths": [
     "baseSpeed"
   ]
 }
@@ -285,10 +286,10 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - `targetAssetPath` は必須とし、既存の `Assets/.../*.prefab` でなければならない
 - `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれていなければならない
 - Nested Prefab / Variant の apply 先は暗黙推論しない
-- `properties` は任意で、指定時は exact `SerializedProperty.propertyPath` の配列とする
-- `properties` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
-- `properties` 指定時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path の subset だけを許可する
-- `properties: []`、重複 path、先行 `set` に由来しない path、effective changed でない path は拒否する
+- `propertyPaths` は任意で、指定時は exact `SerializedProperty.propertyPath` の配列とする
+- `propertyPaths` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
+- `propertyPaths` 指定時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path の subset だけを許可する
+- `propertyPaths: []`、重複 path、先行 `set` に由来しない path、effective changed でない path は拒否する
 - 同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外とする
 - parent path 指定で child property を再帰対象にしない。child GameObject / child Component へも潜らない
 - pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する
@@ -302,7 +303,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 {
   "kind": "revertPrefabOverrides",
   "targetAssetPath": "Assets/Prefabs/Enemy.prefab",
-  "properties": [
+  "propertyPaths": [
     "baseSpeed"
   ]
 }
@@ -310,9 +311,10 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 
 #### 意味
 - Scene context の Prefab instance に対する request-attributed property override を、明示した Prefab asset の値へ戻す
-- `targetAssetPath` と `properties` の契約は `applyPrefabOverrides` と同じとする
-- `properties` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
+- `targetAssetPath` と `propertyPaths` の契約は `applyPrefabOverrides` と同じとする
+- `propertyPaths` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
 - pre-request 時点ですでに override だった property は拒否する
+- 同一 step の先行 `set` に由来する request-attributed override だけを Prefab asset 値へ戻し、Unity Editor の一般的な Revert Overrides のように既存 override 全体を戻す操作として扱わない
 - 全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用しない
 - Scene 保存、Prefab asset 保存、Unity Undo stack の代替として扱わない
 
@@ -508,7 +510,7 @@ Play Mode 変更で許可される step は `kind: "edit"` のみである。
     {
       "kind": "applyPrefabOverrides",
       "targetAssetPath": "Assets/Prefabs/Enemy.prefab",
-      "properties": [
+      "propertyPaths": [
         "baseSpeed"
       ]
     }
@@ -539,7 +541,7 @@ Play Mode 変更で許可される step は `kind: "edit"` のみである。
     {
       "kind": "revertPrefabOverrides",
       "targetAssetPath": "Assets/Prefabs/Enemy.prefab",
-      "properties": [
+      "propertyPaths": [
         "baseSpeed"
       ]
     }
@@ -555,12 +557,12 @@ Play Mode 変更で許可される step は `kind: "edit"` のみである。
 - `commit: "project"` は project-wide save であるため Play Mode 変更では許可しない
 - Scene 上の Prefab instance は `scene` context として扱い、Prefab asset 自体は `prefab` context として扱う
 - Scene 上の Prefab instance 変更を Prefab asset へ反映する場合は `applyPrefabOverrides` action を明示し、`targetAssetPath` で apply 先を指定する
-- Scene 上の Prefab instance 変更を Prefab asset 値へ戻す場合は `revertPrefabOverrides` action を明示し、pre-request 時点ですでに override だった property は拒否する
+- Scene 上の Prefab instance 変更を Prefab asset 値へ戻す場合は `revertPrefabOverrides` action を明示する。対象は同一 step の先行 `set` に由来する request-attributed override だけであり、pre-request 時点ですでに override だった property は拒否する
 - Scene context の `commit:"none"` は Scene 保存を行わない指定であり、`applyPrefabOverrides` による対象 Prefab asset 保存とは矛盾しない
 - `applyPrefabOverrides` は Scene context から明示 Prefab asset へ保存する secondary persistence action であり、Scene asset は保存しない
 - `applyPrefabOverrides` / `revertPrefabOverrides` は同一 edit step / 同一 current target の先行 `set` が effective changed にした exact property path だけを対象にし、child object へ再帰しない
 - `targetAssetPath` は current target の Prefab instance lineage / valid target chain に含まれる既存の `Assets/.../*.prefab` に限定する
-- `properties: []`、重複 path、先行 `set` に由来しない path、effective changed でない path、parent path 指定による child property 対象化は拒否する
+- `propertyPaths: []`、重複 path、先行 `set` に由来しない path、effective changed でない path、parent path 指定による child property 対象化は拒否する
 - 同一 property を複数回 `set` した場合は最終 effective value だけを対象にし、最終値が pre-request 値と同じなら対象外にする
 - `applyPrefabOverrides` は pre-request override であっても、同一 step の先行 `set` が exact path を effective changed にした場合だけ許可する
 - apply / revert は全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用しない
