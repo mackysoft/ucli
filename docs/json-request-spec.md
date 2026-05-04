@@ -65,7 +65,7 @@ JSON リクエスト入力の機械構造は `RequestEnvelopeSchema + operation 
 
 現行 contract では `RequestEnvelopeSchema` を取得する個別コマンドまたは standalone schema file は定義しない。この文書の `protocolVersion` / `requestId` / `steps[]` / step 共通 field の定義を request envelope の正本とする。
 
-`argsSchema` は `steps[].args` の JSON 構造検証だけを担う。利用者やエージェントは `ucli ops describe <opName>` の `operation.description` / `inputs[]` / `inputs[].constraints` を先に読み、operation 選択と `args` の組み立てを行う。最後に `operation.argsSchema` で `args` の構造を検証する。
+`argsSchema` は `steps[].args` の JSON 構造検証だけを担う。利用者やエージェントは `ucli ops describe <opName>` の `operation.description` / `inputs[]` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` を先に読み、operation 選択と `args` の組み立てを行う。最後に `operation.argsSchema` で `args` の構造を検証する。
 
 public raw `op` の `args` では request-local alias selector branch の `var` を使用しない。`var` は予約済み property であり、値が `null` でも raw `op` 実行時に拒否する。`ops describe` の `argsSchema` / `inputs[].variants[]` にも出さない。
 

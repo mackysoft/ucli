@@ -316,7 +316,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | `argsSchema` | object | yes | `steps[].args` の JSON 構造検証用 JSON Schema |
 | `resultSchema` | object \| null | yes | `opResults[].result` の JSON 構造検証用 JSON Schema。`UcliNoResult` operation では `null` |
 
-`argsSchema` / `resultSchema` は検証用 schema であり、agent 向けの主契約ではない。operation 選択、`args` の組み立て、結果解釈は `description` / `inputs[].constraints` / `resultContract` / `assurance` を参照する。schema には説明文や意味制約を置かない。
+`argsSchema` / `resultSchema` は検証用 schema であり、agent 向けの主契約ではない。operation 選択、`args` の組み立て、結果解釈は `description` / `inputs[].constraints` / `inputs[].variants[].fields[].constraints` / `resultContract` / `assurance` を参照する。schema には説明文や意味制約を置かない。
 
 #### `ucli ops describe payload.operation.inputs[]`
 
@@ -337,7 +337,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 
 `constraints` は常に出す。意味制約がない input は `constraints: []` とする。
 
-`argsPath` と `variants[].argsPaths` は JSONPath ではなく uCLI args path である。許可形は `$`、`$.property`、`$.property.nestedProperty` だけとし、配列添字、wildcard、filter、quoted property name は扱わない。`variants[].argsPaths` は同じ input の `argsPath`、または省略時の `$.<name>` と同じ path か、その descendant path でなければならない。
+`argsPath` と `variants[].fields[].argsPath` は JSONPath ではなく uCLI args path である。`inputs[].argsPath` の許可形は `$`、`$.property`、`$.property.nestedProperty` だけとする。`variants[].fields[].argsPath` は具体的な field path なので、許可形は `$.property`、`$.property.nestedProperty` だけとする。各 property segment は ASCII 英数字と `_` だけを使い、全体は 256 文字以内、最大 16 segment とする。配列添字、wildcard、filter、quoted property name は扱わない。`var` segment は request-local alias 用の内部 branch なので、public `ops describe` には出さない。`variants[].fields[].argsPath` は同じ input の `argsPath`、または省略時の `$.<name>` と同じ path か、その descendant path でなければならない。
 
 `argsPath` を指定する例:
 
@@ -361,14 +361,26 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 | --- | --- | --- | --- |
 | `name` | string | yes | variant 名 |
 | `description` | string | yes | この表現方法の意味 |
-| `argsPaths` | string[] | yes | この variant を成立させるために埋める `steps[].args` 内 leaf path 群 |
-| `constraints` | array | yes | この表現方法に固有の意味制約 |
+| `fields` | array | yes | この variant を成立させるために埋める field 群。shape は `payload.operation.inputs[].variants[].fields[]` を参照 |
 
 variant は operation の意味差ではなく、同じ input を表現する方法だけを表す。同一 `input` 内の `variants` は相互排他である。operation の `description` が複数のユーザー意図を説明する場合、その operation は分割対象である。
 
-variant を選ぶ場合、agent はその `variants[].argsPaths` に列挙された path をすべて埋める。variant 固有の optional field は `argsPaths` には含めず、`argsSchema` の optional property と operation / input の `description` で表す。
+variant を選ぶ場合、agent はその `variants[].fields[]` に列挙された field をすべて埋める。variant 固有の optional field は `fields[]` には含めず、`argsSchema` の optional property と operation / input の `description` で表す。
 
-variant の `constraints` も常に出す。variant 固有の意味制約がない場合は `constraints: []` とする。
+path と constraint は field object に閉じ込める。variant 直下に constraint を置かない。
+
+#### `ucli ops describe payload.operation.inputs[].variants[].fields[]`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | yes | variant 内 field 名 |
+| `argsPath` | string | yes | この field が対応する `steps[].args` 内 path |
+| `description` | string | yes | field 値の意味 |
+| `constraints` | array | yes | field 値の意味制約。shape は `payload.operation.inputs[].constraints[]` と同じ |
+
+field の `constraints` は常に出す。意味制約がない field は `constraints: []` とする。
+
+field の `name` は `argsPath` の最後の property segment と一致しなければならない。たとえば `argsPath:"$.target.globalObjectId"` の field 名は `globalObjectId` である。
 
 #### `ucli ops describe payload.operation.inputs[].constraints[]`
 
@@ -483,13 +495,13 @@ kind ごとの parameter 規則:
 
 `argsSchema` は `steps[].args` の JSON 構造だけを表す。使用する語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。`type` は string または string array で、値は `object`、`array`、`string`、`integer`、`number`、`boolean`、`null` のいずれかである。
 
-schema には説明文や意味制約を出さない。説明は `description`、意味制約は `inputs[].constraints` に置く。
+schema には説明文や意味制約を出さない。説明は `description`、input 全体の意味制約は `inputs[].constraints`、variant field の意味制約は `inputs[].variants[].fields[].constraints` に置く。
 
 #### `ucli ops describe payload.operation.resultSchema`
 
 `argsSchema` / `resultSchema` は JSON Schema の完全実装ではなく、uCLI-supported JSON Schema subset である。この subset は JSON object の構造検証だけを contract し、外部 JSON Schema validator への完全互換入力として扱えることは保証しない。
 
-subset で使用できる語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。`type` は string または string array で、nullable property は `["<type>","null"]` で表す。`$schema` は出力しない。closed value set は schema の `enum` ではなく、この property reference の語彙表または `inputs[].constraints` で表す。composition、condition、default、example、format、scalar constraint 系の JSON Schema keyword は公開 contract として使用しない。
+subset で使用できる語彙は `type`、`properties`、`required`、`additionalProperties:false`、`items`、`$ref`、`$defs` に限定する。`type` は string または string array で、nullable property は `["<type>","null"]` で表す。`$schema` は出力しない。closed value set は schema の `enum` ではなく、この property reference の語彙表、`inputs[].constraints`、または `inputs[].variants[].fields[].constraints` で表す。composition、condition、default、example、format、scalar constraint 系の JSON Schema keyword は公開 contract として使用しない。
 
 `resultSchema` は `opResults[].result` の JSON 構造だけを表す。result を返さない operation では `null` になる。配列 property は `items` で要素構造を表し、ネスト型や再帰型は `$defs` の名前付き schema と `$ref` で表す。
 
@@ -689,23 +701,37 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
       {
         "name": "globalObjectId",
         "description": "Use when an exact Unity GlobalObjectId is already known.",
-        "argsPaths": [
-          "$.target.globalObjectId"
-        ],
-        "constraints": [
-          { "kind": "globalObjectId" }
+        "fields": [
+          {
+            "name": "globalObjectId",
+            "argsPath": "$.target.globalObjectId",
+            "description": "Resolved Unity GlobalObjectId.",
+            "constraints": [
+              { "kind": "globalObjectId" }
+            ]
+          }
         ]
       },
       {
         "name": "sceneHierarchy",
         "description": "Use when the scene path and hierarchy path are known.",
-        "argsPaths": [
-          "$.target.scene",
-          "$.target.hierarchyPath"
-        ],
-        "constraints": [
-          { "kind": "assetExists", "assetKind": "scene" },
-          { "kind": "hierarchyPath" }
+        "fields": [
+          {
+            "name": "scene",
+            "argsPath": "$.target.scene",
+            "description": "Scene asset path for a hierarchy selector.",
+            "constraints": [
+              { "kind": "assetExists", "assetKind": "scene" }
+            ]
+          },
+          {
+            "name": "hierarchyPath",
+            "argsPath": "$.target.hierarchyPath",
+            "description": "Unity hierarchy path inside the selected scene or prefab.",
+            "constraints": [
+              { "kind": "hierarchyPath" }
+            ]
+          }
         ]
       }
     ]
@@ -739,7 +765,7 @@ subset で使用できる語彙は `type`、`properties`、`required`、`additio
 
 object input の内部構造は `argsSchema.properties` で表す。selector の表現差は `variants` に置くが、operation の意味差は variant にしない。
 
-selector の各 variant は同じ `target` object の異なる表現方法を説明する。`variants[].argsPaths` はその variant を選ぶときに埋める leaf path を表し、`argsSchema.properties.target.properties` はそれらの leaf property の JSON 構造だけを表す。
+selector の各 variant は同じ `target` object の異なる表現方法を説明する。`variants[].fields[]` はその variant を選ぶときに埋める leaf property と、各 property に掛かる説明・意味制約を表す。`argsSchema.properties.target.properties` はそれらの leaf property の JSON 構造だけを表す。
 
 複数表現の排他性は `inputs[].variants[]` の仕様で表し、JSON Schema の `oneOf` では表さない。
 
@@ -849,7 +875,7 @@ selector の各 variant は同じ `target` object の異なる表現方法を説
 
 `description` が複数のユーザー意図を説明する operation は分割対象である。`variants` は同じ input の参照方法だけに使う。
 
-schema の property に説明文や意味制約を置かない。説明は `inputs[].description`、意味制約は `inputs[].constraints` に置く。空文字禁止は `inputs[].constraints` の `{ "kind": "nonEmpty" }` で表す。
+schema の property に説明文や意味制約を置かない。説明は `inputs[].description` または `inputs[].variants[].fields[].description`、意味制約は `inputs[].constraints` または `inputs[].variants[].fields[].constraints` に置く。空文字禁止は該当 input または field の `constraints` の `{ "kind": "nonEmpty" }` で表す。
 
 #### 不正な result 例
 

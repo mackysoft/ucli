@@ -33,7 +33,7 @@ Primitive operation contracts are authored as CLR Args/Result types plus operati
 
 Public raw `op` args must not use the JSON property name `var`, even with a `null` value. `ops describe` omits that selector branch and the Unity runtime rejects it for raw `op` steps.
 
-`argsSchema` and `resultSchema` validate only the JSON structure of `steps[].args` and `opResults[].result`; they are not the primary agent UX contract. Operation selection, input construction, and result interpretation should use the higher-level describe contract. Semantic constraints are exposed as `inputs[].constraints`, not as JSON Schema constraint keywords.
+`argsSchema` and `resultSchema` validate only the JSON structure of `steps[].args` and `opResults[].result`; they are not the primary agent UX contract. Operation selection, input construction, and result interpretation should use the higher-level describe contract. Semantic constraints are exposed as `inputs[].constraints` and `inputs[].variants[].fields[].constraints`, not as JSON Schema constraint keywords.
 
 Selectors are also contract types, such as `GameObjectReferenceArgs`, `ComponentReferenceArgs`, and `AssetReferenceArgs`. Operation authors consume those typed references and keep resolved Unity objects inside the Unity implementation layer.
 

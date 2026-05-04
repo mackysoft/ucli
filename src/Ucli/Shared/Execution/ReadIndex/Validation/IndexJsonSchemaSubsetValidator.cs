@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 
@@ -6,6 +7,18 @@ namespace MackySoft.Ucli.Shared.Execution.ReadIndex;
 internal static class IndexJsonSchemaSubsetValidator
 {
     public static bool IsValidObjectSchema (string? json)
+    {
+        return IsValidObjectSchema(json, rejectRequestLocalAliasProperties: false);
+    }
+
+    public static bool IsValidPublicRawOpArgsSchema (string? json)
+    {
+        return IsValidObjectSchema(json, rejectRequestLocalAliasProperties: true);
+    }
+
+    private static bool IsValidObjectSchema (
+        string? json,
+        bool rejectRequestLocalAliasProperties)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
@@ -16,7 +29,7 @@ internal static class IndexJsonSchemaSubsetValidator
         {
             using var document = JsonDocument.Parse(json);
             return document.RootElement.ValueKind == JsonValueKind.Object
-                && IsValidSchemaNode(document.RootElement, document.RootElement);
+                && IsValidSchemaNode(document.RootElement, document.RootElement, rejectRequestLocalAliasProperties);
         }
         catch (JsonException)
         {
@@ -26,7 +39,8 @@ internal static class IndexJsonSchemaSubsetValidator
 
     private static bool IsValidSchemaNode (
         JsonElement schema,
-        JsonElement rootSchema)
+        JsonElement rootSchema,
+        bool rejectRequestLocalAliasProperties)
     {
         if (schema.ValueKind != JsonValueKind.Object
             || !HasOnlySupportedKeywords(schema))
@@ -41,11 +55,11 @@ internal static class IndexJsonSchemaSubsetValidator
         }
 
         return IsValidType(schema)
-            && IsValidProperties(schema, rootSchema)
-            && IsValidRequired(schema)
+            && IsValidProperties(schema, rootSchema, rejectRequestLocalAliasProperties)
+            && IsValidRequired(schema, rejectRequestLocalAliasProperties)
             && IsValidAdditionalProperties(schema)
-            && IsValidItems(schema, rootSchema)
-            && IsValidDefinitions(schema, rootSchema);
+            && IsValidItems(schema, rootSchema, rejectRequestLocalAliasProperties)
+            && IsValidDefinitions(schema, rootSchema, rejectRequestLocalAliasProperties);
     }
 
     private static bool HasOnlySupportedKeywords (JsonElement schema)
@@ -99,7 +113,8 @@ internal static class IndexJsonSchemaSubsetValidator
 
     private static bool IsValidProperties (
         JsonElement schema,
-        JsonElement rootSchema)
+        JsonElement rootSchema,
+        bool rejectRequestLocalAliasProperties)
     {
         if (!schema.TryGetProperty("properties", out var properties))
         {
@@ -113,7 +128,8 @@ internal static class IndexJsonSchemaSubsetValidator
 
         foreach (var property in properties.EnumerateObject())
         {
-            if (!IsValidSchemaNode(property.Value, rootSchema))
+            if ((rejectRequestLocalAliasProperties && UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasPropertyName(property.Name))
+                || !IsValidSchemaNode(property.Value, rootSchema, rejectRequestLocalAliasProperties))
             {
                 return false;
             }
@@ -122,7 +138,9 @@ internal static class IndexJsonSchemaSubsetValidator
         return true;
     }
 
-    private static bool IsValidRequired (JsonElement schema)
+    private static bool IsValidRequired (
+        JsonElement schema,
+        bool rejectRequestLocalAliasProperties)
     {
         if (!schema.TryGetProperty("required", out var required))
         {
@@ -144,6 +162,7 @@ internal static class IndexJsonSchemaSubsetValidator
 
             var name = item.GetString();
             if (string.IsNullOrWhiteSpace(name)
+                || (rejectRequestLocalAliasProperties && UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasPropertyName(name!))
                 || !names.Add(name))
             {
                 return false;
@@ -165,19 +184,21 @@ internal static class IndexJsonSchemaSubsetValidator
 
     private static bool IsValidItems (
         JsonElement schema,
-        JsonElement rootSchema)
+        JsonElement rootSchema,
+        bool rejectRequestLocalAliasProperties)
     {
         if (!schema.TryGetProperty("items", out var items))
         {
             return true;
         }
 
-        return IsValidSchemaNode(items, rootSchema);
+        return IsValidSchemaNode(items, rootSchema, rejectRequestLocalAliasProperties);
     }
 
     private static bool IsValidDefinitions (
         JsonElement schema,
-        JsonElement rootSchema)
+        JsonElement rootSchema,
+        bool rejectRequestLocalAliasProperties)
     {
         if (!schema.TryGetProperty("$defs", out var definitions))
         {
@@ -192,7 +213,7 @@ internal static class IndexJsonSchemaSubsetValidator
         foreach (var definition in definitions.EnumerateObject())
         {
             if (string.IsNullOrWhiteSpace(definition.Name)
-                || !IsValidSchemaNode(definition.Value, rootSchema))
+                || !IsValidSchemaNode(definition.Value, rootSchema, rejectRequestLocalAliasProperties))
             {
                 return false;
             }

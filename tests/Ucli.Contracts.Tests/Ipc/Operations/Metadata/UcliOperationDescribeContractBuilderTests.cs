@@ -80,9 +80,27 @@ public sealed class UcliOperationDescribeContractBuilderTests
         var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "target");
         Assert.NotNull(input.Variants);
         var variant = Assert.Single(input.Variants!, candidate => candidate.Name == "byGlobalObjectId");
-        Assert.Contains("$.target.globalObjectId", variant.ArgsPaths!);
-        Assert.Contains(variant.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.GlobalObjectId);
-        Assert.DoesNotContain(input.Variants!, candidate => candidate.ArgsPaths!.Any(path => path.EndsWith(".var", StringComparison.Ordinal)));
+        var field = Assert.Single(variant.Fields!);
+        Assert.Equal("globalObjectId", field.Name);
+        Assert.Equal("$.target.globalObjectId", field.ArgsPath);
+        Assert.Equal("Resolved Unity GlobalObjectId.", field.Description);
+        Assert.Contains(field.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.GlobalObjectId);
+        var hierarchyVariant = Assert.Single(input.Variants!, candidate => candidate.Name == "bySceneHierarchyPath");
+        Assert.Equal(
+            "Use Scene asset path for a hierarchy selector and Unity hierarchy path inside the selected scene or prefab.",
+            hierarchyVariant.Description);
+        Assert.Equal(2, hierarchyVariant.Fields!.Count);
+        var sceneField = Assert.Single(hierarchyVariant.Fields!, candidate => candidate.Name == "scene");
+        Assert.Equal("$.target.scene", sceneField.ArgsPath);
+        Assert.Equal("Scene asset path for a hierarchy selector.", sceneField.Description);
+        Assert.Contains(sceneField.Constraints!, constraint =>
+            constraint.Kind == UcliOperationInputConstraintKindValues.AssetExists
+            && constraint.AssetKind == UcliOperationAssetKindValues.Scene);
+        var hierarchyPathField = Assert.Single(hierarchyVariant.Fields!, candidate => candidate.Name == "hierarchyPath");
+        Assert.Equal("$.target.hierarchyPath", hierarchyPathField.ArgsPath);
+        Assert.Equal("Unity hierarchy path inside the selected scene or prefab.", hierarchyPathField.Description);
+        Assert.Contains(hierarchyPathField.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.HierarchyPath);
+        Assert.DoesNotContain(input.Variants!, candidate => candidate.Fields!.Any(candidateField => candidateField.ArgsPath!.EndsWith(".var", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -100,7 +118,10 @@ public sealed class UcliOperationDescribeContractBuilderTests
 
         var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "target");
         var variant = Assert.Single(input.Variants!, candidate => candidate.Name == "byAssetGuid");
-        Assert.Contains("$.target.assetGuid", variant.ArgsPaths!);
-        Assert.Contains(variant.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.AssetGuid);
+        var field = Assert.Single(variant.Fields!);
+        Assert.Equal("assetGuid", field.Name);
+        Assert.Equal("$.target.assetGuid", field.ArgsPath);
+        Assert.Equal("Asset GUID selector.", field.Description);
+        Assert.Contains(field.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.AssetGuid);
     }
 }

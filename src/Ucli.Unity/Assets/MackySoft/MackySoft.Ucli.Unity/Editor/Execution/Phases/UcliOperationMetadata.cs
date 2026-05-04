@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ValidateSchemaJson(resultSchemaJson, nameof(resultSchemaJson), "Result schema JSON");
             }
 
-            ValidateDescribeContract(describeContract, resultType);
+            ValidateDescribeContract(operationName, describeContract, resultType);
             var ownedDescribeContract = CopyDescribeContract(describeContract);
 
             OperationName = operationName;
@@ -211,25 +211,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public bool RequiresPreCallPlanReplay { get; }
 
         private static void ValidateDescribeContract (
+            string operationName,
             UcliOperationDescribeContract describeContract,
             Type resultType)
         {
-            if (string.IsNullOrWhiteSpace(describeContract.Description)
-                || describeContract.Inputs == null
-                || describeContract.ResultContract == null
-                || describeContract.Assurance == null)
-            {
-                throw new ArgumentException("Describe contract must include description, inputs, resultContract, and assurance.", nameof(describeContract));
-            }
-
-            if (describeContract.Assurance.SideEffects == null
-                || describeContract.Assurance.TouchedKinds == null
-                || string.IsNullOrWhiteSpace(describeContract.Assurance.PlanMode))
-            {
-                throw new ArgumentException("Describe contract assurance fields must be complete.", nameof(describeContract));
-            }
-
-            if (!UcliRequestLocalAliasDescribeContractValidator.TryValidatePublicRawOpInputs(describeContract.Inputs, out var describeInputError))
+            if (!UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describeContract, $"Describe contract for operation '{operationName}'", out var describeInputError))
             {
                 throw new ArgumentException(describeInputError, nameof(describeContract));
             }
@@ -292,11 +278,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 variants[i] = new UcliOperationInputVariantContract(
                     source[i].Name,
                     source[i].Description,
-                    CopyStrings(source[i].ArgsPaths),
-                    CopyConstraints(source[i].Constraints));
+                    CopyVariantFields(source[i].Fields));
             }
 
             return variants;
+        }
+
+        private static IReadOnlyList<UcliOperationInputVariantFieldContract>? CopyVariantFields (IReadOnlyList<UcliOperationInputVariantFieldContract>? source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var fields = new UcliOperationInputVariantFieldContract[source.Count];
+            for (var i = 0; i < source.Count; i++)
+            {
+                fields[i] = new UcliOperationInputVariantFieldContract(
+                    source[i].Name,
+                    source[i].ArgsPath,
+                    source[i].Description,
+                    CopyConstraints(source[i].Constraints));
+            }
+
+            return fields;
         }
 
         private static IReadOnlyList<UcliOperationInputConstraintContract>? CopyConstraints (IReadOnlyList<UcliOperationInputConstraintContract>? source)
