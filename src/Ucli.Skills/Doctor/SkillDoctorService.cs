@@ -44,8 +44,7 @@ public sealed class SkillDoctorService
         var adapterResult = hostAdapters.GetAdapter(host);
         if (!adapterResult.IsSuccess)
         {
-            diagnostics.Add(new SkillDoctorDiagnostic(
-                SkillDoctorSeverity.Error,
+            diagnostics.Add(SkillDoctorDiagnostic.Error(
                 adapterResult.Failure!.Code,
                 adapterResult.Failure.Message));
             return new SkillDoctorResult(host, fullTargetRoot, diagnostics);
@@ -54,8 +53,7 @@ public sealed class SkillDoctorService
         var hostKey = adapterResult.Value!.Descriptor.HostKey;
         if (!Directory.Exists(fullTargetRoot))
         {
-            diagnostics.Add(new SkillDoctorDiagnostic(
-                SkillDoctorSeverity.Error,
+            diagnostics.Add(SkillDoctorDiagnostic.Error(
                 SkillFailureCodes.InstallTargetUnmanaged,
                 $"Target root does not exist: {fullTargetRoot}"));
             return new SkillDoctorResult(hostKey, fullTargetRoot, diagnostics);
@@ -69,8 +67,7 @@ public sealed class SkillDoctorService
 
         if (diagnostics.Count == 0)
         {
-            diagnostics.Add(new SkillDoctorDiagnostic(
-                SkillDoctorSeverity.Info,
+            diagnostics.Add(SkillDoctorDiagnostic.Info(
                 "SKILL_DOCTOR_OK",
                 "All official SKILL packages are installed for the requested host."));
         }
@@ -88,29 +85,21 @@ public sealed class SkillDoctorService
         var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
         if (!skillDirectoryResult.IsSuccess)
         {
-            diagnostics.Add(Error(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message, package.SkillName));
+            diagnostics.Add(SkillDoctorDiagnostic.Error(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message, package.SkillName));
             return;
         }
 
         var skillDirectory = skillDirectoryResult.Value!;
         if (!Directory.Exists(skillDirectory))
         {
-            diagnostics.Add(Error(SkillFailureCodes.InstallTargetUnmanaged, "Skill directory is missing.", package.SkillName));
+            diagnostics.Add(SkillDoctorDiagnostic.Error(SkillFailureCodes.InstallTargetUnmanaged, "Skill directory is missing.", package.SkillName));
             return;
         }
 
         var validationResult = await installedPackageValidator.ValidateAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
         if (!validationResult.IsSuccess)
         {
-            diagnostics.Add(Error(validationResult.Failure!.Code, validationResult.Failure.Message, package.SkillName));
+            diagnostics.Add(SkillDoctorDiagnostic.Error(validationResult.Failure!.Code, validationResult.Failure.Message, package.SkillName));
         }
-    }
-
-    private static SkillDoctorDiagnostic Error (
-        string code,
-        string message,
-        string skillName)
-    {
-        return new SkillDoctorDiagnostic(SkillDoctorSeverity.Error, code, message, skillName);
     }
 }
