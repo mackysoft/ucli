@@ -312,7 +312,7 @@ uCLI の JSON リクエストは、次の2要件を同時に満たす。
 - Scene context の Prefab instance に対する request-attributed property override を、明示した Prefab asset の値へ戻す
 - `targetAssetPath` と `properties` の契約は `applyPrefabOverrides` と同じとする
 - `properties` 省略時は、同一 edit step / 同一 current target の先行 `set` が effective changed にした property path 全部を対象にする
-- pre-request 時点ですでに override だった property は v1.1 では拒否する
+- pre-request 時点ですでに override だった property は拒否する
 - 全対象 property を preflight 検証してから実行する。検証エラーでは action 全体を適用しない
 - Scene 保存、Prefab asset 保存、Unity Undo stack の代替として扱わない
 
