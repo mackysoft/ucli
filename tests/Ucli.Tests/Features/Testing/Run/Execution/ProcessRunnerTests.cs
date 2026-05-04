@@ -84,6 +84,46 @@ public sealed class ProcessRunnerTests
         Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WhenProcessExceedsTimeout_ReturnsTimedOut ()
+    {
+        var runner = new ProcessRunner();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                CreateLongRunningRequest(TimeSpan.FromMilliseconds(200)),
+                CancellationToken.None),
+            "Process runner timeout result",
+            SignalWaitTimeout);
+
+        Assert.Equal(ProcessRunStatus.TimedOut, result.Status);
+        Assert.Null(result.ExitCode);
+        Assert.False(string.IsNullOrWhiteSpace(result.ErrorMessage));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task RunAsync_WhenExitedProcessLeavesDescendantOutputOpen_ReturnsWithoutWaitingForDescendant ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var runner = new ProcessRunner();
+
+        var result = await TestAwaiter.WaitAsync(
+            runner.RunAsync(
+                CreateExitedProcessWithInheritedOutputHandleRequest(),
+                CancellationToken.None),
+            "Process runner inherited output handle result",
+            TimeSpan.FromSeconds(8));
+
+        Assert.Equal(ProcessRunStatus.Exited, result.Status);
+        Assert.Equal(0, result.ExitCode);
+    }
+
     private static ProcessRunRequest CreateLongOutputRequest (bool captureStandardOutput)
     {
         if (OperatingSystem.IsWindows())
@@ -134,5 +174,17 @@ public sealed class ProcessRunnerTests
                 "sleep 30",
             ],
             Timeout: timeout);
+    }
+
+    private static ProcessRunRequest CreateExitedProcessWithInheritedOutputHandleRequest ()
+    {
+        return new ProcessRunRequest(
+            FileName: "/bin/sh",
+            Arguments:
+            [
+                "-c",
+                "sleep 15 & exit 0",
+            ],
+            Timeout: TimeSpan.FromSeconds(10));
     }
 }
