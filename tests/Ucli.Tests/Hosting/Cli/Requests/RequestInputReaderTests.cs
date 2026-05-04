@@ -10,7 +10,7 @@ public sealed class RequestInputReaderTests
     [Trait("Size", "Small")]
     public async Task ReadAsync_ReadsStandardInput_WhenRedirected ()
     {
-        const string expectedJson = """{"source":"stdin"}""";
+        const string expectedJson = """{"steps":[]}""";
         var reader = new RequestInputReader(
             isStandardInputRedirected: static () => true,
             readStandardInputAsync: static _ => Task.FromResult(expectedJson));
@@ -28,7 +28,7 @@ public sealed class RequestInputReaderTests
     {
         var reader = new RequestInputReader(
             isStandardInputRedirected: static () => false,
-            readStandardInputAsync: static _ => Task.FromResult("""{"source":"stdin"}"""));
+            readStandardInputAsync: static _ => Task.FromResult("""{"steps":[]}"""));
 
         var result = await reader.ReadAsync();
 
