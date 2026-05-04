@@ -19,14 +19,12 @@ internal sealed class ValidateCommand
     }
 
     /// <summary> Executes the validate command and emits the JSON result contract. </summary>
-    /// <param name="requestPath">--requestPath, Optional path to one request JSON file.</param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Validate)]
     public async Task<int> Validate (
-        string? requestPath = null,
         string? projectPath = null,
         string? readIndexMode = null,
         CancellationToken cancellationToken = default)
@@ -44,7 +42,6 @@ internal sealed class ValidateCommand
 
         var serviceResult = await validateService.Execute(
                 new ValidateCommandInput(
-                    RequestPath: requestPath,
                     ProjectPath: projectPath,
                     ReadIndexMode: normalizedReadIndexModeResult.Mode),
                 cancellationToken)

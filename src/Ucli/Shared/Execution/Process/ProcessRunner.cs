@@ -10,6 +10,10 @@ internal sealed class ProcessRunner : IProcessRunner
 {
     private const int MaxCapturedOutputChars = 4096;
 
+    private static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(2);
+
+    private static readonly TimeSpan ProcessKillWaitTimeout = TimeSpan.FromSeconds(5);
+
     /// <summary> Runs one process request. </summary>
     /// <param name="request"> The process request values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by the caller. </param>
@@ -64,12 +68,12 @@ internal sealed class ProcessRunner : IProcessRunner
 
         try
         {
-            await process.WaitForExitAsync(linkedCancellationTokenSource.Token).ConfigureAwait(false);
+            await WaitForProcessExitOnlyAsync(process, linkedCancellationTokenSource.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await TryKillProcessAsync(process).ConfigureAwait(false);
-            await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+            await TryDrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
             return ProcessRunResult.Canceled(
                 $"Process execution was canceled.{BuildOutputSnippet(standardError, standardOutput)}",
                 standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
@@ -78,13 +82,13 @@ internal sealed class ProcessRunner : IProcessRunner
                                                  && !cancellationToken.IsCancellationRequested)
         {
             await TryKillProcessAsync(process).ConfigureAwait(false);
-            await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+            await TryDrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
             return ProcessRunResult.TimedOut(
                 $"Process timed out after {request.Timeout.TotalMilliseconds:0} milliseconds.{BuildOutputSnippet(standardError, standardOutput)}",
                 standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null);
         }
 
-        await DrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+        await TryDrainOutputAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
 
         if (process.ExitCode == 0)
         {
@@ -121,7 +125,8 @@ internal sealed class ProcessRunner : IProcessRunner
 
         try
         {
-            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            using var killWaitCancellationTokenSource = new CancellationTokenSource(ProcessKillWaitTimeout);
+            await WaitForProcessExitOnlyAsync(process, killWaitCancellationTokenSource.Token).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -129,14 +134,62 @@ internal sealed class ProcessRunner : IProcessRunner
         }
     }
 
-    /// <summary> Waits for redirected output stream completion. </summary>
+    /// <summary> Waits only for the process exit signal without waiting for redirected stream completion. </summary>
+    /// <param name="process"> The process to observe. </param>
+    /// <param name="cancellationToken"> A cancellation token for the wait operation. </param>
+    private static async Task WaitForProcessExitOnlyAsync (
+        DiagnosticsProcess process,
+        CancellationToken cancellationToken)
+    {
+        if (process.HasExited)
+        {
+            return;
+        }
+
+        var completionSource = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnExited (object? _, EventArgs __)
+        {
+            completionSource.TrySetResult(null);
+        }
+
+        process.EnableRaisingEvents = true;
+        process.Exited += OnExited;
+
+        try
+        {
+            if (process.HasExited)
+            {
+                return;
+            }
+
+            using var cancellationRegistration = cancellationToken.Register(
+                static state => ((TaskCompletionSource<object?>)state!).TrySetCanceled(),
+                completionSource);
+            await completionSource.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            process.Exited -= OnExited;
+        }
+    }
+
+    /// <summary> Best-effort waits for redirected output stream completion. </summary>
     /// <param name="standardOutputCompleted"> The standard-output completion task. </param>
     /// <param name="standardErrorCompleted"> The standard-error completion task. </param>
-    private static async Task DrainOutputAsync (
+    private static async Task TryDrainOutputAsync (
         Task standardOutputCompleted,
         Task standardErrorCompleted)
     {
-        await Task.WhenAll(standardOutputCompleted, standardErrorCompleted).ConfigureAwait(false);
+        var drainTask = Task.WhenAll(standardOutputCompleted, standardErrorCompleted);
+        var completedTask = await Task.WhenAny(
+            drainTask,
+            Task.Delay(OutputDrainTimeout)).ConfigureAwait(false);
+
+        if (completedTask == drainTask)
+        {
+            await drainTask.ConfigureAwait(false);
+        }
     }
 
     /// <summary> Handles one redirected output line. </summary>

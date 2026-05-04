@@ -6,7 +6,7 @@
 
 uCLI turns Unity Editor changes into reviewable, repeatable, machine-readable workflows for scripts, CI, and AI agents.
 
-It reads Unity state, declares the intended change, validates and plans it, applies it through Unity Editor APIs, chooses the save boundary, and returns structured evidence.
+It reads Unity state, declares the intended change, applies it through Unity Editor APIs with internal validation and planning, chooses the save boundary, and returns structured evidence.
 
 uCLI is not a remote-control wrapper around the Unity Editor. It is an execution protocol for workflows where automation must be inspected, replayed, gated, and trusted.
 
@@ -18,11 +18,11 @@ In short:
 
 - Unity is callable.
 - Unity changes should be reviewable.
-- The normal workflow is `read -> validate -> plan -> call -> verify`.
+- The normal workflow is `read -> call --withPlan -> verify`.
 
 uCLI focuses on those guarantees:
 
-- **Plan before call:** preview a request, receive a `planToken`, and apply only when the request and project state still match.
+- **Planned calls by default:** `ucli call --withPlan` validates, plans, and applies one request in one command; split `planToken` flows are available when a review gate must separate planning from mutation.
 - **Live Unity source of truth:** mutations go through Unity Editor APIs and are re-resolved against live Unity state.
 - **Context-bound edits:** every edit belongs to a scene, prefab, asset, or project boundary.
 - **Explicit persistence:** changing an object and saving a context are separate decisions.
@@ -55,7 +55,7 @@ uCLI is designed around assurance, not convenience-first automation.
 | --- | --- |
 | Unity remains the source of truth | Mutations go through Unity Editor APIs. |
 | Edits have context | Every edit declares a scene, prefab, asset, or project context. |
-| Plans are checked before write | `ucli plan` produces a `planToken`; `ucli call` can verify request and state drift before applying. |
+| Planned writes are explicit | `ucli call --withPlan` validates, plans, and applies in one command; `ucli plan` and `--planToken` support separated review gates. |
 | Saves are explicit | `commit` controls persistence with `"none"`, `"context"`, or `"project"`. |
 | Results are evidence | JSON exposes `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts. |
 | Runtime is operational | `daemon`, `auto`, and `oneshot` do not change request meaning. |
@@ -73,7 +73,7 @@ Agents should not hard-code operation arguments or guess Unity state from memory
 - Treat `ucli ops describe <operation>` as the runtime contract for that operation's kind, policy, argument schema, and static constraints.
 - Inspect assets, scene trees, components, and serialized schemas before editing.
 - Build JSON requests with primitive `op` steps and higher-level `edit` steps.
-- Use `validate`, `plan`, and `call` to keep review and execution separate.
+- Use `ucli call --withPlan` for normal writes; reserve `ucli validate` and `ucli plan` for diagnostics or separated review gates.
 
 ### 🧪 For CI
 
@@ -491,12 +491,13 @@ ucli ops describe game.scene.countGameObjects --projectPath ./UnityProject
 
 ## 🛠️ Applying Changes
 
-> **IMPORTANT:** Request commands read JSON from standard input by default. Keep the request in your runner and pipe it to uCLI.
+> **IMPORTANT:** Request commands read JSON only from redirected standard input. Keep the request in your runner and pipe it to uCLI.
 
 Use `call --withPlan` for compact local automation where the same runner plans and applies immediately.
 
 ```bash
-REQUEST_JSON='{
+ucli call --withPlan <<'JSON'
+{
   "steps": [
     {
       "kind": "op",
@@ -529,28 +530,15 @@ REQUEST_JSON='{
       "commit": "context"
     }
   ]
-}'
-
-printf '%s' "$REQUEST_JSON" | ucli call --withPlan
+}
+JSON
 ```
 
 This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, edits the `Game.EnemySpawner` component, and saves the scene through `commit: "context"`.
 
-Use `validate -> plan -> call --planToken` when a human review step, CI gate, or agent supervisor must inspect the plan before mutation:
-
-```bash
-printf '%s' "$REQUEST_JSON" | ucli validate
-PLAN_JSON="$(printf '%s' "$REQUEST_JSON" | ucli plan)"
-
-PLAN_TOKEN="$(printf '%s' "$PLAN_JSON" | jq -r '.payload.planToken')"
-printf '%s' "$REQUEST_JSON" | ucli call --planToken "$PLAN_TOKEN"
-```
-
-`validate` checks request shape and operation argument structure. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
+Use `ucli plan` and `ucli call --planToken` only when a human review step, CI gate, or agent supervisor must inspect and approve a plan before mutation.
 
 > **IMPORTANT:** A timeout or disconnect does not prove that nothing was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
-
-> **TIP:** Use `--requestPath` only when a file path is the natural interface for your tool. Standard input is the primary request path for scripts and agents.
 
 ## 🧩 Request DSL Core
 
@@ -897,9 +885,9 @@ ucli daemon stop
 | `ucli query` | Read project data without writing changes. |
 | `ucli resolve` | Resolve a selector to a Unity object identifier. |
 | `ucli ops` | List and inspect available primitive operations. |
-| `ucli validate` | Check a request before Unity execution. |
-| `ucli plan` | Preview a request and receive a `planToken`. |
-| `ucli call` | Apply a request. |
+| `ucli call` | Apply a request; use `--withPlan` for the normal planned write path. |
+| `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
+| `ucli validate` | Diagnose static request validation without running `plan` or `call`. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |

@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Context;
 
 namespace MackySoft.Ucli.Features.Requests.Shared.Preparation;
@@ -33,13 +33,11 @@ internal sealed class RequestPreparationService : IRequestPreparationService
     }
 
     /// <inheritdoc />
-    public async ValueTask<ParsedRequestResult> ReadAndParse (
-        string? requestPath,
-        CancellationToken cancellationToken = default)
+    public async ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var inputReadResult = await requestInputReader.ReadAsync(requestPath, cancellationToken).ConfigureAwait(false);
+        var inputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
         if (!inputReadResult.IsSuccess)
         {
             return ParsedRequestResult.Failure(inputReadResult.Error!);
@@ -61,19 +59,17 @@ internal sealed class RequestPreparationService : IRequestPreparationService
 
         return ParsedRequestResult.Success(new ParsedRequestContext(
             RequestJson: normalizedRequestJson,
-            InputSource: inputReadResult.Source!.Value,
             Request: parseResult.Request!));
     }
 
     /// <inheritdoc />
     public async ValueTask<RequestPreparationResult> Prepare (
-        string? requestPath,
         string? projectPath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var parseRequestResult = await ReadAndParse(requestPath, cancellationToken).ConfigureAwait(false);
+        var parseRequestResult = await ReadAndParse(cancellationToken).ConfigureAwait(false);
         if (!parseRequestResult.IsSuccess)
         {
             return RequestPreparationResult.Failure(parseRequestResult.Error!);
@@ -88,7 +84,6 @@ internal sealed class RequestPreparationService : IRequestPreparationService
         var parsedRequest = parseRequestResult.ParsedRequest!;
         return RequestPreparationResult.Success(new PreparedRequestContext(
             RequestJson: parsedRequest.RequestJson,
-            InputSource: parsedRequest.InputSource,
             Request: parsedRequest.Request,
             ProjectContext: projectContextResult.Context!));
     }

@@ -44,12 +44,11 @@ public sealed class CallCommandTests
                     PlanToken: "plan-token-1"),
                 ReadPostcondition: null),
             "uCLI call completed.")));
-        var preflightService = new StubCallCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var preflightService = new StubCallCommandPreflightService((_, _) => throw new InvalidOperationException("Preflight should not be called."));
         var command = new CallCommand(service, preflightService);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
-            requestPath: "/repo/request.json",
             projectPath: "/repo/UnityProject",
             mode: "oneshot",
             timeout: "1234",
@@ -62,8 +61,7 @@ public sealed class CallCommandTests
         Assert.Equal((int)CliExitCode.Success, exitCode);
         Assert.Equal(cancellationTokenSource.Token, service.CapturedCancellationToken);
         Assert.NotNull(service.CapturedInput);
-        Assert.Equal("/repo/request.json", service.CapturedInput!.RequestPath);
-        Assert.Equal("/repo/UnityProject", service.CapturedInput.ProjectPath);
+        Assert.Equal("/repo/UnityProject", service.CapturedInput!.ProjectPath);
         Assert.Equal(UnityExecutionMode.Oneshot, service.CapturedInput.Mode);
         Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
         Assert.Equal("user-token", service.CapturedInput.PlanToken);
@@ -94,7 +92,7 @@ public sealed class CallCommandTests
     public async Task Call_WhenModeIsInvalid_UsesFeatureFailurePathWithoutExecutingCall ()
     {
         var service = new StubCallService((_, _) => throw new InvalidOperationException("Execute should not be called."));
-        var preflightService = new StubCallCommandPreflightService((_, _, _) => ValueTask.FromResult(CallCommandPreflightResult.Success(
+        var preflightService = new StubCallCommandPreflightService((_, _) => ValueTask.FromResult(CallCommandPreflightResult.Success(
             new CallExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],
@@ -147,10 +145,10 @@ public sealed class CallCommandTests
 
     private sealed class StubCallCommandPreflightService : ICallCommandPreflightService
     {
-        private readonly Func<string?, string?, CancellationToken, ValueTask<CallCommandPreflightResult>> handler;
+        private readonly Func<string?, CancellationToken, ValueTask<CallCommandPreflightResult>> handler;
 
         public StubCallCommandPreflightService (
-            Func<string?, string?, CancellationToken, ValueTask<CallCommandPreflightResult>> handler)
+            Func<string?, CancellationToken, ValueTask<CallCommandPreflightResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
@@ -160,13 +158,12 @@ public sealed class CallCommandTests
         public CancellationToken CapturedCancellationToken { get; private set; }
 
         public ValueTask<CallCommandPreflightResult> Prepare (
-            string? requestPath,
             string? projectPath,
             CancellationToken cancellationToken = default)
         {
             CapturedCancellationToken = cancellationToken;
             CallCount++;
-            return handler(requestPath, projectPath, cancellationToken);
+            return handler(projectPath, cancellationToken);
         }
     }
 }

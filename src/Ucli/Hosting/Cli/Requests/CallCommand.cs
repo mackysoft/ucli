@@ -26,7 +26,6 @@ internal sealed class CallCommand
     }
 
     /// <summary> Executes the call command and emits the JSON result contract. </summary>
-    /// <param name="requestPath">--requestPath, Optional path to one request JSON file.</param>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -38,7 +37,6 @@ internal sealed class CallCommand
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.Call)]
     public async Task<int> Call (
-        string? requestPath = null,
         string? projectPath = null,
         string? mode = null,
         string? timeout = null,
@@ -55,7 +53,6 @@ internal sealed class CallCommand
         if (!normalizedTimeoutResult.IsSuccess)
         {
             var preflightResult = await callCommandPreflightService.Prepare(
-                    requestPath,
                     projectPath,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -69,7 +66,6 @@ internal sealed class CallCommand
         if (!normalizedModeResult.IsSuccess)
         {
             var preflightResult = await callCommandPreflightService.Prepare(
-                    requestPath,
                     projectPath,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -81,7 +77,6 @@ internal sealed class CallCommand
 
         var serviceResult = await callService.Execute(
                 new CallCommandInput(
-                    RequestPath: requestPath,
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,
                     TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
