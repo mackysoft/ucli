@@ -309,7 +309,7 @@ matching requirement がある場合、safe 判定は `payload.readIndex.generat
 
 `constraints` は常に出す。意味制約がない input は `constraints: []` とする。
 
-`argsPath` と `variants[].fields[].argsPath` は JSONPath ではなく uCLI args path である。許可形は `$`、`$.property`、`$.property.nestedProperty` だけとし、配列添字、wildcard、filter、quoted property name は扱わない。`variants[].fields[].argsPath` は同じ input の `argsPath`、または省略時の `$.<name>` と同じ path か、その descendant path でなければならない。
+`argsPath` と `variants[].fields[].argsPath` は JSONPath ではなく uCLI args path である。`inputs[].argsPath` の許可形は `$`、`$.property`、`$.property.nestedProperty` だけとする。`variants[].fields[].argsPath` は具体的な field path なので、許可形は `$.property`、`$.property.nestedProperty` だけとする。各 property segment は ASCII 英数字と `_` だけを使い、全体は 256 文字以内、最大 16 segment とする。配列添字、wildcard、filter、quoted property name は扱わない。`var` segment は request-local alias 用の内部 branch なので、public `ops describe` には出さない。`variants[].fields[].argsPath` は同じ input の `argsPath`、または省略時の `$.<name>` と同じ path か、その descendant path でなければならない。
 
 `argsPath` を指定する例:
 

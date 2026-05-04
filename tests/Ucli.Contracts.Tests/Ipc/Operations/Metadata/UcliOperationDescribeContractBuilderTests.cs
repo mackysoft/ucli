@@ -85,6 +85,10 @@ public sealed class UcliOperationDescribeContractBuilderTests
         Assert.Equal("$.target.globalObjectId", field.ArgsPath);
         Assert.Equal("Resolved Unity GlobalObjectId.", field.Description);
         Assert.Contains(field.Constraints!, constraint => constraint.Kind == UcliOperationInputConstraintKindValues.GlobalObjectId);
+        var hierarchyVariant = Assert.Single(input.Variants!, candidate => candidate.Name == "bySceneHierarchyPath");
+        Assert.Equal(
+            "Use Scene asset path for a hierarchy selector and Unity hierarchy path inside the selected scene or prefab.",
+            hierarchyVariant.Description);
         Assert.DoesNotContain(input.Variants!, candidate => candidate.Fields!.Any(candidateField => candidateField.ArgsPath!.EndsWith(".var", StringComparison.Ordinal)));
     }
 

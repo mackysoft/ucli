@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -230,6 +231,7 @@ public sealed class OpsCliOutputContractTests
                     .HasString("freshness", "probable")));
         var operationElement = outputJson.RootElement.GetProperty("payload").GetProperty("operation");
         Assert.False(operationElement.TryGetProperty("outputs", out _));
+        AssertDescribeVariantFields(operationElement);
     }
 
     [Fact]
@@ -479,6 +481,27 @@ public sealed class OpsCliOutputContractTests
             Assurance = describe.Assurance,
         };
     }
+
+    private static void AssertDescribeVariantFields (JsonElement operationElement)
+    {
+        var targetInput = Assert.Single(
+            operationElement.GetProperty("inputs").EnumerateArray(),
+            candidate => string.Equals(candidate.GetProperty("name").GetString(), "target", StringComparison.Ordinal));
+        var globalObjectIdVariant = Assert.Single(
+            targetInput.GetProperty("variants").EnumerateArray(),
+            candidate => string.Equals(candidate.GetProperty("name").GetString(), "byGlobalObjectId", StringComparison.Ordinal));
+        Assert.False(globalObjectIdVariant.TryGetProperty("argsPaths", out _));
+        Assert.False(globalObjectIdVariant.TryGetProperty("constraints", out _));
+
+        var field = Assert.Single(globalObjectIdVariant.GetProperty("fields").EnumerateArray());
+        Assert.Equal("globalObjectId", field.GetProperty("name").GetString());
+        Assert.Equal("$.target.globalObjectId", field.GetProperty("argsPath").GetString());
+        Assert.Equal("Resolved Unity GlobalObjectId.", field.GetProperty("description").GetString());
+
+        var constraint = Assert.Single(field.GetProperty("constraints").EnumerateArray());
+        Assert.Equal(UcliOperationInputConstraintKindValues.GlobalObjectId, constraint.GetProperty("kind").GetString());
+    }
+
     private static UcliOperationDescribeContract CreateGoDescribeContract ()
     {
         return UcliOperationDescribeContractBuilder.Create<GoDescribeArgs, GameObjectDescriptionResult>(

@@ -172,10 +172,15 @@ public static class UcliOperationDescribeContractBuilder
         var descriptions = new string[fields.Count];
         for (var i = 0; i < fields.Count; i++)
         {
-            descriptions[i] = GetDescription(fields[i]);
+            descriptions[i] = TrimTerminalSentencePunctuation(GetDescription(fields[i]));
         }
 
-        return "Use " + string.Join(" and ", descriptions);
+        return "Use " + string.Join(" and ", descriptions) + ".";
+    }
+
+    private static string TrimTerminalSentencePunctuation (string value)
+    {
+        return value.TrimEnd('.', '!', '?');
     }
 
     private static IReadOnlyList<UcliOperationInputConstraintContract> CreateConstraints (PropertyInfo property)

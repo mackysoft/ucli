@@ -81,7 +81,14 @@ internal static class UcliRequestLocalAliasDescribeContractValidator
 
         for (var fieldIndex = 0; fieldIndex < fields.Count; fieldIndex++)
         {
-            var argsPath = fields[fieldIndex]?.ArgsPath;
+            var field = fields[fieldIndex];
+            if (field == null)
+            {
+                errorMessage = $"Describe contract input '{input.Name}' variant '{variant.Name}' field at index {fieldIndex} must not be null.";
+                return false;
+            }
+
+            var argsPath = field.ArgsPath;
             if (UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasArgsPath(argsPath))
             {
                 errorMessage = $"Describe contract input '{input.Name}' variant '{variant.Name}' must not expose request-local alias args path '{argsPath}'.";

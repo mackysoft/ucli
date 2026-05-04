@@ -9,6 +9,10 @@ internal static class IndexCatalogContractValidator
 {
     private const int SupportedSchemaVersion = 1;
 
+    private const int MaxArgsPathLength = 256;
+
+    private const int MaxArgsPathSegmentCount = 16;
+
     /// <summary> Validates one <c>ops.catalog.json</c> contract instance. </summary>
     /// <param name="contract"> The contract instance. </param>
     /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
@@ -122,6 +126,7 @@ internal static class IndexCatalogContractValidator
                 || string.IsNullOrWhiteSpace(input.Description)
                 || !IsSupportedInputValueType(input.ValueType)
                 || (input.ArgsPath != null && !IsValidInputArgsPath(input.ArgsPath))
+                || UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasArgsPath(input.ArgsPath)
                 || input.Constraints == null
                 || !inputNames.Add(input.Name))
             {
@@ -195,7 +200,8 @@ internal static class IndexCatalogContractValidator
                 || string.IsNullOrWhiteSpace(field.Name)
                 || string.IsNullOrWhiteSpace(field.Description)
                 || !IsValidArgsPath(field.ArgsPath)
-                || !IsVariantArgsPathWithinInput(field.ArgsPath!, inputArgsPath)
+                || UcliRequestLocalAliasContractPolicy.IsRequestLocalAliasArgsPath(field.ArgsPath)
+                || !IsVariantFieldArgsPathWithinInput(field.ArgsPath!, inputArgsPath)
                 || field.Constraints == null
                 || !fieldNames.Add(field.Name))
             {
@@ -213,13 +219,13 @@ internal static class IndexCatalogContractValidator
         return true;
     }
 
-    private static bool IsVariantArgsPathWithinInput (
-        string variantArgsPath,
+    private static bool IsVariantFieldArgsPathWithinInput (
+        string variantFieldArgsPath,
         string inputArgsPath)
     {
         return string.Equals(inputArgsPath, "$", StringComparison.Ordinal)
-            || string.Equals(variantArgsPath, inputArgsPath, StringComparison.Ordinal)
-            || variantArgsPath.StartsWith(inputArgsPath + ".", StringComparison.Ordinal);
+            || string.Equals(variantFieldArgsPath, inputArgsPath, StringComparison.Ordinal)
+            || variantFieldArgsPath.StartsWith(inputArgsPath + ".", StringComparison.Ordinal);
     }
 
     private static bool TryValidateInputConstraints (
@@ -787,21 +793,68 @@ internal static class IndexCatalogContractValidator
     private static bool IsValidArgsPath (string? argsPath)
     {
         if (string.IsNullOrWhiteSpace(argsPath)
+            || argsPath.Length > MaxArgsPathLength
             || !argsPath.StartsWith("$.", StringComparison.Ordinal))
         {
             return false;
         }
 
-        var parts = argsPath.Substring(2).Split('.');
-        for (var i = 0; i < parts.Length; i++)
+        var segmentStart = 2;
+        var segmentCount = 1;
+        for (var i = 2; i <= argsPath.Length; i++)
         {
-            if (string.IsNullOrWhiteSpace(parts[i]))
+            if (i < argsPath.Length && argsPath[i] != '.')
+            {
+                continue;
+            }
+
+            if (!IsValidArgsPathSegment(argsPath, segmentStart, i - segmentStart))
+            {
+                return false;
+            }
+
+            if (i < argsPath.Length)
+            {
+                segmentCount++;
+                if (segmentCount > MaxArgsPathSegmentCount)
+                {
+                    return false;
+                }
+
+                segmentStart = i + 1;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsValidArgsPathSegment (
+        string argsPath,
+        int start,
+        int length)
+    {
+        if (length == 0)
+        {
+            return false;
+        }
+
+        for (var i = start; i < start + length; i++)
+        {
+            var c = argsPath[i];
+            if (!IsAsciiLetterOrDigit(c) && c != '_')
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static bool IsAsciiLetterOrDigit (char c)
+    {
+        return (c >= 'A' && c <= 'Z')
+            || (c >= 'a' && c <= 'z')
+            || (c >= '0' && c <= '9');
     }
 
     private static bool IsValidInputArgsPath (string argsPath)
