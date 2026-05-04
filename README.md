@@ -6,7 +6,7 @@
 
 uCLI turns Unity Editor changes into reviewable, repeatable, machine-readable workflows for scripts, CI, and AI agents.
 
-It reads Unity state, declares the intended change, validates and plans it, applies it through Unity Editor APIs, chooses the save boundary, and returns structured evidence.
+It reads Unity state, declares the intended change, applies it through Unity Editor APIs with an internal plan pass, chooses the save boundary, and returns structured evidence.
 
 uCLI is not a remote-control wrapper around the Unity Editor. It is an execution protocol for workflows where automation must be inspected, replayed, gated, and trusted.
 
@@ -18,11 +18,11 @@ In short:
 
 - Unity is callable.
 - Unity changes should be reviewable.
-- The normal workflow is `read -> validate -> plan -> call -> verify`.
+- The normal workflow is `read -> call --withPlan -> verify`.
 
 uCLI focuses on those guarantees:
 
-- **Plan before call:** preview a request, receive a `planToken`, and apply only when the request and project state still match.
+- **Planned calls by default:** `ucli call --withPlan` plans and applies one request in one command; split `planToken` flows are available when a review gate must separate planning from mutation.
 - **Live Unity source of truth:** mutations go through Unity Editor APIs and are re-resolved against live Unity state.
 - **Context-bound edits:** every edit belongs to a scene, prefab, asset, or project boundary.
 - **Explicit persistence:** changing an object and saving a context are separate decisions.
@@ -55,7 +55,7 @@ uCLI is designed around assurance, not convenience-first automation.
 | --- | --- |
 | Unity remains the source of truth | Mutations go through Unity Editor APIs. |
 | Edits have context | Every edit declares a scene, prefab, asset, or project context. |
-| Plans are checked before write | `ucli plan` produces a `planToken`; `ucli call` can verify request and state drift before applying. |
+| Planned writes are explicit | `ucli call --withPlan` plans and applies in one command; `ucli plan` and `--planToken` support separated review gates. |
 | Saves are explicit | `commit` controls persistence with `"none"`, `"context"`, or `"project"`. |
 | Results are evidence | JSON exposes `opResults`, `applied`, `changed`, `touched`, errors, logs, and artifacts. |
 | Runtime is operational | `daemon`, `auto`, and `oneshot` do not change request meaning. |
@@ -321,23 +321,7 @@ JSON
 
 This example opens `Assets/Scenes/Main.unity`, selects `Root/Enemies/Spawner`, edits the `Game.EnemySpawner` component, and saves the scene through `commit: "context"`.
 
-Use `validate -> plan -> call --planToken` when a human review step, CI gate, or agent supervisor must inspect the plan before mutation:
-
-```bash
-ucli validate <<'JSON'
-{"steps":[]}
-JSON
-
-ucli plan <<'JSON'
-{"steps":[]}
-JSON
-
-ucli call --planToken "<token-from-plan>" <<'JSON'
-{"steps":[]}
-JSON
-```
-
-`validate` checks request shape and static constraints. `plan` checks the request against current Unity state and returns a `planToken` without applying persistent changes. `call` applies the same request when the token still matches the request and project state.
+Use `ucli plan` and `ucli call --planToken` only when a human review step, CI gate, or agent supervisor must inspect and approve a plan before mutation.
 
 > **IMPORTANT:** A timeout or disconnect does not prove that nothing was applied. Inspect the JSON result, `opResults`, touched units, Unity logs, and daemon logs before retrying.
 
@@ -673,8 +657,8 @@ ucli daemon stop
 | `ucli resolve` | Resolve a selector to a Unity object identifier. |
 | `ucli ops` | List and inspect available primitive operations. |
 | `ucli validate` | Check a request before Unity execution. |
-| `ucli plan` | Preview a request and receive a `planToken`. |
-| `ucli call` | Apply a request. |
+| `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
+| `ucli call` | Apply a request; use `--withPlan` for the normal planned write path. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
