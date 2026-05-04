@@ -76,7 +76,7 @@ timeout は mode decision、plugin verify、IPC dispatch、readiness wait をま
 - 現在 `stream` 型を使うのは `ucli logs` の成功時だけであり、`--format json` は NDJSON（1行1JSONオブジェクト）を返す
 - 進行ログと診断ログは `stderr` に出力する
 - `request-response` 型の公開 CLI JSON 出力は、共通の CLI エンベロープを返す
-- `protocolVersion` は `request-response` 型の公開 CLI JSON 出力、JSON リクエスト、内部 IPC 応答で必須とする
+- `protocolVersion` は `request-response` 型の公開 CLI JSON 出力、CLI が生成する内部 execute request、内部 IPC 応答で必須とする。ユーザー入力 JSON リクエストには含めない
 - 現在の公開 CLI host が登録している command は `init`、`status`、`refresh`、`resolve`、`query`、`validate`、`plan`、`call`、`daemon`、`logs`、`ops`、`test` である
 - 内部 execute request では、リクエストにも `protocolVersion` を必須とする
 - 互換性判定は `protocolVersion` で行う
@@ -96,7 +96,8 @@ timeout は mode decision、plugin verify、IPC dispatch、readiness wait をま
 `request-response` 型の公開 CLI JSON 出力が返す共通エンベロープのフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 
 ### 内部 IPC 応答
-CLI と Unity runtime の間では、公開 CLI エンベロープとは別に IPC 専用エンベロープを使う。`requestId`、IPC の `status`、IPC の `payload`、IPC の `errors` はこの内部契約に属する。公開 CLI が `requestId` や execute 結果を返す場合は、各コマンドの `payload` へ写像する。
+CLI と Unity runtime の間では、公開 CLI エンベロープとは別に IPC 専用エンベロープを使う。外側 IPC envelope の `requestId`、IPC の `status`、IPC の `payload`、IPC の `errors` はこの内部契約に属する。
+execute 系コマンドの公開 `payload.requestId` は、CLI が内部 execute request に付与した `requestId` であり、外側 IPC envelope の `requestId` とは別の値として扱う。
 
 ### `protocolVersion` 規則
 - 初版はメジャーバージョン整数のみを使用する（例：`1`）
@@ -104,12 +105,12 @@ CLI と Unity runtime の間では、公開 CLI エンベロープとは別に I
 - 推奨エラーコード：`PROTOCOL_VERSION_MISMATCH`
 
 ### JSONリクエスト入力
-内部 execute request が受け付ける JSON リクエストのトップレベル構造、step 種別、編集 DSL、参照表現、サンプルは [json-request-spec.md](json-request-spec.md) を正本とする。  
+ユーザーが CLI に入力する JSON リクエストのトップレベル構造、step 種別、編集 DSL、参照表現、サンプルは [json-request-spec.md](json-request-spec.md) を正本とする。CLI はユーザー入力 JSON を正規化し、`protocolVersion` と `requestId` を付与した内部 execute request として Unity runtime へ送る。
 本書では、そのリクエストを CLI と Unity runtime がどのように検証・実行するかだけを定義する。
 
 ### execute 系応答の内部契約と公開/未公開写像
 `plan` / `call` / `resolve` / `query` / `refresh` は、内部では `IpcResponse.payload = IpcExecuteResponse` を受け取る。公開 CLI がこの内部応答を返す場合は、その値を各コマンドの `payload` へ写像する。
-- `requestId` は IPC 相関 ID であり、公開 CLI の共通 top-level property ではない
+- execute payload 内の `requestId` は公開 CLI の共通 top-level property ではなく、必要な場合だけ各コマンドの `payload.requestId` に写像する
 - `opResults` は execute 応答に属し、公開するコマンドでは `payload.opResults` に写像する
 - `opResults` の単位は public `steps[]` であり、lower 後 primitive trace をそのまま公開しない
 - `planToken` は execute 応答に属し、`ucli plan` では `payload.planToken` に写像する
@@ -124,8 +125,8 @@ CLI と Unity runtime の間では、公開 CLI エンベロープとは別に I
 - timeout / disconnect / crash の場合でも、呼び出し側は `status` だけで未適用と断定しない
 
 ## 内部 `plan` / `call` 実行の基本入力
-内部 `plan` と `call` は JSONリクエストを受け取る。  
-リクエストの入力形式は [json-request-spec.md](json-request-spec.md) に従う。  
+CLI の `plan` と `call` はユーザー入力 JSON リクエストを受け取り、内部 execute request へ正規化して Unity runtime へ送る。
+ユーザー入力の形式は [json-request-spec.md](json-request-spec.md) に従う。
 リクエストは必要に応じて lower と正規化を経て内部実行単位へ展開して処理する。  
 リクエストは原則として1本ずつ直列実行する。
 
@@ -148,7 +149,7 @@ CLI と Unity runtime の間では、公開 CLI エンベロープとは別に I
 ### `planToken` とドリフト検知
 - `plan` は内部 execute 応答で `planToken` を発行し、公開 `ucli plan` では `payload.planToken` として返す
 - `call` は `planToken` がある場合に、署名・有効期限・リクエスト一致・状態一致を検証する
-- CLI入力JSON（`protocolVersion` / `requestId` / `steps`）には `planToken` を含めない
+- ユーザー入力 JSON には `planToken` を含めない。`protocolVersion` と `requestId` は CLI が内部 execute request へ付与する
 - `planToken` は `ucli call --planToken <token>` で渡し、CLIがIPC `execute` リクエストの `planToken` フィールドへ転送する
 - `call` の実行順序は次で固定する
   - Editor lifecycle の `ready` 判定を行う
@@ -222,12 +223,13 @@ CLI と Unity runtime の間では、公開 CLI エンベロープとは別に I
   - `call` で `planToken` を必須にする
   - `planToken` がない場合は `PLAN_TOKEN_REQUIRED` で失敗する
 
-### `requestId` の冪等性（デーモン）
-- デーモンモードでは `requestId` を冪等キーとして扱う
-- 同一 `requestId` かつ同一内容は再実行せず、前回レスポンスを返す
-- 同一 `requestId` かつ異なる内容は `REQUEST_ID_CONFLICT` で拒否する
+### `requestId` の冪等性（デーモン内部）
+- デーモンモードでは、Unity IPC の外側 request envelope にある `requestId` を冪等キーとして扱う
+- これはユーザー入力 JSON のフィールドではなく、execute payload 内の `requestId` とも別の内部 IPC 相関 ID である
+- 同一 IPC `requestId` かつ同一 execute request 内容は再実行せず、前回レスポンスを返す
+- 同一 IPC `requestId` かつ異なる execute request 内容は `REQUEST_ID_CONFLICT` で拒否する
 - 保持先はデーモン単位のメモリ内キャッシュ（ディスク永続化しない）
-- キャッシュ保持項目は `requestId`、`requestDigest`、`response`、`createdAt`、`expiresAt`
+- キャッシュ保持項目は IPC `requestId`、`requestDigest`、`response`、`createdAt`、`expiresAt`
 - 既定値は TTL 24時間、最大 10,000 件（超過時は古い順に破棄）
 
 ## Editor Lifecycle

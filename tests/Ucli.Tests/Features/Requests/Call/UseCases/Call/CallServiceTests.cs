@@ -173,6 +173,11 @@ public sealed class CallServiceTests
         Assert.NotNull(callRequest);
         Assert.Equal(UcliCommandIds.Call, callRequest!.Command);
         Assert.Equal("issued-plan-token", callRequest.PlanToken);
+
+        var requestId = result.Output.RequestId;
+        Assert.Equal(requestId, result.Output.Plan.RequestId);
+        Assert.Equal(requestId, planRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.Equal(requestId, callRequest.Arguments.GetProperty("requestId").GetString());
     }
 
     [Fact]

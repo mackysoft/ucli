@@ -27,6 +27,8 @@ internal static class RequestServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
+        services.AddSingleton<IRequestIdFactory, GuidRequestIdFactory>();
+        services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
         services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
 

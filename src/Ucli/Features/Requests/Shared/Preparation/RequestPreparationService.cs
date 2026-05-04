@@ -9,20 +9,25 @@ internal sealed class RequestPreparationService : IRequestPreparationService
 {
     private readonly IRequestInputReader requestInputReader;
 
+    private readonly IUserRequestJsonNormalizer userRequestJsonNormalizer;
+
     private readonly IValidateRequestJsonParser requestJsonParser;
 
     private readonly IProjectContextResolver projectContextResolver;
 
     /// <summary> Initializes a new instance of the <see cref="RequestPreparationService" /> class. </summary>
     /// <param name="requestInputReader"> The request-input reader dependency. </param>
+    /// <param name="userRequestJsonNormalizer"> The user request normalizer dependency. </param>
     /// <param name="requestJsonParser"> The request parser dependency. </param>
     /// <param name="projectContextResolver"> The project-context resolver dependency. </param>
     public RequestPreparationService (
         IRequestInputReader requestInputReader,
+        IUserRequestJsonNormalizer userRequestJsonNormalizer,
         IValidateRequestJsonParser requestJsonParser,
         IProjectContextResolver projectContextResolver)
     {
         this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
+        this.userRequestJsonNormalizer = userRequestJsonNormalizer ?? throw new ArgumentNullException(nameof(userRequestJsonNormalizer));
         this.requestJsonParser = requestJsonParser ?? throw new ArgumentNullException(nameof(requestJsonParser));
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
     }
@@ -39,14 +44,21 @@ internal sealed class RequestPreparationService : IRequestPreparationService
         }
 
         var requestJson = inputReadResult.Json!;
-        var parseResult = requestJsonParser.Parse(requestJson);
+        var normalizationResult = userRequestJsonNormalizer.Normalize(requestJson);
+        if (!normalizationResult.IsSuccess)
+        {
+            return ParsedRequestResult.Failure(normalizationResult.Error!);
+        }
+
+        var normalizedRequestJson = normalizationResult.RequestJson!;
+        var parseResult = requestJsonParser.Parse(normalizedRequestJson);
         if (!parseResult.IsSuccess)
         {
             return ParsedRequestResult.Failure(parseResult.Error!);
         }
 
         return ParsedRequestResult.Success(new ParsedRequestContext(
-            RequestJson: requestJson,
+            RequestJson: normalizedRequestJson,
             Request: parseResult.Request!));
     }
 

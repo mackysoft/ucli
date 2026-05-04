@@ -319,6 +319,7 @@ CLI は JSON リクエストを redirected `stdin` から読み、static preflig
 
 ### `plan` 実行契約
 - JSON リクエストは redirected `stdin` からのみ読む。
+- ユーザー入力 JSON のトップレベルは `steps` のみを受け付ける。`protocolVersion` と `requestId` は CLI が Unity IPC 送信前に生成する。
 - `payload.readIndex` は Unity 実行経路ではなく、Unity IPC `plan` 実行前の static preflight で readIndex をどう再利用したかを表す。
 - `--readIndexMode=disabled` は validate と同じ syntax-only preflight に縮退し、`payload.readIndex` は `used=false`、`hit=false`、`source=index`、`freshness=probable`、`fallbackReason="readIndex disabled by mode."` を返す。
 - `--readIndexMode=allowStale` は snapshot 欠落時に syntax-only preflight へ縮退し、Unity IPC `plan` を継続する。
@@ -362,6 +363,7 @@ ucli plan --projectPath ./UnityProject --mode daemon --failFast < request.json
 
 ### `call` 実行契約
 - JSON リクエストは redirected `stdin` からのみ読む。
+- ユーザー入力 JSON のトップレベルは `steps` のみを受け付ける。`protocolVersion` と `requestId` は CLI が Unity IPC 送信前に生成する。
 - `--readIndexMode` は受け付けない。
 - `dangerous` operation は、設定上許可されていても `--allowDangerous` が無ければ `OPERATION_NOT_ALLOWED` で失敗する。
 - `kind:"edit"` step の dangerous 判定は、public DSL を lower した primitive operation 群に対して行う。
