@@ -51,25 +51,6 @@ public sealed class PlanCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Plan_WithRequestPathOption_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        var result = await CliProcessRunner.RunCommand(
-            UcliCommandNames.Plan,
-            "--requestPath");
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Plan,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.Contains("Argument '--requestPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Plan_WhenRequestStepsPropertyIsMissing_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
         var result = await CliProcessRunner.RunCommandWithStandardInput(

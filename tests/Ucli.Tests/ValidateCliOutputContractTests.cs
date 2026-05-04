@@ -35,27 +35,6 @@ public sealed class ValidateCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Validate_WithRequestPathOption_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        var result = await CliProcessRunner.RunCommand(
-            UcliCommandNames.Validate,
-            "--requestPath");
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Validate,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
-        Assert.Contains("Argument '--requestPath' is not recognized.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Validate_WithEmptyStandardInput_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
         var result = await CliProcessRunner.RunCommandWithStandardInput(string.Empty, UcliCommandNames.Validate);

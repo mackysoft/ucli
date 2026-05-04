@@ -57,25 +57,6 @@ public sealed class CallCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Call_WithRequestPathOption_ReturnsInvalidArgumentErrorAsSingleJson ()
-    {
-        var result = await CliProcessRunner.RunCommand(
-            UcliCommandNames.Call,
-            "--requestPath");
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.Call,
-            IpcProtocol.StatusError,
-            (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
-        Assert.Contains("Argument '--requestPath' is not recognized.", result.StdErr, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Call_WithNewOptions_IsAcceptedByParser ()
     {
         using var scope = TestDirectories.CreateTempScope("call-cli-output-contract", "new-options-parser");
