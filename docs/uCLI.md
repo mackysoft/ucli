@@ -14,6 +14,7 @@
 - [uCLI-property-reference.md](uCLI-property-reference.md)：JSON 契約と `payload` / catalog のプロパティ定義
 - [ops-catalog.md](ops-catalog.md)：primitive operation の補助カタログ
 - [package-operations.md](package-operations.md)：契約パッケージと Unity 側依存復元の運用手順
+- [uCLI-skills.md](uCLI-skills.md)：agent 向け公式 SKILL の仕様、生成方針、責務境界、配布運用
 
 ## コンセプト
 **安全にUnityを編集できるCLIツール。**
