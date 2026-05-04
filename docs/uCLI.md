@@ -96,7 +96,8 @@ timeout は mode decision、plugin verify、IPC dispatch、readiness wait をま
 `request-response` 型の公開 CLI JSON 出力が返す共通エンベロープのフィールド定義は [uCLI-property-reference.md](uCLI-property-reference.md) を参照する。
 
 ### 内部 IPC 応答
-CLI と Unity runtime の間では、公開 CLI エンベロープとは別に IPC 専用エンベロープを使う。`requestId`、IPC の `status`、IPC の `payload`、IPC の `errors` はこの内部契約に属する。公開 CLI が `requestId` や execute 結果を返す場合は、各コマンドの `payload` へ写像する。
+CLI と Unity runtime の間では、公開 CLI エンベロープとは別に IPC 専用エンベロープを使う。外側 IPC envelope の `requestId`、IPC の `status`、IPC の `payload`、IPC の `errors` はこの内部契約に属する。
+execute 系コマンドの公開 `payload.requestId` は、CLI が内部 execute request に付与した `requestId` であり、外側 IPC envelope の `requestId` とは別の値として扱う。
 
 ### `protocolVersion` 規則
 - 初版はメジャーバージョン整数のみを使用する（例：`1`）
@@ -109,7 +110,7 @@ CLI と Unity runtime の間では、公開 CLI エンベロープとは別に I
 
 ### execute 系応答の内部契約と公開/未公開写像
 `plan` / `call` / `resolve` / `query` / `refresh` は、内部では `IpcResponse.payload = IpcExecuteResponse` を受け取る。公開 CLI がこの内部応答を返す場合は、その値を各コマンドの `payload` へ写像する。
-- `requestId` は IPC 相関 ID であり、公開 CLI の共通 top-level property ではない
+- execute payload 内の `requestId` は公開 CLI の共通 top-level property ではなく、必要な場合だけ各コマンドの `payload.requestId` に写像する
 - `opResults` は execute 応答に属し、公開するコマンドでは `payload.opResults` に写像する
 - `opResults` の単位は public `steps[]` であり、lower 後 primitive trace をそのまま公開しない
 - `planToken` は execute 応答に属し、`ucli plan` では `payload.planToken` に写像する
