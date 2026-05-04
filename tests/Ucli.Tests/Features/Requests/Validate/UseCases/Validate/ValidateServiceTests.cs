@@ -4,7 +4,6 @@ using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Context.Project;
@@ -170,7 +169,6 @@ public sealed class ValidateServiceTests
     {
         return new ParsedRequestContext(
             RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""",
-            InputSource: RequestInputSource.StandardInput,
             Request: new ValidateRequest(
                 ProtocolVersion: 1,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
@@ -181,7 +179,6 @@ public sealed class ValidateServiceTests
     {
         return new PreparedRequestContext(
             RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""",
-            InputSource: RequestInputSource.StandardInput,
             Request: new ValidateRequest(
                 ProtocolVersion: 1,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
@@ -265,7 +262,6 @@ public sealed class ValidateServiceTests
             var preparedRequest = prepareResult.PreparedRequest!;
             return ParsedRequestResult.Success(new ParsedRequestContext(
                 preparedRequest.RequestJson,
-                preparedRequest.InputSource,
                 preparedRequest.Request));
         }
     }

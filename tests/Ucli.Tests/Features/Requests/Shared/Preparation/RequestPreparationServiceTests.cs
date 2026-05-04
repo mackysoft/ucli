@@ -26,7 +26,7 @@ public sealed class RequestPreparationServiceTests
         const string requestJson = """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""";
         var parsedRequest = CreateRequest();
         var inputReader = new StubRequestInputReader(
-            RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput));
+            RequestInputReadResult.Success(requestJson));
         var parser = new SpyValidateRequestJsonParser(
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
@@ -38,7 +38,6 @@ public sealed class RequestPreparationServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.ParsedRequest);
         Assert.Equal(requestJson, result.ParsedRequest!.RequestJson);
-        Assert.Equal(RequestInputSource.StandardInput, result.ParsedRequest.InputSource);
         Assert.Same(parsedRequest, result.ParsedRequest.Request);
         Assert.Equal(requestJson, parser.ReceivedRequestJson);
         Assert.Equal(0, projectContextResolver.CallCount);
@@ -52,7 +51,7 @@ public sealed class RequestPreparationServiceTests
         var parsedRequest = CreateRequest();
         var projectContext = CreateProjectContext();
         var inputReader = new StubRequestInputReader(
-            RequestInputReadResult.Success(requestJson, RequestInputSource.StandardInput));
+            RequestInputReadResult.Success(requestJson));
         var parser = new SpyValidateRequestJsonParser(
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
@@ -66,7 +65,6 @@ public sealed class RequestPreparationServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PreparedRequest);
         Assert.Equal(requestJson, result.PreparedRequest!.RequestJson);
-        Assert.Equal(RequestInputSource.StandardInput, result.PreparedRequest.InputSource);
         Assert.Same(parsedRequest, result.PreparedRequest.Request);
         Assert.Same(projectContext, result.PreparedRequest.ProjectContext);
         Assert.Equal(requestJson, parser.ReceivedRequestJson);
@@ -97,7 +95,7 @@ public sealed class RequestPreparationServiceTests
     {
         var error = ExecutionError.InvalidArgument("request JSON is invalid.");
         var service = new RequestPreparationService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"protocolVersion":1}""", RequestInputSource.StandardInput)),
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"protocolVersion":1}""")),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Failure(error)),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
@@ -116,7 +114,7 @@ public sealed class RequestPreparationServiceTests
     {
         var error = ExecutionError.InvalidArgument("project path is invalid.");
         var service = new RequestPreparationService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""", RequestInputSource.StandardInput)),
+            new StubRequestInputReader(RequestInputReadResult.Success("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""")),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest())),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Failure(error)));
 
@@ -135,7 +133,7 @@ public sealed class RequestPreparationServiceTests
     {
         var token = new CancellationTokenSource().Token;
         var inputReader = new SpyRequestInputReader(
-            RequestInputReadResult.Success("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""", RequestInputSource.StandardInput));
+            RequestInputReadResult.Success("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}"""));
         var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));

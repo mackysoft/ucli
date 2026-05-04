@@ -31,7 +31,7 @@ internal sealed class RequestInputReader : IRequestInputReader
 
     /// <summary> Reads JSON request input from redirected standard input. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The read result containing either request JSON and source metadata, or a structured error. </returns>
+    /// <returns> The read result containing either request JSON or a structured error. </returns>
     public async ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -62,17 +62,15 @@ internal sealed class RequestInputReader : IRequestInputReader
                 $"Failed to read request JSON from standard input. {exception.Message}"));
         }
 
-        return ValidateJson(json, RequestInputSource.StandardInput, "standard input");
+        return ValidateJson(json, "standard input");
     }
 
     /// <summary> Validates that request input is non-empty and JSON-parseable. </summary>
     /// <param name="json"> The JSON content to validate. </param>
-    /// <param name="source"> The source where the input was read from. </param>
     /// <param name="sourceLabel"> The source label used in error messages. </param>
     /// <returns> The read result. </returns>
     private static RequestInputReadResult ValidateJson (
         string json,
-        RequestInputSource source,
         string sourceLabel)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -91,7 +89,7 @@ internal sealed class RequestInputReader : IRequestInputReader
                 $"Request JSON from {sourceLabel} is invalid. {exception.Message}"));
         }
 
-        return RequestInputReadResult.Success(json, source);
+        return RequestInputReadResult.Success(json);
     }
 
 }

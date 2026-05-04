@@ -758,7 +758,6 @@ public sealed class CallServiceTests
         return new PhaseExecutionPreparedRequest(
             PreparedRequest: new PreparedRequestContext(
                 RequestJson: requestJson,
-                InputSource: MackySoft.Ucli.Hosting.Cli.Requests.Input.RequestInputSource.StandardInput,
                 Request: request,
                 ProjectContext: new ProjectContext(
                     new ResolvedUnityProjectContext(

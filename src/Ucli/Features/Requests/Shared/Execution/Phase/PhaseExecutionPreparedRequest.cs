@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Configuration;
 
 namespace MackySoft.Ucli.Features.Requests.Shared.Execution.Phase;
@@ -14,9 +13,6 @@ internal sealed record PhaseExecutionPreparedRequest (
 {
     /// <summary> Gets the raw request JSON string. </summary>
     public string RequestJson => PreparedRequest.RequestJson;
-
-    /// <summary> Gets the request input source. </summary>
-    public RequestInputSource InputSource => PreparedRequest.InputSource;
 
     /// <summary> Gets the parsed request model used for static validation. </summary>
     public ValidateRequest Request => PreparedRequest.Request;

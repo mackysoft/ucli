@@ -47,7 +47,6 @@ internal sealed class RequestPreparationService : IRequestPreparationService
 
         return ParsedRequestResult.Success(new ParsedRequestContext(
             RequestJson: requestJson,
-            InputSource: inputReadResult.Source!.Value,
             Request: parseResult.Request!));
     }
 
@@ -73,7 +72,6 @@ internal sealed class RequestPreparationService : IRequestPreparationService
         var parsedRequest = parseRequestResult.ParsedRequest!;
         return RequestPreparationResult.Success(new PreparedRequestContext(
             RequestJson: parsedRequest.RequestJson,
-            InputSource: parsedRequest.InputSource,
             Request: parsedRequest.Request,
             ProjectContext: projectContextResult.Context!));
     }

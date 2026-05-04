@@ -4,7 +4,6 @@ using MackySoft.Ucli.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.Shared.Context;
 using MackySoft.Ucli.Shared.Context.Project;
@@ -42,7 +41,6 @@ public sealed class PhaseExecutionPreflightServiceTests
         Assert.False(result.HasValidationErrors);
         Assert.NotNull(result.PreparedRequest);
         Assert.Equal(preparedRequest.RequestJson, result.PreparedRequest!.RequestJson);
-        Assert.Equal(preparedRequest.InputSource, result.PreparedRequest.InputSource);
         Assert.Same(preparedRequest.Request, result.PreparedRequest.Request);
         Assert.Same(preparedRequest.ProjectContext.UnityProject, result.PreparedRequest.UnityProject);
         Assert.Same(preparedRequest.ProjectContext.Config, result.PreparedRequest.Config);
@@ -244,7 +242,6 @@ public sealed class PhaseExecutionPreflightServiceTests
     {
         return new PreparedRequestContext(
             RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[{"kind":"op","id":"step-1","op":"ucli.scene.open","args":{"path":"Assets/Scenes/Main.unity"}}]}""",
-            InputSource: RequestInputSource.StandardInput,
             Request: new ValidateRequest(
                 ProtocolVersion: 1,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",

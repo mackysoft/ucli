@@ -18,13 +18,12 @@ public sealed class RequestInputReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(expectedJson, result.Json);
-        Assert.Equal(RequestInputSource.StandardInput, result.Source);
         Assert.Null(result.Error);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReadAsync_ReturnsInvalidArgument_WhenInputSourceIsMissing ()
+    public async Task ReadAsync_ReturnsInvalidArgument_WhenStandardInputIsMissing ()
     {
         var reader = new RequestInputReader(
             isStandardInputRedirected: static () => false,
@@ -80,7 +79,6 @@ public sealed class RequestInputReaderTests
     {
         Assert.False(result.IsSuccess);
         Assert.Null(result.Json);
-        Assert.Null(result.Source);
 
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(expectedErrorKind, error.Kind);

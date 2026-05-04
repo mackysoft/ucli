@@ -5,6 +5,6 @@ internal interface IRequestInputReader
 {
     /// <summary> Reads request JSON from redirected standard input. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The read result containing either request JSON and source metadata, or a structured error. </returns>
+    /// <returns> The read result containing either request JSON or a structured error. </returns>
     ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default);
 }
