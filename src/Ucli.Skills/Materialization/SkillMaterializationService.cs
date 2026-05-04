@@ -22,7 +22,7 @@ public sealed class SkillMaterializationService
     /// <returns> The materialized package or unsupported-host failure. </returns>
     public SkillOperationResult<SkillMaterializedPackage> Materialize (
         CanonicalSkillPackage package,
-        SkillHostKind host)
+        string host)
     {
         ArgumentNullException.ThrowIfNull(package);
 
@@ -45,7 +45,8 @@ public sealed class SkillMaterializationService
                 .Order(StringComparer.Ordinal)
                 .ToArray());
 
-        var artifacts = adapterResult.Value!.BuildArtifacts(metadata);
+        var adapter = adapterResult.Value!;
+        var artifacts = adapter.BuildArtifacts(metadata);
         var files = new List<SkillPackageFile>();
         foreach (var file in package.Files)
         {
@@ -62,7 +63,7 @@ public sealed class SkillMaterializationService
 
         return SkillOperationResult<SkillMaterializedPackage>.Success(new SkillMaterializedPackage(
             package.SkillName,
-            host,
+            adapter.Descriptor.HostKey,
             files.OrderBy(static file => file.RelativePath, StringComparer.Ordinal).ToArray()));
     }
 }

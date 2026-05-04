@@ -26,7 +26,7 @@ public sealed class SkillExportService
     /// <returns> The output root or failure. </returns>
     public async ValueTask<SkillOperationResult<string>> ExportAsync (
         IReadOnlyList<CanonicalSkillPackage> packages,
-        SkillHostKind host,
+        string host,
         string outputRoot,
         CancellationToken cancellationToken = default)
     {

@@ -14,7 +14,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-noop");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = new SkillInstallService();
-        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
 
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         var noOp = await service.InstallAsync(packages, request, CancellationToken.None);
@@ -44,11 +44,11 @@ public sealed class SkillInstallServiceTests
 
         var claude = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.Claude, SkillScopeKind.Project, scope.FullPath, targetRoot),
+            new SkillInstallRequest(ClaudeSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, targetRoot),
             CancellationToken.None);
         var openAi = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath, targetRoot),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, targetRoot),
             CancellationToken.None);
 
         Assert.True(claude.IsSuccess, claude.Failure?.Message);
@@ -67,7 +67,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -81,7 +81,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-digest-mismatch");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = new SkillInstallService();
-        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
@@ -102,7 +102,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-body-drift");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = new SkillInstallService();
-        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
@@ -122,7 +122,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-reference-drift");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = new SkillInstallService();
-        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
 
@@ -145,7 +145,7 @@ public sealed class SkillInstallServiceTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-extra-file");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
         var service = new SkillInstallService();
-        var request = new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath);
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
         var created = await service.InstallAsync(packages, request, CancellationToken.None);
         Assert.True(created.IsSuccess, created.Failure?.Message);
         File.WriteAllText(Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "references", "extra.md"), "# Extra\n");
@@ -167,7 +167,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -204,7 +204,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -221,7 +221,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             packages,
-            new SkillInstallRequest((SkillHostKind)999, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest("generic", SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -241,7 +241,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             [package],
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -259,7 +259,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, repoScope.FullPath, outsideScope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, repoScope.FullPath, outsideScope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -296,7 +296,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, repoScope.FullPath, "linked/skills"),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, repoScope.FullPath, "linked/skills"),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -334,7 +334,7 @@ public sealed class SkillInstallServiceTests
 
         var result = await service.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, repoScope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, repoScope.FullPath),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

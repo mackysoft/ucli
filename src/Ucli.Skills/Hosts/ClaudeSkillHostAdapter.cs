@@ -5,8 +5,11 @@ namespace MackySoft.Ucli.Skills.Hosts;
 /// <summary> Materializes SKILL files for Claude Code. </summary>
 public sealed class ClaudeSkillHostAdapter : ISkillHostAdapter
 {
+    /// <summary> The canonical Claude Code host key. </summary>
+    public const string HostKey = "claude";
+
     /// <inheritdoc />
-    public SkillHostDescriptor Descriptor { get; } = new(SkillHostKind.Claude, SkillHostKindValues.Claude, ".claude/skills");
+    public SkillHostDescriptor Descriptor { get; } = new(HostKey, ".claude/skills");
 
     /// <inheritdoc />
     public string? MetadataArtifactPath => null;

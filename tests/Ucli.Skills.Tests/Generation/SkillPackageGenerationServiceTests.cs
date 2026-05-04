@@ -21,7 +21,7 @@ public sealed class SkillPackageGenerationServiceTests
             Assert.DoesNotContain(package.Files, static file => string.Equals(file.RelativePath, "agents/openai.yaml", StringComparison.Ordinal));
             Assert.True(validator.Validate(package.Manifest).IsSuccess);
             Assert.Equal(
-                new[] { SkillHostKindValues.Claude, SkillHostKindValues.Copilot, SkillHostKindValues.OpenAi },
+                new[] { ClaudeSkillHostAdapter.HostKey, CopilotSkillHostAdapter.HostKey, OpenAiSkillHostAdapter.HostKey },
                 package.Manifest.HostArtifacts.Select(static artifact => artifact.Host).ToArray());
         }
     }

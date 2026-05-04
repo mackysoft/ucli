@@ -49,9 +49,9 @@ public sealed class ProjectBoundaryTests
     [InlineData("Generation", "agents/openai.yaml")]
     [InlineData("Manifests", "agents/openai.yaml")]
     [InlineData("Materialization", "agents/openai.yaml")]
-    [InlineData("Generation", "SkillHostKind.OpenAi")]
-    [InlineData("Manifests", "SkillHostKindValues.OpenAi")]
-    [InlineData("Materialization", "SkillHostKind.OpenAi")]
+    [InlineData("Generation", "OpenAiSkillHostAdapter.HostKey")]
+    [InlineData("Manifests", "OpenAiSkillHostAdapter.HostKey")]
+    [InlineData("Materialization", "OpenAiSkillHostAdapter.HostKey")]
     public void NonHostDirectory_DoesNotReferenceConcreteHostArtifacts (
         string directoryName,
         string concreteHostArtifact)

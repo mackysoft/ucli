@@ -4,27 +4,30 @@ using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests.Hosts;
 
-public sealed class SkillHostRegistryTests
+public sealed class SkillHostAdapterSetTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void HostRegistry_ContainsSupportedHostsOnly ()
+    public void AdapterSet_ContainsSupportedHostsOnly ()
     {
-        var registry = new SkillHostRegistry();
+        var adapterSet = new SkillHostAdapterSet();
 
         Assert.Equal(
-            new[] { SkillHostKindValues.Claude, SkillHostKindValues.Copilot, SkillHostKindValues.OpenAi },
-            registry.Descriptors.Select(static descriptor => descriptor.HostName).ToArray());
-        Assert.Equal(".claude/skills", registry.GetDescriptor(SkillHostKind.Claude).ProjectTargetDirectory);
-        Assert.Equal(".github/skills", registry.GetDescriptor(SkillHostKind.Copilot).ProjectTargetDirectory);
-        Assert.Equal(".agents/skills", registry.GetDescriptor(SkillHostKind.OpenAi).ProjectTargetDirectory);
+            new[] { ClaudeSkillHostAdapter.HostKey, CopilotSkillHostAdapter.HostKey, OpenAiSkillHostAdapter.HostKey },
+            adapterSet.Adapters.Select(static adapter => adapter.Descriptor.HostKey).ToArray());
+
+        Assert.Equal(".claude/skills", adapterSet.GetAdapter(ClaudeSkillHostAdapter.HostKey).Value!.Descriptor.ProjectTargetDirectory);
+        Assert.Equal(".github/skills", adapterSet.GetAdapter(CopilotSkillHostAdapter.HostKey).Value!.Descriptor.ProjectTargetDirectory);
+        Assert.Equal(".agents/skills", adapterSet.GetAdapter(OpenAiSkillHostAdapter.HostKey).Value!.Descriptor.ProjectTargetDirectory);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Parse_ReturnsUnsupportedHostFailure ()
+    public void GetAdapter_ReturnsUnsupportedHostFailure ()
     {
-        var result = SkillHostKindCodec.Parse("generic");
+        var adapterSet = new SkillHostAdapterSet();
+
+        var result = adapterSet.GetAdapter("generic");
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.HostUnsupported, result.Failure!.Code);
@@ -32,14 +35,14 @@ public sealed class SkillHostRegistryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void AdapterSet_MatchesHostRegistryDescriptors ()
+    public void GetAdapter_CanonicalizesHostKey ()
     {
-        var registry = new SkillHostRegistry();
         var adapterSet = new SkillHostAdapterSet();
 
-        Assert.Equal(
-            registry.Descriptors.Select(static descriptor => (descriptor.Host, descriptor.HostName, descriptor.ProjectTargetDirectory)).ToArray(),
-            adapterSet.Adapters.Select(static adapter => (adapter.Descriptor.Host, adapter.Descriptor.HostName, adapter.Descriptor.ProjectTargetDirectory)).ToArray());
+        var result = adapterSet.GetAdapter("OpenAI");
+
+        Assert.True(result.IsSuccess, result.Failure?.Message);
+        Assert.Equal(OpenAiSkillHostAdapter.HostKey, result.Value!.Descriptor.HostKey);
     }
 
     [Fact]

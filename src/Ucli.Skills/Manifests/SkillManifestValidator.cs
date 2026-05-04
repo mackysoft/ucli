@@ -37,7 +37,7 @@ public sealed class SkillManifestValidator
             return Failure("ucli-skill.json contentDigest must be a sha256 digest.");
         }
 
-        var expectedHosts = hostAdapters.Adapters.Select(static adapter => adapter.Descriptor.HostName).Order(StringComparer.Ordinal).ToArray();
+        var expectedHosts = hostAdapters.Adapters.Select(static adapter => adapter.Descriptor.HostKey).Order(StringComparer.Ordinal).ToArray();
         var artifactHosts = manifest.HostArtifacts.Select(static artifact => artifact.Host).Order(StringComparer.Ordinal).ToArray();
         if (!expectedHosts.SequenceEqual(artifactHosts))
         {
@@ -47,7 +47,7 @@ public sealed class SkillManifestValidator
         var artifactByHost = manifest.HostArtifacts.ToDictionary(static artifact => artifact.Host, StringComparer.Ordinal);
         foreach (var adapter in hostAdapters.Adapters)
         {
-            var artifact = artifactByHost[adapter.Descriptor.HostName];
+            var artifact = artifactByHost[adapter.Descriptor.HostKey];
             if (!IsSha256Digest(artifact.MaterializedFrontmatterDigest))
             {
                 return Failure($"Host artifact '{artifact.Host}' frontmatter digest must be a sha256 digest.");

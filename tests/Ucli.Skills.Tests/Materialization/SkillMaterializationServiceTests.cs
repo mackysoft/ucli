@@ -15,7 +15,7 @@ public sealed class SkillMaterializationServiceTests
 
         foreach (var package in packages)
         {
-            foreach (var host in new[] { SkillHostKind.Claude, SkillHostKind.Copilot, SkillHostKind.OpenAi })
+            foreach (var host in new[] { ClaudeSkillHostAdapter.HostKey, CopilotSkillHostAdapter.HostKey, OpenAiSkillHostAdapter.HostKey })
             {
                 var first = service.Materialize(package, host);
                 var second = service.Materialize(package, host);
@@ -37,7 +37,7 @@ public sealed class SkillMaterializationServiceTests
         var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
         var service = new SkillMaterializationService();
 
-        var result = service.Materialize(package, (SkillHostKind)999);
+        var result = service.Materialize(package, "generic");
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.HostUnsupported, result.Failure!.Code);
@@ -50,8 +50,8 @@ public sealed class SkillMaterializationServiceTests
         var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
         var service = new SkillMaterializationService();
 
-        var openAi = service.Materialize(package, SkillHostKind.OpenAi);
-        var claude = service.Materialize(package, SkillHostKind.Claude);
+        var openAi = service.Materialize(package, OpenAiSkillHostAdapter.HostKey);
+        var claude = service.Materialize(package, ClaudeSkillHostAdapter.HostKey);
 
         Assert.True(openAi.IsSuccess, openAi.Failure?.Message);
         Assert.True(claude.IsSuccess, claude.Failure?.Message);

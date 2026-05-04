@@ -15,14 +15,21 @@ public sealed class SkillHostAdapterSet
     /// <summary> Gets all host adapters in deterministic order. </summary>
     public IReadOnlyList<ISkillHostAdapter> Adapters => adapters;
 
-    /// <summary> Gets one adapter by host value. </summary>
-    /// <param name="host"> The host value. </param>
+    /// <summary> Gets one adapter by host key. </summary>
+    /// <param name="host"> The host key. </param>
     /// <returns> The adapter or unsupported-host failure. </returns>
-    public SkillOperationResult<ISkillHostAdapter> GetAdapter (SkillHostKind host)
+    public SkillOperationResult<ISkillHostAdapter> GetAdapter (string host)
     {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return SkillOperationResult<ISkillHostAdapter>.FailureResult(
+                SkillFailureCodes.HostUnsupported,
+                $"Unsupported SKILL host: {host ?? "(null)"}");
+        }
+
         foreach (var adapter in adapters)
         {
-            if (adapter.Descriptor.Host == host)
+            if (string.Equals(adapter.Descriptor.HostKey, host, StringComparison.OrdinalIgnoreCase))
             {
                 return SkillOperationResult<ISkillHostAdapter>.Success(adapter);
             }

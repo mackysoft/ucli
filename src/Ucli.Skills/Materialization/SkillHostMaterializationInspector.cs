@@ -32,7 +32,7 @@ public sealed class SkillHostMaterializationInspector
     public async ValueTask<SkillOperationResult<bool>> MatchesHostAsync (
         string skillDirectory,
         SkillManifest manifest,
-        SkillHostKind host,
+        string host,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(skillDirectory);
@@ -48,11 +48,11 @@ public sealed class SkillHostMaterializationInspector
         }
 
         var adapter = adapterResult.Value!;
-        var hostName = adapter.Descriptor.HostName;
-        var expectedArtifact = manifest.HostArtifacts.SingleOrDefault(artifact => string.Equals(artifact.Host, hostName, StringComparison.Ordinal));
+        var hostKey = adapter.Descriptor.HostKey;
+        var expectedArtifact = manifest.HostArtifacts.SingleOrDefault(artifact => string.Equals(artifact.Host, hostKey, StringComparison.Ordinal));
         if (expectedArtifact is null)
         {
-            return SkillOperationResult<bool>.FailureResult(SkillFailureCodes.ManifestInvalid, $"Manifest does not contain host artifact '{hostName}'.");
+            return SkillOperationResult<bool>.FailureResult(SkillFailureCodes.ManifestInvalid, $"Manifest does not contain host artifact '{hostKey}'.");
         }
 
         var skillPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "SKILL.md");
@@ -85,7 +85,7 @@ public sealed class SkillHostMaterializationInspector
                 ? SkillOperationResult<bool>.Success(true)
                 : SkillOperationResult<bool>.FailureResult(
                     SkillFailureCodes.ManifestInvalid,
-                    $"Manifest host artifact '{hostName}' must not contain metadata artifact fields.");
+                    $"Manifest host artifact '{hostKey}' must not contain metadata artifact fields.");
         }
 
         var metadataArtifactPath = expectedArtifact.Path;
@@ -96,7 +96,7 @@ public sealed class SkillHostMaterializationInspector
         {
             return SkillOperationResult<bool>.FailureResult(
                 SkillFailureCodes.ManifestInvalid,
-                $"Manifest host artifact '{hostName}' must contain metadata artifact fields.");
+                $"Manifest host artifact '{hostKey}' must contain metadata artifact fields.");
         }
 
         var metadataPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, metadataArtifactPath);

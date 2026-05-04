@@ -18,7 +18,7 @@ public sealed class SkillExportServiceTests
         };
         var service = new SkillExportService();
 
-        var result = await service.ExportAsync([package], SkillHostKind.OpenAi, scope.FullPath, CancellationToken.None);
+        var result = await service.ExportAsync([package], OpenAiSkillHostAdapter.HostKey, scope.FullPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);
@@ -52,7 +52,7 @@ public sealed class SkillExportServiceTests
 
         var service = new SkillExportService();
 
-        var result = await service.ExportAsync(packages, SkillHostKind.OpenAi, outputScope.FullPath, CancellationToken.None);
+        var result = await service.ExportAsync(packages, OpenAiSkillHostAdapter.HostKey, outputScope.FullPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.PathUnsafe, result.Failure!.Code);

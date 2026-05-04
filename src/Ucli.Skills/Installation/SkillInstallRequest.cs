@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Skills.Hosts;
-
 namespace MackySoft.Ucli.Skills.Installation;
 
 /// <summary> Represents one project-scope SKILL install request. </summary>
@@ -8,7 +6,7 @@ namespace MackySoft.Ucli.Skills.Installation;
 /// <param name="RepositoryRoot"> The repository root. </param>
 /// <param name="TargetRoot"> The optional explicit target root. </param>
 public sealed record SkillInstallRequest (
-    SkillHostKind Host,
+    string Host,
     SkillScopeKind Scope,
     string RepositoryRoot,
     string? TargetRoot = null);

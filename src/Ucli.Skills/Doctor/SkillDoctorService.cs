@@ -10,6 +10,7 @@ namespace MackySoft.Ucli.Skills.Doctor;
 /// <summary> Diagnoses host-materialized SKILL package directories. </summary>
 public sealed class SkillDoctorService
 {
+    private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillManifestJsonSerializer manifestSerializer;
     private readonly SkillManifestValidator manifestValidator;
     private readonly SkillHostMaterializationInspector hostInspector;
@@ -17,18 +18,21 @@ public sealed class SkillDoctorService
     private readonly SkillMaterializationService materializationService;
 
     /// <summary> Initializes a new instance of the <see cref="SkillDoctorService" /> class. </summary>
+    /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="manifestSerializer"> The manifest serializer. </param>
     /// <param name="manifestValidator"> The manifest validator. </param>
     /// <param name="hostInspector"> The host materialization inspector. </param>
     /// <param name="contentDigestVerifier"> The installed content digest verifier. </param>
     /// <param name="materializationService"> The host materialization service. </param>
     public SkillDoctorService (
+        SkillHostAdapterSet? hostAdapters = null,
         SkillManifestJsonSerializer? manifestSerializer = null,
         SkillManifestValidator? manifestValidator = null,
         SkillHostMaterializationInspector? hostInspector = null,
         SkillInstalledContentDigestVerifier? contentDigestVerifier = null,
         SkillMaterializationService? materializationService = null)
     {
+        this.hostAdapters = hostAdapters ?? new SkillHostAdapterSet();
         this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
         this.manifestValidator = manifestValidator ?? new SkillManifestValidator();
         this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector();
@@ -44,7 +48,7 @@ public sealed class SkillDoctorService
     /// <returns> The doctor result. </returns>
     public async ValueTask<SkillDoctorResult> DiagnoseAsync (
         IReadOnlyList<CanonicalSkillPackage> packages,
-        SkillHostKind host,
+        string host,
         string targetRoot,
         CancellationToken cancellationToken = default)
     {
@@ -54,28 +58,30 @@ public sealed class SkillDoctorService
 
         var diagnostics = new List<SkillDoctorDiagnostic>();
         var fullTargetRoot = Path.GetFullPath(targetRoot);
-        if (!SkillHostKindCodec.TryToValue(host, out _))
+        var adapterResult = hostAdapters.GetAdapter(host);
+        if (!adapterResult.IsSuccess)
         {
             diagnostics.Add(new SkillDoctorDiagnostic(
                 SkillDoctorSeverity.Error,
-                SkillFailureCodes.HostUnsupported,
-                $"Unsupported SKILL host: {host}"));
+                adapterResult.Failure!.Code,
+                adapterResult.Failure.Message));
             return new SkillDoctorResult(host, fullTargetRoot, diagnostics);
         }
 
+        var hostKey = adapterResult.Value!.Descriptor.HostKey;
         if (!Directory.Exists(fullTargetRoot))
         {
             diagnostics.Add(new SkillDoctorDiagnostic(
                 SkillDoctorSeverity.Error,
                 SkillFailureCodes.InstallTargetUnmanaged,
                 $"Target root does not exist: {fullTargetRoot}"));
-            return new SkillDoctorResult(host, fullTargetRoot, diagnostics);
+            return new SkillDoctorResult(hostKey, fullTargetRoot, diagnostics);
         }
 
         foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await DiagnosePackageAsync(package, host, fullTargetRoot, diagnostics, cancellationToken).ConfigureAwait(false);
+            await DiagnosePackageAsync(package, hostKey, fullTargetRoot, diagnostics, cancellationToken).ConfigureAwait(false);
         }
 
         if (diagnostics.Count == 0)
@@ -86,12 +92,12 @@ public sealed class SkillDoctorService
                 "All official SKILL packages are installed for the requested host."));
         }
 
-        return new SkillDoctorResult(host, fullTargetRoot, diagnostics);
+        return new SkillDoctorResult(hostKey, fullTargetRoot, diagnostics);
     }
 
     private async ValueTask DiagnosePackageAsync (
         CanonicalSkillPackage package,
-        SkillHostKind host,
+        string host,
         string targetRoot,
         List<SkillDoctorDiagnostic> diagnostics,
         CancellationToken cancellationToken)

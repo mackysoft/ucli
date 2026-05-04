@@ -109,20 +109,20 @@ public sealed class SkillPackageGenerationService
         {
             if (additionalFiles.Length != 0)
             {
-                throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostName}' must not emit metadata artifacts.");
+                throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must not emit metadata artifacts.");
             }
 
-            return new SkillHostArtifactManifest(adapter.Descriptor.HostName, null, null, frontmatterDigest);
+            return new SkillHostArtifactManifest(adapter.Descriptor.HostKey, null, null, frontmatterDigest);
         }
 
         if (additionalFiles.Length != 1 || !string.Equals(additionalFiles[0].RelativePath, adapter.MetadataArtifactPath, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostName}' must emit metadata artifact '{adapter.MetadataArtifactPath}'.");
+            throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must emit metadata artifact '{adapter.MetadataArtifactPath}'.");
         }
 
         var fileArtifact = additionalFiles[0];
         return new SkillHostArtifactManifest(
-            adapter.Descriptor.HostName,
+            adapter.Descriptor.HostKey,
             fileArtifact.RelativePath,
             digestCalculator.ComputeSingleFileDigest(fileArtifact.RelativePath, fileArtifact.Content),
             frontmatterDigest);

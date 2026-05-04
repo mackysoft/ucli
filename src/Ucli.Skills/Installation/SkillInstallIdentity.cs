@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Skills.Hosts;
-
 namespace MackySoft.Ucli.Skills.Installation;
 
 /// <summary> Identifies one installed SKILL instance. </summary>
@@ -8,7 +6,7 @@ namespace MackySoft.Ucli.Skills.Installation;
 /// <param name="TargetRoot"> The canonical absolute host target root. </param>
 /// <param name="SkillName"> The skill name. </param>
 public sealed record SkillInstallIdentity (
-    SkillHostKind Host,
+    string Host,
     SkillScopeKind Scope,
     string TargetRoot,
     string SkillName);

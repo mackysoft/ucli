@@ -17,18 +17,18 @@ public sealed class SkillInstallationScannerTests
         var installService = new SkillInstallService();
         var installResult = await installService.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         var scanner = new SkillInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, SkillHostKind.OpenAi, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
 
         Assert.True(scanResult.IsSuccess, scanResult.Failure?.Message);
         Assert.Equal(SkillTestData.ExpectedSkillNames, scanResult.Value!.Select(static skill => skill.Identity.SkillName).Order(StringComparer.Ordinal).ToArray());
         Assert.All(scanResult.Value!, skill =>
         {
-            Assert.Equal(SkillHostKind.OpenAi, skill.Identity.Host);
+            Assert.Equal(OpenAiSkillHostAdapter.HostKey, skill.Identity.Host);
             Assert.Equal(installResult.Value.TargetRoot, skill.Identity.TargetRoot);
         });
     }
@@ -40,7 +40,7 @@ public sealed class SkillInstallationScannerTests
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "scan-unsupported-host");
         var scanner = new SkillInstallationScanner();
 
-        var result = await scanner.ScanAsync(Array.Empty<CanonicalSkillPackage>(), scope.FullPath, (SkillHostKind)999, CancellationToken.None);
+        var result = await scanner.ScanAsync(Array.Empty<CanonicalSkillPackage>(), scope.FullPath, "generic", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.HostUnsupported, result.Failure!.Code);
@@ -56,7 +56,7 @@ public sealed class SkillInstallationScannerTests
         scope.WriteFile(".agents/skills/sample-skill/ucli-skill.json", "{}");
         var scanner = new SkillInstallationScanner();
 
-        var result = await scanner.ScanAsync(packages, targetRoot, SkillHostKind.OpenAi, CancellationToken.None);
+        var result = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
@@ -73,7 +73,7 @@ public sealed class SkillInstallationScannerTests
         scope.WriteFile(".agents/skills/not-the-skill/ucli-skill.json", manifest);
         var scanner = new SkillInstallationScanner();
 
-        var result = await scanner.ScanAsync(packages, targetRoot, SkillHostKind.OpenAi, CancellationToken.None);
+        var result = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
@@ -88,12 +88,12 @@ public sealed class SkillInstallationScannerTests
         var installService = new SkillInstallService();
         var installResult = await installService.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.Claude, SkillScopeKind.Project, scope.FullPath, "shared-skills"),
+            new SkillInstallRequest(ClaudeSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, "shared-skills"),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         var scanner = new SkillInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, SkillHostKind.OpenAi, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetHostConflict, scanResult.Failure!.Code);
@@ -108,13 +108,13 @@ public sealed class SkillInstallationScannerTests
         var installService = new SkillInstallService();
         var installResult = await installService.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"), "\nInjected instruction.\n");
         var scanner = new SkillInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, SkillHostKind.OpenAi, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, scanResult.Failure!.Code);
@@ -129,13 +129,13 @@ public sealed class SkillInstallationScannerTests
         var installService = new SkillInstallService();
         var installResult = await installService.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         File.WriteAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "references", "extra.md"), "# Extra\n");
         var scanner = new SkillInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, SkillHostKind.OpenAi, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, scanResult.Failure!.Code);
@@ -150,13 +150,13 @@ public sealed class SkillInstallationScannerTests
         var installService = new SkillInstallService();
         var installResult = await installService.InstallAsync(
             packages,
-            new SkillInstallRequest(SkillHostKind.OpenAi, SkillScopeKind.Project, scope.FullPath),
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
         scope.WriteFile(Path.Combine(".agents", "skills", "unmanaged", "nested", "ucli-skill.json"), "{}");
         var scanner = new SkillInstallationScanner();
 
-        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, SkillHostKind.OpenAi, CancellationToken.None);
+        var scanResult = await scanner.ScanAsync(packages, installResult.Value!.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
 
         Assert.True(scanResult.IsSuccess, scanResult.Failure?.Message);
         Assert.Equal(SkillTestData.ExpectedSkillNames.Length, scanResult.Value!.Count);

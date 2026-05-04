@@ -6,8 +6,11 @@ namespace MackySoft.Ucli.Skills.Hosts;
 /// <summary> Materializes SKILL files for OpenAI / Codex. </summary>
 public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
 {
+    /// <summary> The canonical OpenAI / Codex host key. </summary>
+    public const string HostKey = "openai";
+
     /// <inheritdoc />
-    public SkillHostDescriptor Descriptor { get; } = new(SkillHostKind.OpenAi, SkillHostKindValues.OpenAi, ".agents/skills");
+    public SkillHostDescriptor Descriptor { get; } = new(HostKey, ".agents/skills");
 
     /// <inheritdoc />
     public string MetadataArtifactPath => "agents/openai.yaml";

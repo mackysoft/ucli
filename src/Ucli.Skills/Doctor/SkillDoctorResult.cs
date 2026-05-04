@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Skills.Hosts;
-
 namespace MackySoft.Ucli.Skills.Doctor;
 
 /// <summary> Represents a SKILL doctor result. </summary>
@@ -7,7 +5,7 @@ namespace MackySoft.Ucli.Skills.Doctor;
 /// <param name="TargetRoot"> The diagnosed target root. </param>
 /// <param name="Diagnostics"> The diagnostics. </param>
 public sealed record SkillDoctorResult (
-    SkillHostKind Host,
+    string Host,
     string TargetRoot,
     IReadOnlyList<SkillDoctorDiagnostic> Diagnostics)
 {

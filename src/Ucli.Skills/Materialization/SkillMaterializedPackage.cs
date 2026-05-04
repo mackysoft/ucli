@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Skills.Hosts;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Materialization;
@@ -9,5 +8,5 @@ namespace MackySoft.Ucli.Skills.Materialization;
 /// <param name="Files"> The materialized package files. </param>
 public sealed record SkillMaterializedPackage (
     string SkillName,
-    SkillHostKind Host,
+    string Host,
     IReadOnlyList<SkillPackageFile> Files);

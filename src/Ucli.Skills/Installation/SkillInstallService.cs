@@ -53,13 +53,14 @@ public sealed class SkillInstallService
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var targetRootResult = targetResolver.ResolveTargetRoot(request);
-        if (!targetRootResult.IsSuccess)
+        var targetResult = targetResolver.ResolveTarget(request);
+        if (!targetResult.IsSuccess)
         {
-            return SkillOperationResult<SkillInstallResult>.FailureResult(targetRootResult.Failure!.Code, targetRootResult.Failure.Message);
+            return SkillOperationResult<SkillInstallResult>.FailureResult(targetResult.Failure!.Code, targetResult.Failure.Message);
         }
 
-        var targetRoot = targetRootResult.Value!;
+        var target = targetResult.Value!;
+        var targetRoot = target.TargetRoot;
         var actions = new List<SkillInstallAction>();
         foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
         {
@@ -72,10 +73,10 @@ public sealed class SkillInstallService
             }
 
             var skillDirectory = skillDirectoryResult.Value!;
-            var identity = new SkillInstallIdentity(request.Host, request.Scope, targetRoot, package.SkillName);
+            var identity = new SkillInstallIdentity(target.Host, request.Scope, targetRoot, package.SkillName);
             if (Directory.Exists(skillDirectory))
             {
-                var existingResult = await ValidateExistingTargetAsync(package, skillDirectory, request, cancellationToken).ConfigureAwait(false);
+                var existingResult = await ValidateExistingTargetAsync(package, skillDirectory, target.Host, cancellationToken).ConfigureAwait(false);
                 if (!existingResult.IsSuccess)
                 {
                     return SkillOperationResult<SkillInstallResult>.FailureResult(existingResult.Failure!.Code, existingResult.Failure.Message);
@@ -85,7 +86,7 @@ public sealed class SkillInstallService
                 continue;
             }
 
-            var materializedResult = materializationService.Materialize(package, request.Host);
+            var materializedResult = materializationService.Materialize(package, target.Host);
             if (!materializedResult.IsSuccess)
             {
                 return SkillOperationResult<SkillInstallResult>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
@@ -111,7 +112,7 @@ public sealed class SkillInstallService
     private async ValueTask<SkillOperationResult<bool>> ValidateExistingTargetAsync (
         CanonicalSkillPackage package,
         string skillDirectory,
-        SkillInstallRequest request,
+        string host,
         CancellationToken cancellationToken)
     {
         var manifestPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "ucli-skill.json");
@@ -148,7 +149,7 @@ public sealed class SkillInstallService
                 $"Target skill contentDigest does not match canonical package: {package.SkillName}");
         }
 
-        var materializedResult = materializationService.Materialize(package, request.Host);
+        var materializedResult = materializationService.Materialize(package, host);
         if (!materializedResult.IsSuccess)
         {
             return SkillOperationResult<bool>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
@@ -171,7 +172,7 @@ public sealed class SkillInstallService
                 $"Target skill files do not match canonical package contentDigest: {package.SkillName}");
         }
 
-        var hostMatchResult = await hostInspector.MatchesHostAsync(skillDirectory, manifest, request.Host, cancellationToken).ConfigureAwait(false);
+        var hostMatchResult = await hostInspector.MatchesHostAsync(skillDirectory, manifest, host, cancellationToken).ConfigureAwait(false);
         if (!hostMatchResult.IsSuccess)
         {
             return SkillOperationResult<bool>.FailureResult(hostMatchResult.Failure!.Code, hostMatchResult.Failure.Message);
