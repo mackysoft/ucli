@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Shared;
-using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests.Hosts.Registration;
 
@@ -84,10 +83,10 @@ public sealed class SkillHostAdapterSetTests
 
         public string? MetadataArtifactPath => null;
 
-        public SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata)
+        public SkillHostArtifactSet BuildArtifacts (SkillHostMetadata metadata)
         {
             ArgumentNullException.ThrowIfNull(metadata);
-            return new SkillHostArtifactSet(string.Empty, []);
+            return new SkillHostArtifactSet(string.Empty, null);
         }
     }
 }

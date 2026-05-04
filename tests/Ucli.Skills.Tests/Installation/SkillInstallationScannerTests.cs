@@ -3,6 +3,7 @@ using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts.Claude;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Installation;
+using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Installation;
@@ -140,6 +141,49 @@ public sealed class SkillInstallationScannerTests
 
         Assert.False(scanResult.IsSuccess);
         Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, scanResult.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ScanAsync_RejectsTopLevelManagedSkillOutsideCanonicalPackageSet ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "scan-external-managed");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var targetRoot = scope.CreateDirectory(".agents/skills");
+        var serializer = new SkillManifestJsonSerializer();
+        var externalManifest = packages[0].Manifest with
+        {
+            SkillName = "external-skill",
+        };
+        scope.WriteFile(".agents/skills/external-skill/ucli-skill.json", serializer.Serialize(externalManifest));
+        var scanner = SkillTestData.CreateInstallationScanner();
+
+        var scanResult = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+
+        Assert.False(scanResult.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetUnmanaged, scanResult.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ScanAsync_RejectsMalformedManagedManifestBeforePackageLookup ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "scan-external-malformed");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var targetRoot = scope.CreateDirectory(".agents/skills");
+        var serializer = new SkillManifestJsonSerializer();
+        var externalManifest = packages[0].Manifest with
+        {
+            SkillName = "external-skill",
+            HostArtifacts = Array.Empty<SkillHostArtifactManifest>(),
+        };
+        scope.WriteFile(".agents/skills/external-skill/ucli-skill.json", serializer.Serialize(externalManifest));
+        var scanner = SkillTestData.CreateInstallationScanner();
+
+        var scanResult = await scanner.ScanAsync(packages, targetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
+
+        Assert.False(scanResult.IsSuccess);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid, scanResult.Failure!.Code);
     }
 
     [Fact]

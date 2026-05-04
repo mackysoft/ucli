@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Serialization.Yaml;
 using MackySoft.Ucli.Skills.Shared;
-using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Hosts.OpenAi;
 
@@ -18,7 +17,7 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
     public string MetadataArtifactPath => "agents/openai.yaml";
 
     /// <inheritdoc />
-    public SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata)
+    public SkillHostArtifactSet BuildArtifacts (SkillHostMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
 
@@ -41,6 +40,6 @@ public sealed class OpenAiSkillHostAdapter : ISkillHostAdapter
 
         return new SkillHostArtifactSet(
             frontmatter,
-            [SkillPackageFile.Create(MetadataArtifactPath, openAiYaml)]);
+            openAiYaml);
     }
 }

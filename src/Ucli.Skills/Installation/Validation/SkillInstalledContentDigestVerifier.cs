@@ -3,7 +3,7 @@ using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Materialization;
+namespace MackySoft.Ucli.Skills.Installation.Validation;
 
 /// <summary> Verifies installed host materialization against canonical host-independent content. </summary>
 public sealed class SkillInstalledContentDigestVerifier
@@ -25,27 +25,11 @@ public sealed class SkillInstalledContentDigestVerifier
     public async ValueTask<SkillOperationResult<bool>> MatchesContentDigestAsync (
         string skillDirectory,
         CanonicalSkillPackage package,
-        IReadOnlyCollection<SkillPackageFile> expectedFiles,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(skillDirectory);
         ArgumentNullException.ThrowIfNull(package);
-        ArgumentNullException.ThrowIfNull(expectedFiles);
         cancellationToken.ThrowIfCancellationRequested();
-
-        var expectedRelativePaths = expectedFiles
-            .Select(static file => file.RelativePath)
-            .ToHashSet(StringComparer.Ordinal);
-        var unexpectedFilesResult = FindUnexpectedFiles(skillDirectory, expectedRelativePaths);
-        if (!unexpectedFilesResult.IsSuccess)
-        {
-            return SkillOperationResult<bool>.FailureResult(unexpectedFilesResult.Failure!.Code, unexpectedFilesResult.Failure.Message);
-        }
-
-        if (unexpectedFilesResult.Value)
-        {
-            return SkillOperationResult<bool>.Success(false);
-        }
 
         var digestInputs = new List<SkillDigestInputFile>();
         var skillBodyResult = await ReadInstalledSkillBodyAsync(skillDirectory, cancellationToken).ConfigureAwait(false);
@@ -54,12 +38,12 @@ public sealed class SkillInstalledContentDigestVerifier
             return SkillOperationResult<bool>.FailureResult(skillBodyResult.Failure!.Code, skillBodyResult.Failure.Message);
         }
 
-        if (skillBodyResult.Value is null)
+        if (!skillBodyResult.Value.Exists)
         {
             return SkillOperationResult<bool>.Success(false);
         }
 
-        digestInputs.Add(new SkillDigestInputFile("SKILL.md", skillBodyResult.Value));
+        digestInputs.Add(new SkillDigestInputFile("SKILL.md", skillBodyResult.Value.Body));
         foreach (var reference in package.Files
             .Where(static file => file.RelativePath.StartsWith("references/", StringComparison.Ordinal))
             .OrderBy(static file => file.RelativePath, StringComparer.Ordinal))
@@ -83,47 +67,25 @@ public sealed class SkillInstalledContentDigestVerifier
         return SkillOperationResult<bool>.Success(string.Equals(actualDigest, package.Manifest.ContentDigest, StringComparison.Ordinal));
     }
 
-    private static SkillOperationResult<bool> FindUnexpectedFiles (
-        string skillDirectory,
-        IReadOnlySet<string> expectedRelativePaths)
-    {
-        foreach (var filePath in Directory.EnumerateFiles(skillDirectory, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
-        {
-            var filePathResult = SkillPackagePathBoundary.ResolveUnderRoot(skillDirectory, filePath);
-            if (!filePathResult.IsSuccess)
-            {
-                return SkillOperationResult<bool>.FailureResult(filePathResult.Failure!.Code, filePathResult.Failure.Message);
-            }
-
-            var relativePath = Path.GetRelativePath(skillDirectory, filePathResult.Value!).Replace(Path.DirectorySeparatorChar, '/');
-            if (!expectedRelativePaths.Contains(relativePath))
-            {
-                return SkillOperationResult<bool>.Success(true);
-            }
-        }
-
-        return SkillOperationResult<bool>.Success(false);
-    }
-
-    private static async ValueTask<SkillOperationResult<string?>> ReadInstalledSkillBodyAsync (
+    private static async ValueTask<SkillOperationResult<InstalledSkillBody>> ReadInstalledSkillBodyAsync (
         string skillDirectory,
         CancellationToken cancellationToken)
     {
         var skillPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "SKILL.md");
         if (!skillPathResult.IsSuccess)
         {
-            return SkillOperationResult<string?>.FailureResult(skillPathResult.Failure!.Code, skillPathResult.Failure.Message);
+            return SkillOperationResult<InstalledSkillBody>.FailureResult(skillPathResult.Failure!.Code, skillPathResult.Failure.Message);
         }
 
         if (!File.Exists(skillPathResult.Value!))
         {
-            return SkillOperationResult<string?>.Success(null);
+            return SkillOperationResult<InstalledSkillBody>.Success(InstalledSkillBody.Missing);
         }
 
         var skillText = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(skillPathResult.Value!, cancellationToken).ConfigureAwait(false));
         if (!SkillHostMaterializationInspector.TryExtractFrontmatter(skillText, out var frontmatter))
         {
-            return SkillOperationResult<string?>.Success(null);
+            return SkillOperationResult<InstalledSkillBody>.Success(InstalledSkillBody.Missing);
         }
 
         var body = skillText[frontmatter.Length..];
@@ -132,6 +94,13 @@ public sealed class SkillInstalledContentDigestVerifier
             body = body[1..];
         }
 
-        return SkillOperationResult<string?>.Success(body);
+        return SkillOperationResult<InstalledSkillBody>.Success(new InstalledSkillBody(true, body));
+    }
+
+    private readonly record struct InstalledSkillBody (
+        bool Exists,
+        string Body)
+    {
+        public static InstalledSkillBody Missing { get; } = new(false, string.Empty);
     }
 }

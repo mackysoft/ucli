@@ -4,7 +4,7 @@ using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Materialization;
+namespace MackySoft.Ucli.Skills.Installation.Validation;
 
 /// <summary> Inspects installed files to determine whether they belong to the requested host. </summary>
 public sealed class SkillHostMaterializationInspector
@@ -113,6 +113,56 @@ public sealed class SkillHostMaterializationInspector
         var metadata = SkillTextNormalizer.NormalizeToLf(await File.ReadAllTextAsync(metadataPathResult.Value!, cancellationToken).ConfigureAwait(false));
         var actualDigest = digestCalculator.ComputeSingleFileDigest(metadataArtifactPath, metadata);
         return SkillOperationResult<bool>.Success(string.Equals(actualDigest, metadataArtifactDigest, StringComparison.Ordinal));
+    }
+
+    /// <summary> Determines whether a skill directory is materialized for a supported host other than the requested host. </summary>
+    /// <param name="skillDirectory"> The skill directory. </param>
+    /// <param name="manifest"> The canonical manifest. </param>
+    /// <param name="host"> The requested host. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> <see langword="true" /> when files match another supported host; otherwise <see langword="false" />. </returns>
+    public async ValueTask<SkillOperationResult<bool>> MatchesDifferentHostAsync (
+        string skillDirectory,
+        SkillManifest manifest,
+        string host,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(skillDirectory);
+        ArgumentNullException.ThrowIfNull(manifest);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var requestedAdapterResult = hostAdapters.GetAdapter(host);
+        if (!requestedAdapterResult.IsSuccess)
+        {
+            return SkillOperationResult<bool>.FailureResult(
+                requestedAdapterResult.Failure!.Code,
+                requestedAdapterResult.Failure.Message);
+        }
+
+        var requestedHostKey = requestedAdapterResult.Value!.Descriptor.HostKey;
+        foreach (var adapter in hostAdapters.Adapters)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var hostKey = adapter.Descriptor.HostKey;
+            if (string.Equals(hostKey, requestedHostKey, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var matchResult = await MatchesHostAsync(skillDirectory, manifest, hostKey, cancellationToken).ConfigureAwait(false);
+            if (!matchResult.IsSuccess)
+            {
+                return SkillOperationResult<bool>.FailureResult(matchResult.Failure!.Code, matchResult.Failure.Message);
+            }
+
+            if (matchResult.Value)
+            {
+                return SkillOperationResult<bool>.Success(true);
+            }
+        }
+
+        return SkillOperationResult<bool>.Success(false);
     }
 
     /// <summary> Extracts YAML frontmatter from a materialized <c>SKILL.md</c>. </summary>

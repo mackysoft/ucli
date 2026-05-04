@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts.Registration;
-using MackySoft.Ucli.Skills.Manifests;
-using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
@@ -11,33 +10,17 @@ namespace MackySoft.Ucli.Skills.Doctor;
 public sealed class SkillDoctorService
 {
     private readonly SkillHostAdapterSet hostAdapters;
-    private readonly SkillManifestJsonSerializer manifestSerializer;
-    private readonly SkillManifestValidator manifestValidator;
-    private readonly SkillHostMaterializationInspector hostInspector;
-    private readonly SkillInstalledContentDigestVerifier contentDigestVerifier;
-    private readonly SkillMaterializationService materializationService;
+    private readonly SkillInstalledPackageValidator installedPackageValidator;
 
     /// <summary> Initializes a new instance of the <see cref="SkillDoctorService" /> class. </summary>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
-    /// <param name="manifestSerializer"> The manifest serializer. </param>
-    /// <param name="manifestValidator"> The manifest validator. </param>
-    /// <param name="hostInspector"> The host materialization inspector. </param>
-    /// <param name="contentDigestVerifier"> The installed content digest verifier. </param>
-    /// <param name="materializationService"> The host materialization service. </param>
+    /// <param name="installedPackageValidator"> The installed package validator. </param>
     public SkillDoctorService (
         SkillHostAdapterSet hostAdapters,
-        SkillManifestJsonSerializer? manifestSerializer = null,
-        SkillManifestValidator? manifestValidator = null,
-        SkillHostMaterializationInspector? hostInspector = null,
-        SkillInstalledContentDigestVerifier? contentDigestVerifier = null,
-        SkillMaterializationService? materializationService = null)
+        SkillInstalledPackageValidator? installedPackageValidator = null)
     {
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
-        this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
-        this.manifestValidator = manifestValidator ?? new SkillManifestValidator(hostAdapters);
-        this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector(hostAdapters);
-        this.contentDigestVerifier = contentDigestVerifier ?? new SkillInstalledContentDigestVerifier();
-        this.materializationService = materializationService ?? new SkillMaterializationService(hostAdapters);
+        this.installedPackageValidator = installedPackageValidator ?? new SkillInstalledPackageValidator(hostAdapters);
     }
 
     /// <summary> Diagnoses one host target root against canonical packages. </summary>
@@ -116,73 +99,10 @@ public sealed class SkillDoctorService
             return;
         }
 
-        var manifestPathResult = SkillPackagePathBoundary.ResolvePackageFilePath(skillDirectory, "ucli-skill.json");
-        if (!manifestPathResult.IsSuccess)
-        {
-            diagnostics.Add(Error(manifestPathResult.Failure!.Code, manifestPathResult.Failure.Message, package.SkillName));
-            return;
-        }
-
-        var manifestPath = manifestPathResult.Value!;
-        if (!File.Exists(manifestPath))
-        {
-            diagnostics.Add(Error(SkillFailureCodes.InstallTargetUnmanaged, "ucli-skill.json is missing.", package.SkillName));
-            return;
-        }
-
-        var manifestResult = manifestSerializer.TryDeserialize(await File.ReadAllTextAsync(manifestPath, cancellationToken).ConfigureAwait(false));
-        if (!manifestResult.IsSuccess)
-        {
-            diagnostics.Add(Error(SkillFailureCodes.ManifestInvalid, "ucli-skill.json is invalid.", package.SkillName));
-            return;
-        }
-
-        var manifest = manifestResult.Value!;
-        var validationResult = manifestValidator.Validate(manifest);
+        var validationResult = await installedPackageValidator.ValidateAsync(package, skillDirectory, host, cancellationToken).ConfigureAwait(false);
         if (!validationResult.IsSuccess)
         {
             diagnostics.Add(Error(validationResult.Failure!.Code, validationResult.Failure.Message, package.SkillName));
-            return;
-        }
-
-        if (!string.Equals(manifest.ContentDigest, package.Manifest.ContentDigest, StringComparison.Ordinal))
-        {
-            diagnostics.Add(Error(SkillFailureCodes.InstallTargetDigestMismatch, "contentDigest does not match canonical package.", package.SkillName));
-        }
-
-        var materializedResult = materializationService.Materialize(package, host);
-        if (!materializedResult.IsSuccess)
-        {
-            diagnostics.Add(Error(materializedResult.Failure!.Code, materializedResult.Failure.Message, package.SkillName));
-            return;
-        }
-
-        var installedDigestResult = await contentDigestVerifier.MatchesContentDigestAsync(
-            skillDirectory,
-            package,
-            materializedResult.Value!.Files,
-            cancellationToken).ConfigureAwait(false);
-        if (!installedDigestResult.IsSuccess)
-        {
-            diagnostics.Add(Error(installedDigestResult.Failure!.Code, installedDigestResult.Failure.Message, package.SkillName));
-            return;
-        }
-
-        if (!installedDigestResult.Value)
-        {
-            diagnostics.Add(Error(SkillFailureCodes.InstallTargetDigestMismatch, "Installed files do not match canonical contentDigest.", package.SkillName));
-        }
-
-        var hostMatchResult = await hostInspector.MatchesHostAsync(skillDirectory, manifest, host, cancellationToken).ConfigureAwait(false);
-        if (!hostMatchResult.IsSuccess)
-        {
-            diagnostics.Add(Error(hostMatchResult.Failure!.Code, hostMatchResult.Failure.Message, package.SkillName));
-            return;
-        }
-
-        if (!hostMatchResult.Value)
-        {
-            diagnostics.Add(Error(SkillFailureCodes.InstallTargetHostConflict, "Materialized host artifacts do not match the requested host.", package.SkillName));
         }
     }
 

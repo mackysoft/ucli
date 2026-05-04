@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Hosts.Copilot;
-using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests.Hosts.Copilot;
 
@@ -10,12 +10,11 @@ public sealed class CopilotSkillHostAdapterTests
     public void BuildArtifacts_UsesDeterministicYaml ()
     {
         var adapter = new CopilotSkillHostAdapter();
-        var metadata = new SkillSourceMetadata(
-            SkillSourceMetadata.CurrentSchemaVersion,
+        var metadata = new SkillHostMetadata(
             "ucli-sample",
             "Sample Skill",
-            "Use C:\\Unity\r\nNext",
-            []);
+            "Use C:\\Unity\r\nNext"
+        );
 
         var artifacts = adapter.BuildArtifacts(metadata);
 
@@ -26,6 +25,6 @@ public sealed class CopilotSkillHostAdapterTests
             + "user-invocable: true\n"
             + "---\n",
             artifacts.Frontmatter);
-        Assert.Empty(artifacts.AdditionalFiles);
+        Assert.Null(artifacts.MetadataContent);
     }
 }

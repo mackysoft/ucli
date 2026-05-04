@@ -34,16 +34,10 @@ public sealed class SkillMaterializationService
                 adapterResult.Failure.Message);
         }
 
-        var metadata = new Sources.SkillSourceMetadata(
-            Sources.SkillSourceMetadata.CurrentSchemaVersion,
+        var metadata = new Hosts.Contracts.SkillHostMetadata(
             package.SkillName,
             package.DisplayName,
-            package.Description,
-            package.Files
-                .Where(static file => file.RelativePath.StartsWith("references/", StringComparison.Ordinal))
-                .Select(static file => file.RelativePath["references/".Length..])
-                .Order(StringComparer.Ordinal)
-                .ToArray());
+            package.Description);
 
         var adapter = adapterResult.Value!;
         var artifacts = adapter.BuildArtifacts(metadata);
@@ -59,7 +53,22 @@ public sealed class SkillMaterializationService
             files.Add(file);
         }
 
-        files.AddRange(artifacts.AdditionalFiles);
+        if (adapter.MetadataArtifactPath is null)
+        {
+            if (artifacts.MetadataContent is not null)
+            {
+                throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must not emit metadata artifacts.");
+            }
+        }
+        else
+        {
+            if (artifacts.MetadataContent is null)
+            {
+                throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must emit metadata artifact '{adapter.MetadataArtifactPath}'.");
+            }
+
+            files.Add(SkillPackageFile.Create(adapter.MetadataArtifactPath, artifacts.MetadataContent));
+        }
 
         return SkillOperationResult<SkillMaterializedPackage>.Success(new SkillMaterializedPackage(
             package.SkillName,

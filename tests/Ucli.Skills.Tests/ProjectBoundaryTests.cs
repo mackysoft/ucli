@@ -4,16 +4,6 @@ namespace MackySoft.Ucli.Skills.Tests;
 
 public sealed class ProjectBoundaryTests
 {
-    private static readonly string[] ConcreteHostReferences =
-    [
-        "MackySoft.Ucli.Skills.Hosts.Claude",
-        "MackySoft.Ucli.Skills.Hosts.Copilot",
-        "MackySoft.Ucli.Skills.Hosts.OpenAi",
-        "ClaudeSkillHostAdapter",
-        "CopilotSkillHostAdapter",
-        "OpenAiSkillHostAdapter",
-    ];
-
     [Fact]
     [Trait("Size", "Small")]
     public void UcliSkillsProject_DoesNotReferenceInfrastructureOrContracts ()
@@ -56,14 +46,7 @@ public sealed class ProjectBoundaryTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("Generation", "agents/openai.yaml")]
-    [InlineData("Manifests", "agents/openai.yaml")]
-    [InlineData("Materialization", "agents/openai.yaml")]
-    [InlineData("Serialization", "agents/openai.yaml")]
-    [InlineData("Generation", "OpenAiSkillHostAdapter.HostKey")]
-    [InlineData("Manifests", "OpenAiSkillHostAdapter.HostKey")]
-    [InlineData("Materialization", "OpenAiSkillHostAdapter.HostKey")]
-    [InlineData("Serialization", "OpenAiSkillHostAdapter.HostKey")]
+    [MemberData(nameof(NonHostConcreteHostArtifactCases))]
     public void NonHostDirectory_DoesNotReferenceConcreteHostArtifacts (
         string directoryName,
         string concreteHostArtifact)
@@ -82,19 +65,13 @@ public sealed class ProjectBoundaryTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("Distribution")]
-    [InlineData("Doctor")]
-    [InlineData("Generation")]
-    [InlineData("Installation")]
-    [InlineData("Manifests")]
-    [InlineData("Materialization")]
-    [InlineData("Serialization")]
+    [MemberData(nameof(HostAgnosticSourceDirectoryCases))]
     public void NonHostDirectory_DoesNotReferenceConcreteHostImplementations (string directoryName)
     {
         var sourceRoot = GetSourceRoot();
         var directoryPath = Path.Combine(sourceRoot, directoryName);
 
-        AssertDirectoryDoesNotContainAny(sourceRoot, directoryPath, ConcreteHostReferences);
+        AssertDirectoryDoesNotContainAny(sourceRoot, directoryPath, GetConcreteHostImplementationReferences());
     }
 
     [Theory]
@@ -106,7 +83,32 @@ public sealed class ProjectBoundaryTests
         var sourceRoot = GetSourceRoot();
         var directoryPath = Path.Combine(sourceRoot, "Hosts", directoryName);
 
-        AssertDirectoryDoesNotContainAny(sourceRoot, directoryPath, ConcreteHostReferences);
+        AssertDirectoryDoesNotContainAny(sourceRoot, directoryPath, GetConcreteHostImplementationReferences());
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("Contracts")]
+    [InlineData("Registration")]
+    public void HostInfrastructureDirectory_DoesNotReferenceConcreteHostArtifacts (string directoryName)
+    {
+        var sourceRoot = GetSourceRoot();
+        var directoryPath = Path.Combine(sourceRoot, "Hosts", directoryName);
+
+        AssertDirectoryDoesNotContainAny(sourceRoot, directoryPath, GetConcreteHostArtifactReferences());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void HostContractDirectory_DoesNotReferenceSourceNamespace ()
+    {
+        var sourceRoot = GetSourceRoot();
+        var directoryPath = Path.Combine(sourceRoot, "Hosts", "Contracts");
+
+        AssertDirectoryDoesNotContainAny(
+            sourceRoot,
+            directoryPath,
+            ["MackySoft.Ucli.Skills.Sources"]);
     }
 
     [Theory]
@@ -158,6 +160,90 @@ public sealed class ProjectBoundaryTests
     private static string GetSourceRoot ()
     {
         return Path.GetFullPath(Path.Combine(SkillTestData.GetDefinitionsRoot(), ".."));
+    }
+
+    public static TheoryData<string, string> NonHostConcreteHostArtifactCases ()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var directoryName in GetHostAgnosticSourceDirectoryNames())
+        {
+            foreach (var artifactReference in GetConcreteHostArtifactReferences())
+            {
+                data.Add(directoryName, artifactReference);
+            }
+        }
+
+        return data;
+    }
+
+    public static TheoryData<string> HostAgnosticSourceDirectoryCases ()
+    {
+        var data = new TheoryData<string>();
+        foreach (var directoryName in GetHostAgnosticSourceDirectoryNames())
+        {
+            data.Add(directoryName);
+        }
+
+        return data;
+    }
+
+    private static string[] GetHostAgnosticSourceDirectoryNames ()
+    {
+        var excludedDirectoryNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "bin",
+            "Hosts",
+            "obj",
+            "SkillDefinitions",
+        };
+
+        var sourceRoot = GetSourceRoot();
+        return Directory.EnumerateDirectories(sourceRoot)
+            .Select(Path.GetFileName)
+            .Where(static directoryName => !string.IsNullOrWhiteSpace(directoryName))
+            .Select(static directoryName => directoryName!)
+            .Where(directoryName => !excludedDirectoryNames.Contains(directoryName))
+            .Where(directoryName => Directory.EnumerateFiles(Path.Combine(sourceRoot, directoryName), "*.cs", SearchOption.AllDirectories).Any())
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string[] GetConcreteHostImplementationReferences ()
+    {
+        return SkillTestData.CreateOfficialHostAdapterSet()
+            .Adapters
+            .SelectMany(static adapter =>
+            {
+                var type = adapter.GetType();
+                return new[] { type.Namespace!, type.Name };
+            })
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string[] GetConcreteHostArtifactReferences ()
+    {
+        return SkillTestData.CreateOfficialHostAdapterSet()
+            .Adapters
+            .SelectMany(static adapter =>
+            {
+                var references = new List<string>
+                {
+                    $"{adapter.GetType().Name}.HostKey",
+                    adapter.Descriptor.HostKey,
+                    adapter.Descriptor.ProjectTargetDirectory,
+                };
+
+                if (adapter.MetadataArtifactPath is not null)
+                {
+                    references.Add(adapter.MetadataArtifactPath);
+                }
+
+                return references;
+            })
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static void AssertDirectoryDoesNotContainAny (

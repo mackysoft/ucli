@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts.Registration;
-using MackySoft.Ucli.Skills.Manifests;
-using MackySoft.Ucli.Skills.Materialization;
+using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
@@ -11,33 +10,21 @@ namespace MackySoft.Ucli.Skills.Installation;
 public sealed class SkillInstallationScanner
 {
     private readonly SkillHostAdapterSet hostAdapters;
-    private readonly SkillManifestJsonSerializer manifestSerializer;
-    private readonly SkillManifestValidator manifestValidator;
-    private readonly SkillHostMaterializationInspector hostInspector;
-    private readonly SkillInstalledContentDigestVerifier contentDigestVerifier;
-    private readonly SkillMaterializationService materializationService;
+    private readonly SkillInstalledManifestReader installedManifestReader;
+    private readonly SkillInstalledPackageValidator installedPackageValidator;
 
     /// <summary> Initializes a new instance of the <see cref="SkillInstallationScanner" /> class. </summary>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
-    /// <param name="manifestSerializer"> The manifest serializer. </param>
-    /// <param name="manifestValidator"> The manifest validator. </param>
-    /// <param name="hostInspector"> The host materialization inspector. </param>
-    /// <param name="contentDigestVerifier"> The installed content digest verifier. </param>
-    /// <param name="materializationService"> The host materialization service. </param>
+    /// <param name="installedManifestReader"> The installed manifest reader. </param>
+    /// <param name="installedPackageValidator"> The installed package validator. </param>
     public SkillInstallationScanner (
         SkillHostAdapterSet hostAdapters,
-        SkillManifestJsonSerializer? manifestSerializer = null,
-        SkillManifestValidator? manifestValidator = null,
-        SkillHostMaterializationInspector? hostInspector = null,
-        SkillInstalledContentDigestVerifier? contentDigestVerifier = null,
-        SkillMaterializationService? materializationService = null)
+        SkillInstalledManifestReader? installedManifestReader = null,
+        SkillInstalledPackageValidator? installedPackageValidator = null)
     {
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
-        this.manifestSerializer = manifestSerializer ?? new SkillManifestJsonSerializer();
-        this.manifestValidator = manifestValidator ?? new SkillManifestValidator(hostAdapters);
-        this.hostInspector = hostInspector ?? new SkillHostMaterializationInspector(hostAdapters);
-        this.contentDigestVerifier = contentDigestVerifier ?? new SkillInstalledContentDigestVerifier();
-        this.materializationService = materializationService ?? new SkillMaterializationService(hostAdapters);
+        this.installedManifestReader = installedManifestReader ?? new SkillInstalledManifestReader(hostAdapters);
+        this.installedPackageValidator = installedPackageValidator ?? new SkillInstalledPackageValidator(hostAdapters);
     }
 
     /// <summary> Scans installed SKILL manifests. </summary>
@@ -99,31 +86,15 @@ public sealed class SkillInstallationScanner
                 continue;
             }
 
-            var manifestText = await File.ReadAllTextAsync(manifestPathResult.Value!, cancellationToken).ConfigureAwait(false);
-            var manifestResult = manifestSerializer.TryDeserialize(manifestText);
-            if (!manifestResult.IsSuccess)
+            var installedManifestResult = await installedManifestReader.ReadRequiredAsync(resolvedSkillDirectory, cancellationToken).ConfigureAwait(false);
+            if (!installedManifestResult.IsSuccess)
             {
                 return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
-                    manifestResult.Failure!.Code,
-                    $"Invalid ucli-skill.json: {manifestPathResult.Value!}");
+                    installedManifestResult.Failure!.Code,
+                    installedManifestResult.Failure.Message);
             }
 
-            var manifest = manifestResult.Value!;
-            var validationResult = manifestValidator.Validate(manifest);
-            if (!validationResult.IsSuccess)
-            {
-                return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
-                    validationResult.Failure!.Code,
-                    validationResult.Failure.Message);
-            }
-
-            if (!string.Equals(Path.GetFileName(resolvedSkillDirectory), manifest.SkillName, StringComparison.Ordinal))
-            {
-                return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
-                    SkillFailureCodes.ManifestInvalid,
-                    $"ucli-skill.json skillName must match installed directory name: {manifestPathResult.Value!}");
-            }
-
+            var manifest = installedManifestResult.Value!.Manifest;
             if (!packageByName.TryGetValue(manifest.SkillName, out var package))
             {
                 return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
@@ -131,55 +102,18 @@ public sealed class SkillInstallationScanner
                     $"Installed SKILL is not part of the canonical package set: {manifest.SkillName}");
             }
 
-            if (!string.Equals(manifest.ContentDigest, package.Manifest.ContentDigest, StringComparison.Ordinal))
+            var validationResult = await installedPackageValidator.ValidateAsync(package, resolvedSkillDirectory, hostKey, cancellationToken).ConfigureAwait(false);
+            if (!validationResult.IsSuccess)
             {
                 return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
-                    SkillFailureCodes.InstallTargetDigestMismatch,
-                    $"Installed SKILL contentDigest does not match canonical package: {manifest.SkillName}");
-            }
-
-            var materializedResult = materializationService.Materialize(package, hostKey);
-            if (!materializedResult.IsSuccess)
-            {
-                return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
-                    materializedResult.Failure!.Code,
-                    materializedResult.Failure.Message);
-            }
-
-            var digestResult = await contentDigestVerifier.MatchesContentDigestAsync(
-                resolvedSkillDirectory,
-                package,
-                materializedResult.Value!.Files,
-                cancellationToken).ConfigureAwait(false);
-            if (!digestResult.IsSuccess)
-            {
-                return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(digestResult.Failure!.Code, digestResult.Failure.Message);
-            }
-
-            if (!digestResult.Value)
-            {
-                return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
-                    SkillFailureCodes.InstallTargetDigestMismatch,
-                    $"Installed SKILL files do not match canonical package: {manifest.SkillName}");
-            }
-
-            var hostMatchResult = await hostInspector.MatchesHostAsync(resolvedSkillDirectory, manifest, hostKey, cancellationToken).ConfigureAwait(false);
-            if (!hostMatchResult.IsSuccess)
-            {
-                return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(hostMatchResult.Failure!.Code, hostMatchResult.Failure.Message);
-            }
-
-            if (!hostMatchResult.Value)
-            {
-                return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.FailureResult(
-                    SkillFailureCodes.InstallTargetHostConflict,
-                    $"Installed skill directory is materialized for another host: {resolvedSkillDirectory}");
+                    validationResult.Failure!.Code,
+                    validationResult.Failure.Message);
             }
 
             installedSkills.Add(new SkillInstalledSkill(
                 new SkillInstallIdentity(hostKey, SkillScopeKind.Project, fullTargetRoot, manifest.SkillName),
                 resolvedSkillDirectory,
-                manifest));
+                validationResult.Value!));
         }
 
         return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.Success(installedSkills);

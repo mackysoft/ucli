@@ -87,6 +87,51 @@ public sealed class SkillDoctorServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsDigestMismatch_WhenInstalledSkillBodyIsMissing ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-body-missing");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            packages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        File.Delete(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"));
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.InstallTargetDigestMismatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DiagnoseAsync_ReportsInvalidManifest_WhenCanonicalManifestChanged ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-manifest-drift");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var installService = SkillTestData.CreateInstallService();
+        var installResult = await installService.InstallAsync(
+            packages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
+            CancellationToken.None);
+        Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
+        var manifestPath = Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "ucli-skill.json");
+        var originalDigest = packages[0].Manifest.HostArtifacts[0].MaterializedFrontmatterDigest;
+        var manifestText = File.ReadAllText(manifestPath).Replace(originalDigest, "sha256:" + new string('f', 64), StringComparison.Ordinal);
+        File.WriteAllText(manifestPath, manifestText);
+        var doctor = SkillTestData.CreateDoctorService();
+
+        var result = await doctor.DiagnoseAsync(packages, OpenAiSkillHostAdapter.HostKey, installResult.Value.TargetRoot, CancellationToken.None);
+
+        Assert.False(result.IsHealthy);
+        Assert.Contains(result.Diagnostics, static diagnostic => diagnostic.Code == SkillFailureCodes.ManifestInvalid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task DiagnoseAsync_ReportsDigestMismatch_WhenInstalledReferenceIsMissing ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "doctor-reference-missing");

@@ -104,13 +104,12 @@ public sealed class SkillPackageGenerationService
         SkillSourceMetadata metadata,
         ISkillHostAdapter adapter)
     {
-        var artifacts = adapter.BuildArtifacts(metadata);
+        var artifacts = adapter.BuildArtifacts(new SkillHostMetadata(metadata.SkillName, metadata.DisplayName, metadata.Description));
         var frontmatterDigest = digestCalculator.ComputeSingleFileDigest("SKILL.md.frontmatter", artifacts.Frontmatter);
-        var additionalFiles = artifacts.AdditionalFiles.OrderBy(static file => file.RelativePath, StringComparer.Ordinal).ToArray();
 
         if (adapter.MetadataArtifactPath is null)
         {
-            if (additionalFiles.Length != 0)
+            if (artifacts.MetadataContent is not null)
             {
                 throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must not emit metadata artifacts.");
             }
@@ -118,16 +117,15 @@ public sealed class SkillPackageGenerationService
             return new SkillHostArtifactManifest(adapter.Descriptor.HostKey, null, null, frontmatterDigest);
         }
 
-        if (additionalFiles.Length != 1 || !string.Equals(additionalFiles[0].RelativePath, adapter.MetadataArtifactPath, StringComparison.Ordinal))
+        if (artifacts.MetadataContent is null)
         {
             throw new InvalidOperationException($"Host adapter '{adapter.Descriptor.HostKey}' must emit metadata artifact '{adapter.MetadataArtifactPath}'.");
         }
 
-        var fileArtifact = additionalFiles[0];
         return new SkillHostArtifactManifest(
             adapter.Descriptor.HostKey,
-            fileArtifact.RelativePath,
-            digestCalculator.ComputeSingleFileDigest(fileArtifact.RelativePath, fileArtifact.Content),
+            adapter.MetadataArtifactPath,
+            digestCalculator.ComputeSingleFileDigest(adapter.MetadataArtifactPath, artifacts.MetadataContent),
             frontmatterDigest);
     }
 }

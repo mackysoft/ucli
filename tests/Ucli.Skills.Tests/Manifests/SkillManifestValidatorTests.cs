@@ -34,6 +34,35 @@ public sealed class SkillManifestValidatorTests
         Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
     }
 
+    [Theory]
+    [MemberData(nameof(InvalidManifestCases))]
+    [Trait("Size", "Small")]
+    public void Validate_RejectsInvalidManifestShape (SkillManifest manifest)
+    {
+        var validator = SkillTestData.CreateManifestValidator();
+
+        var result = validator.Validate(manifest);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+    }
+
+    public static TheoryData<SkillManifest> InvalidManifestCases ()
+    {
+        var valid = CreateManifest("sample-skill");
+        return new TheoryData<SkillManifest>
+        {
+            valid with { SchemaVersion = 0 },
+            valid with { ContentDigest = "sha256:not-hex" },
+            valid with { HostArtifacts = valid.HostArtifacts.Where(static artifact => artifact.Host != "copilot").ToArray() },
+            valid with { HostArtifacts = valid.HostArtifacts.Concat([new SkillHostArtifactManifest("generic", null, null, "sha256:" + new string('5', 64))]).ToArray() },
+            valid with { HostArtifacts = valid.HostArtifacts.Select(static artifact => artifact.Host == "claude" ? artifact with { MaterializedFrontmatterDigest = "sha256:not-hex" } : artifact).ToArray() },
+            valid with { HostArtifacts = valid.HostArtifacts.Select(static artifact => artifact.Host == "claude" ? artifact with { Path = "claude.yaml", Digest = "sha256:" + new string('6', 64) } : artifact).ToArray() },
+            valid with { HostArtifacts = valid.HostArtifacts.Select(static artifact => artifact.Host == "openai" ? artifact with { Path = "agents/other.yaml" } : artifact).ToArray() },
+            valid with { HostArtifacts = valid.HostArtifacts.Select(static artifact => artifact.Host == "openai" ? artifact with { Digest = null } : artifact).ToArray() },
+        };
+    }
+
     private static SkillManifest CreateManifest (string skillName)
     {
         return new SkillManifest(

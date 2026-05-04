@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Skills.Sources;
-
 namespace MackySoft.Ucli.Skills.Hosts.Contracts;
 
 /// <summary> Provides deterministic materialization policy for one supported SKILL host. </summary>
@@ -12,7 +10,7 @@ public interface ISkillHostAdapter
     string? MetadataArtifactPath { get; }
 
     /// <summary> Builds host-specific artifacts for one skill. </summary>
-    /// <param name="metadata"> The host-independent source metadata. </param>
+    /// <param name="metadata"> The host-independent metadata. </param>
     /// <returns> The host-specific artifact set. </returns>
-    SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata);
+    SkillHostArtifactSet BuildArtifacts (SkillHostMetadata metadata);
 }

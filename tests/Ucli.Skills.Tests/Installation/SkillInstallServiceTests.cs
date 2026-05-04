@@ -59,6 +59,29 @@ public sealed class SkillInstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsOpenAiSharedTargetRootFromDifferentHost ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-openai-host-conflict");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateInstallService();
+        var targetRoot = "shared-skills";
+
+        var openAi = await service.InstallAsync(
+            packages,
+            new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, targetRoot),
+            CancellationToken.None);
+        var claude = await service.InstallAsync(
+            packages,
+            new SkillInstallRequest(ClaudeSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath, targetRoot),
+            CancellationToken.None);
+
+        Assert.True(openAi.IsSuccess, openAi.Failure?.Message);
+        Assert.False(claude.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetHostConflict, claude.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task InstallAsync_RejectsExistingUnmanagedTarget ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-unmanaged");
@@ -98,6 +121,28 @@ public sealed class SkillInstallServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsModifiedCanonicalManifest ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-manifest-drift");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateInstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var created = await service.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(created.IsSuccess, created.Failure?.Message);
+
+        var manifestPath = Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "ucli-skill.json");
+        var originalDigest = packages[0].Manifest.HostArtifacts[0].MaterializedFrontmatterDigest;
+        var manifestText = File.ReadAllText(manifestPath).Replace(originalDigest, "sha256:" + new string('f', 64), StringComparison.Ordinal);
+        File.WriteAllText(manifestPath, manifestText);
+
+        var result = await service.InstallAsync(packages, request, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.ManifestInvalid, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task InstallAsync_RejectsModifiedInstalledSkillBody ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-body-drift");
@@ -109,6 +154,25 @@ public sealed class SkillInstallServiceTests
 
         var skillPath = Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "SKILL.md");
         File.AppendAllText(skillPath, "\nInjected instruction.\n");
+
+        var result = await service.InstallAsync(packages, request, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(SkillFailureCodes.InstallTargetDigestMismatch, result.Failure!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task InstallAsync_RejectsMissingInstalledSkillBodyWithoutThrowing ()
+    {
+        using var scope = TestDirectories.CreateTempScope("ucli-skills", "install-body-missing");
+        var packages = await SkillTestData.GenerateOfficialPackagesAsync();
+        var service = SkillTestData.CreateInstallService();
+        var request = new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath);
+        var created = await service.InstallAsync(packages, request, CancellationToken.None);
+        Assert.True(created.IsSuccess, created.Failure?.Message);
+
+        File.Delete(Path.Combine(created.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"));
 
         var result = await service.InstallAsync(packages, request, CancellationToken.None);
 

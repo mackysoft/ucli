@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Serialization.Yaml;
-using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Hosts.Copilot;
 
@@ -17,7 +16,7 @@ public sealed class CopilotSkillHostAdapter : ISkillHostAdapter
     public string? MetadataArtifactPath => null;
 
     /// <inheritdoc />
-    public SkillHostArtifactSet BuildArtifacts (SkillSourceMetadata metadata)
+    public SkillHostArtifactSet BuildArtifacts (SkillHostMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(metadata);
 
@@ -29,6 +28,6 @@ public sealed class CopilotSkillHostAdapter : ISkillHostAdapter
             .DocumentMarker()
             .Build();
 
-        return new SkillHostArtifactSet(frontmatter, []);
+        return new SkillHostArtifactSet(frontmatter, null);
     }
 }

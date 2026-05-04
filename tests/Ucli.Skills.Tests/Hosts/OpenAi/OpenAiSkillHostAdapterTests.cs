@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Skills.Hosts.Contracts;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
-using MackySoft.Ucli.Skills.Sources;
 
 namespace MackySoft.Ucli.Skills.Tests.Hosts.OpenAi;
 
@@ -10,12 +10,11 @@ public sealed class OpenAiSkillHostAdapterTests
     public void BuildArtifacts_UsesDeterministicYaml ()
     {
         var adapter = new OpenAiSkillHostAdapter();
-        var metadata = new SkillSourceMetadata(
-            SkillSourceMetadata.CurrentSchemaVersion,
+        var metadata = new SkillHostMetadata(
             "ucli-sample",
             "Sample \"Skill\"\rName",
-            "Use C:\\Unity\r\nNext",
-            []);
+            "Use C:\\Unity\r\nNext"
+        );
 
         var artifacts = adapter.BuildArtifacts(metadata);
 
@@ -33,6 +32,6 @@ public sealed class OpenAiSkillHostAdapterTests
             + "\n"
             + "policy:\n"
             + "  allow_implicit_invocation: true\n",
-            artifacts.AdditionalFiles.Single().Content);
+            artifacts.MetadataContent);
     }
 }
