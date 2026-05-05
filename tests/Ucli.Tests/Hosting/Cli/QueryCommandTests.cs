@@ -1,13 +1,12 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -61,7 +60,41 @@ public sealed class QueryCommandTests
                 .HasArrayLength("opResults", 1)
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", true)
-                    .HasString("source", ReadIndexInfoTextCodec.SourceIndex)));
+                    .HasString("source", "index")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task AssetsFind_WhenServiceFails_PreservesFailurePayloadAndErrors ()
+    {
+        var service = new StubQueryService((_, _) => ValueTask.FromResult(CreateFailureResult(UcliCommandNames.QueryAssetsFind)));
+        var command = new QueryAssetsFindCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
+            type: "UnityEngine.Material, UnityEngine.CoreModule",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.QueryAssetsFind,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        JsonAssert.For(outputJson.RootElement)
+            .HasString("message", "Unity execution failed.")
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0)
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasBoolean("used", true)
+                    .HasString("source", "index")))
+            .HasArrayLength("errors", 1)
+            .HasProperty("errors", 0, error => error
+                .HasString("code", IpcErrorCodes.InternalError)
+                .HasString("message", "Unity execution failed.")
+                .HasString("opId", "assets.find"));
     }
 
     [Fact]
@@ -165,12 +198,11 @@ public sealed class QueryCommandTests
     private static QueryServiceResult CreateSuccessResult (string commandName)
     {
         return new QueryServiceResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             CommandName: commandName,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
             [
-                new IpcExecuteOperationResult(
+                new OperationExecutionOperationResult(
                     OpId: "assets.find",
                     Op: UcliPrimitiveOperationNames.AssetsFind,
                     Phase: IpcExecuteOperationPhaseNames.Plan,
@@ -185,13 +217,37 @@ public sealed class QueryCommandTests
                 },
             ],
             Errors: [],
-            ExitCode: (int)CliExitCode.Success,
+            Outcome: ApplicationOutcome.Success,
             Message: "uCLI query completed.",
             ReadIndex: new ReadIndexInfo(
                 Used: true,
                 Hit: true,
-                Source: ReadIndexInfoTextCodec.SourceIndex,
-                Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+                Source: ReadIndexInfoSource.Index,
+                Freshness: IndexFreshness.Fresh,
+                GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                FallbackReason: null));
+    }
+
+    private static QueryServiceResult CreateFailureResult (string commandName)
+    {
+        return new QueryServiceResult(
+            CommandName: commandName,
+            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            OpResults: [],
+            Errors:
+            [
+                new OperationExecutionError(
+                    Code: IpcErrorCodes.InternalError,
+                    Message: "Unity execution failed.",
+                    OpId: "assets.find"),
+            ],
+            Outcome: ApplicationOutcome.ToolError,
+            Message: "Unity execution failed.",
+            ReadIndex: new ReadIndexInfo(
+                Used: true,
+                Hit: true,
+                Source: ReadIndexInfoSource.Index,
+                Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
                 FallbackReason: null));
     }

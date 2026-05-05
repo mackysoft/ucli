@@ -1,24 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -45,11 +27,27 @@ public sealed class UnityDaemonIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(1, sessionTokenProvider.CallCount);
         Assert.Equal(1, transportClient.CallCount);
         Assert.Equal("daemon-token", transportClient.LastRequest!.SessionToken);
         Assert.Equal(IpcMethodNames.OpsRead, transportClient.LastRequest.Method);
+    }
+
+    private static void AssertUnityResponse (
+        IpcResponse expected,
+        UnityRequestResponse? actual)
+    {
+        Assert.NotNull(actual);
+        Assert.False(actual!.HasFailureStatus);
+        Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
+        Assert.Equal(expected.Errors.Count, actual.Errors.Count);
+        for (var i = 0; i < expected.Errors.Count; i++)
+        {
+            Assert.Equal(expected.Errors[i].Code, actual.Errors[i].Code);
+            Assert.Equal(expected.Errors[i].Message, actual.Errors[i].Message);
+            Assert.Equal(expected.Errors[i].OpId, actual.Errors[i].OpId);
+        }
     }
 
     [Fact]

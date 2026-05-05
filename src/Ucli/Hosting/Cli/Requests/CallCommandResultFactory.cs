@@ -1,6 +1,5 @@
-using System.Collections.Generic;
+using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -36,7 +35,7 @@ internal static class CallCommandResultFactory
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Call,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: serviceResult.Message,
             Payload: payload,
             Errors: errors);

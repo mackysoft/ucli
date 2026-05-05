@@ -1,14 +1,8 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
-using MackySoft.Ucli.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 
@@ -39,7 +33,21 @@ internal sealed class DaemonStopCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var executionResult = await daemonStopService.Stop(projectPath, timeout, cancellationToken).ConfigureAwait(false);
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.DaemonStop,
+                normalizedTimeoutResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var executionResult = await daemonStopService.Stop(
+                projectPath,
+                normalizedTimeoutResult.TimeoutMilliseconds,
+                cancellationToken)
+            .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
@@ -61,8 +69,8 @@ internal sealed class DaemonStopCommand
                 message: "uCLI daemon stop completed.",
                 payload: new
                 {
-                    stopStatus = output.StopStatus,
-                    daemonStatus = output.DaemonStatus,
+                    stopStatus = DaemonCommandOutputProjector.ToStopStatus(output.StopStatus),
+                    daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                 });

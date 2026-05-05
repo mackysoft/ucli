@@ -1,7 +1,8 @@
+using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -17,7 +18,7 @@ internal static class QueryCommandResultFactory
         {
             requestId = serviceResult.RequestId,
             opResults = serviceResult.OpResults,
-            readIndex = serviceResult.ReadIndex,
+            readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex),
         };
 
         if (serviceResult.IsSuccess)
@@ -36,10 +37,10 @@ internal static class QueryCommandResultFactory
         }
 
         return new CommandResult(
-            ProtocolVersion: serviceResult.ProtocolVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: serviceResult.CommandName,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: serviceResult.Message,
             Payload: payload,
             Errors: errors);

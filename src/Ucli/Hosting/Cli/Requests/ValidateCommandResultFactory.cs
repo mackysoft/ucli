@@ -1,8 +1,8 @@
+using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -20,7 +20,7 @@ internal static class ValidateCommandResultFactory
             ? new { }
             : new
             {
-                readIndex = serviceResult.Output.ReadIndex,
+                readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.Output.ReadIndex),
             };
 
         if (serviceResult.IsSuccess)

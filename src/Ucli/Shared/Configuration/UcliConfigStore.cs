@@ -1,11 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Shared.Configuration;
 

@@ -1,5 +1,3 @@
-using System;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Declares one required property set in an exclusive structural group. </summary>

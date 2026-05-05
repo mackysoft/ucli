@@ -1,6 +1,8 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 
@@ -97,8 +99,8 @@ internal static class MutationReadPostconditionAccessEvaluator
             $"Existing {surfaceDescription} index generatedAtUtc '{generatedAtUtc:O}' is older than mutation read postcondition '{requirement.MinSafeGeneratedAtUtc:O}'.");
     }
 
-    private static IpcExecuteReadPostconditionRequirement? FindRequirement (
-        IpcExecuteReadPostcondition? readPostcondition,
+    private static OperationExecutionReadPostconditionRequirement? FindRequirement (
+        OperationExecutionReadPostcondition? readPostcondition,
         string surface,
         string? scenePath)
     {

@@ -1,11 +1,10 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Init.Common.Contracts;
-using MackySoft.Ucli.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Init;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -67,7 +66,7 @@ public sealed class InitCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<InitExecutionResult> Execute (
+        public ValueTask<InitExecutionResult> ExecuteAsync (
             InitCommandInput input,
             CancellationToken cancellationToken = default)
         {

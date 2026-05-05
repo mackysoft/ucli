@@ -1,13 +1,12 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -65,8 +64,43 @@ public sealed class ResolveCommandTests
                         .HasString("globalObjectId", "GlobalObjectId_V1-1-2-3-4-5-6")))
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", true)
-                    .HasString("source", ReadIndexInfoTextCodec.SourceIndex)
-                    .HasString("freshness", ReadIndexInfoTextCodec.FreshnessFresh)));
+                    .HasString("source", "index")
+                    .HasString("freshness", "fresh")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Resolve_WhenServiceFails_PreservesFailurePayloadAndErrors ()
+    {
+        var service = new StubResolveService((_, _) => ValueTask.FromResult(CreateFailureResult()));
+        var command = new ResolveCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Resolve,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        JsonAssert.For(outputJson.RootElement)
+            .HasString("message", "Unity execution failed.")
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0)
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasBoolean("used", true)
+                    .HasString("source", "index")
+                    .HasString("freshness", "fresh")))
+            .HasArrayLength("errors", 1)
+            .HasProperty("errors", 0, error => error
+                .HasString("code", IpcErrorCodes.InternalError)
+                .HasString("message", "Unity execution failed.")
+                .HasString("opId", "resolve"));
     }
 
     [Fact]
@@ -153,11 +187,10 @@ public sealed class ResolveCommandTests
     private static ResolveServiceResult CreateSuccessResult ()
     {
         return new ResolveServiceResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
             [
-                new IpcExecuteOperationResult(
+                new OperationExecutionOperationResult(
                     OpId: "resolve",
                     Op: UcliPrimitiveOperationNames.Resolve,
                     Phase: IpcExecuteOperationPhaseNames.Plan,
@@ -172,12 +205,34 @@ public sealed class ResolveCommandTests
                 },
             ],
             Errors: [],
-            ExitCode: (int)CliExitCode.Success,
+            Outcome: ApplicationOutcome.Success,
             ReadIndex: new ReadIndexInfo(
                 Used: true,
                 Hit: true,
-                Source: ReadIndexInfoTextCodec.SourceIndex,
-                Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+                Source: ReadIndexInfoSource.Index,
+                Freshness: IndexFreshness.Fresh,
+                GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                FallbackReason: null));
+    }
+
+    private static ResolveServiceResult CreateFailureResult ()
+    {
+        return new ResolveServiceResult(
+            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            OpResults: [],
+            Errors:
+            [
+                new OperationExecutionError(
+                    Code: IpcErrorCodes.InternalError,
+                    Message: "Unity execution failed.",
+                    OpId: "resolve"),
+            ],
+            Outcome: ApplicationOutcome.ToolError,
+            ReadIndex: new ReadIndexInfo(
+                Used: true,
+                Hit: true,
+                Source: ReadIndexInfoSource.Index,
+                Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
                 FallbackReason: null));
     }

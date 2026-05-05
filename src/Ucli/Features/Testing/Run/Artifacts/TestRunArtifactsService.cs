@@ -1,11 +1,10 @@
 using System.Globalization;
 using System.Security.Cryptography;
-using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Artifacts;
 
@@ -19,12 +18,6 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     private readonly ITestRunMetaStore metaStore;
 
     private readonly TimeProvider timeProvider;
-
-    /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class with default meta-store dependency. </summary>
-    public TestRunArtifactsService ()
-        : this(new TestRunMetaStore(), timeProvider: null)
-    {
-    }
 
     /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class. </summary>
     /// <param name="metaStore"> The metadata store dependency. </param>
@@ -88,7 +81,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                     $"Failed to create artifacts directory: {artifactsDir}. {exception.Message}"));
             }
 
-            var artifactPaths = new ArtifactPaths(artifactsDir);
+            var artifactPaths = CreateArtifactPaths(artifactsDir);
             var session = new ArtifactsSession(
                 RunId: runId,
                 Paths: artifactPaths,
@@ -118,6 +111,17 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
         return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
             $"Failed to create unique artifacts directory after {MaxRunIdGenerationAttempts} attempts."));
+    }
+
+    private static ArtifactPaths CreateArtifactPaths (string artifactsDir)
+    {
+        return new ArtifactPaths(
+            ArtifactsDir: artifactsDir,
+            MetaJsonPath: Path.Combine(artifactsDir, "meta.json"),
+            ResultsXmlPath: Path.Combine(artifactsDir, "results.xml"),
+            EditorLogPath: Path.Combine(artifactsDir, "editor.log"),
+            ResultsJsonPath: Path.Combine(artifactsDir, "results.json"),
+            SummaryJsonPath: Path.Combine(artifactsDir, "summary.json"));
     }
 
     /// <summary> Completes one run-scoped artifacts session by updating completion metadata. </summary>

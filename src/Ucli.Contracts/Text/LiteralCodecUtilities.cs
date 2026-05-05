@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace MackySoft.Ucli.Contracts.Text;
 
 /// <summary> Provides reusable conversion helpers for enum/string literal codecs. </summary>

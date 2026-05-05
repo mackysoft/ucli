@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;

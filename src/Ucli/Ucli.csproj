@@ -32,6 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Ucli.Application/Ucli.Application.csproj" />
     <ProjectReference Include="../Ucli.Contracts/Ucli.Contracts.csproj" />
     <ProjectReference Include="../Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
     <ProjectReference Include="../Ucli.Skills/Ucli.Skills.csproj" />

@@ -1,23 +1,22 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Refresh.UseCases.Refresh;
-using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class RefreshCommandTests
 {
     private static readonly OperationExecuteResult SuccessResult = new(
-        ProtocolVersion: IpcProtocol.CurrentVersion,
         RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
         OpResults:
         [
-            new IpcExecuteOperationResult(
+            new OperationExecutionOperationResult(
                 OpId: "refresh",
                 Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
                 Phase: IpcExecuteOperationPhaseNames.Call,
@@ -25,14 +24,14 @@ public sealed class RefreshCommandTests
                 Changed: true,
                 Touched:
                 [
-                    new IpcExecuteTouchedResource(
+                    new OperationExecutionTouchedResource(
                         Kind: IpcExecuteTouchedResourceKindNames.Asset,
                         Path: "Assets/Example.txt",
                         Guid: null),
                 ]),
         ],
         Errors: [],
-        ExitCode: (int)CliExitCode.Success,
+        Outcome: ApplicationOutcome.Success,
         ReadPostcondition: null);
 
     [Fact]
@@ -83,18 +82,17 @@ public sealed class RefreshCommandTests
     [Trait("Size", "Small")]
     public async Task Refresh_WhenReadPostconditionExists_WritesTopLevelPayload ()
     {
-        var readPostcondition = new IpcExecuteReadPostcondition(
+        var readPostcondition = new OperationExecutionReadPostcondition(
         [
-            new IpcExecuteReadPostconditionRequirement(
+            new OperationExecutionReadPostconditionRequirement(
                 Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
                 MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00")),
         ]);
         var service = new StubRefreshService((_, _) => ValueTask.FromResult(new OperationExecuteResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
             [
-                new IpcExecuteOperationResult(
+                new OperationExecutionOperationResult(
                     OpId: "refresh",
                     Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
                     Phase: IpcExecuteOperationPhaseNames.Call,
@@ -103,7 +101,7 @@ public sealed class RefreshCommandTests
                     Touched: []),
             ],
             Errors: [],
-            ExitCode: (int)CliExitCode.Success,
+            Outcome: ApplicationOutcome.Success,
             ReadPostcondition: readPostcondition)));
         var command = new RefreshCommand(service);
 

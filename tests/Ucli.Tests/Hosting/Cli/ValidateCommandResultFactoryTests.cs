@@ -1,13 +1,10 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
-using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -29,10 +26,10 @@ public sealed class ValidateCommandResultFactoryTests
         var payload = JsonSerializer.SerializeToElement(result.Payload);
         JsonAssert.For(payload)
             .HasProperty("readIndex", readIndex => readIndex
-                .HasBoolean("Used", true)
-                .HasBoolean("Hit", true)
-                .HasString("Source", "index")
-                .HasString("Freshness", "probable"));
+                .HasBoolean("used", true)
+                .HasBoolean("hit", true)
+                .HasString("source", "index")
+                .HasString("freshness", "probable"));
     }
 
     [Fact]
@@ -75,8 +72,8 @@ public sealed class ValidateCommandResultFactoryTests
         var payload = JsonSerializer.SerializeToElement(result.Payload);
         JsonAssert.For(payload)
             .HasProperty("readIndex", readIndex => readIndex
-                .HasString("Source", "index")
-                .HasString("Freshness", "probable"));
+                .HasString("source", "index")
+                .HasString("freshness", "probable"));
     }
 
     private static ReadIndexInfo CreateReadIndexInfo ()
@@ -84,8 +81,8 @@ public sealed class ValidateCommandResultFactoryTests
         return new ReadIndexInfo(
             Used: true,
             Hit: true,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
-            Freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            Source: ReadIndexInfoSource.Index,
+            Freshness: IndexFreshness.Probable,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
             FallbackReason: null);
     }

@@ -1,33 +1,18 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
-using MackySoft.Ucli.UnityIntegration.Resolution;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -59,8 +44,9 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
@@ -104,11 +90,12 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(1, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
@@ -150,13 +137,14 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                FailFast: false,
-                RequireReadinessGate: true)));
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                    FailFast: false,
+                    RequireReadinessGate: true))));
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(2, readinessProbe.CallCount);
         Assert.Equal(1, daemonTransportClient.CallCount);
         Assert.True(IpcPayloadCodec.TryDeserialize(
@@ -209,10 +197,11 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                FailFast: false,
-                RequireReadinessGate: true)));
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                    FailFast: false,
+                    RequireReadinessGate: true))));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, readinessProbe.CallCount);
@@ -258,10 +247,11 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                FailFast: true,
-                RequireReadinessGate: true)));
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                    FailFast: true,
+                    RequireReadinessGate: true))));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
@@ -306,11 +296,12 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(2, oneshotTransportClient.CallCount);
         Assert.Equal(1, launcher.CallCount);
@@ -346,8 +337,9 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
@@ -386,8 +378,9 @@ public sealed class UnityIpcRequestExecutorTests
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
@@ -432,8 +425,9 @@ public sealed class UnityIpcRequestExecutorTests
             TimeSpan.FromMilliseconds(120),
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
@@ -478,8 +472,9 @@ public sealed class UnityIpcRequestExecutorTests
             TimeSpan.FromMilliseconds(100),
             UcliConfig.CreateDefault(),
             CreateContext(scope),
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+            new UnityRequestPayload.Raw(
+                IpcMethodNames.OpsRead,
+                EmptyPayload()));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
@@ -528,6 +523,22 @@ public sealed class UnityIpcRequestExecutorTests
             Status: IpcProtocol.StatusOk,
             Payload: EmptyPayload(),
             Errors: Array.Empty<IpcError>());
+    }
+
+    private static void AssertUnityResponse (
+        IpcResponse expected,
+        UnityRequestResponse? actual)
+    {
+        Assert.NotNull(actual);
+        Assert.False(actual!.HasFailureStatus);
+        Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
+        Assert.Equal(expected.Errors.Count, actual.Errors.Count);
+        for (var i = 0; i < expected.Errors.Count; i++)
+        {
+            Assert.Equal(expected.Errors[i].Code, actual.Errors[i].Code);
+            Assert.Equal(expected.Errors[i].Message, actual.Errors[i].Message);
+            Assert.Equal(expected.Errors[i].OpId, actual.Errors[i].OpId);
+        }
     }
 
     private static IpcResponse CreateErrorResponse (

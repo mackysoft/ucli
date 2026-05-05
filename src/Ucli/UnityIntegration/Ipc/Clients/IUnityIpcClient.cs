@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 

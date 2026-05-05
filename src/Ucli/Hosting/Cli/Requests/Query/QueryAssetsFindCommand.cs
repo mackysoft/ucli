@@ -1,10 +1,8 @@
 using ConsoleAppFramework;
+using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Query.UseCases.Query;
-using MackySoft.Ucli.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -59,64 +57,26 @@ internal sealed class QueryAssetsFindCommand
             return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, commonOptionsResult.Error!);
         }
 
-        if (!TryCreateFilter(type, pathPrefix, nameContains, out var filter, out var error))
+        var operationRequestResult = QueryAssetsFindOperationRequestFactory.Create(
+            UcliCommandNames.QueryAssetsFind,
+            OperationId,
+            UcliPrimitiveOperationNames.AssetsFind,
+            type,
+            pathPrefix,
+            nameContains,
+            all,
+            limit,
+            after);
+        if (!operationRequestResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, error!);
-        }
-
-        var windowResult = QueryWindowOptionsFactory.Create(all, limit, after);
-        if (!windowResult.IsSuccess)
-        {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, windowResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, operationRequestResult.Error!);
         }
 
         return await QueryCommandExecutionHelper.Execute(
                 queryService,
                 commonOptionsResult.Options!,
-                new QueryAssetsFindOperationRequest(
-                    CommandName: UcliCommandNames.QueryAssetsFind,
-                    OperationId: OperationId,
-                    OperationName: UcliPrimitiveOperationNames.AssetsFind,
-                    Filter: filter!,
-                    WindowOptions: windowResult.Options!),
+                operationRequestResult.Operation!,
                 cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private static bool TryCreateFilter (
-        string? type,
-        string? pathPrefix,
-        string? nameContains,
-        out QueryAssetsFindFilter? filter,
-        out ExecutionError? error)
-    {
-        filter = null;
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(type, "type", out var normalizedType, out error))
-        {
-            return false;
-        }
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(pathPrefix, "pathPrefix", out var normalizedPathPrefix, out error))
-        {
-            return false;
-        }
-        if (!QueryOptionValueNormalizer.TryNormalizeOptional(nameContains, "nameContains", out var normalizedNameContains, out error))
-        {
-            return false;
-        }
-
-        if (normalizedType is null
-            && normalizedPathPrefix is null
-            && normalizedNameContains is null)
-        {
-            error = ExecutionError.InvalidArgument(
-                "query assets find requires at least one filter: --type, --pathPrefix, or --nameContains.");
-            return false;
-        }
-
-        filter = new QueryAssetsFindFilter(
-            TypeId: normalizedType,
-            PathPrefix: normalizedPathPrefix,
-            NameContains: normalizedNameContains);
-        return true;
     }
 }

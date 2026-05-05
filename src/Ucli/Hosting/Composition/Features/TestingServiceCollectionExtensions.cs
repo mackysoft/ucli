@@ -1,12 +1,10 @@
-using MackySoft.Ucli.Features.Testing.Profiles.UseCases.ProfileInit;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.Ports;
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
+using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
-using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun;
-using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Pipeline;
-using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Preflight;
-using MackySoft.Ucli.Features.Testing.Run.UseCases.TestRun.Projection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;
@@ -22,21 +20,17 @@ internal static class TestingServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<ITestProfileInitService, TestProfileInitService>();
+        services.AddSingleton<ITestProfileTemplateStore, FileTestProfileTemplateStore>();
         services.AddSingleton<ITestRunMetaStore, TestRunMetaStore>();
         services.AddSingleton<ITestRunArtifactsService, TestRunArtifactsService>();
+        services.AddSingleton<IDaemonTestRunClient, IpcDaemonTestRunClient>();
+        services.AddSingleton<ITestRunProfileJsonReader, FileTestRunProfileJsonReader>();
+        services.AddSingleton<ITestRunPathNormalizer, FileTestRunPathNormalizer>();
+        services.AddSingleton<ITestRunPathExistenceProbe, FileTestRunPathExistenceProbe>();
         services.AddSingleton<IUnityCommandBuilder, UnityCommandBuilder>();
         services.AddSingleton<IUnityTestExecutor, UnityTestExecutor>();
-        services.AddSingleton<IDaemonTestRunClient, IpcDaemonTestRunClient>();
         services.AddSingleton<IUnityResultsXmlParser, UnityResultsXmlParser>();
         services.AddSingleton<IUnityResultsArtifactWriter, UnityResultsArtifactWriter>();
-        services.AddSingleton<IUnityResultsConverter, UnityResultsConverter>();
-        services.AddSingleton<ITestRunProfileLoader, TestRunProfileLoader>();
-        services.AddSingleton<ITestRunConfigurationResolver, TestRunConfigurationResolver>();
-        services.AddSingleton<ITestRunPreflightService, TestRunPreflightService>();
-        services.AddSingleton<ITestRunExecutionPipeline, TestRunExecutionPipeline>();
-        services.AddSingleton<ITestRunResultMapper, TestRunResultMapper>();
-        services.AddSingleton<ITestRunService, TestRunService>();
         return services;
     }
 }

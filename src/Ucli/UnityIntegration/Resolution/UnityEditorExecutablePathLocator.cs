@@ -1,5 +1,6 @@
+using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Infrastructure.Paths;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;
 

@@ -1,11 +1,8 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Features.Testing.Run.Execution;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -17,7 +14,7 @@ public sealed class IpcDaemonTestRunRequestCodecTests
     {
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-request-codec", "create");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
 
         var request = IpcDaemonTestRunRequestCodec.CreateRequest(
             configuration,

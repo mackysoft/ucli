@@ -1,6 +1,5 @@
 using System.Text.Json;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests.Input;
 

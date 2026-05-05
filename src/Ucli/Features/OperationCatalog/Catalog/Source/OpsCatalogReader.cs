@@ -1,15 +1,11 @@
-using System.Text.Json;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 
@@ -46,10 +42,11 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 timeout,
                 config,
                 project,
-                IpcMethodNames.OpsRead,
-                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                    FailFast: failFast,
-                    RequireReadinessGate: requireReadinessGate)),
+                new UnityRequestPayload.Raw(
+                    IpcMethodNames.OpsRead,
+                    IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                        FailFast: failFast,
+                        RequireReadinessGate: requireReadinessGate))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -63,21 +60,29 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
     }
 
     private static OpsCatalogFetchResult CreateResultFromResponse (
-        IpcResponse response,
+        UnityRequestResponse response,
         string responseSourceName)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
+        if (response.HasFailureStatus || response.Errors.Count != 0)
         {
+            var firstError = response.Errors.FirstOrDefault();
             if (firstError != null)
             {
                 return OpsCatalogFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
+            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
+            {
+                return OpsCatalogFetchResult.Failure(
+                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
+                    IpcErrorCodes.InternalError);
+            }
+
             return OpsCatalogFetchResult.Failure(
-                $"{responseSourceName} failed with status '{status}'.",
+                $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);
         }
 

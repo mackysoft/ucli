@@ -1,5 +1,8 @@
-using MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Requests.Call.Preflight;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
+using MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Common;
@@ -16,6 +19,9 @@ internal static class HostingServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRequestInputReader, RequestInputReader>();
+        services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
+        services.AddSingleton<ICallCommandPreflightService, CallCommandPreflightService>();
+        services.AddSingleton<IPlanCommandPreflightService, PlanCommandPreflightService>();
         return services;
     }
 }

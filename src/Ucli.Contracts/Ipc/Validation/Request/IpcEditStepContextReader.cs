@@ -1,4 +1,3 @@
-using System;
 using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Ipc.Validation;

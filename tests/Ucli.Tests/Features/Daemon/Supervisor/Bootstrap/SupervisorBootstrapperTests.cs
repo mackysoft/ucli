@@ -1,34 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
-using MackySoft.Ucli.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Common;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Daemon;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Streaming;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Unity;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
-using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.UnityIntegration.Ipc;
+using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -213,6 +185,7 @@ public sealed class SupervisorBootstrapperTests
     public async Task EnsureReady_WhenLaunchNeverPublishesManifest_ReturnsInternalErrorBeforeTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-no-manifest");
+        var timeProvider = new ManualTimeProvider();
         var launchCount = 0;
         var manifestStore = new SupervisorManifestStore(
             readAllTextOrNull: static (path, cancellationToken) => ValueTask.FromResult<string?>(null),
@@ -235,18 +208,65 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorClient(transportClient),
             launcher,
             new SupervisorBootstrapLockProvider(),
-            new SupervisorEndpointResolver());
+            new SupervisorEndpointResolver(),
+            timeProvider);
 
-        var result = await bootstrapper.EnsureReady(
-            scope.FullPath,
-            TimeSpan.FromSeconds(2),
-            CancellationToken.None);
+        var resultTask = bootstrapper.EnsureReady(
+                scope.FullPath,
+                TimeSpan.FromSeconds(2),
+                CancellationToken.None)
+            .AsTask();
+        for (var i = 0; i < 4; i++)
+        {
+            await WaitForActiveTimerAsync(timeProvider, resultTask, SignalWaitTimeout, CancellationToken.None);
+            if (resultTask.IsCompleted)
+            {
+                break;
+            }
+
+            timeProvider.Advance(SupervisorConstants.BootstrapPollDelay);
+        }
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor manifest publication failure result", SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
         Assert.Contains("did not publish a reachable manifest", result.Error.Message, StringComparison.Ordinal);
         Assert.Equal(2, launchCount);
+    }
+
+    private static async Task WaitForActiveTimerAsync (
+        ManualTimeProvider timeProvider,
+        Task observedTask,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(observedTask);
+        cancellationToken.ThrowIfCancellationRequested();
+        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
+        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCancellationTokenSource.Token);
+
+        while (!observedTask.IsCompleted && timeProvider.ActiveTimerCount == 0)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(1), linkedCancellationTokenSource.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested
+                                                      && !cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        Assert.True(
+            observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0,
+            "Supervisor bootstrap did not register the expected poll delay timer.");
     }
 
     private sealed class StubSupervisorProcessLauncher : ISupervisorProcessLauncher

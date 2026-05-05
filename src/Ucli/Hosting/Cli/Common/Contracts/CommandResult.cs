@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;

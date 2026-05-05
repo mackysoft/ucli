@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Features.Testing.Profiles.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 

@@ -1,19 +1,10 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
@@ -223,7 +214,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                ReadPostconditionTestFactory.Create(
                 [
                     new IpcExecuteReadPostconditionRequirement(
                         Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
@@ -287,7 +278,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                ReadPostconditionTestFactory.Create(
                 [
                     new IpcExecuteReadPostconditionRequirement(
                         Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
@@ -423,6 +414,58 @@ public sealed class SceneTreeLiteAccessServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Contains("Scene path could not be resolved", result.Message, StringComparison.Ordinal);
+        Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenScenePathContainsTraversal_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "traversal-scene");
+        var project = CreateProject(scope);
+        var indexReader = new StubIndexCatalogReader();
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            "Assets/../Outside.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Contains("project-relative path", result.Message, StringComparison.Ordinal);
+        Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenScenePathIsWindowsRooted_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "windows-rooted-scene");
+        var project = CreateProject(scope);
+        var indexReader = new StubIndexCatalogReader();
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            @"C:\repo\Project\Assets\Scenes\Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Contains("project-relative path", result.Message, StringComparison.Ordinal);
         Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
     }
 

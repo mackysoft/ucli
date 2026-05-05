@@ -1,6 +1,6 @@
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Features.Testing.Run.Configuration;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 
@@ -9,17 +9,14 @@ internal sealed class UnityCommandBuilder : IUnityCommandBuilder
 {
     private const char MultiValueOptionSeparator = ';';
 
-    /// <summary> Builds one Unity command argument list from resolved run configuration and artifact paths. </summary>
-    /// <param name="configuration"> The resolved test-run configuration. </param>
-    /// <param name="artifactPaths"> The run artifact paths. </param>
-    /// <returns> The command argument list. </returns>
+    /// <inheritdoc />
     public IReadOnlyList<string> BuildArguments (
         ResolvedTestRunConfiguration configuration,
         ArtifactPaths artifactPaths)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(artifactPaths);
-        if (!TestRunArtifactValidator.TryValidateOutputPaths(artifactPaths, out var artifactPathError))
+        if (!TestRunArtifactPathValidator.TryValidateOutputPaths(artifactPaths, out var artifactPathError))
         {
             throw new ArgumentException(artifactPathError!, nameof(artifactPaths));
         }

@@ -1,14 +1,12 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
+using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.OperationCatalog.Common.Contracts;
-using MackySoft.Ucli.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Ops;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests.Cli;
 
@@ -101,7 +99,13 @@ public sealed class OpsCommandTests
             return ValueTask.FromResult(OpsListServiceResult.Success(
                 new OpsListExecutionOutput(
                     Operations: [],
-                    ReadIndex: new ReadIndexInfo(false, false, "index", "probable", null, null)),
+                    ReadIndex: new ReadIndexInfo(
+                        false,
+                        false,
+                        ReadIndexInfoSource.Index,
+                        IndexFreshness.Probable,
+                        null,
+                        null)),
                 "uCLI ops list completed."));
         }
 
@@ -124,7 +128,13 @@ public sealed class OpsCommandTests
                         assurance: describe.Assurance!,
                         argsSchema: EmptySchema,
                         resultSchema: null),
-                    ReadIndex: new ReadIndexInfo(false, false, "index", "probable", null, null)),
+                    ReadIndex: new ReadIndexInfo(
+                        false,
+                        false,
+                        ReadIndexInfoSource.Index,
+                        IndexFreshness.Probable,
+                        null,
+                        null)),
                 "uCLI ops describe completed."));
         }
 

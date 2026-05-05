@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using MackySoft.Ucli.Contracts.Text;
 using DiagnosticsProcess = System.Diagnostics.Process;

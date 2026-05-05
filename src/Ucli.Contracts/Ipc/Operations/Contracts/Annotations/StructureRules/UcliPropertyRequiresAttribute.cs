@@ -1,5 +1,3 @@
-using System;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Declares properties required when a trigger property is present. </summary>

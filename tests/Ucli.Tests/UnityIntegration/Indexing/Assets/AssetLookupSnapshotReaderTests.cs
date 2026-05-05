@@ -1,20 +1,10 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 
 namespace MackySoft.Ucli.Tests.Assets;
 
@@ -61,12 +51,38 @@ public sealed class AssetLookupSnapshotReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
-        Assert.Equal(IpcMethodNames.IndexAssetsRead, executor.LastMethod);
+        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.LastPayload);
+        Assert.Equal(IpcMethodNames.IndexAssetsRead, request.Method);
         Assert.Equal(UcliCommandIds.Query, executor.LastCommand);
-        Assert.True(IpcPayloadCodec.TryDeserialize(executor.LastPayload, out IpcIndexAssetsReadRequest payload, out _));
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcIndexAssetsReadRequest payload, out _));
         Assert.True(payload.FailFast);
         Assert.Single(result.Response!.AssetSearchEntries!);
         Assert.Single(result.Response.GuidPathEntries!);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_ReturnsFailureStatusMessage_WhenFailureStatusHasNoErrors ()
+    {
+        var executor = new StubUnityIpcRequestExecutor
+        {
+            Result = UnityRequestExecutionResult.Success(CreateResponse(
+                "busy",
+                new { },
+                Array.Empty<IpcError>())),
+        };
+        var reader = new AssetLookupSnapshotReader(executor);
+
+        var result = await reader.Read(
+            CreateProjectContext().UnityProject,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1000));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal("index.assets.read failed with status 'busy'.", result.Message);
     }
 
     [Fact]
@@ -166,23 +182,29 @@ public sealed class AssetLookupSnapshotReaderTests
             ConfigSource.Default);
     }
 
-    private static IpcResponse CreateSuccessResponse<TPayload> (TPayload payload)
+    private static UnityRequestResponse CreateSuccessResponse<TPayload> (TPayload payload)
     {
-        return new IpcResponse(
+        return CreateResponse(IpcProtocol.StatusOk, payload, Array.Empty<IpcError>());
+    }
+
+    private static UnityRequestResponse CreateResponse<TPayload> (
+        string status,
+        TPayload payload,
+        IReadOnlyList<IpcError> errors)
+    {
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-1",
-            Status: IpcProtocol.StatusOk,
+            Status: status,
             Payload: JsonSerializer.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>());
+            Errors: errors));
     }
 
     private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor
     {
         public UcliCommand LastCommand { get; private set; }
 
-        public string? LastMethod { get; private set; }
-
-        public JsonElement LastPayload { get; private set; }
+        public UnityRequestPayload? LastPayload { get; private set; }
 
         public UnityRequestExecutionResult Result { get; set; }
             = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
@@ -193,13 +215,11 @@ public sealed class AssetLookupSnapshotReaderTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             LastCommand = command;
-            LastMethod = method;
             LastPayload = payload;
             return ValueTask.FromResult(Result);
         }

@@ -1,25 +1,16 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;
@@ -61,12 +52,11 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
     /// <inheritdoc />
     public async ValueTask<UnityRequestExecutionResult> Execute (
         UcliCommand command,
-        MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode mode,
+        MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode mode,
         TimeSpan timeout,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
-        string method,
-        JsonElement payload,
+        UnityRequestPayload payload,
         CancellationToken cancellationToken = default)
     {
         if (!command.IsValid)
@@ -76,9 +66,11 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
 
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        ArgumentNullException.ThrowIfNull(payload);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+
+        var ipcRequest = UnityIpcRequestPayloadFactory.Create(payload);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
@@ -127,7 +119,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         }
 
         var decision = modeDecisionResult.Decision!;
-        var opsReadRequest = TryParseOpsReadRequest(method, payload);
+        var opsReadRequest = TryParseOpsReadRequest(ipcRequest.Method, ipcRequest.Payload);
         if (decision.Target == UnityExecutionTarget.Oneshot)
         {
             var pluginLocateError = await VerifyUnityPluginWithinBudget(
@@ -171,8 +163,8 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
 
         return await unityIpcClient.SendAsync(
                 unityProject,
-                method,
-                payload,
+                ipcRequest.Method,
+                ipcRequest.Payload,
                 requestTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -412,8 +404,8 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
             return false;
         }
 
-        if (!IpcResponseFailureReader.TryRead(dispatchResult.Response!, out var firstError, out _)
-            || firstError == null)
+        var firstError = dispatchResult.Response!.Errors.FirstOrDefault();
+        if (firstError == null)
         {
             return false;
         }

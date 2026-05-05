@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 /// <summary> Represents one index access result that contains either a value or a machine-readable error. </summary>

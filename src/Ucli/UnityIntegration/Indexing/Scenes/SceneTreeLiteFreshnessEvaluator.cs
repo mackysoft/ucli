@@ -1,7 +1,7 @@
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Infrastructure.Index;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
@@ -27,23 +27,23 @@ internal sealed class SceneTreeLiteFreshnessEvaluator : ISceneTreeLiteFreshnessE
         cancellationToken.ThrowIfCancellationRequested();
         if (mode == ReadIndexMode.Disabled)
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
         if (string.IsNullOrWhiteSpace(persistedSourceInputsHash))
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
         var currentSourceHash = await sourceHashCalculator.TryCompute(projectRootPath, scenePath, cancellationToken).ConfigureAwait(false);
         if (currentSourceHash == null)
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
         var freshness = string.Equals(persistedSourceInputsHash, currentSourceHash, StringComparison.Ordinal)
             ? IndexFreshness.Fresh
             : IndexFreshness.Stale;
-        return IndexFreshnessPolicy.ApplyModeConstraint(mode, freshness);
+        return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, freshness);
     }
 }

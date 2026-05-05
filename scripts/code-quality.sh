@@ -58,6 +58,7 @@ solution="$(dotnet_resolve_solution "$solution_arg")"
 cd "$DOTNET_REPO_ROOT"
 
 diagnostics=(
+  IDE0005
   IDE0011
   IDE0036
   IDE0048

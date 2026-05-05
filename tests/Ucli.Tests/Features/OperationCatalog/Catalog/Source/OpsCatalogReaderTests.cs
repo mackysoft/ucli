@@ -1,10 +1,7 @@
-using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests.Ops.Source;
 
@@ -57,7 +54,8 @@ public sealed class OpsCatalogReaderTests
         Assert.Single(result.Response.Operations!);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Response.Operations![0].Name);
         Assert.Equal(UcliCommandIds.Ops, executor.Command.Name);
-        Assert.Equal(IpcMethodNames.OpsRead, executor.Method);
+        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.Payload);
+        Assert.Equal(IpcMethodNames.OpsRead, request.Method);
     }
 
     [Fact]
@@ -90,6 +88,33 @@ public sealed class OpsCatalogReaderTests
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
         Assert.Equal("invalid request", result.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenFailureStatusHasNoErrors_ReturnsStatusMessage ()
+    {
+        var executor = new StubUnityRequestExecutor
+        {
+            Result = UnityRequestExecutionResult.Success(CreateResponse(
+                "busy",
+                Array.Empty<IpcError>(),
+                new { })),
+        };
+        var reader = new OpsCatalogReader(executor);
+
+        var result = await reader.Read(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1200),
+            failFast: false,
+            requireReadinessGate: true,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal("ops.read failed with status 'busy'.", result.Message);
     }
 
     [Fact]
@@ -131,17 +156,17 @@ public sealed class OpsCatalogReaderTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static IpcResponse CreateResponse (
+    private static UnityRequestResponse CreateResponse (
         string status,
         IReadOnlyList<IpcError> errors,
         object payload)
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             IpcProtocol.CurrentVersion,
             "req-ops-1",
             status,
             IpcPayloadCodec.SerializeToElement(payload),
-            errors);
+            errors));
     }
 
     private sealed class StubUnityRequestExecutor : IUnityRequestExecutor
@@ -150,7 +175,7 @@ public sealed class OpsCatalogReaderTests
 
         public UcliCommand Command { get; private set; } = new("pending");
 
-        public string Method { get; private set; } = string.Empty;
+        public UnityRequestPayload? Payload { get; private set; }
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
@@ -158,13 +183,12 @@ public sealed class OpsCatalogReaderTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Command = command;
-            Method = method;
+            Payload = payload;
             return ValueTask.FromResult(Result);
         }
     }

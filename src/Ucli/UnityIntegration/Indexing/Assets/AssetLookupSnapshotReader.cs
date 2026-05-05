@@ -1,14 +1,11 @@
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 
@@ -44,8 +41,9 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
                 timeout,
                 config,
                 project,
-                IpcMethodNames.IndexAssetsRead,
-                IpcPayloadCodec.SerializeToElement(new IpcIndexAssetsReadRequest(failFast)),
+                new UnityRequestPayload.Raw(
+                    IpcMethodNames.IndexAssetsRead,
+                    IpcPayloadCodec.SerializeToElement(new IpcIndexAssetsReadRequest(failFast))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -59,21 +57,29 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
     }
 
     private static AssetLookupSnapshotFetchResult CreateResultFromResponse (
-        IpcResponse response,
+        UnityRequestResponse response,
         string responseSourceName)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
+        if (response.HasFailureStatus || response.Errors.Count != 0)
         {
+            var firstError = response.Errors.FirstOrDefault();
             if (firstError != null)
             {
                 return AssetLookupSnapshotFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
+            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
+            {
+                return AssetLookupSnapshotFetchResult.Failure(
+                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
+                    IpcErrorCodes.InternalError);
+            }
+
             return AssetLookupSnapshotFetchResult.Failure(
-                $"{responseSourceName} failed with status '{status}'.",
+                $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);
         }
 

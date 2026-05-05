@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Tests;
 
 using MackySoft.Tests;
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Resolution;
 
 public sealed class UnityVersionResolverTests

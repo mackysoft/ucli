@@ -1,19 +1,8 @@
-using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 
 namespace MackySoft.Ucli.Tests.Scenes;
 
@@ -48,11 +37,38 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(UnityExecutionMode.Auto, executor.LastMode);
-        Assert.Equal(IpcMethodNames.IndexSceneTreeLiteRead, executor.LastMethod);
-        Assert.True(IpcPayloadCodec.TryDeserialize(executor.LastPayload, out IpcIndexSceneTreeLiteReadRequest payload, out _));
+        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.LastPayload);
+        Assert.Equal(IpcMethodNames.IndexSceneTreeLiteRead, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcIndexSceneTreeLiteReadRequest payload, out _));
         Assert.Equal("Assets/Scenes/Main.unity", payload.ScenePath);
         Assert.True(payload.FailFast);
         Assert.Single(result.Response!.Roots!);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_ReturnsFailureStatusMessage_WhenFailureStatusHasNoErrors ()
+    {
+        var executor = new StubUnityIpcRequestExecutor
+        {
+            Result = UnityRequestExecutionResult.Success(CreateResponse(
+                "busy",
+                new { })),
+        };
+        var reader = new SceneTreeLiteSnapshotReader(executor);
+
+        var result = await reader.Read(
+            CreateProject(),
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            "Assets/Scenes/Main.unity",
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal("index.scene-tree-lite.read failed with status 'busy'.", result.Message);
     }
 
     [Fact]
@@ -156,23 +172,28 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static IpcResponse CreateSuccessResponse (object payload)
+    private static UnityRequestResponse CreateSuccessResponse (object payload)
     {
-        return new IpcResponse(
+        return CreateResponse(IpcProtocol.StatusOk, payload);
+    }
+
+    private static UnityRequestResponse CreateResponse (
+        string status,
+        object payload)
+    {
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-scene-tree-lite",
-            Status: IpcProtocol.StatusOk,
+            Status: status,
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>());
+            Errors: Array.Empty<IpcError>()));
     }
 
     private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor
     {
         public UnityExecutionMode LastMode { get; private set; }
 
-        public string LastMethod { get; private set; } = string.Empty;
-
-        public JsonElement LastPayload { get; private set; }
+        public UnityRequestPayload? LastPayload { get; private set; }
 
         public UnityRequestExecutionResult Result { get; set; }
             = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
@@ -183,13 +204,11 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             LastMode = mode;
-            LastMethod = method;
             LastPayload = payload;
             return ValueTask.FromResult(Result);
         }

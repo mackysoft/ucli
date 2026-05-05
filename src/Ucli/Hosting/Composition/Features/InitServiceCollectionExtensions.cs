@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Features.Init.UseCases.Init;
+using MackySoft.Ucli.Application.Features.Init.Ports;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;
@@ -14,7 +14,7 @@ internal static class InitServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IInitService, InitService>();
+        services.AddSingleton<IInitTemplateStore, FileInitTemplateStore>();
         return services;
     }
 }

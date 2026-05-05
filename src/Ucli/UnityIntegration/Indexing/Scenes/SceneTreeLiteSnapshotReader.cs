@@ -1,14 +1,10 @@
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
@@ -46,8 +42,9 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 timeout,
                 config,
                 project,
-                IpcMethodNames.IndexSceneTreeLiteRead,
-                IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast)),
+                new UnityRequestPayload.Raw(
+                    IpcMethodNames.IndexSceneTreeLiteRead,
+                    IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -61,7 +58,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
     }
 
     private static SceneTreeLiteSnapshotFetchResult CreateResultFromResponse (
-        IpcResponse response,
+        UnityRequestResponse response,
         string responseSourceName,
         string requestedScenePath)
     {
@@ -69,15 +66,23 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestedScenePath);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
+        if (response.HasFailureStatus || response.Errors.Count != 0)
         {
+            var firstError = response.Errors.FirstOrDefault();
             if (firstError != null)
             {
                 return SceneTreeLiteSnapshotFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
+            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
+            {
+                return SceneTreeLiteSnapshotFetchResult.Failure(
+                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
+                    IpcErrorCodes.InternalError);
+            }
+
             return SceneTreeLiteSnapshotFetchResult.Failure(
-                $"{responseSourceName} failed with status '{status}'.",
+                $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);
         }
 

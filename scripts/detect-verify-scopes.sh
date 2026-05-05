@@ -79,7 +79,7 @@ is_dotnet_input() {
   fi
 
   case "${file}" in
-    src/Ucli/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|src/Ucli.Skills/*|tests/*)
+    src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|src/Ucli.Skills/*|tests/*)
       return 0
       ;;
     *)
@@ -102,7 +102,7 @@ is_unity_input() {
   fi
 
   case "${file}" in
-    src/Ucli/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
+    src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
       return 0
       ;;
     *)
@@ -159,7 +159,7 @@ is_cli_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
+    README.md|LICENSE|.github/workflows/verify.yaml|.github/workflows/cli-package-publish.yaml|scripts/detect-verify-scopes.sh|scripts/sync-cli-package-version.sh|scripts/verify-cli-package.sh|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
       return 0
       ;;
     *)

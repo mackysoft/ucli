@@ -1,6 +1,5 @@
-using MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;
 

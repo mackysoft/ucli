@@ -1,6 +1,5 @@
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Index;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
@@ -17,7 +16,7 @@ internal sealed class FileOpsCatalogStore : IOpsCatalogStore
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations,
         string sourceInputsHash,
-        IndexInputHashSnapshot? manifestInputSnapshot,
+        OpsCatalogInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);

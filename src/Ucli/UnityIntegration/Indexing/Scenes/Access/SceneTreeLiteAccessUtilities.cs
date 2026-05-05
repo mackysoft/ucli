@@ -60,6 +60,12 @@ internal static class SceneTreeLiteAccessUtilities
         }
 
         normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
+        if (HasUnsafePathSegments(normalizedScenePath))
+        {
+            errorMessage = "Property 'path' must be a project-relative path without '.' or '..' segments.";
+            return false;
+        }
+
         errorMessage = string.Empty;
         return true;
     }
@@ -78,7 +84,11 @@ internal static class SceneTreeLiteAccessUtilities
         string scenePath,
         out string errorMessage)
     {
-        var absoluteScenePath = ResolveAbsoluteScenePath(projectRootPath, scenePath);
+        if (!TryResolveAbsoluteScenePath(projectRootPath, scenePath, out var absoluteScenePath, out errorMessage))
+        {
+            return false;
+        }
+
         if (!File.Exists(absoluteScenePath))
         {
             errorMessage = $"Scene path could not be resolved to a scene asset: {scenePath}.";
@@ -90,13 +100,35 @@ internal static class SceneTreeLiteAccessUtilities
     }
 
     /// <summary> Resolves one normalized project-relative scene path to its absolute filesystem path. </summary>
-    public static string ResolveAbsoluteScenePath (
+    private static bool TryResolveAbsoluteScenePath (
         string projectRootPath,
-        string scenePath)
+        string scenePath,
+        out string absoluteScenePath,
+        out string errorMessage)
     {
-        return Path.Combine(
-            Path.GetFullPath(projectRootPath),
-            PathStringNormalizer.ToPlatformSeparated(scenePath));
+        absoluteScenePath = string.Empty;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var projectRoot = Path.GetFullPath(projectRootPath);
+            var candidatePath = Path.GetFullPath(Path.Combine(
+                projectRoot,
+                PathStringNormalizer.ToPlatformSeparated(scenePath)));
+            if (!IsSameOrChildPath(projectRoot, candidatePath))
+            {
+                errorMessage = $"Scene path could not be resolved to a scene asset: {scenePath}.";
+                return false;
+            }
+
+            absoluteScenePath = candidatePath;
+            return true;
+        }
+        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        {
+            errorMessage = $"Scene path could not be resolved to a scene asset: {scenePath}.";
+            return false;
+        }
     }
 
     /// <summary> Returns one tree snapshot trimmed to the requested depth. </summary>
@@ -148,5 +180,60 @@ internal static class SceneTreeLiteAccessUtilities
         }
 
         return trimmedChildren;
+    }
+
+    private static bool HasUnsafePathSegments (string scenePath)
+    {
+        if (Path.IsPathRooted(scenePath)
+            || scenePath.StartsWith("/", StringComparison.Ordinal)
+            || IsWindowsRootedPath(scenePath))
+        {
+            return true;
+        }
+
+        var segments = scenePath.Split('/');
+        for (var i = 0; i < segments.Length; i++)
+        {
+            var segment = segments[i];
+            if (segment.Length == 0
+                || string.Equals(segment, ".", StringComparison.Ordinal)
+                || string.Equals(segment, "..", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsWindowsRootedPath (string scenePath)
+    {
+        return scenePath.Length >= 3
+            && IsAsciiLetter(scenePath[0])
+            && scenePath[1] == ':'
+            && (scenePath[2] == '/' || scenePath[2] == '\\');
+    }
+
+    private static bool IsAsciiLetter (char value)
+    {
+        return value is (>= 'A' and <= 'Z')
+            or (>= 'a' and <= 'z');
+    }
+
+    private static bool IsSameOrChildPath (
+        string parentPath,
+        string childPath)
+    {
+        var normalizedParentPath = PathStringNormalizer.NormalizeCaseForCurrentPlatform(Path.GetFullPath(parentPath));
+        var normalizedChildPath = PathStringNormalizer.NormalizeCaseForCurrentPlatform(Path.GetFullPath(childPath));
+        if (string.Equals(normalizedParentPath, normalizedChildPath, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var parentPrefix = normalizedParentPath.EndsWith(Path.DirectorySeparatorChar)
+            ? normalizedParentPath
+            : normalizedParentPath + Path.DirectorySeparatorChar;
+        return normalizedChildPath.StartsWith(parentPrefix, StringComparison.Ordinal);
     }
 }

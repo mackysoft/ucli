@@ -1,9 +1,7 @@
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Features.Testing.Run.Execution;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -92,7 +90,7 @@ public sealed class UnityCommandBuilderTests
     private static ArtifactPaths CreateArtifactPaths ()
     {
         var artifactsDir = Path.GetFullPath("./.ucli/local/fingerprints/fingerprint/artifacts/test/20260301_120000Z_abcd1234");
-        return new ArtifactPaths(artifactsDir);
+        return TestArtifactPaths.Create(artifactsDir);
     }
 
     private static string GetOptionValue (IReadOnlyList<string> arguments, string option)

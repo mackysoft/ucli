@@ -1,7 +1,7 @@
+using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Hosting.Cli.Ops;
 
@@ -23,7 +23,7 @@ internal static class OpsCommandResultFactory
                 payload: new
                 {
                     operations = serviceResult.Output!.Operations,
-                    readIndex = serviceResult.Output.ReadIndex,
+                    readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.Output.ReadIndex),
                 });
         }
 
@@ -45,7 +45,7 @@ internal static class OpsCommandResultFactory
                 payload: new
                 {
                     operation = serviceResult.Output!.Operation,
-                    readIndex = serviceResult.Output.ReadIndex,
+                    readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.Output.ReadIndex),
                 });
         }
 

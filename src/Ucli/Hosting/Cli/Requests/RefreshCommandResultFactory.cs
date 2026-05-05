@@ -1,9 +1,9 @@
-using System.Collections.Generic;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -43,10 +43,10 @@ internal static class RefreshCommandResultFactory
         }
 
         return new CommandResult(
-            ProtocolVersion: executionResult.ProtocolVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Refresh,
             Status: IpcProtocol.StatusError,
-            ExitCode: executionResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(executionResult.Outcome),
             Message: ResolveFailureMessage(executionResult.Errors),
             Payload: payload,
             Errors: errors);
@@ -61,7 +61,7 @@ internal static class RefreshCommandResultFactory
         return Create(OperationExecuteResultFactory.FromExecutionError(error));
     }
 
-    private static string ResolveFailureMessage (IReadOnlyList<IpcError> errors)
+    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 

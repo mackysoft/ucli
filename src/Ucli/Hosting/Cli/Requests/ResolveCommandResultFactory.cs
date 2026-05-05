@@ -1,8 +1,9 @@
+using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -18,7 +19,7 @@ internal static class ResolveCommandResultFactory
         {
             requestId = serviceResult.RequestId,
             opResults = serviceResult.OpResults,
-            readIndex = serviceResult.ReadIndex,
+            readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex),
         };
 
         if (serviceResult.IsSuccess)
@@ -37,10 +38,10 @@ internal static class ResolveCommandResultFactory
         }
 
         return new CommandResult(
-            ProtocolVersion: serviceResult.ProtocolVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Resolve,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: ResolveFailureMessage(serviceResult.Errors),
             Payload: payload,
             Errors: errors);
@@ -53,7 +54,7 @@ internal static class ResolveCommandResultFactory
         return Create(ResolveServiceResultFactory.FromExecutionError(Guid.NewGuid().ToString("D"), error));
     }
 
-    private static string ResolveFailureMessage (IReadOnlyList<IpcError> errors)
+    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 

@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines IPC command names used by request contracts and execution dispatch. </summary>

@@ -1,5 +1,6 @@
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Shared.EnvironmentVariables;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
 

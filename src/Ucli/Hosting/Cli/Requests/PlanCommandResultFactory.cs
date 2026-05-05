@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -36,7 +36,7 @@ internal static class PlanCommandResultFactory
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Plan,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: serviceResult.Message,
             Payload: payload,
             Errors: errors);
@@ -55,7 +55,7 @@ internal static class PlanCommandResultFactory
             {
                 requestId = output.RequestId,
                 opResults = output.OpResults,
-                readIndex = output.ReadIndex,
+                readIndex = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
             };
         }
 
@@ -63,7 +63,7 @@ internal static class PlanCommandResultFactory
         {
             requestId = output.RequestId,
             opResults = output.OpResults,
-            readIndex = output.ReadIndex,
+            readIndex = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
             planToken = output.PlanToken,
         };
     }

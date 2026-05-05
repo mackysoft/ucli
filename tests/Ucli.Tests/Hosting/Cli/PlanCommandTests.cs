@@ -1,21 +1,22 @@
-using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Plan.Common.Contracts;
-using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
-using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Preflight;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
-using MackySoft.Ucli.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
+using MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class PlanCommandTests
 {
+    private const string DefaultRequestJson = """{"steps":[]}""";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Plan_UsesPlanServiceAndWritesCommandResult ()
@@ -25,7 +26,7 @@ public sealed class PlanCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults:
                 [
-                    new IpcExecuteOperationResult(
+                    new OperationExecutionOperationResult(
                         OpId: "step-1",
                         Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Phase: IpcExecuteOperationPhaseNames.Plan,
@@ -39,8 +40,8 @@ public sealed class PlanCommandTests
                     fallbackReason: "readIndex disabled by mode."),
                 PlanToken: "plan-token-1"),
             "uCLI plan completed.")));
-        var preflightService = new StubPlanCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
-        var command = new PlanCommand(service, preflightService);
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
@@ -59,6 +60,7 @@ public sealed class PlanCommandTests
         Assert.Equal(1234, service.CapturedInput.TimeoutMilliseconds);
         Assert.Equal(ReadIndexMode.Disabled, service.CapturedInput.ReadIndexMode);
         Assert.True(service.CapturedInput.FailFast);
+        Assert.Equal(DefaultRequestJson, service.CapturedInput.RequestJson);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
@@ -86,12 +88,12 @@ public sealed class PlanCommandTests
         var service = new StubPlanService((_, _) => ValueTask.FromResult(PlanServiceResult.Failure(
             "Static validation failed.",
             [
-                new IpcError(
+                new OperationExecutionError(
                     ValidationErrorCodes.OperationArgsInvalid,
                     "Operation args are invalid.",
                     "step-1"),
             ],
-            (int)CliExitCode.InvalidArgument,
+            ApplicationOutcome.InvalidArgument,
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],
@@ -100,8 +102,8 @@ public sealed class PlanCommandTests
                     hit: true,
                     fallbackReason: null),
                 PlanToken: null))));
-        var preflightService = new StubPlanCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
-        var command = new PlanCommand(service, preflightService);
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             projectPath: "/repo/UnityProject",
@@ -123,8 +125,8 @@ public sealed class PlanCommandTests
     public async Task Plan_WhenReadIndexModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubPlanService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var preflightService = new StubPlanCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
-        var command = new PlanCommand(service, preflightService);
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             readIndexMode: "unsupported",
@@ -147,7 +149,7 @@ public sealed class PlanCommandTests
     public async Task Plan_WhenTimeoutIsInvalid_UsesFeatureFailurePathWithoutExecutingPlan ()
     {
         var service = new StubPlanService((_, _) => throw new InvalidOperationException("Execute should not be called."));
-        var preflightService = new StubPlanCommandPreflightService((_, _, _) => ValueTask.FromResult(PlanCommandPreflightResult.Success(
+        var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => ValueTask.FromResult(PlanCommandPreflightResult.Success(
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],
@@ -156,7 +158,7 @@ public sealed class PlanCommandTests
                     hit: false,
                     fallbackReason: "readIndex disabled by mode."),
                 PlanToken: null))));
-        var command = new PlanCommand(service, preflightService);
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             timeout: "abc",
@@ -185,10 +187,10 @@ public sealed class PlanCommandTests
         return new ReadIndexInfo(
             Used: used,
             Hit: hit,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
+            Source: ReadIndexInfoSource.Index,
             Freshness: used
-                ? ReadIndexInfoTextCodec.FreshnessProbable
-                : ReadIndexInfoTextCodec.FreshnessProbable,
+                ? IndexFreshness.Probable
+                : IndexFreshness.Probable,
             GeneratedAtUtc: used
                 ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")
                 : null,
@@ -221,10 +223,10 @@ public sealed class PlanCommandTests
 
     private sealed class StubPlanCommandPreflightService : IPlanCommandPreflightService
     {
-        private readonly Func<string?, ReadIndexMode?, CancellationToken, ValueTask<PlanCommandPreflightResult>> handler;
+        private readonly Func<string?, string, ReadIndexMode?, CancellationToken, ValueTask<PlanCommandPreflightResult>> handler;
 
         public StubPlanCommandPreflightService (
-            Func<string?, ReadIndexMode?, CancellationToken, ValueTask<PlanCommandPreflightResult>> handler)
+            Func<string?, string, ReadIndexMode?, CancellationToken, ValueTask<PlanCommandPreflightResult>> handler)
         {
             this.handler = handler ?? throw new ArgumentNullException(nameof(handler));
         }
@@ -235,12 +237,29 @@ public sealed class PlanCommandTests
 
         public ValueTask<PlanCommandPreflightResult> Prepare (
             string? projectPath,
+            string requestJson,
             ReadIndexMode? readIndexMode,
             CancellationToken cancellationToken = default)
         {
             CapturedCancellationToken = cancellationToken;
             CallCount++;
-            return handler(projectPath, readIndexMode, cancellationToken);
+            return handler(projectPath, requestJson, readIndexMode, cancellationToken);
+        }
+    }
+
+    private sealed class StubRequestInputReader : IRequestInputReader
+    {
+        private readonly RequestInputReadResult result;
+
+        public StubRequestInputReader (RequestInputReadResult result)
+        {
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
+        }
+
+        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
         }
     }
 }

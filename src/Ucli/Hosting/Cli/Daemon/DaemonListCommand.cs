@@ -1,14 +1,8 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
-using MackySoft.Ucli.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 
@@ -39,7 +33,21 @@ internal sealed class DaemonListCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var executionResult = await daemonListService.GetList(projectPath, timeout, cancellationToken).ConfigureAwait(false);
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.DaemonList,
+                normalizedTimeoutResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var executionResult = await daemonListService.GetList(
+                projectPath,
+                normalizedTimeoutResult.TimeoutMilliseconds,
+                cancellationToken)
+            .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
@@ -66,9 +74,9 @@ internal sealed class DaemonListCommand
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     projectRelativePath = output.ProjectRelativePath,
                     isComplete = output.IsComplete,
-                    completionReason = output.CompletionReason,
+                    completionReason = DaemonCommandOutputProjector.ToListCompletionReason(output.CompletionReason),
                     remainingWorktreeCount = output.RemainingWorktreeCount,
-                    items = output.Items,
+                    items = output.Items.Select(DaemonCommandOutputProjector.ToListItem).ToArray(),
                 });
         }
 

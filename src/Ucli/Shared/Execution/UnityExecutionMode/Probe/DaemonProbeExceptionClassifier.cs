@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
-/// <summary> Classifies daemon probe exceptions by operational meaning. </summary>
+/// <summary> Classifies daemon probe exceptions by IPC transport meaning. </summary>
 internal static class DaemonProbeExceptionClassifier
 {
     /// <summary> Determines whether one exception means daemon endpoint is not reachable. </summary>
@@ -22,5 +22,4 @@ internal static class DaemonProbeExceptionClassifier
 
         return exception is SocketException;
     }
-
 }

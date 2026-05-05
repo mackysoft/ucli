@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Shared.EnvironmentVariables;
+using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 
 namespace MackySoft.Ucli.Tests;
 

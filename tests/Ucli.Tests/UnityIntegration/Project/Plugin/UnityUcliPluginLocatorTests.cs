@@ -1,10 +1,8 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
 

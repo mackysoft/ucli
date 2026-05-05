@@ -1,20 +1,7 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
-using MackySoft.Ucli.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -33,8 +20,8 @@ public sealed class DaemonListCommandTests
             Head: "aaaaaaaa",
             ProjectPath: "/repo/wt-a/UnityProject",
             ProjectFingerprint: "fp-a",
-            State: DaemonListStateCodec.Stale,
-            Reason: DaemonListReasonCodec.StaleSession,
+            State: DaemonListItemState.Stale,
+            Reason: DaemonListItemReason.StaleSession,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
             ProcessId: 1234,
             EndpointTransportKind: "unixDomainSocket",
@@ -103,7 +90,7 @@ public sealed class DaemonListCommandTests
 
         public ValueTask<DaemonListExecutionResult> GetList (
             string? projectPath,
-            string? timeout,
+            int? timeoutMilliseconds,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(result);
