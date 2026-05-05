@@ -43,6 +43,11 @@ public sealed class CliPreDispatchErrorPolicyTests
                 "Argument 'extra' is not recognized."
             },
             {
+                [UcliCommandNames.Query],
+                UcliCommandNames.Query,
+                "Subcommand is required for command 'query'. Supported subcommands: assets, scene, go, comp, asset."
+            },
+            {
                 [UcliCommandNames.Query, "unknown"],
                 UcliCommandNames.Query,
                 "Subcommand 'unknown' is not recognized for command 'query'."

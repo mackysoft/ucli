@@ -149,6 +149,24 @@ public sealed class QueryCommandTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Query_WhenSubcommandIsMissing_ReturnsJsonInvalidArgument ()
+    {
+        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Query);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Query,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(outputJson.RootElement, IpcErrorCodes.InvalidArgument);
+        JsonAssert.For(outputJson.RootElement)
+            .HasString("message", "Subcommand is required for command 'query'. Supported subcommands: assets, scene, go, comp, asset.");
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task AssetsGroup_WhenLeafSubcommandIsMissing_ReturnsJsonInvalidArgument ()
     {
         var result = await CliProcessRunner.RunCommand(
