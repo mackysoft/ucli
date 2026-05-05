@@ -1,11 +1,10 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Json;
-using MackySoft.Ucli.Infrastructure.Paths;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
+namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 
-/// <summary> Implements JSON profile loading for test-run configuration input. </summary>
+/// <summary> Implements strict JSON profile parsing for test-run configuration input. </summary>
 internal sealed class TestRunProfileLoader : ITestRunProfileLoader
 {
     private static readonly HashSet<string> AllowedProperties = new(StringComparer.Ordinal)
@@ -22,54 +21,31 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         "timeout",
     };
 
-    /// <summary> Loads one profile JSON file from disk. </summary>
-    /// <param name="profilePath"> The profile path value. </param>
-    /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
-    /// <returns> A task that resolves to the profile load result. </returns>
+    private readonly ITestRunProfileJsonReader profileJsonReader;
+
+    /// <summary> Initializes a new instance of the <see cref="TestRunProfileLoader" /> class. </summary>
+    /// <param name="profileJsonReader"> The raw profile JSON reader dependency. </param>
+    public TestRunProfileLoader (ITestRunProfileJsonReader profileJsonReader)
+    {
+        this.profileJsonReader = profileJsonReader ?? throw new ArgumentNullException(nameof(profileJsonReader));
+    }
+
+    /// <inheritdoc />
     public async ValueTask<TestRunProfileLoadResult> LoadAsync (
         string profilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-
-        if (string.IsNullOrWhiteSpace(profilePath))
+        var jsonReadResult = await profileJsonReader.ReadTextAsync(profilePath, cancellationToken).ConfigureAwait(false);
+        if (!jsonReadResult.IsSuccess)
         {
-            return TestRunProfileLoadResult.Failure(ExecutionError.InvalidArgument("profilePath is empty."));
-        }
-
-        var normalizedProfilePath = profilePath;
-        try
-        {
-            normalizedProfilePath = Path.GetFullPath(normalizedProfilePath);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return TestRunProfileLoadResult.Failure(ExecutionError.InvalidArgument(
-                $"profilePath is invalid: {profilePath}."));
-        }
-
-        if (!File.Exists(normalizedProfilePath))
-        {
-            return TestRunProfileLoadResult.Failure(ExecutionError.InvalidArgument(
-                $"profilePath does not exist: {normalizedProfilePath}"));
-        }
-
-        string json;
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            json = await File.ReadAllTextAsync(normalizedProfilePath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-        {
-            return TestRunProfileLoadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read profile file: {normalizedProfilePath}. {exception.Message}"));
+            return TestRunProfileLoadResult.Failure(jsonReadResult.Error!);
         }
 
         JsonElement root;
         try
         {
-            using var document = JsonDocument.Parse(json);
+            using var document = JsonDocument.Parse(jsonReadResult.Json!);
             root = document.RootElement.Clone();
         }
         catch (JsonException exception)
@@ -86,11 +62,6 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         return TestRunProfileLoadResult.Success(profile!);
     }
 
-    /// <summary> Parses one profile JSON root by strict contract. </summary>
-    /// <param name="root"> The profile JSON root element. </param>
-    /// <param name="profile"> The parsed profile when successful. </param>
-    /// <param name="errorMessage"> The parse error when parsing fails. </param>
-    /// <returns> <see langword="true" /> when parsing succeeds; otherwise <see langword="false" />. </returns>
     private static bool TryParseProfile (
         JsonElement root,
         out TestRunProfile? profile,
@@ -249,20 +220,11 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         return true;
     }
 
-    /// <summary> Creates error text for missing required profile property. </summary>
-    /// <param name="propertyName"> The missing property name. </param>
-    /// <returns> The missing-property error text. </returns>
     private static string CreateMissingRequiredPropertyError (string propertyName)
     {
         return $"profile is missing required property: {propertyName}";
     }
 
-    /// <summary> Reads one required positive int32 property. </summary>
-    /// <param name="root"> The source object. </param>
-    /// <param name="propertyName"> The required property name. </param>
-    /// <param name="value"> The parsed value when successful. </param>
-    /// <param name="errorMessage"> The error message when parsing fails. </param>
-    /// <returns> <see langword="true" /> when parsing succeeds; otherwise <see langword="false" />. </returns>
     private static bool TryReadRequiredPositiveInt32 (
         JsonElement root,
         string propertyName,
@@ -291,33 +253,21 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         return true;
     }
 
-    /// <summary> Creates error text for int32 type mismatch. </summary>
-    /// <param name="propertyName"> The property name. </param>
-    /// <returns> The type-mismatch error text. </returns>
     private static string CreateInt32TypeMismatchError (string propertyName)
     {
         return $"profile property '{propertyName}' must be int32.";
     }
 
-    /// <summary> Creates error text for string type mismatch. </summary>
-    /// <param name="propertyName"> The property name. </param>
-    /// <returns> The type-mismatch error text. </returns>
     private static string CreateStringTypeMismatchError (string propertyName)
     {
         return $"profile property '{propertyName}' must be string.";
     }
 
-    /// <summary> Creates error text for nullable-string type mismatch. </summary>
-    /// <param name="propertyName"> The property name. </param>
-    /// <returns> The type-mismatch error text. </returns>
     private static string CreateNullableStringTypeMismatchError (string propertyName)
     {
         return $"profile property '{propertyName}' must be string or null.";
     }
 
-    /// <summary> Creates error text for string-array type mismatch. </summary>
-    /// <param name="propertyName"> The property name. </param>
-    /// <returns> The type-mismatch error text. </returns>
     private static string CreateStringArrayTypeMismatchError (string propertyName)
     {
         return $"profile property '{propertyName}' must be string array.";

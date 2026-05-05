@@ -26,8 +26,9 @@ internal static class TestingServiceCollectionExtensions
         services.AddSingleton<ITestRunMetaStore, TestRunMetaStore>();
         services.AddSingleton<ITestRunArtifactsService, TestRunArtifactsService>();
         services.AddSingleton<IDaemonTestRunClient, IpcDaemonTestRunClient>();
-        services.AddSingleton<ITestRunProfileLoader, TestRunProfileLoader>();
+        services.AddSingleton<ITestRunProfileJsonReader, FileTestRunProfileJsonReader>();
         services.AddSingleton<ITestRunPathExistenceProbe, FileTestRunPathExistenceProbe>();
+        services.AddSingleton<IUnityCommandBuilder, UnityCommandBuilder>();
         services.AddSingleton<IUnityTestExecutor, UnityTestExecutor>();
         services.AddSingleton<IUnityResultsXmlParser, UnityResultsXmlParser>();
         services.AddSingleton<IUnityResultsArtifactWriter, UnityResultsArtifactWriter>();

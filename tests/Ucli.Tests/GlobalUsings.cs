@@ -20,7 +20,6 @@ global using MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 global using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 global using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 global using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
-global using MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
 global using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 global using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 global using MackySoft.Ucli.Features.Testing.Run.Artifacts;

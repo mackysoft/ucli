@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
@@ -18,8 +18,8 @@ internal static class OperationCatalogServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IOpsCatalogReader, OpsCatalogReader>();
+        services.AddSingleton<IOpsCatalogInputFingerprintCalculator, InfrastructureOpsCatalogInputFingerprintCalculator>();
         services.AddSingleton<IOpsCatalogStore, FileOpsCatalogStore>();
-        services.AddSingleton<IOpsCatalogAccessService, OpsCatalogAccessService>();
         services.AddSingleton<IOperationCatalogWarmup, OperationCatalogWarmupService>();
         return services;
     }

@@ -1,15 +1,15 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
-using MackySoft.Ucli.Infrastructure.Index;
 
-namespace MackySoft.Ucli.Tests.Ops.Access;
+namespace MackySoft.Ucli.Application.Tests.Ops.Access;
 
 public sealed class OpsCatalogAccessServiceTests
 {
@@ -83,7 +83,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
         {
-            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "assets", "asset-search", "guid-path", "combined"),
+            Snapshot = new OpsCatalogInputHashSnapshot("script", "manifest", "lock", "asmdef", "assets", "asset-search", "guid-path", "combined"),
         };
         var store = new StubOpsCatalogStore();
         var service = CreateService(
@@ -139,7 +139,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
         {
-            Snapshot = new IndexInputHashSnapshot("script", "manifest", "lock", "asmdef", "assets", "asset-search", "guid-path", "combined"),
+            Snapshot = new OpsCatalogInputHashSnapshot("script", "manifest", "lock", "asmdef", "assets", "asset-search", "guid-path", "combined"),
         };
         var store = new StubOpsCatalogStore
         {
@@ -191,7 +191,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
         {
-            CoreSnapshot = new IndexCoreInputHashSnapshot(
+            CoreSnapshot = new OpsCatalogCoreInputHashSnapshot(
                 ScriptAssembliesHash: "script",
                 PackagesManifestHash: "manifest",
                 PackagesLockHash: "lock",
@@ -257,7 +257,7 @@ public sealed class OpsCatalogAccessServiceTests
         };
         var inputFingerprintCalculator = new StubIndexInputFingerprintCalculator
         {
-            CoreSnapshot = new IndexCoreInputHashSnapshot(
+            CoreSnapshot = new OpsCatalogCoreInputHashSnapshot(
                 ScriptAssembliesHash: "script",
                 PackagesManifestHash: "manifest",
                 PackagesLockHash: "lock",
@@ -353,7 +353,7 @@ public sealed class OpsCatalogAccessServiceTests
     private static OpsCatalogAccessService CreateService (
         IPersistedOpsCatalogReader persistedOpsCatalogSnapshotLoader,
         IPersistedOpsCatalogPersistenceArtifactsReader persistedOpsCatalogPersistenceArtifactsReader,
-        IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
+        IOpsCatalogInputFingerprintCalculator indexInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
@@ -402,19 +402,19 @@ public sealed class OpsCatalogAccessServiceTests
         }
     }
 
-    private sealed class StubIndexInputFingerprintCalculator : IIndexInputFingerprintCalculator
+    private sealed class StubIndexInputFingerprintCalculator : IOpsCatalogInputFingerprintCalculator
     {
         public int CoreCallCount { get; private set; }
 
         public int FullCallCount { get; private set; }
 
-        public IndexCoreInputHashSnapshot? CoreSnapshot { get; set; }
+        public OpsCatalogCoreInputHashSnapshot? CoreSnapshot { get; set; }
 
-        public IndexInputHashSnapshot? Snapshot { get; set; }
+        public OpsCatalogInputHashSnapshot? Snapshot { get; set; }
 
         public bool ThrowOnTryCompute { get; set; }
 
-        public ValueTask<IndexCoreInputHashSnapshot?> TryComputeCore (
+        public ValueTask<OpsCatalogCoreInputHashSnapshot?> TryComputeCore (
             string projectRootPath,
             CancellationToken cancellationToken = default)
         {
@@ -422,13 +422,13 @@ public sealed class OpsCatalogAccessServiceTests
             CoreCallCount++;
             if (CoreSnapshot != null)
             {
-                return ValueTask.FromResult<IndexCoreInputHashSnapshot?>(CoreSnapshot);
+                return ValueTask.FromResult<OpsCatalogCoreInputHashSnapshot?>(CoreSnapshot);
             }
 
             if (Snapshot != null)
             {
-                return ValueTask.FromResult<IndexCoreInputHashSnapshot?>(
-                    new IndexCoreInputHashSnapshot(
+                return ValueTask.FromResult<OpsCatalogCoreInputHashSnapshot?>(
+                    new OpsCatalogCoreInputHashSnapshot(
                         ScriptAssembliesHash: Snapshot.ScriptAssembliesHash,
                         PackagesManifestHash: Snapshot.PackagesManifestHash,
                         PackagesLockHash: Snapshot.PackagesLockHash,
@@ -436,10 +436,10 @@ public sealed class OpsCatalogAccessServiceTests
                         CombinedHash: Snapshot.CombinedHash));
             }
 
-            return ValueTask.FromResult<IndexCoreInputHashSnapshot?>(null);
+            return ValueTask.FromResult<OpsCatalogCoreInputHashSnapshot?>(null);
         }
 
-        public ValueTask<IndexInputHashSnapshot?> TryCompute (
+        public ValueTask<OpsCatalogInputHashSnapshot?> TryCompute (
             string projectRootPath,
             CancellationToken cancellationToken = default)
         {
@@ -498,7 +498,7 @@ public sealed class OpsCatalogAccessServiceTests
 
         public string? LastSourceInputsHash { get; private set; }
 
-        public IndexInputHashSnapshot? LastManifestInputSnapshot { get; private set; }
+        public OpsCatalogInputHashSnapshot? LastManifestInputSnapshot { get; private set; }
 
         public Exception? WriteException { get; set; }
 
@@ -508,7 +508,7 @@ public sealed class OpsCatalogAccessServiceTests
             DateTimeOffset generatedAtUtc,
             IReadOnlyList<IndexOpEntryJsonContract> operations,
             string sourceInputsHash,
-            IndexInputHashSnapshot? manifestInputSnapshot,
+            OpsCatalogInputHashSnapshot? manifestInputSnapshot,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

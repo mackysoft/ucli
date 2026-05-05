@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Infrastructure.Index;
 
-namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
+namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 
 /// <summary> Persists the local <c>ops.catalog.json</c> read-index snapshot. </summary>
 internal interface IOpsCatalogStore
@@ -21,6 +20,6 @@ internal interface IOpsCatalogStore
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations,
         string sourceInputsHash,
-        IndexInputHashSnapshot? manifestInputSnapshot,
+        OpsCatalogInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default);
 }

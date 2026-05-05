@@ -1,12 +1,11 @@
-using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Hosting.Cli.Requests;
+namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 
-/// <summary> Builds a normalized resolve selector from CLI selector flags. </summary>
+/// <summary> Builds a normalized resolve selector from raw selector option values. </summary>
 internal static class ResolveSelectorInputFactory
 {
-    /// <summary> Attempts to create one selector from raw CLI option values. </summary>
+    /// <summary> Attempts to create one selector from raw option values. </summary>
     public static ResolveSelectorInputCreationResult Create (
         string? globalObjectId,
         string? assetGuid,

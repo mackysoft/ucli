@@ -1,8 +1,7 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Tests;
+namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class TestRunProfileLoaderTests
 {
@@ -10,9 +9,7 @@ public sealed class TestRunProfileLoaderTests
     [Trait("Size", "Small")]
     public async Task Load_WithValidProfile_ReturnsSuccess ()
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "valid-profile");
-        var profilePath = scope.WriteFile(
-            "test.profile.json",
+        var loader = CreateLoader(
             """
             {
               "schemaVersion": 1,
@@ -27,9 +24,8 @@ public sealed class TestRunProfileLoaderTests
               "timeout": 90
             }
             """);
-        var loader = new TestRunProfileLoader();
 
-        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var profile = Assert.IsType<TestRunProfile>(result.Profile);
@@ -44,9 +40,7 @@ public sealed class TestRunProfileLoaderTests
     [Trait("Size", "Small")]
     public async Task Load_WithSchemaVersionMismatch_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "schema-mismatch");
-        var profilePath = scope.WriteFile(
-            "test.profile.json",
+        var loader = CreateLoader(
             """
             {
               "schemaVersion": 9,
@@ -61,9 +55,8 @@ public sealed class TestRunProfileLoaderTests
               "timeout": 90
             }
             """);
-        var loader = new TestRunProfileLoader();
 
-        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -75,9 +68,7 @@ public sealed class TestRunProfileLoaderTests
     [Trait("Size", "Small")]
     public async Task Load_WithLegacyBuildTargetProperty_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "legacy-build-target-property");
-        var profilePath = scope.WriteFile(
-            "test.profile.json",
+        var loader = CreateLoader(
             """
             {
               "schemaVersion": 1,
@@ -93,9 +84,8 @@ public sealed class TestRunProfileLoaderTests
               "timeout": 90
             }
             """);
-        var loader = new TestRunProfileLoader();
 
-        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -108,9 +98,7 @@ public sealed class TestRunProfileLoaderTests
     [Trait("Size", "Small")]
     public async Task Load_WithLegacyTimeoutProperty_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "legacy-timeout-property");
-        var profilePath = scope.WriteFile(
-            "test.profile.json",
+        var loader = CreateLoader(
             """
             {
               "schemaVersion": 1,
@@ -125,9 +113,8 @@ public sealed class TestRunProfileLoaderTests
               "timeoutSeconds": 90
             }
             """);
-        var loader = new TestRunProfileLoader();
 
-        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -140,9 +127,7 @@ public sealed class TestRunProfileLoaderTests
     [Trait("Size", "Small")]
     public async Task Load_WithNonPositiveTimeout_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "non-positive-timeout");
-        var profilePath = scope.WriteFile(
-            "test.profile.json",
+        var loader = CreateLoader(
             """
             {
               "schemaVersion": 1,
@@ -157,9 +142,8 @@ public sealed class TestRunProfileLoaderTests
               "timeout": 0
             }
             """);
-        var loader = new TestRunProfileLoader();
 
-        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -167,19 +151,26 @@ public sealed class TestRunProfileLoaderTests
         Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Load_WithMissingProfilePath_ReturnsInvalidArgument ()
+    private static TestRunProfileLoader CreateLoader (string json)
     {
-        using var scope = TestDirectories.CreateTempScope("test-run-profile-loader", "missing-profile");
-        var loader = new TestRunProfileLoader();
-        var missingPath = scope.GetPath("missing.profile.json");
+        return new TestRunProfileLoader(new StubProfileJsonReader(json));
+    }
 
-        var result = await loader.LoadAsync(missingPath, CancellationToken.None);
+    private sealed class StubProfileJsonReader : ITestRunProfileJsonReader
+    {
+        private readonly string json;
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("profilePath does not exist", error.Message, StringComparison.Ordinal);
+        public StubProfileJsonReader (string json)
+        {
+            this.json = json;
+        }
+
+        public ValueTask<TestRunProfileJsonReadResult> ReadTextAsync (
+            string profilePath,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(TestRunProfileJsonReadResult.Success(json));
+        }
     }
 }

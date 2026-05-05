@@ -16,6 +16,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
@@ -115,6 +116,7 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationOperationCatalogServices (this IServiceCollection services)
     {
         services.AddSingleton<IOpsPreflightService, OpsPreflightService>();
+        services.AddSingleton<IOpsCatalogAccessService, OpsCatalogAccessService>();
         services.AddSingleton<OpsReadIndexInfoMapper>();
         services.AddSingleton<IOpsListResultMapper, OpsListResultMapper>();
         services.AddSingleton<IOpsDescribeResultMapper, OpsDescribeResultMapper>();
@@ -129,7 +131,6 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
         services.AddSingleton<IDaemonSessionTokenProvider, DaemonSessionTokenProvider>();
 
-        services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
         services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();
         services.AddSingleton<IDaemonLaunchCompensationService, DaemonLaunchCompensationService>();
@@ -173,9 +174,9 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationTestingServices (this IServiceCollection services)
     {
-        services.AddSingleton<IUnityCommandBuilder, UnityCommandBuilder>();
         services.AddSingleton<IUnityResultsConverter, UnityResultsConverter>();
         services.AddSingleton<ITestProfileInitService, TestProfileInitService>();
+        services.AddSingleton<ITestRunProfileLoader, TestRunProfileLoader>();
         services.AddSingleton<ITestRunConfigurationResolver, TestRunConfigurationResolver>();
         services.AddSingleton<ITestRunPreflightService, TestRunPreflightService>();
         services.AddSingleton<ITestRunExecutionPipeline, TestRunExecutionPipeline>();

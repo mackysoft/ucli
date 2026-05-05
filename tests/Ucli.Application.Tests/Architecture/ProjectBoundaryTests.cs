@@ -173,6 +173,8 @@ public sealed class ProjectBoundaryTests
             "File.",
             "Directory.",
             "Environment.",
+            "System.Net.Sockets",
+            "SocketException",
             "FileStream",
             "DirectoryInfo",
         };
@@ -213,6 +215,7 @@ public sealed class ProjectBoundaryTests
             "MackySoft.Ucli.Infrastructure",
             "MackySoft.Ucli.UnityIntegration",
             "MackySoft.Ucli.Features.",
+            "MackySoft.Ucli.Tests",
         };
 
         var applicationTestFiles = EnumerateCSharpSourceFiles("tests/Ucli.Application.Tests")
@@ -232,31 +235,60 @@ public sealed class ProjectBoundaryTests
     [Trait("Size", "Small")]
     public void Feature_use_case_implementations_are_not_owned_by_cli_host_project ()
     {
-        var forbiddenHostUseCaseRoots = new[]
+        var hostFeatureFiles = Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot, "src", "Ucli", "Features"), "*.cs", SearchOption.AllDirectories)
+            .Select(NormalizeRepositoryRelativePath)
+            .Where(static relativePath => relativePath.Contains("/UseCases/", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Empty(hostFeatureFiles);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void InternalsVisibleTo_lists_are_boundary_explicit ()
+    {
+        var expectedFriendsByAssemblyInfo = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
-            "src/Ucli/Features/Init/UseCases",
-            "src/Ucli/Features/Testing/Profiles/UseCases",
-            "src/Ucli/Features/Testing/Run/Configuration/TestRunConfigurationResolver.cs",
+            ["src/Ucli.Application/AssemblyInfo.cs"] =
+            [
+                "MackySoft.Ucli",
+                "MackySoft.Ucli.Application.Tests",
+                "MackySoft.Ucli.Tests",
+            ],
+            ["src/Ucli.Contracts/AssemblyInfo.cs"] =
+            [
+                "MackySoft.Ucli",
+                "MackySoft.Ucli.Application",
+                "MackySoft.Ucli.Application.Tests",
+                "MackySoft.Ucli.Contracts.Tests",
+                "MackySoft.Ucli.Infrastructure",
+                "MackySoft.Ucli.Infrastructure.Tests",
+                "MackySoft.Ucli.Tests",
+                "MackySoft.Ucli.Unity.Editor",
+                "MackySoft.Ucli.Unity.Tests.Editor",
+            ],
         };
 
-        foreach (var relativePath in forbiddenHostUseCaseRoots)
+        foreach (var (assemblyInfoPath, expectedFriends) in expectedFriendsByAssemblyInfo)
         {
-            var fullPath = Path.Combine(RepositoryRoot, relativePath);
-            Assert.False(
-                File.Exists(fullPath),
-                $"CLI host must not own application use case implementation file: {relativePath}");
-
-            if (Directory.Exists(fullPath))
-            {
-                Assert.Empty(Directory.EnumerateFiles(fullPath, "*.cs", SearchOption.AllDirectories));
-            }
+            var actualFriends = ReadInternalsVisibleToAssemblyNames(assemblyInfoPath);
+            Assert.Equal(
+                expectedFriends.OrderBy(static value => value, StringComparer.Ordinal),
+                actualFriends.OrderBy(static value => value, StringComparer.Ordinal));
         }
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Unity_asmdefs_do_not_reference_application_assembly ()
+    public void Unity_asmdefs_do_not_reference_cli_host_or_application_assemblies ()
     {
+        var forbiddenAssemblyReferences = new[]
+        {
+            "\"MackySoft.Ucli\"",
+            "\"MackySoft.Ucli.Application\"",
+        };
+
         var asmdefFiles = Directory.EnumerateFiles(
             Path.Combine(RepositoryRoot, "src", "Ucli.Unity"),
             "*.asmdef",
@@ -265,20 +297,33 @@ public sealed class ProjectBoundaryTests
         foreach (var asmdefFile in asmdefFiles)
         {
             var asmdefText = File.ReadAllText(asmdefFile);
-            Assert.DoesNotContain("MackySoft.Ucli.Application", asmdefText, StringComparison.Ordinal);
+            foreach (var marker in forbiddenAssemblyReferences)
+            {
+                Assert.DoesNotContain(marker, asmdefText, StringComparison.Ordinal);
+            }
         }
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Unity_plugin_source_does_not_reference_application_assembly ()
+    public void Unity_plugin_source_does_not_reference_cli_host_or_application_boundaries ()
     {
+        var forbiddenMarkers = new[]
+        {
+            "MackySoft.Ucli.Application",
+            "MackySoft.Ucli.Hosting",
+            "MackySoft.Ucli.Features.",
+        };
+
         var unitySourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Unity");
 
         foreach (var sourceFile in unitySourceFiles)
         {
             var sourceText = File.ReadAllText(sourceFile);
-            Assert.DoesNotContain("MackySoft.Ucli.Application", sourceText, StringComparison.Ordinal);
+            foreach (var marker in forbiddenMarkers)
+            {
+                Assert.DoesNotContain(marker, sourceText, StringComparison.Ordinal);
+            }
         }
     }
 
@@ -341,6 +386,32 @@ public sealed class ProjectBoundaryTests
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(static value => value!)
             .ToArray();
+    }
+
+    private static string[] ReadInternalsVisibleToAssemblyNames (string assemblyInfoPath)
+    {
+        var sourceText = File.ReadAllText(Path.Combine(RepositoryRoot, assemblyInfoPath));
+        const string marker = "InternalsVisibleTo(\"";
+        var friends = new List<string>();
+        var searchIndex = 0;
+        while (true)
+        {
+            var markerIndex = sourceText.IndexOf(marker, searchIndex, StringComparison.Ordinal);
+            if (markerIndex < 0)
+            {
+                return friends.ToArray();
+            }
+
+            var valueStart = markerIndex + marker.Length;
+            var valueEnd = sourceText.IndexOf('"', valueStart);
+            if (valueEnd < 0)
+            {
+                throw new InvalidOperationException($"Invalid InternalsVisibleTo declaration in {assemblyInfoPath}.");
+            }
+
+            friends.Add(sourceText[valueStart..valueEnd]);
+            searchIndex = valueEnd + 1;
+        }
     }
 
     private static string NormalizeRepositoryRelativePath (string fullPath)

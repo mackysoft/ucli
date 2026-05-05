@@ -32,7 +32,6 @@ internal static class DaemonServiceCollectionExtensions
         services.AddUcliDaemonLifecycleServices();
         services.AddUcliDaemonSupervisorServices();
         services.AddUcliDaemonObservabilityServices();
-        services.AddUcliDaemonUseCaseServices();
         return services;
     }
 
@@ -43,6 +42,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonSessionDiagnosisResolver, DaemonSessionDiagnosisResolver>();
         services.AddSingleton<IDaemonProcessIdentityAssessor, DaemonProcessIdentityAssessor>();
         services.AddSingleton<IDaemonProcessTerminationService, DaemonProcessTerminationService>();
+        services.AddSingleton<IDaemonReachabilityClassifier, DaemonReachabilityClassifier>();
         services.AddSingleton<UnityBatchmodeProcessLauncher>();
         services.AddSingleton<IUnityDaemonProcessLauncher>(provider => provider.GetRequiredService<UnityBatchmodeProcessLauncher>());
         services.AddSingleton<IUnityBatchmodeProcessLauncher>(provider => provider.GetRequiredService<UnityBatchmodeProcessLauncher>());
@@ -91,11 +91,6 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<SupervisorClient>();
         services.AddSingleton<ISupervisorProjectGateway, SupervisorProjectGateway>();
         services.AddSingleton<SupervisorHost>();
-        return services;
-    }
-
-    private static IServiceCollection AddUcliDaemonUseCaseServices (this IServiceCollection services)
-    {
         return services;
     }
 }

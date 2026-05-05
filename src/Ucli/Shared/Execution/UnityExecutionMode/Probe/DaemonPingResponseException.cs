@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
 /// <summary> Represents one ping-response contract failure returned from a reachable daemon endpoint. </summary>
 internal sealed class DaemonPingResponseException : Exception

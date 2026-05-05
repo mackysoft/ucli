@@ -1,11 +1,10 @@
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
-using MackySoft.Ucli.Infrastructure.Index;
 
-namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
+namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Implements ops catalog access flow across read-index and source fallback paths. </summary>
 internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
@@ -14,7 +13,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
     private readonly IPersistedOpsCatalogPersistenceArtifactsReader persistedOpsCatalogPersistenceArtifactsReader;
 
-    private readonly IIndexInputFingerprintCalculator indexInputFingerprintCalculator;
+    private readonly IOpsCatalogInputFingerprintCalculator opsCatalogInputFingerprintCalculator;
 
     private readonly IOpsCatalogReader opsCatalogReader;
 
@@ -23,19 +22,19 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     /// <summary> Initializes a new instance of the <see cref="OpsCatalogAccessService" /> class. </summary>
     /// <param name="persistedOpsCatalogReader"> The persisted ops-catalog reader dependency. </param>
     /// <param name="persistedOpsCatalogPersistenceArtifactsReader"> The persisted artifact reader dependency for refreshed ops-catalog persistence. </param>
-    /// <param name="indexInputFingerprintCalculator"> The read-index input fingerprint calculator dependency. </param>
+    /// <param name="opsCatalogInputFingerprintCalculator"> The read-index input fingerprint calculator dependency. </param>
     /// <param name="opsCatalogReader"> The ops catalog reader dependency. </param>
     /// <param name="opsCatalogStore"> The ops catalog persistence dependency. </param>
     public OpsCatalogAccessService (
         IPersistedOpsCatalogReader persistedOpsCatalogReader,
         IPersistedOpsCatalogPersistenceArtifactsReader persistedOpsCatalogPersistenceArtifactsReader,
-        IIndexInputFingerprintCalculator indexInputFingerprintCalculator,
+        IOpsCatalogInputFingerprintCalculator opsCatalogInputFingerprintCalculator,
         IOpsCatalogReader opsCatalogReader,
         IOpsCatalogStore opsCatalogStore)
     {
         this.persistedOpsCatalogReader = persistedOpsCatalogReader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogReader));
         this.persistedOpsCatalogPersistenceArtifactsReader = persistedOpsCatalogPersistenceArtifactsReader ?? throw new ArgumentNullException(nameof(persistedOpsCatalogPersistenceArtifactsReader));
-        this.indexInputFingerprintCalculator = indexInputFingerprintCalculator ?? throw new ArgumentNullException(nameof(indexInputFingerprintCalculator));
+        this.opsCatalogInputFingerprintCalculator = opsCatalogInputFingerprintCalculator ?? throw new ArgumentNullException(nameof(opsCatalogInputFingerprintCalculator));
         this.opsCatalogReader = opsCatalogReader ?? throw new ArgumentNullException(nameof(opsCatalogReader));
         this.opsCatalogStore = opsCatalogStore ?? throw new ArgumentNullException(nameof(opsCatalogStore));
     }
@@ -193,7 +192,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var coreSnapshot = await indexInputFingerprintCalculator.TryComputeCore(
+        var coreSnapshot = await opsCatalogInputFingerprintCalculator.TryComputeCore(
                 context.Context.UnityProject.UnityProjectRoot,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -214,7 +213,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             var manifest = persistedArtifacts.InputsManifest;
             return new OpsCatalogPersistenceInput(
                 SourceInputsHash: coreSnapshot.CombinedHash,
-                ManifestInputSnapshot: new IndexInputHashSnapshot(
+                ManifestInputSnapshot: new OpsCatalogInputHashSnapshot(
                     ScriptAssembliesHash: coreSnapshot.ScriptAssembliesHash,
                     PackagesManifestHash: coreSnapshot.PackagesManifestHash,
                     PackagesLockHash: coreSnapshot.PackagesLockHash,
@@ -235,7 +234,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
                 ManifestInputSnapshot: null);
         }
 
-        var fullSnapshot = await indexInputFingerprintCalculator.TryCompute(
+        var fullSnapshot = await opsCatalogInputFingerprintCalculator.TryCompute(
                 context.Context.UnityProject.UnityProjectRoot,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -253,7 +252,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
     private sealed record OpsCatalogPersistenceInput (
         string SourceInputsHash,
-        IndexInputHashSnapshot? ManifestInputSnapshot);
+        OpsCatalogInputHashSnapshot? ManifestInputSnapshot);
 
     private static string? CombineFallbackReasons (
         string? first,

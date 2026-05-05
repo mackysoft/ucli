@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Hosting.Cli.Requests;
+namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 
 /// <summary> Normalizes typed-query string option values. </summary>
 internal static class QueryOptionValueNormalizer

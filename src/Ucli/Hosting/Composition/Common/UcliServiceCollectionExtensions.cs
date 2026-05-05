@@ -20,11 +20,9 @@ internal static class UcliServiceCollectionExtensions
         services.AddUcliSharedServices();
         services.AddUcliUnityIntegrationServices();
         services.AddUcliInitFeatureServices();
-        services.AddUcliRequestFeatureServices();
         services.AddUcliOperationCatalogFeatureServices();
         services.AddUcliDaemonFeatureServices();
         services.AddUcliTestingFeatureServices();
-        services.AddUcliStatusFeatureServices();
         services.AddUcliSkillsFeatureServices();
         return services;
     }

@@ -6,18 +6,15 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
-using MackySoft.Ucli.UnityIntegration.Ipc;
-using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
-namespace MackySoft.Ucli.Tests;
+namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class PlanServiceTests
 {
@@ -53,8 +50,8 @@ public sealed class PlanServiceTests
         var result = await service.Execute(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
-                Mode: NormalizeMode("oneshot"),
-                TimeoutMilliseconds: NormalizeTimeout("1234"),
+                Mode: UnityExecutionMode.Oneshot,
+                TimeoutMilliseconds: 1234,
                 ReadIndexMode: null,
                 FailFast: true,
                 RequestJson: """{"steps":[]}"""),
@@ -107,8 +104,8 @@ public sealed class PlanServiceTests
         var result = await service.Execute(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
-                Mode: NormalizeMode(null),
-                TimeoutMilliseconds: NormalizeTimeout(null),
+                Mode: null,
+                TimeoutMilliseconds: null,
                 ReadIndexMode: ReadIndexMode.AllowStale,
                 FailFast: false,
                 RequestJson: """{"steps":[]}"""),
@@ -143,8 +140,8 @@ public sealed class PlanServiceTests
         var result = await service.Execute(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
-                Mode: NormalizeMode(null),
-                TimeoutMilliseconds: NormalizeTimeout(null),
+                Mode: null,
+                TimeoutMilliseconds: null,
                 ReadIndexMode: ReadIndexMode.RequireFresh,
                 FailFast: false,
                 RequestJson: """{"steps":[]}"""),
@@ -176,8 +173,8 @@ public sealed class PlanServiceTests
         var result = await service.Execute(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
-                Mode: NormalizeMode(null),
-                TimeoutMilliseconds: NormalizeTimeout(null),
+                Mode: null,
+                TimeoutMilliseconds: null,
                 ReadIndexMode: ReadIndexMode.RequireFresh,
                 FailFast: false,
                 RequestJson: """{"steps":[]}"""),
@@ -218,8 +215,8 @@ public sealed class PlanServiceTests
         var result = await service.Execute(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
-                Mode: NormalizeMode(null),
-                TimeoutMilliseconds: NormalizeTimeout(null),
+                Mode: null,
+                TimeoutMilliseconds: null,
                 ReadIndexMode: null,
                 FailFast: false,
                 RequestJson: """{"steps":[]}"""),
@@ -265,8 +262,8 @@ public sealed class PlanServiceTests
         var result = await service.Execute(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
-                Mode: NormalizeMode(null),
-                TimeoutMilliseconds: NormalizeTimeout(null),
+                Mode: null,
+                TimeoutMilliseconds: null,
                 ReadIndexMode: null,
                 FailFast: false,
                 RequestJson: """{"steps":[]}"""),
@@ -304,8 +301,8 @@ public sealed class PlanServiceTests
         var result = await service.Execute(
             new PlanCommandInput(
                 ProjectPath: "/repo/UnityProject",
-                Mode: NormalizeMode(null),
-                TimeoutMilliseconds: NormalizeTimeout(null),
+                Mode: null,
+                TimeoutMilliseconds: null,
                 ReadIndexMode: null,
                 FailFast: false,
                 RequestJson: """{"steps":[]}"""),

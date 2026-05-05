@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 
-namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
+namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 
 /// <summary> Builds Unity batchmode command arguments for test execution. </summary>
 internal interface IUnityCommandBuilder
