@@ -37,7 +37,7 @@ internal static class QueryCommandResultFactory
         }
 
         return new CommandResult(
-            ProtocolVersion: serviceResult.ProtocolVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: serviceResult.CommandName,
             Status: IpcProtocol.StatusError,
             ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),

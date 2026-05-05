@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Application.Shared.Configuration;
 /// <summary> Provides reusable validation and matching helpers for regex pattern strings. </summary>
 internal static class RegexPatternUtilities
 {
+    private static readonly TimeSpan MatchTimeout = TimeSpan.FromMilliseconds(250);
+
     /// <summary> Validates whether a string can be compiled as a regular expression pattern. </summary>
     /// <param name="pattern"> The regex pattern string. </param>
     /// <param name="errorMessage"> The parser error message when validation fails. </param>
@@ -37,8 +39,16 @@ internal static class RegexPatternUtilities
             return false;
         }
 
-        isMatch = regex!.IsMatch(input);
-        return true;
+        try
+        {
+            isMatch = regex!.IsMatch(input);
+            return true;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            isMatch = false;
+            return false;
+        }
     }
 
     /// <summary> Attempts to compile one regex pattern with a fixed option set. </summary>
@@ -55,7 +65,7 @@ internal static class RegexPatternUtilities
 
         try
         {
-            regex = new Regex(pattern, RegexOptions.CultureInvariant);
+            regex = new Regex(pattern, RegexOptions.CultureInvariant, MatchTimeout);
             errorMessage = null;
             return true;
         }

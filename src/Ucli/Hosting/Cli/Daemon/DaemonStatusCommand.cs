@@ -61,7 +61,7 @@ internal sealed class DaemonStatusCommand
                 message: "uCLI daemon status retrieval completed.",
                 payload: new
                 {
-                    daemonStatus = output.DaemonStatus,
+                    daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
                     serverVersion = output.ServerVersion,
                     runtime = output.Runtime,
                     lifecycleState = output.LifecycleState,

@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
@@ -102,15 +103,9 @@ internal sealed class DaemonStartService : IDaemonStartService
                 "Daemon start operation failed without structured error details."));
         }
 
-        if (!DaemonStartStateCodec.TryToValue(startResult.Status, out var startStatus))
-        {
-            return DaemonStartExecutionResult.Failure(ExecutionError.InternalError(
-                $"Daemon start returned unsupported status: {startResult.Status}."));
-        }
-
         var output = new DaemonStartExecutionOutput(
-            StartStatus: startStatus!,
-            DaemonStatus: DaemonStatusStateCodec.Running,
+            StartStatus: startResult.Status,
+            DaemonStatus: DaemonStatusKind.Running,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: daemonSessionOutputMapper.ToOutput(startResult.Session!));
         return DaemonStartExecutionResult.Success(output);

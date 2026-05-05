@@ -58,8 +58,8 @@ public sealed class DaemonStartServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
-        Assert.Equal("started", output.StartStatus);
-        Assert.Equal("running", output.DaemonStatus);
+        Assert.Equal(DaemonStartStatus.Started, output.StartStatus);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(1200, output.TimeoutMilliseconds);
         Assert.Equal(mapper.Output, output.Session);
         Assert.Equal(1, supervisorProjectGateway.EnsureRunningCallCount);
@@ -110,8 +110,8 @@ public sealed class DaemonStartServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
-        Assert.Equal("alreadyRunning", output.StartStatus);
-        Assert.Equal("running", output.DaemonStatus);
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, output.StartStatus);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
     }
 
     [Fact]

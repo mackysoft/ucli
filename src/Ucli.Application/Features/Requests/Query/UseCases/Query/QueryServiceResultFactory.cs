@@ -91,7 +91,6 @@ internal static class QueryServiceResultFactory
         ArgumentNullException.ThrowIfNull(readIndex);
 
         return new QueryServiceResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             CommandName: commandName,
             RequestId: requestId,
             OpResults: opResults,

@@ -43,7 +43,7 @@ internal static class RefreshCommandResultFactory
         }
 
         return new CommandResult(
-            ProtocolVersion: executionResult.ProtocolVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Refresh,
             Status: IpcProtocol.StatusError,
             ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(executionResult.Outcome),

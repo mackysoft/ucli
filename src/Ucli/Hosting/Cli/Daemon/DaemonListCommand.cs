@@ -66,9 +66,9 @@ internal sealed class DaemonListCommand
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     projectRelativePath = output.ProjectRelativePath,
                     isComplete = output.IsComplete,
-                    completionReason = output.CompletionReason,
+                    completionReason = DaemonCommandOutputProjector.ToListCompletionReason(output.CompletionReason),
                     remainingWorktreeCount = output.RemainingWorktreeCount,
-                    items = output.Items,
+                    items = output.Items.Select(DaemonCommandOutputProjector.ToListItem).ToArray(),
                 });
         }
 

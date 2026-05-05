@@ -52,7 +52,7 @@ public sealed class DaemonStatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
-        Assert.Equal("stale", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Equal(5678, output.TimeoutMilliseconds);
         Assert.Equal(mapper.Output, output.Session);
         Assert.Null(output.Diagnosis);
@@ -144,7 +144,7 @@ public sealed class DaemonStatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
-        Assert.Equal("notRunning", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.NotRunning, output.DaemonStatus);
         Assert.Equal(2222, output.TimeoutMilliseconds);
         Assert.Null(output.Session);
         Assert.Null(output.Diagnosis);
@@ -322,7 +322,7 @@ public sealed class DaemonStatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
-        Assert.Equal("running", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("9.9.9", output.ServerVersion);
         Assert.Equal("batchmode", output.Runtime);
         Assert.Equal(IpcEditorLifecycleStateCodec.DomainReloading, output.LifecycleState);
@@ -546,7 +546,7 @@ public sealed class DaemonStatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
-        Assert.Equal("stale", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Equal(sessionMapper.Output, output.Session);
         Assert.Equal(diagnosisMapper.Output, output.Diagnosis);
         Assert.Equal(1, pingInfoClient.CallCount);

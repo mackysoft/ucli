@@ -6,7 +6,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 
 /// <summary> Represents the normalized result returned from one <c>resolve</c> execution workflow. </summary>
 internal sealed record ResolveServiceResult (
-    int ProtocolVersion,
     string RequestId,
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
     IReadOnlyList<IpcError> Errors,

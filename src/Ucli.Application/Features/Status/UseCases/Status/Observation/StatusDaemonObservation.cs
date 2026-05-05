@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 
 /// <summary> Represents daemon observation values that can be projected into status command payload. </summary>
@@ -11,7 +13,7 @@ namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation
 /// <param name="CanAcceptExecutionRequests"> Whether the daemon can currently accept execution requests. </param>
 /// <param name="Runtime"> The daemon runtime value when reachable. </param>
 internal sealed record StatusDaemonObservation (
-    string DaemonStatus,
+    DaemonStatusKind DaemonStatus,
     string? ServerVersion,
     string? LifecycleState,
     string? BlockingReason,

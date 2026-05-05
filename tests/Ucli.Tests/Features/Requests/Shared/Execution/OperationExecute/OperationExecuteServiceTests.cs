@@ -76,7 +76,6 @@ public sealed class OperationExecuteServiceTests
                 failFast: true),
             cancellationToken: CancellationToken.None);
 
-        Assert.Equal(IpcProtocol.CurrentVersion, result.ProtocolVersion);
         Assert.True(Guid.TryParseExact(result.RequestId, "D", out _));
         Assert.True(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);

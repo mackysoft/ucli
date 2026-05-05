@@ -6,7 +6,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 
 /// <summary> Represents the normalized result returned from one typed-query execution workflow. </summary>
 internal sealed record QueryServiceResult (
-    int ProtocolVersion,
     string CommandName,
     string RequestId,
     IReadOnlyList<IpcExecuteOperationResult> OpResults,

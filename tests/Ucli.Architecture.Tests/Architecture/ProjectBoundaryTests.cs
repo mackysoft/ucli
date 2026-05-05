@@ -284,6 +284,19 @@ public sealed class ProjectBoundaryTests
         var forbiddenSourceMarkers = new[]
         {
             "namespace MackySoft.Ucli.Application.Features.Daemon.Supervisor",
+            "ResolveSelectorInputFactory",
+            "QueryOptionValueNormalizer",
+            "QueryAssetsFindOperationRequestFactory",
+            "QueryWindowOptionsFactory",
+            "StatusDaemonStateCodec",
+            "DaemonStartStateCodec",
+            "DaemonStatusStateCodec",
+            "DaemonStopStateCodec",
+            "DaemonCleanupStateCodec",
+            "DaemonCleanupSkipReasonCodec",
+            "DaemonListStateCodec",
+            "DaemonListReasonCodec",
+            "DaemonListCompletionReasonCodec",
             "ISupervisor",
             "IGitCommandClient",
             "GitCommandTextResult",
@@ -308,6 +321,34 @@ public sealed class ProjectBoundaryTests
                 Assert.DoesNotContain(marker, sourceText, StringComparison.Ordinal);
             }
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Application_results_do_not_own_cli_protocol_projection_fields ()
+    {
+        var applicationResultFiles = new[]
+        {
+            "src/Ucli.Application/Features/Requests/Shared/Execution/OperationExecute/OperationExecuteResult.cs",
+            "src/Ucli.Application/Features/Requests/Query/UseCases/Query/QueryServiceResult.cs",
+            "src/Ucli.Application/Features/Requests/Resolve/UseCases/Resolve/ResolveServiceResult.cs",
+        };
+
+        foreach (var resultFile in applicationResultFiles)
+        {
+            var sourceText = File.ReadAllText(Path.Combine(RepositoryRoot, resultFile));
+            Assert.DoesNotContain("ProtocolVersion", sourceText, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Cli_host_global_usings_do_not_import_application_namespaces ()
+    {
+        var globalUsingsPath = Path.Combine(RepositoryRoot, "src", "Ucli", "GlobalUsings.cs");
+        var sourceText = File.ReadAllText(globalUsingsPath);
+
+        Assert.DoesNotContain("global using MackySoft.Ucli.Application", sourceText, StringComparison.Ordinal);
     }
 
     [Fact]

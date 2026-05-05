@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 /// <param name="Session"> The daemon session values when available; otherwise <see langword="null" />. </param>
 /// <param name="Diagnosis"> The daemon diagnosis values when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonStatusExecutionOutput (
-    string DaemonStatus,
+    DaemonStatusKind DaemonStatus,
     string? ServerVersion,
     string? Runtime,
     string? LifecycleState,

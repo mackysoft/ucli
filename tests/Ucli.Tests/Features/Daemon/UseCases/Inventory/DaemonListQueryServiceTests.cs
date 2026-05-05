@@ -93,7 +93,7 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal("aaaaaaaa", item.Head);
                 Assert.Equal(worktreeA.UnityProjectRoot, item.ProjectPath);
                 Assert.Equal("fp-a", item.ProjectFingerprint);
-                Assert.Equal(DaemonListStateCodec.Running, item.State);
+                Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1001, item.ProcessId);
                 Assert.Equal("endpoint-a", item.EndpointAddress);
@@ -106,7 +106,7 @@ public sealed class DaemonListQueryServiceTests
                 Assert.Equal("bbbbbbbb", item.Head);
                 Assert.Equal(worktreeB.UnityProjectRoot, item.ProjectPath);
                 Assert.Equal("fp-b", item.ProjectFingerprint);
-                Assert.Equal(DaemonListStateCodec.Running, item.State);
+                Assert.Equal(DaemonListItemState.Running, item.State);
                 Assert.Null(item.Reason);
                 Assert.Equal(1002, item.ProcessId);
                 Assert.Equal("endpoint-b", item.EndpointAddress);
@@ -158,8 +158,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.Null(output.CompletionReason);
         Assert.Equal(0, output.RemainingWorktreeCount);
         var item = Assert.Single(output.Items);
-        Assert.Equal(DaemonListStateCodec.Error, item.State);
-        Assert.Equal(DaemonListReasonCodec.InvalidSession, item.Reason);
+        Assert.Equal(DaemonListItemState.Error, item.State);
+        Assert.Equal(DaemonListItemReason.InvalidSession, item.Reason);
         Assert.Null(item.IssuedAtUtc);
         Assert.Null(item.ProcessId);
         Assert.Null(item.EndpointTransportKind);
@@ -203,7 +203,7 @@ public sealed class DaemonListQueryServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         Assert.False(output.IsComplete);
-        Assert.Equal(DaemonListCompletionReasonCodec.Timeout, output.CompletionReason);
+        Assert.Equal(DaemonListCompletionReason.Timeout, output.CompletionReason);
         Assert.Equal(1, output.RemainingWorktreeCount);
         Assert.Empty(output.Items);
     }
@@ -283,7 +283,7 @@ public sealed class DaemonListQueryServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         Assert.False(output.IsComplete);
-        Assert.Equal(DaemonListCompletionReasonCodec.Timeout, output.CompletionReason);
+        Assert.Equal(DaemonListCompletionReason.Timeout, output.CompletionReason);
         Assert.Equal(1, output.RemainingWorktreeCount);
         Assert.Empty(output.Items);
     }
@@ -348,8 +348,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.Null(output.CompletionReason);
         Assert.Equal(0, output.RemainingWorktreeCount);
         var item = Assert.Single(output.Items);
-        Assert.Equal(DaemonListStateCodec.Error, item.State);
-        Assert.Equal(DaemonListReasonCodec.ProbeTimeout, item.Reason);
+        Assert.Equal(DaemonListItemState.Error, item.State);
+        Assert.Equal(DaemonListItemReason.ProbeTimeout, item.Reason);
         Assert.Equal(2100, item.ProcessId);
         Assert.Equal("endpoint-timeout", item.EndpointAddress);
         Assert.Null(item.Diagnosis);
@@ -400,11 +400,11 @@ public sealed class DaemonListQueryServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         Assert.False(output.IsComplete);
-        Assert.Equal(DaemonListCompletionReasonCodec.Timeout, output.CompletionReason);
+        Assert.Equal(DaemonListCompletionReason.Timeout, output.CompletionReason);
         Assert.Equal(1, output.RemainingWorktreeCount);
         var item = Assert.Single(output.Items);
         Assert.Equal("/repo/wt-a", item.WorktreePath);
-        Assert.Equal(DaemonListStateCodec.Running, item.State);
+        Assert.Equal(DaemonListItemState.Running, item.State);
     }
 
     [Fact]
@@ -433,8 +433,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.Null(output.CompletionReason);
         Assert.Equal(0, output.RemainingWorktreeCount);
         var item = Assert.Single(output.Items);
-        Assert.Equal(DaemonListStateCodec.Stale, item.State);
-        Assert.Equal(DaemonListReasonCodec.StaleSession, item.Reason);
+        Assert.Equal(DaemonListItemState.Stale, item.State);
+        Assert.Equal(DaemonListItemReason.StaleSession, item.Reason);
         Assert.Equal(2200, item.ProcessId);
         Assert.NotNull(item.Diagnosis);
         Assert.Equal(diagnosis.Reason, item.Diagnosis!.Reason);
@@ -464,8 +464,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         var item = Assert.Single(output.Items);
-        Assert.Equal(DaemonListStateCodec.Stale, item.State);
-        Assert.Equal(DaemonListReasonCodec.StaleSession, item.Reason);
+        Assert.Equal(DaemonListItemState.Stale, item.State);
+        Assert.Equal(DaemonListItemReason.StaleSession, item.Reason);
         Assert.NotNull(item.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, item.Diagnosis!.Reason);
         Assert.Equal(DaemonDiagnosisReportedByValues.Cli, item.Diagnosis.ReportedBy);
@@ -495,8 +495,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.Null(output.CompletionReason);
         Assert.Equal(0, output.RemainingWorktreeCount);
         var item = Assert.Single(output.Items);
-        Assert.Equal(DaemonListStateCodec.Error, item.State);
-        Assert.Equal(DaemonListReasonCodec.ProbeFailed, item.Reason);
+        Assert.Equal(DaemonListItemState.Error, item.State);
+        Assert.Equal(DaemonListItemReason.ProbeFailed, item.Reason);
         Assert.Equal(2300, item.ProcessId);
         Assert.Null(item.Diagnosis);
     }

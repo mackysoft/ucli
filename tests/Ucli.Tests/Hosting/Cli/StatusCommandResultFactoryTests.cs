@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -17,7 +18,7 @@ public sealed class StatusCommandResultFactoryTests
     {
         var executionResult = StatusExecutionResult.Success(
             new StatusExecutionOutput(
-                DaemonStatus: "running",
+                DaemonStatus: DaemonStatusKind.Running,
                 UnityVersion: "6000.1.4f1",
                 ServerVersion: "0.5.0",
                 LifecycleState: "busy",

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Xml.Linq;
+using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Results;
 

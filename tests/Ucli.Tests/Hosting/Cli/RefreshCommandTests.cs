@@ -13,7 +13,6 @@ namespace MackySoft.Ucli.Tests;
 public sealed class RefreshCommandTests
 {
     private static readonly OperationExecuteResult SuccessResult = new(
-        ProtocolVersion: IpcProtocol.CurrentVersion,
         RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
         OpResults:
         [
@@ -90,7 +89,6 @@ public sealed class RefreshCommandTests
                 MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00")),
         ]);
         var service = new StubRefreshService((_, _) => ValueTask.FromResult(new OperationExecuteResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
             [

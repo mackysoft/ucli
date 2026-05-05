@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+
 namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 
 /// <summary> Represents normalized output payload values for one status command execution. </summary>
@@ -13,7 +15,7 @@ namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 /// <param name="Runtime"> The daemon runtime value when daemon is reachable; otherwise <see langword="null" />. </param>
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon status probing. </param>
 internal sealed record StatusExecutionOutput (
-    string DaemonStatus,
+    DaemonStatusKind DaemonStatus,
     string UnityVersion,
     string? ServerVersion,
     string? LifecycleState,

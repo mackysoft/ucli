@@ -153,7 +153,6 @@ public sealed class ResolveCommandTests
     private static ResolveServiceResult CreateSuccessResult ()
     {
         return new ResolveServiceResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
             [

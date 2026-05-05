@@ -56,7 +56,7 @@ public sealed class StatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal("running", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal("busy", output.LifecycleState);
@@ -94,7 +94,7 @@ public sealed class StatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal("notRunning", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.NotRunning, output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Null(output.ServerVersion);
         Assert.Null(output.LifecycleState);
@@ -129,7 +129,7 @@ public sealed class StatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal("stale", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Null(output.ServerVersion);
         Assert.Null(output.LifecycleState);
@@ -272,7 +272,7 @@ public sealed class StatusServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal("stale", output.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Null(output.ServerVersion);
         Assert.Null(output.CompileState);
         Assert.Null(output.Runtime);

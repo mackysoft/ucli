@@ -1,6 +1,7 @@
+using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
+namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
 /// <summary> Builds a normalized resolve selector from raw selector option values. </summary>
 internal static class ResolveSelectorInputFactory

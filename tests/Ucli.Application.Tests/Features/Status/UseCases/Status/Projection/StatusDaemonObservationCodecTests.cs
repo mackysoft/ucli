@@ -18,7 +18,7 @@ public sealed class StatusDaemonObservationCodecTests
     {
         var actual = StatusDaemonObservationCodec.CreateWithoutPing(DaemonStatusKind.NotRunning);
 
-        Assert.Equal("notRunning", actual.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.NotRunning, actual.DaemonStatus);
         Assert.Null(actual.ServerVersion);
         Assert.Null(actual.LifecycleState);
         Assert.Null(actual.BlockingReason);
@@ -56,7 +56,7 @@ public sealed class StatusDaemonObservationCodecTests
             DaemonStatusKind.Running,
             pingResponse);
 
-        Assert.Equal("running", actual.DaemonStatus);
+        Assert.Equal(DaemonStatusKind.Running, actual.DaemonStatus);
         Assert.Equal("0.5.0", actual.ServerVersion);
         Assert.Equal("ready", actual.LifecycleState);
         Assert.Null(actual.BlockingReason);

@@ -165,7 +165,6 @@ public sealed class QueryCommandTests
     private static QueryServiceResult CreateSuccessResult (string commandName)
     {
         return new QueryServiceResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             CommandName: commandName,
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:

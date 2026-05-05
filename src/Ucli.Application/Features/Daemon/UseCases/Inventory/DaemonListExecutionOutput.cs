@@ -31,6 +31,6 @@ internal sealed record DaemonListExecutionOutput (
     int TimeoutMilliseconds,
     string ProjectRelativePath,
     bool IsComplete,
-    string? CompletionReason,
+    DaemonListCompletionReason? CompletionReason,
     int RemainingWorktreeCount,
     IReadOnlyList<DaemonListItemOutput> Items);

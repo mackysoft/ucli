@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 
-namespace MackySoft.Ucli.Tests.Configuration;
+namespace MackySoft.Ucli.Application.Tests.Configuration;
 
 public sealed class RegexPatternUtilitiesTests
 {
@@ -49,6 +49,18 @@ public sealed class RegexPatternUtilitiesTests
     public void TryIsMatch_ReturnsFalse_WhenPatternIsInvalid ()
     {
         var success = RegexPatternUtilities.TryIsMatch(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneOpen, "[", out var isMatch);
+
+        Assert.False(success);
+        Assert.False(isMatch);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryIsMatch_ReturnsFalse_WhenPatternMatchTimesOut ()
+    {
+        var input = new string('a', 4096) + "!";
+
+        var success = RegexPatternUtilities.TryIsMatch(input, "^(a+)+$", out var isMatch);
 
         Assert.False(success);
         Assert.False(isMatch);

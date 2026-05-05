@@ -34,12 +34,12 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 /// <summary> Implements process termination checks and force-kill fallback by process identifier. </summary>
 internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminationService
 {
-    private readonly IDaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
+    private readonly DaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonProcessTerminationService" /> class. </summary>
     /// <param name="daemonProcessIdentityAssessor"> The daemon process-identity assessor dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonProcessIdentityAssessor" /> is <see langword="null" />. </exception>
-    public DaemonProcessTerminationService (IDaemonProcessIdentityAssessor daemonProcessIdentityAssessor)
+    public DaemonProcessTerminationService (DaemonProcessIdentityAssessor daemonProcessIdentityAssessor)
     {
         this.daemonProcessIdentityAssessor = daemonProcessIdentityAssessor ?? throw new ArgumentNullException(nameof(daemonProcessIdentityAssessor));
     }
@@ -83,7 +83,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                     $"Daemon process identity could not be verified because expected issuedAtUtc is not available for process '{processId.Value}'."));
             }
 
-            var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId.Value, expectedIssuedAtUtc.Value);
+            var identityAssessment = daemonProcessIdentityAssessor.AssessProcess(process, processId.Value, expectedIssuedAtUtc.Value);
             switch (identityAssessment.Status)
             {
                 case DaemonProcessIdentityAssessmentStatus.NotRunning:

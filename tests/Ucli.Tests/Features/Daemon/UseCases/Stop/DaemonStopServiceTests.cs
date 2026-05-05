@@ -52,8 +52,8 @@ public sealed class DaemonStopServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStopExecutionOutput>(result.Output);
-        Assert.Equal("notRunning", output.StopStatus);
-        Assert.Equal("notRunning", output.DaemonStatus);
+        Assert.Equal(DaemonStopStatus.NotRunning, output.StopStatus);
+        Assert.Equal(DaemonStatusKind.NotRunning, output.DaemonStatus);
         Assert.Equal(3456, output.TimeoutMilliseconds);
         Assert.Null(output.Session);
         Assert.Equal(1, daemonStopOperation.StopCallCount);
@@ -206,8 +206,8 @@ public sealed class DaemonStopServiceTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStopExecutionOutput>(result.Output);
-        Assert.Equal("stopped", output.StopStatus);
-        Assert.Equal("notRunning", output.DaemonStatus);
+        Assert.Equal(DaemonStopStatus.Stopped, output.StopStatus);
+        Assert.Equal(DaemonStatusKind.NotRunning, output.DaemonStatus);
         Assert.Equal(0, daemonStopOperation.StopCallCount);
 
         Assert.Equal(1, supervisorProjectGateway.TryStopProjectCallCount);

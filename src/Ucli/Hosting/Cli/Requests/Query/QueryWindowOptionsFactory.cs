@@ -1,6 +1,8 @@
+using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
+namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
 /// <summary> Creates normalized query result windowing options from CLI values. </summary>
 internal static class QueryWindowOptionsFactory

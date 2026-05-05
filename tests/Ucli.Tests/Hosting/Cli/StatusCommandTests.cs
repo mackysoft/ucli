@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -16,7 +17,7 @@ public sealed class StatusCommandTests
     {
         var service = new StubStatusService((_, _) => ValueTask.FromResult(StatusExecutionResult.Success(
             new StatusExecutionOutput(
-                DaemonStatus: "notRunning",
+                DaemonStatus: DaemonStatusKind.NotRunning,
                 UnityVersion: "6000.1.4f1",
                 ServerVersion: null,
                 LifecycleState: null,

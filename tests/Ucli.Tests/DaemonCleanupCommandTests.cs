@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
@@ -21,8 +22,8 @@ public sealed class DaemonCleanupCommandTests
     {
         var service = new StubDaemonCleanupService(
             DaemonCleanupExecutionResult.Success(new DaemonCleanupExecutionOutput(
-                CleanupStatus: "skipped",
-                SkipReason: "unsafeInvalidSession",
+                CleanupStatus: DaemonCleanupStatus.Skipped,
+                SkipReason: DaemonCleanupSkipReason.UnsafeInvalidSession,
                 TimeoutMilliseconds: 3000)));
         var command = new DaemonCleanupCommand(service);
 

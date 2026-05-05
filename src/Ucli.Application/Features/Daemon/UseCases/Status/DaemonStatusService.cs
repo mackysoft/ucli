@@ -123,12 +123,13 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 "Daemon status operation failed without structured error details."));
         }
 
-        if (!DaemonStatusStateCodec.TryToValue(statusResult.Status, out var daemonStatus))
+        if (!IsSupportedDaemonStatus(statusResult.Status))
         {
             return DaemonStatusExecutionResult.Failure(ExecutionError.InternalError(
                 $"Daemon status returned unsupported status: {statusResult.Status}."));
         }
 
+        var daemonStatus = statusResult.Status;
         var serverVersion = (string?)null;
         var runtime = (string?)null;
         var lifecycleState = (string?)null;
@@ -165,7 +166,6 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                         cancellationToken)
                     .ConfigureAwait(false);
                 var observation = StatusDaemonObservationCodec.CreateFromPing(statusResult.Status, pingResponse);
-                daemonStatus = observation.DaemonStatus;
                 serverVersion = observation.ServerVersion;
                 runtime = observation.Runtime;
                 lifecycleState = observation.LifecycleState;
@@ -197,7 +197,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                     diagnosisTimeout,
                     timeProvider);
 
-                daemonStatus = DaemonStatusStateCodec.Stale;
+                daemonStatus = DaemonStatusKind.Stale;
                 try
                 {
                     diagnosis = await daemonSessionDiagnosisResolver.ResolveForSession(
@@ -231,7 +231,7 @@ internal sealed class DaemonStatusService : IDaemonStatusService
         }
 
         var output = new DaemonStatusExecutionOutput(
-            DaemonStatus: daemonStatus!,
+            DaemonStatus: daemonStatus,
             ServerVersion: serverVersion,
             Runtime: runtime,
             LifecycleState: lifecycleState,
@@ -248,5 +248,12 @@ internal sealed class DaemonStatusService : IDaemonStatusService
                 ? null
                 : daemonDiagnosisOutputMapper.ToOutput(diagnosis));
         return DaemonStatusExecutionResult.Success(output);
+    }
+
+    private static bool IsSupportedDaemonStatus (DaemonStatusKind status)
+    {
+        return status is DaemonStatusKind.Running
+            or DaemonStatusKind.NotRunning
+            or DaemonStatusKind.Stale;
     }
 }

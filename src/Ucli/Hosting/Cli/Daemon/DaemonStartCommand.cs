@@ -61,8 +61,8 @@ internal sealed class DaemonStartCommand
                 message: "uCLI daemon start completed.",
                 payload: new
                 {
-                    startStatus = output.StartStatus,
-                    daemonStatus = output.DaemonStatus,
+                    startStatus = DaemonCommandOutputProjector.ToStartStatus(output.StartStatus),
+                    daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                 });

@@ -1,8 +1,9 @@
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Hosting.Cli.Requests;
 
-namespace MackySoft.Ucli.Application.Tests.Features.Requests.Query.UseCases.Query;
+namespace MackySoft.Ucli.Tests.Hosting.Cli.Requests.Query;
 
 public sealed class QueryAssetsFindOperationRequestFactoryTests
 {

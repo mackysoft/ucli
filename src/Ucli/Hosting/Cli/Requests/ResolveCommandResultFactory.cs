@@ -37,7 +37,7 @@ internal static class ResolveCommandResultFactory
         }
 
         return new CommandResult(
-            ProtocolVersion: serviceResult.ProtocolVersion,
+            ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Resolve,
             Status: IpcProtocol.StatusError,
             ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),

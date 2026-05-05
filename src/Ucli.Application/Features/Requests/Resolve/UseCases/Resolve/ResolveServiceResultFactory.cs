@@ -69,7 +69,6 @@ internal static class ResolveServiceResultFactory
         ArgumentNullException.ThrowIfNull(readIndex);
 
         return new ResolveServiceResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: requestId,
             OpResults: opResults,
             Errors: errors,

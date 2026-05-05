@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
@@ -102,15 +103,9 @@ internal sealed class DaemonStopService : IDaemonStopService
                 "Daemon stop operation failed without structured error details."));
         }
 
-        if (!DaemonStopStateCodec.TryToValue(stopResult.Status, out var stopStatus))
-        {
-            return DaemonStopExecutionResult.Failure(ExecutionError.InternalError(
-                $"Daemon stop returned unsupported status: {stopResult.Status}."));
-        }
-
         var output = new DaemonStopExecutionOutput(
-            StopStatus: stopStatus!,
-            DaemonStatus: DaemonStatusStateCodec.NotRunning,
+            StopStatus: stopResult.Status,
+            DaemonStatus: DaemonStatusKind.NotRunning,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: null);
         return DaemonStopExecutionResult.Success(output);

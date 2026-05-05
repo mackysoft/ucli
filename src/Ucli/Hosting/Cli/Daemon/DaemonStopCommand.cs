@@ -61,8 +61,8 @@ internal sealed class DaemonStopCommand
                 message: "uCLI daemon stop completed.",
                 payload: new
                 {
-                    stopStatus = output.StopStatus,
-                    daemonStatus = output.DaemonStatus,
+                    stopStatus = DaemonCommandOutputProjector.ToStopStatus(output.StopStatus),
+                    daemonStatus = DaemonCommandOutputProjector.ToStatus(output.DaemonStatus),
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     session = output.Session,
                 });

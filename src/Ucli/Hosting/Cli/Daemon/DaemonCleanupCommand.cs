@@ -61,8 +61,8 @@ internal sealed class DaemonCleanupCommand
                 message: "uCLI daemon cleanup completed.",
                 payload: new
                 {
-                    cleanupStatus = output.CleanupStatus,
-                    skipReason = output.SkipReason,
+                    cleanupStatus = DaemonCommandOutputProjector.ToCleanupStatus(output.CleanupStatus),
+                    skipReason = DaemonCommandOutputProjector.ToCleanupSkipReason(output.SkipReason),
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                 });
         }

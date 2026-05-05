@@ -106,7 +106,6 @@ internal static class OperationExecuteResultFactory
         ArgumentNullException.ThrowIfNull(errors);
 
         return new OperationExecuteResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: requestId,
             OpResults: opResults,
             Errors: errors,

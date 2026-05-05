@@ -274,7 +274,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
-                DaemonListStateCodec.Running,
+                DaemonListItemState.Running,
                 null,
                 session,
                 diagnosis: null));
@@ -300,8 +300,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
-                DaemonListStateCodec.Error,
-                DaemonListReasonCodec.ProbeTimeout,
+                DaemonListItemState.Error,
+                DaemonListItemReason.ProbeTimeout,
                 session,
                 diagnosis: null));
         }
@@ -315,8 +315,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
-                DaemonListStateCodec.Stale,
-                DaemonListReasonCodec.StaleSession,
+                DaemonListItemState.Stale,
+                DaemonListItemReason.StaleSession,
                 session,
                 diagnosis));
         }
@@ -325,8 +325,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,
                 candidateProject,
-                DaemonListStateCodec.Error,
-                DaemonListReasonCodec.ProbeFailed,
+                DaemonListItemState.Error,
+                DaemonListItemReason.ProbeFailed,
                 session,
                 diagnosis: null));
         }
@@ -365,12 +365,12 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         DaemonSessionReadResult sessionReadResult)
     {
         var reason = sessionReadResult.FailureKind == DaemonSessionReadFailureKind.InvalidSession
-            ? DaemonListReasonCodec.InvalidSession
-            : DaemonListReasonCodec.ProbeFailed;
+            ? DaemonListItemReason.InvalidSession
+            : DaemonListItemReason.ProbeFailed;
         return CreateItem(
             worktree,
             candidateProject,
-            DaemonListStateCodec.Error,
+            DaemonListItemState.Error,
             reason,
             session: null,
             diagnosis: null);
@@ -387,8 +387,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     private static DaemonListItemOutput CreateItem (
         GitWorktreeInfo worktree,
         ResolvedUnityProjectContext candidateProject,
-        string state,
-        string? reason,
+        DaemonListItemState state,
+        DaemonListItemReason? reason,
         DaemonSession? session,
         DaemonDiagnosisOutput? diagnosis)
     {
@@ -478,7 +478,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
             ProjectRelativePath: projectRelativePath,
             IsComplete: false,
-            CompletionReason: DaemonListCompletionReasonCodec.Timeout,
+            CompletionReason: DaemonListCompletionReason.Timeout,
             RemainingWorktreeCount: remainingWorktreeCount,
             Items: items);
     }

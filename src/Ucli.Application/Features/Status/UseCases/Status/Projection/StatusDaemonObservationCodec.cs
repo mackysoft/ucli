@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -21,7 +20,7 @@ internal static class StatusDaemonObservationCodec
     public static StatusDaemonObservation CreateWithoutPing (DaemonStatusKind daemonStatus)
     {
         return new StatusDaemonObservation(
-            DaemonStatus: StatusDaemonStateCodec.ToValue(daemonStatus),
+            DaemonStatus: daemonStatus,
             ServerVersion: null,
             LifecycleState: null,
             BlockingReason: null,
@@ -55,7 +54,7 @@ internal static class StatusDaemonObservationCodec
             && pingResponse.CanAcceptExecutionRequests;
 
         return new StatusDaemonObservation(
-            DaemonStatus: StatusDaemonStateCodec.ToValue(daemonStatus),
+            DaemonStatus: daemonStatus,
             ServerVersion: StringValueNormalizer.TrimToNull(pingResponse.ServerVersion),
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,

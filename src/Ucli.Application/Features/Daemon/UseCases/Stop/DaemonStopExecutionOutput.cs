@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon stop workflow. </param>
 /// <param name="Session"> The daemon session values when available; otherwise <see langword="null" />. </param>
 internal sealed record DaemonStopExecutionOutput (
-    string StopStatus,
-    string DaemonStatus,
+    DaemonStopStatus StopStatus,
+    DaemonStatusKind DaemonStatus,
     int TimeoutMilliseconds,
     DaemonSessionOutput? Session);

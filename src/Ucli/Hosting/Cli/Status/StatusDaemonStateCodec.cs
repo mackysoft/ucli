@@ -7,7 +7,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Text;
 
-namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
+namespace MackySoft.Ucli.Hosting.Cli.Status;
 
 /// <summary> Converts daemon status values between enum and status command contract literals. </summary>
 internal static class StatusDaemonStateCodec

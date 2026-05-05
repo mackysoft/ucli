@@ -25,6 +25,6 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
 /// <param name="SkipReason"> The cleanup skip-reason value when cleanup was skipped; otherwise <see langword="null" />. </param>
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon cleanup workflow. </param>
 internal sealed record DaemonCleanupExecutionOutput (
-    string CleanupStatus,
-    string? SkipReason,
+    DaemonCleanupStatus CleanupStatus,
+    DaemonCleanupSkipReason SkipReason,
     int TimeoutMilliseconds);

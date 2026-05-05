@@ -1,6 +1,7 @@
+using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
 /// <summary> Represents the result of creating one <c>assets.find</c> operation request. </summary>
 internal sealed record QueryAssetsFindOperationRequestCreationResult (

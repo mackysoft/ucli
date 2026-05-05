@@ -77,21 +77,9 @@ internal sealed class DaemonCleanupService : IDaemonCleanupService
                 "Daemon cleanup operation failed without structured error details."));
         }
 
-        if (!DaemonCleanupStateCodec.TryToValue(cleanupResult.Status, out var cleanupStatus))
-        {
-            return DaemonCleanupExecutionResult.Failure(ExecutionError.InternalError(
-                $"Daemon cleanup returned unsupported status: {cleanupResult.Status}."));
-        }
-
-        if (!DaemonCleanupSkipReasonCodec.TryToValue(cleanupResult.SkipReason, out var skipReason))
-        {
-            return DaemonCleanupExecutionResult.Failure(ExecutionError.InternalError(
-                $"Daemon cleanup returned unsupported skip reason: {cleanupResult.SkipReason}."));
-        }
-
         var output = new DaemonCleanupExecutionOutput(
-            CleanupStatus: cleanupStatus!,
-            SkipReason: skipReason,
+            CleanupStatus: cleanupResult.Status,
+            SkipReason: cleanupResult.SkipReason,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds));
         return DaemonCleanupExecutionResult.Success(output);
     }

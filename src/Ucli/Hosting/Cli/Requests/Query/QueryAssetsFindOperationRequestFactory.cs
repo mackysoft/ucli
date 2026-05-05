@@ -1,7 +1,8 @@
+using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
 /// <summary> Creates normalized <c>assets.find</c> operation requests from raw command option values. </summary>
 internal static class QueryAssetsFindOperationRequestFactory

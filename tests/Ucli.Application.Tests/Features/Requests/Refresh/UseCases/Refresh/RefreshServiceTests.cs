@@ -72,7 +72,6 @@ public sealed class RefreshServiceTests
         public static OperationExecuteResult Success ()
         {
             return new OperationExecuteResult(
-                ProtocolVersion: 1,
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],
                 Errors: [],

@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon start workflow. </param>
 /// <param name="Session"> The daemon session values associated with started or already-running daemon process. </param>
 internal sealed record DaemonStartExecutionOutput (
-    string StartStatus,
-    string DaemonStatus,
+    DaemonStartStatus StartStatus,
+    DaemonStatusKind DaemonStatus,
     int TimeoutMilliseconds,
     DaemonSessionOutput Session);
