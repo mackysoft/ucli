@@ -1,6 +1,4 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 

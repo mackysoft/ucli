@@ -1,12 +1,25 @@
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
+namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
-
-/// <summary> Creates command-facing read-index metadata for <c>ucli resolve</c>. </summary>
-internal static class ResolveReadIndexInfoFactory
+/// <summary> Creates application read-index metadata from access metadata. </summary>
+internal static class ReadIndexInfoFactory
 {
-    /// <summary> Creates index-backed readIndex metadata from scene-tree-lite access metadata. </summary>
+    /// <summary> Creates readIndex metadata from asset-search lookup access metadata. </summary>
+    public static ReadIndexInfo FromAssetLookupAccess (AssetLookupAccessInfo accessInfo)
+    {
+        ArgumentNullException.ThrowIfNull(accessInfo);
+
+        return new ReadIndexInfo(
+            Used: accessInfo.Used && accessInfo.Source == AssetLookupSource.Index,
+            Hit: accessInfo.Hit,
+            Source: accessInfo.Source == AssetLookupSource.Index
+                ? ReadIndexInfoSource.Index
+                : ReadIndexInfoSource.Unity,
+            Freshness: accessInfo.Freshness,
+            GeneratedAtUtc: accessInfo.GeneratedAtUtc,
+            FallbackReason: accessInfo.FallbackReason);
+    }
+
+    /// <summary> Creates readIndex metadata from scene-tree-lite access metadata. </summary>
     public static ReadIndexInfo FromSceneTreeLiteAccess (SceneTreeLiteAccessInfo accessInfo)
     {
         ArgumentNullException.ThrowIfNull(accessInfo);

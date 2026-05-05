@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;

@@ -1,5 +1,3 @@
-using System;
-
 namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 
 /// <summary> Parses public camel-case literals into enum values that use PascalCase member names. </summary>

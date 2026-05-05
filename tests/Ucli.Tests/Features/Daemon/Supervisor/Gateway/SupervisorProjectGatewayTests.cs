@@ -2,14 +2,8 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Daemon;
 

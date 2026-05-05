@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 
 /// <summary> Represents one asset-search lookup read output. </summary>

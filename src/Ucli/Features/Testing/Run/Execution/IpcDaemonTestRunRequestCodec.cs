@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 

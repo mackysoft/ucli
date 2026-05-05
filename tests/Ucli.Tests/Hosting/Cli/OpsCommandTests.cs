@@ -6,9 +6,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Ops;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests.Cli;
 

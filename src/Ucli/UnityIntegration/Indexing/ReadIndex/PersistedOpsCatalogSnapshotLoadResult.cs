@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 

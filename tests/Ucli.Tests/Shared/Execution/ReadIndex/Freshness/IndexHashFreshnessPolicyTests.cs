@@ -1,7 +1,4 @@
-using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Infrastructure.Index;
-using MackySoft.Ucli.Shared.Execution.ReadIndex;
 
 namespace MackySoft.Ucli.Tests.Execution.ReadIndex;
 

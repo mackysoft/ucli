@@ -3,9 +3,7 @@ namespace MackySoft.Ucli.Tests;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.UnityIntegration.Project.Resolution;
@@ -55,7 +53,7 @@ public sealed class ProjectContextResolverTests
             CancellationToken.None);
         Assert.True(saveResult.IsSuccess);
 
-        var resolver = new ProjectContextResolver(new UnityProjectResolver(), configStore);
+        var resolver = CreateResolver(configStore: configStore);
 
         var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
 
@@ -94,7 +92,7 @@ public sealed class ProjectContextResolverTests
         var configPath = configStore.GetConfigPath(unityProjectPath);
         var relativeConfigPath = Path.GetRelativePath(scope.FullPath, configPath);
         scope.WriteFile(relativeConfigPath, "{");
-        var resolver = new ProjectContextResolver(new UnityProjectResolver(), configStore);
+        var resolver = CreateResolver(configStore: configStore);
 
         var result = await resolver.Resolve(unityProjectPath, CancellationToken.None);
 
@@ -122,11 +120,13 @@ public sealed class ProjectContextResolverTests
         Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot);
     }
 
-    private static ProjectContextResolver CreateResolver (IReadOnlyDictionary<string, string?>? environmentVariables = null)
+    private static ProjectContextResolver CreateResolver (
+        IReadOnlyDictionary<string, string?>? environmentVariables = null,
+        UcliConfigStore? configStore = null)
     {
         return new ProjectContextResolver(
             new UnityProjectResolver(new ProjectPathInputResolver(new StubEnvironmentVariableReader(
                 environmentVariables ?? new Dictionary<string, string?>(StringComparer.Ordinal)))),
-            new UcliConfigStore());
+            configStore ?? new UcliConfigStore());
     }
 }

@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 
 /// <summary> Represents internal access metadata produced by asset lookup reads. </summary>

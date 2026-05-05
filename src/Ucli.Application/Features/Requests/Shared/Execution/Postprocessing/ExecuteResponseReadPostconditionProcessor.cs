@@ -20,13 +20,14 @@ internal static class ExecuteResponseReadPostconditionProcessor
         ArgumentNullException.ThrowIfNull(store);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var persistenceFailure = await MutationReadPostconditionPersistence.Write(
-                store,
-                storageRoot,
-                projectFingerprint,
-                response.ReadPostcondition,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var persistenceFailure = response.ReadPostcondition == null || response.ReadPostcondition.Requirements.Count == 0
+            ? null
+            : (await store.WriteMerged(
+                    storageRoot,
+                    projectFingerprint,
+                    response.ReadPostcondition,
+                    cancellationToken)
+                .ConfigureAwait(false)).Error;
         if (persistenceFailure == null)
         {
             return (response, null);

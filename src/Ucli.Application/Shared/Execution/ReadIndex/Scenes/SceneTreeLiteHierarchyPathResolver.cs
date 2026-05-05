@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 
 /// <summary> Resolves GameObject hierarchy paths from scene-tree-lite lookup nodes. </summary>

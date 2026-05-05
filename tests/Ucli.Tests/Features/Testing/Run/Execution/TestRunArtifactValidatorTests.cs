@@ -1,6 +1,4 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 
 namespace MackySoft.Ucli.Tests;
 

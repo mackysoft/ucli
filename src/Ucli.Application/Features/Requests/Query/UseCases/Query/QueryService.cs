@@ -2,15 +2,10 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
@@ -157,7 +152,7 @@ internal sealed class QueryService : IQueryService
                 operation.CommandName,
                 requestId,
                 new OperationExecutionError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
-                QueryReadIndexInfoFactory.Unity(readResult.Message));
+                ReadIndexInfoFactory.Unity(readResult.Message));
         }
 
         var output = readResult.Output!;
@@ -170,7 +165,7 @@ internal sealed class QueryService : IQueryService
                     operation,
                     JsonSerializer.SerializeToElement(CreateAssetsFindResult(windowedEntries), IpcJsonSerializerOptions.Default)),
             ],
-            QueryReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo));
+            ReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo));
     }
 
     private async ValueTask<QueryServiceResult> ExecuteSceneTree (
@@ -201,7 +196,7 @@ internal sealed class QueryService : IQueryService
                 operation.CommandName,
                 requestId,
                 new OperationExecutionError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
-                QueryReadIndexInfoFactory.Unity(readResult.Message));
+                ReadIndexInfoFactory.Unity(readResult.Message));
         }
 
         var output = readResult.Output!;
@@ -214,7 +209,7 @@ internal sealed class QueryService : IQueryService
                     operation,
                     JsonSerializer.SerializeToElement(CreateSceneTreeResult(output.ScenePath, windowedRoots), IpcJsonSerializerOptions.Default)),
             ],
-            QueryReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo));
+            ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo));
     }
 
     private async ValueTask<QueryServiceResult> ExecuteInUnity (
@@ -227,7 +222,7 @@ internal sealed class QueryService : IQueryService
         ReadIndexMode readIndexMode,
         CancellationToken cancellationToken)
     {
-        var readIndex = QueryReadIndexInfoFactory.Unity(ResolveUnityOnlyFallbackReason(readIndexMode));
+        var readIndex = ReadIndexInfoFactory.Unity(ResolveUnityOnlyFallbackReason(readIndexMode));
         var executionResult = await unityRequestExecutor.Execute(
                 UcliCommandIds.Query,
                 executionMode,

@@ -1,4 +1,3 @@
-using System;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;

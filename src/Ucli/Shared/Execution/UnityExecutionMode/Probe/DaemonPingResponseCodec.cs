@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;

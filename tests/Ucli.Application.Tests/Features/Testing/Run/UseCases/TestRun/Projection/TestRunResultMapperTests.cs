@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Tests;

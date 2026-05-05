@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents the result of reading one persisted ops catalog. </summary>

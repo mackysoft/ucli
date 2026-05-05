@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
-using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 using Microsoft.Extensions.DependencyInjection;
 

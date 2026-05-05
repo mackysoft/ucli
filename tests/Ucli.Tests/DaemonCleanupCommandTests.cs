@@ -1,13 +1,6 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
-using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Daemon;

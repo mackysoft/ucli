@@ -2,7 +2,6 @@ using MackySoft.Ucli.Skills.Hosts.Claude;
 using MackySoft.Ucli.Skills.Hosts.Copilot;
 using MackySoft.Ucli.Skills.Hosts.OpenAi;
 using MackySoft.Ucli.Skills.Installation.Validation;
-using MackySoft.Ucli.Skills.Materialization;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Tests.Materialization;

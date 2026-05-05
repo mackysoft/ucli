@@ -8,12 +8,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using Microsoft.Extensions.DependencyInjection;
 

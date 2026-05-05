@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 /// <summary> Represents application read-index metadata for reader commands. </summary>

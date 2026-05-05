@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;

@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
-
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Preflight;
 
 /// <summary> Resolves preflight execution context values required by the status workflow. </summary>

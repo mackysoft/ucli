@@ -1,5 +1,3 @@
-using System;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Adds a machine-readable semantic constraint to one operation input property or value type. </summary>

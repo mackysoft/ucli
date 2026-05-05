@@ -1,15 +1,8 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -17,11 +10,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Execution;

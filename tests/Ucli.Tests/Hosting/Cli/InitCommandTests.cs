@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Init;
 
 namespace MackySoft.Ucli.Tests;

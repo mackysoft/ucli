@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;

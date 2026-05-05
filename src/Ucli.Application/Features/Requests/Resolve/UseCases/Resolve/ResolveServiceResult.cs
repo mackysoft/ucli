@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 

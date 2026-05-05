@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents persisted read-index artifacts that can be reused when persisting one refreshed ops catalog. </summary>

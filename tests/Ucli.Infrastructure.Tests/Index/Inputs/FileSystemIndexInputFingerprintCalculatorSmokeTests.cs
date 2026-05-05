@@ -1,5 +1,4 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Infrastructure.Index;
 
 namespace MackySoft.Ucli.Infrastructure.Tests.Index.Inputs;

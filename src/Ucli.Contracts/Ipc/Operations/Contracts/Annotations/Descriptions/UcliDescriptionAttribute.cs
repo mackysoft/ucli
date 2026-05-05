@@ -1,5 +1,3 @@
-using System;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Provides a description for operation contract documentation and linting. </summary>

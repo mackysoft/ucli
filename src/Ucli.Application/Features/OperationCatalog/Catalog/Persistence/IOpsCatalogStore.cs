@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 
 /// <summary> Persists the local <c>ops.catalog.json</c> read-index snapshot. </summary>

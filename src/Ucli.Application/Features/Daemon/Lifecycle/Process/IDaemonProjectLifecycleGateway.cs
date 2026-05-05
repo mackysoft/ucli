@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 

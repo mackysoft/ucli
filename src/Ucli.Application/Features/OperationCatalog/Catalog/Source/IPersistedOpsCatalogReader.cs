@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Reads one persisted ops catalog together with caller-facing freshness metadata. </summary>

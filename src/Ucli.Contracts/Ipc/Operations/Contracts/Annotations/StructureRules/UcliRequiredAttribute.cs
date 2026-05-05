@@ -1,5 +1,3 @@
-using System;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Marks one operation contract property as required in the generated structural schema. </summary>

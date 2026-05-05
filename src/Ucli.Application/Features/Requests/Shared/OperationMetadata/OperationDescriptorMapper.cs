@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Index;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 

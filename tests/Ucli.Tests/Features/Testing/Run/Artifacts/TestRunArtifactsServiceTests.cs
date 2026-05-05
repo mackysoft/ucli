@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Testing;
@@ -19,7 +18,7 @@ public sealed class TestRunArtifactsServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifacts", "prepare-run-dir");
         var configuration = CreateResolvedConfiguration(scope);
-        var service = new TestRunArtifactsService();
+        var service = new TestRunArtifactsService(new TestRunMetaStore());
         var gitIgnorePath = Path.Combine(
             scope.FullPath,
             UcliStoragePathNames.UcliDirectoryName,

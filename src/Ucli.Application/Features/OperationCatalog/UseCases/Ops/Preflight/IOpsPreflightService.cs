@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 
 /// <summary> Resolves command input and read-index prerequisites before ops catalog access. </summary>

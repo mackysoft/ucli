@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 
 /// <summary> Represents internal access metadata produced by scene-tree-lite reads. </summary>

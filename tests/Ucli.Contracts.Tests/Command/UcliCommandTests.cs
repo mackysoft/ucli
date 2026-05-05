@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts;
-
 namespace MackySoft.Ucli.Contracts.Tests.Command;
 
 public sealed class UcliCommandTests

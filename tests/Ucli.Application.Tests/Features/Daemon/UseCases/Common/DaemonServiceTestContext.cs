@@ -9,8 +9,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Context.Project;

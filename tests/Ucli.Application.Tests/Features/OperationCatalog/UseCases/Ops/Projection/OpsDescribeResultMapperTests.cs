@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
-using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
-using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Mapping;

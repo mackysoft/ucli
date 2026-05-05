@@ -3,7 +3,6 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
 namespace MackySoft.Ucli.Tests;

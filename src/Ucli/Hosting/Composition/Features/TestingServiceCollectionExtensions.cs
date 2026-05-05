@@ -3,9 +3,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
-using MackySoft.Ucli.Features.Testing.Profiles.Adapters;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
 using Microsoft.Extensions.DependencyInjection;
 

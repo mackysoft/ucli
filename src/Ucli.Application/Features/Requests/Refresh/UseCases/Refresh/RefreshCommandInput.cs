@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-
 namespace MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 
 /// <summary> Represents one normalized <c>refresh</c> command input. </summary>

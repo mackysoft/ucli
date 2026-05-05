@@ -1,17 +1,9 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
-using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Shared.Execution.Process;
 
 namespace MackySoft.Ucli.Tests;
 

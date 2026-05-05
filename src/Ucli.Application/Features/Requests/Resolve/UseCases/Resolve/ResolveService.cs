@@ -2,14 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
-using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -143,7 +136,7 @@ internal sealed class ResolveService : IResolveService
                     ResolveServiceResultFactory.FromIpcError(
                         requestId,
                         new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
-                        ResolveReadIndexInfoFactory.Unity(readResult.Message)),
+                        ReadIndexInfoFactory.Unity(readResult.Message)),
                     readResult.Message);
             }
 
@@ -168,7 +161,7 @@ internal sealed class ResolveService : IResolveService
                 [
                     CreateResolveOperationResult(resolveResult.GlobalObjectId!),
                 ],
-                ResolveReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo)),
+                ReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo)),
             string.Empty);
     }
 
@@ -181,7 +174,7 @@ internal sealed class ResolveService : IResolveService
         string fallbackReason,
         CancellationToken cancellationToken)
     {
-        var readIndex = ResolveReadIndexInfoFactory.Unity(fallbackReason);
+        var readIndex = ReadIndexInfoFactory.Unity(fallbackReason);
         var executionResult = await unityRequestExecutor.Execute(
                 UcliCommandIds.Resolve,
                 executionMode,

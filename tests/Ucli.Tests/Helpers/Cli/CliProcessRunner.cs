@@ -2,7 +2,6 @@ namespace MackySoft.Tests;
 
 using System.Diagnostics;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 internal static class CliProcessRunner
 {

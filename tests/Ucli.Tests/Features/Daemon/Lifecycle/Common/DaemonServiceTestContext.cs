@@ -1,34 +1,17 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
-using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -258,97 +241,6 @@ internal static class DaemonServiceTestContext
         }
     }
 
-    internal sealed class StubDaemonStatusOperation : IDaemonStatusOperation
-    {
-        public DaemonStatusResult StatusResult { get; set; } = DaemonStatusResult.NotRunning();
-
-        public Action? OnGetStatus { get; set; }
-
-        public int GetStatusCallCount { get; private set; }
-
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
-
-        public TimeSpan LastTimeout { get; private set; }
-
-        public CancellationToken LastCancellationToken { get; private set; }
-
-        public ValueTask<DaemonStatusResult> GetStatus (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            GetStatusCallCount++;
-            OnGetStatus?.Invoke();
-            LastUnityProject = unityProject;
-            LastTimeout = timeout;
-            LastCancellationToken = cancellationToken;
-            return ValueTask.FromResult(StatusResult);
-        }
-    }
-
-    internal sealed class StubSupervisorProjectGateway : IDaemonProjectLifecycleGateway
-    {
-        public DaemonStartResult EnsureRunningResult { get; set; } = DaemonStartResult.Started(CreateSession());
-
-        public DaemonStopResult? TryStopProjectResult { get; set; }
-
-        public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStartResult>>? EnsureRunningHandler { get; set; }
-
-        public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult?>>? TryStopProjectHandler { get; set; }
-
-        public int EnsureRunningCallCount { get; private set; }
-
-        public int TryStopProjectCallCount { get; private set; }
-
-        public ResolvedUnityProjectContext? LastEnsureRunningUnityProject { get; private set; }
-
-        public TimeSpan LastEnsureRunningTimeout { get; private set; }
-
-        public CancellationToken LastEnsureRunningCancellationToken { get; private set; }
-
-        public ResolvedUnityProjectContext? LastTryStopProjectUnityProject { get; private set; }
-
-        public TimeSpan LastTryStopProjectTimeout { get; private set; }
-
-        public CancellationToken LastTryStopProjectCancellationToken { get; private set; }
-
-        public ValueTask<DaemonStartResult> EnsureRunning (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            EnsureRunningCallCount++;
-            LastEnsureRunningUnityProject = unityProject;
-            LastEnsureRunningTimeout = timeout;
-            LastEnsureRunningCancellationToken = cancellationToken;
-
-            if (EnsureRunningHandler != null)
-            {
-                return EnsureRunningHandler(unityProject, timeout, cancellationToken);
-            }
-
-            return ValueTask.FromResult(EnsureRunningResult);
-        }
-
-        public ValueTask<DaemonStopResult?> TryStopProject (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            TryStopProjectCallCount++;
-            LastTryStopProjectUnityProject = unityProject;
-            LastTryStopProjectTimeout = timeout;
-            LastTryStopProjectCancellationToken = cancellationToken;
-
-            if (TryStopProjectHandler != null)
-            {
-                return TryStopProjectHandler(unityProject, timeout, cancellationToken);
-            }
-
-            return ValueTask.FromResult(TryStopProjectResult);
-        }
-    }
-
     internal sealed class StubDaemonPingInfoClient : IDaemonPingInfoClient
     {
         public IpcPingResponse Response { get; set; } = new(
@@ -409,109 +301,6 @@ internal static class DaemonServiceTestContext
         public bool IsNotRunning (Exception exception)
         {
             return isNotRunning(exception);
-        }
-    }
-
-    internal sealed class StubDaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisResolver
-    {
-        public DaemonDiagnosis? Diagnosis { get; set; }
-
-        public Func<ResolvedUnityProjectContext, DaemonSession, DaemonDiagnosis?, CancellationToken, ValueTask<DaemonDiagnosis?>>? Handler { get; set; }
-
-        public int CallCount { get; private set; }
-
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
-
-        public DaemonSession? LastSession { get; private set; }
-
-        public DaemonDiagnosis? LastPersistedDiagnosis { get; private set; }
-
-        public CancellationToken LastCancellationToken { get; private set; }
-
-        public ValueTask<DaemonDiagnosis?> ResolveForSession (
-            ResolvedUnityProjectContext unityProject,
-            DaemonSession session,
-            DaemonDiagnosis? persistedDiagnosis,
-            CancellationToken cancellationToken = default)
-        {
-            CallCount++;
-            LastUnityProject = unityProject;
-            LastSession = session;
-            LastPersistedDiagnosis = persistedDiagnosis;
-            LastCancellationToken = cancellationToken;
-            if (Handler != null)
-            {
-                return Handler(unityProject, session, persistedDiagnosis, cancellationToken);
-            }
-
-            return ValueTask.FromResult(Diagnosis);
-        }
-    }
-
-    internal sealed class StubDaemonCleanupOperation : IDaemonCleanupOperation
-    {
-        public DaemonCleanupResult CleanupResult { get; set; } = DaemonCleanupResult.Completed();
-
-        public int CleanupCallCount { get; private set; }
-
-        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
-
-        public TimeSpan LastTimeout { get; private set; }
-
-        public CancellationToken LastCancellationToken { get; private set; }
-
-        public ValueTask<DaemonCleanupResult> Cleanup (
-            ResolvedUnityProjectContext unityProject,
-            TimeSpan timeout,
-            CancellationToken cancellationToken = default)
-        {
-            CleanupCallCount++;
-            LastUnityProject = unityProject;
-            LastTimeout = timeout;
-            LastCancellationToken = cancellationToken;
-            return ValueTask.FromResult(CleanupResult);
-        }
-    }
-
-    internal sealed class StubDaemonSessionOutputMapper : IDaemonSessionOutputMapper
-    {
-        public DaemonSessionOutput Output { get; set; } = CreateSessionOutput();
-
-        public DaemonSession? LastSession { get; private set; }
-
-        public int CallCount { get; private set; }
-
-        public DaemonSessionOutput ToOutput (DaemonSession session)
-        {
-            ArgumentNullException.ThrowIfNull(session);
-
-            LastSession = session;
-            CallCount++;
-            return Output;
-        }
-    }
-
-    internal sealed class StubDaemonDiagnosisOutputMapper : IDaemonDiagnosisOutputMapper
-    {
-        public DaemonDiagnosisOutput Output { get; set; } = new(
-            Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
-            Message: "mapped diagnosis",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
-            IsInferred: false,
-            UpdatedAtUtc: new DateTimeOffset(2026, 03, 05, 4, 5, 6, TimeSpan.Zero),
-            ProcessId: 4321);
-
-        public DaemonDiagnosis? LastDiagnosis { get; private set; }
-
-        public int CallCount { get; private set; }
-
-        public DaemonDiagnosisOutput ToOutput (DaemonDiagnosis diagnosis)
-        {
-            ArgumentNullException.ThrowIfNull(diagnosis);
-
-            LastDiagnosis = diagnosis;
-            CallCount++;
-            return Output;
         }
     }
 

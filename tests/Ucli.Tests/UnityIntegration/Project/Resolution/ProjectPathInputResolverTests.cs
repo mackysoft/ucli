@@ -1,6 +1,5 @@
 namespace MackySoft.Ucli.Tests;
 
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 

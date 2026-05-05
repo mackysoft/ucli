@@ -2,9 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -20,12 +18,6 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     private readonly ITestRunMetaStore metaStore;
 
     private readonly TimeProvider timeProvider;
-
-    /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class with default meta-store dependency. </summary>
-    public TestRunArtifactsService ()
-        : this(new TestRunMetaStore(), timeProvider: null)
-    {
-    }
 
     /// <summary> Initializes a new instance of the <see cref="TestRunArtifactsService" /> class. </summary>
     /// <param name="metaStore"> The metadata store dependency. </param>

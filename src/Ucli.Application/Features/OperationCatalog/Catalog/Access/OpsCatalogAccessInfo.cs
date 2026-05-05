@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents internal access metadata produced by ops catalog reads. </summary>

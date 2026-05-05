@@ -1,11 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Shared.EnvironmentVariables;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
 
@@ -16,12 +13,6 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
     private const string ProjectVersionFileName = "ProjectVersion.txt";
 
     private readonly IProjectPathInputResolver projectPathInputResolver;
-
-    /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
-    public UnityProjectResolver ()
-        : this(new ProjectPathInputResolver(new ProcessEnvironmentVariableReader()))
-    {
-    }
 
     /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
     /// <param name="projectPathInputResolver"> The project-path input resolver dependency. </param>

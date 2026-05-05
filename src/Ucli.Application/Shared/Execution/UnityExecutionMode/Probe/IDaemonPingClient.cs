@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 
 /// <summary> Sends one daemon ping request for reachability probing. </summary>

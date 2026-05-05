@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 
 /// <summary> Probes whether the daemon endpoint for one Unity project is currently reachable. </summary>

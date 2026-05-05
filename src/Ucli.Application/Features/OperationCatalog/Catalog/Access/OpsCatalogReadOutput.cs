@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Index;
-
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents the internal catalog snapshot used by <c>ops</c> subcommands. </summary>

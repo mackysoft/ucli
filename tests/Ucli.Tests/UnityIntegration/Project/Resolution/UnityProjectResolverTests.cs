@@ -14,7 +14,7 @@ public sealed class UnityProjectResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "valid-path");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
-        var resolver = new UnityProjectResolver();
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve(unityProjectPath);
 
@@ -34,7 +34,7 @@ public sealed class UnityProjectResolverTests
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "relative-path");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var relativePath = Path.GetRelativePath(Environment.CurrentDirectory, unityProjectPath);
-        var resolver = new UnityProjectResolver();
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve(relativePath);
 
@@ -112,7 +112,7 @@ public sealed class UnityProjectResolverTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "missing-directory");
         var missingPath = scope.GetPath("MissingUnityProject");
-        var resolver = new UnityProjectResolver();
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve(missingPath);
 
@@ -130,7 +130,7 @@ public sealed class UnityProjectResolverTests
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "missing-project-version");
         scope.CreateDirectory(Path.Combine("UnityProject", "ProjectSettings"));
         var unityProjectPath = scope.GetPath("UnityProject");
-        var resolver = new UnityProjectResolver();
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve(unityProjectPath);
 
@@ -148,7 +148,7 @@ public sealed class UnityProjectResolverTests
         using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "fingerprint-stability");
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
         var pathWithTrailingSeparator = unityProjectPath + Path.DirectorySeparatorChar;
-        var resolver = new UnityProjectResolver();
+        var resolver = CreateResolver();
 
         var primary = resolver.Resolve(unityProjectPath);
         var secondary = resolver.Resolve(pathWithTrailingSeparator);
@@ -166,7 +166,7 @@ public sealed class UnityProjectResolverTests
         var repositoryRoot = scope.CreateDirectory("RepoRoot");
         scope.CreateDirectory(Path.Combine("RepoRoot", ".git"));
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "UnityProject"));
-        var resolver = new UnityProjectResolver();
+        var resolver = CreateResolver();
 
         var result = resolver.Resolve(unityProjectPath);
 
@@ -186,7 +186,7 @@ public sealed class UnityProjectResolverTests
         scope.CreateDirectory(Path.Combine("RepoRoot", ".git"));
         var primaryProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "UnityProjectA"));
         var secondaryProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, Path.Combine("RepoRoot", "Packages", "UnityProjectB"));
-        var resolver = new UnityProjectResolver();
+        var resolver = CreateResolver();
 
         var primary = resolver.Resolve(primaryProjectPath);
         var secondary = resolver.Resolve(secondaryProjectPath);
@@ -198,8 +198,9 @@ public sealed class UnityProjectResolverTests
         Assert.NotEqual(primary.Context!.ProjectFingerprint, secondary.Context!.ProjectFingerprint);
     }
 
-    private static UnityProjectResolver CreateResolver (IReadOnlyDictionary<string, string?> environmentVariables)
+    private static UnityProjectResolver CreateResolver (IReadOnlyDictionary<string, string?>? environmentVariables = null)
     {
-        return new UnityProjectResolver(new ProjectPathInputResolver(new StubEnvironmentVariableReader(environmentVariables)));
+        return new UnityProjectResolver(new ProjectPathInputResolver(new StubEnvironmentVariableReader(
+            environmentVariables ?? new Dictionary<string, string?>(StringComparer.Ordinal))));
     }
 }

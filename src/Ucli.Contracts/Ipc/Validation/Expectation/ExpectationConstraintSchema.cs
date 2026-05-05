@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace MackySoft.Ucli.Contracts.Ipc.Validation;
 
 /// <summary> Defines schema metadata for <c>expect</c> constraints. </summary>
