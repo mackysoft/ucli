@@ -1,7 +1,7 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Hosting.Cli.Common.Catalog;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Parsing;
 
@@ -34,7 +34,7 @@ internal static class CliParseErrorJsonPolicy
             return null;
         }
 
-        var commandName = UcliCommandMetadataCatalog.ResolveResultCommandName(args);
+        var commandName = UcliCommandCatalog.ResolveResultCommandName(args);
         var parseErrorMessage = string.Join(" ", ParseErrorBuffer.Messages);
         return CommandResult.InvalidArgument(commandName, parseErrorMessage);
     }
