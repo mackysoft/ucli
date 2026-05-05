@@ -102,7 +102,7 @@ is_unity_input() {
   fi
 
   case "${file}" in
-    src/Ucli/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
+    src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*)
       return 0
       ;;
     *)
