@@ -81,6 +81,13 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 return OpsCatalogFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
+            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
+            {
+                return OpsCatalogFetchResult.Failure(
+                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
+                    IpcErrorCodes.InternalError);
+            }
+
             return OpsCatalogFetchResult.Failure(
                 $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);

@@ -58,6 +58,32 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_ReturnsFailureStatusMessage_WhenFailureStatusHasNoErrors ()
+    {
+        var executor = new StubUnityIpcRequestExecutor
+        {
+            Result = UnityRequestExecutionResult.Success(CreateResponse(
+                "busy",
+                new { })),
+        };
+        var reader = new SceneTreeLiteSnapshotReader(executor);
+
+        var result = await reader.Read(
+            CreateProject(),
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            "Assets/Scenes/Main.unity",
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal("index.scene-tree-lite.read failed with status 'busy'.", result.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_AcceptsWhitespaceOnlyNodeName_WhenPayloadIsOtherwiseValid ()
     {
         var executor = new StubUnityIpcRequestExecutor
@@ -159,10 +185,17 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 
     private static UnityRequestResponse CreateSuccessResponse (object payload)
     {
+        return CreateResponse(IpcProtocol.StatusOk, payload);
+    }
+
+    private static UnityRequestResponse CreateResponse (
+        string status,
+        object payload)
+    {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-scene-tree-lite",
-            Status: IpcProtocol.StatusOk,
+            Status: status,
             Payload: IpcPayloadCodec.SerializeToElement(payload),
             Errors: Array.Empty<IpcError>()));
     }

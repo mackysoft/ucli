@@ -72,6 +72,31 @@ public sealed class AssetLookupSnapshotReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_ReturnsFailureStatusMessage_WhenFailureStatusHasNoErrors ()
+    {
+        var executor = new StubUnityIpcRequestExecutor
+        {
+            Result = UnityRequestExecutionResult.Success(CreateResponse(
+                "busy",
+                new { },
+                Array.Empty<IpcError>())),
+        };
+        var reader = new AssetLookupSnapshotReader(executor);
+
+        var result = await reader.Read(
+            CreateProjectContext().UnityProject,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1000));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal("index.assets.read failed with status 'busy'.", result.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_ReturnsFailure_WhenResponsePayloadHasMismatchedLookupSets ()
     {
         var executor = new StubUnityIpcRequestExecutor
@@ -169,12 +194,20 @@ public sealed class AssetLookupSnapshotReaderTests
 
     private static UnityRequestResponse CreateSuccessResponse<TPayload> (TPayload payload)
     {
+        return CreateResponse(IpcProtocol.StatusOk, payload, Array.Empty<IpcError>());
+    }
+
+    private static UnityRequestResponse CreateResponse<TPayload> (
+        string status,
+        TPayload payload,
+        IReadOnlyList<IpcError> errors)
+    {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-1",
-            Status: IpcProtocol.StatusOk,
+            Status: status,
             Payload: JsonSerializer.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>()));
+            Errors: errors));
     }
 
     private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor

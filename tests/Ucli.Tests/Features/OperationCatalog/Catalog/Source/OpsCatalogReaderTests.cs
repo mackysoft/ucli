@@ -95,6 +95,33 @@ public sealed class OpsCatalogReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenFailureStatusHasNoErrors_ReturnsStatusMessage ()
+    {
+        var executor = new StubUnityRequestExecutor
+        {
+            Result = UnityRequestExecutionResult.Success(CreateResponse(
+                "busy",
+                Array.Empty<IpcError>(),
+                new { })),
+        };
+        var reader = new OpsCatalogReader(executor);
+
+        var result = await reader.Read(
+            CreateProjectContext(),
+            UcliConfig.CreateDefault(),
+            UnityExecutionMode.Auto,
+            TimeSpan.FromMilliseconds(1200),
+            failFast: false,
+            requireReadinessGate: true,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal("ops.read failed with status 'busy'.", result.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenPayloadIsMalformed_ReturnsFailure ()
     {
         var executor = new StubUnityRequestExecutor

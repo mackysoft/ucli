@@ -76,6 +76,13 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
                 return AssetLookupSnapshotFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
+            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
+            {
+                return AssetLookupSnapshotFetchResult.Failure(
+                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
+                    IpcErrorCodes.InternalError);
+            }
+
             return AssetLookupSnapshotFetchResult.Failure(
                 $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);

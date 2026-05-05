@@ -80,6 +80,13 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 return SceneTreeLiteSnapshotFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
+            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
+            {
+                return SceneTreeLiteSnapshotFetchResult.Failure(
+                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
+                    IpcErrorCodes.InternalError);
+            }
+
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);
