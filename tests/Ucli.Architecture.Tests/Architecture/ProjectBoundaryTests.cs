@@ -139,6 +139,37 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TestProjects_use_only_allowed_packages ()
+    {
+        string[] expectedTestPackages =
+        [
+            "coverlet.collector",
+            "Microsoft.NET.Test.Sdk",
+            "xunit",
+            "xunit.runner.visualstudio",
+        ];
+        var expectedPackagesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj"] = expectedTestPackages,
+            ["tests/Tests.Helper/Tests.Helper.csproj"] = expectedTestPackages,
+            ["tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"] = expectedTestPackages,
+            ["tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"] = expectedTestPackages,
+            ["tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"] = expectedTestPackages,
+            ["tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"] = expectedTestPackages,
+            ["tests/Ucli.Tests/Ucli.Tests.csproj"] = expectedTestPackages,
+        };
+
+        foreach (var (projectPath, expectedPackages) in expectedPackagesByProject)
+        {
+            var actualPackages = ReadPackageReferences(projectPath);
+            Assert.Equal(
+                expectedPackages.OrderBy(static value => value, StringComparer.Ordinal),
+                actualPackages.OrderBy(static value => value, StringComparer.Ordinal));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Verify_scope_detector_tracks_application_project_changes ()
     {
         var sourceText = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "detect-verify-scopes.sh"));
@@ -419,6 +450,24 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Cli_host_infrastructure_tests_do_not_import_application_use_case_namespaces ()
+    {
+        var hostInfrastructureTestFiles = EnumerateCSharpSourceFiles("tests/Ucli.Tests/Features/Daemon");
+
+        foreach (var sourceFile in hostInfrastructureTestFiles)
+        {
+            var sourceText = File.ReadAllText(sourceFile);
+            var importsApplicationUseCaseNamespace = sourceText
+                .Split('\n')
+                .Any(IsApplicationUseCaseImport);
+            Assert.False(
+                importsApplicationUseCaseNamespace,
+                $"CLI host infrastructure tests must not import Application use case namespaces: {NormalizeRepositoryRelativePath(sourceFile)}");
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Unity_request_port_does_not_expose_ipc_response_envelopes ()
     {
         var portFiles = new[]
@@ -562,7 +611,38 @@ public sealed class ProjectBoundaryTests
                 "MackySoft.Ucli.Unity.Editor",
                 "MackySoft.Ucli.Unity.Tests.Editor",
             ],
+            ["src/Ucli.Infrastructure/AssemblyInfo.cs"] =
+            [
+                "MackySoft.Ucli",
+                "MackySoft.Ucli.Infrastructure.Tests",
+                "MackySoft.Ucli.Tests",
+                "MackySoft.Ucli.Unity.Editor",
+                "MackySoft.Ucli.Unity.Tests.Editor",
+            ],
+            ["src/Ucli/Hosting/AssemblyInfo.cs"] =
+            [
+                "MackySoft.Ucli.Tests",
+            ],
+            ["src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/AssemblyInfo.cs"] =
+            [
+                "MackySoft.Ucli.Unity.Tests.Editor",
+            ],
+            ["tests/Tests.Helper/AssemblyInfo.cs"] =
+            [
+                "MackySoft.Ucli.Application.Tests",
+                "MackySoft.Ucli.Contracts.Tests",
+                "MackySoft.Ucli.Infrastructure.Tests",
+                "MackySoft.Ucli.Skills.Tests",
+                "MackySoft.Ucli.Tests",
+            ],
         };
+
+        var actualAssemblyInfoFiles = EnumerateRepositoryAssemblyInfoFiles()
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(
+            expectedFriendsByAssemblyInfo.Keys.OrderBy(static value => value, StringComparer.Ordinal),
+            actualAssemblyInfoFiles);
 
         foreach (var (assemblyInfoPath, expectedFriends) in expectedFriendsByAssemblyInfo)
         {
@@ -584,7 +664,7 @@ public sealed class ProjectBoundaryTests
         };
 
         var asmdefFiles = Directory.EnumerateFiles(
-            Path.Combine(RepositoryRoot, "src", "Ucli.Unity"),
+            Path.Combine(RepositoryRoot, "src", "Ucli.Unity", "Assets", "MackySoft", "MackySoft.Ucli.Unity"),
             "*.asmdef",
             SearchOption.AllDirectories);
 
@@ -609,7 +689,7 @@ public sealed class ProjectBoundaryTests
             "MackySoft.Ucli.Features.",
         };
 
-        var unitySourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Unity");
+        var unitySourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity");
 
         foreach (var sourceFile in unitySourceFiles)
         {
@@ -652,7 +732,9 @@ public sealed class ProjectBoundaryTests
             {
                 var relativePath = NormalizeRepositoryRelativePath(sourceFile);
                 return !relativePath.Contains("/bin/", StringComparison.Ordinal)
-                    && !relativePath.Contains("/obj/", StringComparison.Ordinal);
+                    && !relativePath.Contains("/obj/", StringComparison.Ordinal)
+                    && !relativePath.Contains("/Library/", StringComparison.Ordinal)
+                    && !relativePath.Contains("/Temp/", StringComparison.Ordinal);
             });
     }
 
@@ -662,6 +744,26 @@ public sealed class ProjectBoundaryTests
             .EnumerateFiles(Path.Combine(RepositoryRoot, "src"), "*.csproj", SearchOption.AllDirectories)
             .Select(NormalizeRepositoryRelativePath)
             .Where(static relativePath => !IsUnityGeneratedProjectFile(relativePath));
+    }
+
+    private static IEnumerable<string> EnumerateRepositoryAssemblyInfoFiles ()
+    {
+        var ownedAssemblyInfoRoots = new[]
+        {
+            "src/Ucli.Application",
+            "src/Ucli.Contracts",
+            "src/Ucli.Infrastructure",
+            "src/Ucli/Hosting",
+            "src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity",
+            "tests/Tests.Helper",
+        };
+
+        return ownedAssemblyInfoRoots
+            .Select(static relativeRoot => Path.Combine(RepositoryRoot, relativeRoot))
+            .SelectMany(static root => Directory.EnumerateFiles(root, "AssemblyInfo.cs", SearchOption.AllDirectories))
+            .Select(NormalizeRepositoryRelativePath)
+            .Where(static relativePath => !relativePath.Contains("/bin/", StringComparison.Ordinal)
+                                          && !relativePath.Contains("/obj/", StringComparison.Ordinal));
     }
 
     private static bool IsUnityGeneratedProjectFile (string relativePath)

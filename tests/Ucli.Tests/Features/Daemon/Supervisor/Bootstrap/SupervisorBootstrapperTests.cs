@@ -15,11 +15,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
@@ -245,7 +240,7 @@ public sealed class SupervisorBootstrapperTests
             .AsTask();
         for (var i = 0; i < 4; i++)
         {
-            await WaitForActiveTimerAsync(timeProvider, resultTask, CancellationToken.None);
+            await WaitForActiveTimerAsync(timeProvider, resultTask, SignalWaitTimeout, CancellationToken.None);
             if (resultTask.IsCompleted)
             {
                 break;
@@ -266,20 +261,31 @@ public sealed class SupervisorBootstrapperTests
     private static async Task WaitForActiveTimerAsync (
         ManualTimeProvider timeProvider,
         Task observedTask,
+        TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentNullException.ThrowIfNull(observedTask);
         cancellationToken.ThrowIfCancellationRequested();
-        for (var attempt = 0; attempt < 100; attempt++)
-        {
-            if (observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0)
-            {
-                return;
-            }
+        using var timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
+        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCancellationTokenSource.Token);
 
-            cancellationToken.ThrowIfCancellationRequested();
-            await Task.Yield();
+        while (!observedTask.IsCompleted && timeProvider.ActiveTimerCount == 0)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(1), linkedCancellationTokenSource.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested
+                                                      && !cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         Assert.True(
             observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0,
             "Supervisor bootstrap did not register the expected poll delay timer.");
