@@ -1,9 +1,11 @@
+using MackySoft.Ucli.Application.Shared.Execution;
+
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 
 /// <summary> Represents normalized output returned from test-run core service. </summary>
 /// <param name="Result"> The pass/fail result when execution reaches test result evaluation; otherwise <see langword="null" />. </param>
 /// <param name="ErrorKind"> The normalized error kind when execution fails; otherwise <see langword="null" />. </param>
-/// <param name="ExitCode"> The numeric process exit code. </param>
+/// <param name="Outcome"> The application outcome. </param>
 /// <param name="Message"> The user-facing execution message. </param>
 /// <param name="RunId"> The run identifier when artifacts session exists; otherwise <see langword="null" />. </param>
 /// <param name="ArtifactsDir"> The run artifacts directory path when available; otherwise <see langword="null" />. </param>
@@ -12,7 +14,7 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 internal sealed record TestRunServiceResult (
     TestRunResultKind? Result,
     TestRunErrorKind? ErrorKind,
-    int ExitCode,
+    ApplicationOutcome Outcome,
     string Message,
     string? RunId,
     string? ArtifactsDir,
@@ -53,7 +55,7 @@ internal sealed record TestRunServiceResult (
         return new TestRunServiceResult(
             Result: TestRunResultKind.Pass,
             ErrorKind: null,
-            ExitCode: (int)TestRunExitCode.Pass,
+            Outcome: ApplicationOutcome.Success,
             Message: message,
             RunId: runId,
             ArtifactsDir: artifactsDir,
@@ -76,7 +78,7 @@ internal sealed record TestRunServiceResult (
         return new TestRunServiceResult(
             Result: TestRunResultKind.Fail,
             ErrorKind: null,
-            ExitCode: (int)TestRunExitCode.Fail,
+            Outcome: ApplicationOutcome.TestFailure,
             Message: message,
             RunId: runId,
             ArtifactsDir: artifactsDir,
@@ -101,7 +103,7 @@ internal sealed record TestRunServiceResult (
         return new TestRunServiceResult(
             Result: null,
             ErrorKind: TestRunErrorKind.InvalidInput,
-            ExitCode: (int)TestRunExitCode.InvalidInput,
+            Outcome: ApplicationOutcome.InvalidArgument,
             Message: message,
             RunId: runId,
             ArtifactsDir: artifactsDir,
@@ -126,7 +128,7 @@ internal sealed record TestRunServiceResult (
         return new TestRunServiceResult(
             Result: null,
             ErrorKind: TestRunErrorKind.InfraError,
-            ExitCode: (int)TestRunExitCode.InfraError,
+            Outcome: ApplicationOutcome.InfrastructureError,
             Message: message,
             RunId: runId,
             ArtifactsDir: artifactsDir,
@@ -151,7 +153,7 @@ internal sealed record TestRunServiceResult (
         return new TestRunServiceResult(
             Result: null,
             ErrorKind: TestRunErrorKind.ToolError,
-            ExitCode: (int)TestRunExitCode.ToolError,
+            Outcome: ApplicationOutcome.ToolError,
             Message: message,
             RunId: runId,
             ArtifactsDir: artifactsDir,

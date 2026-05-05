@@ -36,7 +36,7 @@ internal static class PlanCommandResultFactory
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Plan,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: serviceResult.Message,
             Payload: payload,
             Errors: errors);

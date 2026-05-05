@@ -2,23 +2,23 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Profiles;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
-using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Features.Testing.Profiles.Adapters;
 
 namespace MackySoft.Ucli.Tests;
 
-public sealed class TestProfileInitServiceTests
+public sealed class FileTestProfileTemplateStoreTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithOutputPathWithoutJson_AppendsJsonExtensionAndWritesTemplate ()
+    public async Task Write_WithOutputPathWithoutJson_AppendsJsonExtensionAndWritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-extension");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile"));
         var expectedProfilePath = outputPath + ".json";
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(outputPath, false), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), outputPath, false, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -32,13 +32,13 @@ public sealed class TestProfileInitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithOutputPathAlreadyJson_WritesTemplateWithoutAddingExtension ()
+    public async Task Write_WithOutputPathAlreadyJson_WritesTemplateWithoutAddingExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "preserve-json-extension");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile.json"));
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(outputPath, false), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), outputPath, false, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<TestProfileInitExecutionOutput>(result.Output);
@@ -50,14 +50,14 @@ public sealed class TestProfileInitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithCustomExtension_AppendsJsonExtension ()
+    public async Task Write_WithCustomExtension_AppendsJsonExtension ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "append-json-to-custom-extension");
         var outputPath = scope.GetPath(Path.Combine("profiles", "test-profile.txt"));
         var expectedProfilePath = outputPath + ".json";
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(outputPath, false), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), outputPath, false, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<TestProfileInitExecutionOutput>(result.Output);
@@ -69,26 +69,26 @@ public sealed class TestProfileInitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithoutForce_WhenTargetFileExists_ReturnsInvalidArgument ()
+    public async Task Write_WithoutForce_WhenTargetFileExists_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "existing-file-without-force");
         var outputPath = scope.WriteFile("test.profile.json", "{\"legacy\":true}");
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(outputPath, false), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), outputPath, false, CancellationToken.None);
 
         AssertInvalidArgumentError(result);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithForce_WhenTargetFileExists_OverwritesTemplate ()
+    public async Task Write_WithForce_WhenTargetFileExists_OverwritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "existing-file-with-force");
         var outputPath = scope.WriteFile("test.profile.json", "{\"legacy\":true}");
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(outputPath, true), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), outputPath, true, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<TestProfileInitExecutionOutput>(result.Output);
@@ -98,13 +98,13 @@ public sealed class TestProfileInitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenOutputPathIsDirectory_ReturnsInvalidArgument ()
+    public async Task Write_WhenOutputPathIsDirectory_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "directory-path");
         var directoryPath = scope.CreateDirectory("existing-directory.json");
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(directoryPath, false), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), directoryPath, false, CancellationToken.None);
 
         AssertInvalidArgumentError(result);
     }
@@ -113,27 +113,27 @@ public sealed class TestProfileInitServiceTests
     [Trait("Size", "Small")]
     [InlineData("/")]
     [InlineData("\\")]
-    public async Task Execute_WhenOutputPathUsesDirectoryStyleSuffix_ReturnsInvalidArgument (string suffix)
+    public async Task Write_WhenOutputPathUsesDirectoryStyleSuffix_ReturnsInvalidArgument (string suffix)
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "directory-style-suffix");
         var filePathBase = scope.GetPath(Path.Combine("profiles", "target"));
         var directoryStylePath = filePathBase + suffix;
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(directoryStylePath, false), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), directoryStylePath, false, CancellationToken.None);
 
         AssertInvalidArgumentError(result);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenParentDirectoryDoesNotExist_CreatesDirectoryAndWritesTemplate ()
+    public async Task Write_WhenParentDirectoryDoesNotExist_CreatesDirectoryAndWritesTemplate ()
     {
         using var scope = TestDirectories.CreateTempScope("test-profile-init-service", "parent-directory-not-found");
         var outputPath = scope.GetPath(Path.Combine("profiles", "missing-parent-profile.json"));
-        var service = new TestProfileInitService();
+        var store = new FileTestProfileTemplateStore();
 
-        var result = await service.Execute(new TestProfileInitCommandInput(outputPath, false), CancellationToken.None);
+        var result = await store.WriteAsync(TestProfile.CreateDefault(), outputPath, false, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<TestProfileInitExecutionOutput>(result.Output);

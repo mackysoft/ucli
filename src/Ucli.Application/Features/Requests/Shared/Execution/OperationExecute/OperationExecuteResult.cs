@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
@@ -7,13 +8,13 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Operatio
 /// <param name="RequestId"> The request identifier associated with this execution. </param>
 /// <param name="OpResults"> The per-step execution results. </param>
 /// <param name="Errors"> The machine-readable error list. </param>
-/// <param name="ExitCode"> The process exit code associated with this response. </param>
+/// <param name="Outcome"> The application outcome associated with this response. </param>
 internal sealed record OperationExecuteResult (
     int ProtocolVersion,
     string RequestId,
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
     IReadOnlyList<IpcError> Errors,
-    int ExitCode,
+    ApplicationOutcome Outcome,
     IpcExecuteReadPostcondition? ReadPostcondition)
 {
     /// <summary> Gets a value indicating whether the operation execution succeeded. </summary>

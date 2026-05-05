@@ -39,38 +39,38 @@ internal static class ExecuteResponseConverter
         return new ExecuteResponseConversionResult(
             OpResults: payload.OpResults,
             Errors: normalizedErrors,
-            ExitCode: ResolveExitCode(normalizedErrors),
+            Outcome: ResolveOutcome(normalizedErrors),
             PlanToken: payload.PlanToken,
             ReadPostcondition: payload.ReadPostcondition);
     }
 
-    /// <summary> Resolves the CLI exit code from one machine-readable error code. </summary>
+    /// <summary> Resolves the application outcome from one machine-readable error code. </summary>
     /// <param name="errorCode"> The raw error code. </param>
-    /// <returns> The associated CLI exit code. </returns>
-    public static int ResolveExitCode (string errorCode)
+    /// <returns> The associated application outcome. </returns>
+    public static ApplicationOutcome ResolveOutcome (string errorCode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
 
         return string.Equals(errorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal)
-            ? (int)ApplicationExitCode.InvalidArgument
-            : (int)ApplicationExitCode.ToolError;
+            ? ApplicationOutcome.InvalidArgument
+            : ApplicationOutcome.ToolError;
     }
 
-    /// <summary> Resolves the CLI exit code from one machine-readable error collection. </summary>
+    /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
     /// <param name="errors"> The machine-readable error collection. </param>
-    /// <returns> The associated CLI exit code. </returns>
-    public static int ResolveExitCode (IReadOnlyList<IpcError> errors)
+    /// <returns> The associated application outcome. </returns>
+    public static ApplicationOutcome ResolveOutcome (IReadOnlyList<IpcError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
         if (errors.Count == 0)
         {
-            return (int)ApplicationExitCode.Success;
+            return ApplicationOutcome.Success;
         }
 
         return errors.All(static error => string.Equals(error.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
-            ? (int)ApplicationExitCode.InvalidArgument
-            : (int)ApplicationExitCode.ToolError;
+            ? ApplicationOutcome.InvalidArgument
+            : ApplicationOutcome.ToolError;
     }
 
     private static IReadOnlyList<IpcError> NormalizeErrors (
@@ -106,7 +106,7 @@ internal static class ExecuteResponseConverter
         return new ExecuteResponseConversionResult(
             OpResults: [],
             Errors: errors,
-            ExitCode: ResolveExitCode(errors),
+            Outcome: ResolveOutcome(errors),
             PlanToken: null,
             ReadPostcondition: null);
     }

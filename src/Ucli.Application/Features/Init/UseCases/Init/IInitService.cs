@@ -9,7 +9,7 @@ internal interface IInitService
     /// <param name="input"> The normalized init command input. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the initialization execution result that contains either generated file paths or a structured error. </returns>
-    ValueTask<InitExecutionResult> Execute (
+    ValueTask<InitExecutionResult> ExecuteAsync (
         InitCommandInput input,
         CancellationToken cancellationToken = default);
 }

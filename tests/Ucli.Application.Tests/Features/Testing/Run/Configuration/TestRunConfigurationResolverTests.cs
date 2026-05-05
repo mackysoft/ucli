@@ -1,13 +1,10 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.UnityIntegration.Project.Resolution;
-using MackySoft.Ucli.UnityIntegration.Resolution;
-using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -18,7 +15,7 @@ public sealed class TestRunConfigurationResolverTests
     public async Task Resolve_WithCliOverridesProfileValues_ReturnsMergedCliValues ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "cli-overrides-profile");
-        var testSettingsPath = scope.WriteFile("ProjectSettings/TestSettings.json", "{}");
+        var testSettingsPath = scope.GetPath("ProjectSettings/TestSettings.json");
 
         var profile = new TestRunProfile
         {
@@ -42,25 +39,26 @@ public sealed class TestRunConfigurationResolverTests
 
         var resolver = new TestRunConfigurationResolver(
             profileLoader,
-            new ProjectPathInputResolver(new StubEnvironmentVariableReader()),
+            new StubProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
             unityProjectResolver,
             unityVersionResolver,
-            unityEditorPathResolver);
+            unityEditorPathResolver,
+            new StubPathExistenceProbe(testSettingsPath));
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: unityProject.UnityProjectRoot,
             ProfilePath: scope.GetPath("test.profile.json"),
-            Mode: NormalizeMode("oneshot"),
+            Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
-            TestPlatform: NormalizeTestPlatform("editmode"),
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: "Name~Smoke",
             TestCategory: ["smoke,quick"],
             AssemblyName: ["Cli.Tests"],
             TestSettingsPath: testSettingsPath,
             TimeoutMilliseconds: 120);
 
-        var result = await resolver.Resolve(input, CancellationToken.None);
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var configuration = Assert.IsType<ResolvedTestRunConfiguration>(result.Configuration);
@@ -75,7 +73,7 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenCommandOptionProjectPathIsMissing_UsesEnvironmentVariableBeforeProfile ()
+    public async Task Resolve_WhenProjectPathInputResolverReturnsExternalPath_UsesResolvedPathBeforeProfile ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "environment-before-profile");
         var environmentProjectPath = scope.GetPath("EnvironmentProject");
@@ -95,33 +93,34 @@ public sealed class TestRunConfigurationResolverTests
 
         var unityProject = CreateUnityProjectContext(scope, "EnvironmentProject");
         var unityProjectResolver = new StubUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject));
+        var projectPathInputResolver = new StubProjectPathInputResolver((_, _) => environmentProjectPath);
         var resolver = new TestRunConfigurationResolver(
             new StubProfileLoader(TestRunProfileLoadResult.Success(profile)),
-            new ProjectPathInputResolver(new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
-            {
-                [UcliEnvironmentVariableNames.ProjectPath] = environmentProjectPath,
-            })),
+            projectPathInputResolver,
             unityProjectResolver,
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
+            new StubPathExistenceProbe());
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: null,
             ProfilePath: scope.GetPath("test.profile.json"),
-            Mode: NormalizeMode("auto"),
+            Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: NormalizeTestPlatform("editmode"),
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
             TimeoutMilliseconds: 30);
 
-        var result = await resolver.Resolve(input, CancellationToken.None);
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(Path.GetFullPath(environmentProjectPath), unityProjectResolver.LastProjectPath);
+        Assert.Null(projectPathInputResolver.LastCommandOptionProjectPath);
+        Assert.Equal("./profile-project", projectPathInputResolver.LastFallbackProjectPath);
     }
 
     [Fact]
@@ -133,6 +132,7 @@ public sealed class TestRunConfigurationResolverTests
         var environmentProjectPath = scope.GetPath("EnvironmentProject");
         var unityProject = CreateUnityProjectContext(scope, "CommandProject");
         var unityProjectResolver = new StubUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject));
+        var projectPathInputResolver = new StubProjectPathInputResolver((commandOptionProjectPath, _) => commandOptionProjectPath ?? environmentProjectPath);
         var resolver = new TestRunConfigurationResolver(
             new StubProfileLoader(TestRunProfileLoadResult.Success(new TestRunProfile
             {
@@ -147,31 +147,31 @@ public sealed class TestRunConfigurationResolverTests
                 TestSettingsPath = null,
                 Timeout = 30,
             })),
-            new ProjectPathInputResolver(new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
-            {
-                [UcliEnvironmentVariableNames.ProjectPath] = environmentProjectPath,
-            })),
+            projectPathInputResolver,
             unityProjectResolver,
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
+            new StubPathExistenceProbe());
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: commandProjectPath,
             ProfilePath: scope.GetPath("test.profile.json"),
-            Mode: NormalizeMode("auto"),
+            Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: NormalizeTestPlatform("editmode"),
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
             TimeoutMilliseconds: 30);
 
-        var result = await resolver.Resolve(input, CancellationToken.None);
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(Path.GetFullPath(commandProjectPath), unityProjectResolver.LastProjectPath);
+        Assert.Equal(commandProjectPath, projectPathInputResolver.LastCommandOptionProjectPath);
+        Assert.Equal("./profile-project", projectPathInputResolver.LastFallbackProjectPath);
     }
 
     [Fact]
@@ -184,17 +184,17 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunConfigurationRequest(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
-            Mode: NormalizeMode("auto"),
+            Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: NormalizeTestPlatform("Android"),
+            TestPlatform: TestRunPlatform.Player("Android"),
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
             TimeoutMilliseconds: 30);
 
-        var result = await resolver.Resolve(input, CancellationToken.None);
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(TestRunPlatform.Player("Android"), result.Configuration!.TestPlatform);
@@ -212,17 +212,17 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunConfigurationRequest(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
-            Mode: NormalizeMode("auto"),
+            Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: NormalizeTestPlatform("editmode"),
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: null,
             TimeoutMilliseconds: timeoutMilliseconds);
 
-        var result = await resolver.Resolve(input, CancellationToken.None);
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -240,17 +240,17 @@ public sealed class TestRunConfigurationResolverTests
         var input = new TestRunConfigurationRequest(
             ProjectPath: scope.GetPath("Unity"),
             ProfilePath: null,
-            Mode: NormalizeMode("auto"),
+            Mode: UnityExecutionMode.Auto,
             UnityVersion: null,
             UnityEditorPath: null,
-            TestPlatform: NormalizeTestPlatform("editmode"),
+            TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
             TestSettingsPath: scope.GetPath("ProjectSettings/TestSettings.json"),
             TimeoutMilliseconds: 30);
 
-        var result = await resolver.Resolve(input, CancellationToken.None);
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -264,10 +264,11 @@ public sealed class TestRunConfigurationResolverTests
 
         return new TestRunConfigurationResolver(
             new StubProfileLoader(TestRunProfileLoadResult.Success(new TestRunProfile())),
-            new ProjectPathInputResolver(new StubEnvironmentVariableReader()),
+            new StubProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
             new StubUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject)),
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
+            new StubPathExistenceProbe());
     }
 
     private static ResolvedUnityProjectContext CreateUnityProjectContext (
@@ -291,12 +292,52 @@ public sealed class TestRunConfigurationResolverTests
             this.result = result;
         }
 
-        public ValueTask<TestRunProfileLoadResult> Load (
+        public ValueTask<TestRunProfileLoadResult> LoadAsync (
             string profilePath,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class StubProjectPathInputResolver : IProjectPathInputResolver
+    {
+        private readonly Func<string?, string?, string?> resolve;
+
+        public StubProjectPathInputResolver (Func<string?, string?, string?> resolve)
+        {
+            this.resolve = resolve ?? throw new ArgumentNullException(nameof(resolve));
+        }
+
+        public string? LastCommandOptionProjectPath { get; private set; }
+
+        public string? LastFallbackProjectPath { get; private set; }
+
+        public string? Resolve (
+            string? commandOptionProjectPath,
+            string? fallbackProjectPath = null)
+        {
+            LastCommandOptionProjectPath = commandOptionProjectPath;
+            LastFallbackProjectPath = fallbackProjectPath;
+            return resolve(commandOptionProjectPath, fallbackProjectPath);
+        }
+    }
+
+    private sealed class StubPathExistenceProbe : ITestRunPathExistenceProbe
+    {
+        private readonly HashSet<string> existingPaths;
+
+        public StubPathExistenceProbe (params string[] existingPaths)
+        {
+            this.existingPaths = existingPaths
+                .Select(Path.GetFullPath)
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
+        public bool FileExists (string path)
+        {
+            return existingPaths.Contains(Path.GetFullPath(path));
         }
     }
 

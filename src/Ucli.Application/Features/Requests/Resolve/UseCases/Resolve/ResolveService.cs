@@ -200,7 +200,7 @@ internal sealed class ResolveService : IResolveService
                 [
                     new IpcError(errorCode, executionResult.Message, null),
                 ],
-                ExecuteResponseConverter.ResolveExitCode(errorCode),
+                ExecuteResponseConverter.ResolveOutcome(errorCode),
                 readIndex);
         }
 
@@ -209,7 +209,7 @@ internal sealed class ResolveService : IResolveService
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
-            convertedResponse.ExitCode,
+            convertedResponse.Outcome,
             readIndex);
     }
 

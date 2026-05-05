@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
+using MackySoft.Ucli.Features.Testing.Profiles.Adapters;
 using MackySoft.Ucli.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Features.Testing.Run.Results;
@@ -21,12 +22,12 @@ internal static class TestingServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<ITestProfileInitService, TestProfileInitService>();
+        services.AddSingleton<ITestProfileTemplateStore, FileTestProfileTemplateStore>();
         services.AddSingleton<ITestRunMetaStore, TestRunMetaStore>();
         services.AddSingleton<ITestRunArtifactsService, TestRunArtifactsService>();
         services.AddSingleton<IDaemonTestRunClient, IpcDaemonTestRunClient>();
         services.AddSingleton<ITestRunProfileLoader, TestRunProfileLoader>();
-        services.AddSingleton<ITestRunConfigurationResolver, TestRunConfigurationResolver>();
+        services.AddSingleton<ITestRunPathExistenceProbe, FileTestRunPathExistenceProbe>();
         services.AddSingleton<IUnityTestExecutor, UnityTestExecutor>();
         services.AddSingleton<IUnityResultsXmlParser, UnityResultsXmlParser>();
         services.AddSingleton<IUnityResultsArtifactWriter, UnityResultsArtifactWriter>();

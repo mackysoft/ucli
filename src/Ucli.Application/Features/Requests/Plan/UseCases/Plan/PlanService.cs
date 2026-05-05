@@ -118,7 +118,7 @@ internal sealed class PlanService : IPlanService
                 [
                     new IpcError(errorCode, executionResult.Message, null),
                 ],
-                ExecuteResponseConverter.ResolveExitCode(errorCode),
+                ExecuteResponseConverter.ResolveOutcome(errorCode),
                 baseOutput);
         }
 
@@ -132,7 +132,7 @@ internal sealed class PlanService : IPlanService
             return PlanServiceResult.Failure(
                 ResolveFailureMessage(convertedResponse.Errors, "uCLI plan failed."),
                 convertedResponse.Errors,
-                convertedResponse.ExitCode,
+                convertedResponse.Outcome,
                 executionOutput);
         }
 

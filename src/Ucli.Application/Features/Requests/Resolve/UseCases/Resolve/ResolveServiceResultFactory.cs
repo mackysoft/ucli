@@ -16,7 +16,7 @@ internal static class ResolveServiceResultFactory
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         ReadIndexInfo readIndex)
     {
-        return Create(requestId, opResults, [], (int)ApplicationExitCode.Success, readIndex);
+        return Create(requestId, opResults, [], ApplicationOutcome.Success, readIndex);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -35,8 +35,8 @@ internal static class ResolveServiceResultFactory
                 new IpcError(errorCode, error.Message, null),
             ],
             error.Kind == ExecutionErrorKind.InvalidArgument
-                ? (int)ApplicationExitCode.InvalidArgument
-                : (int)ApplicationExitCode.ToolError,
+                ? ApplicationOutcome.InvalidArgument
+                : ApplicationOutcome.ToolError,
             readIndex ?? CreateUnityReadIndexInfo(fallbackReason: null));
     }
 
@@ -51,7 +51,7 @@ internal static class ResolveServiceResultFactory
             requestId,
             [],
             [error],
-            ExecuteResponseConverter.ResolveExitCode(error.Code),
+            ExecuteResponseConverter.ResolveOutcome(error.Code),
             readIndex);
     }
 
@@ -60,7 +60,7 @@ internal static class ResolveServiceResultFactory
         string requestId,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
-        int exitCode,
+        ApplicationOutcome outcome,
         ReadIndexInfo readIndex)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -73,7 +73,7 @@ internal static class ResolveServiceResultFactory
             RequestId: requestId,
             OpResults: opResults,
             Errors: errors,
-            ExitCode: exitCode,
+            Outcome: outcome,
             ReadIndex: readIndex);
     }
 

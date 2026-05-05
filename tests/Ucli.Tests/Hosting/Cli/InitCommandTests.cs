@@ -67,7 +67,7 @@ public sealed class InitCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<InitExecutionResult> Execute (
+        public ValueTask<InitExecutionResult> ExecuteAsync (
             InitCommandInput input,
             CancellationToken cancellationToken = default)
         {

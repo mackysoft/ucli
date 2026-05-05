@@ -31,12 +31,12 @@ public sealed class TestRunServiceTests
 {
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(false, (int)TestRunResultKind.Pass, (int)TestRunExitCode.Pass)]
-    [InlineData(true, (int)TestRunResultKind.Fail, (int)TestRunExitCode.Fail)]
+    [InlineData(false, (int)TestRunResultKind.Pass, (int)ApplicationOutcome.Success)]
+    [InlineData(true, (int)TestRunResultKind.Fail, (int)ApplicationOutcome.TestFailure)]
     public async Task Execute_WithSuccessfulExecution_ReturnsPassOrFail (
         bool hasFailedTests,
         int expectedResult,
-        int expectedExitCode)
+        int expectedOutcome)
     {
         var configuration = CreateResolvedConfiguration();
         var session = CreateArtifactsSession(configuration);
@@ -55,7 +55,7 @@ public sealed class TestRunServiceTests
 
         Assert.Equal((TestRunResultKind)expectedResult, result.Result);
         Assert.Null(result.ErrorKind);
-        Assert.Equal(expectedExitCode, result.ExitCode);
+        Assert.Equal((ApplicationOutcome)expectedOutcome, result.Outcome);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
@@ -83,7 +83,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InvalidInput, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InvalidInput, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
@@ -113,7 +113,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(errorCode, result.ErrorCode);
     }
 
@@ -143,7 +143,7 @@ public sealed class TestRunServiceTests
         var result = await service.Execute(CreateInput(), CancellationToken.None);
 
         Assert.Equal(TestRunResultKind.Pass, result.Result);
-        Assert.Equal((int)TestRunExitCode.Pass, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Equal(1, daemonTestRunClient.CallCount);
         Assert.False(daemonTestRunClient.LastFailFast);
         Assert.Equal(0, unityTestExecutor.CallCount);
@@ -176,7 +176,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(IpcErrorCodes.EditorBusy, result.ErrorCode);
         Assert.Equal(1, daemonTestRunClient.CallCount);
         Assert.True(daemonTestRunClient.LastFailFast);
@@ -208,7 +208,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
     }
 
@@ -239,7 +239,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
     }
 
@@ -270,7 +270,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
     }
 
@@ -301,7 +301,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
     }
 
@@ -329,7 +329,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionTimeout, result.ErrorCode);
     }
 
@@ -360,7 +360,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
@@ -389,7 +389,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.TestResultsXmlReadFailed, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
@@ -416,7 +416,7 @@ public sealed class TestRunServiceTests
 
         Assert.Equal(TestRunResultKind.Fail, result.Result);
         Assert.Null(result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.Fail, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.TestFailure, result.Outcome);
         Assert.Equal(session.RunId, result.RunId);
     }
 
@@ -446,7 +446,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
         Assert.Equal("Generated test artifacts are missing.", result.Message);
     }
@@ -474,7 +474,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.TestResultsOutputWriteFailed, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
@@ -502,7 +502,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.TestResultsXmlReadFailed, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
@@ -528,7 +528,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
     }
@@ -554,7 +554,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(IpcErrorCodes.InternalError, result.ErrorCode);
         Assert.Equal("Unexpected error during Unity results conversion: boom", result.Message);
         Assert.Equal(session.RunId, result.RunId);
@@ -588,7 +588,7 @@ public sealed class TestRunServiceTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.Canceled, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
@@ -677,7 +677,7 @@ public sealed class TestRunServiceTests
             this.result = result;
         }
 
-        public ValueTask<TestRunConfigurationResolutionResult> Resolve (
+        public ValueTask<TestRunConfigurationResolutionResult> ResolveAsync (
             TestRunConfigurationRequest input,
             CancellationToken cancellationToken = default)
         {

@@ -172,7 +172,7 @@ public sealed class ResolveCommandTests
                 },
             ],
             Errors: [],
-            ExitCode: (int)CliExitCode.Success,
+            Outcome: ApplicationOutcome.Success,
             ReadIndex: new ReadIndexInfo(
                 Used: true,
                 Hit: true,

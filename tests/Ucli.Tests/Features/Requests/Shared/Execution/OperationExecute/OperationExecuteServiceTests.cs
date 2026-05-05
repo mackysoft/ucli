@@ -79,7 +79,7 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(IpcProtocol.CurrentVersion, result.ProtocolVersion);
         Assert.True(Guid.TryParseExact(result.RequestId, "D", out _));
         Assert.True(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Empty(result.Errors);
         Assert.Single(result.OpResults);
 
@@ -195,7 +195,7 @@ public sealed class OperationExecuteServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Single(result.OpResults);
         Assert.NotNull(result.ReadPostcondition);
         Assert.Equal(1, readPostconditionStore.WriteCallCount);
@@ -425,7 +425,7 @@ public sealed class OperationExecuteServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(ValidationErrorCodes.OperationNotAllowed, error.Code);
@@ -435,11 +435,11 @@ public sealed class OperationExecuteServiceTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IpcErrorCodes.InvalidArgument, (int)CliExitCode.InvalidArgument)]
-    [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, (int)CliExitCode.ToolError)]
+    [InlineData(IpcErrorCodes.InvalidArgument, (int)ApplicationOutcome.InvalidArgument)]
+    [InlineData(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, (int)ApplicationOutcome.ToolError)]
     public async Task Execute_WhenTransportExecutionFails_MapsExitCodeFromErrorCode (
         string errorCode,
-        int expectedExitCode)
+        int expectedOutcome)
     {
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
@@ -458,7 +458,7 @@ public sealed class OperationExecuteServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(expectedExitCode, result.ExitCode);
+        Assert.Equal((ApplicationOutcome)expectedOutcome, result.Outcome);
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(errorCode, error.Code);
@@ -500,7 +500,7 @@ public sealed class OperationExecuteServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Single(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(IpcErrorCodes.InvalidArgument, error.Code);
@@ -532,7 +532,7 @@ public sealed class OperationExecuteServiceTests
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(IpcErrorCodes.InternalError, error.Code);

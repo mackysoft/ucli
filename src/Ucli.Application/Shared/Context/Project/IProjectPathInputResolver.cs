@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
+namespace MackySoft.Ucli.Application.Shared.Context.Project;
 
 /// <summary> Resolves the effective Unity project path input from command options, environment variables, and fallbacks. </summary>
 internal interface IProjectPathInputResolver

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
@@ -5,12 +6,12 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversi
 /// <summary> Represents one normalized execute-response conversion result. </summary>
 /// <param name="OpResults"> The converted per-step execution results. </param>
 /// <param name="Errors"> The normalized machine-readable error list. </param>
-/// <param name="ExitCode"> The CLI exit code associated with the converted response. </param>
+/// <param name="Outcome"> The application outcome associated with the converted response. </param>
 /// <param name="PlanToken"> The optional plan token carried by the response payload. </param>
 internal sealed record ExecuteResponseConversionResult (
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
     IReadOnlyList<IpcError> Errors,
-    int ExitCode,
+    ApplicationOutcome Outcome,
     string? PlanToken,
     IpcExecuteReadPostcondition? ReadPostcondition)
 {

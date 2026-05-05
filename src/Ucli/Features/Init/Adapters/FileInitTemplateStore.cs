@@ -1,34 +1,33 @@
 using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
-namespace MackySoft.Ucli.Features.Init.UseCases.Init;
+namespace MackySoft.Ucli.Features.Init.Adapters;
 
-/// <summary> Implements init flow that generates explicit <c>.ucli</c> config template files. </summary>
-internal sealed class InitService : IInitService
+/// <summary> Persists init template files through the local filesystem. </summary>
+internal sealed class FileInitTemplateStore : IInitTemplateStore
 {
     private readonly IUcliConfigStore configStore;
 
-    /// <summary> Initializes a new instance of the <see cref="InitService" /> class. </summary>
+    /// <summary> Initializes a new instance of the <see cref="FileInitTemplateStore" /> class. </summary>
     /// <param name="configStore"> The config store dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="configStore" /> is <see langword="null" />. </exception>
-    public InitService (IUcliConfigStore configStore)
+    public FileInitTemplateStore (IUcliConfigStore configStore)
     {
         this.configStore = configStore ?? throw new ArgumentNullException(nameof(configStore));
     }
 
-    /// <summary> Executes initialization to create or overwrite <c>.ucli/config.json</c> and <c>.ucli/.gitignore</c>. </summary>
-    /// <param name="input"> The normalized init command input. </param>
-    /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
-    /// <returns> A task that resolves to the init execution result that contains generated file paths on success or a structured error on failure. </returns>
-    public async ValueTask<InitExecutionResult> Execute (
-        InitCommandInput input,
+    /// <inheritdoc />
+    public async ValueTask<InitExecutionResult> WriteAsync (
+        UcliConfig config,
+        bool force,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(config);
         cancellationToken.ThrowIfCancellationRequested();
 
         string currentDirectoryPath;
@@ -48,7 +47,7 @@ internal sealed class InitService : IInitService
         var gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
         var existingPaths = CollectExistingTemplatePaths(configPath, gitIgnorePath);
 
-        if (!input.Force && existingPaths.Count > 0)
+        if (!force && existingPaths.Count > 0)
         {
             var joinedPaths = string.Join(", ", existingPaths);
             return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
@@ -72,8 +71,7 @@ internal sealed class InitService : IInitService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var defaultConfig = UcliConfig.CreateDefault();
-        var configSaveResult = await configStore.Save(repositoryRoot, defaultConfig, cancellationToken).ConfigureAwait(false);
+        var configSaveResult = await configStore.Save(repositoryRoot, config, cancellationToken).ConfigureAwait(false);
         if (!configSaveResult.IsSuccess)
         {
             return InitExecutionResult.Failure(configSaveResult.Error!);

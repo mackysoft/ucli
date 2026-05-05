@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -10,7 +11,7 @@ internal sealed record QueryServiceResult (
     string RequestId,
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
     IReadOnlyList<IpcError> Errors,
-    int ExitCode,
+    ApplicationOutcome Outcome,
     string Message,
     ReadIndexInfo ReadIndex)
 {

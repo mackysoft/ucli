@@ -46,7 +46,7 @@ internal static class RefreshCommandResultFactory
             ProtocolVersion: executionResult.ProtocolVersion,
             Command: UcliCommandNames.Refresh,
             Status: IpcProtocol.StatusError,
-            ExitCode: executionResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(executionResult.Outcome),
             Message: ResolveFailureMessage(executionResult.Errors),
             Payload: payload,
             Errors: errors);

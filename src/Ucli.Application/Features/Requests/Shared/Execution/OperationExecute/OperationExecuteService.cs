@@ -156,7 +156,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 [
                     new IpcError(errorCode, executionResult.Message, null),
                 ],
-                ResolveExitCode(errorCode));
+                ResolveOutcome(errorCode));
         }
 
         var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
@@ -172,7 +172,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
-            convertedResponse.ExitCode,
+            convertedResponse.Outcome,
             convertedResponse.ReadPostcondition);
     }
 
@@ -229,7 +229,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     [
                         new IpcError(errorCode, executionResult.Message, null),
                     ],
-                    ResolveExitCode(errorCode)));
+                    ResolveOutcome(errorCode)));
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
@@ -241,7 +241,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     convertedResponse.OpResults,
                     convertedResponse.Errors,
-                    convertedResponse.ExitCode));
+                    convertedResponse.Outcome));
         }
 
         if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
@@ -257,7 +257,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                             "Execute response payload is invalid. The 'planToken' field is missing.",
                             null),
                     ],
-                    (int)ApplicationExitCode.ToolError));
+                    ApplicationOutcome.ToolError));
         }
 
         return (convertedResponse.PlanToken, null);
@@ -273,24 +273,24 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             : errorCode;
     }
 
-    /// <summary> Resolves the CLI exit code from one transport-level error code. </summary>
+    /// <summary> Resolves the application outcome from one transport-level error code. </summary>
     /// <param name="errorCode"> The raw error code. </param>
-    /// <returns> The associated CLI exit code. </returns>
-    private static int ResolveExitCode (string errorCode)
+    /// <returns> The associated application outcome. </returns>
+    private static ApplicationOutcome ResolveOutcome (string errorCode)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
 
-        return ExecuteResponseConverter.ResolveExitCode(errorCode);
+        return ExecuteResponseConverter.ResolveOutcome(errorCode);
     }
 
-    /// <summary> Resolves the CLI exit code from one machine-readable error collection. </summary>
+    /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
     /// <param name="errors"> The machine-readable error collection. </param>
-    /// <returns> The associated CLI exit code. </returns>
-    private static int ResolveExitCode (IReadOnlyList<IpcError> errors)
+    /// <returns> The associated application outcome. </returns>
+    private static ApplicationOutcome ResolveOutcome (IReadOnlyList<IpcError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
-        return ExecuteResponseConverter.ResolveExitCode(errors);
+        return ExecuteResponseConverter.ResolveOutcome(errors);
     }
 
 }

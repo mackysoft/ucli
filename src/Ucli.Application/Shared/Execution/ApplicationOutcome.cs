@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
-/// <summary> Defines process exit codes requested by application use cases before CLI projection. </summary>
-internal enum ApplicationExitCode
+/// <summary> Defines application-level execution outcomes before CLI exit-code projection. </summary>
+internal enum ApplicationOutcome
 {
     /// <summary> Indicates successful command completion. </summary>
     Success = 0,

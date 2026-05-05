@@ -257,7 +257,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
@@ -295,7 +295,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Equal(0, ipcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
         Assert.Equal(ValidationErrorCodes.OperationNotAllowed, error.Code);
@@ -336,7 +336,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
@@ -372,7 +372,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
@@ -409,7 +409,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, error.Code);
         Assert.Equal("Daemon is not running for mode=daemon.", error.Message);
@@ -759,7 +759,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Single(result.Output!.OpResults);
         Assert.NotNull(result.Output.ReadPostcondition);

@@ -29,7 +29,7 @@ public sealed class TestRunProfileLoaderTests
             """);
         var loader = new TestRunProfileLoader();
 
-        var result = await loader.Load(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var profile = Assert.IsType<TestRunProfile>(result.Profile);
@@ -63,7 +63,7 @@ public sealed class TestRunProfileLoaderTests
             """);
         var loader = new TestRunProfileLoader();
 
-        var result = await loader.Load(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -95,7 +95,7 @@ public sealed class TestRunProfileLoaderTests
             """);
         var loader = new TestRunProfileLoader();
 
-        var result = await loader.Load(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -127,7 +127,7 @@ public sealed class TestRunProfileLoaderTests
             """);
         var loader = new TestRunProfileLoader();
 
-        var result = await loader.Load(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -159,7 +159,7 @@ public sealed class TestRunProfileLoaderTests
             """);
         var loader = new TestRunProfileLoader();
 
-        var result = await loader.Load(profilePath, CancellationToken.None);
+        var result = await loader.LoadAsync(profilePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -175,7 +175,7 @@ public sealed class TestRunProfileLoaderTests
         var loader = new TestRunProfileLoader();
         var missingPath = scope.GetPath("missing.profile.json");
 
-        var result = await loader.Load(missingPath, CancellationToken.None);
+        var result = await loader.LoadAsync(missingPath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

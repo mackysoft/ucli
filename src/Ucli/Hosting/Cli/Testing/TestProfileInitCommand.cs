@@ -36,7 +36,7 @@ internal sealed class TestProfileInitCommand
         var input = new TestProfileInitCommandInput(
             OutputPath: outputPath,
             Force: force);
-        var executionResult = await testProfileInitService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var executionResult = await testProfileInitService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
         var result = TestProfileInitCommandResultFactory.Create(executionResult);
         CommandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;

@@ -39,8 +39,8 @@ internal static class OperationExecuteResultFactory
                 new IpcError(errorCode, error.Message, null),
             ],
             error.Kind == ExecutionErrorKind.InvalidArgument
-                ? (int)ApplicationExitCode.InvalidArgument
-                : (int)ApplicationExitCode.ToolError);
+                ? ApplicationOutcome.InvalidArgument
+                : ApplicationOutcome.ToolError);
     }
 
     /// <summary> Creates one failure result from static validation errors. </summary>
@@ -65,7 +65,7 @@ internal static class OperationExecuteResultFactory
             requestId,
             [],
             errors,
-            (int)ApplicationExitCode.InvalidArgument);
+            ApplicationOutcome.InvalidArgument);
     }
 
     /// <summary> Creates one normalized result from one Unity IPC response. </summary>
@@ -84,7 +84,7 @@ internal static class OperationExecuteResultFactory
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
-            convertedResponse.ExitCode,
+            convertedResponse.Outcome,
             convertedResponse.ReadPostcondition);
     }
 
@@ -92,13 +92,13 @@ internal static class OperationExecuteResultFactory
     /// <param name="requestId"> The request identifier. </param>
     /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="errors"> The machine-readable error list. </param>
-    /// <param name="exitCode"> The associated process exit code. </param>
+    /// <param name="outcome"> The associated application outcome. </param>
     /// <returns> The normalized operation execution result. </returns>
     public static OperationExecuteResult Create (
         string requestId,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
-        int exitCode,
+        ApplicationOutcome outcome,
         IpcExecuteReadPostcondition? readPostcondition = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
@@ -110,7 +110,7 @@ internal static class OperationExecuteResultFactory
             RequestId: requestId,
             OpResults: opResults,
             Errors: errors,
-            ExitCode: exitCode,
+            Outcome: outcome,
             ReadPostcondition: readPostcondition);
     }
 }

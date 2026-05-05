@@ -31,7 +31,7 @@ internal static class TestRunCommandResultFactory
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 Command: UcliCommandNames.TestRun,
                 Status: IpcProtocol.StatusOk,
-                ExitCode: serviceResult.ExitCode,
+                ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
                 Message: serviceResult.Message,
                 Payload: payload,
                 Errors: Array.Empty<CommandError>());
@@ -41,7 +41,7 @@ internal static class TestRunCommandResultFactory
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.TestRun,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: serviceResult.Message,
             Payload: payload,
             Errors:

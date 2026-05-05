@@ -67,7 +67,7 @@ public sealed class TestProfileInitCommandTests
 
         public CancellationToken CapturedCancellationToken { get; private set; }
 
-        public ValueTask<TestProfileInitExecutionResult> Execute (
+        public ValueTask<TestProfileInitExecutionResult> ExecuteAsync (
             TestProfileInitCommandInput input,
             CancellationToken cancellationToken = default)
         {

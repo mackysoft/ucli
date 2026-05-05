@@ -40,7 +40,7 @@ internal static class ResolveCommandResultFactory
             ProtocolVersion: serviceResult.ProtocolVersion,
             Command: UcliCommandNames.Resolve,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: ResolveFailureMessage(serviceResult.Errors),
             Payload: payload,
             Errors: errors);

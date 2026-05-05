@@ -123,7 +123,7 @@ internal sealed class CallService : ICallService
                         dangerousValidationFailure.Message,
                         dangerousValidationFailure.OpId),
                 ],
-                (int)ApplicationExitCode.InvalidArgument,
+                ApplicationOutcome.InvalidArgument,
                 baseOutput);
         }
 

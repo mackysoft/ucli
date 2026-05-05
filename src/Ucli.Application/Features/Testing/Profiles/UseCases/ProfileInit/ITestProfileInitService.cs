@@ -9,7 +9,7 @@ internal interface ITestProfileInitService
     /// <param name="input"> The normalized profile-init command input. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the profile-init execution result that contains either generated output or a structured error. </returns>
-    ValueTask<TestProfileInitExecutionResult> Execute (
+    ValueTask<TestProfileInitExecutionResult> ExecuteAsync (
         TestProfileInitCommandInput input,
         CancellationToken cancellationToken = default);
 }

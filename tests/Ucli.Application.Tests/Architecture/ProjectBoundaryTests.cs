@@ -51,6 +51,62 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TestProjects_reference_only_allowed_projects ()
+    {
+        var expectedReferencesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["tests/Tests.Helper/Tests.Helper.csproj"] = [],
+            ["tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"] =
+            [
+                "src/Ucli.Application/Ucli.Application.csproj",
+                "tests/Tests.Helper/Tests.Helper.csproj",
+            ],
+            ["tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj"] =
+            [
+                "src/Ucli.Contracts/Ucli.Contracts.csproj",
+                "tests/Tests.Helper/Tests.Helper.csproj",
+            ],
+            ["tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj"] =
+            [
+                "src/Ucli.Contracts/Ucli.Contracts.csproj",
+                "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
+                "tests/Tests.Helper/Tests.Helper.csproj",
+            ],
+            ["tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj"] =
+            [
+                "src/Ucli.Skills/Ucli.Skills.csproj",
+                "tests/Tests.Helper/Tests.Helper.csproj",
+            ],
+            ["tests/Ucli.Tests/Ucli.Tests.csproj"] =
+            [
+                "src/Ucli.Application/Ucli.Application.csproj",
+                "src/Ucli.Contracts/Ucli.Contracts.csproj",
+                "src/Ucli.Infrastructure/Ucli.Infrastructure.csproj",
+                "src/Ucli/Ucli.csproj",
+                "tests/Tests.Helper/Tests.Helper.csproj",
+            ],
+        };
+
+        var actualProjectPaths = Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot, "tests"), "*.csproj", SearchOption.AllDirectories)
+            .Select(NormalizeRepositoryRelativePath)
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(
+            expectedReferencesByProject.Keys.OrderBy(static value => value, StringComparer.Ordinal),
+            actualProjectPaths);
+
+        foreach (var (projectPath, expectedReferences) in expectedReferencesByProject)
+        {
+            var actualReferences = ReadProjectReferences(projectPath);
+            Assert.Equal(
+                expectedReferences.OrderBy(static value => value, StringComparer.Ordinal),
+                actualReferences.OrderBy(static value => value, StringComparer.Ordinal));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void ProductionProjects_use_only_allowed_packages ()
     {
         var expectedPackagesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -92,10 +148,7 @@ public sealed class ProjectBoundaryTests
             "MackySoft.Ucli.UnityIntegration",
         };
 
-        var applicationSourceFiles = Directory.EnumerateFiles(
-            Path.Combine(RepositoryRoot, "src", "Ucli.Application"),
-            "*.cs",
-            SearchOption.AllDirectories);
+        var applicationSourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Application");
 
         foreach (var sourceFile in applicationSourceFiles)
         {
@@ -124,10 +177,7 @@ public sealed class ProjectBoundaryTests
             "DirectoryInfo",
         };
 
-        var applicationSourceFiles = Directory.EnumerateFiles(
-            Path.Combine(RepositoryRoot, "src", "Ucli.Application"),
-            "*.cs",
-            SearchOption.AllDirectories);
+        var applicationSourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Application");
 
         foreach (var sourceFile in applicationSourceFiles)
         {
@@ -143,14 +193,63 @@ public sealed class ProjectBoundaryTests
     [Trait("Size", "Small")]
     public void Application_namespace_is_declared_only_by_application_project ()
     {
-        var nonApplicationSourceFiles = Directory
-            .EnumerateFiles(Path.Combine(RepositoryRoot, "src"), "*.cs", SearchOption.AllDirectories)
+        var nonApplicationSourceFiles = EnumerateCSharpSourceFiles("src")
             .Where(sourceFile => !NormalizeRepositoryRelativePath(sourceFile).StartsWith("src/Ucli.Application/", StringComparison.Ordinal));
 
         foreach (var sourceFile in nonApplicationSourceFiles)
         {
             var sourceText = File.ReadAllText(sourceFile);
             Assert.DoesNotContain("namespace MackySoft.Ucli.Application", sourceText, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Application_tests_do_not_reference_host_or_adapter_namespaces ()
+    {
+        var forbiddenNamespaceMarkers = new[]
+        {
+            "MackySoft.Ucli.Hosting",
+            "MackySoft.Ucli.Infrastructure",
+            "MackySoft.Ucli.UnityIntegration",
+            "MackySoft.Ucli.Features.",
+        };
+
+        var applicationTestFiles = EnumerateCSharpSourceFiles("tests/Ucli.Application.Tests")
+            .Where(static sourceFile => !sourceFile.EndsWith("ProjectBoundaryTests.cs", StringComparison.Ordinal));
+
+        foreach (var sourceFile in applicationTestFiles)
+        {
+            var sourceText = File.ReadAllText(sourceFile);
+            foreach (var marker in forbiddenNamespaceMarkers)
+            {
+                Assert.DoesNotContain(marker, sourceText, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Feature_use_case_implementations_are_not_owned_by_cli_host_project ()
+    {
+        var forbiddenHostUseCaseRoots = new[]
+        {
+            "src/Ucli/Features/Init/UseCases",
+            "src/Ucli/Features/Testing/Profiles/UseCases",
+            "src/Ucli/Features/Testing/Run/Configuration/TestRunConfigurationResolver.cs",
+        };
+
+        foreach (var relativePath in forbiddenHostUseCaseRoots)
+        {
+            var fullPath = Path.Combine(RepositoryRoot, relativePath);
+            Assert.False(
+                File.Exists(fullPath),
+                $"CLI host must not own application use case implementation file: {relativePath}");
+
+            if (Directory.Exists(fullPath))
+            {
+                Assert.Empty(Directory.EnumerateFiles(fullPath, "*.cs", SearchOption.AllDirectories));
+            }
         }
     }
 
@@ -168,6 +267,54 @@ public sealed class ProjectBoundaryTests
             var asmdefText = File.ReadAllText(asmdefFile);
             Assert.DoesNotContain("MackySoft.Ucli.Application", asmdefText, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Unity_plugin_source_does_not_reference_application_assembly ()
+    {
+        var unitySourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Unity");
+
+        foreach (var sourceFile in unitySourceFiles)
+        {
+            var sourceText = File.ReadAllText(sourceFile);
+            Assert.DoesNotContain("MackySoft.Ucli.Application", sourceText, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Skills_project_does_not_reference_application_or_unity_boundaries ()
+    {
+        var forbiddenMarkers = new[]
+        {
+            "MackySoft.Ucli.Application",
+            "MackySoft.Ucli.Infrastructure",
+            "UnityEngine",
+        };
+
+        var skillSourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Skills");
+
+        foreach (var sourceFile in skillSourceFiles)
+        {
+            var sourceText = File.ReadAllText(sourceFile);
+            foreach (var marker in forbiddenMarkers)
+            {
+                Assert.DoesNotContain(marker, sourceText, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    private static IEnumerable<string> EnumerateCSharpSourceFiles (string repositoryRelativeDirectory)
+    {
+        return Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot, repositoryRelativeDirectory), "*.cs", SearchOption.AllDirectories)
+            .Where(static sourceFile =>
+            {
+                var relativePath = NormalizeRepositoryRelativePath(sourceFile);
+                return !relativePath.Contains("/bin/", StringComparison.Ordinal)
+                    && !relativePath.Contains("/obj/", StringComparison.Ordinal);
+            });
     }
 
     private static string[] ReadProjectReferences (string projectPath)

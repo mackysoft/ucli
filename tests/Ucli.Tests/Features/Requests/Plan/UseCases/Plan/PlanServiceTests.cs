@@ -151,7 +151,7 @@ public sealed class PlanServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
         Assert.True(result.Output.ReadIndex.Used);
@@ -184,7 +184,7 @@ public sealed class PlanServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Null(result.Output);
         Assert.Equal(0, unityIpcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
@@ -226,7 +226,7 @@ public sealed class PlanServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Equal(0, unityIpcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
@@ -273,7 +273,7 @@ public sealed class PlanServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Single(result.Output!.OpResults);
         Assert.Null(result.Output.PlanToken);
@@ -312,7 +312,7 @@ public sealed class PlanServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
         Assert.NotNull(result.Output.ReadIndex);

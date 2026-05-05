@@ -15,6 +15,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
@@ -34,7 +35,9 @@ using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Preflight;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
@@ -62,6 +65,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddUcliApplicationRequestServices();
         services.AddUcliApplicationOperationCatalogServices();
         services.AddUcliApplicationDaemonServices();
+        services.AddUcliApplicationInitServices();
         services.AddUcliApplicationStatusServices();
         services.AddUcliApplicationTestingServices();
         return services;
@@ -161,10 +165,18 @@ public static class UcliApplicationServiceCollectionExtensions
         return services;
     }
 
+    private static IServiceCollection AddUcliApplicationInitServices (this IServiceCollection services)
+    {
+        services.AddSingleton<IInitService, InitService>();
+        return services;
+    }
+
     private static IServiceCollection AddUcliApplicationTestingServices (this IServiceCollection services)
     {
         services.AddSingleton<IUnityCommandBuilder, UnityCommandBuilder>();
         services.AddSingleton<IUnityResultsConverter, UnityResultsConverter>();
+        services.AddSingleton<ITestProfileInitService, TestProfileInitService>();
+        services.AddSingleton<ITestRunConfigurationResolver, TestRunConfigurationResolver>();
         services.AddSingleton<ITestRunPreflightService, TestRunPreflightService>();
         services.AddSingleton<ITestRunExecutionPipeline, TestRunExecutionPipeline>();
         services.AddSingleton<ITestRunResultMapper, TestRunResultMapper>();

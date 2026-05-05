@@ -58,7 +58,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 return CreateFailure(
                     "Timed out before Unity IPC plan request could begin.",
                     ExecutionErrorCodes.IpcTimeout,
-                    (int)ApplicationExitCode.ToolError,
+                    ApplicationOutcome.ToolError,
                     baseOutput);
             }
 
@@ -81,7 +81,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 return CreateFailure(
                     planExecutionResult.Message,
                     errorCode,
-                    ExecuteResponseConverter.ResolveExitCode(errorCode),
+                    ExecuteResponseConverter.ResolveOutcome(errorCode),
                     baseOutput);
             }
 
@@ -99,7 +99,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 return CallServiceResult.Failure(
                     ResolveFailureMessage(convertedPlanResponse.Errors, "uCLI call pre-plan failed."),
                     convertedPlanResponse.Errors,
-                    convertedPlanResponse.ExitCode,
+                    convertedPlanResponse.Outcome,
                     baseOutput);
             }
 
@@ -108,7 +108,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 return CreateFailure(
                     "Execute response payload is invalid. The 'planToken' field is missing.",
                     IpcErrorCodes.InternalError,
-                    (int)ApplicationExitCode.ToolError,
+                    ApplicationOutcome.ToolError,
                     baseOutput);
             }
 
@@ -123,7 +123,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             return CreateFailure(
                 "Timed out before Unity IPC call request could begin.",
                 ExecutionErrorCodes.IpcTimeout,
-                (int)ApplicationExitCode.ToolError,
+                ApplicationOutcome.ToolError,
                 baseOutput);
         }
 
@@ -147,7 +147,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             return CreateFailure(
                 callExecutionResult.Message,
                 errorCode,
-                ExecuteResponseConverter.ResolveExitCode(errorCode),
+                ExecuteResponseConverter.ResolveOutcome(errorCode),
                 baseOutput);
         }
 
@@ -174,7 +174,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             return CallServiceResult.Failure(
                 postprocessedCallResponse.PersistenceError.Message,
                 convertedCallResponse.Errors,
-                convertedCallResponse.ExitCode,
+                convertedCallResponse.Outcome,
                 executionOutput);
         }
 
@@ -183,7 +183,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             return CallServiceResult.Failure(
                 ResolveFailureMessage(convertedCallResponse.Errors, "uCLI call failed."),
                 convertedCallResponse.Errors,
-                convertedCallResponse.ExitCode,
+                convertedCallResponse.Outcome,
                 executionOutput);
         }
 
@@ -211,7 +211,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
     private static CallServiceResult CreateFailure (
         string message,
         string errorCode,
-        int exitCode,
+        ApplicationOutcome outcome,
         CallExecutionOutput? output = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
@@ -221,7 +221,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             [
                 new IpcError(errorCode, message, null),
             ],
-            exitCode,
+            outcome,
             output);
     }
 

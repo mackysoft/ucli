@@ -95,7 +95,7 @@ public sealed class PlanCommandTests
                     "Operation args are invalid.",
                     "step-1"),
             ],
-            (int)CliExitCode.InvalidArgument,
+            ApplicationOutcome.InvalidArgument,
             new PlanExecutionOutput(
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],

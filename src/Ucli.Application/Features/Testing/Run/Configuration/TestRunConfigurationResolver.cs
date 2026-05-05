@@ -1,11 +1,8 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Infrastructure.Paths;
-using MackySoft.Ucli.UnityIntegration.Project.Resolution;
-using MackySoft.Ucli.UnityIntegration.Resolution;
 
-namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
+namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 
 /// <summary> Resolves test-run configuration by merging profile values and resolving Unity runtime dependencies. </summary>
 internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolver
@@ -23,6 +20,8 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
 
     private readonly IUnityEditorPathResolver unityEditorPathResolver;
 
+    private readonly ITestRunPathExistenceProbe pathExistenceProbe;
+
     /// <summary> Initializes a new instance of the <see cref="TestRunConfigurationResolver" /> class. </summary>
     /// <param name="profileLoader"> The test-run profile loader dependency. </param>
     /// <param name="unityProjectResolver"> The Unity project resolver dependency. </param>
@@ -33,20 +32,22 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         IProjectPathInputResolver projectPathInputResolver,
         IUnityProjectResolver unityProjectResolver,
         IUnityVersionResolver unityVersionResolver,
-        IUnityEditorPathResolver unityEditorPathResolver)
+        IUnityEditorPathResolver unityEditorPathResolver,
+        ITestRunPathExistenceProbe pathExistenceProbe)
     {
         this.profileLoader = profileLoader ?? throw new ArgumentNullException(nameof(profileLoader));
         this.projectPathInputResolver = projectPathInputResolver ?? throw new ArgumentNullException(nameof(projectPathInputResolver));
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
+        this.pathExistenceProbe = pathExistenceProbe ?? throw new ArgumentNullException(nameof(pathExistenceProbe));
     }
 
     /// <summary> Resolves one test-run configuration from command input and optional profile values. </summary>
     /// <param name="input"> The interpreted command input values. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the configuration resolution result. </returns>
-    public async ValueTask<TestRunConfigurationResolutionResult> Resolve (
+    public async ValueTask<TestRunConfigurationResolutionResult> ResolveAsync (
         TestRunConfigurationRequest input,
         CancellationToken cancellationToken = default)
     {
@@ -57,7 +58,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         if (!string.IsNullOrWhiteSpace(input.ProfilePath))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var profileLoadResult = await profileLoader.Load(input.ProfilePath!, cancellationToken).ConfigureAwait(false);
+            var profileLoadResult = await profileLoader.LoadAsync(input.ProfilePath!, cancellationToken).ConfigureAwait(false);
             if (!profileLoadResult.IsSuccess)
             {
                 return TestRunConfigurationResolutionResult.Failure([profileLoadResult.Error!]);
@@ -72,7 +73,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             var resolvedProjectPath = ResolveProjectPath(input, profile);
             mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile, resolvedProjectPath);
         }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
+        catch (Exception exception) when (ApplicationPathExceptionClassifier.IsPathFormatException(exception))
         {
             return TestRunConfigurationResolutionResult.Failure(
             [
@@ -80,7 +81,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             ]);
         }
 
-        var validationErrors = ValidateMergedConfiguration(mergedConfiguration);
+        var validationErrors = ValidateMergedConfiguration(mergedConfiguration, pathExistenceProbe);
         if (validationErrors.Count > 0)
         {
             return TestRunConfigurationResolutionResult.Failure(validationErrors);
@@ -145,8 +146,13 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
     /// <summary> Validates merged configuration values before project and editor resolution. </summary>
     /// <param name="configuration"> The merged configuration values. </param>
     /// <returns> The structured validation errors. </returns>
-    private static IReadOnlyList<ExecutionError> ValidateMergedConfiguration (MergedTestRunConfiguration configuration)
+    private static IReadOnlyList<ExecutionError> ValidateMergedConfiguration (
+        MergedTestRunConfiguration configuration,
+        ITestRunPathExistenceProbe pathExistenceProbe)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(pathExistenceProbe);
+
         var errors = new List<ExecutionError>();
 
         if (!configuration.TestPlatform.HasValue)
@@ -161,7 +167,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
                 $"timeout must be in range {MinTimeoutMilliseconds}..{int.MaxValue}. Actual: {configuration.TimeoutMilliseconds.Value}"));
         }
 
-        if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath) && !File.Exists(configuration.TestSettingsPath))
+        if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath) && !pathExistenceProbe.FileExists(configuration.TestSettingsPath))
         {
             errors.Add(ExecutionError.InvalidArgument(
                 $"testSettingsPath does not exist: {configuration.TestSettingsPath}"));

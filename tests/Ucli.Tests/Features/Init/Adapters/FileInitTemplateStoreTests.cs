@@ -1,19 +1,19 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
-using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Features.Init.Adapters;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests;
 
 [Collection(CurrentDirectoryTestCollection.Name)]
-public sealed class InitServiceTests
+public sealed class FileInitTemplateStoreTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenTemplatesDoNotExist_CreatesConfigAndGitIgnore ()
+    public async Task Write_WhenTemplatesDoNotExist_CreatesConfigAndGitIgnore ()
     {
         using var scope = TestDirectories.CreateTempScope("init-service", "success");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
@@ -25,9 +25,9 @@ public sealed class InitServiceTests
             File.WriteAllText(configPath, "{}");
             return ValueTask.FromResult(UcliConfigSaveResult.Success());
         });
-        var service = new InitService(configStore);
+        var store = new FileInitTemplateStore(configStore);
 
-        var result = await service.Execute(new InitCommandInput(false), CancellationToken.None);
+        var result = await store.WriteAsync(UcliConfig.CreateDefault(), false, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -48,7 +48,7 @@ public sealed class InitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenTemplatesAlreadyExistWithoutForce_ReturnsInvalidArgument ()
+    public async Task Write_WhenTemplatesAlreadyExistWithoutForce_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("init-service", "existing-without-force");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
@@ -56,9 +56,9 @@ public sealed class InitServiceTests
         var configPath = scope.WriteFile(Path.Combine("workspace", ".ucli", "config.json"), "{}");
         var gitIgnorePath = scope.WriteFile(Path.Combine("workspace", ".ucli", ".gitignore"), ".local/");
         var configStore = new StubConfigStore(saveHandler: static (_, _, _) => throw new InvalidOperationException("Save should not be called."));
-        var service = new InitService(configStore);
+        var store = new FileInitTemplateStore(configStore);
 
-        var result = await service.Execute(new InitCommandInput(false), CancellationToken.None);
+        var result = await store.WriteAsync(UcliConfig.CreateDefault(), false, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -71,16 +71,16 @@ public sealed class InitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenUcliDirectoryPathPointsToFile_ReturnsInternalError ()
+    public async Task Write_WhenUcliDirectoryPathPointsToFile_ReturnsInternalError ()
     {
         using var scope = TestDirectories.CreateTempScope("init-service", "ucli-dir-file");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
         using var currentDirectoryScope = new CurrentDirectoryScope(workingDirectoryPath);
         scope.WriteFile(Path.Combine("workspace", ".ucli"), "occupied");
         var configStore = new StubConfigStore(saveHandler: static (_, _, _) => throw new InvalidOperationException("Save should not be called."));
-        var service = new InitService(configStore);
+        var store = new FileInitTemplateStore(configStore);
 
-        var result = await service.Execute(new InitCommandInput(true), CancellationToken.None);
+        var result = await store.WriteAsync(UcliConfig.CreateDefault(), true, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -92,16 +92,16 @@ public sealed class InitServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenConfigSaveFails_ReturnsSaveError ()
+    public async Task Write_WhenConfigSaveFails_ReturnsSaveError ()
     {
         using var scope = TestDirectories.CreateTempScope("init-service", "config-save-failure");
         var workingDirectoryPath = scope.CreateDirectory("workspace");
         using var currentDirectoryScope = new CurrentDirectoryScope(workingDirectoryPath);
         var configStore = new StubConfigStore(saveHandler: static (_, _, _) => ValueTask.FromResult(
             UcliConfigSaveResult.Failure(ExecutionError.InternalError("config save failed."))));
-        var service = new InitService(configStore);
+        var store = new FileInitTemplateStore(configStore);
 
-        var result = await service.Execute(new InitCommandInput(false), CancellationToken.None);
+        var result = await store.WriteAsync(UcliConfig.CreateDefault(), false, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);

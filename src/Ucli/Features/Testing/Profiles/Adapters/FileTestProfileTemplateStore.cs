@@ -1,14 +1,15 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Profiles;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
 
-namespace MackySoft.Ucli.Features.Testing.Profiles.UseCases.ProfileInit;
+namespace MackySoft.Ucli.Features.Testing.Profiles.Adapters;
 
-/// <summary> Implements profile initialization flow that generates test profile template JSON files. </summary>
-internal sealed class TestProfileInitService : ITestProfileInitService
+/// <summary> Persists profile template JSON files through the local filesystem. </summary>
+internal sealed class FileTestProfileTemplateStore : ITestProfileTemplateStore
 {
     private const string DefaultOutputPath = "test.profile.json";
     private const string JsonExtension = ".json";
@@ -19,18 +20,17 @@ internal sealed class TestProfileInitService : ITestProfileInitService
         WriteIndented = true,
     };
 
-    /// <summary> Creates or overwrites a test profile template JSON file. </summary>
-    /// <param name="input"> The normalized profile-init command input. </param>
-    /// <param name="cancellationToken"> A cancellation token propagated by command execution. </param>
-    /// <returns> A task that resolves to the profile-init execution result that contains generated output on success or a structured error on failure. </returns>
-    public async ValueTask<TestProfileInitExecutionResult> Execute (
-        TestProfileInitCommandInput input,
+    /// <inheritdoc />
+    public async ValueTask<TestProfileInitExecutionResult> WriteAsync (
+        TestProfile profile,
+        string? outputPath,
+        bool force,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(profile);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var outputPathResolution = ResolveOutputPath(input.OutputPath);
+        var outputPathResolution = ResolveOutputPath(outputPath);
         if (!outputPathResolution.IsSuccess)
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(outputPathResolution.ErrorMessage!));
@@ -43,7 +43,7 @@ internal sealed class TestProfileInitService : ITestProfileInitService
                 $"Output path must be a file path, but a directory exists: {resolvedOutputPath}"));
         }
 
-        if (File.Exists(resolvedOutputPath) && !input.Force)
+        if (File.Exists(resolvedOutputPath) && !force)
         {
             return TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Output path already exists: {resolvedOutputPath}. Use --force to overwrite."));
@@ -89,7 +89,7 @@ internal sealed class TestProfileInitService : ITestProfileInitService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var templateJson = JsonSerializer.Serialize(TestProfile.CreateDefault(), SerializerOptions);
+        var templateJson = JsonSerializer.Serialize(profile, SerializerOptions);
         try
         {
             await File.WriteAllTextAsync(

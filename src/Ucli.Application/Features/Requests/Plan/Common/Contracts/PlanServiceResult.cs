@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
@@ -6,12 +7,12 @@ namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 /// <param name="Output"> The output payload when available. </param>
 /// <param name="Message"> The user-facing result message. </param>
 /// <param name="Errors"> The machine-readable error list. </param>
-/// <param name="ExitCode"> The CLI exit code associated with this result. </param>
+/// <param name="Outcome"> The application outcome associated with this result. </param>
 internal sealed record PlanServiceResult (
     PlanExecutionOutput? Output,
     string Message,
     IReadOnlyList<IpcError> Errors,
-    int ExitCode)
+    ApplicationOutcome Outcome)
 {
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
     public bool IsSuccess => Errors.Count == 0;
@@ -25,22 +26,22 @@ internal sealed record PlanServiceResult (
         string message)
     {
         ArgumentNullException.ThrowIfNull(output);
-        return new PlanServiceResult(output, message, [], 0);
+        return new PlanServiceResult(output, message, [], ApplicationOutcome.Success);
     }
 
     /// <summary> Creates a failed service result. </summary>
     /// <param name="message"> The failure message. </param>
     /// <param name="errors"> The machine-readable failure errors. </param>
-    /// <param name="exitCode"> The associated CLI exit code. </param>
+    /// <param name="outcome"> The associated application outcome. </param>
     /// <param name="output"> The available output payload. </param>
     /// <returns> The failed result. </returns>
     public static PlanServiceResult Failure (
         string message,
         IReadOnlyList<IpcError> errors,
-        int exitCode,
+        ApplicationOutcome outcome,
         PlanExecutionOutput? output = null)
     {
         ArgumentNullException.ThrowIfNull(errors);
-        return new PlanServiceResult(output, message, errors, exitCode);
+        return new PlanServiceResult(output, message, errors, outcome);
     }
 }

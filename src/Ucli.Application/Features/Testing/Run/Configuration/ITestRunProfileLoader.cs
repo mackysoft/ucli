@@ -7,7 +7,7 @@ internal interface ITestRunProfileLoader
     /// <param name="profilePath"> The profile path value. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the profile load result. </returns>
-    ValueTask<TestRunProfileLoadResult> Load (
+    ValueTask<TestRunProfileLoadResult> LoadAsync (
         string profilePath,
         CancellationToken cancellationToken = default);
 }

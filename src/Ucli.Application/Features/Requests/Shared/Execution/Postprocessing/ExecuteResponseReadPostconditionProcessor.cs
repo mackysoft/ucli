@@ -39,7 +39,7 @@ internal static class ExecuteResponseReadPostconditionProcessor
             response with
             {
                 Errors = AppendError(response.Errors, persistenceError),
-                ExitCode = (int)ApplicationExitCode.ToolError,
+                Outcome = ApplicationOutcome.ToolError,
             },
             persistenceError);
     }

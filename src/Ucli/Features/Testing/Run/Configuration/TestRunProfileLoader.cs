@@ -26,7 +26,7 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
     /// <param name="profilePath"> The profile path value. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the profile load result. </returns>
-    public async ValueTask<TestRunProfileLoadResult> Load (
+    public async ValueTask<TestRunProfileLoadResult> LoadAsync (
         string profilePath,
         CancellationToken cancellationToken = default)
     {

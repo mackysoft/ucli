@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Pipeline;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -26,7 +27,7 @@ public sealed class TestRunResultMapperTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
@@ -48,7 +49,7 @@ public sealed class TestRunResultMapperTests
 
         Assert.Equal(TestRunResultKind.Fail, result.Result);
         Assert.Null(result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.Fail, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.TestFailure, result.Outcome);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);
@@ -67,7 +68,7 @@ public sealed class TestRunResultMapperTests
 
         Assert.Null(result.Result);
         Assert.Equal(TestRunErrorKind.InfraError, result.ErrorKind);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.InfrastructureError, result.Outcome);
         Assert.Equal(session.RunId, result.RunId);
         Assert.Equal(session.Paths.ArtifactsDir, result.ArtifactsDir);
         Assert.Equal(session.Paths.SummaryJsonPath, result.SummaryJsonPath);

@@ -25,7 +25,7 @@ public sealed class TestRunCommandResultFactoryTests
         Assert.Equal(1, result.ProtocolVersion);
         Assert.Equal(UcliCommandNames.TestRun, result.Command);
         Assert.Equal("ok", result.Status);
-        Assert.Equal((int)TestRunExitCode.Fail, result.ExitCode);
+        Assert.Equal(1, result.ExitCode);
         Assert.Equal(serviceResult.Message, result.Message);
         Assert.Empty(result.Errors);
 
@@ -56,7 +56,7 @@ public sealed class TestRunCommandResultFactoryTests
 
         Assert.Equal(UcliCommandNames.TestRun, result.Command);
         Assert.Equal("error", result.Status);
-        Assert.Equal((int)TestRunExitCode.ToolError, result.ExitCode);
+        Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(errorCode, result.Errors[0].Code);
         Assert.Equal(message, result.Errors[0].Message);
@@ -78,7 +78,7 @@ public sealed class TestRunCommandResultFactoryTests
         var serviceResult = new TestRunServiceResult(
             Result: null,
             ErrorKind: TestRunErrorKind.InfraError,
-            ExitCode: (int)TestRunExitCode.InfraError,
+            Outcome: ApplicationOutcome.InfrastructureError,
             Message: "Unexpected execution pipeline state.",
             RunId: null,
             ArtifactsDir: null,
@@ -88,7 +88,7 @@ public sealed class TestRunCommandResultFactoryTests
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
         Assert.Equal("error", result.Status);
-        Assert.Equal((int)TestRunExitCode.InfraError, result.ExitCode);
+        Assert.Equal(2, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(IpcErrorCodes.InternalError, result.Errors[0].Code);
 

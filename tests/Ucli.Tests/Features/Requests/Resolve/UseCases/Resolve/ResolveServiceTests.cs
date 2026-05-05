@@ -55,7 +55,7 @@ public sealed class ResolveServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Equal(0, unityRequestExecutor.CallCount);
         Assert.Equal(1, sceneTreeLiteAccessService.CallCount);
         Assert.Equal("Assets/Scenes/Main.unity", sceneTreeLiteAccessService.CapturedScenePath);

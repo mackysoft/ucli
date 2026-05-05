@@ -36,7 +36,7 @@ internal static class CallCommandResultFactory
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Call,
             Status: IpcProtocol.StatusError,
-            ExitCode: serviceResult.ExitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: serviceResult.Message,
             Payload: payload,
             Errors: errors);

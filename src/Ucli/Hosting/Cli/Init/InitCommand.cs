@@ -32,7 +32,7 @@ internal sealed class InitCommand
         CommandExecutionState.MarkStarted();
 
         var input = new InitCommandInput(force);
-        var executionResult = await initService.Execute(input, cancellationToken).ConfigureAwait(false);
+        var executionResult = await initService.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
         var result = InitCommandResultFactory.Create(executionResult);
         CommandResultWriter.WriteToStandardOutput(result);
         return result.ExitCode;

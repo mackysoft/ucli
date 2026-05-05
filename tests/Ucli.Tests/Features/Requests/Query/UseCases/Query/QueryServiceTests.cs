@@ -65,7 +65,7 @@ public sealed class QueryServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Equal(UcliCommandNames.QueryAssetsFind, result.CommandName);
         Assert.Equal(1, assetSearchLookupAccessService.CallCount);
         Assert.True(assetSearchLookupAccessService.CapturedFailFast);

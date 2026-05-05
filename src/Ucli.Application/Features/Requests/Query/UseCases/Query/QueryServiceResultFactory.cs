@@ -26,7 +26,7 @@ internal static class QueryServiceResultFactory
             requestId,
             opResults,
             [],
-            (int)ApplicationExitCode.Success,
+            ApplicationOutcome.Success,
             SuccessMessage,
             readIndex);
     }
@@ -49,8 +49,8 @@ internal static class QueryServiceResultFactory
                 new IpcError(errorCode, error.Message, null),
             ],
             error.Kind == ExecutionErrorKind.InvalidArgument
-                ? (int)ApplicationExitCode.InvalidArgument
-                : (int)ApplicationExitCode.ToolError,
+                ? ApplicationOutcome.InvalidArgument
+                : ApplicationOutcome.ToolError,
             error.Message,
             readIndex ?? CreateUnityReadIndexInfo(fallbackReason: null));
     }
@@ -68,7 +68,7 @@ internal static class QueryServiceResultFactory
             requestId,
             [],
             [error],
-            ExecuteResponseConverter.ResolveExitCode(error.Code),
+            ExecuteResponseConverter.ResolveOutcome(error.Code),
             string.IsNullOrWhiteSpace(error.Message) ? FailureMessage : error.Message,
             readIndex);
     }
@@ -79,7 +79,7 @@ internal static class QueryServiceResultFactory
         string requestId,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
-        int exitCode,
+        ApplicationOutcome outcome,
         string message,
         ReadIndexInfo readIndex)
     {
@@ -96,7 +96,7 @@ internal static class QueryServiceResultFactory
             RequestId: requestId,
             OpResults: opResults,
             Errors: errors,
-            ExitCode: exitCode,
+            Outcome: outcome,
             Message: message,
             ReadIndex: readIndex);
     }

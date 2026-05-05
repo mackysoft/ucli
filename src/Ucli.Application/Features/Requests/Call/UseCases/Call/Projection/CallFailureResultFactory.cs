@@ -33,8 +33,8 @@ internal static class CallFailureResultFactory
                     null),
             ],
             error.Kind == ExecutionErrorKind.InvalidArgument
-                ? (int)ApplicationExitCode.InvalidArgument
-                : (int)ApplicationExitCode.ToolError,
+                ? ApplicationOutcome.InvalidArgument
+                : ApplicationOutcome.ToolError,
             output);
     }
 
@@ -58,7 +58,7 @@ internal static class CallFailureResultFactory
         return CallServiceResult.Failure(
             "Static validation failed.",
             errors,
-            (int)ApplicationExitCode.InvalidArgument,
+            ApplicationOutcome.InvalidArgument,
             output);
     }
 }

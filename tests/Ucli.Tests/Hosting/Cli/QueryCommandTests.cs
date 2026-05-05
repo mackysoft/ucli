@@ -185,7 +185,7 @@ public sealed class QueryCommandTests
                 },
             ],
             Errors: [],
-            ExitCode: (int)CliExitCode.Success,
+            Outcome: ApplicationOutcome.Success,
             Message: "uCLI query completed.",
             ReadIndex: new ReadIndexInfo(
                 Used: true,

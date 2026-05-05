@@ -253,7 +253,7 @@ internal sealed class QueryService : IQueryService
                 [
                     new IpcError(errorCode, executionResult.Message, null),
                 ],
-                ExecuteResponseConverter.ResolveExitCode(errorCode),
+                ExecuteResponseConverter.ResolveOutcome(errorCode),
                 executionResult.Message,
                 readIndex);
         }
@@ -264,7 +264,7 @@ internal sealed class QueryService : IQueryService
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
-            convertedResponse.ExitCode,
+            convertedResponse.Outcome,
             convertedResponse.Errors.Count == 0
                 ? "uCLI query completed."
                 : ResolveFailureMessage(convertedResponse.Errors),

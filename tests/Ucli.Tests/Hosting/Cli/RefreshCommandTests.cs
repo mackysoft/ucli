@@ -32,7 +32,7 @@ public sealed class RefreshCommandTests
                 ]),
         ],
         Errors: [],
-        ExitCode: (int)CliExitCode.Success,
+        Outcome: ApplicationOutcome.Success,
         ReadPostcondition: null);
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class RefreshCommandTests
                     Touched: []),
             ],
             Errors: [],
-            ExitCode: (int)CliExitCode.Success,
+            Outcome: ApplicationOutcome.Success,
             ReadPostcondition: readPostcondition)));
         var command = new RefreshCommand(service);
 

@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -75,7 +76,7 @@ public sealed class RefreshServiceTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults: [],
                 Errors: [],
-                ExitCode: 0,
+                Outcome: ApplicationOutcome.Success,
                 ReadPostcondition: null);
         }
     }

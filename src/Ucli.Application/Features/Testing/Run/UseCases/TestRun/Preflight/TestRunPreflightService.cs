@@ -116,7 +116,7 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await configurationResolver.Resolve(input, cancellationToken).ConfigureAwait(false);
+            return await configurationResolver.ResolveAsync(input, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

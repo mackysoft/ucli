@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -9,7 +10,7 @@ internal sealed record ResolveServiceResult (
     string RequestId,
     IReadOnlyList<IpcExecuteOperationResult> OpResults,
     IReadOnlyList<IpcError> Errors,
-    int ExitCode,
+    ApplicationOutcome Outcome,
     ReadIndexInfo ReadIndex)
 {
     /// <summary> Gets a value indicating whether resolve execution succeeded. </summary>
