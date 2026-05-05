@@ -17,7 +17,12 @@ public sealed class PropertyListXmlBuilderTests
         });
         var document = XDocument.Parse(plist);
 
-        Assert.Contains("<!DOCTYPE plist PUBLIC", plist, StringComparison.Ordinal);
+        Assert.Equal("1.0", document.Declaration?.Version);
+        Assert.Equal("utf-8", document.Declaration?.Encoding);
+        Assert.False(plist.EndsWith('\n'));
+        Assert.Equal("plist", document.DocumentType?.Name);
+        Assert.Equal("-//Apple//DTD PLIST 1.0//EN", document.DocumentType?.PublicId);
+        Assert.Equal("http://www.apple.com/DTDs/PropertyList-1.0.dtd", document.DocumentType?.SystemId);
         Assert.Equal("plist", document.Root?.Name.LocalName);
         Assert.Equal("1.0", document.Root?.Attribute("version")?.Value);
         Assert.Equal("dev.mackysoft.ucli.test", GetValueElement(document, "Label").Value);
@@ -40,6 +45,39 @@ public sealed class PropertyListXmlBuilderTests
 
         Assert.Equal("value<&>", GetValueElement(document, "Label<&>").Value);
         Assert.Equal("ucli<&>", GetValueElement(document, "Arguments").Element("string")?.Value);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void BuildRootDictionary_WhenWriteEntriesIsNull_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() => PropertyListXmlBuilder.BuildRootDictionary(null!));
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void WriteString_WhenKeyIsEmpty_ThrowsArgumentException (string key)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            PropertyListXmlBuilder.BuildRootDictionary(builder => builder.WriteString(key, "value")));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void WriteString_WhenValueIsNull_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            PropertyListXmlBuilder.BuildRootDictionary(builder => builder.WriteString("Label", null!)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void WriteStringArray_WhenValuesIsNull_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            PropertyListXmlBuilder.BuildRootDictionary(builder => builder.WriteStringArray("Arguments", null!)));
     }
 
     [Fact]
