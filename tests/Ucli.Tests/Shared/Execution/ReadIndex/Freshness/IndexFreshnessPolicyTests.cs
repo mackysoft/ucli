@@ -13,7 +13,7 @@ public sealed class IndexFreshnessPolicyTests
     {
         var snapshot = CreateSnapshot();
 
-        var result = IndexFreshnessPolicy.EvaluateFreshness(snapshot.CombinedHash, snapshot, IndexFreshnessTarget.OpsCatalog);
+        var result = IndexHashFreshnessPolicy.EvaluateFreshness(snapshot.CombinedHash, snapshot, IndexFreshnessTarget.OpsCatalog);
 
         Assert.Equal(IndexFreshness.Fresh, result);
     }
@@ -24,7 +24,7 @@ public sealed class IndexFreshnessPolicyTests
     {
         var snapshot = CreateSnapshot();
 
-        var result = IndexFreshnessPolicy.EvaluateFreshness("different-combined-hash", snapshot, IndexFreshnessTarget.OpsCatalog);
+        var result = IndexHashFreshnessPolicy.EvaluateFreshness("different-combined-hash", snapshot, IndexFreshnessTarget.OpsCatalog);
 
         Assert.Equal(IndexFreshness.Stale, result);
     }
@@ -35,7 +35,7 @@ public sealed class IndexFreshnessPolicyTests
     {
         var snapshot = CreateSnapshot();
 
-        var result = IndexFreshnessPolicy.EvaluateFreshness(snapshot.GuidPathHash, snapshot, IndexFreshnessTarget.GuidPathLookup);
+        var result = IndexHashFreshnessPolicy.EvaluateFreshness(snapshot.GuidPathHash, snapshot, IndexFreshnessTarget.GuidPathLookup);
 
         Assert.Equal(IndexFreshness.Fresh, result);
     }
@@ -46,7 +46,7 @@ public sealed class IndexFreshnessPolicyTests
     {
         var snapshot = CreateSnapshot();
 
-        var result = IndexFreshnessPolicy.EvaluateFreshness("different-asset-search-hash", snapshot, IndexFreshnessTarget.AssetSearchLookup);
+        var result = IndexHashFreshnessPolicy.EvaluateFreshness("different-asset-search-hash", snapshot, IndexFreshnessTarget.AssetSearchLookup);
 
         Assert.Equal(IndexFreshness.Stale, result);
     }

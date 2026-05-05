@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;

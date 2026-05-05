@@ -1,6 +1,6 @@
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests.Execution.ReadIndex;
 

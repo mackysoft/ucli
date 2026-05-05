@@ -1,9 +1,6 @@
-using MackySoft.Ucli.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
-using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
-using MackySoft.Ucli.Features.OperationCatalog.UseCases.Ops;
-using MackySoft.Ucli.Features.OperationCatalog.UseCases.Ops.Preflight;
-using MackySoft.Ucli.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,12 +20,7 @@ internal static class OperationCatalogServiceCollectionExtensions
         services.AddSingleton<IOpsCatalogReader, OpsCatalogReader>();
         services.AddSingleton<IOpsCatalogStore, FileOpsCatalogStore>();
         services.AddSingleton<IOpsCatalogAccessService, OpsCatalogAccessService>();
-        services.AddSingleton<IOpsPreflightService, OpsPreflightService>();
-        services.AddSingleton<OpsReadIndexInfoMapper>();
-        services.AddSingleton<IOpsListResultMapper, OpsListResultMapper>();
-        services.AddSingleton<IOpsDescribeResultMapper, OpsDescribeResultMapper>();
         services.AddSingleton<IOperationCatalogWarmup, OperationCatalogWarmupService>();
-        services.AddSingleton<IOpsService, OpsService>();
         return services;
     }
 }

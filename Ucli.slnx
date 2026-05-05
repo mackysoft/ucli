@@ -1,11 +1,13 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Ucli.Application/Ucli.Application.csproj" />
     <Project Path="src/Ucli.Contracts/Ucli.Contracts.csproj" />
     <Project Path="src/Ucli.Infrastructure/Ucli.Infrastructure.csproj" />
     <Project Path="src/Ucli.Skills/Ucli.Skills.csproj" />
     <Project Path="src/Ucli/Ucli.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj" />
     <Project Path="tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj" />
     <Project Path="tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj" />
     <Project Path="tests/Ucli.Skills.Tests/Ucli.Skills.Tests.csproj" />

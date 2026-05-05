@@ -1,10 +1,11 @@
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.EnvironmentVariables;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Shared.Context.Project;
 using MackySoft.Ucli.Shared.EnvironmentVariables;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
 

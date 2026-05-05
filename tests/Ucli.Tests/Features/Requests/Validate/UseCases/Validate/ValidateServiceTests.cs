@@ -1,13 +1,13 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
-using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests;
@@ -30,7 +30,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput("/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -58,7 +58,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput("/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -93,7 +93,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput("/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -120,7 +120,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput("/tmp/project", null),
+            new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -151,7 +151,7 @@ public sealed class ValidateServiceTests
             preflightService);
 
         var result = await service.Execute(
-            new ValidateCommandInput(null, ReadIndexMode.Disabled),
+            new ValidateCommandInput(null, ReadIndexMode.Disabled, """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -160,7 +160,7 @@ public sealed class ValidateServiceTests
         Assert.False(result.Output.ReadIndex.Hit);
         Assert.Equal("readIndex disabled by mode.", result.Output.ReadIndex.FallbackReason);
         Assert.False(validator.LastCatalog!.IsAvailable);
-        Assert.Equal(1, requestPreparationService.ReadAndParseCallCount);
+        Assert.Equal(1, requestPreparationService.ParseCallCount);
         Assert.Equal(0, requestPreparationService.PrepareCallCount);
         Assert.Equal(0, preflightService.CallCount);
     }
@@ -230,19 +230,19 @@ public sealed class ValidateServiceTests
             this.readAndParseResult = readAndParseResult ?? throw new ArgumentNullException(nameof(readAndParseResult));
         }
 
-        public int ReadAndParseCallCount { get; private set; }
+        public int ParseCallCount { get; private set; }
 
         public int PrepareCallCount { get; private set; }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
+        public ParsedRequestResult Parse (string requestJson)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            ReadAndParseCallCount++;
-            return ValueTask.FromResult(readAndParseResult);
+            ParseCallCount++;
+            return readAndParseResult;
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
             string? projectPath,
+            string requestJson,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.UnityIntegration.Resolution;
 

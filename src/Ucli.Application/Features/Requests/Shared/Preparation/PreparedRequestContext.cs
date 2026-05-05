@@ -1,0 +1,13 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Shared.Context;
+
+namespace MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+
+/// <summary> Represents one request that has been read, parsed, and bound to project context. </summary>
+/// <param name="RequestJson"> The normalized internal execute-request JSON string. </param>
+/// <param name="Request"> The parsed request model. </param>
+/// <param name="ProjectContext"> The resolved project/config context. </param>
+internal sealed record PreparedRequestContext (
+    string RequestJson,
+    ValidateRequest Request,
+    ProjectContext ProjectContext);

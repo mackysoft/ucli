@@ -1,10 +1,10 @@
 using System.Linq;
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 

@@ -1,9 +1,11 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
-using MackySoft.Ucli.Features.Requests.Call.UseCases.Call.Preflight;
+using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
+using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Preflight;
+using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Projection;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -14,15 +16,20 @@ internal sealed class CallCommand
 
     private readonly ICallCommandPreflightService callCommandPreflightService;
 
+    private readonly IRequestInputReader requestInputReader;
+
     /// <summary> Initializes a new instance of the CallCommand class. </summary>
     /// <param name="callService"> The call workflow service dependency. </param>
     /// <param name="callCommandPreflightService"> The command preflight dependency used to preserve the call payload on option failures. </param>
+    /// <param name="requestInputReader"> The CLI request-input reader dependency. </param>
     public CallCommand (
         ICallService callService,
-        ICallCommandPreflightService callCommandPreflightService)
+        ICallCommandPreflightService callCommandPreflightService,
+        IRequestInputReader requestInputReader)
     {
         this.callService = callService ?? throw new ArgumentNullException(nameof(callService));
         this.callCommandPreflightService = callCommandPreflightService ?? throw new ArgumentNullException(nameof(callCommandPreflightService));
+        this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
     }
 
     /// <summary> Executes the call command and emits the JSON result contract. </summary>
@@ -52,8 +59,15 @@ internal sealed class CallCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
+            var requestInputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (!requestInputReadResult.IsSuccess)
+            {
+                return WriteRequestReadFailure(requestInputReadResult);
+            }
+
             var preflightResult = await callCommandPreflightService.Prepare(
                     projectPath,
+                    requestInputReadResult.Json!,
                     cancellationToken)
                 .ConfigureAwait(false);
             var failureResult = preflightResult.ToFailureResult(normalizedTimeoutResult.Error!);
@@ -65,14 +79,27 @@ internal sealed class CallCommand
         var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!normalizedModeResult.IsSuccess)
         {
+            var requestInputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (!requestInputReadResult.IsSuccess)
+            {
+                return WriteRequestReadFailure(requestInputReadResult);
+            }
+
             var preflightResult = await callCommandPreflightService.Prepare(
                     projectPath,
+                    requestInputReadResult.Json!,
                     cancellationToken)
                 .ConfigureAwait(false);
             var failureResult = preflightResult.ToFailureResult(normalizedModeResult.Error!);
             var commandFailureResult = CallCommandResultFactory.Create(failureResult);
             CommandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;
+        }
+
+        var serviceRequestInputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        if (!serviceRequestInputReadResult.IsSuccess)
+        {
+            return WriteRequestReadFailure(serviceRequestInputReadResult);
         }
 
         var serviceResult = await callService.Execute(
@@ -83,10 +110,19 @@ internal sealed class CallCommand
                     PlanToken: planToken,
                     WithPlan: withPlan,
                     AllowDangerous: allowDangerous,
-                    FailFast: failFast),
+                    FailFast: failFast,
+                    RequestJson: serviceRequestInputReadResult.Json!),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = CallCommandResultFactory.Create(serviceResult);
+        CommandResultWriter.WriteToStandardOutput(commandResult);
+        return commandResult.ExitCode;
+    }
+
+    private static int WriteRequestReadFailure (RequestInputReadResult requestInputReadResult)
+    {
+        var failureResult = CallFailureResultFactory.FromExecutionError(requestInputReadResult.Error!, output: null);
+        var commandResult = CallCommandResultFactory.Create(failureResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

@@ -1,9 +1,9 @@
 namespace MackySoft.Ucli.Tests;
 
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Shared.Configuration;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 public sealed class OperationAuthorizationServiceTests

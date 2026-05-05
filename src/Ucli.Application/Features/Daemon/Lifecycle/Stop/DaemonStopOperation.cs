@@ -1,0 +1,211 @@
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
+using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.Process;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Foundation;
+
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
+
+/// <summary> Implements daemon stop workflow orchestration for one project fingerprint. </summary>
+internal sealed class DaemonStopOperation : IDaemonStopOperation
+{
+    private readonly IProjectLifecycleLockProvider lifecycleLockProvider;
+
+    private readonly IDaemonSessionStore daemonSessionStore;
+
+    private readonly IDaemonShutdownClient shutdownClient;
+
+    private readonly IDaemonProcessTerminationService processTerminationService;
+
+    private readonly IDaemonArtifactCleaner artifactCleaner;
+
+    private readonly TimeProvider timeProvider;
+
+    /// <summary> Initializes a new instance of the <see cref="DaemonStopOperation" /> class. </summary>
+    /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
+    /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
+    /// <param name="shutdownClient"> The shutdown client dependency. </param>
+    /// <param name="processTerminationService"> The process termination service dependency. </param>
+    /// <param name="artifactCleaner"> The daemon artifact cleaner dependency. </param>
+    /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
+    public DaemonStopOperation (
+        IProjectLifecycleLockProvider lifecycleLockProvider,
+        IDaemonSessionStore daemonSessionStore,
+        IDaemonShutdownClient shutdownClient,
+        IDaemonProcessTerminationService processTerminationService,
+        IDaemonArtifactCleaner artifactCleaner,
+        TimeProvider? timeProvider = null)
+    {
+        this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
+        this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
+        this.shutdownClient = shutdownClient ?? throw new ArgumentNullException(nameof(shutdownClient));
+        this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
+        this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
+        this.timeProvider = timeProvider ?? TimeProvider.System;
+    }
+
+    /// <summary> Stops daemon lifecycle for the specified Unity project context. </summary>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="timeout"> The daemon stop timeout. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
+    /// <returns> The daemon stop result. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    public async ValueTask<DaemonStopResult> Stop (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
+        if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
+        {
+            return DaemonStopResult.Failure(CreateTimeoutError("Timed out before daemon stop workflow began."));
+        }
+
+        IAsyncDisposable lockHandle;
+        try
+        {
+            lockHandle = await lifecycleLockProvider.Acquire(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    lockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException exception)
+        {
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                $"Timed out while waiting for project lifecycle lock. {exception.Message}"));
+        }
+
+        await using var acquiredLock = lockHandle;
+        var readResult = await daemonSessionStore.Read(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!readResult.IsSuccess)
+        {
+            return DaemonStopResult.Failure(readResult.Error!);
+        }
+
+        if (!readResult.Exists)
+        {
+            return DaemonStopResult.NotRunning();
+        }
+
+        var session = readResult.Session!;
+        if (!session.CanShutdownProcess)
+        {
+            return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
+                "Daemon session does not allow process shutdown."));
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+        {
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                "Timed out before daemon shutdown request could be sent."));
+        }
+
+        var shutdownResult = await shutdownClient.SendShutdown(unityProject, session, shutdownTimeout, cancellationToken).ConfigureAwait(false);
+
+        if (shutdownResult.IsNotRunning)
+        {
+            var notRunningCleanupResult = await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+            return notRunningCleanupResult.IsSuccess
+                ? DaemonStopResult.Stopped()
+                : DaemonStopResult.Failure(notRunningCleanupResult.Error!);
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var processTerminationTimeout))
+        {
+            var fallbackStopResult = await EnsureStoppedAndCleanup(
+                    unityProject,
+                    session,
+                    DaemonTimeouts.StopCompensationTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!fallbackStopResult.IsSuccess)
+            {
+                return DaemonStopResult.Failure(fallbackStopResult.Error!);
+            }
+
+            return DaemonStopResult.Failure(CreateTimeoutError(
+                "Timed out before daemon process termination could be completed."));
+        }
+
+        var stopAndCleanupResult = await EnsureStoppedAndCleanup(
+                unityProject,
+                session,
+                processTerminationTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!stopAndCleanupResult.IsSuccess)
+        {
+            return DaemonStopResult.Failure(stopAndCleanupResult.Error!);
+        }
+
+        if (!shutdownResult.IsSuccess)
+        {
+            return DaemonStopResult.Failure(shutdownResult.Error!);
+        }
+
+        return DaemonStopResult.Stopped();
+    }
+
+    private static ExecutionError CreateTimeoutError (string message)
+    {
+        return ExecutionError.Timeout(message);
+    }
+
+    private async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAndCleanup (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var stopProcessResult = await processTerminationService.EnsureStopped(
+                session.ProcessId,
+                session.IssuedAtUtc,
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!stopProcessResult.IsSuccess)
+        {
+            return stopProcessResult;
+        }
+
+        return await artifactCleaner.Cleanup(unityProject, cancellationToken).ConfigureAwait(false);
+    }
+}

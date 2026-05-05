@@ -1,18 +1,18 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Plan.Common.Contracts;
-using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
@@ -56,7 +56,8 @@ public sealed class PlanServiceTests
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1234"),
                 ReadIndexMode: null,
-                FailFast: true),
+                FailFast: true,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -109,7 +110,8 @@ public sealed class PlanServiceTests
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: ReadIndexMode.AllowStale,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -144,7 +146,8 @@ public sealed class PlanServiceTests
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: ReadIndexMode.RequireFresh,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -176,7 +179,8 @@ public sealed class PlanServiceTests
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: ReadIndexMode.RequireFresh,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -217,7 +221,8 @@ public sealed class PlanServiceTests
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: null,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -263,7 +268,8 @@ public sealed class PlanServiceTests
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: null,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -301,7 +307,8 @@ public sealed class PlanServiceTests
                 Mode: NormalizeMode(null),
                 TimeoutMilliseconds: NormalizeTimeout(null),
                 ReadIndexMode: null,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -404,13 +411,14 @@ public sealed class PlanServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
+        public ParsedRequestResult Parse (string requestJson)
         {
             throw new NotSupportedException();
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
             string? projectPath,
+            string requestJson,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

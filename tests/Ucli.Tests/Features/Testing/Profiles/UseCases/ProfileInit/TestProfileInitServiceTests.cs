@@ -1,9 +1,9 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Features.Testing.Profiles;
-using MackySoft.Ucli.Features.Testing.Profiles.Common.Contracts;
-using MackySoft.Ucli.Features.Testing.Profiles.UseCases.ProfileInit;
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Application.Features.Testing.Profiles;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
+using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests;
 

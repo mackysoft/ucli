@@ -34,12 +34,12 @@ internal sealed class IndexFreshnessEvaluator : IIndexFreshnessEvaluator
         cancellationToken.ThrowIfCancellationRequested();
         if (mode == ReadIndexMode.Disabled)
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
         if (string.IsNullOrWhiteSpace(persistedSourceInputsHash))
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
         if (UsesCoreInputSnapshot(target))
@@ -47,21 +47,21 @@ internal sealed class IndexFreshnessEvaluator : IIndexFreshnessEvaluator
             var currentCoreSnapshot = await inputFingerprintCalculator.TryComputeCore(projectRoot, cancellationToken).ConfigureAwait(false);
             if (currentCoreSnapshot == null)
             {
-                return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+                return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
             }
 
-            var coreFreshness = IndexFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentCoreSnapshot, target);
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, coreFreshness);
+            var coreFreshness = IndexHashFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentCoreSnapshot, target);
+            return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, coreFreshness);
         }
 
         var currentSnapshot = await inputFingerprintCalculator.TryCompute(projectRoot, cancellationToken).ConfigureAwait(false);
         if (currentSnapshot == null)
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
-        var freshness = IndexFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentSnapshot, target);
-        return IndexFreshnessPolicy.ApplyModeConstraint(mode, freshness);
+        var freshness = IndexHashFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentSnapshot, target);
+        return IndexHashFreshnessPolicy.ApplyModeConstraint(mode, freshness);
     }
 
     private static bool UsesCoreInputSnapshot (IndexFreshnessTarget target)

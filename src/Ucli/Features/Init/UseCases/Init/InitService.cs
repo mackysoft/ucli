@@ -1,9 +1,9 @@
+using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Features.Init.Common.Contracts;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Init.UseCases.Init;
 

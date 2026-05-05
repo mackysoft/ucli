@@ -1,18 +1,17 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.Process;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation.Input;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests;
@@ -23,19 +22,17 @@ public sealed class RequestPreparationServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReadAndParse_WhenDependenciesSucceed_ReturnsParsedRequestWithoutResolvingProject ()
+    public void Parse_WhenDependenciesSucceed_ReturnsParsedRequestWithoutResolvingProject ()
     {
         const string requestJson = """{"steps":[]}""";
         var parsedRequest = CreateRequest();
-        var inputReader = new StubRequestInputReader(
-            RequestInputReadResult.Success(requestJson));
         var parser = new SpyValidateRequestJsonParser(
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
-        var service = CreateService(inputReader, parser, projectContextResolver);
+        var service = CreateService(parser, projectContextResolver);
 
-        var result = await service.ReadAndParse(CancellationToken.None);
+        var result = service.Parse(requestJson);
 
         var normalizedRequestJson = CreateNormalizedRequestJson();
         Assert.True(result.IsSuccess);
@@ -53,16 +50,15 @@ public sealed class RequestPreparationServiceTests
         const string requestJson = """{"steps":[]}""";
         var parsedRequest = CreateRequest();
         var projectContext = CreateProjectContext();
-        var inputReader = new StubRequestInputReader(
-            RequestInputReadResult.Success(requestJson));
         var parser = new SpyValidateRequestJsonParser(
             ValidateRequestJsonParseResult.Success(parsedRequest));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(projectContext));
-        var service = CreateService(inputReader, parser, projectContextResolver);
+        var service = CreateService(parser, projectContextResolver);
 
         var result = await service.Prepare(
             projectPath: "/tmp/project",
+            requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
         var normalizedRequestJson = CreateNormalizedRequestJson();
@@ -76,35 +72,17 @@ public sealed class RequestPreparationServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Prepare_WhenInputReadFails_ReturnsFailure ()
-    {
-        var error = ExecutionError.InvalidArgument("request input is invalid.");
-        var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Failure(error)),
-            new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest())),
-            new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
-
-        var result = await service.Prepare(
-            projectPath: "/tmp/project",
-            cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Same(error, result.Error);
-        Assert.Null(result.PreparedRequest);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Prepare_WhenParseFails_ReturnsFailure ()
     {
+        const string requestJson = """{"steps":[]}""";
         var error = ExecutionError.InvalidArgument("request JSON is invalid.");
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""")),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Failure(error)),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
         var result = await service.Prepare(
             projectPath: "/tmp/project",
+            requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -116,14 +94,15 @@ public sealed class RequestPreparationServiceTests
     [Trait("Size", "Small")]
     public async Task Prepare_WhenUserRequestNormalizationFails_ReturnsFailureWithoutParsing ()
     {
+        const string requestJson = """{"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""";
         var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""")),
             parser,
             new SpyProjectContextResolver(ProjectContextResolutionResult.Success(CreateProjectContext())));
 
         var result = await service.Prepare(
             projectPath: "/tmp/project",
+            requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -137,16 +116,17 @@ public sealed class RequestPreparationServiceTests
     [Trait("Size", "Small")]
     public async Task Prepare_WhenUserRequestStepsPropertyIsMissing_ReturnsFailureWithoutParsingOrResolvingProject ()
     {
+        const string requestJson = """{}""";
         var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{}""")),
             parser,
             projectContextResolver);
 
         var result = await service.Prepare(
             projectPath: "/tmp/project",
+            requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -161,14 +141,15 @@ public sealed class RequestPreparationServiceTests
     [Trait("Size", "Small")]
     public async Task Prepare_WhenProjectContextResolutionFails_ReturnsFailure ()
     {
+        const string requestJson = """{"steps":[]}""";
         var error = ExecutionError.InvalidArgument("project path is invalid.");
         var service = CreateService(
-            new StubRequestInputReader(RequestInputReadResult.Success("""{"steps":[]}""")),
             new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest())),
             new SpyProjectContextResolver(ProjectContextResolutionResult.Failure(error)));
 
         var result = await service.Prepare(
             projectPath: "/tmp/project",
+            requestJson: requestJson,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -180,20 +161,19 @@ public sealed class RequestPreparationServiceTests
     [Trait("Size", "Small")]
     public async Task Prepare_PropagatesCancellationTokenToDependencies ()
     {
+        const string requestJson = """{"steps":[]}""";
         var token = new CancellationTokenSource().Token;
-        var inputReader = new SpyRequestInputReader(
-            RequestInputReadResult.Success("""{"steps":[]}"""));
         var parser = new SpyValidateRequestJsonParser(ValidateRequestJsonParseResult.Success(CreateRequest()));
         var projectContextResolver = new SpyProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateProjectContext()));
-        var service = CreateService(inputReader, parser, projectContextResolver);
+        var service = CreateService(parser, projectContextResolver);
 
         var result = await service.Prepare(
             projectPath: "/tmp/project",
+            requestJson: requestJson,
             cancellationToken: token);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(token, inputReader.ReceivedToken);
         Assert.Equal(token, projectContextResolver.ReceivedToken);
     }
 
@@ -223,49 +203,13 @@ public sealed class RequestPreparationServiceTests
     }
 
     private static RequestPreparationService CreateService (
-        IRequestInputReader inputReader,
         IValidateRequestJsonParser parser,
         IProjectContextResolver projectContextResolver)
     {
         return new RequestPreparationService(
-            inputReader,
             new UserRequestJsonNormalizer(new FixedRequestIdFactory(RequestId)),
             parser,
             projectContextResolver);
-    }
-
-    private sealed class StubRequestInputReader : IRequestInputReader
-    {
-        private readonly RequestInputReadResult result;
-
-        public StubRequestInputReader (RequestInputReadResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(result);
-        }
-    }
-
-    private sealed class SpyRequestInputReader : IRequestInputReader
-    {
-        private readonly RequestInputReadResult result;
-
-        public SpyRequestInputReader (RequestInputReadResult result)
-        {
-            this.result = result ?? throw new ArgumentNullException(nameof(result));
-        }
-
-        public CancellationToken ReceivedToken { get; private set; }
-
-        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
-        {
-            ReceivedToken = cancellationToken;
-            return ValueTask.FromResult(result);
-        }
     }
 
     private sealed class SpyValidateRequestJsonParser : IValidateRequestJsonParser

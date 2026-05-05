@@ -1,7 +1,7 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Status.Common.Contracts;
-using MackySoft.Ucli.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Status;

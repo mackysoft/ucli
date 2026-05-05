@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Features.Init.UseCases.Init;
+using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;

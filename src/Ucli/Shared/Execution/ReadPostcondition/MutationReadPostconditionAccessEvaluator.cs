@@ -1,6 +1,6 @@
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
-using MackySoft.Ucli.Shared.Context.Project;
 
 namespace MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 

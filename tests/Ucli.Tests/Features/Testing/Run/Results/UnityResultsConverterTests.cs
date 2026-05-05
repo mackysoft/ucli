@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
-using MackySoft.Ucli.Features.Testing.Run.Artifacts;
-using MackySoft.Ucli.Features.Testing.Run.Results;
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -31,7 +31,7 @@ public sealed class UnityResultsConverterTests
             </test-run>
             """);
 
-        var converter = new UnityResultsConverter();
+        var converter = CreateConverter();
 
         var result = await converter.Convert(session, CancellationToken.None);
 
@@ -52,7 +52,7 @@ public sealed class UnityResultsConverterTests
         using var scope = CreateSessionScope("invalid-xml", out var session);
         scope.WriteFile("results.xml", "<test-run><test-case");
 
-        var converter = new UnityResultsConverter();
+        var converter = CreateConverter();
 
         var result = await converter.Convert(session, CancellationToken.None);
 
@@ -77,7 +77,7 @@ public sealed class UnityResultsConverterTests
             </test-run>
             """);
 
-        var converter = new UnityResultsConverter();
+        var converter = CreateConverter();
 
         var result = await converter.Convert(session, CancellationToken.None);
 
@@ -99,7 +99,7 @@ public sealed class UnityResultsConverterTests
             </test-run>
             """);
 
-        var converter = new UnityResultsConverter();
+        var converter = CreateConverter();
 
         var result = await converter.Convert(session, CancellationToken.None);
 
@@ -117,7 +117,7 @@ public sealed class UnityResultsConverterTests
     {
         using var scope = CreateSessionScope("read-failure", out var session);
 
-        var converter = new UnityResultsConverter();
+        var converter = CreateConverter();
 
         var result = await converter.Convert(session, CancellationToken.None);
 
@@ -172,6 +172,13 @@ public sealed class UnityResultsConverterTests
             ],
             TopFailures: [],
             HasSuiteFailure: false);
+    }
+
+    private static UnityResultsConverter CreateConverter ()
+    {
+        return new UnityResultsConverter(
+            new UnityResultsXmlParser(),
+            new UnityResultsArtifactWriter());
     }
 
     private sealed class StubResultsXmlParser : IUnityResultsXmlParser

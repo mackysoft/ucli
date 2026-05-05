@@ -1,39 +1,33 @@
-using MackySoft.Ucli.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Features.Daemon.Common.CommandExecution;
-using MackySoft.Ucli.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Start;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Common;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Daemon;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Streaming;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Unity;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
-using MackySoft.Ucli.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Features.Requests.Shared.Execution;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.Shared.Foundation;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
+using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
+using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.Process;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using DiagnosticsProcess = System.Diagnostics.Process;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
@@ -90,7 +84,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                     $"Daemon process identity could not be verified because expected issuedAtUtc is not available for process '{processId.Value}'."));
             }
 
-            var identityAssessment = daemonProcessIdentityAssessor.AssessProcess(process, processId.Value, expectedIssuedAtUtc.Value);
+            var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId.Value, expectedIssuedAtUtc.Value);
             switch (identityAssessment.Status)
             {
                 case DaemonProcessIdentityAssessmentStatus.NotRunning:

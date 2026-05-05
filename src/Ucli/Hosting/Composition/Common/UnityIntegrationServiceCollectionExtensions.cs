@@ -1,8 +1,9 @@
+using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
+using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Infrastructure.Index;
-using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -41,6 +42,7 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<UnityUcliPluginMarkerCacheStore>();
         services.AddSingleton<UnityUcliPluginMarkerCacheCoordinator>();
         services.AddSingleton<IUnityUcliPluginLocator, UnityUcliPluginLocator>();
+        services.AddSingleton<IUnityPluginVerifier, UnityPluginVerifier>();
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorSearchRootProvider, DefaultUnityEditorSearchRootProvider>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();

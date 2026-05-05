@@ -1,5 +1,5 @@
 using System.Text.Json;
-using MackySoft.Ucli.Features.Testing.Run.Artifacts;
+using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Results;
 

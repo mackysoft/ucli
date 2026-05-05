@@ -1,9 +1,11 @@
 using ConsoleAppFramework;
-using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan;
-using MackySoft.Ucli.Features.Requests.Plan.UseCases.Plan.Preflight;
+using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
+using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Preflight;
+using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -14,15 +16,20 @@ internal sealed class PlanCommand
 
     private readonly IPlanCommandPreflightService planCommandPreflightService;
 
+    private readonly IRequestInputReader requestInputReader;
+
     /// <summary> Initializes a new instance of the PlanCommand class. </summary>
     /// <param name="planService"> The plan workflow service dependency. </param>
     /// <param name="planCommandPreflightService"> The command preflight dependency used to preserve the plan payload on option failures. </param>
+    /// <param name="requestInputReader"> The CLI request-input reader dependency. </param>
     public PlanCommand (
         IPlanService planService,
-        IPlanCommandPreflightService planCommandPreflightService)
+        IPlanCommandPreflightService planCommandPreflightService,
+        IRequestInputReader requestInputReader)
     {
         this.planService = planService ?? throw new ArgumentNullException(nameof(planService));
         this.planCommandPreflightService = planCommandPreflightService ?? throw new ArgumentNullException(nameof(planCommandPreflightService));
+        this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
     }
 
     /// <summary> Executes the plan command and emits the JSON result contract. </summary>
@@ -58,8 +65,15 @@ internal sealed class PlanCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
+            var requestInputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (!requestInputReadResult.IsSuccess)
+            {
+                return WriteRequestReadFailure(requestInputReadResult);
+            }
+
             var preflightResult = await planCommandPreflightService.Prepare(
                     projectPath,
+                    requestInputReadResult.Json!,
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -72,8 +86,15 @@ internal sealed class PlanCommand
         var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!normalizedModeResult.IsSuccess)
         {
+            var requestInputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (!requestInputReadResult.IsSuccess)
+            {
+                return WriteRequestReadFailure(requestInputReadResult);
+            }
+
             var preflightResult = await planCommandPreflightService.Prepare(
                     projectPath,
+                    requestInputReadResult.Json!,
                     normalizedReadIndexModeResult.Mode,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -83,16 +104,31 @@ internal sealed class PlanCommand
             return commandFailureResult.ExitCode;
         }
 
+        var serviceRequestInputReadResult = await requestInputReader.ReadAsync(cancellationToken).ConfigureAwait(false);
+        if (!serviceRequestInputReadResult.IsSuccess)
+        {
+            return WriteRequestReadFailure(serviceRequestInputReadResult);
+        }
+
         var serviceResult = await planService.Execute(
                 new PlanCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,
                     TimeoutMilliseconds: normalizedTimeoutResult.TimeoutMilliseconds,
                     ReadIndexMode: normalizedReadIndexModeResult.Mode,
-                    FailFast: failFast),
+                    FailFast: failFast,
+                    RequestJson: serviceRequestInputReadResult.Json!),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = PlanCommandResultFactory.Create(serviceResult);
+        CommandResultWriter.WriteToStandardOutput(commandResult);
+        return commandResult.ExitCode;
+    }
+
+    private static int WriteRequestReadFailure (RequestInputReadResult requestInputReadResult)
+    {
+        var failureResult = PlanFailureResultFactory.FromExecutionError(requestInputReadResult.Error!);
+        var commandResult = PlanCommandResultFactory.Create(failureResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }

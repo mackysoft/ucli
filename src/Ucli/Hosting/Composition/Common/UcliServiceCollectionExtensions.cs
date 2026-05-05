@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application;
 using MackySoft.Ucli.Hosting.Composition.Features;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,6 +16,7 @@ internal static class UcliServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddUcliHostingServices();
+        services.AddUcliApplicationServices();
         services.AddUcliSharedServices();
         services.AddUcliUnityIntegrationServices();
         services.AddUcliInitFeatureServices();

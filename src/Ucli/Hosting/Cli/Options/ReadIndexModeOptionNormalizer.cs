@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;
@@ -20,7 +21,7 @@ internal static class ReadIndexModeOptionNormalizer
             return ReadIndexModeOptionNormalizationResult.Success(mode);
         }
 
-        return ReadIndexModeOptionNormalizationResult.Failure(Shared.Foundation.ExecutionError.InvalidArgument(
+        return ReadIndexModeOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
             $"readIndexMode must be one of '{ReadIndexModeValues.Disabled}', '{ReadIndexModeValues.AllowStale}', '{ReadIndexModeValues.RequireFresh}'. Actual: {optionValue}."));
     }
 }

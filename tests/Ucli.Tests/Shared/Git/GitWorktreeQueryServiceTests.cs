@@ -1,6 +1,6 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Shared.Foundation;
-using MackySoft.Ucli.Shared.Git;
+using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Git;
 
 namespace MackySoft.Ucli.Tests.Git;
 

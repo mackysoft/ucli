@@ -1,17 +1,20 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Requests.Validate.Common.Contracts;
-using MackySoft.Ucli.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class ValidateCommandTests
 {
+    private const string DefaultRequestJson = """{"steps":[]}""";
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Validate_UsesValidateServiceAndWritesCommandResult ()
@@ -25,7 +28,7 @@ public sealed class ValidateCommandTests
                 GeneratedAtUtc: null,
                 FallbackReason: "readIndex disabled by mode.")),
             "Static validation passed.")));
-        var command = new ValidateCommand(service);
+        var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Validate(
             projectPath: "/repo/UnityProject",
@@ -36,6 +39,7 @@ public sealed class ValidateCommandTests
         Assert.NotNull(service.CapturedInput);
         Assert.Equal("/repo/UnityProject", service.CapturedInput!.ProjectPath);
         Assert.Equal(ReadIndexMode.Disabled, service.CapturedInput.ReadIndexMode);
+        Assert.Equal(DefaultRequestJson, service.CapturedInput.RequestJson);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
         CommandResultAssert.HasStandardEnvelope(
@@ -50,7 +54,7 @@ public sealed class ValidateCommandTests
     public async Task Validate_WhenReadIndexModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubValidateService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new ValidateCommand(service);
+        var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Validate(
             readIndexMode: "unsupported",
@@ -84,6 +88,22 @@ public sealed class ValidateCommandTests
         {
             CapturedInput = input;
             return handler(input, cancellationToken);
+        }
+    }
+
+    private sealed class StubRequestInputReader : IRequestInputReader
+    {
+        private readonly RequestInputReadResult result;
+
+        public StubRequestInputReader (RequestInputReadResult result)
+        {
+            this.result = result ?? throw new ArgumentNullException(nameof(result));
+        }
+
+        public ValueTask<RequestInputReadResult> ReadAsync (CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(result);
         }
     }
 }

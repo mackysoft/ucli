@@ -1,27 +1,27 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
+using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
+using MackySoft.Ucli.Application.Shared.Configuration;
+using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
+using MackySoft.Ucli.Application.Shared.Execution.Process;
+using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Validation;
-using MackySoft.Ucli.Features.Requests.Call.Common.Contracts;
-using MackySoft.Ucli.Features.Requests.Call.UseCases.Call;
-using MackySoft.Ucli.Features.Requests.Shared.Execution.Phase;
-using MackySoft.Ucli.Features.Requests.Shared.OperationMetadata;
-using MackySoft.Ucli.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Configuration;
-using MackySoft.Ucli.Shared.Context;
-using MackySoft.Ucli.Shared.Context.Project;
-using MackySoft.Ucli.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Shared.Execution.Timeout;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
-using MackySoft.Ucli.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc;
 using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
 
@@ -70,7 +70,8 @@ public sealed class CallServiceTests
                 PlanToken: "plan-token-1",
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: true),
+                FailFast: true,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -147,7 +148,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -214,7 +216,8 @@ public sealed class CallServiceTests
                 PlanToken: "user-plan-token",
                 WithPlan: true,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -249,7 +252,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -286,7 +290,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -326,7 +331,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -347,7 +353,7 @@ public sealed class CallServiceTests
             operationsByName: CreateOperationsByName(
                 CreateOperationDescriptor(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, OperationPolicy.Safe)));
         var preflightResult = PhaseExecutionPreflightResult.Failure(
-            MackySoft.Ucli.Shared.Foundation.ExecutionError.InternalError("Operation metadata could not be loaded."),
+            MackySoft.Ucli.Application.Shared.Foundation.ExecutionError.InternalError("Operation metadata could not be loaded."),
             preparedRequest);
         var service = CreateService(
             preflightResult,
@@ -361,7 +367,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -397,7 +404,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -451,7 +459,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -517,7 +526,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -574,7 +584,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: true,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -621,7 +632,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -677,7 +689,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -741,7 +754,8 @@ public sealed class CallServiceTests
                 PlanToken: null,
                 WithPlan: false,
                 AllowDangerous: false,
-                FailFast: false),
+                FailFast: false,
+                RequestJson: """{"steps":[]}"""),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -956,14 +970,14 @@ public sealed class CallServiceTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public ValueTask<ParsedRequestResult> ReadAndParse (CancellationToken cancellationToken = default)
+        public ParsedRequestResult Parse (string requestJson)
         {
-            cancellationToken.ThrowIfCancellationRequested();
             throw new NotSupportedException();
         }
 
         public ValueTask<RequestPreparationResult> Prepare (
             string? projectPath,
+            string requestJson,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
