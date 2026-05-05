@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Ports;
-using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Execution;

@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Init.Ports;
-using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
 using MackySoft.Ucli.Features.Init.Adapters;
 using Microsoft.Extensions.DependencyInjection;
 

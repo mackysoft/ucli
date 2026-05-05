@@ -72,6 +72,41 @@ public sealed class ResolveCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Resolve_WhenServiceFails_PreservesFailurePayloadAndErrors ()
+    {
+        var service = new StubResolveService((_, _) => ValueTask.FromResult(CreateFailureResult()));
+        var command = new ResolveCommand(service);
+
+        var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
+            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.ToolError, exitCode);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(standardOutput);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            UcliCommandNames.Resolve,
+            IpcProtocol.StatusError,
+            (int)CliExitCode.ToolError);
+        JsonAssert.For(outputJson.RootElement)
+            .HasString("message", "Unity execution failed.")
+            .HasProperty("payload", payload => payload
+                .HasString("requestId", "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62")
+                .HasArrayLength("opResults", 0)
+                .HasProperty("readIndex", readIndex => readIndex
+                    .HasBoolean("used", true)
+                    .HasString("source", "index")
+                    .HasString("freshness", "fresh")))
+            .HasArrayLength("errors", 1)
+            .HasProperty("errors", 0, error => error
+                .HasString("code", IpcErrorCodes.InternalError)
+                .HasString("message", "Unity execution failed.")
+                .HasString("opId", "resolve"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Resolve_WhenSelectorIsNotExactlyOne_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
@@ -173,6 +208,28 @@ public sealed class ResolveCommandTests
             ],
             Errors: [],
             Outcome: ApplicationOutcome.Success,
+            ReadIndex: new ReadIndexInfo(
+                Used: true,
+                Hit: true,
+                Source: ReadIndexInfoSource.Index,
+                Freshness: IndexFreshness.Fresh,
+                GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
+                FallbackReason: null));
+    }
+
+    private static ResolveServiceResult CreateFailureResult ()
+    {
+        return new ResolveServiceResult(
+            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            OpResults: [],
+            Errors:
+            [
+                new OperationExecutionError(
+                    Code: IpcErrorCodes.InternalError,
+                    Message: "Unity execution failed.",
+                    OpId: "resolve"),
+            ],
+            Outcome: ApplicationOutcome.ToolError,
             ReadIndex: new ReadIndexInfo(
                 Used: true,
                 Hit: true,
