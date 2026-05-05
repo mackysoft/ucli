@@ -136,8 +136,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 executeTimeout,
                 config,
                 projectContext.UnityProject,
-                IpcMethodNames.Execute,
-                ExecuteRequestPayloadFactory.CreateSingleOperation(
+                new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Call,
                     requestId,
                     definition.OperationId,
@@ -208,8 +207,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 timeout,
                 config,
                 unityProject,
-                IpcMethodNames.Execute,
-                ExecuteRequestPayloadFactory.CreateSingleOperation(
+                new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Plan,
                     requestId,
                     definition.OperationId,

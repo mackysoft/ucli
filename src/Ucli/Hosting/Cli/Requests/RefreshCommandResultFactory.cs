@@ -61,7 +61,7 @@ internal static class RefreshCommandResultFactory
         return Create(OperationExecuteResultFactory.FromExecutionError(error));
     }
 
-    private static string ResolveFailureMessage (IReadOnlyList<IpcError> errors)
+    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 

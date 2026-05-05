@@ -149,7 +149,7 @@ public sealed class UnityResultsConverterTests
         var scope = TestDirectories.CreateTempScope("unity-results-converter", testCaseName);
         var artifactsDirectoryPath = scope.FullPath;
 
-        var artifactPaths = new ArtifactPaths(artifactsDirectoryPath);
+        var artifactPaths = TestArtifactPaths.Create(artifactsDirectoryPath);
 
         session = new ArtifactsSession(
             RunId: "20260301_120000Z_abcd1234",

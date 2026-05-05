@@ -17,17 +17,17 @@ internal sealed class OpsReadIndexInfoMapper
             Used: accessInfo.Used,
             Hit: accessInfo.Hit,
             Source: MapSource(accessInfo.Source),
-            Freshness: ReadIndexInfoTextCodec.MapFreshness(accessInfo.Freshness),
+            Freshness: accessInfo.Freshness,
             GeneratedAtUtc: accessInfo.GeneratedAtUtc,
             FallbackReason: accessInfo.FallbackReason);
     }
 
-    private static string MapSource (OpsCatalogSource source)
+    private static ReadIndexInfoSource MapSource (OpsCatalogSource source)
     {
         return source switch
         {
-            OpsCatalogSource.Index => ReadIndexInfoTextCodec.SourceIndex,
-            OpsCatalogSource.Source => ReadIndexInfoTextCodec.SourceUnity,
+            OpsCatalogSource.Index => ReadIndexInfoSource.Index,
+            OpsCatalogSource.Source => ReadIndexInfoSource.Unity,
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unsupported ops catalog source."),
         };
     }

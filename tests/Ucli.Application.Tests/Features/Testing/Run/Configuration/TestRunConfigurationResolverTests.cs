@@ -53,7 +53,7 @@ public sealed class TestRunConfigurationResolverTests
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),
             TestPlatform: TestRunPlatform.EditMode,
             TestFilter: "Name~Smoke",
-            TestCategory: ["smoke,quick"],
+            TestCategory: ["smoke", "quick"],
             AssemblyName: ["Cli.Tests"],
             TestSettingsPath: testSettingsPath,
             TimeoutMilliseconds: 120);

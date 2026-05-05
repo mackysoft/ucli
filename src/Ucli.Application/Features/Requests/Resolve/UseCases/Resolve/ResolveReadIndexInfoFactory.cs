@@ -15,9 +15,9 @@ internal static class ResolveReadIndexInfoFactory
             Used: accessInfo.Used && accessInfo.Source == SceneTreeLiteSource.Index,
             Hit: accessInfo.Hit,
             Source: accessInfo.Source == SceneTreeLiteSource.Index
-                ? ReadIndexInfoTextCodec.SourceIndex
-                : ReadIndexInfoTextCodec.SourceUnity,
-            Freshness: ReadIndexInfoTextCodec.MapFreshness(accessInfo.Freshness),
+                ? ReadIndexInfoSource.Index
+                : ReadIndexInfoSource.Unity,
+            Freshness: accessInfo.Freshness,
             GeneratedAtUtc: accessInfo.GeneratedAtUtc,
             FallbackReason: accessInfo.FallbackReason);
     }
@@ -28,8 +28,8 @@ internal static class ResolveReadIndexInfoFactory
         return new ReadIndexInfo(
             Used: false,
             Hit: false,
-            Source: ReadIndexInfoTextCodec.SourceUnity,
-            Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+            Source: ReadIndexInfoSource.Unity,
+            Freshness: IndexFreshness.Fresh,
             GeneratedAtUtc: null,
             FallbackReason: fallbackReason);
     }

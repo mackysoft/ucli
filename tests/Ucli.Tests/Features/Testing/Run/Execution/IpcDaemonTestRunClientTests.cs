@@ -43,7 +43,7 @@ public sealed class IpcDaemonTestRunClientTests
             DaemonSessionTokenResolutionResult.Success("session-token"));
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "success");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         scope.WriteFile("run/results.xml", "<test-run />");
         scope.WriteFile("run/editor.log", "log");
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
@@ -85,7 +85,7 @@ public sealed class IpcDaemonTestRunClientTests
             DaemonSessionTokenResolutionResult.Success("session-token"));
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "invalid-payload");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
@@ -109,7 +109,7 @@ public sealed class IpcDaemonTestRunClientTests
             DaemonSessionTokenResolutionResult.Success("session-token"));
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "timeout");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
@@ -141,7 +141,7 @@ public sealed class IpcDaemonTestRunClientTests
         };
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "remaining-timeout");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         scope.WriteFile("run/results.xml", "<test-run />");
         scope.WriteFile("run/editor.log", "log");
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider, timeProvider);
@@ -175,7 +175,7 @@ public sealed class IpcDaemonTestRunClientTests
         };
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "session-timeout");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider, timeProvider);
 
         var result = await client.Execute(
@@ -206,7 +206,7 @@ public sealed class IpcDaemonTestRunClientTests
             DaemonSessionTokenResolutionResult.Success("session-token"));
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "lifecycle-error");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
@@ -236,7 +236,7 @@ public sealed class IpcDaemonTestRunClientTests
             DaemonSessionTokenResolutionResult.SessionNotAvailable());
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "session-not-available");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
@@ -266,7 +266,7 @@ public sealed class IpcDaemonTestRunClientTests
             DaemonSessionTokenResolutionResult.Failure(ExecutionError.InternalError("session store read failed")));
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "session-resolution-internal-error");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(
@@ -296,7 +296,7 @@ public sealed class IpcDaemonTestRunClientTests
             DaemonSessionTokenResolutionResult.Success("session-token"));
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-client", "missing-artifacts");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
         var client = new IpcDaemonTestRunClient(daemonTransportClient, sessionTokenProvider);
 
         var result = await client.Execute(

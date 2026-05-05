@@ -48,7 +48,7 @@ public sealed class DaemonStatusServiceTests
         var diagnosisMapper = new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper();
         var service = CreateService(resolver, daemonStatusOperation, mapper, diagnosisMapper);
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
@@ -82,7 +82,7 @@ public sealed class DaemonStatusServiceTests
             mapper,
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -111,7 +111,7 @@ public sealed class DaemonStatusServiceTests
             mapper,
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -140,7 +140,7 @@ public sealed class DaemonStatusServiceTests
             mapper,
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
@@ -172,7 +172,7 @@ public sealed class DaemonStatusServiceTests
             mapper,
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -205,7 +205,7 @@ public sealed class DaemonStatusServiceTests
             mapper,
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -240,13 +240,13 @@ public sealed class DaemonStatusServiceTests
 
         var result = await service.GetStatus(
             projectPath: "/tmp/sandbox-unity",
-            timeout: "9999",
+            timeoutMilliseconds: 9999,
             cancellationToken: cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(UcliCommandIds.DaemonStatus, resolver.LastTimeoutCommand);
         Assert.Equal("/tmp/sandbox-unity", resolver.LastProjectPath);
-        Assert.Equal("9999", resolver.LastTimeoutOption);
+        Assert.Equal(9999, resolver.LastTimeoutMilliseconds);
         Assert.Equal(cancellationToken, resolver.LastCancellationToken);
         Assert.Equal(context.Context.UnityProject, daemonStatusOperation.LastUnityProject);
         Assert.Equal(context.Timeout, daemonStatusOperation.LastTimeout);
@@ -269,7 +269,7 @@ public sealed class DaemonStatusServiceTests
         var diagnosisMapper = new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper();
         var service = CreateService(resolver, daemonStatusOperation, mapper, diagnosisMapper);
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
@@ -318,7 +318,7 @@ public sealed class DaemonStatusServiceTests
             diagnosisMapper,
             timeProvider);
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
@@ -366,7 +366,7 @@ public sealed class DaemonStatusServiceTests
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
             timeProvider);
 
-        var result = await service.GetStatus(projectPath: null, timeout: "700", cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: 700, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, pingInfoClient.CallCount);
@@ -398,7 +398,7 @@ public sealed class DaemonStatusServiceTests
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
             timeProvider);
 
-        var result = await service.GetStatus(projectPath: null, timeout: "300", cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: 300, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -430,7 +430,7 @@ public sealed class DaemonStatusServiceTests
             sessionMapper,
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -464,7 +464,7 @@ public sealed class DaemonStatusServiceTests
             new DaemonServiceTestContext.StubDaemonSessionOutputMapper(),
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -498,7 +498,7 @@ public sealed class DaemonStatusServiceTests
             new DaemonServiceTestContext.StubDaemonSessionOutputMapper(),
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -542,7 +542,7 @@ public sealed class DaemonStatusServiceTests
             sessionMapper,
             diagnosisMapper);
 
-        var result = await service.GetStatus(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
@@ -587,7 +587,7 @@ public sealed class DaemonStatusServiceTests
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
             timeProvider);
 
-        var result = await service.GetStatus(projectPath: null, timeout: "250", cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: 250, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -634,7 +634,7 @@ public sealed class DaemonStatusServiceTests
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper(),
             timeProvider);
 
-        var resultTask = service.GetStatus(projectPath: null, timeout: "250", cancellationToken: CancellationToken.None).AsTask();
+        var resultTask = service.GetStatus(projectPath: null, timeoutMilliseconds: 250, cancellationToken: CancellationToken.None).AsTask();
         await TestAwaiter.WaitAsync(diagnosisStarted.Task, "Daemon status stale diagnosis start", TimeSpan.FromSeconds(5));
         timeProvider.Advance(TimeSpan.FromMilliseconds(250));
 
@@ -680,7 +680,7 @@ public sealed class DaemonStatusServiceTests
             new DaemonServiceTestContext.StubDaemonSessionOutputMapper(),
             new DaemonServiceTestContext.StubDaemonDiagnosisOutputMapper());
 
-        var result = await service.GetStatus(projectPath: null, timeout: "250", cancellationToken: CancellationToken.None);
+        var result = await service.GetStatus(projectPath: null, timeoutMilliseconds: 250, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);

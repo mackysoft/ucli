@@ -67,7 +67,6 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                     planTimeout,
                     preparedRequest.Config,
                     preparedRequest.UnityProject,
-                    IpcMethodNames.Execute,
                     CreateExecuteRequestPayload(
                         preparedRequest.RequestJson,
                         UcliCommandIds.Plan,
@@ -132,7 +131,6 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 callTimeout,
                 preparedRequest.Config,
                 preparedRequest.UnityProject,
-                IpcMethodNames.Execute,
                 CreateExecuteRequestPayload(
                     preparedRequest.RequestJson,
                     UcliCommandIds.Call,
@@ -191,7 +189,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             "uCLI call completed.");
     }
 
-    private static JsonElement CreateExecuteRequestPayload (
+    private static UnityRequestPayload CreateExecuteRequestPayload (
         string requestJson,
         UcliCommand command,
         bool failFast,
@@ -204,7 +202,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         using var document = JsonDocument.Parse(requestJson);
-        return ExecuteRequestPayloadFactory.Create(command, document.RootElement.Clone(), failFast, planToken);
+        return new UnityRequestPayload.ExecuteJson(command, document.RootElement.Clone(), failFast, planToken);
     }
 
     private static CallServiceResult CreateFailure (

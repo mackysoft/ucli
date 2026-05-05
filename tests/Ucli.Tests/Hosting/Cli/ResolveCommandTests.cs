@@ -65,8 +65,8 @@ public sealed class ResolveCommandTests
                         .HasString("globalObjectId", "GlobalObjectId_V1-1-2-3-4-5-6")))
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", true)
-                    .HasString("source", ReadIndexInfoTextCodec.SourceIndex)
-                    .HasString("freshness", ReadIndexInfoTextCodec.FreshnessFresh)));
+                    .HasString("source", "index")
+                    .HasString("freshness", "fresh")));
     }
 
     [Fact]
@@ -175,8 +175,8 @@ public sealed class ResolveCommandTests
             ReadIndex: new ReadIndexInfo(
                 Used: true,
                 Hit: true,
-                Source: ReadIndexInfoTextCodec.SourceIndex,
-                Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+                Source: ReadIndexInfoSource.Index,
+                Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
                 FallbackReason: null));
     }

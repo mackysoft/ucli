@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 namespace MackySoft.Ucli.Application.Tests.Ops.Mapping;
 
@@ -38,7 +39,7 @@ public sealed class OpsListResultMapperTests
         Assert.True(result.IsSuccess);
         Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe, result.Output!.Operations[0].Name);
         Assert.Equal(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, result.Output.Operations[1].Name);
-        Assert.Equal("index", result.Output.ReadIndex.Source);
-        Assert.Equal("fresh", result.Output.ReadIndex.Freshness);
+        Assert.Equal(ReadIndexInfoSource.Index, result.Output.ReadIndex.Source);
+        Assert.Equal(MackySoft.Ucli.Contracts.Index.IndexFreshness.Fresh, result.Output.ReadIndex.Freshness);
     }
 }

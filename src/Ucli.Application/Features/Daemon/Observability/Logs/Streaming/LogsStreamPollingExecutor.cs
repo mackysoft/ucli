@@ -59,7 +59,7 @@ internal static class LogsStreamPollingExecutor
         var contextResolutionResult = await daemonCommandExecutionContextResolver.Resolve(
                 commandId,
                 projectPath,
-                timeout: null,
+                timeoutMilliseconds: null,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!contextResolutionResult.IsSuccess)

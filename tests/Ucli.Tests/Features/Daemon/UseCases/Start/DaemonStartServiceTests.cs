@@ -54,7 +54,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
@@ -80,7 +80,7 @@ public sealed class DaemonStartServiceTests
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -106,7 +106,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStartExecutionOutput>(result.Output);
@@ -130,7 +130,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper);
 
-        var result = await service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -171,13 +171,13 @@ public sealed class DaemonStartServiceTests
 
         var result = await service.Start(
             projectPath: "/tmp/sandbox-unity",
-            timeout: "700",
+            timeoutMilliseconds: 700,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(UcliCommandIds.DaemonStart, resolver.LastTimeoutCommand);
         Assert.Equal("/tmp/sandbox-unity", resolver.LastProjectPath);
-        Assert.Equal("700", resolver.LastTimeoutOption);
+        Assert.Equal(700, resolver.LastTimeoutMilliseconds);
 
         Assert.Equal(1, supervisorProjectGateway.EnsureRunningCallCount);
         Assert.Equal(TimeSpan.FromMilliseconds(500), supervisorProjectGateway.LastEnsureRunningTimeout);
@@ -200,7 +200,7 @@ public sealed class DaemonStartServiceTests
         var supervisorProjectGateway = new DaemonServiceTestContext.StubSupervisorProjectGateway();
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginLocator);
 
-        var result = await service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None);
+        var result = await service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -233,7 +233,7 @@ public sealed class DaemonStartServiceTests
         };
         var service = CreateService(resolver, supervisorProjectGateway, mapper, pluginLocator, timeProvider);
 
-        var resultTask = service.Start(projectPath: null, timeout: null, cancellationToken: CancellationToken.None).AsTask();
+        var resultTask = service.Start(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None).AsTask();
         await TestAwaiter.WaitAsync(pluginLocator.Started!.Task, "Unity plugin verification start", SignalWaitTimeout);
         timeProvider.Advance(context.Timeout);
 

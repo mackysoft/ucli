@@ -157,7 +157,7 @@ public sealed class UnityTestExecutorTests
 
     private static ArtifactPaths CreateArtifactPaths (TestDirectoryScope scope)
     {
-        return new ArtifactPaths(scope.GetPath("run"));
+        return TestArtifactPaths.Create(scope.GetPath("run"));
     }
 
     private sealed class StubUnityCommandBuilder : IUnityCommandBuilder

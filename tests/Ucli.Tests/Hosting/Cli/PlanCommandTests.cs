@@ -189,10 +189,10 @@ public sealed class PlanCommandTests
         return new ReadIndexInfo(
             Used: used,
             Hit: hit,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
+            Source: ReadIndexInfoSource.Index,
             Freshness: used
-                ? ReadIndexInfoTextCodec.FreshnessProbable
-                : ReadIndexInfoTextCodec.FreshnessProbable,
+                ? IndexFreshness.Probable
+                : IndexFreshness.Probable,
             GeneratedAtUtc: used
                 ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")
                 : null,

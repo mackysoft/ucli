@@ -174,6 +174,11 @@ public sealed class ProjectBoundaryTests
             "new Process(",
             "File.",
             "Directory.",
+            "System.IO.Path",
+            "Path.Combine(",
+            "Path.Get",
+            "Path.IsPath",
+            "Path.EndsInDirectorySeparator(",
             "Environment.",
             "System.Net.Sockets",
             "System.Net.",
@@ -187,6 +192,10 @@ public sealed class ProjectBoundaryTests
             "ProcessRunResult",
             "ProcessRunStatus",
             "ProcessOutputDrainMode",
+            "ExecuteRequestPayloadFactory",
+            "ReadIndexInfoTextCodec",
+            "new IpcExecuteRequest",
+            "IpcExecuteRequest(",
         };
 
         var applicationSourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Application");
@@ -343,12 +352,50 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Operation_execute_application_result_does_not_expose_ipc_dtos ()
+    {
+        var sourceText = File.ReadAllText(Path.Combine(
+            RepositoryRoot,
+            "src/Ucli.Application/Features/Requests/Shared/Execution/OperationExecute/OperationExecuteResult.cs"));
+
+        Assert.DoesNotContain("IpcExecute", sourceText, StringComparison.Ordinal);
+        Assert.DoesNotContain("IpcError", sourceText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Cli_host_global_usings_do_not_import_application_namespaces ()
     {
         var globalUsingsPath = Path.Combine(RepositoryRoot, "src", "Ucli", "GlobalUsings.cs");
         var sourceText = File.ReadAllText(globalUsingsPath);
 
         Assert.DoesNotContain("global using MackySoft.Ucli.Application", sourceText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Host_adapter_sources_do_not_import_application_use_case_namespaces ()
+    {
+        var hostAdapterFiles = EnumerateCSharpSourceFiles("src/Ucli/Features")
+            .Concat(EnumerateCSharpSourceFiles("src/Ucli/UnityIntegration"))
+            .Concat(EnumerateCSharpSourceFiles("src/Ucli/Shared"));
+
+        foreach (var sourceFile in hostAdapterFiles)
+        {
+            var sourceText = File.ReadAllText(sourceFile);
+            Assert.DoesNotContain(
+                "using MackySoft.Ucli.Application.Features.Daemon.UseCases.",
+                sourceText,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "using MackySoft.Ucli.Application.Features.Init.UseCases.",
+                sourceText,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.",
+                sourceText,
+                StringComparison.Ordinal);
+        }
     }
 
     [Fact]

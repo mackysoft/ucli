@@ -50,10 +50,11 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 timeout,
                 config,
                 project,
-                IpcMethodNames.OpsRead,
-                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                    FailFast: failFast,
-                    RequireReadinessGate: requireReadinessGate)),
+                new UnityRequestPayload.Raw(
+                    IpcMethodNames.OpsRead,
+                    IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                        FailFast: failFast,
+                        RequireReadinessGate: requireReadinessGate))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

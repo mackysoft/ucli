@@ -9,6 +9,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Daemon;
 
@@ -39,7 +40,21 @@ internal sealed class DaemonStartCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var executionResult = await daemonStartService.Start(projectPath, timeout, cancellationToken).ConfigureAwait(false);
+        var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!normalizedTimeoutResult.IsSuccess)
+        {
+            var errorResult = CommandResultFactory.FromExecutionError(
+                UcliCommandNames.DaemonStart,
+                normalizedTimeoutResult.Error!);
+            CommandResultWriter.WriteToStandardOutput(errorResult);
+            return errorResult.ExitCode;
+        }
+
+        var executionResult = await daemonStartService.Start(
+                projectPath,
+                normalizedTimeoutResult.TimeoutMilliseconds,
+                cancellationToken)
+            .ConfigureAwait(false);
         var commandResult = CreateCommandResult(executionResult);
         CommandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;

@@ -106,7 +106,6 @@ internal sealed class PlanService : IPlanService
                 timeoutResolutionResult.Timeout!.Value,
                 preparedRequest.ProjectContext.Config,
                 preparedRequest.ProjectContext.UnityProject,
-                IpcMethodNames.Execute,
                 CreateExecuteRequestPayload(preparedRequest.RequestJson, input.FailFast),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -152,14 +151,14 @@ internal sealed class PlanService : IPlanService
             "uCLI plan completed.");
     }
 
-    private static JsonElement CreateExecuteRequestPayload (
+    private static UnityRequestPayload CreateExecuteRequestPayload (
         string requestJson,
         bool failFast)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
 
         using var document = JsonDocument.Parse(requestJson);
-        return ExecuteRequestPayloadFactory.Create(
+        return new UnityRequestPayload.ExecuteJson(
             UcliCommandIds.Plan,
             document.RootElement.Clone(),
             failFast);

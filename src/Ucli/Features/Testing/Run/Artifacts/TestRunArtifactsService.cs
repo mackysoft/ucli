@@ -89,7 +89,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
                     $"Failed to create artifacts directory: {artifactsDir}. {exception.Message}"));
             }
 
-            var artifactPaths = new ArtifactPaths(artifactsDir);
+            var artifactPaths = CreateArtifactPaths(artifactsDir);
             var session = new ArtifactsSession(
                 RunId: runId,
                 Paths: artifactPaths,
@@ -119,6 +119,17 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
         return ArtifactsPreparationResult.Failure(ExecutionError.InternalError(
             $"Failed to create unique artifacts directory after {MaxRunIdGenerationAttempts} attempts."));
+    }
+
+    private static ArtifactPaths CreateArtifactPaths (string artifactsDir)
+    {
+        return new ArtifactPaths(
+            ArtifactsDir: artifactsDir,
+            MetaJsonPath: Path.Combine(artifactsDir, "meta.json"),
+            ResultsXmlPath: Path.Combine(artifactsDir, "results.xml"),
+            EditorLogPath: Path.Combine(artifactsDir, "editor.log"),
+            ResultsJsonPath: Path.Combine(artifactsDir, "results.json"),
+            SummaryJsonPath: Path.Combine(artifactsDir, "summary.json"));
     }
 
     /// <summary> Completes one run-scoped artifacts session by updating completion metadata. </summary>

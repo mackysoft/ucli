@@ -20,7 +20,7 @@ internal static class ValidateCommandResultFactory
             ? new { }
             : new
             {
-                readIndex = serviceResult.Output.ReadIndex,
+                readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.Output.ReadIndex),
             };
 
         if (serviceResult.IsSuccess)

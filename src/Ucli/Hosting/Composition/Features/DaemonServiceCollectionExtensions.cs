@@ -1,11 +1,13 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Inventory;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
@@ -53,6 +55,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
         services.AddSingleton<IDaemonCleanupReachabilityProbe, DaemonCleanupReachabilityProbe>();
+        services.AddSingleton<IWorktreeProjectPathResolver, WorktreeProjectPathResolver>();
         services.AddSingleton<IDaemonLaunchSessionService, DaemonLaunchSessionService>();
         services.AddSingleton<IDaemonLaunchService, DaemonLaunchService>();
         services.AddSingleton<IDaemonReachabilityProbe, IpcDaemonReachabilityProbe>();

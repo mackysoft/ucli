@@ -48,8 +48,9 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(UnityExecutionMode.Auto, executor.LastMode);
-        Assert.Equal(IpcMethodNames.IndexSceneTreeLiteRead, executor.LastMethod);
-        Assert.True(IpcPayloadCodec.TryDeserialize(executor.LastPayload, out IpcIndexSceneTreeLiteReadRequest payload, out _));
+        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.LastPayload);
+        Assert.Equal(IpcMethodNames.IndexSceneTreeLiteRead, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcIndexSceneTreeLiteReadRequest payload, out _));
         Assert.Equal("Assets/Scenes/Main.unity", payload.ScenePath);
         Assert.True(payload.FailFast);
         Assert.Single(result.Response!.Roots!);
@@ -170,9 +171,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     {
         public UnityExecutionMode LastMode { get; private set; }
 
-        public string LastMethod { get; private set; } = string.Empty;
-
-        public JsonElement LastPayload { get; private set; }
+        public UnityRequestPayload? LastPayload { get; private set; }
 
         public UnityRequestExecutionResult Result { get; set; }
             = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
@@ -183,13 +182,11 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             LastMode = mode;
-            LastMethod = method;
             LastPayload = payload;
             return ValueTask.FromResult(Result);
         }

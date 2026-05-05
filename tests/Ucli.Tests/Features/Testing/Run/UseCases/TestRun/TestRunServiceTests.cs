@@ -664,7 +664,7 @@ public sealed class TestRunServiceTests
         var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run", "run-id");
         return new ArtifactsSession(
             RunId: "run-id",
-            Paths: new ArtifactPaths(artifactsDir),
+            Paths: TestArtifactPaths.Create(artifactsDir),
             StartedAtUtc: DateTimeOffset.UtcNow);
     }
 

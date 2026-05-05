@@ -88,24 +88,15 @@ public sealed class OperationExecuteServiceTests
         Assert.Equal(UcliCommandIds.Refresh, ipcRequestExecutor.CapturedCommand);
         Assert.Equal(UnityExecutionMode.Daemon, ipcRequestExecutor.CapturedMode);
         Assert.Equal(TimeSpan.FromMilliseconds(120000), ipcRequestExecutor.CapturedTimeout);
-        Assert.Equal(IpcMethodNames.Execute, ipcRequestExecutor.CapturedMethod);
         Assert.Equal("/repo", ipcRequestExecutor.CapturedProject!.RepositoryRoot);
 
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            ipcRequestExecutor.CapturedPayload,
-            out IpcExecuteRequest executeRequest,
-            out var payloadError));
-        Assert.Equal(IpcPayloadReadError.None, payloadError);
+        var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteOperation>(ipcRequestExecutor.CapturedPayload);
         Assert.Equal(UcliCommandIds.Call, executeRequest.Command);
-        Assert.Equal(JsonValueKind.Object, executeRequest.Arguments.ValueKind);
-        Assert.Equal(IpcProtocol.CurrentVersion, executeRequest.Arguments.GetProperty("protocolVersion").GetInt32());
-        Assert.Equal(result.RequestId, executeRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.Equal(result.RequestId, executeRequest.RequestId);
         Assert.True(executeRequest.FailFast);
-        var step = Assert.Single(executeRequest.Arguments.GetProperty("steps").EnumerateArray());
-        Assert.Equal("op", step.GetProperty("kind").GetString());
-        Assert.Equal("refresh", step.GetProperty("id").GetString());
-        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, step.GetProperty("op").GetString());
-        Assert.Equal(JsonValueKind.Object, step.GetProperty("args").ValueKind);
+        Assert.Equal("refresh", executeRequest.OperationId);
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, executeRequest.OperationName);
+        Assert.Equal(JsonValueKind.Object, executeRequest.Args.ValueKind);
     }
 
     [Fact]
@@ -259,23 +250,19 @@ public sealed class OperationExecuteServiceTests
 
         var planInvocation = ipcRequestExecutor.Invocations[0];
         Assert.Equal(UcliCommandIds.Refresh, planInvocation.Command);
-        Assert.Equal(IpcMethodNames.Execute, planInvocation.Method);
-        Assert.True(IpcPayloadCodec.TryDeserialize(planInvocation.Payload, out IpcExecuteRequest planRequest, out var planPayloadError));
-        Assert.Equal(IpcPayloadReadError.None, planPayloadError);
+        var planRequest = Assert.IsType<UnityRequestPayload.ExecuteOperation>(planInvocation.Payload);
         Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
         Assert.Null(planRequest.PlanToken);
         Assert.True(planRequest.FailFast);
-        Assert.Equal(result.RequestId, planRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.Equal(result.RequestId, planRequest.RequestId);
 
         var callInvocation = ipcRequestExecutor.Invocations[1];
         Assert.Equal(UcliCommandIds.Refresh, callInvocation.Command);
-        Assert.Equal(IpcMethodNames.Execute, callInvocation.Method);
-        Assert.True(IpcPayloadCodec.TryDeserialize(callInvocation.Payload, out IpcExecuteRequest callRequest, out var callPayloadError));
-        Assert.Equal(IpcPayloadReadError.None, callPayloadError);
+        var callRequest = Assert.IsType<UnityRequestPayload.ExecuteOperation>(callInvocation.Payload);
         Assert.Equal(UcliCommandIds.Call, callRequest.Command);
         Assert.Equal("plan-token-1", callRequest.PlanToken);
         Assert.True(callRequest.FailFast);
-        Assert.Equal(result.RequestId, callRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.Equal(result.RequestId, callRequest.RequestId);
     }
 
     [Fact]
@@ -659,9 +646,7 @@ public sealed class OperationExecuteServiceTests
 
         public ResolvedUnityProjectContext? CapturedProject => invocations[^1].UnityProject;
 
-        public string? CapturedMethod => invocations[^1].Method;
-
-        public JsonElement CapturedPayload => invocations[^1].Payload;
+        public UnityRequestPayload CapturedPayload => invocations[^1].Payload;
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
@@ -669,13 +654,12 @@ public sealed class OperationExecuteServiceTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            var invocation = new Invocation(command, mode, timeout, unityProject, method, payload);
+            var invocation = new Invocation(command, mode, timeout, unityProject, payload);
             invocations.Add(invocation);
             OnExecute?.Invoke(new InvocationContext(CallCount, invocation, TimeProvider));
             if (!results.TryDequeue(out var result))
@@ -691,8 +675,7 @@ public sealed class OperationExecuteServiceTests
             UnityExecutionMode Mode,
             TimeSpan Timeout,
             ResolvedUnityProjectContext UnityProject,
-            string Method,
-            JsonElement Payload);
+            UnityRequestPayload Payload);
 
         public sealed record InvocationContext (
             int Index,

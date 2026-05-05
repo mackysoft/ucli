@@ -31,8 +31,8 @@ public sealed class ReadIndexValidationCatalogResolverTests
         Assert.False(result.Catalog.IsAvailable);
         Assert.False(result.ReadIndex.Used);
         Assert.False(result.ReadIndex.Hit);
-        Assert.Equal(ReadIndexInfoTextCodec.SourceIndex, result.ReadIndex.Source);
-        Assert.Equal(ReadIndexInfoTextCodec.FreshnessProbable, result.ReadIndex.Freshness);
+        Assert.Equal(ReadIndexInfoSource.Index, result.ReadIndex.Source);
+        Assert.Equal(IndexFreshness.Probable, result.ReadIndex.Freshness);
         Assert.Equal("readIndex disabled by mode.", result.ReadIndex.FallbackReason);
         Assert.Equal(0, loader.CallCount);
     }
@@ -77,7 +77,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
         Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.ErrorCode);
         Assert.True(result.ReadIndex.Used);
         Assert.True(result.ReadIndex.Hit);
-        Assert.Equal(ReadIndexInfoTextCodec.FreshnessStale, result.ReadIndex.Freshness);
+        Assert.Equal(IndexFreshness.Stale, result.ReadIndex.Freshness);
         Assert.Contains("requireFresh", result.ErrorMessage, StringComparison.Ordinal);
     }
 
@@ -134,7 +134,7 @@ public sealed class ReadIndexValidationCatalogResolverTests
         Assert.Single(result.Catalog.Operations);
         Assert.True(result.ReadIndex.Used);
         Assert.True(result.ReadIndex.Hit);
-        Assert.Equal(ReadIndexInfoTextCodec.FreshnessProbable, result.ReadIndex.Freshness);
+        Assert.Equal(IndexFreshness.Probable, result.ReadIndex.Freshness);
         Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.ReadIndex.GeneratedAtUtc);
     }
 

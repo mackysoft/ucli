@@ -122,8 +122,8 @@ internal sealed class ValidateService : IValidateService
         return new ReadIndexInfo(
             Used: false,
             Hit: false,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
-            Freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            Source: ReadIndexInfoSource.Index,
+            Freshness: IndexFreshness.Probable,
             GeneratedAtUtc: null,
             FallbackReason: "readIndex disabled by mode.");
     }

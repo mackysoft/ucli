@@ -187,7 +187,6 @@ internal sealed class ResolveService : IResolveService
                 timeout,
                 projectContext.Config,
                 projectContext.UnityProject,
-                IpcMethodNames.Execute,
                 CreateExecuteRequestPayload(input.Selector, requestId, input.FailFast),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -213,12 +212,12 @@ internal sealed class ResolveService : IResolveService
             readIndex);
     }
 
-    private static JsonElement CreateExecuteRequestPayload (
+    private static UnityRequestPayload CreateExecuteRequestPayload (
         ResolveSelectorInput selector,
         string requestId,
         bool failFast)
     {
-        return ExecuteRequestPayloadFactory.CreateSingleOperation(
+        return new UnityRequestPayload.ExecuteOperation(
             UcliCommandIds.Resolve,
             requestId,
             ResolveOperationId,

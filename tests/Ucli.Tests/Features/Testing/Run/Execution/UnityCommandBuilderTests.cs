@@ -92,7 +92,7 @@ public sealed class UnityCommandBuilderTests
     private static ArtifactPaths CreateArtifactPaths ()
     {
         var artifactsDir = Path.GetFullPath("./.ucli/local/fingerprints/fingerprint/artifacts/test/20260301_120000Z_abcd1234");
-        return new ArtifactPaths(artifactsDir);
+        return TestArtifactPaths.Create(artifactsDir);
     }
 
     private static string GetOptionValue (IReadOnlyList<string> arguments, string option)

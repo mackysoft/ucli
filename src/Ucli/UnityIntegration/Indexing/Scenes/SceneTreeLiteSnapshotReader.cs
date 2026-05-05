@@ -49,8 +49,9 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 timeout,
                 config,
                 project,
-                IpcMethodNames.IndexSceneTreeLiteRead,
-                IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast)),
+                new UnityRequestPayload.Raw(
+                    IpcMethodNames.IndexSceneTreeLiteRead,
+                    IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

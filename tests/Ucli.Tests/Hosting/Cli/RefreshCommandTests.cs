@@ -16,7 +16,7 @@ public sealed class RefreshCommandTests
         RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
         OpResults:
         [
-            new IpcExecuteOperationResult(
+            new OperationExecutionOperationResult(
                 OpId: "refresh",
                 Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
                 Phase: IpcExecuteOperationPhaseNames.Call,
@@ -24,7 +24,7 @@ public sealed class RefreshCommandTests
                 Changed: true,
                 Touched:
                 [
-                    new IpcExecuteTouchedResource(
+                    new OperationExecutionTouchedResource(
                         Kind: IpcExecuteTouchedResourceKindNames.Asset,
                         Path: "Assets/Example.txt",
                         Guid: null),
@@ -82,9 +82,9 @@ public sealed class RefreshCommandTests
     [Trait("Size", "Small")]
     public async Task Refresh_WhenReadPostconditionExists_WritesTopLevelPayload ()
     {
-        var readPostcondition = new IpcExecuteReadPostcondition(
+        var readPostcondition = new OperationExecutionReadPostcondition(
         [
-            new IpcExecuteReadPostconditionRequirement(
+            new OperationExecutionReadPostconditionRequirement(
                 Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
                 MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00")),
         ]);
@@ -92,7 +92,7 @@ public sealed class RefreshCommandTests
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
             [
-                new IpcExecuteOperationResult(
+                new OperationExecutionOperationResult(
                     OpId: "refresh",
                     Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.ProjectRefresh,
                     Phase: IpcExecuteOperationPhaseNames.Call,

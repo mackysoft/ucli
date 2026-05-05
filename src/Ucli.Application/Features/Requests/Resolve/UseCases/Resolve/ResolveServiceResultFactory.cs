@@ -81,8 +81,8 @@ internal static class ResolveServiceResultFactory
         return new ReadIndexInfo(
             Used: false,
             Hit: false,
-            Source: ReadIndexInfoTextCodec.SourceUnity,
-            Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+            Source: ReadIndexInfoSource.Unity,
+            Freshness: IndexFreshness.Fresh,
             GeneratedAtUtc: null,
             FallbackReason: fallbackReason);
     }

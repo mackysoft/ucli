@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
@@ -53,12 +54,12 @@ internal sealed class DaemonStartService : IDaemonStartService
 
     /// <summary> Executes one daemon-start workflow. </summary>
     /// <param name="projectPath"> The optional <c>--projectPath</c> option value. </param>
-    /// <param name="timeout"> The optional <c>--timeout</c> option value in milliseconds. </param>
+    /// <param name="timeoutMilliseconds"> The optional normalized timeout value in milliseconds. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon-start execution result. </returns>
     public async ValueTask<DaemonStartExecutionResult> Start (
         string? projectPath,
-        string? timeout,
+        int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -66,7 +67,7 @@ internal sealed class DaemonStartService : IDaemonStartService
         var contextResult = await daemonCommandExecutionContextResolver.Resolve(
                 UcliCommandIds.DaemonStart,
                 projectPath,
-                timeout,
+                timeoutMilliseconds,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!contextResult.IsSuccess)

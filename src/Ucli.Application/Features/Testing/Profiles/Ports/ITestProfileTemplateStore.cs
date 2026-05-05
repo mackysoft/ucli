@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
 
-namespace MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
+namespace MackySoft.Ucli.Application.Features.Testing.Profiles.Ports;
 
 /// <summary> Persists test-profile templates through a host-owned storage adapter. </summary>
 internal interface ITestProfileTemplateStore

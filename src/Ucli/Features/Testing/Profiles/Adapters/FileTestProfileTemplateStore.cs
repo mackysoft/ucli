@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Testing.Profiles;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
-using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.Ports;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;

@@ -23,7 +23,7 @@ public sealed class ValidateServiceTests
             CreateReadIndexInfo(
                 used: true,
                 hit: true,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable)));
+                freshness: IndexFreshness.Probable)));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Failure(ExecutionError.InvalidArgument("project path is invalid."))),
             new StubRequestStaticValidator(ValidationResult.Success()),
@@ -50,7 +50,7 @@ public sealed class ValidateServiceTests
             CreateReadIndexInfo(
                 used: false,
                 hit: false,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable),
+                freshness: IndexFreshness.Probable),
             IpcErrorCodes.ReadIndexFormatInvalid));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
@@ -85,7 +85,7 @@ public sealed class ValidateServiceTests
             CreateReadIndexInfo(
                 used: true,
                 hit: true,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable),
+                freshness: IndexFreshness.Probable),
             validationErrors));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
@@ -113,7 +113,7 @@ public sealed class ValidateServiceTests
             CreateReadIndexInfo(
                 used: true,
                 hit: true,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable)));
+                freshness: IndexFreshness.Probable)));
         var service = new ValidateService(
             new StubRequestPreparationService(RequestPreparationResult.Success(CreatePreparedRequestContext())),
             new StubRequestStaticValidator(ValidationResult.Success()),
@@ -144,7 +144,7 @@ public sealed class ValidateServiceTests
             CreateReadIndexInfo(
                 used: true,
                 hit: true,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable)));
+                freshness: IndexFreshness.Probable)));
         var service = new ValidateService(
             requestPreparationService,
             validator,
@@ -196,12 +196,12 @@ public sealed class ValidateServiceTests
     private static ReadIndexInfo CreateReadIndexInfo (
         bool used,
         bool hit,
-        string freshness)
+        IndexFreshness freshness)
     {
         return new ReadIndexInfo(
             Used: used,
             Hit: hit,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
+            Source: ReadIndexInfoSource.Index,
             Freshness: freshness,
             GeneratedAtUtc: used
                 ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")

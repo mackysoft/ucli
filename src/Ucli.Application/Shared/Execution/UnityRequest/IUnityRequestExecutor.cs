@@ -19,8 +19,7 @@ internal interface IUnityRequestExecutor
     /// <param name="timeout"> The resolved timeout budget for this IPC request. </param>
     /// <param name="config"> The loaded uCLI configuration. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="method"> The IPC method name. </param>
-    /// <param name="payload"> The IPC method payload. </param>
+    /// <param name="payload"> The host-executed Unity request payload. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The IPC execution result. </returns>
     ValueTask<UnityRequestExecutionResult> Execute (
@@ -29,7 +28,6 @@ internal interface IUnityRequestExecutor
         TimeSpan timeout,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
-        string method,
-        JsonElement payload,
+        UnityRequestPayload payload,
         CancellationToken cancellationToken = default);
 }

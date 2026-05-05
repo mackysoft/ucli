@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 
@@ -10,10 +9,10 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Operatio
 /// <param name="Outcome"> The application outcome associated with this response. </param>
 internal sealed record OperationExecuteResult (
     string RequestId,
-    IReadOnlyList<IpcExecuteOperationResult> OpResults,
-    IReadOnlyList<IpcError> Errors,
+    IReadOnlyList<OperationExecutionOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionError> Errors,
     ApplicationOutcome Outcome,
-    IpcExecuteReadPostcondition? ReadPostcondition)
+    OperationExecutionReadPostcondition? ReadPostcondition)
 {
     /// <summary> Gets a value indicating whether the operation execution succeeded. </summary>
     public bool IsSuccess => Errors.Count == 0;

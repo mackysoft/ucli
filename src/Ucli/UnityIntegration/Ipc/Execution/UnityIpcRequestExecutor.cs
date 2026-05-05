@@ -67,8 +67,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         TimeSpan timeout,
         UcliConfig config,
         ResolvedUnityProjectContext unityProject,
-        string method,
-        JsonElement payload,
+        UnityRequestPayload payload,
         CancellationToken cancellationToken = default)
     {
         if (!command.IsValid)
@@ -78,9 +77,11 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
 
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        ArgumentNullException.ThrowIfNull(payload);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+
+        var ipcRequest = UnityIpcRequestPayloadFactory.Create(payload);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
@@ -129,7 +130,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         }
 
         var decision = modeDecisionResult.Decision!;
-        var opsReadRequest = TryParseOpsReadRequest(method, payload);
+        var opsReadRequest = TryParseOpsReadRequest(ipcRequest.Method, ipcRequest.Payload);
         if (decision.Target == UnityExecutionTarget.Oneshot)
         {
             var pluginLocateError = await VerifyUnityPluginWithinBudget(
@@ -173,8 +174,8 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
 
         return await unityIpcClient.SendAsync(
                 unityProject,
-                method,
-                payload,
+                ipcRequest.Method,
+                ipcRequest.Payload,
                 requestTimeout,
                 cancellationToken)
             .ConfigureAwait(false);

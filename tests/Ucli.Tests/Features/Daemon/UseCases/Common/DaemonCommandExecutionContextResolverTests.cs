@@ -39,7 +39,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
         var result = await resolver.Resolve(
             timeoutCommand: UcliCommandIds.DaemonStart,
             projectPath: null,
-            timeout: null,
+            timeoutMilliseconds: null,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -68,7 +68,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
         var result = await resolver.Resolve(
             timeoutCommand: UcliCommandIds.DaemonStop,
             projectPath: null,
-            timeout: "3333",
+            timeoutMilliseconds: 3333,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -78,7 +78,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenTimeoutOptionIsInvalid_ReturnsInvalidArgument ()
+    public async Task Resolve_WhenTimeoutValueIsInvalid_ReturnsInvalidArgument ()
     {
         var initStatusContextResolver = new StubProjectContextResolver(
             ProjectContextResolutionResult.Success(CreateContext(UcliConfig.CreateDefault())));
@@ -87,7 +87,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
         var result = await resolver.Resolve(
             timeoutCommand: UcliCommandIds.DaemonStatus,
             projectPath: null,
-            timeout: "abc",
+            timeoutMilliseconds: 0,
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -111,7 +111,7 @@ public sealed class DaemonCommandExecutionContextResolverTests
                 resolver.Resolve(
                     timeoutCommand: default,
                     projectPath: null,
-                    timeout: null,
+                    timeoutMilliseconds: null,
                     cancellationToken: CancellationToken.None).AsTask(),
                 "Invalid daemon timeout command resolution",
                 AsyncWaitTimeout);

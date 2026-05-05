@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Testing.Profiles.Ports;
 
 namespace MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
 

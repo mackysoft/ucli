@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 
-namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
+namespace MackySoft.Ucli.Features.Testing.Run.Execution;
 
 /// <summary> Validates test-run artifact output paths before Unity process arguments are built. </summary>
 internal static class TestRunArtifactPathValidator

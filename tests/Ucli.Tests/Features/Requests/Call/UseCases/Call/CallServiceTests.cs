@@ -81,14 +81,9 @@ public sealed class CallServiceTests
         Assert.Null(result.Output.Plan);
         Assert.Equal(1, ipcRequestExecutor.CallCount);
 
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            ipcRequestExecutor.Invocations[0].Payload,
-            out IpcExecuteRequest? executeRequest,
-            out var payloadError));
-        Assert.Equal(IpcPayloadReadError.None, payloadError);
-        Assert.NotNull(executeRequest);
+        var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[0].Payload);
         Assert.Equal(UcliCommandIds.Call, ipcRequestExecutor.Invocations[0].Command);
-        Assert.Equal(UcliCommandIds.Call, executeRequest!.Command);
+        Assert.Equal(UcliCommandIds.Call, executeRequest.Command);
         Assert.Equal("plan-token-1", executeRequest.PlanToken);
         Assert.True(executeRequest.FailFast);
         Assert.True(preflightService.ReceivedFailFast);
@@ -158,28 +153,18 @@ public sealed class CallServiceTests
         Assert.Equal("issued-plan-token", result.Output.Plan!.PlanToken);
         Assert.Equal(2, ipcRequestExecutor.CallCount);
 
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            ipcRequestExecutor.Invocations[0].Payload,
-            out IpcExecuteRequest? planRequest,
-            out var planPayloadError));
-        Assert.Equal(IpcPayloadReadError.None, planPayloadError);
-        Assert.NotNull(planRequest);
-        Assert.Equal(UcliCommandIds.Plan, planRequest!.Command);
+        var planRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[0].Payload);
+        Assert.Equal(UcliCommandIds.Plan, planRequest.Command);
         Assert.Null(planRequest.PlanToken);
 
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            ipcRequestExecutor.Invocations[1].Payload,
-            out IpcExecuteRequest? callRequest,
-            out var callPayloadError));
-        Assert.Equal(IpcPayloadReadError.None, callPayloadError);
-        Assert.NotNull(callRequest);
-        Assert.Equal(UcliCommandIds.Call, callRequest!.Command);
+        var callRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[1].Payload);
+        Assert.Equal(UcliCommandIds.Call, callRequest.Command);
         Assert.Equal("issued-plan-token", callRequest.PlanToken);
 
         var requestId = result.Output.RequestId;
         Assert.Equal(requestId, result.Output.Plan.RequestId);
-        Assert.Equal(requestId, planRequest.Arguments.GetProperty("requestId").GetString());
-        Assert.Equal(requestId, callRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.Equal(requestId, planRequest.ExecuteArguments.GetProperty("requestId").GetString());
+        Assert.Equal(requestId, callRequest.ExecuteArguments.GetProperty("requestId").GetString());
     }
 
     [Fact]
@@ -221,12 +206,8 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            ipcRequestExecutor.Invocations[1].Payload,
-            out IpcExecuteRequest? callRequest,
-            out var callPayloadError));
-        Assert.Equal(IpcPayloadReadError.None, callPayloadError);
-        Assert.Equal("user-plan-token", callRequest!.PlanToken);
+        var callRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(ipcRequestExecutor.Invocations[1].Payload);
+        Assert.Equal("user-plan-token", callRequest.PlanToken);
     }
 
     [Fact]
@@ -1041,13 +1022,12 @@ public sealed class CallServiceTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var invocation = new Invocation(command, mode, timeout, config, unityProject, method, payload.Clone(), cancellationToken);
+            var invocation = new Invocation(command, mode, timeout, config, unityProject, payload, cancellationToken);
             Invocations.Add(invocation);
             OnExecute?.Invoke(new InvocationContext(Invocations.Count, invocation, TimeProvider));
 
@@ -1066,8 +1046,7 @@ public sealed class CallServiceTests
         TimeSpan Timeout,
         UcliConfig Config,
         ResolvedUnityProjectContext UnityProject,
-        string Method,
-        JsonElement Payload,
+        UnityRequestPayload Payload,
         CancellationToken CancellationToken);
 
     private sealed record InvocationContext (

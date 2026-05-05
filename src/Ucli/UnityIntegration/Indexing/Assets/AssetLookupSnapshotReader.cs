@@ -47,8 +47,9 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
                 timeout,
                 config,
                 project,
-                IpcMethodNames.IndexAssetsRead,
-                IpcPayloadCodec.SerializeToElement(new IpcIndexAssetsReadRequest(failFast)),
+                new UnityRequestPayload.Raw(
+                    IpcMethodNames.IndexAssetsRead,
+                    IpcPayloadCodec.SerializeToElement(new IpcIndexAssetsReadRequest(failFast))),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

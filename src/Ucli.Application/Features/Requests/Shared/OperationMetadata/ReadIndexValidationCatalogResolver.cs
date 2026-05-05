@@ -111,8 +111,8 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
         return new ReadIndexInfo(
             Used: false,
             Hit: false,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
-            Freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            Source: ReadIndexInfoSource.Index,
+            Freshness: IndexFreshness.Probable,
             GeneratedAtUtc: null,
             FallbackReason: fallbackReason);
     }
@@ -125,8 +125,8 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
         return new ReadIndexInfo(
             Used: true,
             Hit: true,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
-            Freshness: ReadIndexInfoTextCodec.MapFreshness(freshness),
+            Source: ReadIndexInfoSource.Index,
+            Freshness: freshness,
             GeneratedAtUtc: generatedAtUtc,
             FallbackReason: fallbackReason);
     }

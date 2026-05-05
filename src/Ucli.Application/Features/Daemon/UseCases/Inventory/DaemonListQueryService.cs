@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
@@ -50,6 +51,8 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
 
     private readonly IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper;
 
+    private readonly IWorktreeProjectPathResolver worktreeProjectPathResolver;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonListQueryService" /> class. </summary>
@@ -61,6 +64,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
     /// <param name="daemonReachabilityClassifier"> The daemon reachability-classifier dependency. </param>
     /// <param name="daemonSessionDiagnosisResolver"> The daemon session-diagnosis resolver dependency. </param>
     /// <param name="daemonDiagnosisOutputMapper"> The daemon diagnosis-output mapper dependency. </param>
+    /// <param name="worktreeProjectPathResolver"> The worktree project-path resolver dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonListQueryService (
@@ -72,6 +76,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
         IDaemonSessionDiagnosisResolver daemonSessionDiagnosisResolver,
         IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
+        IWorktreeProjectPathResolver worktreeProjectPathResolver,
         TimeProvider? timeProvider = null)
     {
         this.gitWorktreeQueryService = gitWorktreeQueryService ?? throw new ArgumentNullException(nameof(gitWorktreeQueryService));
@@ -82,6 +87,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         this.daemonReachabilityClassifier = daemonReachabilityClassifier ?? throw new ArgumentNullException(nameof(daemonReachabilityClassifier));
         this.daemonSessionDiagnosisResolver = daemonSessionDiagnosisResolver ?? throw new ArgumentNullException(nameof(daemonSessionDiagnosisResolver));
         this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
+        this.worktreeProjectPathResolver = worktreeProjectPathResolver ?? throw new ArgumentNullException(nameof(worktreeProjectPathResolver));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -173,7 +179,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        var candidateProjectPath = ResolveCandidateProjectPath(worktree.WorktreePath, projectRelativePath);
+        var candidateProjectPath = worktreeProjectPathResolver.ResolveCandidateProjectPath(worktree.WorktreePath, projectRelativePath);
         var candidateProjectResult = unityProjectResolver.Resolve(candidateProjectPath);
         if (!candidateProjectResult.IsSuccess)
         {
@@ -481,19 +487,6 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
             CompletionReason: DaemonListCompletionReason.Timeout,
             RemainingWorktreeCount: remainingWorktreeCount,
             Items: items);
-    }
-
-    /// <summary> Resolves one candidate Unity project path for the specified worktree root. </summary>
-    /// <param name="worktreePath"> The Git worktree root path. </param>
-    /// <param name="projectRelativePath"> The relative project path to append. </param>
-    /// <returns> The candidate Unity project path. </returns>
-    private static string ResolveCandidateProjectPath (
-        string worktreePath,
-        string projectRelativePath)
-    {
-        return string.Equals(projectRelativePath, ".", StringComparison.Ordinal)
-            ? worktreePath
-            : Path.Combine(worktreePath, projectRelativePath);
     }
 
     /// <summary> Represents one worktree observation result. </summary>

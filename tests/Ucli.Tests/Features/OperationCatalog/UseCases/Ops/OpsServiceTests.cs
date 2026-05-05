@@ -75,7 +75,13 @@ public sealed class OpsServiceTests
                 [
                     new OpsOperationListItem(MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave, "mutation", "advanced"),
                 ],
-                ReadIndex: new ReadIndexInfo(true, true, "index", "fresh", DateTimeOffset.UtcNow, null)),
+                ReadIndex: new ReadIndexInfo(
+                    true,
+                    true,
+                    ReadIndexInfoSource.Index,
+                    IndexFreshness.Fresh,
+                    DateTimeOffset.UtcNow,
+                    null)),
             "mapped");
         var listResultMapper = new StubOpsListResultMapper
         {

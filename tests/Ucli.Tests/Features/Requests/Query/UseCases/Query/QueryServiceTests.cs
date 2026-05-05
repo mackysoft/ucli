@@ -74,7 +74,7 @@ public sealed class QueryServiceTests
         Assert.Equal(0, sceneTreeLiteAccessService.CallCount);
         Assert.Equal(0, unityRequestExecutor.CallCount);
         Assert.True(result.ReadIndex.Used);
-        Assert.Equal(ReadIndexInfoTextCodec.SourceIndex, result.ReadIndex.Source);
+        Assert.Equal(ReadIndexInfoSource.Index, result.ReadIndex.Source);
 
         var opResult = Assert.Single(result.OpResults);
         Assert.Equal("assets.find", opResult.OpId);
@@ -175,18 +175,13 @@ public sealed class QueryServiceTests
         Assert.Equal(UnityExecutionMode.Oneshot, unityRequestExecutor.CapturedMode);
         Assert.True(result.ReadIndex.FallbackReason == "query operation is not backed by readIndex.");
 
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            unityRequestExecutor.CapturedPayload,
-            out IpcExecuteRequest executeRequest,
-            out var payloadError));
-        Assert.Equal(IpcPayloadReadError.None, payloadError);
+        var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteOperation>(unityRequestExecutor.CapturedPayload);
         Assert.Equal(UcliCommandIds.Query, executeRequest.Command);
         Assert.True(executeRequest.FailFast);
-        Assert.Equal(result.RequestId, executeRequest.Arguments.GetProperty("requestId").GetString());
-        var step = Assert.Single(executeRequest.Arguments.GetProperty("steps").EnumerateArray());
-        Assert.Equal("comp.schema", step.GetProperty("id").GetString());
-        Assert.Equal(UcliPrimitiveOperationNames.CompSchema, step.GetProperty("op").GetString());
-        Assert.Equal("UnityEngine.Transform, UnityEngine.CoreModule", step.GetProperty("args").GetProperty("type").GetString());
+        Assert.Equal(result.RequestId, executeRequest.RequestId);
+        Assert.Equal("comp.schema", executeRequest.OperationId);
+        Assert.Equal(UcliPrimitiveOperationNames.CompSchema, executeRequest.OperationName);
+        Assert.Equal("UnityEngine.Transform, UnityEngine.CoreModule", executeRequest.Args.GetProperty("type").GetString());
     }
 
     private static QueryCommandInput CreateInput (
@@ -355,7 +350,7 @@ public sealed class QueryServiceTests
 
         public UnityExecutionMode CapturedMode { get; private set; }
 
-        public JsonElement CapturedPayload { get; private set; }
+        public UnityRequestPayload? CapturedPayload { get; private set; }
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
@@ -363,8 +358,7 @@ public sealed class QueryServiceTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

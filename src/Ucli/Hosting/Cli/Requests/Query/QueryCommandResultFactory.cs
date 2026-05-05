@@ -18,7 +18,7 @@ internal static class QueryCommandResultFactory
         {
             requestId = serviceResult.RequestId,
             opResults = serviceResult.OpResults,
-            readIndex = serviceResult.ReadIndex,
+            readIndex = ReadIndexInfoPayloadProjector.Create(serviceResult.ReadIndex),
         };
 
         if (serviceResult.IsSuccess)

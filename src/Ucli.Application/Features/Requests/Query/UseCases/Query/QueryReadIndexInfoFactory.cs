@@ -16,9 +16,9 @@ internal static class QueryReadIndexInfoFactory
             Used: accessInfo.Used && accessInfo.Source == AssetLookupSource.Index,
             Hit: accessInfo.Hit,
             Source: accessInfo.Source == AssetLookupSource.Index
-                ? ReadIndexInfoTextCodec.SourceIndex
-                : ReadIndexInfoTextCodec.SourceUnity,
-            Freshness: ReadIndexInfoTextCodec.MapFreshness(accessInfo.Freshness),
+                ? ReadIndexInfoSource.Index
+                : ReadIndexInfoSource.Unity,
+            Freshness: accessInfo.Freshness,
             GeneratedAtUtc: accessInfo.GeneratedAtUtc,
             FallbackReason: accessInfo.FallbackReason);
     }
@@ -32,9 +32,9 @@ internal static class QueryReadIndexInfoFactory
             Used: accessInfo.Used && accessInfo.Source == SceneTreeLiteSource.Index,
             Hit: accessInfo.Hit,
             Source: accessInfo.Source == SceneTreeLiteSource.Index
-                ? ReadIndexInfoTextCodec.SourceIndex
-                : ReadIndexInfoTextCodec.SourceUnity,
-            Freshness: ReadIndexInfoTextCodec.MapFreshness(accessInfo.Freshness),
+                ? ReadIndexInfoSource.Index
+                : ReadIndexInfoSource.Unity,
+            Freshness: accessInfo.Freshness,
             GeneratedAtUtc: accessInfo.GeneratedAtUtc,
             FallbackReason: accessInfo.FallbackReason);
     }
@@ -45,8 +45,8 @@ internal static class QueryReadIndexInfoFactory
         return new ReadIndexInfo(
             Used: false,
             Hit: false,
-            Source: ReadIndexInfoTextCodec.SourceUnity,
-            Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+            Source: ReadIndexInfoSource.Unity,
+            Freshness: IndexFreshness.Fresh,
             GeneratedAtUtc: null,
             FallbackReason: fallbackReason);
     }

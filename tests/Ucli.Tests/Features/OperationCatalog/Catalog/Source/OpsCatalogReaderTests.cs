@@ -57,7 +57,8 @@ public sealed class OpsCatalogReaderTests
         Assert.Single(result.Response.Operations!);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Response.Operations![0].Name);
         Assert.Equal(UcliCommandIds.Ops, executor.Command.Name);
-        Assert.Equal(IpcMethodNames.OpsRead, executor.Method);
+        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.Payload);
+        Assert.Equal(IpcMethodNames.OpsRead, request.Method);
     }
 
     [Fact]
@@ -150,7 +151,7 @@ public sealed class OpsCatalogReaderTests
 
         public UcliCommand Command { get; private set; } = new("pending");
 
-        public string Method { get; private set; } = string.Empty;
+        public UnityRequestPayload? Payload { get; private set; }
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
@@ -158,13 +159,12 @@ public sealed class OpsCatalogReaderTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Command = command;
-            Method = method;
+            Payload = payload;
             return ValueTask.FromResult(Result);
         }
     }

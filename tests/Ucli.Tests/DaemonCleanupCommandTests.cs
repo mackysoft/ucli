@@ -59,7 +59,7 @@ public sealed class DaemonCleanupCommandTests
 
         public ValueTask<DaemonCleanupExecutionResult> Cleanup (
             string? projectPath,
-            string? timeout,
+            int? timeoutMilliseconds,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(result);

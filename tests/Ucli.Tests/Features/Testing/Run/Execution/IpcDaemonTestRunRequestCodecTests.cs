@@ -17,7 +17,7 @@ public sealed class IpcDaemonTestRunRequestCodecTests
     {
         using var scope = TestDirectories.CreateTempScope("ipc-daemon-test-run-request-codec", "create");
         var configuration = CreateConfiguration(scope);
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
 
         var request = IpcDaemonTestRunRequestCodec.CreateRequest(
             configuration,

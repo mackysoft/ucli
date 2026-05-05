@@ -233,8 +233,7 @@ internal sealed class QueryService : IQueryService
                 timeout,
                 projectContext.Config,
                 projectContext.UnityProject,
-                IpcMethodNames.Execute,
-                ExecuteRequestPayloadFactory.CreateSingleOperation(
+                new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Query,
                     requestId,
                     operation.OperationId,

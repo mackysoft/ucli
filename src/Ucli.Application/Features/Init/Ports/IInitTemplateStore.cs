@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Configuration;
 
-namespace MackySoft.Ucli.Application.Features.Init.UseCases.Init;
+namespace MackySoft.Ucli.Application.Features.Init.Ports;
 
 /// <summary> Persists init template files through a host-owned storage adapter. </summary>
 internal interface IInitTemplateStore

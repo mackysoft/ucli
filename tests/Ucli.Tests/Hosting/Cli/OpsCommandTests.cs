@@ -101,7 +101,13 @@ public sealed class OpsCommandTests
             return ValueTask.FromResult(OpsListServiceResult.Success(
                 new OpsListExecutionOutput(
                     Operations: [],
-                    ReadIndex: new ReadIndexInfo(false, false, "index", "probable", null, null)),
+                    ReadIndex: new ReadIndexInfo(
+                        false,
+                        false,
+                        ReadIndexInfoSource.Index,
+                        IndexFreshness.Probable,
+                        null,
+                        null)),
                 "uCLI ops list completed."));
         }
 
@@ -124,7 +130,13 @@ public sealed class OpsCommandTests
                         assurance: describe.Assurance!,
                         argsSchema: EmptySchema,
                         resultSchema: null),
-                    ReadIndex: new ReadIndexInfo(false, false, "index", "probable", null, null)),
+                    ReadIndex: new ReadIndexInfo(
+                        false,
+                        false,
+                        ReadIndexInfoSource.Index,
+                        IndexFreshness.Probable,
+                        null,
+                        null)),
                 "uCLI ops describe completed."));
         }
 

@@ -192,7 +192,7 @@ internal static class DaemonServiceTestContext
 
         public string? LastProjectPath { get; private set; }
 
-        public string? LastTimeoutOption { get; private set; }
+        public int? LastTimeoutMilliseconds { get; private set; }
 
         public UcliCommand LastTimeoutCommand { get; private set; }
 
@@ -201,13 +201,13 @@ internal static class DaemonServiceTestContext
         public ValueTask<DaemonCommandExecutionContextResolutionResult> Resolve (
             UcliCommand timeoutCommand,
             string? projectPath,
-            string? timeout,
+            int? timeoutMilliseconds,
             CancellationToken cancellationToken = default)
         {
             CallCount++;
             LastTimeoutCommand = timeoutCommand;
             LastProjectPath = projectPath;
-            LastTimeoutOption = timeout;
+            LastTimeoutMilliseconds = timeoutMilliseconds;
             LastCancellationToken = cancellationToken;
             return ValueTask.FromResult(result);
         }

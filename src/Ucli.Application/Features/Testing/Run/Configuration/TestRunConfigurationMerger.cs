@@ -25,30 +25,30 @@ internal static class TestRunConfigurationMerger
         var (mergedRawTestPlatform, parsedTestPlatform) = ResolveTestPlatform(cli, profile);
 
         return new MergedTestRunConfiguration(
-            ProjectPath: Path.GetFullPath(projectPath),
+            ProjectPath: projectPath,
             Mode: mode,
             UnityVersion: StringValueNormalizer.TrimToNull(cli.UnityVersion ?? profile?.UnityVersion),
-            UnityEditorPath: NormalizeOptionalPath(cli.UnityEditorPath ?? profile?.UnityEditorPath),
+            UnityEditorPath: NormalizeOptionalValue(cli.UnityEditorPath ?? profile?.UnityEditorPath),
             TestPlatform: parsedTestPlatform,
             RawTestPlatform: mergedRawTestPlatform,
             TestFilter: StringValueNormalizer.TrimToNull(cli.TestFilter ?? profile?.TestFilter),
             TestCategories: NormalizeValues(cli.TestCategory, profile?.TestCategories),
             AssemblyNames: NormalizeValues(cli.AssemblyName, profile?.AssemblyNames),
-            TestSettingsPath: NormalizeOptionalPath(cli.TestSettingsPath ?? profile?.TestSettingsPath),
+            TestSettingsPath: NormalizeOptionalValue(cli.TestSettingsPath ?? profile?.TestSettingsPath),
             TimeoutMilliseconds: cli.TimeoutMilliseconds ?? profile?.Timeout);
     }
 
-    /// <summary> Normalizes optional path values into absolute paths. </summary>
-    /// <param name="pathValue"> The optional path value. </param>
-    /// <returns> The absolute path when provided; otherwise <see langword="null" />. </returns>
-    private static string? NormalizeOptionalPath (string? pathValue)
+    /// <summary> Normalizes optional string values. </summary>
+    /// <param name="value"> The optional string value. </param>
+    /// <returns> The trimmed value when provided; otherwise <see langword="null" />. </returns>
+    private static string? NormalizeOptionalValue (string? value)
     {
-        if (!StringValueNormalizer.TryTrimToNonEmpty(pathValue, out var normalizedPathValue))
+        if (!StringValueNormalizer.TryTrimToNonEmpty(value, out var normalizedValue))
         {
             return null;
         }
 
-        return Path.GetFullPath(normalizedPathValue);
+        return normalizedValue;
     }
 
     private static UnityExecutionMode ResolveMode (
@@ -81,7 +81,7 @@ internal static class TestRunConfigurationMerger
         return (rawValue, hasParsedValue ? parsedValueFromProfile : null);
     }
 
-    /// <summary> Normalizes list values by splitting comma-separated tokens and removing duplicates. </summary>
+    /// <summary> Normalizes list values by trimming entries and removing duplicates. </summary>
     /// <param name="cliValues"> The optional CLI values. </param>
     /// <param name="profileValues"> The optional profile values. </param>
     /// <returns> The normalized distinct values. </returns>
@@ -97,7 +97,7 @@ internal static class TestRunConfigurationMerger
 
         return source
             .Where(static value => !string.IsNullOrWhiteSpace(value))
-            .SelectMany(static value => value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Select(static value => value.Trim())
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }

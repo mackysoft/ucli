@@ -103,7 +103,7 @@ public sealed class DaemonListCommandTests
 
         public ValueTask<DaemonListExecutionResult> GetList (
             string? projectPath,
-            string? timeout,
+            int? timeoutMilliseconds,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult(result);

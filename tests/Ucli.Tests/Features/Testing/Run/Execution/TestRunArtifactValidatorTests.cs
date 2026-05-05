@@ -11,7 +11,7 @@ public sealed class TestRunArtifactValidatorTests
     public void TryValidateOutputPaths_WhenPathsAreAbsolute_ReturnsTrue ()
     {
         using var scope = TestDirectories.CreateTempScope("artifacts-validator", "paths-absolute");
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
 
         var success = TestRunArtifactValidator.TryValidateOutputPaths(artifactPaths, out var errorMessage);
 
@@ -23,7 +23,7 @@ public sealed class TestRunArtifactValidatorTests
     [Trait("Size", "Small")]
     public void TryValidateOutputPaths_WhenPathsAreRelative_ReturnsFalse ()
     {
-        var artifactPaths = new ArtifactPaths("run");
+        var artifactPaths = TestArtifactPaths.Create("run");
 
         var success = TestRunArtifactValidator.TryValidateOutputPaths(artifactPaths, out var errorMessage);
 
@@ -38,7 +38,7 @@ public sealed class TestRunArtifactValidatorTests
         using var scope = TestDirectories.CreateTempScope("test-run-artifact-validator", "success");
         scope.WriteFile("run/results.xml", "<test-run />");
         scope.WriteFile("run/editor.log", "log");
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
 
         var success = TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var errorMessage);
 
@@ -52,7 +52,7 @@ public sealed class TestRunArtifactValidatorTests
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifact-validator", "missing-results");
         scope.WriteFile("run/editor.log", "log");
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
 
         var success = TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var errorMessage);
 
@@ -66,7 +66,7 @@ public sealed class TestRunArtifactValidatorTests
     {
         using var scope = TestDirectories.CreateTempScope("test-run-artifact-validator", "missing-editor-log");
         scope.WriteFile("run/results.xml", "<test-run />");
-        var artifactPaths = new ArtifactPaths(scope.GetPath("run"));
+        var artifactPaths = TestArtifactPaths.Create(scope.GetPath("run"));
 
         var success = TestRunArtifactValidator.TryValidateGeneratedFiles(artifactPaths, out var errorMessage);
 

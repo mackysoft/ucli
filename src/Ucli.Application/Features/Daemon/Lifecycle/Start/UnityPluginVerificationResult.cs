@@ -1,18 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
-
-/// <summary> Verifies that one Unity project contains the uCLI Unity plugin required by daemon startup. </summary>
-internal interface IUnityPluginVerifier
-{
-    /// <summary> Verifies plugin availability for one Unity project root. </summary>
-    /// <param name="unityProjectRoot"> The Unity project root path. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The plugin verification result. </returns>
-    ValueTask<UnityPluginVerificationResult> Verify (
-        string unityProjectRoot,
-        CancellationToken cancellationToken = default);
-}
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 
 /// <summary> Represents the result of one uCLI Unity plugin verification attempt. </summary>
 /// <param name="Error"> The structured verification error on failure; otherwise <see langword="null" />. </param>

@@ -78,7 +78,7 @@ public sealed class TestRunResultMapperTests
     {
         return new ArtifactsSession(
             "run-id",
-            new ArtifactPaths("/tmp/ucli-tests/run-id"),
+            TestArtifactPaths.Create("/tmp/ucli-tests/run-id"),
             DateTimeOffset.Parse("2026-04-21T00:00:00Z"));
     }
 }

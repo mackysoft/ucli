@@ -23,7 +23,7 @@ public sealed class DaemonListServiceTests
         var queryService = new StubDaemonListQueryService();
         var service = new DaemonListService(resolver, queryService);
 
-        var result = await service.GetList(projectPath: "/tmp/project", timeout: "1000", cancellationToken: CancellationToken.None);
+        var result = await service.GetList(projectPath: "/tmp/project", timeoutMilliseconds: 1000, cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
@@ -54,13 +54,13 @@ public sealed class DaemonListServiceTests
 
         var result = await service.GetList(
             projectPath: "/tmp/unity-project",
-            timeout: "4321",
+            timeoutMilliseconds: 4321,
             cancellationToken: cancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(UcliCommandIds.DaemonList, resolver.LastTimeoutCommand);
         Assert.Equal("/tmp/unity-project", resolver.LastProjectPath);
-        Assert.Equal("4321", resolver.LastTimeoutOption);
+        Assert.Equal(4321, resolver.LastTimeoutMilliseconds);
         Assert.Equal(cancellationToken, resolver.LastCancellationToken);
         Assert.Equal(1, queryService.CallCount);
         Assert.Equal(context.Context.UnityProject, queryService.LastUnityProject);

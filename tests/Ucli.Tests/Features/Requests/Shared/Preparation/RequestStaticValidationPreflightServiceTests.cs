@@ -41,7 +41,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
         var readIndex = CreateReadIndexInfo(
             used: true,
             hit: true,
-            freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            freshness: IndexFreshness.Probable,
             fallbackReason: null);
         var resolver = new StubReadIndexValidationCatalogResolver(CreateCatalogSuccessResult());
         var service = new RequestStaticValidationPreflightService(
@@ -69,7 +69,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
         var readIndex = CreateReadIndexInfo(
             used: false,
             hit: false,
-            freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            freshness: IndexFreshness.Probable,
             fallbackReason: "Index contract file 'ops.catalog.json' is malformed.");
         var validator = new SpyRequestStaticValidator(ValidationResult.Success());
         var resolver = new StubReadIndexValidationCatalogResolver(ReadIndexValidationCatalogResolutionResult.Failure(
@@ -101,7 +101,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
         var readIndex = CreateReadIndexInfo(
             used: true,
             hit: true,
-            freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            freshness: IndexFreshness.Probable,
             fallbackReason: null);
         ValidationError[] validationErrors =
         [
@@ -138,7 +138,7 @@ public sealed class RequestStaticValidationPreflightServiceTests
         var readIndex = CreateReadIndexInfo(
             used: true,
             hit: true,
-            freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+            freshness: IndexFreshness.Probable,
             fallbackReason: null);
         var validator = new SpyRequestStaticValidator(ValidationResult.Success());
         var resolver = new StubReadIndexValidationCatalogResolver(CreateCatalogSuccessResult(readIndex));
@@ -194,20 +194,20 @@ public sealed class RequestStaticValidationPreflightServiceTests
             readIndex ?? CreateReadIndexInfo(
                 used: true,
                 hit: true,
-                freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                freshness: IndexFreshness.Probable,
                 fallbackReason: null));
     }
 
     private static ReadIndexInfo CreateReadIndexInfo (
         bool used,
         bool hit,
-        string freshness,
+        IndexFreshness freshness,
         string? fallbackReason)
     {
         return new ReadIndexInfo(
             Used: used,
             Hit: hit,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
+            Source: ReadIndexInfoSource.Index,
             Freshness: freshness,
             GeneratedAtUtc: used
                 ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")

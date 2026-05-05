@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Inventory;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
@@ -543,6 +544,7 @@ public sealed class DaemonListQueryServiceTests
             daemonReachabilityClassifier,
             new DaemonSessionDiagnosisResolver(daemonDiagnosisStore),
             new DaemonDiagnosisOutputMapper(),
+            new StubWorktreeProjectPathResolver(),
             timeProvider);
     }
 
@@ -637,6 +639,18 @@ public sealed class DaemonListQueryServiceTests
 
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"UnityProject path does not exist: {projectPath}"));
+        }
+    }
+
+    private sealed class StubWorktreeProjectPathResolver : IWorktreeProjectPathResolver
+    {
+        public string ResolveCandidateProjectPath (
+            string worktreePath,
+            string projectRelativePath)
+        {
+            return string.Equals(projectRelativePath, ".", StringComparison.Ordinal)
+                ? worktreePath
+                : Path.Combine(worktreePath, projectRelativePath);
         }
     }
 

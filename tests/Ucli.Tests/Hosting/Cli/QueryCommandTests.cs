@@ -61,7 +61,7 @@ public sealed class QueryCommandTests
                 .HasArrayLength("opResults", 1)
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", true)
-                    .HasString("source", ReadIndexInfoTextCodec.SourceIndex)));
+                    .HasString("source", "index")));
     }
 
     [Fact]
@@ -189,8 +189,8 @@ public sealed class QueryCommandTests
             ReadIndex: new ReadIndexInfo(
                 Used: true,
                 Hit: true,
-                Source: ReadIndexInfoTextCodec.SourceIndex,
-                Freshness: ReadIndexInfoTextCodec.FreshnessFresh,
+                Source: ReadIndexInfoSource.Index,
+                Freshness: IndexFreshness.Fresh,
                 GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
                 FallbackReason: null));
     }

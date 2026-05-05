@@ -43,7 +43,7 @@ public sealed class PlanServiceTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    freshness: IndexFreshness.Probable,
                     fallbackReason: null))),
             unityIpcRequestExecutor);
 
@@ -67,18 +67,11 @@ public sealed class PlanServiceTests
         Assert.Equal(UcliCommandIds.Plan, unityIpcRequestExecutor.CapturedCommand);
         Assert.Equal(UnityExecutionMode.Oneshot, unityIpcRequestExecutor.CapturedMode);
         Assert.Equal(TimeSpan.FromMilliseconds(1234), unityIpcRequestExecutor.CapturedTimeout);
-        Assert.Equal(IpcMethodNames.Execute, unityIpcRequestExecutor.CapturedMethod);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            unityIpcRequestExecutor.CapturedPayload,
-            out IpcExecuteRequest? executeRequest,
-            out var payloadError));
-        Assert.Equal(IpcPayloadReadError.None, payloadError);
-        Assert.NotNull(executeRequest);
-        Assert.Equal(UcliCommandIds.Plan, executeRequest!.Command);
+        var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteJson>(unityIpcRequestExecutor.CapturedPayload);
+        Assert.Equal(UcliCommandIds.Plan, executeRequest.Command);
         Assert.True(executeRequest.FailFast);
         Assert.Null(executeRequest.PlanToken);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", executeRequest.Arguments.GetProperty("requestId").GetString());
+        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", executeRequest.ExecuteArguments.GetProperty("requestId").GetString());
     }
 
     [Fact]
@@ -97,7 +90,7 @@ public sealed class PlanServiceTests
                 CreateReadIndexInfo(
                     used: false,
                     hit: false,
-                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    freshness: IndexFreshness.Probable,
                     fallbackReason: "Index contract file was not found: ops.catalog.json."))),
             unityIpcRequestExecutor);
 
@@ -132,7 +125,7 @@ public sealed class PlanServiceTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: ReadIndexInfoTextCodec.FreshnessStale,
+                    freshness: IndexFreshness.Stale,
                     fallbackReason: "readIndexMode=requireFresh requires index freshness 'fresh'."),
                 IpcErrorCodes.ReadIndexFreshRequired)),
             unityIpcRequestExecutor);
@@ -153,7 +146,7 @@ public sealed class PlanServiceTests
         Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
         Assert.True(result.Output.ReadIndex.Used);
         Assert.True(result.Output.ReadIndex.Hit);
-        Assert.Equal(ReadIndexInfoTextCodec.FreshnessStale, result.Output.ReadIndex.Freshness);
+        Assert.Equal(IndexFreshness.Stale, result.Output.ReadIndex.Freshness);
         Assert.Equal(0, unityIpcRequestExecutor.CallCount);
         var error = Assert.Single(result.Errors);
         Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, error.Code);
@@ -207,7 +200,7 @@ public sealed class PlanServiceTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    freshness: IndexFreshness.Probable,
                     fallbackReason: null),
                 validationErrors)),
             unityIpcRequestExecutor);
@@ -255,7 +248,7 @@ public sealed class PlanServiceTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    freshness: IndexFreshness.Probable,
                     fallbackReason: null))),
             unityIpcRequestExecutor);
 
@@ -294,7 +287,7 @@ public sealed class PlanServiceTests
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
-                    freshness: ReadIndexInfoTextCodec.FreshnessProbable,
+                    freshness: IndexFreshness.Probable,
                     fallbackReason: null))),
             unityIpcRequestExecutor);
 
@@ -349,13 +342,13 @@ public sealed class PlanServiceTests
     private static ReadIndexInfo CreateReadIndexInfo (
         bool used,
         bool hit,
-        string freshness,
+        IndexFreshness freshness,
         string? fallbackReason)
     {
         return new ReadIndexInfo(
             Used: used,
             Hit: hit,
-            Source: ReadIndexInfoTextCodec.SourceIndex,
+            Source: ReadIndexInfoSource.Index,
             Freshness: freshness,
             GeneratedAtUtc: used
                 ? DateTimeOffset.Parse("2026-03-06T00:00:00+00:00")
@@ -442,9 +435,7 @@ public sealed class PlanServiceTests
 
         public TimeSpan CapturedTimeout => invocations[^1].Timeout;
 
-        public string? CapturedMethod => invocations[^1].Method;
-
-        public JsonElement CapturedPayload => invocations[^1].Payload;
+        public UnityRequestPayload CapturedPayload => invocations[^1].Payload;
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
@@ -452,13 +443,12 @@ public sealed class PlanServiceTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             CallCount++;
-            invocations.Add(new Invocation(command, mode, timeout, method, payload));
+            invocations.Add(new Invocation(command, mode, timeout, payload));
             if (!results.TryDequeue(out var result))
             {
                 throw new InvalidOperationException("No queued Unity IPC execution result is available.");
@@ -471,7 +461,6 @@ public sealed class PlanServiceTests
             UcliCommand Command,
             UnityExecutionMode Mode,
             TimeSpan Timeout,
-            string Method,
-            JsonElement Payload);
+            UnityRequestPayload Payload);
     }
 }

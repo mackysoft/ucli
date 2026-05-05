@@ -63,8 +63,8 @@ public sealed class ResolveServiceTests
         Assert.True(sceneTreeLiteAccessService.CapturedFailFast);
         Assert.True(result.ReadIndex.Used);
         Assert.True(result.ReadIndex.Hit);
-        Assert.Equal(ReadIndexInfoTextCodec.SourceIndex, result.ReadIndex.Source);
-        Assert.Equal(ReadIndexInfoTextCodec.FreshnessFresh, result.ReadIndex.Freshness);
+        Assert.Equal(ReadIndexInfoSource.Index, result.ReadIndex.Source);
+        Assert.Equal(IndexFreshness.Fresh, result.ReadIndex.Freshness);
 
         var opResult = Assert.Single(result.OpResults);
         Assert.Equal("resolve", opResult.OpId);
@@ -128,7 +128,7 @@ public sealed class ResolveServiceTests
         Assert.Equal(1, sceneTreeLiteAccessService.CallCount);
         Assert.Equal(0, unityRequestExecutor.CallCount);
         Assert.True(result.ReadIndex.Used);
-        Assert.Equal(ReadIndexInfoTextCodec.SourceIndex, result.ReadIndex.Source);
+        Assert.Equal(ReadIndexInfoSource.Index, result.ReadIndex.Source);
 
         var opResult = Assert.Single(result.OpResults);
         Assert.True(opResult.Result.HasValue);
@@ -157,24 +157,18 @@ public sealed class ResolveServiceTests
         Assert.Equal(UcliCommandIds.Resolve, unityRequestExecutor.CapturedCommand);
         Assert.Equal(UnityExecutionMode.Oneshot, unityRequestExecutor.CapturedMode);
         Assert.Equal(TimeSpan.FromMilliseconds(1234), unityRequestExecutor.CapturedTimeout);
-        Assert.Equal(IpcMethodNames.Execute, unityRequestExecutor.CapturedMethod);
         Assert.False(result.ReadIndex.Used);
-        Assert.Equal(ReadIndexInfoTextCodec.SourceUnity, result.ReadIndex.Source);
-        Assert.Equal(ReadIndexInfoTextCodec.FreshnessFresh, result.ReadIndex.Freshness);
+        Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);
+        Assert.Equal(IndexFreshness.Fresh, result.ReadIndex.Freshness);
         Assert.Equal("selector requires live Unity resolution.", result.ReadIndex.FallbackReason);
 
-        Assert.True(IpcPayloadCodec.TryDeserialize(
-            unityRequestExecutor.CapturedPayload,
-            out IpcExecuteRequest executeRequest,
-            out var payloadError));
-        Assert.Equal(IpcPayloadReadError.None, payloadError);
+        var executeRequest = Assert.IsType<UnityRequestPayload.ExecuteOperation>(unityRequestExecutor.CapturedPayload);
         Assert.Equal(UcliCommandIds.Resolve, executeRequest.Command);
         Assert.True(executeRequest.FailFast);
-        Assert.Equal(result.RequestId, executeRequest.Arguments.GetProperty("requestId").GetString());
-        var step = Assert.Single(executeRequest.Arguments.GetProperty("steps").EnumerateArray());
-        Assert.Equal("resolve", step.GetProperty("id").GetString());
-        Assert.Equal(UcliPrimitiveOperationNames.Resolve, step.GetProperty("op").GetString());
-        Assert.Equal("11111111111111111111111111111111", step.GetProperty("args").GetProperty("assetGuid").GetString());
+        Assert.Equal(result.RequestId, executeRequest.RequestId);
+        Assert.Equal("resolve", executeRequest.OperationId);
+        Assert.Equal(UcliPrimitiveOperationNames.Resolve, executeRequest.OperationName);
+        Assert.Equal("11111111111111111111111111111111", executeRequest.Args.GetProperty("assetGuid").GetString());
     }
 
     [Fact]
@@ -209,7 +203,7 @@ public sealed class ResolveServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(1, sceneTreeLiteAccessService.CallCount);
         Assert.Equal(1, unityRequestExecutor.CallCount);
-        Assert.Equal(ReadIndexInfoTextCodec.SourceUnity, result.ReadIndex.Source);
+        Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);
         Assert.False(result.ReadIndex.Used);
         Assert.Equal("Hierarchy path 'Root/Child' did not match a GameObject.", result.ReadIndex.FallbackReason);
     }
@@ -349,9 +343,7 @@ public sealed class ResolveServiceTests
 
         public TimeSpan CapturedTimeout { get; private set; }
 
-        public string? CapturedMethod { get; private set; }
-
-        public JsonElement CapturedPayload { get; private set; }
+        public UnityRequestPayload? CapturedPayload { get; private set; }
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
@@ -359,8 +351,7 @@ public sealed class ResolveServiceTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -368,7 +359,6 @@ public sealed class ResolveServiceTests
             CapturedCommand = command;
             CapturedMode = mode;
             CapturedTimeout = timeout;
-            CapturedMethod = method;
             CapturedPayload = payload;
             if (!results.TryDequeue(out var result))
             {

@@ -55,7 +55,7 @@ internal static class PlanCommandResultFactory
             {
                 requestId = output.RequestId,
                 opResults = output.OpResults,
-                readIndex = output.ReadIndex,
+                readIndex = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
             };
         }
 
@@ -63,7 +63,7 @@ internal static class PlanCommandResultFactory
         {
             requestId = output.RequestId,
             opResults = output.OpResults,
-            readIndex = output.ReadIndex,
+            readIndex = ReadIndexInfoPayloadProjector.Create(output.ReadIndex),
             planToken = output.PlanToken,
         };
     }

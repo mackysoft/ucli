@@ -61,9 +61,10 @@ public sealed class AssetLookupSnapshotReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
-        Assert.Equal(IpcMethodNames.IndexAssetsRead, executor.LastMethod);
+        var request = Assert.IsType<UnityRequestPayload.Raw>(executor.LastPayload);
+        Assert.Equal(IpcMethodNames.IndexAssetsRead, request.Method);
         Assert.Equal(UcliCommandIds.Query, executor.LastCommand);
-        Assert.True(IpcPayloadCodec.TryDeserialize(executor.LastPayload, out IpcIndexAssetsReadRequest payload, out _));
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcIndexAssetsReadRequest payload, out _));
         Assert.True(payload.FailFast);
         Assert.Single(result.Response!.AssetSearchEntries!);
         Assert.Single(result.Response.GuidPathEntries!);
@@ -180,9 +181,7 @@ public sealed class AssetLookupSnapshotReaderTests
     {
         public UcliCommand LastCommand { get; private set; }
 
-        public string? LastMethod { get; private set; }
-
-        public JsonElement LastPayload { get; private set; }
+        public UnityRequestPayload? LastPayload { get; private set; }
 
         public UnityRequestExecutionResult Result { get; set; }
             = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
@@ -193,13 +192,11 @@ public sealed class AssetLookupSnapshotReaderTests
             TimeSpan timeout,
             UcliConfig config,
             ResolvedUnityProjectContext unityProject,
-            string method,
-            JsonElement payload,
+            UnityRequestPayload payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             LastCommand = command;
-            LastMethod = method;
             LastPayload = payload;
             return ValueTask.FromResult(Result);
         }
