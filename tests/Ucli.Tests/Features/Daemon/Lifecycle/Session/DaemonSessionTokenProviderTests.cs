@@ -13,17 +13,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;

@@ -13,17 +13,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
-using MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
@@ -37,7 +28,6 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Shared.Execution.Process;
 
 public sealed class DaemonStatusOperationTests
 {

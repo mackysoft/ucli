@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace MackySoft.Ucli.Architecture.Tests.Architecture;
@@ -449,6 +450,47 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Cli_host_tests_do_not_add_application_concrete_unit_test_classes ()
+    {
+        var allowedHostIntegrationTestPaths = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "tests/Ucli.Tests/Features/Daemon/Lifecycle/Cleanup/DaemonCleanupOperationTests.cs",
+            "tests/Ucli.Tests/Features/Daemon/Lifecycle/Session/DaemonSessionTokenProviderTests.cs",
+            "tests/Ucli.Tests/Features/Daemon/Lifecycle/Status/DaemonStatusOperationTests.cs",
+            "tests/Ucli.Tests/Features/Daemon/Observability/Logs/Daemon/LogsDaemonServiceTests.cs",
+            "tests/Ucli.Tests/Features/Daemon/Observability/Logs/Unity/LogsUnityServiceTests.cs",
+            "tests/Ucli.Tests/Features/Testing/Run/Results/UnityResultsConverterTests.cs",
+            "tests/Ucli.Tests/ProjectContextResolverTests.cs",
+        };
+        var applicationConcreteTypeNames = EnumerateCSharpSourceFiles("src/Ucli.Application")
+            .SelectMany(ReadConcreteTypeNames)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        var violations = new List<string>();
+        foreach (var sourceFile in EnumerateCSharpSourceFiles("tests/Ucli.Tests"))
+        {
+            var relativePath = NormalizeRepositoryRelativePath(sourceFile);
+            if (allowedHostIntegrationTestPaths.Contains(relativePath))
+            {
+                continue;
+            }
+
+            var sourceText = File.ReadAllText(sourceFile);
+            foreach (var typeName in applicationConcreteTypeNames)
+            {
+                if (sourceText.Contains($"class {typeName}Tests", StringComparison.Ordinal))
+                {
+                    violations.Add($"{relativePath} owns Application concrete test class {typeName}Tests.");
+                }
+            }
+        }
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Cli_host_tests_do_not_directly_instantiate_application_use_case_services ()
     {
         var applicationUseCaseServiceTypeNames = EnumerateCSharpSourceFiles("src/Ucli.Application/Features")
@@ -661,6 +703,17 @@ public sealed class ProjectBoundaryTests
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(static value => value!)
             .ToArray();
+    }
+
+    private static IEnumerable<string> ReadConcreteTypeNames (string sourceFile)
+    {
+        var sourceText = File.ReadAllText(sourceFile);
+        return Regex
+            .Matches(
+                sourceText,
+                @"\b(?:class|struct)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\b|\brecord\s+(?:class\s+|struct\s+)?(?<name>[A-Za-z_][A-Za-z0-9_]*)\b")
+            .Select(static match => match.Groups["name"].Value)
+            .Where(static value => !string.IsNullOrWhiteSpace(value));
     }
 
     private static string[] ReadInternalsVisibleToAssemblyNames (string assemblyInfoPath)
