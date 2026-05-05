@@ -1,5 +1,4 @@
 using MackySoft.Tests;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -9,7 +8,7 @@ public sealed class InternalSupervisorProcessContractTests
     [Trait("Size", "Medium")]
     public async Task InvalidInternalSupervisorInvocation_ReturnsExitCodeOneWithoutPublicCliOutput ()
     {
-        var result = await CliProcessRunner.RunCommand(SupervisorInvocationArguments.InternalServeFlag);
+        var result = await CliProcessRunner.RunCommand(SupervisorConstants.InternalServeFlag);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Equal(string.Empty, result.StdOut);

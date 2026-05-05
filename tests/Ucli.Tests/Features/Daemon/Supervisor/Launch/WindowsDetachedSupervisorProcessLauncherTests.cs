@@ -1,6 +1,5 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -23,9 +22,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
         Assert.Equal(
             [
                 "--base",
-                SupervisorInvocationArguments.InternalServeFlag,
-                SupervisorInvocationArguments.RepositoryRootOption,
-                normalizedStorageRoot,
+                ..SupervisorInvocationArguments.Build(normalizedStorageRoot),
             ],
             startInfo.ArgumentList);
     }

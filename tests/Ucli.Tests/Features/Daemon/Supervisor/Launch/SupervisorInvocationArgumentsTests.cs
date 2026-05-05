@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
-
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorInvocationArgumentsTests
@@ -14,8 +12,8 @@ public sealed class SupervisorInvocationArgumentsTests
 
         Assert.Equal(
             [
-                SupervisorInvocationArguments.InternalServeFlag,
-                SupervisorInvocationArguments.RepositoryRootOption,
+                SupervisorConstants.InternalServeFlag,
+                SupervisorConstants.RepositoryRootOption,
                 repositoryRoot,
             ],
             arguments);

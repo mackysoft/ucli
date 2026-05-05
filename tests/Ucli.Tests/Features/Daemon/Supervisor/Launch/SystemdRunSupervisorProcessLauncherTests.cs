@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
-
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SystemdRunSupervisorProcessLauncherTests
@@ -28,9 +26,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
                 repositoryRoot,
                 "ucli",
                 "--base",
-                SupervisorInvocationArguments.InternalServeFlag,
-                SupervisorInvocationArguments.RepositoryRootOption,
-                repositoryRoot,
+                ..SupervisorInvocationArguments.Build(repositoryRoot),
             ],
             arguments);
     }

@@ -3,6 +3,12 @@ namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 /// <summary> Defines internal constants used by the worktree-local supervisor runtime. </summary>
 internal static class SupervisorConstants
 {
+    /// <summary> Gets the hidden command-line flag used to run the supervisor host. </summary>
+    public const string InternalServeFlag = "--ucli-internal-supervisor-serve";
+
+    /// <summary> Gets the hidden option name used to pass the repository root to the supervisor host. </summary>
+    public const string RepositoryRootOption = "--repositoryRoot";
+
     /// <summary> Gets the ping client-version literal used for supervisor health probes. </summary>
     public const string PingClientVersion = "ucli-supervisor-bootstrap";
 

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Supervisor;
 
@@ -23,7 +22,8 @@ public sealed class InternalSupervisorInvocationParserTests
     {
         const string repositoryRoot = "/repo";
 
-        var invocation = InternalSupervisorInvocationParser.Parse(SupervisorInvocationArguments.Build(repositoryRoot));
+        var invocation = InternalSupervisorInvocationParser.Parse(
+            [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, repositoryRoot]);
 
         Assert.True(invocation.IsMatched);
         Assert.True(invocation.IsValid);
@@ -44,10 +44,10 @@ public sealed class InternalSupervisorInvocationParserTests
 
     public static TheoryData<string[]> InvalidInternalInvocationCases => new()
         {
-            { [SupervisorInvocationArguments.InternalServeFlag] },
-            { [SupervisorInvocationArguments.InternalServeFlag, "--unknown", "/repo"] },
-            { [SupervisorInvocationArguments.InternalServeFlag, SupervisorInvocationArguments.RepositoryRootOption] },
-            { [SupervisorInvocationArguments.InternalServeFlag, SupervisorInvocationArguments.RepositoryRootOption, " "] },
-            { [SupervisorInvocationArguments.InternalServeFlag, SupervisorInvocationArguments.RepositoryRootOption, "/repo", "extra"] },
+            { [SupervisorConstants.InternalServeFlag] },
+            { [SupervisorConstants.InternalServeFlag, "--unknown", "/repo"] },
+            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption] },
+            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, " "] },
+            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, "/repo", "extra"] },
         };
 }

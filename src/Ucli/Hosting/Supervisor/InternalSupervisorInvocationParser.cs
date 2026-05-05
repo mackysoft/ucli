@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
-
 namespace MackySoft.Ucli.Hosting.Supervisor;
 
 /// <summary> Parses the hidden supervisor-host process arguments. </summary>
@@ -14,13 +12,13 @@ internal static class InternalSupervisorInvocationParser
         ArgumentNullException.ThrowIfNull(args);
 
         if (args.Length == 0
-            || !string.Equals(args[0], SupervisorInvocationArguments.InternalServeFlag, StringComparison.Ordinal))
+            || !string.Equals(args[0], SupervisorConstants.InternalServeFlag, StringComparison.Ordinal))
         {
             return InternalSupervisorInvocation.NotMatched;
         }
 
         if (args.Length != 3
-            || !string.Equals(args[1], SupervisorInvocationArguments.RepositoryRootOption, StringComparison.Ordinal)
+            || !string.Equals(args[1], SupervisorConstants.RepositoryRootOption, StringComparison.Ordinal)
             || string.IsNullOrWhiteSpace(args[2]))
         {
             return InternalSupervisorInvocation.Invalid;

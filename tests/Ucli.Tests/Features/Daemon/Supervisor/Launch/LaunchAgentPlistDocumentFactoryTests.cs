@@ -1,5 +1,4 @@
 using System.Xml.Linq;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
@@ -28,9 +27,7 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
             [
                 "ucli",
                 "--base",
-                SupervisorInvocationArguments.InternalServeFlag,
-                SupervisorInvocationArguments.RepositoryRootOption,
-                storageRoot,
+                ..SupervisorInvocationArguments.Build(storageRoot),
             ],
             GetArrayStrings(document, "ProgramArguments"));
         Assert.Equal("true", GetValueElement(document, "RunAtLoad").Name.LocalName);
@@ -55,9 +52,7 @@ public sealed class LaunchAgentPlistDocumentFactoryTests
             [
                 "ucli<&>",
                 "--arg<&>",
-                SupervisorInvocationArguments.InternalServeFlag,
-                SupervisorInvocationArguments.RepositoryRootOption,
-                storageRoot,
+                ..SupervisorInvocationArguments.Build(storageRoot),
             ],
             GetArrayStrings(document, "ProgramArguments"));
     }
