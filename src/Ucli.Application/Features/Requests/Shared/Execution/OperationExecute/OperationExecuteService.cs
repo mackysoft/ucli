@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Postprocessing;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -153,7 +154,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 requestId,
                 [],
                 [
-                    new IpcError(errorCode, executionResult.Message, null),
+                    new OperationExecutionError(errorCode, executionResult.Message, null),
                 ],
                 ResolveOutcome(errorCode));
         }
@@ -225,7 +226,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     [],
                     [
-                        new IpcError(errorCode, executionResult.Message, null),
+                        new OperationExecutionError(errorCode, executionResult.Message, null),
                     ],
                     ResolveOutcome(errorCode)));
         }
@@ -250,7 +251,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     requestId,
                     convertedResponse.OpResults,
                     [
-                        new IpcError(
+                        new OperationExecutionError(
                             IpcErrorCodes.InternalError,
                             "Execute response payload is invalid. The 'planToken' field is missing.",
                             null),
@@ -284,7 +285,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
     /// <param name="errors"> The machine-readable error collection. </param>
     /// <returns> The associated application outcome. </returns>
-    private static ApplicationOutcome ResolveOutcome (IReadOnlyList<IpcError> errors)
+    private static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 

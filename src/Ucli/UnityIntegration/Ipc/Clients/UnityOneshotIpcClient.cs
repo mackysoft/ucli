@@ -163,7 +163,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
 
                 shouldTerminateProcess = false;
-                return UnityRequestExecutionResult.Success(response);
+                return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
             }
             finally
             {

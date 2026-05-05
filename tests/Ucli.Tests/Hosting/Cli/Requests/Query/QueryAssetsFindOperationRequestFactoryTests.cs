@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
-using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 

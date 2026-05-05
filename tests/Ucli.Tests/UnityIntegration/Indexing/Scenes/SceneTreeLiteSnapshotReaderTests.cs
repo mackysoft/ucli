@@ -157,14 +157,14 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static IpcResponse CreateSuccessResponse (object payload)
+    private static UnityRequestResponse CreateSuccessResponse (object payload)
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-scene-tree-lite",
             Status: IpcProtocol.StatusOk,
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>());
+            Errors: Array.Empty<IpcError>()));
     }
 
     private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor

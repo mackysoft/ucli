@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
@@ -10,13 +10,13 @@ internal static class MutationReadPostconditionPersistence
         IMutationReadPostconditionStore store,
         string storageRoot,
         string projectFingerprint,
-        IpcExecuteReadPostcondition? readPostcondition,
+        OperationExecutionReadPostcondition? readPostcondition,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(store);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (readPostcondition == null || readPostcondition.IsEmpty)
+        if (readPostcondition == null || readPostcondition.Requirements.Count == 0)
         {
             return null;
         }

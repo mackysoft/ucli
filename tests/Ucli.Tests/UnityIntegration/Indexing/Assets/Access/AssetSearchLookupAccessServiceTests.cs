@@ -144,7 +144,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                ReadPostconditionTestFactory.Create(
                 [
                     new IpcExecuteReadPostconditionRequirement(
                         Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,

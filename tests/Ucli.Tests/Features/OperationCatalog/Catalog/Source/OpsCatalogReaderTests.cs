@@ -132,17 +132,17 @@ public sealed class OpsCatalogReaderTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private static IpcResponse CreateResponse (
+    private static UnityRequestResponse CreateResponse (
         string status,
         IReadOnlyList<IpcError> errors,
         object payload)
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             IpcProtocol.CurrentVersion,
             "req-ops-1",
             status,
             IpcPayloadCodec.SerializeToElement(payload),
-            errors);
+            errors));
     }
 
     private sealed class StubUnityRequestExecutor : IUnityRequestExecutor

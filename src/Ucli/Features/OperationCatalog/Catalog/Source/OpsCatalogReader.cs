@@ -13,7 +13,6 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 
@@ -68,21 +67,22 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
     }
 
     private static OpsCatalogFetchResult CreateResultFromResponse (
-        IpcResponse response,
+        UnityRequestResponse response,
         string responseSourceName)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
+        if (response.HasFailureStatus || response.Errors.Count != 0)
         {
+            var firstError = response.Errors.FirstOrDefault();
             if (firstError != null)
             {
                 return OpsCatalogFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
             return OpsCatalogFetchResult.Failure(
-                $"{responseSourceName} failed with status '{status}'.",
+                $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);
         }
 

@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -86,14 +87,14 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
         var mergedRequirements = MergeRequirements(document.Requirements);
         return MutationReadPostconditionReadResult.Success(
-            mergedRequirements.Count == 0 ? null : new IpcExecuteReadPostcondition(mergedRequirements));
+            mergedRequirements.Count == 0 ? null : MapToApplicationReadPostcondition(mergedRequirements));
     }
 
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionStoreOperationResult> WriteMerged (
         string storageRoot,
         string projectFingerprint,
-        IpcExecuteReadPostcondition readPostcondition,
+        OperationExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -112,7 +113,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
         try
         {
-            var mergedRequirements = MergeRequirements(readPostcondition.Requirements);
+            var mergedRequirements = MergeRequirements(MapToIpcRequirements(readPostcondition.Requirements));
             IReadOnlyList<IpcExecuteReadPostconditionRequirement> existingRequirements = [];
             var existingReadResult = await ReadOrNull(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
             if (!existingReadResult.IsSuccess)
@@ -122,7 +123,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
             if (existingReadResult.ReadPostcondition != null)
             {
-                existingRequirements = existingReadResult.ReadPostcondition.Requirements;
+                existingRequirements = MapToIpcRequirements(existingReadResult.ReadPostcondition.Requirements);
             }
 
             mergedRequirements = MergeRequirements(existingRequirements.Concat(mergedRequirements).ToArray());
@@ -233,6 +234,42 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
     private static string GetRequirementKey (IpcExecuteReadPostconditionRequirement requirement)
     {
         return requirement.Surface + "\u001f" + requirement.ScenePath;
+    }
+
+    private static OperationExecutionReadPostcondition MapToApplicationReadPostcondition (
+        IReadOnlyList<IpcExecuteReadPostconditionRequirement> requirements)
+    {
+        var mappedRequirements = new OperationExecutionReadPostconditionRequirement[requirements.Count];
+        for (var i = 0; i < requirements.Count; i++)
+        {
+            var requirement = requirements[i];
+            mappedRequirements[i] = new OperationExecutionReadPostconditionRequirement(
+                requirement.Surface,
+                requirement.MinSafeGeneratedAtUtc)
+            {
+                ScenePath = requirement.ScenePath,
+            };
+        }
+
+        return new OperationExecutionReadPostcondition(mappedRequirements);
+    }
+
+    private static IReadOnlyList<IpcExecuteReadPostconditionRequirement> MapToIpcRequirements (
+        IReadOnlyList<OperationExecutionReadPostconditionRequirement> requirements)
+    {
+        var mappedRequirements = new IpcExecuteReadPostconditionRequirement[requirements.Count];
+        for (var i = 0; i < requirements.Count; i++)
+        {
+            var requirement = requirements[i];
+            mappedRequirements[i] = new IpcExecuteReadPostconditionRequirement(
+                requirement.Surface,
+                requirement.MinSafeGeneratedAtUtc)
+            {
+                ScenePath = requirement.ScenePath,
+            };
+        }
+
+        return mappedRequirements;
     }
 
     private static bool IsIoFailure (Exception exception)

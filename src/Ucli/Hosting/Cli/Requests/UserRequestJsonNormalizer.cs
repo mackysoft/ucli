@@ -1,11 +1,12 @@
 using System.Text;
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
-/// <summary> Converts user-authored request JSON into the internal execute-request contract. </summary>
+/// <summary> Converts user-authored request JSON into the IPC execute-request contract owned by the host. </summary>
 internal sealed class UserRequestJsonNormalizer : IUserRequestJsonNormalizer
 {
     private const string StepsPropertyName = "steps";

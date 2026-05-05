@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
@@ -15,6 +15,6 @@ internal interface IMutationReadPostconditionStore
     ValueTask<MutationReadPostconditionStoreOperationResult> WriteMerged (
         string storageRoot,
         string projectFingerprint,
-        IpcExecuteReadPostcondition readPostcondition,
+        OperationExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default);
 }

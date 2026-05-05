@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
@@ -14,18 +15,15 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Validation;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc;
-using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
+using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 
-namespace MackySoft.Ucli.Tests;
+namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class CallServiceTests
 {
@@ -910,28 +908,34 @@ public sealed class CallServiceTests
             """;
     }
 
-    private static IpcResponse CreateResponse (
+    private static UnityRequestResponse CreateResponse (
         string status,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken,
-        IpcExecuteReadPostcondition? readPostcondition = null)
+        OperationExecutionReadPostcondition? readPostcondition = null)
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-1",
             Status: status,
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(opResults)
             {
                 PlanToken = planToken,
-                ReadPostcondition = readPostcondition,
+                ReadPostcondition = readPostcondition == null
+                    ? null
+                    : new IpcExecuteReadPostcondition(readPostcondition.Requirements.Select(static requirement =>
+                        new IpcExecuteReadPostconditionRequirement(requirement.Surface, requirement.MinSafeGeneratedAtUtc)
+                        {
+                            ScenePath = requirement.ScenePath,
+                        }).ToArray()),
             }),
-            Errors: errors);
+            Errors: errors));
     }
 
-    private static IpcExecuteReadPostcondition CreateReadPostcondition ()
+    private static OperationExecutionReadPostcondition CreateReadPostcondition ()
     {
-        return new IpcExecuteReadPostcondition(
+        return ReadPostconditionTestFactory.Create(
         [
             new IpcExecuteReadPostconditionRequirement(
                 Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,

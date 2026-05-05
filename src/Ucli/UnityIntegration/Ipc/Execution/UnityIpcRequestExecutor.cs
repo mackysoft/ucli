@@ -415,8 +415,8 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
             return false;
         }
 
-        if (!IpcResponseFailureReader.TryRead(dispatchResult.Response!, out var firstError, out _)
-            || firstError == null)
+        var firstError = dispatchResult.Response!.Errors.FirstOrDefault();
+        if (firstError == null)
         {
             return false;
         }

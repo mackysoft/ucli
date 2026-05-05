@@ -167,14 +167,14 @@ public sealed class AssetLookupSnapshotReaderTests
             ConfigSource.Default);
     }
 
-    private static IpcResponse CreateSuccessResponse<TPayload> (TPayload payload)
+    private static UnityRequestResponse CreateSuccessResponse<TPayload> (TPayload payload)
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-1",
             Status: IpcProtocol.StatusOk,
             Payload: JsonSerializer.SerializeToElement(payload),
-            Errors: Array.Empty<IpcError>());
+            Errors: Array.Empty<IpcError>()));
     }
 
     private sealed class StubUnityIpcRequestExecutor : IUnityRequestExecutor

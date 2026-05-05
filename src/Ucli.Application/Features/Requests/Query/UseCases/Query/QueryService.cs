@@ -168,7 +168,7 @@ internal sealed class QueryService : IQueryService
             [
                 CreatePlanOperationResult(
                     operation,
-                    IpcPayloadCodec.SerializeToElement(CreateAssetsFindResult(windowedEntries))),
+                    JsonSerializer.SerializeToElement(CreateAssetsFindResult(windowedEntries), IpcJsonSerializerOptions.Default)),
             ],
             QueryReadIndexInfoFactory.FromAssetLookupAccess(output.AccessInfo));
     }
@@ -212,7 +212,7 @@ internal sealed class QueryService : IQueryService
             [
                 CreatePlanOperationResult(
                     operation,
-                    IpcPayloadCodec.SerializeToElement(CreateSceneTreeResult(output.ScenePath, windowedRoots))),
+                    JsonSerializer.SerializeToElement(CreateSceneTreeResult(output.ScenePath, windowedRoots), IpcJsonSerializerOptions.Default)),
             ],
             QueryReadIndexInfoFactory.FromSceneTreeLiteAccess(output.AccessInfo));
     }
@@ -262,8 +262,8 @@ internal sealed class QueryService : IQueryService
         return QueryServiceResultFactory.Create(
             operation.CommandName,
             requestId,
-            OperationExecutionModelMapper.MapOpResults(convertedResponse.OpResults),
-            OperationExecutionModelMapper.MapErrors(convertedResponse.Errors),
+            convertedResponse.OpResults,
+            convertedResponse.Errors,
             convertedResponse.Outcome,
             convertedResponse.Errors.Count == 0
                 ? "uCLI query completed."
@@ -324,7 +324,7 @@ internal sealed class QueryService : IQueryService
             : errorCode;
     }
 
-    private static string ResolveFailureMessage (IReadOnlyList<IpcError> errors)
+    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
     {
         for (var i = 0; i < errors.Count; i++)
         {

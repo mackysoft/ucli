@@ -110,7 +110,7 @@ public sealed class UnityIpcRequestExecutorTests
                 EmptyPayload()));
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(1, daemonTransportClient.CallCount);
         Assert.Equal(0, oneshotTransportClient.CallCount);
         Assert.Equal(1, sessionTokenProvider.CallCount);
@@ -159,7 +159,7 @@ public sealed class UnityIpcRequestExecutorTests
                     RequireReadinessGate: true))));
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(2, readinessProbe.CallCount);
         Assert.Equal(1, daemonTransportClient.CallCount);
         Assert.True(IpcPayloadCodec.TryDeserialize(
@@ -316,7 +316,7 @@ public sealed class UnityIpcRequestExecutorTests
                 EmptyPayload()));
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(0, daemonTransportClient.CallCount);
         Assert.Equal(2, oneshotTransportClient.CallCount);
         Assert.Equal(1, launcher.CallCount);
@@ -538,6 +538,22 @@ public sealed class UnityIpcRequestExecutorTests
             Status: IpcProtocol.StatusOk,
             Payload: EmptyPayload(),
             Errors: Array.Empty<IpcError>());
+    }
+
+    private static void AssertUnityResponse (
+        IpcResponse expected,
+        UnityRequestResponse? actual)
+    {
+        Assert.NotNull(actual);
+        Assert.False(actual!.HasFailureStatus);
+        Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
+        Assert.Equal(expected.Errors.Count, actual.Errors.Count);
+        for (var i = 0; i < expected.Errors.Count; i++)
+        {
+            Assert.Equal(expected.Errors[i].Code, actual.Errors[i].Code);
+            Assert.Equal(expected.Errors[i].Message, actual.Errors[i].Message);
+            Assert.Equal(expected.Errors[i].OpId, actual.Errors[i].OpId);
+        }
     }
 
     private static IpcResponse CreateErrorResponse (

@@ -207,8 +207,8 @@ internal sealed class ResolveService : IResolveService
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
         return ResolveServiceResultFactory.Create(
             requestId,
-            OperationExecutionModelMapper.MapOpResults(convertedResponse.OpResults),
-            OperationExecutionModelMapper.MapErrors(convertedResponse.Errors),
+            convertedResponse.OpResults,
+            convertedResponse.Errors,
             convertedResponse.Outcome,
             readIndex);
     }
@@ -235,7 +235,7 @@ internal sealed class ResolveService : IResolveService
             applied: false,
             changed: false,
             touched: [],
-            result: IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(globalObjectId)));
+            result: JsonSerializer.SerializeToElement(new ResolveOperationResult(globalObjectId), IpcJsonSerializerOptions.Default));
     }
 
     private static string ResolveFallbackReason (
@@ -256,5 +256,7 @@ internal sealed class ResolveService : IResolveService
             ? IpcErrorCodes.InternalError
             : errorCode;
     }
+
+    private sealed record ResolveOperationResult (string GlobalObjectId);
 
 }

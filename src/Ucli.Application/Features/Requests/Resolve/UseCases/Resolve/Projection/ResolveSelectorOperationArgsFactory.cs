@@ -79,6 +79,6 @@ internal static class ResolveSelectorOperationArgsFactory
             _ => throw new ArgumentException("Unsupported resolve selector type.", nameof(selector)),
         };
 
-        return IpcPayloadCodec.SerializeToElement(args);
+        return JsonSerializer.SerializeToElement(args, IpcJsonSerializerOptions.Default);
     }
 }

@@ -87,7 +87,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             var convertedPlanResponse = ExecuteResponseConverter.Convert(planExecutionResult.Response!);
             var planOutput = new CallPlanOutput(
                 RequestId: preparedRequest.Request.RequestId!,
-                OpResults: OperationExecutionModelMapper.MapOpResults(convertedPlanResponse.OpResults),
+                OpResults: convertedPlanResponse.OpResults,
                 PlanToken: convertedPlanResponse.PlanToken);
             baseOutput = baseOutput is null
                 ? null
@@ -97,7 +97,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             {
                 return CallServiceResult.Failure(
                     ResolveFailureMessage(convertedPlanResponse.Errors, "uCLI call pre-plan failed."),
-                    OperationExecutionModelMapper.MapErrors(convertedPlanResponse.Errors),
+                    convertedPlanResponse.Errors,
                     convertedPlanResponse.Outcome,
                     baseOutput);
             }
@@ -154,11 +154,11 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             ? null
             : baseOutput with
             {
-                OpResults = OperationExecutionModelMapper.MapOpResults(convertedCallResponse.OpResults),
-                ReadPostcondition = OperationExecutionModelMapper.MapReadPostcondition(convertedCallResponse.ReadPostcondition),
+                OpResults = convertedCallResponse.OpResults,
+                ReadPostcondition = convertedCallResponse.ReadPostcondition,
             };
         var postprocessedCallResponse = executionOutput == null
-            ? (Response: convertedCallResponse, PersistenceError: (IpcError?)null)
+            ? (Response: convertedCallResponse, PersistenceError: (OperationExecutionError?)null)
             : await ExecuteResponseReadPostconditionProcessor.Persist(
                     convertedCallResponse,
                     mutationReadPostconditionStore,
@@ -171,7 +171,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         {
             return CallServiceResult.Failure(
                 postprocessedCallResponse.PersistenceError.Message,
-                OperationExecutionModelMapper.MapErrors(convertedCallResponse.Errors),
+                convertedCallResponse.Errors,
                 convertedCallResponse.Outcome,
                 executionOutput);
         }
@@ -180,7 +180,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         {
             return CallServiceResult.Failure(
                 ResolveFailureMessage(convertedCallResponse.Errors, "uCLI call failed."),
-                OperationExecutionModelMapper.MapErrors(convertedCallResponse.Errors),
+                convertedCallResponse.Errors,
                 convertedCallResponse.Outcome,
                 executionOutput);
         }
@@ -231,7 +231,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
     }
 
     private static string ResolveFailureMessage (
-        IReadOnlyList<IpcError> errors,
+        IReadOnlyList<OperationExecutionError> errors,
         string fallbackMessage)
     {
         ArgumentNullException.ThrowIfNull(errors);

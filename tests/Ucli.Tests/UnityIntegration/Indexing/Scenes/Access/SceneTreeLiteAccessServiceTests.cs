@@ -223,7 +223,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                ReadPostconditionTestFactory.Create(
                 [
                     new IpcExecuteReadPostconditionRequirement(
                         Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
@@ -287,7 +287,7 @@ public sealed class SceneTreeLiteAccessServiceTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                new IpcExecuteReadPostcondition(
+                ReadPostconditionTestFactory.Create(
                 [
                     new IpcExecuteReadPostconditionRequirement(
                         Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,

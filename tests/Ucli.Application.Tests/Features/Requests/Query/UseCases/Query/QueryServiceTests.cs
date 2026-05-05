@@ -2,16 +2,17 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.UnityIntegration.Indexing.Assets.Access;
-using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
 
-namespace MackySoft.Ucli.Tests.Features.Requests.Query.UseCases.Query;
+namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class QueryServiceTests
 {
@@ -52,7 +53,7 @@ public sealed class QueryServiceTests
         var result = await service.Execute(
             CreateInput(
                 new QueryAssetsFindOperationRequest(
-                    CommandName: UcliCommandNames.QueryAssetsFind,
+                    CommandName: "query.assets.find",
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
                     Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
@@ -66,7 +67,7 @@ public sealed class QueryServiceTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);
-        Assert.Equal(UcliCommandNames.QueryAssetsFind, result.CommandName);
+        Assert.Equal("query.assets.find", result.CommandName);
         Assert.Equal(1, assetSearchLookupAccessService.CallCount);
         Assert.True(assetSearchLookupAccessService.CapturedFailFast);
         Assert.NotNull(assetSearchLookupAccessService.CapturedQuery);
@@ -115,7 +116,7 @@ public sealed class QueryServiceTests
         var result = await service.Execute(
             CreateInput(
                 new QuerySceneTreeOperationRequest(
-                    CommandName: UcliCommandNames.QuerySceneTree,
+                    CommandName: "query.scene.tree",
                     OperationId: "scene.tree",
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
                     ScenePath: "Assets/Scenes/Main.unity",
@@ -159,7 +160,7 @@ public sealed class QueryServiceTests
         var result = await service.Execute(
             CreateInput(
                 new QueryUnityOperationRequest(
-                    CommandName: UcliCommandNames.QueryCompSchema,
+                    CommandName: "query.comp.schema",
                     OperationId: "comp.schema",
                     OperationName: UcliPrimitiveOperationNames.CompSchema,
                     Args: args),
@@ -214,9 +215,9 @@ public sealed class QueryServiceTests
             ConfigSource: ConfigSource.Default);
     }
 
-    private static IpcResponse CreateUnityResponse ()
+    private static UnityRequestResponse CreateUnityResponse ()
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "unity-response-request-id",
             Status: IpcProtocol.StatusOk,
@@ -236,7 +237,7 @@ public sealed class QueryServiceTests
                     }),
                 },
             ])),
-            Errors: []);
+            Errors: []));
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver

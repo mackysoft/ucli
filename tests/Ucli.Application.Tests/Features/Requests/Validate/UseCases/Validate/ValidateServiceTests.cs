@@ -5,12 +5,12 @@ using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
-namespace MackySoft.Ucli.Tests;
+namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class ValidateServiceTests
 {

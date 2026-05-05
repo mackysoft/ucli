@@ -11,6 +11,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 

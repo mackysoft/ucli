@@ -2,16 +2,17 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
 
-namespace MackySoft.Ucli.Tests.Features.Requests.Resolve.UseCases.Resolve;
+namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class ResolveServiceTests
 {
@@ -245,9 +246,9 @@ public sealed class ResolveServiceTests
             ConfigSource: ConfigSource.Default);
     }
 
-    private static IpcResponse CreateUnityResponse ()
+    private static UnityRequestResponse CreateUnityResponse ()
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "unity-response-request-id",
             Status: IpcProtocol.StatusOk,
@@ -267,7 +268,7 @@ public sealed class ResolveServiceTests
                     }),
                 },
             ])),
-            Errors: []);
+            Errors: []));
     }
 
     private sealed class StubProjectContextResolver : IProjectContextResolver

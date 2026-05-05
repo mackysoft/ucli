@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
@@ -12,6 +13,7 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -517,12 +519,12 @@ public sealed class OperationExecuteServiceTests
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(UnityRequestExecutionResult.Success(
-            new IpcResponse(
+            UnityRequestResponseTestFactory.Create(new IpcResponse(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 RequestId: "req-1",
                 Status: IpcProtocol.StatusOk,
                 Payload: JsonSerializer.SerializeToElement(new { invalid = true }),
-                Errors: [])));
+                Errors: []))));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore());
 
         var result = await service.Execute(
@@ -567,28 +569,34 @@ public sealed class OperationExecuteServiceTests
             FailFast: failFast);
     }
 
-    private static IpcResponse CreateResponse (
+    private static UnityRequestResponse CreateResponse (
         string status,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken = null,
-        IpcExecuteReadPostcondition? readPostcondition = null)
+        OperationExecutionReadPostcondition? readPostcondition = null)
     {
-        return new IpcResponse(
+        return UnityRequestResponseTestFactory.Create(new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             RequestId: "req-1",
             Status: status,
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(opResults)
             {
                 PlanToken = planToken,
-                ReadPostcondition = readPostcondition,
+                ReadPostcondition = readPostcondition == null
+                    ? null
+                    : new IpcExecuteReadPostcondition(readPostcondition.Requirements.Select(static requirement =>
+                        new IpcExecuteReadPostconditionRequirement(requirement.Surface, requirement.MinSafeGeneratedAtUtc)
+                        {
+                            ScenePath = requirement.ScenePath,
+                        }).ToArray()),
             }),
-            Errors: errors);
+            Errors: errors));
     }
 
-    private static IpcExecuteReadPostcondition CreateReadPostcondition ()
+    private static OperationExecutionReadPostcondition CreateReadPostcondition ()
     {
-        return new IpcExecuteReadPostcondition(
+        return ReadPostconditionTestFactory.Create(
         [
             new IpcExecuteReadPostconditionRequirement(
                 Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,

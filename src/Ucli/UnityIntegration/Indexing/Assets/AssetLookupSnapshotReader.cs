@@ -11,7 +11,6 @@ using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Execution.Process;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 
@@ -63,21 +62,22 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
     }
 
     private static AssetLookupSnapshotFetchResult CreateResultFromResponse (
-        IpcResponse response,
+        UnityRequestResponse response,
         string responseSourceName)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
+        if (response.HasFailureStatus || response.Errors.Count != 0)
         {
+            var firstError = response.Errors.FirstOrDefault();
             if (firstError != null)
             {
                 return AssetLookupSnapshotFetchResult.Failure(firstError.Message, firstError.Code);
             }
 
             return AssetLookupSnapshotFetchResult.Failure(
-                $"{responseSourceName} failed with status '{status}'.",
+                $"{responseSourceName} failed with an error status.",
                 IpcErrorCodes.InternalError);
         }
 

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
+using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,6 +17,7 @@ internal static class HostingServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IRequestInputReader, RequestInputReader>();
+        services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
         return services;
     }
 }

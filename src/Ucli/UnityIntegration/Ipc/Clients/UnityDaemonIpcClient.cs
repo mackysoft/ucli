@@ -71,7 +71,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return UnityRequestExecutionResult.Success(response);
+            return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

@@ -125,13 +125,13 @@ internal sealed class PlanService : IPlanService
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
         var executionOutput = baseOutput with
         {
-            OpResults = OperationExecutionModelMapper.MapOpResults(convertedResponse.OpResults),
+            OpResults = convertedResponse.OpResults,
         };
         if (!convertedResponse.IsSuccess)
         {
             return PlanServiceResult.Failure(
                 ResolveFailureMessage(convertedResponse.Errors, "uCLI plan failed."),
-                OperationExecutionModelMapper.MapErrors(convertedResponse.Errors),
+                convertedResponse.Errors,
                 convertedResponse.Outcome,
                 executionOutput);
         }
@@ -173,7 +173,7 @@ internal sealed class PlanService : IPlanService
     }
 
     private static string ResolveFailureMessage (
-        IReadOnlyList<IpcError> errors,
+        IReadOnlyList<OperationExecutionError> errors,
         string fallbackMessage)
     {
         ArgumentNullException.ThrowIfNull(errors);

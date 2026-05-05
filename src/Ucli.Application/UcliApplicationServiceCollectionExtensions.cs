@@ -83,7 +83,6 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
         services.AddSingleton<IRequestIdFactory, GuidRequestIdFactory>();
-        services.AddSingleton<IUserRequestJsonNormalizer, UserRequestJsonNormalizer>();
         services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
 

@@ -1,15 +1,17 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 
-/// <summary> Converts execute IPC responses into normalized CLI-facing models. </summary>
+/// <summary> Converts execute responses into normalized application models. </summary>
 internal static class ExecuteResponseConverter
 {
-    /// <summary> Converts one execute IPC response into normalized operation results and errors. </summary>
-    /// <param name="response"> The Unity IPC response. </param>
+    /// <summary> Converts one execute response into normalized operation results and errors. </summary>
+    /// <param name="response"> The host-decoded Unity response. </param>
     /// <returns> The converted execute response. </returns>
-    public static ExecuteResponseConversionResult Convert (IpcResponse response)
+    public static ExecuteResponseConversionResult Convert (UnityRequestResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
 
@@ -17,7 +19,7 @@ internal static class ExecuteResponseConverter
         {
             return CreateFailure(
                 [
-                    new IpcError(
+                    new OperationExecutionError(
                         IpcErrorCodes.InternalError,
                         $"Execute response payload is invalid. {payloadError.Message}",
                         null),
@@ -34,14 +36,14 @@ internal static class ExecuteResponseConverter
             return CreateInvalidPayloadFailure(errorsValidationError);
         }
 
-        var normalizedErrors = NormalizeErrors(response.Status, response.Errors);
+        var normalizedErrors = NormalizeErrors(response.HasFailureStatus, response.Errors);
         var validatedPayload = payload!;
         return new ExecuteResponseConversionResult(
-            OpResults: validatedPayload.OpResults,
+            OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
             Errors: normalizedErrors,
             Outcome: ResolveOutcome(normalizedErrors),
             PlanToken: validatedPayload.PlanToken,
-            ReadPostcondition: validatedPayload.ReadPostcondition);
+            ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(validatedPayload.ReadPostcondition));
     }
 
     /// <summary> Resolves the application outcome from one machine-readable error code. </summary>
@@ -59,7 +61,7 @@ internal static class ExecuteResponseConverter
     /// <summary> Resolves the application outcome from one machine-readable error collection. </summary>
     /// <param name="errors"> The machine-readable error collection. </param>
     /// <returns> The associated application outcome. </returns>
-    public static ApplicationOutcome ResolveOutcome (IReadOnlyList<IpcError> errors)
+    public static ApplicationOutcome ResolveOutcome (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
@@ -73,14 +75,13 @@ internal static class ExecuteResponseConverter
             : ApplicationOutcome.ToolError;
     }
 
-    private static IReadOnlyList<IpcError> NormalizeErrors (
-        string? status,
-        IReadOnlyList<IpcError> errors)
+    private static IReadOnlyList<OperationExecutionError> NormalizeErrors (
+        bool hasFailureStatus,
+        IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 
-        if (string.Equals(status, IpcProtocol.StatusOk, StringComparison.Ordinal)
-            && errors.Count == 0)
+        if (!hasFailureStatus && errors.Count == 0)
         {
             return [];
         }
@@ -92,9 +93,9 @@ internal static class ExecuteResponseConverter
 
         return
         [
-            new IpcError(
+            new OperationExecutionError(
                 IpcErrorCodes.InternalError,
-                $"Execute response failed with status '{status}'.",
+                "Execute response failed with an error status.",
                 null),
         ];
     }
@@ -195,7 +196,7 @@ internal static class ExecuteResponseConverter
     }
 
     private static bool TryValidateErrors (
-        IReadOnlyList<IpcError>? errors,
+        IReadOnlyList<OperationExecutionError>? errors,
         out string errorMessage)
     {
         errorMessage = string.Empty;
@@ -240,14 +241,14 @@ internal static class ExecuteResponseConverter
 
         return CreateFailure(
             [
-                new IpcError(
+                new OperationExecutionError(
                     IpcErrorCodes.InternalError,
                     message,
                     null),
             ]);
     }
 
-    private static ExecuteResponseConversionResult CreateFailure (IReadOnlyList<IpcError> errors)
+    private static ExecuteResponseConversionResult CreateFailure (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 

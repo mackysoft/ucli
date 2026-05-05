@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests;
 
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -35,7 +36,7 @@ public sealed class MutationReadPostconditionStoreTests
         var firstWrite = await store.WriteMerged(
             scope.FullPath,
             "fingerprint-1",
-            new IpcExecuteReadPostcondition(
+            ReadPostconditionTestFactory.Create(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
@@ -51,7 +52,7 @@ public sealed class MutationReadPostconditionStoreTests
         var secondWrite = await store.WriteMerged(
             scope.FullPath,
             "fingerprint-1",
-            new IpcExecuteReadPostcondition(
+            ReadPostconditionTestFactory.Create(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
@@ -68,7 +69,7 @@ public sealed class MutationReadPostconditionStoreTests
         var readResult = await store.ReadOrNull(scope.FullPath, "fingerprint-1", CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<OperationExecutionReadPostcondition>(readResult.ReadPostcondition);
         Assert.Equal(3, readPostcondition.Requirements.Count);
         Assert.Contains(
             readPostcondition.Requirements,

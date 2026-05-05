@@ -1,13 +1,11 @@
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
-/// <summary> Represents one Unity IPC request execution result. </summary>
-/// <param name="Response"> The IPC response on success; otherwise <see langword="null" />. </param>
+/// <summary> Represents one Unity request execution result. </summary>
+/// <param name="Response"> The host-decoded response on success; otherwise <see langword="null" />. </param>
 /// <param name="Message"> The user-facing result message. </param>
 /// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
 internal sealed record UnityRequestExecutionResult (
-    IpcResponse? Response,
+    UnityRequestResponse? Response,
     string Message,
     string? ErrorCode)
 {
@@ -15,9 +13,9 @@ internal sealed record UnityRequestExecutionResult (
     public bool IsSuccess => Response is not null && ErrorCode is null;
 
     /// <summary> Creates a successful request-execution result. </summary>
-    /// <param name="response"> The IPC response returned from Unity. </param>
+    /// <param name="response"> The host-decoded response returned from Unity. </param>
     /// <returns> The successful request-execution result. </returns>
-    public static UnityRequestExecutionResult Success (IpcResponse response)
+    public static UnityRequestExecutionResult Success (UnityRequestResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
 

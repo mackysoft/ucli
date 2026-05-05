@@ -194,6 +194,7 @@ public sealed class ProjectBoundaryTests
             "ProcessOutputDrainMode",
             "ExecuteRequestPayloadFactory",
             "ReadIndexInfoTextCodec",
+            "class UserRequestJsonNormalizer",
             "new IpcExecuteRequest",
             "IpcExecuteRequest(",
         };
@@ -318,6 +319,7 @@ public sealed class ProjectBoundaryTests
             "ProcessRunResult",
             "ProcessRunStatus",
             "ProcessOutputDrainMode",
+            "IpcPayloadCodec.SerializeToElement",
         };
 
         var applicationSourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Application");
@@ -339,6 +341,7 @@ public sealed class ProjectBoundaryTests
         var applicationResultFiles = new[]
         {
             "src/Ucli.Application/Features/Requests/Shared/Execution/OperationExecute/OperationExecuteResult.cs",
+            "src/Ucli.Application/Features/Requests/Shared/Execution/Conversion/ExecuteResponseConversionResult.cs",
             "src/Ucli.Application/Features/Requests/Query/UseCases/Query/QueryServiceResult.cs",
             "src/Ucli.Application/Features/Requests/Resolve/UseCases/Resolve/ResolveServiceResult.cs",
         };
@@ -386,6 +389,37 @@ public sealed class ProjectBoundaryTests
         var sourceText = File.ReadAllText(globalUsingsPath);
 
         Assert.DoesNotContain("global using MackySoft.Ucli.Application", sourceText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Unity_request_port_does_not_expose_ipc_response_envelopes ()
+    {
+        var portFiles = new[]
+        {
+            "src/Ucli.Application/Shared/Execution/UnityRequest/IUnityRequestExecutor.cs",
+            "src/Ucli.Application/Shared/Execution/UnityRequest/UnityRequestExecutionResult.cs",
+            "src/Ucli.Application/Shared/Execution/UnityRequest/UnityRequestResponse.cs",
+        };
+
+        foreach (var portFile in portFiles)
+        {
+            var sourceText = File.ReadAllText(Path.Combine(RepositoryRoot, portFile));
+            Assert.DoesNotContain("IpcResponse", sourceText, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Request_use_case_tests_are_owned_by_application_test_project ()
+    {
+        var hostRequestUseCaseTestFiles = Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot, "tests", "Ucli.Tests", "Features", "Requests"), "*.cs", SearchOption.AllDirectories)
+            .Select(NormalizeRepositoryRelativePath)
+            .Where(static relativePath => relativePath.Contains("/UseCases/", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Empty(hostRequestUseCaseTestFiles);
     }
 
     [Fact]

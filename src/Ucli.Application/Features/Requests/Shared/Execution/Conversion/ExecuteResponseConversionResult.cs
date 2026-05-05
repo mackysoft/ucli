@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 
@@ -9,11 +9,11 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversi
 /// <param name="Outcome"> The application outcome associated with the converted response. </param>
 /// <param name="PlanToken"> The optional plan token carried by the response payload. </param>
 internal sealed record ExecuteResponseConversionResult (
-    IReadOnlyList<IpcExecuteOperationResult> OpResults,
-    IReadOnlyList<IpcError> Errors,
+    IReadOnlyList<OperationExecutionOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionError> Errors,
     ApplicationOutcome Outcome,
     string? PlanToken,
-    IpcExecuteReadPostcondition? ReadPostcondition)
+    OperationExecutionReadPostcondition? ReadPostcondition)
 {
     /// <summary> Gets a value indicating whether the converted response succeeded. </summary>
     public bool IsSuccess => Errors.Count == 0;

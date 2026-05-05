@@ -1,5 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
@@ -144,12 +146,10 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenErrorsAreMissing_ReturnsInternalError ()
     {
-        var response = new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-1",
-            Status: IpcProtocol.StatusOk,
+        var response = new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
-            Errors: null!);
+            Errors: null!,
+            HasFailureStatus: false);
 
         var result = ExecuteResponseConverter.Convert(response);
 
@@ -164,15 +164,13 @@ public sealed class ExecuteResponseConverterTests
     [Trait("Size", "Small")]
     public void Convert_WhenErrorRequiredTextIsMissing_ReturnsInternalError ()
     {
-        var response = new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-1",
-            Status: IpcProtocol.StatusError,
+        var response = new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
             Errors:
             [
-                new IpcError(null!, "Unity execution failed.", null),
-            ]);
+                new OperationExecutionError(null!, "Unity execution failed.", null),
+            ],
+            HasFailureStatus: true);
 
         var result = ExecuteResponseConverter.Convert(response);
 
@@ -182,13 +180,11 @@ public sealed class ExecuteResponseConverterTests
         Assert.Contains("errors[0].code", error.Message, StringComparison.Ordinal);
     }
 
-    private static IpcResponse CreateResponse (IpcExecuteResponse payload)
+    private static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
     {
-        return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-1",
-            Status: IpcProtocol.StatusOk,
+        return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: []);
+            Errors: [],
+            HasFailureStatus: false);
     }
 }

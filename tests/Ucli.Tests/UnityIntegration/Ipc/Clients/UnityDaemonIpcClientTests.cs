@@ -45,11 +45,27 @@ public sealed class UnityDaemonIpcClientTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        AssertUnityResponse(response, result.Response);
         Assert.Equal(1, sessionTokenProvider.CallCount);
         Assert.Equal(1, transportClient.CallCount);
         Assert.Equal("daemon-token", transportClient.LastRequest!.SessionToken);
         Assert.Equal(IpcMethodNames.OpsRead, transportClient.LastRequest.Method);
+    }
+
+    private static void AssertUnityResponse (
+        IpcResponse expected,
+        UnityRequestResponse? actual)
+    {
+        Assert.NotNull(actual);
+        Assert.False(actual!.HasFailureStatus);
+        Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
+        Assert.Equal(expected.Errors.Count, actual.Errors.Count);
+        for (var i = 0; i < expected.Errors.Count; i++)
+        {
+            Assert.Equal(expected.Errors[i].Code, actual.Errors[i].Code);
+            Assert.Equal(expected.Errors[i].Message, actual.Errors[i].Message);
+            Assert.Equal(expected.Errors[i].OpId, actual.Errors[i].OpId);
+        }
     }
 
     [Fact]

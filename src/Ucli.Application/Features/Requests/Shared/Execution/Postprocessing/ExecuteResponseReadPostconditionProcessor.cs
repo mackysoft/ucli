@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -8,7 +9,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Postproc
 /// <summary> Applies mutation read-postcondition persistence policy to converted execute responses. </summary>
 internal static class ExecuteResponseReadPostconditionProcessor
 {
-    public static async ValueTask<(ExecuteResponseConversionResult Response, IpcError? PersistenceError)> Persist (
+    public static async ValueTask<(ExecuteResponseConversionResult Response, OperationExecutionError? PersistenceError)> Persist (
         ExecuteResponseConversionResult response,
         IMutationReadPostconditionStore store,
         string storageRoot,
@@ -31,7 +32,7 @@ internal static class ExecuteResponseReadPostconditionProcessor
             return (response, null);
         }
 
-        var persistenceError = new IpcError(
+        var persistenceError = new OperationExecutionError(
             IpcErrorCodes.InternalError,
             persistenceFailure.Message,
             null);
@@ -44,14 +45,14 @@ internal static class ExecuteResponseReadPostconditionProcessor
             persistenceError);
     }
 
-    private static IReadOnlyList<IpcError> AppendError (
-        IReadOnlyList<IpcError> errors,
-        IpcError persistenceError)
+    private static IReadOnlyList<OperationExecutionError> AppendError (
+        IReadOnlyList<OperationExecutionError> errors,
+        OperationExecutionError persistenceError)
     {
         ArgumentNullException.ThrowIfNull(errors);
         ArgumentNullException.ThrowIfNull(persistenceError);
 
-        var mergedErrors = new IpcError[errors.Count + 1];
+        var mergedErrors = new OperationExecutionError[errors.Count + 1];
         for (var i = 0; i < errors.Count; i++)
         {
             mergedErrors[i] = errors[i];

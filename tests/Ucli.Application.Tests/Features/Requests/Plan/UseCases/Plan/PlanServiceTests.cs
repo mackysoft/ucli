@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Configuration;
@@ -356,21 +357,26 @@ public sealed class PlanServiceTests
             FallbackReason: fallbackReason);
     }
 
-    private static IpcResponse CreateResponse (
+    private static UnityRequestResponse CreateResponse (
         string status,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken)
     {
-        return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-1",
-            Status: status,
+        var mappedErrors = new OperationExecutionError[errors.Count];
+        for (var i = 0; i < errors.Count; i++)
+        {
+            var error = errors[i];
+            mappedErrors[i] = new OperationExecutionError(error.Code, error.Message, error.OpId);
+        }
+
+        return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse(opResults)
             {
                 PlanToken = planToken,
             }),
-            Errors: errors);
+            Errors: mappedErrors,
+            HasFailureStatus: !string.Equals(status, IpcProtocol.StatusOk, StringComparison.Ordinal));
     }
 
     private sealed class StubRequestStaticValidationPreflightService : IRequestStaticValidationPreflightService
