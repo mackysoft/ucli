@@ -1,4 +1,3 @@
-using System.Security;
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Infrastructure.Cryptography;
@@ -50,7 +49,7 @@ internal sealed class LaunchdSupervisorProcessLauncher
                 FileSystemAccessBoundary.EnsureSecureDirectory(plistDirectoryPath);
             }
 
-            var plistContents = BuildLaunchAgentPlist(label, launchCommand, normalizedStorageRoot, logPath);
+            var plistContents = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, normalizedStorageRoot, logPath);
             await FileUtilities.WriteAllTextAtomically(plistPath, plistContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
 
             await processRunner.RunIgnoringExitCode(
@@ -100,48 +99,6 @@ internal sealed class LaunchdSupervisorProcessLauncher
         return result.ExitCode == 0 && output.Length > 0 ? output : null;
     }
 
-    private static string BuildLaunchAgentPlist (
-        string label,
-        SupervisorLaunchCommand launchCommand,
-        string storageRoot,
-        string logPath)
-    {
-        var escapedLabel = EscapeXml(label);
-        var escapedStorageRoot = EscapeXml(storageRoot);
-        var escapedLogPath = EscapeXml(logPath);
-
-        var builder = new StringBuilder();
-        builder.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-        builder.AppendLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
-        builder.AppendLine("<plist version=\"1.0\">");
-        builder.AppendLine("<dict>");
-        builder.AppendLine("  <key>Label</key>");
-        builder.AppendLine($"  <string>{escapedLabel}</string>");
-        builder.AppendLine("  <key>ProgramArguments</key>");
-        builder.AppendLine("  <array>");
-        builder.AppendLine($"    <string>{EscapeXml(launchCommand.FileName)}</string>");
-        for (var i = 0; i < launchCommand.Arguments.Count; i++)
-        {
-            builder.AppendLine($"    <string>{EscapeXml(launchCommand.Arguments[i])}</string>");
-        }
-
-        builder.AppendLine($"    <string>{EscapeXml(SupervisorConstants.InternalServeFlag)}</string>");
-        builder.AppendLine($"    <string>{EscapeXml(SupervisorConstants.RepositoryRootOption)}</string>");
-        builder.AppendLine($"    <string>{escapedStorageRoot}</string>");
-        builder.AppendLine("  </array>");
-        builder.AppendLine("  <key>WorkingDirectory</key>");
-        builder.AppendLine($"  <string>{escapedStorageRoot}</string>");
-        builder.AppendLine("  <key>RunAtLoad</key>");
-        builder.AppendLine("  <true/>");
-        builder.AppendLine("  <key>StandardOutPath</key>");
-        builder.AppendLine($"  <string>{escapedLogPath}</string>");
-        builder.AppendLine("  <key>StandardErrorPath</key>");
-        builder.AppendLine($"  <string>{escapedLogPath}</string>");
-        builder.AppendLine("</dict>");
-        builder.AppendLine("</plist>");
-        return builder.ToString();
-    }
-
     private static string BuildLaunchdLabel (string normalizedStorageRoot)
     {
         return "dev.mackysoft.ucli.supervisor." + BuildIdentityHash(normalizedStorageRoot)[..16];
@@ -150,11 +107,5 @@ internal sealed class LaunchdSupervisorProcessLauncher
     private static string BuildIdentityHash (string normalizedStorageRoot)
     {
         return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(normalizedStorageRoot));
-    }
-
-    private static string EscapeXml (string value)
-    {
-        return SecurityElement.Escape(value)
-            ?? throw new InvalidOperationException("XML escaping failed.");
     }
 }

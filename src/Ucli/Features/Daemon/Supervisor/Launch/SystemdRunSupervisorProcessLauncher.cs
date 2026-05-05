@@ -33,21 +33,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
         {
             var normalizedStorageRoot = Path.GetFullPath(storageRoot);
             var unitName = BuildSystemdUnitName(normalizedStorageRoot);
-            var arguments = new List<string>
-            {
-                "--user",
-                "--quiet",
-                "--collect",
-                "--unit",
-                unitName,
-                "--working-directory",
-                normalizedStorageRoot,
-                launchCommand.FileName,
-            };
-            arguments.AddRange(launchCommand.Arguments);
-            arguments.Add(SupervisorConstants.InternalServeFlag);
-            arguments.Add(SupervisorConstants.RepositoryRootOption);
-            arguments.Add(normalizedStorageRoot);
+            var arguments = BuildArguments(normalizedStorageRoot, unitName, launchCommand);
 
             var launchResult = await processRunner.Run(
                     "systemd-run",
@@ -75,6 +61,29 @@ internal sealed class SystemdRunSupervisorProcessLauncher
     private static string BuildSystemdUnitName (string normalizedStorageRoot)
     {
         return "mackysoft-ucli-supervisor-" + BuildIdentityHash(normalizedStorageRoot)[..16];
+    }
+
+    internal static IReadOnlyList<string> BuildArguments (
+        string normalizedStorageRoot,
+        string unitName,
+        SupervisorLaunchCommand launchCommand)
+    {
+        ArgumentNullException.ThrowIfNull(launchCommand);
+
+        var arguments = new List<string>
+        {
+            "--user",
+            "--quiet",
+            "--collect",
+            "--unit",
+            unitName,
+            "--working-directory",
+            normalizedStorageRoot,
+            launchCommand.FileName,
+        };
+        arguments.AddRange(launchCommand.Arguments);
+        arguments.AddRange(SupervisorInvocationArguments.Build(normalizedStorageRoot));
+        return arguments;
     }
 
     private static string BuildIdentityHash (string normalizedStorageRoot)

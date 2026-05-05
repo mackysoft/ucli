@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Hosting.Cli.Common.Parsing;
+namespace MackySoft.Ucli.Hosting.Cli.Common.Tokens;
 
 /// <summary> Provides reusable classifiers for command-line token semantics. </summary>
 internal static class CommandTokenClassifier
