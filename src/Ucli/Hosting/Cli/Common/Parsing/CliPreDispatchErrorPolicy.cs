@@ -31,6 +31,8 @@ internal static class CliPreDispatchErrorPolicy
             var invalidSubcommandResult = SubcommandValidationHelper.TryCreateInvalidSubcommandResult(
                 args,
                 firstArgument,
+                firstArgument,
+                subcommandArgumentIndex: 1,
                 supportedSubcommands);
             if (invalidSubcommandResult != null)
             {
@@ -86,30 +88,11 @@ internal static class CliPreDispatchErrorPolicy
         }
 
         var group = args[1];
-        if (args.Length == 2)
-        {
-            return CommandResult.InvalidArgument(
-                command: commandName,
-                message: $"Subcommand is required for command '{commandName} {group}'. Supported subcommands: {string.Join(", ", supportedSubcommands)}.");
-        }
-
-        var subcommand = args[2];
-        if (CommandTokenClassifier.IsHelpOptionToken(subcommand)
-            || CommandTokenClassifier.IsVersionOptionToken(subcommand))
-        {
-            return null;
-        }
-
-        for (var i = 0; i < supportedSubcommands.Count; i++)
-        {
-            if (string.Equals(subcommand, supportedSubcommands[i], StringComparison.Ordinal))
-            {
-                return null;
-            }
-        }
-
-        return CommandResult.InvalidArgument(
-            command: commandName,
-            message: $"Subcommand '{subcommand}' is not recognized for command '{commandName} {group}'.");
+        return SubcommandValidationHelper.TryCreateInvalidSubcommandResult(
+            args,
+            commandName,
+            $"{commandName} {group}",
+            subcommandArgumentIndex: 2,
+            supportedSubcommands);
     }
 }
