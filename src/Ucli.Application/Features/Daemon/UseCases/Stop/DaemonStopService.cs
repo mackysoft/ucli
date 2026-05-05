@@ -1,14 +1,13 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -23,7 +22,7 @@ internal sealed class DaemonStopService : IDaemonStopService
 {
     private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
 
-    private readonly ISupervisorProjectGateway supervisorProjectGateway;
+    private readonly IDaemonProjectLifecycleGateway daemonProjectLifecycleGateway;
 
     private readonly IDaemonStopOperation daemonStopOperation;
 
@@ -31,18 +30,18 @@ internal sealed class DaemonStopService : IDaemonStopService
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStopService" /> class. </summary>
     /// <param name="daemonCommandExecutionContextResolver"> The daemon-command execution-context resolver dependency. </param>
-    /// <param name="supervisorProjectGateway"> The supervisor project-gateway dependency. </param>
+    /// <param name="daemonProjectLifecycleGateway"> The daemon project-lifecycle gateway dependency. </param>
     /// <param name="daemonStopOperation"> The daemon stop-operation dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStopService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
-        ISupervisorProjectGateway supervisorProjectGateway,
+        IDaemonProjectLifecycleGateway daemonProjectLifecycleGateway,
         IDaemonStopOperation daemonStopOperation,
         TimeProvider? timeProvider = null)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
-        this.supervisorProjectGateway = supervisorProjectGateway ?? throw new ArgumentNullException(nameof(supervisorProjectGateway));
+        this.daemonProjectLifecycleGateway = daemonProjectLifecycleGateway ?? throw new ArgumentNullException(nameof(daemonProjectLifecycleGateway));
         this.daemonStopOperation = daemonStopOperation ?? throw new ArgumentNullException(nameof(daemonStopOperation));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
@@ -73,11 +72,11 @@ internal sealed class DaemonStopService : IDaemonStopService
         var executionContext = contextResult.Context!;
         var deadline = ExecutionDeadline.Start(executionContext.Timeout, timeProvider);
         DaemonStopResult? stopResult = null;
-        if (deadline.TryGetRemainingTimeout(out var supervisorTimeout))
+        if (deadline.TryGetRemainingTimeout(out var projectLifecycleTimeout))
         {
-            stopResult = await supervisorProjectGateway.TryStopProject(
+            stopResult = await daemonProjectLifecycleGateway.TryStopProject(
                     executionContext.Context.UnityProject,
-                    supervisorTimeout,
+                    projectLifecycleTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
         }

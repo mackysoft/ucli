@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
-using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
@@ -89,7 +88,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<ISupervisorProcessLauncher>(provider => provider.GetRequiredService<SupervisorProcessLauncher>());
         services.AddSingleton<SupervisorBootstrapper>();
         services.AddSingleton<SupervisorClient>();
-        services.AddSingleton<ISupervisorProjectGateway, SupervisorProjectGateway>();
+        services.AddSingleton<IDaemonProjectLifecycleGateway, SupervisorProjectGateway>();
         services.AddSingleton<SupervisorHost>();
         return services;
     }

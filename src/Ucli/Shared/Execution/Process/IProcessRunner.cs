@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Execution.Process;
+namespace MackySoft.Ucli.Shared.Execution.Process;
 
 /// <summary> Runs external processes with timeout and cancellation support. </summary>
 internal interface IProcessRunner

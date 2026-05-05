@@ -1,14 +1,13 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
-using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
-using MackySoft.Ucli.Application.Shared.Execution.Process;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -22,7 +21,7 @@ internal sealed class DaemonStartService : IDaemonStartService
 {
     private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
 
-    private readonly ISupervisorProjectGateway supervisorProjectGateway;
+    private readonly IDaemonProjectLifecycleGateway daemonProjectLifecycleGateway;
 
     private readonly IUnityPluginVerifier unityPluginVerifier;
 
@@ -32,20 +31,20 @@ internal sealed class DaemonStartService : IDaemonStartService
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartService" /> class. </summary>
     /// <param name="daemonCommandExecutionContextResolver"> The daemon-command execution-context resolver dependency. </param>
-    /// <param name="supervisorProjectGateway"> The supervisor project-gateway dependency. </param>
+    /// <param name="daemonProjectLifecycleGateway"> The daemon project-lifecycle gateway dependency. </param>
     /// <param name="unityPluginVerifier"> The Unity uCLI plugin-verifier dependency. </param>
     /// <param name="daemonSessionOutputMapper"> The daemon session-output mapper dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartService (
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
-        ISupervisorProjectGateway supervisorProjectGateway,
+        IDaemonProjectLifecycleGateway daemonProjectLifecycleGateway,
         IUnityPluginVerifier unityPluginVerifier,
         IDaemonSessionOutputMapper daemonSessionOutputMapper,
         TimeProvider? timeProvider = null)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
-        this.supervisorProjectGateway = supervisorProjectGateway ?? throw new ArgumentNullException(nameof(supervisorProjectGateway));
+        this.daemonProjectLifecycleGateway = daemonProjectLifecycleGateway ?? throw new ArgumentNullException(nameof(daemonProjectLifecycleGateway));
         this.unityPluginVerifier = unityPluginVerifier ?? throw new ArgumentNullException(nameof(unityPluginVerifier));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
         this.timeProvider = timeProvider ?? TimeProvider.System;
@@ -89,10 +88,10 @@ internal sealed class DaemonStartService : IDaemonStartService
         if (!deadline.TryGetRemainingTimeout(out var ensureRunningTimeout))
         {
             return DaemonStartExecutionResult.Failure(ExecutionError.Timeout(
-                "Timed out before supervisor orchestration could begin."));
+                "Timed out before daemon lifecycle orchestration could begin."));
         }
 
-        var startResult = await supervisorProjectGateway.EnsureRunning(
+        var startResult = await daemonProjectLifecycleGateway.EnsureRunning(
                 executionContext.Context.UnityProject,
                 ensureRunningTimeout,
                 cancellationToken)

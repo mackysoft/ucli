@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Git;
+namespace MackySoft.Ucli.Shared.Git;
 
 /// <summary> Gets raw text results from Git commands anchored at one path. </summary>
 internal interface IGitCommandClient

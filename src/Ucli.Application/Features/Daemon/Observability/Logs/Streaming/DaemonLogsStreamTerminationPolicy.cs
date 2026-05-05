@@ -14,7 +14,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 

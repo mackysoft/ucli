@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Git;
+namespace MackySoft.Ucli.Shared.Git;
 
 /// <summary> Parses <c>git worktree list --porcelain</c> output into normalized worktree metadata. </summary>
 internal interface IGitWorktreeListPorcelainParser

@@ -1,6 +1,6 @@
 using System.Xml.Linq;
 
-namespace MackySoft.Ucli.Application.Tests.Architecture;
+namespace MackySoft.Ucli.Architecture.Tests.Architecture;
 
 public sealed class ProjectBoundaryTests
 {
@@ -55,6 +55,7 @@ public sealed class ProjectBoundaryTests
     {
         var expectedReferencesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
+            ["tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj"] = [],
             ["tests/Tests.Helper/Tests.Helper.csproj"] = [],
             ["tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj"] =
             [
@@ -145,6 +146,7 @@ public sealed class ProjectBoundaryTests
         {
             "MackySoft.Ucli.Hosting",
             "MackySoft.Ucli.Infrastructure",
+            "MackySoft.Ucli.Shared",
             "MackySoft.Ucli.UnityIntegration",
         };
 
@@ -174,9 +176,17 @@ public sealed class ProjectBoundaryTests
             "Directory.",
             "Environment.",
             "System.Net.Sockets",
+            "System.Net.",
             "SocketException",
             "FileStream",
+            "FileInfo",
             "DirectoryInfo",
+            "HttpClient",
+            "IProcessRunner",
+            "ProcessRunRequest",
+            "ProcessRunResult",
+            "ProcessRunStatus",
+            "ProcessOutputDrainMode",
         };
 
         var applicationSourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Application");
@@ -242,6 +252,62 @@ public sealed class ProjectBoundaryTests
             .ToArray();
 
         Assert.Empty(hostFeatureFiles);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Application_project_does_not_own_host_adapter_detail_contracts ()
+    {
+        var forbiddenPaths = new[]
+        {
+            "src/Ucli.Application/Features/Daemon/Supervisor",
+            "src/Ucli.Application/Shared/Execution/Process",
+            "src/Ucli.Application/Shared/Git/IGitCommandClient.cs",
+            "src/Ucli.Application/Shared/Git/GitCommandTextResult.cs",
+            "src/Ucli.Application/Shared/Git/IGitWorktreeListPorcelainParser.cs",
+            "src/Ucli.Application/Shared/Git/GitWorktreeListParseResult.cs",
+        };
+
+        foreach (var forbiddenPath in forbiddenPaths)
+        {
+            Assert.False(
+                Directory.Exists(Path.Combine(RepositoryRoot, forbiddenPath))
+                || File.Exists(Path.Combine(RepositoryRoot, forbiddenPath)),
+                $"Application project must not own host adapter detail contract: {forbiddenPath}");
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Application_source_does_not_reintroduce_host_adapter_detail_contract_markers ()
+    {
+        var forbiddenSourceMarkers = new[]
+        {
+            "namespace MackySoft.Ucli.Application.Features.Daemon.Supervisor",
+            "ISupervisor",
+            "IGitCommandClient",
+            "GitCommandTextResult",
+            "IGitWorktreeListPorcelainParser",
+            "GitWorktreeListParseResult",
+            "git worktree list --porcelain",
+            "rev-parse",
+            "IProcessRunner",
+            "ProcessRunRequest",
+            "ProcessRunResult",
+            "ProcessRunStatus",
+            "ProcessOutputDrainMode",
+        };
+
+        var applicationSourceFiles = EnumerateCSharpSourceFiles("src/Ucli.Application");
+
+        foreach (var sourceFile in applicationSourceFiles)
+        {
+            var sourceText = File.ReadAllText(sourceFile);
+            foreach (var marker in forbiddenSourceMarkers)
+            {
+                Assert.DoesNotContain(marker, sourceText, StringComparison.Ordinal);
+            }
+        }
     }
 
     [Fact]

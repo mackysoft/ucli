@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Execution.Process;
+namespace MackySoft.Ucli.Shared.Execution.Process;
 
 /// <summary> Represents one process execution result. </summary>
 /// <param name="Status"> The process status. </param>

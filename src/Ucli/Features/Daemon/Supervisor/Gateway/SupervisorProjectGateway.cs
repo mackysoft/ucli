@@ -14,7 +14,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
@@ -29,8 +28,8 @@ using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Gateway;
 
-/// <summary> Encapsulates supervisor bootstrap, reachability, and project control flows. </summary>
-internal sealed class SupervisorProjectGateway : ISupervisorProjectGateway
+/// <summary> Encapsulates supervisor bootstrap, reachability, and project control flows for the daemon lifecycle port. </summary>
+internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
 {
     private readonly SupervisorBootstrapper supervisorBootstrapper;
 

@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Shared.Git;
+namespace MackySoft.Ucli.Shared.Git;
 
 /// <summary> Represents one raw text result returned from a Git command. </summary>
 /// <param name="Text"> The command text output on success; otherwise <see langword="null" />. </param>

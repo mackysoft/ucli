@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Git;
 
-namespace MackySoft.Ucli.Application.Shared.Git;
+namespace MackySoft.Ucli.Shared.Git;
 
 /// <summary> Represents the result of parsing <c>git worktree list --porcelain</c> output. </summary>
 /// <param name="Worktrees"> The parsed Git worktree entries on success; otherwise <see langword="null" />. </param>

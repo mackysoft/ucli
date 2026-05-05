@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Execution.Process;
+namespace MackySoft.Ucli.Shared.Execution.Process;
 
 /// <summary> Represents process execution status values. </summary>
 internal enum ProcessRunStatus

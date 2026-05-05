@@ -13,7 +13,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
-using MackySoft.Ucli.Application.Features.Daemon.Supervisor.Gateway;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Host;

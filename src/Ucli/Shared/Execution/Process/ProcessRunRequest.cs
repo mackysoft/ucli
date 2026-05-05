@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Shared.Execution.Process;
+namespace MackySoft.Ucli.Shared.Execution.Process;
 
 /// <summary> Represents process execution request values. </summary>
 /// <param name="FileName"> The executable file path. </param>

@@ -7,6 +7,7 @@
     <Project Path="src/Ucli/Ucli.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Ucli.Architecture.Tests/Ucli.Architecture.Tests.csproj" />
     <Project Path="tests/Ucli.Application.Tests/Ucli.Application.Tests.csproj" />
     <Project Path="tests/Ucli.Contracts.Tests/Ucli.Contracts.Tests.csproj" />
     <Project Path="tests/Ucli.Infrastructure.Tests/Ucli.Infrastructure.Tests.csproj" />
