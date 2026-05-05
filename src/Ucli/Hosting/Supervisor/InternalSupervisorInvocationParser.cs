@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
+
 namespace MackySoft.Ucli.Hosting.Supervisor;
 
 /// <summary> Parses the hidden supervisor-host process arguments. </summary>

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
+
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorInvocationArgumentsTests

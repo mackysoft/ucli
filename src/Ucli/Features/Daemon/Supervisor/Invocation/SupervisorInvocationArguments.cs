@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
+namespace MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
 
 /// <summary> Defines hidden command-line arguments used to launch the worktree-local supervisor. </summary>
 internal static class SupervisorInvocationArguments

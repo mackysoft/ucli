@@ -1,8 +1,9 @@
 using System.Xml.Linq;
+using MackySoft.Ucli.Features.Daemon.Supervisor.Invocation;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
-public sealed class LaunchAgentPlistXmlBuilderTests
+public sealed class LaunchAgentPlistDocumentFactoryTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -13,7 +14,7 @@ public sealed class LaunchAgentPlistXmlBuilderTests
         const string logPath = "/repo/supervisor.log";
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);
 
-        var plist = LaunchAgentPlistXmlBuilder.Build(label, launchCommand, storageRoot, logPath);
+        var plist = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, storageRoot, logPath);
         var document = XDocument.Parse(plist);
 
         Assert.Contains("<!DOCTYPE plist PUBLIC", plist, StringComparison.Ordinal);
@@ -44,7 +45,7 @@ public sealed class LaunchAgentPlistXmlBuilderTests
         const string logPath = "/repo/log<&>.txt";
         var launchCommand = new SupervisorLaunchCommand("ucli<&>", ["--arg<&>"]);
 
-        var plist = LaunchAgentPlistXmlBuilder.Build(label, launchCommand, storageRoot, logPath);
+        var plist = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, storageRoot, logPath);
         var document = XDocument.Parse(plist);
 
         Assert.Equal(label, GetString(document, "Label"));
