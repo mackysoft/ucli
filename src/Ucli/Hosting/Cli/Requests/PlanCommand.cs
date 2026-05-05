@@ -1,11 +1,11 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
-using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Preflight;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
+using MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 

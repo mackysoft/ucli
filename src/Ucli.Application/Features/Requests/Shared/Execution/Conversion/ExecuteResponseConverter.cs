@@ -36,7 +36,7 @@ internal static class ExecuteResponseConverter
             return CreateInvalidPayloadFailure(errorsValidationError);
         }
 
-        var normalizedErrors = NormalizeErrors(response.HasFailureStatus, response.Errors);
+        var normalizedErrors = NormalizeErrors(response.HasFailureStatus, response.FailureStatus, response.Errors);
         var validatedPayload = payload!;
         return new ExecuteResponseConversionResult(
             OpResults: OperationExecutionModelMapper.MapOpResults(validatedPayload.OpResults),
@@ -77,6 +77,7 @@ internal static class ExecuteResponseConverter
 
     private static IReadOnlyList<OperationExecutionError> NormalizeErrors (
         bool hasFailureStatus,
+        string? failureStatus,
         IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
@@ -95,7 +96,9 @@ internal static class ExecuteResponseConverter
         [
             new OperationExecutionError(
                 IpcErrorCodes.InternalError,
-                "Execute response failed with an error status.",
+                string.IsNullOrWhiteSpace(failureStatus)
+                    ? "Execute response failed with an error status."
+                    : $"Execute response failed with status '{failureStatus}'.",
                 null),
         ];
     }
@@ -138,6 +141,12 @@ internal static class ExecuteResponseConverter
                 return false;
             }
 
+            if (!IsKnownOperationPhase(opResult.Phase))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].phase' value is unsupported. Actual: {opResult.Phase}";
+                return false;
+            }
+
             if (opResult.Touched is null)
             {
                 errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].touched' field is missing.";
@@ -155,6 +164,12 @@ internal static class ExecuteResponseConverter
                 if (IsMissingRequiredString(opResult.Touched[touchedIndex].Kind))
                 {
                     errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].touched[{touchedIndex}].kind' field is missing.";
+                    return false;
+                }
+
+                if (!IsKnownTouchedResourceKind(opResult.Touched[touchedIndex].Kind))
+                {
+                    errorMessage = $"Execute response payload is invalid. The 'opResults[{opResultIndex}].touched[{touchedIndex}].kind' value is unsupported. Actual: {opResult.Touched[touchedIndex].Kind}";
                     return false;
                 }
 
@@ -188,6 +203,12 @@ internal static class ExecuteResponseConverter
             if (IsMissingRequiredString(payload.ReadPostcondition.Requirements[requirementIndex].Surface))
             {
                 errorMessage = $"Execute response payload is invalid. The 'readPostcondition.requirements[{requirementIndex}].surface' field is missing.";
+                return false;
+            }
+
+            if (!IsKnownReadPostconditionSurface(payload.ReadPostcondition.Requirements[requirementIndex].Surface))
+            {
+                errorMessage = $"Execute response payload is invalid. The 'readPostcondition.requirements[{requirementIndex}].surface' value is unsupported. Actual: {payload.ReadPostcondition.Requirements[requirementIndex].Surface}";
                 return false;
             }
         }
@@ -233,6 +254,29 @@ internal static class ExecuteResponseConverter
     private static bool IsMissingRequiredString (string? value)
     {
         return string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool IsKnownOperationPhase (string phase)
+    {
+        return phase is IpcExecuteOperationPhaseNames.Validate
+            or IpcExecuteOperationPhaseNames.Plan
+            or IpcExecuteOperationPhaseNames.Call
+            or IpcExecuteOperationPhaseNames.Skipped;
+    }
+
+    private static bool IsKnownTouchedResourceKind (string kind)
+    {
+        return kind is IpcExecuteTouchedResourceKindNames.Scene
+            or IpcExecuteTouchedResourceKindNames.Prefab
+            or IpcExecuteTouchedResourceKindNames.Asset
+            or IpcExecuteTouchedResourceKindNames.ProjectSettings;
+    }
+
+    private static bool IsKnownReadPostconditionSurface (string surface)
+    {
+        return surface is IpcExecuteReadPostconditionSurfaceNames.AssetSearch
+            or IpcExecuteReadPostconditionSurfaceNames.GuidPath
+            or IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite;
     }
 
     private static ExecuteResponseConversionResult CreateInvalidPayloadFailure (string message)

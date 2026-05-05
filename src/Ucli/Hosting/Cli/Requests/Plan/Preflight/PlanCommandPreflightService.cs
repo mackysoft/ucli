@@ -2,7 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Contracts.Configuration;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Preflight;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 
 /// <summary> Prepares base payload data for <c>plan</c> command failures that occur after option parsing. </summary>
 internal sealed class PlanCommandPreflightService : IPlanCommandPreflightService

@@ -21,9 +21,7 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 using MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
-using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Preflight;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
-using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Preflight;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Refresh.UseCases.Refresh;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
@@ -97,12 +95,10 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IRequestStaticValidator, RequestStaticValidator>();
         services.AddSingleton<IRequestStaticValidationService, RequestStaticValidationService>();
 
-        services.AddSingleton<IPlanCommandPreflightService, PlanCommandPreflightService>();
         services.AddSingleton<IPlanService, PlanService>();
 
         services.AddSingleton<ICallDangerousOperationGuard, CallDangerousOperationGuard>();
         services.AddSingleton<ICallUnityExecutionService, CallUnityExecutionService>();
-        services.AddSingleton<ICallCommandPreflightService, CallCommandPreflightService>();
         services.AddSingleton<ICallService, CallService>();
 
         services.AddSingleton<IQueryService, QueryService>();

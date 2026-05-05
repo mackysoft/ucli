@@ -1,6 +1,8 @@
-namespace MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using ApplicationUnityExecutionMode = MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode;
 
-/// <summary> Converts Unity execution mode values between raw literals and typed values. </summary>
+namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode;
+
+/// <summary> Converts Unity execution mode values between raw host literals and typed values. </summary>
 internal static class UnityExecutionModeCodec
 {
     private const string AutoValue = "auto";
@@ -9,17 +11,17 @@ internal static class UnityExecutionModeCodec
 
     private const string OneshotValue = "oneshot";
 
-    /// <summary> Parses one <c>--mode</c> option value into <see cref="UnityExecutionMode" />. </summary>
-    /// <param name="value"> The raw CLI option value. <see langword="null" /> is normalized to <c>auto</c>; empty or whitespace are treated as invalid. </param>
+    /// <summary> Parses one execution-mode literal into <see cref="ApplicationUnityExecutionMode" />. </summary>
+    /// <param name="value"> The raw option value. <see langword="null" /> is normalized to <c>auto</c>; empty or whitespace are invalid. </param>
     /// <param name="mode"> The parsed mode when parsing succeeds; otherwise the default enum value. </param>
     /// <returns> <see langword="true" /> when parsing succeeded; otherwise <see langword="false" />. </returns>
     public static bool TryParse (
         string? value,
-        out UnityExecutionMode mode)
+        out ApplicationUnityExecutionMode mode)
     {
         if (value is null)
         {
-            mode = UnityExecutionMode.Auto;
+            mode = ApplicationUnityExecutionMode.Auto;
             return true;
         }
 
@@ -32,19 +34,19 @@ internal static class UnityExecutionModeCodec
         var normalizedValue = value.Trim();
         if (string.Equals(normalizedValue, AutoValue, StringComparison.OrdinalIgnoreCase))
         {
-            mode = UnityExecutionMode.Auto;
+            mode = ApplicationUnityExecutionMode.Auto;
             return true;
         }
 
         if (string.Equals(normalizedValue, DaemonValue, StringComparison.OrdinalIgnoreCase))
         {
-            mode = UnityExecutionMode.Daemon;
+            mode = ApplicationUnityExecutionMode.Daemon;
             return true;
         }
 
         if (string.Equals(normalizedValue, OneshotValue, StringComparison.OrdinalIgnoreCase))
         {
-            mode = UnityExecutionMode.Oneshot;
+            mode = ApplicationUnityExecutionMode.Oneshot;
             return true;
         }
 
@@ -52,17 +54,17 @@ internal static class UnityExecutionModeCodec
         return false;
     }
 
-    /// <summary> Converts one Unity execution mode value to the canonical CLI literal. </summary>
+    /// <summary> Converts one Unity execution mode value to the canonical host literal. </summary>
     /// <param name="mode"> The execution mode value. </param>
-    /// <returns> The canonical CLI literal. </returns>
+    /// <returns> The canonical host literal. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="mode" /> is unsupported. </exception>
-    public static string ToValue (UnityExecutionMode mode)
+    public static string ToValue (ApplicationUnityExecutionMode mode)
     {
         return mode switch
         {
-            UnityExecutionMode.Auto => AutoValue,
-            UnityExecutionMode.Daemon => DaemonValue,
-            UnityExecutionMode.Oneshot => OneshotValue,
+            ApplicationUnityExecutionMode.Auto => AutoValue,
+            ApplicationUnityExecutionMode.Daemon => DaemonValue,
+            ApplicationUnityExecutionMode.Oneshot => OneshotValue,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported execution mode."),
         };
     }

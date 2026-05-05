@@ -1,5 +1,3 @@
-global using MackySoft.Ucli.Application.Features.Init.UseCases.Init;
-global using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.ProfileInit;
 global using MackySoft.Ucli.Application.Shared.Context.Project;
 global using MackySoft.Ucli.Application.Shared.Execution;
 global using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;

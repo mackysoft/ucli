@@ -2,7 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Preflight;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 
 /// <summary> Represents the command preflight outcome for one <c>plan</c> invocation. </summary>
 /// <param name="Output"> The base payload used to preserve the command contract on later failures. </param>

@@ -17,9 +17,11 @@ internal static class UnityRequestResponseTestFactory
             errors[i] = new OperationExecutionError(error.Code, error.Message, error.OpId);
         }
 
+        var hasFailureStatus = !string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal);
         return new UnityRequestResponse(
             Payload: response.Payload,
             Errors: errors,
-            HasFailureStatus: !string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal));
+            HasFailureStatus: hasFailureStatus,
+            FailureStatus: hasFailureStatus ? response.Status : null);
     }
 }

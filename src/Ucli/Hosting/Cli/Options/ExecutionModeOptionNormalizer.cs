@@ -1,10 +1,14 @@
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Shared.Execution.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;
 
 /// <summary> Normalizes the CLI <c>--mode</c> option into a typed override. </summary>
 internal static class ExecutionModeOptionNormalizer
 {
+    private const string InvalidModeMessage = "Mode must be auto, daemon, or oneshot.";
+
     /// <summary> Normalizes one optional <c>--mode</c> value. </summary>
     /// <param name="optionValue"> The raw command option value. </param>
     /// <returns> The normalization result. </returns>
@@ -21,7 +25,7 @@ internal static class ExecutionModeOptionNormalizer
         }
 
         return ExecutionModeOptionNormalizationResult.Failure(
-            UnityExecutionModeDecisionResultFactory.CreateInvalidModeError());
+            ExecutionError.InvalidArgument(InvalidModeMessage));
     }
 
 }

@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Preflight;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Call.Preflight;
 
 /// <summary> Prepares base payload data for <c>call</c> command failures that occur after option parsing. </summary>
 internal sealed class CallCommandPreflightService : ICallCommandPreflightService

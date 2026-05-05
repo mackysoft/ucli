@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Configuration;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Preflight;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 
 /// <summary> Prepares the base payload required for <c>plan</c> command failures before execution begins. </summary>
 internal interface IPlanCommandPreflightService

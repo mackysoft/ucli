@@ -20,6 +20,8 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
 
     private readonly IUnityEditorPathResolver unityEditorPathResolver;
 
+    private readonly ITestRunPathNormalizer pathNormalizer;
+
     private readonly ITestRunPathExistenceProbe pathExistenceProbe;
 
     /// <summary> Initializes a new instance of the <see cref="TestRunConfigurationResolver" /> class. </summary>
@@ -33,6 +35,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         IUnityProjectResolver unityProjectResolver,
         IUnityVersionResolver unityVersionResolver,
         IUnityEditorPathResolver unityEditorPathResolver,
+        ITestRunPathNormalizer pathNormalizer,
         ITestRunPathExistenceProbe pathExistenceProbe)
     {
         this.profileLoader = profileLoader ?? throw new ArgumentNullException(nameof(profileLoader));
@@ -40,6 +43,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
+        this.pathNormalizer = pathNormalizer ?? throw new ArgumentNullException(nameof(pathNormalizer));
         this.pathExistenceProbe = pathExistenceProbe ?? throw new ArgumentNullException(nameof(pathExistenceProbe));
     }
 
@@ -79,6 +83,12 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             [
                 ExecutionError.InvalidArgument($"Path value is invalid. {exception.Message}"),
             ]);
+        }
+
+        var testSettingsPathNormalizationError = NormalizeTestSettingsPath(ref mergedConfiguration, pathNormalizer);
+        if (testSettingsPathNormalizationError is not null)
+        {
+            return TestRunConfigurationResolutionResult.Failure([testSettingsPathNormalizationError]);
         }
 
         var validationErrors = ValidateMergedConfiguration(mergedConfiguration, pathExistenceProbe);
@@ -141,6 +151,33 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
                    input.ProjectPath,
                    profile?.ProjectPath ?? DefaultProjectPath)
                ?? DefaultProjectPath;
+    }
+
+    private static ExecutionError? NormalizeTestSettingsPath (
+        ref MergedTestRunConfiguration configuration,
+        ITestRunPathNormalizer pathNormalizer)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(pathNormalizer);
+
+        if (configuration.TestSettingsPath is null)
+        {
+            return null;
+        }
+
+        if (pathNormalizer.TryNormalizeFullPath(
+                configuration.TestSettingsPath,
+                out var normalizedPath,
+                out var errorMessage))
+        {
+            configuration = configuration with
+            {
+                TestSettingsPath = normalizedPath,
+            };
+            return null;
+        }
+
+        return ExecutionError.InvalidArgument($"testSettingsPath is invalid: {errorMessage}");
     }
 
     /// <summary> Validates merged configuration values before project and editor resolution. </summary>

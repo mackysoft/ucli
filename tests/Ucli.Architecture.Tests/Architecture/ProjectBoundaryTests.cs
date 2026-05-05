@@ -393,6 +393,21 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Cli_host_test_global_usings_do_not_import_application_use_case_namespaces ()
+    {
+        var globalUsingsPath = Path.Combine(RepositoryRoot, "tests", "Ucli.Tests", "GlobalUsings.cs");
+        var sourceText = File.ReadAllText(globalUsingsPath);
+        var importsApplicationUseCaseNamespace = sourceText
+            .Split('\n')
+            .Any(IsApplicationUseCaseImport);
+
+        Assert.False(
+            importsApplicationUseCaseNamespace,
+            "CLI host tests must not import Application use case namespaces through global usings.");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Unity_request_port_does_not_expose_ipc_response_envelopes ()
     {
         var portFiles = new[]

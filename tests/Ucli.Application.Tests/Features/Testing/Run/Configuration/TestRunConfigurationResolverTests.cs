@@ -43,6 +43,7 @@ public sealed class TestRunConfigurationResolverTests
             unityProjectResolver,
             unityVersionResolver,
             unityEditorPathResolver,
+            new StubPathNormalizer(),
             new StubPathExistenceProbe(testSettingsPath));
 
         var input = new TestRunConfigurationRequest(
@@ -100,6 +101,7 @@ public sealed class TestRunConfigurationResolverTests
             unityProjectResolver,
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
             new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
+            new StubPathNormalizer(),
             new StubPathExistenceProbe());
 
         var input = new TestRunConfigurationRequest(
@@ -151,6 +153,7 @@ public sealed class TestRunConfigurationResolverTests
             unityProjectResolver,
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
             new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
+            new StubPathNormalizer(),
             new StubPathExistenceProbe());
 
         var input = new TestRunConfigurationRequest(
@@ -258,7 +261,42 @@ public sealed class TestRunConfigurationResolverTests
         Assert.Contains("testSettingsPath", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Resolve_WithRelativeTestSettingsPath_ReturnsNormalizedFullPath ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "relative-test-settings");
+        var relativeTestSettingsPath = Path.Combine("ProjectSettings", "TestSettings.json");
+        var normalizedTestSettingsPath = Path.GetFullPath(relativeTestSettingsPath);
+
+        var resolver = CreateResolverWithSuccessfulDependencies(scope, new StubPathExistenceProbe(normalizedTestSettingsPath));
+        var input = new TestRunConfigurationRequest(
+            ProjectPath: scope.GetPath("Unity"),
+            ProfilePath: null,
+            Mode: UnityExecutionMode.Auto,
+            UnityVersion: null,
+            UnityEditorPath: null,
+            TestPlatform: TestRunPlatform.EditMode,
+            TestFilter: null,
+            TestCategory: null,
+            AssemblyName: null,
+            TestSettingsPath: relativeTestSettingsPath,
+            TimeoutMilliseconds: 30);
+
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(normalizedTestSettingsPath, result.Configuration!.TestSettingsPath);
+    }
+
     private static TestRunConfigurationResolver CreateResolverWithSuccessfulDependencies (TestDirectoryScope scope)
+    {
+        return CreateResolverWithSuccessfulDependencies(scope, new StubPathExistenceProbe());
+    }
+
+    private static TestRunConfigurationResolver CreateResolverWithSuccessfulDependencies (
+        TestDirectoryScope scope,
+        ITestRunPathExistenceProbe pathExistenceProbe)
     {
         var unityProject = CreateUnityProjectContext(scope, "Unity");
 
@@ -268,7 +306,8 @@ public sealed class TestRunConfigurationResolverTests
             new StubUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject)),
             new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
             new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
-            new StubPathExistenceProbe());
+            new StubPathNormalizer(),
+            pathExistenceProbe);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProjectContext (
@@ -338,6 +377,19 @@ public sealed class TestRunConfigurationResolverTests
         public bool FileExists (string path)
         {
             return existingPaths.Contains(Path.GetFullPath(path));
+        }
+    }
+
+    private sealed class StubPathNormalizer : ITestRunPathNormalizer
+    {
+        public bool TryNormalizeFullPath (
+            string path,
+            out string? normalizedPath,
+            out string? errorMessage)
+        {
+            normalizedPath = Path.GetFullPath(path);
+            errorMessage = null;
+            return true;
         }
     }
 

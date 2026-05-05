@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Preflight;
+namespace MackySoft.Ucli.Hosting.Cli.Requests.Call.Preflight;
 
 /// <summary> Prepares the base payload required for <c>call</c> command failures before execution begins. </summary>
 internal interface ICallCommandPreflightService
