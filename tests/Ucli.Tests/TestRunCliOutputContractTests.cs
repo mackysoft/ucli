@@ -9,6 +9,44 @@ public sealed class TestRunCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Test_WithoutSubcommand_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommand(UcliCommandNames.Test);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.Test,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Test_WithUnknownSubcommand_ReturnsInvalidArgumentErrorAsSingleJson ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Test,
+            "unknown");
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            outputJson.RootElement,
+            command: UcliCommandNames.Test,
+            status: "error",
+            exitCode: (int)CliExitCode.InvalidArgument);
+        CommandResultAssert.HasSingleError(
+            outputJson.RootElement,
+            expectedCode: "INVALID_ARGUMENT");
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
     {
         var result = await CliProcessRunner.RunCommand(
