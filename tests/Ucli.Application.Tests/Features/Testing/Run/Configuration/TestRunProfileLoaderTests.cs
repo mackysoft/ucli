@@ -38,6 +38,36 @@ public sealed class TestRunProfileLoaderTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Load_WithCommaSeparatedListEntries_SplitsAndDeduplicatesValues ()
+    {
+        var loader = CreateLoader(
+            """
+            {
+              "schemaVersion": 1,
+              "projectPath": ".",
+              "unityVersion": null,
+              "unityEditorPath": null,
+              "testPlatform": "editmode",
+              "testFilter": null,
+              "testCategories": ["smoke, quick", "smoke", "nightly"],
+              "assemblyNames": ["Game.Tests, Game.MoreTests", "Game.Tests"],
+              "testSettingsPath": null,
+              "timeout": 90
+            }
+            """);
+
+        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var profile = Assert.IsType<TestRunProfile>(result.Profile);
+        Assert.NotNull(profile.TestCategories);
+        Assert.NotNull(profile.AssemblyNames);
+        Assert.Equal(["smoke", "quick", "nightly"], profile.TestCategories);
+        Assert.Equal(["Game.Tests", "Game.MoreTests"], profile.AssemblyNames);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Load_WithSchemaVersionMismatch_ReturnsInvalidArgument ()
     {
         var loader = CreateLoader(

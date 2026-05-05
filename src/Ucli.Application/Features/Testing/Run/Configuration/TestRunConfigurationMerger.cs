@@ -96,10 +96,9 @@ internal static class TestRunConfigurationMerger
         }
 
         return source
-            .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(static value => value.Trim())
+            .Where(static value => value.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
-
 }

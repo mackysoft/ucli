@@ -212,8 +212,8 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             UnityEditorPath = unityEditorPath,
             TestPlatform = testPlatform,
             TestFilter = testFilter,
-            TestCategories = testCategories,
-            AssemblyNames = assemblyNames,
+            TestCategories = NormalizeListValues(testCategories),
+            AssemblyNames = NormalizeListValues(assemblyNames),
             TestSettingsPath = testSettingsPath,
             Timeout = timeoutMilliseconds,
         };
@@ -251,6 +251,15 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
 
         errorMessage = null;
         return true;
+    }
+
+    private static string[] NormalizeListValues (string[] values)
+    {
+        return values
+            .SelectMany(static value => value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(static value => value.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static string CreateInt32TypeMismatchError (string propertyName)

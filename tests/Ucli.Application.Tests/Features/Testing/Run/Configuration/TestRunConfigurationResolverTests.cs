@@ -74,6 +74,54 @@ public sealed class TestRunConfigurationResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Resolve_WhenProfileListValuesContainWhitespaceAndDuplicates_TrimsAndDeduplicatesValues ()
+    {
+        using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "profile-list-values");
+        var profile = new TestRunProfile
+        {
+            SchemaVersion = 1,
+            ProjectPath = "./profile-project",
+            UnityVersion = null,
+            UnityEditorPath = null,
+            TestPlatform = "editmode",
+            TestFilter = null,
+            TestCategories = [" smoke ", "smoke", "", "nightly"],
+            AssemblyNames = [" Game.Tests ", "Game.Tests", "Game.MoreTests"],
+            TestSettingsPath = null,
+            Timeout = 30,
+        };
+
+        var resolver = new TestRunConfigurationResolver(
+            new StubProfileLoader(TestRunProfileLoadResult.Success(profile)),
+            new StubProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
+            new StubUnityProjectResolver(UnityProjectResolutionResult.Success(CreateUnityProjectContext(scope, "profile-project"))),
+            new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
+            new StubPathNormalizer(),
+            new StubPathExistenceProbe());
+
+        var input = new TestRunConfigurationRequest(
+            ProjectPath: null,
+            ProfilePath: scope.GetPath("test.profile.json"),
+            Mode: UnityExecutionMode.Auto,
+            UnityVersion: null,
+            UnityEditorPath: null,
+            TestPlatform: null,
+            TestFilter: null,
+            TestCategory: null,
+            AssemblyName: null,
+            TestSettingsPath: null,
+            TimeoutMilliseconds: null);
+
+        var result = await resolver.ResolveAsync(input, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["smoke", "nightly"], result.Configuration!.TestCategories);
+        Assert.Equal(["Game.Tests", "Game.MoreTests"], result.Configuration.AssemblyNames);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Resolve_WhenProjectPathInputResolverReturnsExternalPath_UsesResolvedPathBeforeProfile ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "environment-before-profile");
