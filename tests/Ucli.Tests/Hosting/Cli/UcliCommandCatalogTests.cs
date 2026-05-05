@@ -87,43 +87,6 @@ public sealed class UcliCommandCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryGetSupportedSubcommands_WhenQueryCommandSpecified_ReturnsQueryGroups ()
-    {
-        var found = UcliCommandCatalog.TryGetSupportedSubcommands(
-            UcliCommandNames.Query,
-            out var subcommands);
-
-        Assert.True(found);
-        Assert.Equal(
-            [
-                UcliCommandNames.AssetsSubcommand,
-                UcliCommandNames.SceneSubcommand,
-                UcliCommandNames.GoSubcommand,
-                UcliCommandNames.CompSubcommand,
-                UcliCommandNames.AssetSubcommand,
-            ],
-            subcommands);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryGetSupportedSubcommands_WhenTestCommandSpecified_ReturnsTestGroups ()
-    {
-        var found = UcliCommandCatalog.TryGetSupportedSubcommands(
-            UcliCommandNames.Test,
-            out var subcommands);
-
-        Assert.True(found);
-        Assert.Equal(
-            [
-                UcliCommandNames.RunSubcommand,
-                UcliCommandNames.Profile,
-            ],
-            subcommands);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void TryGetPreDispatchSupportedSubcommands_WhenDaemonCommandSpecified_ReturnsDaemonGroups ()
     {
         var found = UcliCommandCatalog.TryGetPreDispatchSupportedSubcommands(
@@ -154,16 +117,23 @@ public sealed class UcliCommandCatalogTests
         Assert.Empty(subcommands);
     }
 
-    [Fact]
+    [Theory]
     [Trait("Size", "Small")]
-    public void TryGetSupportedLeafSubcommands_WhenQueryAssetsSpecified_ReturnsFind ()
+    [InlineData(UcliCommandNames.AssetsSubcommand, UcliCommandNames.FindSubcommand)]
+    [InlineData(UcliCommandNames.SceneSubcommand, UcliCommandNames.TreeSubcommand)]
+    [InlineData(UcliCommandNames.GoSubcommand, UcliCommandNames.DescribeSubcommand)]
+    [InlineData(UcliCommandNames.CompSubcommand, UcliCommandNames.SchemaSubcommand)]
+    [InlineData(UcliCommandNames.AssetSubcommand, UcliCommandNames.SchemaSubcommand)]
+    public void TryGetSupportedLeafSubcommands_WhenQueryGroupSpecified_ReturnsExpectedLeaf (
+        string groupName,
+        string expectedLeafName)
     {
         var found = UcliCommandCatalog.TryGetSupportedLeafSubcommands(
             UcliCommandNames.Query,
-            UcliCommandNames.AssetsSubcommand,
+            groupName,
             out var subcommands);
 
         Assert.True(found);
-        Assert.Equal([UcliCommandNames.FindSubcommand], subcommands);
+        Assert.Equal([expectedLeafName], subcommands);
     }
 }

@@ -15,29 +15,15 @@ namespace MackySoft.Ucli.Hosting.Cli.Common.Startup;
 /// <summary> Provides the single catalog for public CLI registration and pre-dispatch metadata. </summary>
 internal static class UcliCommandCatalog
 {
-    private static readonly StandaloneCommandEntry InitEntry = new(UcliCommandNames.Init);
-
-    private static readonly StandaloneCommandEntry StatusEntry = new(UcliCommandNames.Status);
-
-    private static readonly StandaloneCommandEntry RefreshEntry = new(UcliCommandNames.Refresh);
-
-    private static readonly StandaloneCommandEntry ResolveEntry = new(UcliCommandNames.Resolve);
-
-    private static readonly StandaloneCommandEntry ValidateEntry = new(UcliCommandNames.Validate);
-
-    private static readonly StandaloneCommandEntry PlanEntry = new(UcliCommandNames.Plan);
-
-    private static readonly StandaloneCommandEntry CallEntry = new(UcliCommandNames.Call);
-
-    private static readonly StandaloneCommandEntry[] StandaloneCommands =
+    private static readonly string[] StandaloneCommands =
     [
-        InitEntry,
-        StatusEntry,
-        RefreshEntry,
-        ResolveEntry,
-        ValidateEntry,
-        PlanEntry,
-        CallEntry,
+        UcliCommandNames.Init,
+        UcliCommandNames.Status,
+        UcliCommandNames.Refresh,
+        UcliCommandNames.Resolve,
+        UcliCommandNames.Validate,
+        UcliCommandNames.Plan,
+        UcliCommandNames.Call,
     ];
 
     private static readonly CommandGroupEntry DaemonCommandGroup = new(
@@ -142,83 +128,32 @@ internal static class UcliCommandCatalog
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        ThrowIfInvalidCommandName(InitEntry.CommandName, nameof(InitEntry));
         app.Add<InitCommand>();
-        ThrowIfInvalidCommandName(StatusEntry.CommandName, nameof(StatusEntry));
         app.Add<StatusCommand>();
-        ThrowIfInvalidCommandName(RefreshEntry.CommandName, nameof(RefreshEntry));
         app.Add<RefreshCommand>();
-        ThrowIfInvalidCommandName(ResolveEntry.CommandName, nameof(ResolveEntry));
         app.Add<ResolveCommand>();
-        EnsureNestedRegistrationPrefix(
-            QueryCommandGroup,
-            UcliCommandNames.AssetsSubcommand,
-            UcliCommandNames.FindSubcommand,
-            "query assets");
         app.Add<QueryAssetsFindCommand>("query assets");
-        EnsureNestedRegistrationPrefix(
-            QueryCommandGroup,
-            UcliCommandNames.SceneSubcommand,
-            UcliCommandNames.TreeSubcommand,
-            "query scene");
         app.Add<QuerySceneTreeCommand>("query scene");
-        EnsureNestedRegistrationPrefix(
-            QueryCommandGroup,
-            UcliCommandNames.GoSubcommand,
-            UcliCommandNames.DescribeSubcommand,
-            "query go");
         app.Add<QueryGoDescribeCommand>("query go");
-        EnsureNestedRegistrationPrefix(
-            QueryCommandGroup,
-            UcliCommandNames.CompSubcommand,
-            UcliCommandNames.SchemaSubcommand,
-            "query comp");
         app.Add<QueryCompSchemaCommand>("query comp");
-        EnsureNestedRegistrationPrefix(
-            QueryCommandGroup,
-            UcliCommandNames.AssetSubcommand,
-            UcliCommandNames.SchemaSubcommand,
-            "query asset");
         app.Add<QueryAssetSchemaCommand>("query asset");
-        ThrowIfInvalidCommandName(ValidateEntry.CommandName, nameof(ValidateEntry));
         app.Add<ValidateCommand>();
-        ThrowIfInvalidCommandName(PlanEntry.CommandName, nameof(PlanEntry));
         app.Add<PlanCommand>();
-        ThrowIfInvalidCommandName(CallEntry.CommandName, nameof(CallEntry));
         app.Add<CallCommand>();
-        EnsureLeafRegistrationPrefix(DaemonCommandGroup, UcliCommandNames.StartSubcommand, "daemon");
         app.Add<DaemonStartCommand>("daemon");
-        EnsureLeafRegistrationPrefix(DaemonCommandGroup, UcliCommandNames.StopSubcommand, "daemon");
         app.Add<DaemonStopCommand>("daemon");
-        EnsureLeafRegistrationPrefix(DaemonCommandGroup, UcliCommandNames.CleanupSubcommand, "daemon");
         app.Add<DaemonCleanupCommand>("daemon");
-        EnsureLeafRegistrationPrefix(DaemonCommandGroup, UcliCommandNames.Status, "daemon");
         app.Add<DaemonStatusCommand>("daemon");
-        EnsureLeafRegistrationPrefix(DaemonCommandGroup, UcliCommandNames.ListSubcommand, "daemon");
         app.Add<DaemonListCommand>("daemon");
-        EnsureLeafRegistrationPrefix(LogsCommandGroup, UcliCommandNames.Daemon, "logs");
         app.Add<LogsDaemonCommand>("logs");
-        EnsureLeafRegistrationPrefix(LogsCommandGroup, UcliCommandNames.UnitySubcommand, "logs");
         app.Add<LogsUnityCommand>("logs");
-        EnsureLeafRegistrationPrefix(OpsCommandGroup, UcliCommandNames.ListSubcommand, "ops");
         app.Add<OpsListCommand>("ops");
-        EnsureLeafRegistrationPrefix(OpsCommandGroup, UcliCommandNames.DescribeSubcommand, "ops");
         app.Add<OpsDescribeCommand>("ops");
-        EnsureLeafRegistrationPrefix(SkillsCommandGroup, UcliCommandNames.ListSubcommand, "skills");
         app.Add<SkillsListCommand>("skills");
-        EnsureLeafRegistrationPrefix(SkillsCommandGroup, UcliCommandNames.ExportSubcommand, "skills");
         app.Add<SkillsExportCommand>("skills");
-        EnsureLeafRegistrationPrefix(SkillsCommandGroup, UcliCommandNames.InstallSubcommand, "skills");
         app.Add<SkillsInstallCommand>("skills");
-        EnsureLeafRegistrationPrefix(SkillsCommandGroup, UcliCommandNames.DoctorSubcommand, "skills");
         app.Add<SkillsDoctorCommand>("skills");
-        EnsureLeafRegistrationPrefix(TestCommandGroup, UcliCommandNames.RunSubcommand, "test");
         app.Add<TestRunCommand>("test");
-        EnsureNestedRegistrationPrefix(
-            TestCommandGroup,
-            UcliCommandNames.Profile,
-            UcliCommandNames.InitSubcommand,
-            "test profile");
         app.Add<TestProfileInitCommand>("test profile");
         return app;
     }
@@ -260,25 +195,6 @@ internal static class UcliCommandCatalog
         }
 
         return IsRegisteredRootCommand(firstArgument) ? firstArgument : UcliCommandNames.Root;
-    }
-
-    /// <summary> Gets supported second-level subcommands for a registered command group. </summary>
-    /// <param name="commandName"> The root command name. </param>
-    /// <param name="supportedSubcommands"> The supported subcommands when found. </param>
-    /// <returns> <see langword="true" /> when the root command has cataloged subcommands. </returns>
-    public static bool TryGetSupportedSubcommands (
-        string commandName,
-        out IReadOnlyList<string> supportedSubcommands)
-    {
-        var group = FindCommandGroup(commandName);
-        if (group == null)
-        {
-            supportedSubcommands = Array.Empty<string>();
-            return false;
-        }
-
-        supportedSubcommands = group.SupportedSubcommands;
-        return true;
     }
 
     /// <summary> Gets supported second-level subcommands for a command group that must be validated before dispatch. </summary>
@@ -346,57 +262,6 @@ internal static class UcliCommandCatalog
         return false;
     }
 
-    private static void EnsureLeafRegistrationPrefix (
-        CommandGroupEntry group,
-        string subcommandName,
-        string registrationPrefix)
-    {
-        var expectedPrefix = ResolveLeafRegistrationPrefix(group, subcommandName);
-        ThrowIfRegistrationPrefixMismatch(registrationPrefix, expectedPrefix);
-    }
-
-    private static void EnsureNestedRegistrationPrefix (
-        CommandGroupEntry group,
-        string groupName,
-        string subcommandName,
-        string registrationPrefix)
-    {
-        var expectedPrefix = ResolveNestedRegistrationPrefix(group, groupName, subcommandName);
-        ThrowIfRegistrationPrefixMismatch(registrationPrefix, expectedPrefix);
-    }
-
-    private static string ResolveLeafRegistrationPrefix (
-        CommandGroupEntry group,
-        string subcommandName)
-    {
-        _ = group.FindLeaf(subcommandName)
-            ?? throw new InvalidOperationException($"Command leaf '{group.CommandName} {subcommandName}' is not cataloged.");
-        return group.CommandName;
-    }
-
-    private static string ResolveNestedRegistrationPrefix (
-        CommandGroupEntry group,
-        string groupName,
-        string subcommandName)
-    {
-        var nestedGroup = group.FindNestedGroup(groupName)
-            ?? throw new InvalidOperationException($"Command group '{group.CommandName} {groupName}' is not cataloged.");
-        _ = nestedGroup.FindLeaf(subcommandName)
-            ?? throw new InvalidOperationException($"Command leaf '{group.CommandName} {groupName} {subcommandName}' is not cataloged.");
-
-        return $"{group.CommandName} {nestedGroup.GroupName}";
-    }
-
-    private static void ThrowIfRegistrationPrefixMismatch (
-        string actual,
-        string expected)
-    {
-        if (!string.Equals(actual, expected, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"Command registration prefix '{actual}' does not match catalog prefix '{expected}'.");
-        }
-    }
-
     private static string ResolveGroupResultCommandName (
         string[] args,
         CommandGroupEntry group)
@@ -451,7 +316,7 @@ internal static class UcliCommandCatalog
 
         for (var i = 0; i < StandaloneCommands.Length; i++)
         {
-            commands[index] = StandaloneCommands[i].CommandName;
+            commands[index] = StandaloneCommands[i];
             index++;
         }
 
@@ -510,7 +375,7 @@ internal static class UcliCommandCatalog
 
         for (var i = 0; i < StandaloneCommands.Length; i++)
         {
-            commandPaths[index] = StandaloneCommands[i].CommandName;
+            commandPaths[index] = StandaloneCommands[i];
             index++;
         }
 
@@ -522,18 +387,6 @@ internal static class UcliCommandCatalog
 
         return commandPaths;
     }
-
-    private static void ThrowIfInvalidCommandName (
-        string commandName,
-        string paramName)
-    {
-        if (string.IsNullOrWhiteSpace(commandName))
-        {
-            throw new ArgumentException("Command name must not be empty.", paramName);
-        }
-    }
-
-    private sealed record StandaloneCommandEntry (string CommandName);
 
     private sealed record CommandGroupEntry (
         string CommandName,

@@ -47,16 +47,6 @@ public sealed class CliPreDispatchErrorPolicyTests
                 UcliCommandNames.Query,
                 "Subcommand 'unknown' is not recognized for command 'query'."
             },
-            {
-                [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand],
-                UcliCommandNames.Query,
-                "Subcommand is required for command 'query assets'. Supported subcommands: find."
-            },
-            {
-                [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, "unknown"],
-                UcliCommandNames.Query,
-                "Subcommand 'unknown' is not recognized for command 'query assets'."
-            },
         };
 
     public static TheoryData<string[]> PassThroughCases => new()
@@ -86,6 +76,32 @@ public sealed class CliPreDispatchErrorPolicyTests
     {
         var result = CliPreDispatchErrorPolicy.TryCreateErrorResult(args);
 
+        AssertInvalidArgument(result, expectedCommand, expectedMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryCreateErrorResult_WhenQueryLeafIsMissingOrUnknown_ReturnsInvalidArgument ()
+    {
+        var missingLeafResult = CliPreDispatchErrorPolicy.TryCreateErrorResult(
+            [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand]);
+        var expectedMissingLeafMessage =
+            "Subcommand is required for command 'query assets'. Supported subcommands: find.";
+
+        AssertInvalidArgument(missingLeafResult, UcliCommandNames.Query, expectedMissingLeafMessage);
+
+        var unknownLeafResult = CliPreDispatchErrorPolicy.TryCreateErrorResult(
+            [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, "unknown"]);
+        var expectedUnknownLeafMessage = "Subcommand 'unknown' is not recognized for command 'query assets'.";
+
+        AssertInvalidArgument(unknownLeafResult, UcliCommandNames.Query, expectedUnknownLeafMessage);
+    }
+
+    private static void AssertInvalidArgument (
+        CommandResult? result,
+        string expectedCommand,
+        string expectedMessage)
+    {
         Assert.NotNull(result);
         Assert.Equal(expectedCommand, result.Command);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);

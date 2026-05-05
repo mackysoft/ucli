@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 
-/// <summary> Defines CLI command-name constants and lookup helpers. </summary>
+/// <summary> Defines CLI command-name constants. </summary>
 internal static class UcliCommandNames
 {
     /// <summary> Gets the command name used when no subcommand can be identified. </summary>
