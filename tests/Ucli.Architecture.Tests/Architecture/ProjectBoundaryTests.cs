@@ -352,14 +352,30 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Operation_execute_application_result_does_not_expose_ipc_dtos ()
+    public void Request_application_results_do_not_expose_ipc_dtos ()
     {
-        var sourceText = File.ReadAllText(Path.Combine(
-            RepositoryRoot,
-            "src/Ucli.Application/Features/Requests/Shared/Execution/OperationExecute/OperationExecuteResult.cs"));
+        var resultFiles = new[]
+            {
+                "src/Ucli.Application/Features/Requests/Shared/Execution/OperationExecute/OperationExecuteResult.cs",
+                "src/Ucli.Application/Features/Requests/Query/UseCases/Query/QueryServiceResult.cs",
+                "src/Ucli.Application/Features/Requests/Resolve/UseCases/Resolve/ResolveServiceResult.cs",
+                "src/Ucli.Application/Features/Requests/Call/Common/Contracts/CallExecutionOutput.cs",
+                "src/Ucli.Application/Features/Requests/Call/Common/Contracts/CallPlanOutput.cs",
+                "src/Ucli.Application/Features/Requests/Call/Common/Contracts/CallServiceResult.cs",
+                "src/Ucli.Application/Features/Requests/Plan/Common/Contracts/PlanExecutionOutput.cs",
+                "src/Ucli.Application/Features/Requests/Plan/Common/Contracts/PlanServiceResult.cs",
+            }
+            .Select(static path => Path.Combine(RepositoryRoot, path))
+            .Concat(EnumerateCSharpSourceFiles("src/Ucli.Application/Features/Requests/Shared/Execution/Results"));
 
-        Assert.DoesNotContain("IpcExecute", sourceText, StringComparison.Ordinal);
-        Assert.DoesNotContain("IpcError", sourceText, StringComparison.Ordinal);
+        foreach (var resultFile in resultFiles)
+        {
+            var sourceText = File.ReadAllText(resultFile);
+
+            Assert.DoesNotContain("IpcExecute", sourceText, StringComparison.Ordinal);
+            Assert.DoesNotContain("IpcError", sourceText, StringComparison.Ordinal);
+            Assert.DoesNotContain("IpcResponse", sourceText, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -383,18 +399,12 @@ public sealed class ProjectBoundaryTests
         foreach (var sourceFile in hostAdapterFiles)
         {
             var sourceText = File.ReadAllText(sourceFile);
-            Assert.DoesNotContain(
-                "using MackySoft.Ucli.Application.Features.Daemon.UseCases.",
-                sourceText,
-                StringComparison.Ordinal);
-            Assert.DoesNotContain(
-                "using MackySoft.Ucli.Application.Features.Init.UseCases.",
-                sourceText,
-                StringComparison.Ordinal);
-            Assert.DoesNotContain(
-                "using MackySoft.Ucli.Application.Features.Testing.Profiles.UseCases.",
-                sourceText,
-                StringComparison.Ordinal);
+            var importsApplicationUseCaseNamespace = sourceText
+                .Split('\n')
+                .Any(IsApplicationUseCaseImport);
+            Assert.False(
+                importsApplicationUseCaseNamespace,
+                $"Host adapter source must not import Application use case namespaces: {NormalizeRepositoryRelativePath(sourceFile)}");
         }
     }
 
@@ -514,6 +524,15 @@ public sealed class ProjectBoundaryTests
                 return !relativePath.Contains("/bin/", StringComparison.Ordinal)
                     && !relativePath.Contains("/obj/", StringComparison.Ordinal);
             });
+    }
+
+    private static bool IsApplicationUseCaseImport (string line)
+    {
+        var trimmedLine = line.TrimStart();
+        return (trimmedLine.StartsWith("using ", StringComparison.Ordinal)
+            || trimmedLine.StartsWith("global using ", StringComparison.Ordinal))
+            && trimmedLine.Contains("MackySoft.Ucli.Application.Features.", StringComparison.Ordinal)
+            && trimmedLine.Contains(".UseCases.", StringComparison.Ordinal);
     }
 
     private static string[] ReadProjectReferences (string projectPath)

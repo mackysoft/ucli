@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 /// <summary> Represents one application-level operation execution error. </summary>
 /// <param name="Code"> The machine-readable error code. </param>

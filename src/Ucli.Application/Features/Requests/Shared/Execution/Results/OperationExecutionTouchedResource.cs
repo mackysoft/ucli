@@ -1,4 +1,4 @@
-namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 /// <summary> Represents one resource touched by operation execution. </summary>
 /// <param name="Kind"> The touched resource kind. </param>

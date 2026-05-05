@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 
@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 internal sealed record PlanServiceResult (
     PlanExecutionOutput? Output,
     string Message,
-    IReadOnlyList<IpcError> Errors,
+    IReadOnlyList<OperationExecutionError> Errors,
     ApplicationOutcome Outcome)
 {
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
@@ -37,7 +37,7 @@ internal sealed record PlanServiceResult (
     /// <returns> The failed result. </returns>
     public static PlanServiceResult Failure (
         string message,
-        IReadOnlyList<IpcError> errors,
+        IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
         PlanExecutionOutput? output = null)
     {

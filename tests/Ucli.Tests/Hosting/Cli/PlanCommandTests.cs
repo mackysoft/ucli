@@ -3,6 +3,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Preflight;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -28,7 +29,7 @@ public sealed class PlanCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults:
                 [
-                    new IpcExecuteOperationResult(
+                    new OperationExecutionOperationResult(
                         OpId: "step-1",
                         Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Phase: IpcExecuteOperationPhaseNames.Plan,
@@ -90,7 +91,7 @@ public sealed class PlanCommandTests
         var service = new StubPlanService((_, _) => ValueTask.FromResult(PlanServiceResult.Failure(
             "Static validation failed.",
             [
-                new IpcError(
+                new OperationExecutionError(
                     ValidationErrorCodes.OperationArgsInvalid,
                     "Operation args are invalid.",
                     "step-1"),

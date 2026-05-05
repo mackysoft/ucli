@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 
@@ -8,5 +8,5 @@ namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 /// <param name="PlanToken"> The optional plan token issued by the pre-plan pass. </param>
 internal sealed record CallPlanOutput (
     string RequestId,
-    IReadOnlyList<IpcExecuteOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionOperationResult> OpResults,
     string? PlanToken);

@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Preflight;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -24,7 +25,7 @@ public sealed class CallCommandTests
                 RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 OpResults:
                 [
-                    new IpcExecuteOperationResult(
+                    new OperationExecutionOperationResult(
                         OpId: "step-1",
                         Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                         Phase: IpcExecuteOperationPhaseNames.Call,
@@ -36,7 +37,7 @@ public sealed class CallCommandTests
                     RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     OpResults:
                     [
-                        new IpcExecuteOperationResult(
+                        new OperationExecutionOperationResult(
                             OpId: "step-1",
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
                             Phase: IpcExecuteOperationPhaseNames.Plan,

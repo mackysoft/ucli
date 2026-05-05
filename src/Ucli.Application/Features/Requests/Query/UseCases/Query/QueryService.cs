@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
@@ -155,7 +156,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new IpcError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
+                new OperationExecutionError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
                 QueryReadIndexInfoFactory.Unity(readResult.Message));
         }
 
@@ -199,7 +200,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new IpcError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
+                new OperationExecutionError(ResolveErrorCode(readResult.ErrorCode), readResult.Message, null),
                 QueryReadIndexInfoFactory.Unity(readResult.Message));
         }
 
@@ -250,7 +251,7 @@ internal sealed class QueryService : IQueryService
                 requestId,
                 [],
                 [
-                    new IpcError(errorCode, executionResult.Message, null),
+                    new OperationExecutionError(errorCode, executionResult.Message, null),
                 ],
                 ExecuteResponseConverter.ResolveOutcome(errorCode),
                 executionResult.Message,
@@ -261,8 +262,8 @@ internal sealed class QueryService : IQueryService
         return QueryServiceResultFactory.Create(
             operation.CommandName,
             requestId,
-            convertedResponse.OpResults,
-            convertedResponse.Errors,
+            OperationExecutionModelMapper.MapOpResults(convertedResponse.OpResults),
+            OperationExecutionModelMapper.MapErrors(convertedResponse.Errors),
             convertedResponse.Outcome,
             convertedResponse.Errors.Count == 0
                 ? "uCLI query completed."
@@ -270,11 +271,11 @@ internal sealed class QueryService : IQueryService
             readIndex);
     }
 
-    private static IpcExecuteOperationResult CreatePlanOperationResult (
+    private static OperationExecutionOperationResult CreatePlanOperationResult (
         QueryOperationRequest operation,
         JsonElement result)
     {
-        return IpcExecuteOperationResultFactory.CreatePlanResult(
+        return OperationExecutionModelMapper.CreatePlanResult(
             opId: operation.OperationId,
             op: operation.OperationName,
             applied: false,

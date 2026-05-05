@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 
@@ -8,6 +8,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 /// <param name="Plan"> The optional plan-equivalent payload returned by <c>--withPlan</c>. </param>
 internal sealed record CallExecutionOutput (
     string RequestId,
-    IReadOnlyList<IpcExecuteOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionOperationResult> OpResults,
     CallPlanOutput? Plan,
-    IpcExecuteReadPostcondition? ReadPostcondition);
+    OperationExecutionReadPostcondition? ReadPostcondition);

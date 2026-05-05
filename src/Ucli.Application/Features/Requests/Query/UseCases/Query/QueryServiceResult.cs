@@ -1,6 +1,6 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 
@@ -8,8 +8,8 @@ namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 internal sealed record QueryServiceResult (
     string CommandName,
     string RequestId,
-    IReadOnlyList<IpcExecuteOperationResult> OpResults,
-    IReadOnlyList<IpcError> Errors,
+    IReadOnlyList<OperationExecutionOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionError> Errors,
     ApplicationOutcome Outcome,
     string Message,
     ReadIndexInfo ReadIndex)

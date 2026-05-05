@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Execution;
@@ -115,7 +116,7 @@ internal sealed class PlanService : IPlanService
             return PlanServiceResult.Failure(
                 executionResult.Message,
                 [
-                    new IpcError(errorCode, executionResult.Message, null),
+                    new OperationExecutionError(errorCode, executionResult.Message, null),
                 ],
                 ExecuteResponseConverter.ResolveOutcome(errorCode),
                 baseOutput);
@@ -124,13 +125,13 @@ internal sealed class PlanService : IPlanService
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
         var executionOutput = baseOutput with
         {
-            OpResults = convertedResponse.OpResults,
+            OpResults = OperationExecutionModelMapper.MapOpResults(convertedResponse.OpResults),
         };
         if (!convertedResponse.IsSuccess)
         {
             return PlanServiceResult.Failure(
                 ResolveFailureMessage(convertedResponse.Errors, "uCLI plan failed."),
-                convertedResponse.Errors,
+                OperationExecutionModelMapper.MapErrors(convertedResponse.Errors),
                 convertedResponse.Outcome,
                 executionOutput);
         }

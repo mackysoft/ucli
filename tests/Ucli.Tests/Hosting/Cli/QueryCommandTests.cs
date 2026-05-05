@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -169,7 +170,7 @@ public sealed class QueryCommandTests
             RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             OpResults:
             [
-                new IpcExecuteOperationResult(
+                new OperationExecutionOperationResult(
                     OpId: "assets.find",
                     Op: UcliPrimitiveOperationNames.AssetsFind,
                     Phase: IpcExecuteOperationPhaseNames.Plan,

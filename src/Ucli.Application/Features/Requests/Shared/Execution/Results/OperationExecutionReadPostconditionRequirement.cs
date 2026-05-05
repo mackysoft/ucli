@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 /// <summary> Represents one read-surface requirement produced by a mutation operation. </summary>
 /// <param name="Surface"> The affected read surface. </param>

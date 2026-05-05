@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -23,7 +24,7 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                new IpcError(IpcErrorCodes.InternalError, "Call failed.", null),
+                new OperationExecutionError(IpcErrorCodes.InternalError, "Call failed.", null),
             ],
             ApplicationOutcome.ToolError,
             new CallExecutionOutput(
@@ -48,7 +49,7 @@ public sealed class CallCommandResultFactoryTests
         var result = CallCommandResultFactory.Create(CallServiceResult.Failure(
             "Call failed.",
             [
-                new IpcError(IpcErrorCodes.InternalError, "Call failed.", null),
+                new OperationExecutionError(IpcErrorCodes.InternalError, "Call failed.", null),
             ],
             ApplicationOutcome.ToolError,
             output: null));
@@ -61,9 +62,9 @@ public sealed class CallCommandResultFactoryTests
     [Trait("Size", "Small")]
     public void Create_WhenReadPostconditionExists_EmitsTopLevelPayloadOnly ()
     {
-        var readPostcondition = new IpcExecuteReadPostcondition(
+        var readPostcondition = new OperationExecutionReadPostcondition(
         [
-            new IpcExecuteReadPostconditionRequirement(
+            new OperationExecutionReadPostconditionRequirement(
                 Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
                 MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00"))
             {

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution;
@@ -141,7 +142,7 @@ internal sealed class ResolveService : IResolveService
                 return (
                     ResolveServiceResultFactory.FromIpcError(
                         requestId,
-                        new IpcError(readResult.ErrorCode!, readResult.Message, null),
+                        new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                         ResolveReadIndexInfoFactory.Unity(readResult.Message)),
                     readResult.Message);
             }
@@ -197,7 +198,7 @@ internal sealed class ResolveService : IResolveService
                 requestId,
                 [],
                 [
-                    new IpcError(errorCode, executionResult.Message, null),
+                    new OperationExecutionError(errorCode, executionResult.Message, null),
                 ],
                 ExecuteResponseConverter.ResolveOutcome(errorCode),
                 readIndex);
@@ -206,8 +207,8 @@ internal sealed class ResolveService : IResolveService
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
         return ResolveServiceResultFactory.Create(
             requestId,
-            convertedResponse.OpResults,
-            convertedResponse.Errors,
+            OperationExecutionModelMapper.MapOpResults(convertedResponse.OpResults),
+            OperationExecutionModelMapper.MapErrors(convertedResponse.Errors),
             convertedResponse.Outcome,
             readIndex);
     }
@@ -226,9 +227,9 @@ internal sealed class ResolveService : IResolveService
             failFast);
     }
 
-    private static IpcExecuteOperationResult CreateResolveOperationResult (string globalObjectId)
+    private static OperationExecutionOperationResult CreateResolveOperationResult (string globalObjectId)
     {
-        return IpcExecuteOperationResultFactory.CreatePlanResult(
+        return OperationExecutionModelMapper.CreatePlanResult(
             opId: ResolveOperationId,
             op: UcliPrimitiveOperationNames.Resolve,
             applied: false,

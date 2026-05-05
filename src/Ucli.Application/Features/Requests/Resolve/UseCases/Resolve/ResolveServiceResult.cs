@@ -1,14 +1,14 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 
 /// <summary> Represents the normalized result returned from one <c>resolve</c> execution workflow. </summary>
 internal sealed record ResolveServiceResult (
     string RequestId,
-    IReadOnlyList<IpcExecuteOperationResult> OpResults,
-    IReadOnlyList<IpcError> Errors,
+    IReadOnlyList<OperationExecutionOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionError> Errors,
     ApplicationOutcome Outcome,
     ReadIndexInfo ReadIndex)
 {

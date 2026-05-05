@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -25,7 +26,7 @@ internal static class PlanFailureResultFactory
         return PlanServiceResult.Failure(
             error.Message,
             [
-                new IpcError(
+                new OperationExecutionError(
                     string.IsNullOrWhiteSpace(errorCode)
                         ? ExecutionErrorCodeMapper.ToCode(error.Kind)
                         : errorCode,
@@ -48,11 +49,11 @@ internal static class PlanFailureResultFactory
     {
         ArgumentNullException.ThrowIfNull(validationErrors);
 
-        var errors = new IpcError[validationErrors.Count];
+        var errors = new OperationExecutionError[validationErrors.Count];
         for (var i = 0; i < validationErrors.Count; i++)
         {
             var validationError = validationErrors[i];
-            errors[i] = new IpcError(validationError.Code, validationError.Message, validationError.OpId);
+            errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
         }
 
         return PlanServiceResult.Failure(

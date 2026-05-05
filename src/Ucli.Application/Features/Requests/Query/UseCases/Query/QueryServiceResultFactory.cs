@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
@@ -18,7 +19,7 @@ internal static class QueryServiceResultFactory
     public static QueryServiceResult Success (
         string commandName,
         string requestId,
-        IReadOnlyList<IpcExecuteOperationResult> opResults,
+        IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex)
     {
         return Create(
@@ -46,7 +47,7 @@ internal static class QueryServiceResultFactory
             requestId,
             [],
             [
-                new IpcError(errorCode, error.Message, null),
+                new OperationExecutionError(errorCode, error.Message, null),
             ],
             error.Kind == ExecutionErrorKind.InvalidArgument
                 ? ApplicationOutcome.InvalidArgument
@@ -59,7 +60,7 @@ internal static class QueryServiceResultFactory
     public static QueryServiceResult FromIpcError (
         string commandName,
         string requestId,
-        IpcError error,
+        OperationExecutionError error,
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
@@ -77,8 +78,8 @@ internal static class QueryServiceResultFactory
     public static QueryServiceResult Create (
         string commandName,
         string requestId,
-        IReadOnlyList<IpcExecuteOperationResult> opResults,
-        IReadOnlyList<IpcError> errors,
+        IReadOnlyList<OperationExecutionOperationResult> opResults,
+        IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
         string message,
         ReadIndexInfo readIndex)

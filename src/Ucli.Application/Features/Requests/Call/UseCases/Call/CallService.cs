@@ -2,6 +2,7 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call.Projection;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Validation.Parsing;
@@ -117,7 +118,7 @@ internal sealed class CallService : ICallService
             return CallServiceResult.Failure(
                 dangerousValidationFailure.Message,
                 [
-                    new IpcError(
+                    new OperationExecutionError(
                         dangerousValidationFailure.Code,
                         dangerousValidationFailure.Message,
                         dangerousValidationFailure.OpId),

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 /// <summary> Represents one operation execution step result. </summary>
 /// <param name="OpId"> The public step identifier. </param>

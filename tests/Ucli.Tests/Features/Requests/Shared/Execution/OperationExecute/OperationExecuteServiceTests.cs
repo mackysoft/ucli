@@ -44,6 +44,10 @@ public sealed class OperationExecuteServiceTests
         var projectContextResolver = new StubProjectContextResolver(ProjectContextResolutionResult.Success(CreateContext()));
         var authorizationService = new SpyOperationAuthorizationService(OperationAuthorizationResult.Allowed());
         var timeProvider = new ManualTimeProvider();
+        var operationResultPayload = JsonSerializer.SerializeToElement(new
+        {
+            ok = true,
+        });
         var ipcRequestExecutor = new SpyUnityIpcRequestExecutor(
             UnityRequestExecutionResult.Success(
                 CreateResponse(
@@ -62,7 +66,10 @@ public sealed class OperationExecuteServiceTests
                                     Kind: IpcExecuteTouchedResourceKindNames.Asset,
                                     Path: "Assets/Example.txt",
                                     Guid: "11111111111111111111111111111111"),
-                            ]),
+                            ])
+                        {
+                            Result = operationResultPayload,
+                        },
                     ],
                     errors: [])));
         var service = new OperationExecuteService(projectContextResolver, authorizationService, ipcRequestExecutor, new TestMutationReadPostconditionStore(), timeProvider);
@@ -80,7 +87,17 @@ public sealed class OperationExecuteServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Empty(result.Errors);
-        Assert.Single(result.OpResults);
+        var opResult = Assert.Single(result.OpResults);
+        Assert.Equal("refresh", opResult.OpId);
+        Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, opResult.Op);
+        Assert.Equal(IpcExecuteOperationPhaseNames.Call, opResult.Phase);
+        Assert.True(opResult.Applied);
+        Assert.True(opResult.Changed);
+        Assert.Equal(JsonValueKind.Object, opResult.Result!.Value.ValueKind);
+        var touchedResource = Assert.Single(opResult.Touched);
+        Assert.Equal(IpcExecuteTouchedResourceKindNames.Asset, touchedResource.Kind);
+        Assert.Equal("Assets/Example.txt", touchedResource.Path);
+        Assert.Equal("11111111111111111111111111111111", touchedResource.Guid);
 
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, authorizationService.CapturedOperation!.Name);
         Assert.Equal(OperationPolicy.Advanced, authorizationService.CapturedOperation.Policy);

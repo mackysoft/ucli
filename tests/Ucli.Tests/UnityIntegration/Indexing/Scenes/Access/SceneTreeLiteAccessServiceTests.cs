@@ -428,6 +428,58 @@ public sealed class SceneTreeLiteAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Read_WhenScenePathContainsTraversal_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "traversal-scene");
+        var project = CreateProject(scope);
+        var indexReader = new StubIndexCatalogReader();
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            "Assets/../Outside.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Contains("project-relative path", result.Message, StringComparison.Ordinal);
+        Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenScenePathIsWindowsRooted_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "windows-rooted-scene");
+        var project = CreateProject(scope);
+        var indexReader = new StubIndexCatalogReader();
+        var service = new SceneTreeLiteAccessService(indexReader, new StubSceneTreeLiteFreshnessEvaluator(), new TestMutationReadPostconditionStore(), new StubSceneTreeLiteSourceRefreshService());
+
+        var result = await service.Read(
+            project,
+            UcliConfig.CreateDefault(),
+            UcliCommandIds.Query,
+            UnityExecutionMode.Auto,
+            TimeSpan.FromSeconds(1),
+            ReadIndexMode.AllowStale,
+            @"C:\repo\Project\Assets\Scenes\Main.unity",
+            depth: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(IpcErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Contains("project-relative path", result.Message, StringComparison.Ordinal);
+        Assert.Equal(0, indexReader.SceneTreeLiteLookupCallCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Read_WhenLookupIsMissing_FallsBackToSourceWithRequestedMode ()
     {
         using var scope = TestDirectories.CreateTempScope("scene-tree-lite-access", "missing-lookup");

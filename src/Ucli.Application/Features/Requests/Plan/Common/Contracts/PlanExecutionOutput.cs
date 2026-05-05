@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 
@@ -9,6 +9,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 /// <param name="PlanToken"> The issued plan token when execution succeeded. </param>
 internal sealed record PlanExecutionOutput (
     string RequestId,
-    IReadOnlyList<IpcExecuteOperationResult> OpResults,
+    IReadOnlyList<OperationExecutionOperationResult> OpResults,
     ReadIndexInfo ReadIndex,
     string? PlanToken);

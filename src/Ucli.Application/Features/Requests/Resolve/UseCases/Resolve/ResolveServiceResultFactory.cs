@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
@@ -13,7 +14,7 @@ internal static class ResolveServiceResultFactory
     /// <summary> Creates one successful resolve result. </summary>
     public static ResolveServiceResult Success (
         string requestId,
-        IReadOnlyList<IpcExecuteOperationResult> opResults,
+        IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex)
     {
         return Create(requestId, opResults, [], ApplicationOutcome.Success, readIndex);
@@ -32,7 +33,7 @@ internal static class ResolveServiceResultFactory
             requestId,
             [],
             [
-                new IpcError(errorCode, error.Message, null),
+                new OperationExecutionError(errorCode, error.Message, null),
             ],
             error.Kind == ExecutionErrorKind.InvalidArgument
                 ? ApplicationOutcome.InvalidArgument
@@ -43,7 +44,7 @@ internal static class ResolveServiceResultFactory
     /// <summary> Creates one failure result from one IPC error. </summary>
     public static ResolveServiceResult FromIpcError (
         string requestId,
-        IpcError error,
+        OperationExecutionError error,
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
@@ -58,8 +59,8 @@ internal static class ResolveServiceResultFactory
     /// <summary> Creates one normalized resolve service result. </summary>
     public static ResolveServiceResult Create (
         string requestId,
-        IReadOnlyList<IpcExecuteOperationResult> opResults,
-        IReadOnlyList<IpcError> errors,
+        IReadOnlyList<OperationExecutionOperationResult> opResults,
+        IReadOnlyList<OperationExecutionError> errors,
         ApplicationOutcome outcome,
         ReadIndexInfo readIndex)
     {

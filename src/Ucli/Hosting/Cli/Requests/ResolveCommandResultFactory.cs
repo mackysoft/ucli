@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -53,7 +54,7 @@ internal static class ResolveCommandResultFactory
         return Create(ResolveServiceResultFactory.FromExecutionError(Guid.NewGuid().ToString("D"), error));
     }
 
-    private static string ResolveFailureMessage (IReadOnlyList<IpcError> errors)
+    private static string ResolveFailureMessage (IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
 

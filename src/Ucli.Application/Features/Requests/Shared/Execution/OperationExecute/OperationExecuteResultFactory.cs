@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -107,83 +108,9 @@ internal static class OperationExecuteResultFactory
 
         return new OperationExecuteResult(
             RequestId: requestId,
-            OpResults: MapOpResults(opResults),
-            Errors: MapErrors(errors),
+            OpResults: OperationExecutionModelMapper.MapOpResults(opResults),
+            Errors: OperationExecutionModelMapper.MapErrors(errors),
             Outcome: outcome,
-            ReadPostcondition: MapReadPostcondition(readPostcondition));
-    }
-
-    private static IReadOnlyList<OperationExecutionOperationResult> MapOpResults (IReadOnlyList<IpcExecuteOperationResult> opResults)
-    {
-        var mappedResults = new OperationExecutionOperationResult[opResults.Count];
-        for (var i = 0; i < opResults.Count; i++)
-        {
-            var opResult = opResults[i];
-            mappedResults[i] = new OperationExecutionOperationResult(
-                OpId: opResult.OpId,
-                Op: opResult.Op,
-                Phase: opResult.Phase,
-                Applied: opResult.Applied,
-                Changed: opResult.Changed,
-                Touched: MapTouchedResources(opResult.Touched))
-            {
-                Result = opResult.Result,
-            };
-        }
-
-        return mappedResults;
-    }
-
-    private static IReadOnlyList<OperationExecutionTouchedResource> MapTouchedResources (IReadOnlyList<IpcExecuteTouchedResource> touchedResources)
-    {
-        var mappedResources = new OperationExecutionTouchedResource[touchedResources.Count];
-        for (var i = 0; i < touchedResources.Count; i++)
-        {
-            var touchedResource = touchedResources[i];
-            mappedResources[i] = new OperationExecutionTouchedResource(
-                Kind: touchedResource.Kind,
-                Path: touchedResource.Path,
-                Guid: touchedResource.Guid);
-        }
-
-        return mappedResources;
-    }
-
-    private static IReadOnlyList<OperationExecutionError> MapErrors (IReadOnlyList<IpcError> errors)
-    {
-        var mappedErrors = new OperationExecutionError[errors.Count];
-        for (var i = 0; i < errors.Count; i++)
-        {
-            var error = errors[i];
-            mappedErrors[i] = new OperationExecutionError(
-                Code: error.Code,
-                Message: error.Message,
-                OpId: error.OpId);
-        }
-
-        return mappedErrors;
-    }
-
-    private static OperationExecutionReadPostcondition? MapReadPostcondition (IpcExecuteReadPostcondition? readPostcondition)
-    {
-        if (readPostcondition == null)
-        {
-            return null;
-        }
-
-        var requirements = readPostcondition.Requirements;
-        var mappedRequirements = new OperationExecutionReadPostconditionRequirement[requirements.Count];
-        for (var i = 0; i < requirements.Count; i++)
-        {
-            var requirement = requirements[i];
-            mappedRequirements[i] = new OperationExecutionReadPostconditionRequirement(
-                Surface: requirement.Surface,
-                MinSafeGeneratedAtUtc: requirement.MinSafeGeneratedAtUtc)
-            {
-                ScenePath = requirement.ScenePath,
-            };
-        }
-
-        return new OperationExecutionReadPostcondition(mappedRequirements);
+            ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(readPostcondition));
     }
 }
