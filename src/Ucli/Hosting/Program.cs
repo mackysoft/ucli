@@ -16,6 +16,11 @@ internal static class Program
         var supervisorInvocation = InternalSupervisorInvocationParser.Parse(args);
         if (supervisorInvocation.IsMatched)
         {
+            if (!supervisorInvocation.IsValid)
+            {
+                return 1;
+            }
+
             var supervisorRunner = new InternalSupervisorExecutionRunner();
             return await supervisorRunner.RunAsync(supervisorInvocation.RepositoryRoot).ConfigureAwait(false);
         }

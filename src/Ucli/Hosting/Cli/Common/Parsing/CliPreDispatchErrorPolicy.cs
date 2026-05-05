@@ -1,5 +1,6 @@
+using MackySoft.Ucli.Hosting.Cli.Common.Catalog;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Startup;
+using MackySoft.Ucli.Hosting.Cli.Common.Tokens;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Parsing;
 
@@ -25,7 +26,7 @@ internal static class CliPreDispatchErrorPolicy
             return null;
         }
 
-        if (UcliCommandCatalog.TryGetSupportedSubcommands(firstArgument, out var supportedSubcommands))
+        if (UcliCommandMetadataCatalog.TryGetPreDispatchSupportedSubcommands(firstArgument, out var supportedSubcommands))
         {
             var invalidSubcommandResult = SubcommandValidationHelper.TryCreateInvalidSubcommandResult(
                 args,
@@ -45,7 +46,7 @@ internal static class CliPreDispatchErrorPolicy
             return TryCreateInvalidLeafSubcommandResult(args, firstArgument);
         }
 
-        if (UcliCommandCatalog.IsRegisteredRootCommand(firstArgument)
+        if (UcliCommandMetadataCatalog.IsRegisteredRootCommand(firstArgument)
             || string.Equals(firstArgument, UcliCommandNames.Help, StringComparison.Ordinal))
         {
             return null;
@@ -61,7 +62,7 @@ internal static class CliPreDispatchErrorPolicy
         string commandName)
     {
         if (args.Length < 2
-            || !UcliCommandCatalog.TryGetUnexpectedLeafArgumentRule(commandName, args[1], out var rule))
+            || !UcliCommandMetadataCatalog.TryGetUnexpectedLeafArgumentRule(commandName, args[1], out var rule))
         {
             return null;
         }
@@ -79,7 +80,7 @@ internal static class CliPreDispatchErrorPolicy
         string commandName)
     {
         if (args.Length < 2
-            || !UcliCommandCatalog.TryGetSupportedLeafSubcommands(commandName, args[1], out var supportedSubcommands))
+            || !UcliCommandMetadataCatalog.TryGetSupportedLeafSubcommands(commandName, args[1], out var supportedSubcommands))
         {
             return null;
         }

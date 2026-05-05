@@ -9,40 +9,45 @@ public sealed class TestRunCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Test_WithoutSubcommand_ReturnsInvalidArgumentErrorAsSingleJson ()
+    public async Task Test_WithoutSubcommand_ReturnsFrameworkHelpOutput ()
     {
         var result = await CliProcessRunner.RunCommand(UcliCommandNames.Test);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Test,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
+        AssertFrameworkHelpOutput(result);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Test_WithUnknownSubcommand_ReturnsInvalidArgumentErrorAsSingleJson ()
+    public async Task Test_WithUnknownSubcommand_ReturnsFrameworkHelpOutput ()
     {
         var result = await CliProcessRunner.RunCommand(
             UcliCommandNames.Test,
             "unknown");
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Test,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        CommandResultAssert.HasSingleError(
-            outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
+        AssertFrameworkHelpOutput(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TestProfile_WithoutSubcommand_ReturnsFrameworkHelpOutput ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Test,
+            UcliCommandNames.Profile);
+
+        AssertFrameworkHelpOutput(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TestProfile_WithUnknownSubcommand_ReturnsFrameworkHelpOutput ()
+    {
+        var result = await CliProcessRunner.RunCommand(
+            UcliCommandNames.Test,
+            UcliCommandNames.Profile,
+            "unknown");
+
+        AssertFrameworkHelpOutput(result);
     }
 
     [Fact]
@@ -197,5 +202,14 @@ public sealed class TestRunCliOutputContractTests
         }
 
         return CliProcessRunner.RunCommand(args.ToArray());
+    }
+
+    private static void AssertFrameworkHelpOutput (CommandExecutionResult result)
+    {
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("Usage:", result.StdOut, StringComparison.Ordinal);
+        Assert.Contains("test run", result.StdOut, StringComparison.Ordinal);
+        Assert.Contains("test profile init", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"protocolVersion\"", result.StdOut, StringComparison.Ordinal);
     }
 }

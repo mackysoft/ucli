@@ -19,11 +19,17 @@ internal sealed class InternalSupervisorExecutionRunner
             return 1;
         }
 
-        var services = new ServiceCollection();
-        services.AddUcliServices();
-
-        await using var serviceProvider = services.BuildServiceProvider();
+        await using var serviceProvider = BuildServiceProvider();
         var supervisorHost = serviceProvider.GetRequiredService<SupervisorHost>();
         return await supervisorHost.Run(repositoryRoot, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary> Builds the service provider used by the hidden supervisor host. </summary>
+    /// <returns> The service provider configured through the shared composition root. </returns>
+    internal static ServiceProvider BuildServiceProvider ()
+    {
+        var services = new ServiceCollection();
+        services.AddUcliServices();
+        return services.BuildServiceProvider();
     }
 }

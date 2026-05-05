@@ -12,18 +12,18 @@ internal static class InternalSupervisorInvocationParser
         ArgumentNullException.ThrowIfNull(args);
 
         if (args.Length == 0
-            || !string.Equals(args[0], SupervisorConstants.InternalServeFlag, StringComparison.Ordinal))
+            || !string.Equals(args[0], SupervisorInvocationArguments.InternalServeFlag, StringComparison.Ordinal))
         {
             return InternalSupervisorInvocation.NotMatched;
         }
 
         if (args.Length != 3
-            || !string.Equals(args[1], SupervisorConstants.RepositoryRootOption, StringComparison.Ordinal)
+            || !string.Equals(args[1], SupervisorInvocationArguments.RepositoryRootOption, StringComparison.Ordinal)
             || string.IsNullOrWhiteSpace(args[2]))
         {
-            return new InternalSupervisorInvocation(true, string.Empty);
+            return InternalSupervisorInvocation.Invalid;
         }
 
-        return new InternalSupervisorInvocation(true, args[2]);
+        return InternalSupervisorInvocation.Valid(args[2]);
     }
 }

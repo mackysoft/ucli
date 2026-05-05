@@ -61,7 +61,13 @@ internal sealed class CliExecutionRunner
         // NOTE:
         // ConsoleAppFramework can fail before command handlers start when parsing options.
         // Emit JSON contract output in that path to keep stdout machine-readable.
-        CliParseErrorJsonPolicy.TryEmitParseErrorResult(args);
+        var parseErrorResult = CliParseErrorJsonPolicy.TryCreateParseErrorResult(args);
+        if (parseErrorResult != null)
+        {
+            CommandResultWriter.WriteToStandardOutput(parseErrorResult);
+            Environment.ExitCode = parseErrorResult.ExitCode;
+        }
+
         return Environment.ExitCode;
     }
 }

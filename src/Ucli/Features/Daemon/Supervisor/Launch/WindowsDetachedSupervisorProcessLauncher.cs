@@ -32,9 +32,11 @@ internal sealed class WindowsDetachedSupervisorProcessLauncher
                 startInfo.ArgumentList.Add(launchCommand.Arguments[i]);
             }
 
-            startInfo.ArgumentList.Add(SupervisorConstants.InternalServeFlag);
-            startInfo.ArgumentList.Add(SupervisorConstants.RepositoryRootOption);
-            startInfo.ArgumentList.Add(Path.GetFullPath(storageRoot));
+            var supervisorArguments = SupervisorInvocationArguments.Build(Path.GetFullPath(storageRoot));
+            for (var i = 0; i < supervisorArguments.Length; i++)
+            {
+                startInfo.ArgumentList.Add(supervisorArguments[i]);
+            }
 
             var process = Process.Start(startInfo);
             if (process == null)

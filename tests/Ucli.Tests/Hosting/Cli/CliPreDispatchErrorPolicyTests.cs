@@ -57,26 +57,6 @@ public sealed class CliPreDispatchErrorPolicyTests
                 UcliCommandNames.Query,
                 "Subcommand 'unknown' is not recognized for command 'query assets'."
             },
-            {
-                [UcliCommandNames.Test],
-                UcliCommandNames.Test,
-                "Subcommand is required for command 'test'. Supported subcommands: run, profile."
-            },
-            {
-                [UcliCommandNames.Test, "unknown"],
-                UcliCommandNames.Test,
-                "Subcommand 'unknown' is not recognized for command 'test'."
-            },
-            {
-                [UcliCommandNames.Test, UcliCommandNames.Profile],
-                UcliCommandNames.Test,
-                "Subcommand is required for command 'test profile'. Supported subcommands: init."
-            },
-            {
-                [UcliCommandNames.Test, UcliCommandNames.Profile, "unknown"],
-                UcliCommandNames.Test,
-                "Subcommand 'unknown' is not recognized for command 'test profile'."
-            },
         };
 
     public static TheoryData<string[]> PassThroughCases => new()
@@ -88,6 +68,10 @@ public sealed class CliPreDispatchErrorPolicyTests
             { [UcliCommandNames.Daemon, "--help"] },
             { [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, "--help"] },
             { [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, UcliCommandNames.FindSubcommand] },
+            { [UcliCommandNames.Test] },
+            { [UcliCommandNames.Test, "unknown"] },
+            { [UcliCommandNames.Test, UcliCommandNames.Profile] },
+            { [UcliCommandNames.Test, UcliCommandNames.Profile, "unknown"] },
             { [UcliCommandNames.Test, UcliCommandNames.Profile, "--help"] },
             { [UcliCommandNames.Test, UcliCommandNames.Profile, UcliCommandNames.InitSubcommand] },
         };

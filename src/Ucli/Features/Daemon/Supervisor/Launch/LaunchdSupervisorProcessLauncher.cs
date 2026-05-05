@@ -125,9 +125,12 @@ internal sealed class LaunchdSupervisorProcessLauncher
             builder.AppendLine($"    <string>{EscapeXml(launchCommand.Arguments[i])}</string>");
         }
 
-        builder.AppendLine($"    <string>{EscapeXml(SupervisorConstants.InternalServeFlag)}</string>");
-        builder.AppendLine($"    <string>{EscapeXml(SupervisorConstants.RepositoryRootOption)}</string>");
-        builder.AppendLine($"    <string>{escapedStorageRoot}</string>");
+        var supervisorArguments = SupervisorInvocationArguments.Build(storageRoot);
+        for (var i = 0; i < supervisorArguments.Length; i++)
+        {
+            builder.AppendLine($"    <string>{EscapeXml(supervisorArguments[i])}</string>");
+        }
+
         builder.AppendLine("  </array>");
         builder.AppendLine("  <key>WorkingDirectory</key>");
         builder.AppendLine($"  <string>{escapedStorageRoot}</string>");

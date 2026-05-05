@@ -12,6 +12,7 @@ public sealed class InternalSupervisorInvocationParserTests
         var invocation = InternalSupervisorInvocationParser.Parse([UcliCommandNames.Status]);
 
         Assert.False(invocation.IsMatched);
+        Assert.False(invocation.IsValid);
         Assert.Equal(string.Empty, invocation.RepositoryRoot);
     }
 
@@ -21,14 +22,10 @@ public sealed class InternalSupervisorInvocationParserTests
     {
         const string repositoryRoot = "/repo";
 
-        var invocation = InternalSupervisorInvocationParser.Parse(
-            [
-                SupervisorConstants.InternalServeFlag,
-                SupervisorConstants.RepositoryRootOption,
-                repositoryRoot,
-            ]);
+        var invocation = InternalSupervisorInvocationParser.Parse(SupervisorInvocationArguments.Build(repositoryRoot));
 
         Assert.True(invocation.IsMatched);
+        Assert.True(invocation.IsValid);
         Assert.Equal(repositoryRoot, invocation.RepositoryRoot);
     }
 
@@ -40,15 +37,16 @@ public sealed class InternalSupervisorInvocationParserTests
         var invocation = InternalSupervisorInvocationParser.Parse(args);
 
         Assert.True(invocation.IsMatched);
+        Assert.False(invocation.IsValid);
         Assert.Equal(string.Empty, invocation.RepositoryRoot);
     }
 
     public static TheoryData<string[]> InvalidInternalInvocationCases => new()
         {
-            { [SupervisorConstants.InternalServeFlag] },
-            { [SupervisorConstants.InternalServeFlag, "--unknown", "/repo"] },
-            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption] },
-            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, " "] },
-            { [SupervisorConstants.InternalServeFlag, SupervisorConstants.RepositoryRootOption, "/repo", "extra"] },
+            { [SupervisorInvocationArguments.InternalServeFlag] },
+            { [SupervisorInvocationArguments.InternalServeFlag, "--unknown", "/repo"] },
+            { [SupervisorInvocationArguments.InternalServeFlag, SupervisorInvocationArguments.RepositoryRootOption] },
+            { [SupervisorInvocationArguments.InternalServeFlag, SupervisorInvocationArguments.RepositoryRootOption, " "] },
+            { [SupervisorInvocationArguments.InternalServeFlag, SupervisorInvocationArguments.RepositoryRootOption, "/repo", "extra"] },
         };
 }

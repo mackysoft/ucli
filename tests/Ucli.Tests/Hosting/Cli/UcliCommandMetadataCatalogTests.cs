@@ -1,9 +1,9 @@
+using MackySoft.Ucli.Hosting.Cli.Common.Catalog;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 
 namespace MackySoft.Ucli.Tests.Cli;
 
-public sealed class UcliCommandCatalogTests
+public sealed class UcliCommandMetadataCatalogTests
 {
     [Theory]
     [Trait("Size", "Small")]
@@ -37,7 +37,7 @@ public sealed class UcliCommandCatalogTests
             ? new[] { command, subcommand }
             : new[] { command, subcommand, leafSubcommand };
 
-        var commandName = UcliCommandCatalog.ResolveResultCommandName(args);
+        var commandName = UcliCommandMetadataCatalog.ResolveResultCommandName(args);
 
         Assert.Equal(expected, commandName);
     }
@@ -59,7 +59,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Test)]
     public void IsRegisteredRootCommand_WhenKnownCommandSpecified_ReturnsTrue (string commandName)
     {
-        var result = UcliCommandCatalog.IsRegisteredRootCommand(commandName);
+        var result = UcliCommandMetadataCatalog.IsRegisteredRootCommand(commandName);
 
         Assert.True(result);
     }
@@ -71,7 +71,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(" ")]
     public void IsRegisteredRootCommand_WhenUnknownCommandSpecified_ReturnsFalse (string? commandName)
     {
-        var result = UcliCommandCatalog.IsRegisteredRootCommand(commandName);
+        var result = UcliCommandMetadataCatalog.IsRegisteredRootCommand(commandName);
 
         Assert.False(result);
     }
@@ -80,7 +80,7 @@ public sealed class UcliCommandCatalogTests
     [Trait("Size", "Small")]
     public void ResolveResultCommandName_WhenUnknownCommandSpecified_ReturnsRoot ()
     {
-        var commandName = UcliCommandCatalog.ResolveResultCommandName(["unknown"]);
+        var commandName = UcliCommandMetadataCatalog.ResolveResultCommandName(["unknown"]);
 
         Assert.Equal(UcliCommandNames.Root, commandName);
     }
@@ -89,7 +89,7 @@ public sealed class UcliCommandCatalogTests
     [Trait("Size", "Small")]
     public void TryGetSupportedSubcommands_WhenQueryCommandSpecified_ReturnsQueryGroups ()
     {
-        var found = UcliCommandCatalog.TryGetSupportedSubcommands(
+        var found = UcliCommandMetadataCatalog.TryGetSupportedSubcommands(
             UcliCommandNames.Query,
             out var subcommands);
 
@@ -109,7 +109,7 @@ public sealed class UcliCommandCatalogTests
     [Trait("Size", "Small")]
     public void TryGetSupportedSubcommands_WhenTestCommandSpecified_ReturnsTestGroups ()
     {
-        var found = UcliCommandCatalog.TryGetSupportedSubcommands(
+        var found = UcliCommandMetadataCatalog.TryGetSupportedSubcommands(
             UcliCommandNames.Test,
             out var subcommands);
 
@@ -124,9 +124,41 @@ public sealed class UcliCommandCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryGetPreDispatchSupportedSubcommands_WhenDaemonCommandSpecified_ReturnsDaemonGroups ()
+    {
+        var found = UcliCommandMetadataCatalog.TryGetPreDispatchSupportedSubcommands(
+            UcliCommandNames.Daemon,
+            out var subcommands);
+
+        Assert.True(found);
+        Assert.Equal(
+            [
+                UcliCommandNames.StartSubcommand,
+                UcliCommandNames.StopSubcommand,
+                UcliCommandNames.CleanupSubcommand,
+                UcliCommandNames.Status,
+                UcliCommandNames.ListSubcommand,
+            ],
+            subcommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryGetPreDispatchSupportedSubcommands_WhenTestCommandSpecified_ReturnsFalse ()
+    {
+        var found = UcliCommandMetadataCatalog.TryGetPreDispatchSupportedSubcommands(
+            UcliCommandNames.Test,
+            out var subcommands);
+
+        Assert.False(found);
+        Assert.Empty(subcommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryGetSupportedLeafSubcommands_WhenQueryAssetsSpecified_ReturnsFind ()
     {
-        var found = UcliCommandCatalog.TryGetSupportedLeafSubcommands(
+        var found = UcliCommandMetadataCatalog.TryGetSupportedLeafSubcommands(
             UcliCommandNames.Query,
             UcliCommandNames.AssetsSubcommand,
             out var subcommands);
