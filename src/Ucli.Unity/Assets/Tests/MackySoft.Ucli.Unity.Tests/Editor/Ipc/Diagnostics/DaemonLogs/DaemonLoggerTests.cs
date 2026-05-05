@@ -1,10 +1,8 @@
 using System;
-using System.Text.RegularExpressions;
+using System.Collections.Generic;
 
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
-using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -15,12 +13,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Exception_WhenEmitted_DoesNotProduceUnprefixedRuntimeExceptionCopy ()
         {
             var daemonStream = new DaemonLogRingBuffer();
-            var daemonLogger = new DaemonLogger(daemonStream);
+            var errorLogs = new List<string>();
+            var daemonLogger = new DaemonLogger(
+                daemonStream,
+                logInfo: _ => { },
+                logWarning: _ => { },
+                logError: errorLogs.Add);
             var exception = new InvalidOperationException("boom");
-
-            LogAssert.Expect(
-                LogType.Error,
-                new Regex(@"\A\[ucli\]\[ipc\] daemon failed\r?\nSystem\.InvalidOperationException: boom", RegexOptions.Singleline));
 
             daemonLogger.Exception("ipc", "daemon failed", exception);
 
@@ -28,7 +27,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(snapshot.Events.Count, Is.EqualTo(1));
             Assert.That(snapshot.Events[0].Message, Is.EqualTo("daemon failed"));
             Assert.That(snapshot.Events[0].Raw, Does.Contain("System.InvalidOperationException: boom"));
-            LogAssert.NoUnexpectedReceived();
+            Assert.That(errorLogs.Count, Is.EqualTo(1));
+            Assert.That(errorLogs[0], Does.StartWith("[ucli][ipc] daemon failed"));
+            Assert.That(errorLogs[0], Does.Not.StartWith("System.InvalidOperationException: boom"));
+            Assert.That(errorLogs[0], Does.Contain("System.InvalidOperationException: boom"));
         }
     }
 }

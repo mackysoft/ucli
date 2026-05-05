@@ -9,11 +9,29 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IDaemonLogStream daemonLogStream;
 
+        private readonly Action<string> logInfo;
+
+        private readonly Action<string> logWarning;
+
+        private readonly Action<string> logError;
+
         /// <summary> Initializes a new instance of the <see cref="DaemonLogger" /> class. </summary>
         /// <param name="daemonLogStream"> The daemon-log stream dependency. </param>
         public DaemonLogger (IDaemonLogStream daemonLogStream)
+            : this(daemonLogStream, LogInfoToUnityConsole, LogWarningToUnityConsole, LogErrorToUnityConsole)
+        {
+        }
+
+        internal DaemonLogger (
+            IDaemonLogStream daemonLogStream,
+            Action<string> logInfo,
+            Action<string> logWarning,
+            Action<string> logError)
         {
             this.daemonLogStream = daemonLogStream ?? throw new ArgumentNullException(nameof(daemonLogStream));
+            this.logInfo = logInfo ?? throw new ArgumentNullException(nameof(logInfo));
+            this.logWarning = logWarning ?? throw new ArgumentNullException(nameof(logWarning));
+            this.logError = logError ?? throw new ArgumentNullException(nameof(logError));
         }
 
         /// <inheritdoc />
@@ -23,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string raw = null)
         {
             WriteAndEmit(IpcDaemonLogsLevelCodec.Info, category, message, raw);
-            Debug.Log(FormatMessage(category, message));
+            logInfo(FormatMessage(category, message));
         }
 
         /// <inheritdoc />
@@ -33,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string raw = null)
         {
             WriteAndEmit(IpcDaemonLogsLevelCodec.Warning, category, message, raw);
-            Debug.LogWarning(FormatMessage(category, message));
+            logWarning(FormatMessage(category, message));
         }
 
         /// <inheritdoc />
@@ -43,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string raw = null)
         {
             WriteAndEmit(IpcDaemonLogsLevelCodec.Error, category, message, raw);
-            Debug.LogError(FormatMessage(category, message));
+            logError(FormatMessage(category, message));
         }
 
         /// <inheritdoc />
@@ -58,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             WriteAndEmit(IpcDaemonLogsLevelCodec.Error, category, message, exception.ToString());
-            Debug.LogError(FormatExceptionMessage(category, message, exception));
+            logError(FormatExceptionMessage(category, message, exception));
         }
 
         /// <summary> Writes one daemon log event to in-memory stream with normalized values. </summary>
@@ -111,6 +129,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             Exception exception)
         {
             return string.Concat(FormatMessage(category, message), Environment.NewLine, exception);
+        }
+
+        private static void LogInfoToUnityConsole (string message)
+        {
+            Debug.Log(message);
+        }
+
+        private static void LogWarningToUnityConsole (string message)
+        {
+            Debug.LogWarning(message);
+        }
+
+        private static void LogErrorToUnityConsole (string message)
+        {
+            Debug.LogError(message);
         }
     }
 }

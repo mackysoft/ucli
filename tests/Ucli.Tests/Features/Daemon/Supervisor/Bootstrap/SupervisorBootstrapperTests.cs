@@ -212,6 +212,7 @@ public sealed class SupervisorBootstrapperTests
     public async Task EnsureReady_WhenLaunchNeverPublishesManifest_ReturnsInternalErrorBeforeTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-no-manifest");
+        var timeProvider = new ManualTimeProvider();
         var launchCount = 0;
         var manifestStore = new SupervisorManifestStore(
             readAllTextOrNull: static (path, cancellationToken) => ValueTask.FromResult<string?>(null),
@@ -234,18 +235,54 @@ public sealed class SupervisorBootstrapperTests
             new SupervisorClient(transportClient),
             launcher,
             new SupervisorBootstrapLockProvider(),
-            new SupervisorEndpointResolver());
+            new SupervisorEndpointResolver(),
+            timeProvider);
 
-        var result = await bootstrapper.EnsureReady(
-            scope.FullPath,
-            TimeSpan.FromSeconds(2),
-            CancellationToken.None);
+        var resultTask = bootstrapper.EnsureReady(
+                scope.FullPath,
+                TimeSpan.FromSeconds(2),
+                CancellationToken.None)
+            .AsTask();
+        for (var i = 0; i < 4; i++)
+        {
+            await WaitForActiveTimerAsync(timeProvider, resultTask, CancellationToken.None);
+            if (resultTask.IsCompleted)
+            {
+                break;
+            }
+
+            timeProvider.Advance(SupervisorConstants.BootstrapPollDelay);
+        }
+
+        var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor manifest publication failure result", SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
         Assert.Contains("did not publish a reachable manifest", result.Error.Message, StringComparison.Ordinal);
         Assert.Equal(2, launchCount);
+    }
+
+    private static async Task WaitForActiveTimerAsync (
+        ManualTimeProvider timeProvider,
+        Task observedTask,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            if (observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0)
+            {
+                return;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Yield();
+        }
+
+        Assert.True(
+            observedTask.IsCompleted || timeProvider.ActiveTimerCount > 0,
+            "Supervisor bootstrap did not register the expected poll delay timer.");
     }
 
     private sealed class StubSupervisorProcessLauncher : ISupervisorProcessLauncher

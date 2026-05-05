@@ -31,9 +31,7 @@ public sealed class ProjectBoundaryTests
             ],
         };
 
-        var actualProjectPaths = Directory
-            .EnumerateFiles(Path.Combine(RepositoryRoot, "src"), "*.csproj", SearchOption.AllDirectories)
-            .Select(NormalizeRepositoryRelativePath)
+        var actualProjectPaths = EnumerateProductionProjectFiles()
             .OrderBy(static value => value, StringComparer.Ordinal)
             .ToArray();
         Assert.Equal(
@@ -573,6 +571,20 @@ public sealed class ProjectBoundaryTests
                 return !relativePath.Contains("/bin/", StringComparison.Ordinal)
                     && !relativePath.Contains("/obj/", StringComparison.Ordinal);
             });
+    }
+
+    private static IEnumerable<string> EnumerateProductionProjectFiles ()
+    {
+        return Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot, "src"), "*.csproj", SearchOption.AllDirectories)
+            .Select(NormalizeRepositoryRelativePath)
+            .Where(static relativePath => !IsUnityGeneratedProjectFile(relativePath));
+    }
+
+    private static bool IsUnityGeneratedProjectFile (string relativePath)
+    {
+        return relativePath.StartsWith("src/Ucli.Unity/", StringComparison.Ordinal)
+            && relativePath.EndsWith(".csproj", StringComparison.Ordinal);
     }
 
     private static bool IsApplicationUseCaseImport (string line)
