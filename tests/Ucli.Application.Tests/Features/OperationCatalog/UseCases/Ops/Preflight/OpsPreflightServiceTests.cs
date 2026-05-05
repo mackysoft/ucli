@@ -13,10 +13,9 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Shared.Execution.Process;
-using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
+using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 
-namespace MackySoft.Ucli.Tests.Ops.Preflight;
+namespace MackySoft.Ucli.Application.Tests.Ops.Preflight;
 
 public sealed class OpsPreflightServiceTests
 {

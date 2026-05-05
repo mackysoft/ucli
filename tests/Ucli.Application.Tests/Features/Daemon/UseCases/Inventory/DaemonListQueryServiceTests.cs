@@ -27,9 +27,8 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Shared.Execution.Process;
 
-namespace MackySoft.Ucli.Tests.Daemon;
+namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonListQueryServiceTests
 {
@@ -542,10 +541,48 @@ public sealed class DaemonListQueryServiceTests
             daemonDiagnosisStore,
             daemonPingClient,
             daemonReachabilityClassifier,
-            new DaemonSessionDiagnosisResolver(daemonDiagnosisStore),
+            CreateDiagnosisResolver(daemonDiagnosisStore),
             new DaemonDiagnosisOutputMapper(),
             new StubWorktreeProjectPathResolver(),
             timeProvider);
+    }
+
+    private static DaemonServiceTestContext.StubDaemonSessionDiagnosisResolver CreateDiagnosisResolver (IDaemonDiagnosisStore daemonDiagnosisStore)
+    {
+        return new DaemonServiceTestContext.StubDaemonSessionDiagnosisResolver
+        {
+            Handler = async (unityProject, session, persistedDiagnosis, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (persistedDiagnosis is not null
+                    && persistedDiagnosis.SessionIssuedAtUtc == session.IssuedAtUtc)
+                {
+                    return persistedDiagnosis;
+                }
+
+                if (session.ProcessId is not int processId)
+                {
+                    return null;
+                }
+
+                var diagnosis = new DaemonDiagnosis(
+                    Reason: DaemonDiagnosisReasonValues.ExternalTerminationSuspected,
+                    Message: "Daemon process is no longer alive and no persisted diagnosis matched the current session.",
+                    ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+                    IsInferred: true,
+                    UpdatedAtUtc: DateTimeOffset.UtcNow,
+                    ProcessId: processId,
+                    SessionIssuedAtUtc: session.IssuedAtUtc);
+
+                await daemonDiagnosisStore.Write(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        diagnosis,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+                return diagnosis;
+            },
+        };
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject (

@@ -16,15 +16,8 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Bootstrap;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Client;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
-using MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
-using MackySoft.Ucli.UnityIntegration.Ipc;
 
-namespace MackySoft.Ucli.Tests.Daemon;
+namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonStopServiceTests
 {
@@ -181,9 +174,6 @@ public sealed class DaemonStopServiceTests
     public async Task Stop_WhenSupervisorIsReachable_UsesSupervisorStopProject ()
     {
         using var scope = DaemonServiceTestContext.CreateTempScope("stop-supervisor");
-        var manifest = DaemonServiceTestContext.CreateSupervisorManifest(scope.FullPath);
-        await DaemonServiceTestContext.WriteSupervisorManifest(scope.FullPath, manifest);
-
         var context = DaemonServiceTestContext.CreateExecutionContext(
             timeoutMilliseconds: 2100,
             repositoryRoot: scope.FullPath);

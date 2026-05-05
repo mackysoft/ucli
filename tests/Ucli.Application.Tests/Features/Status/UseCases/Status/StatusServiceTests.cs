@@ -21,11 +21,11 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Unity.Resolution;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Shared.Execution.Process;
-using MackySoft.Ucli.UnityIntegration.Resolution;
 
-namespace MackySoft.Ucli.Tests.Status;
+namespace MackySoft.Ucli.Application.Tests.Status;
 
 public sealed class StatusServiceTests
 {
@@ -66,7 +66,9 @@ public sealed class StatusServiceTests
         Assert.Equal("7", output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Equal("batchmode", output.Runtime);
-        Assert.Equal(UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds, output.TimeoutMilliseconds);
+        Assert.Equal(
+            UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name],
+            output.TimeoutMilliseconds);
         Assert.Equal("session-token", daemonPingInfoClient.LastSessionToken);
         Assert.Equal(1, daemonPingInfoClient.CallCount);
         Assert.Equal(1, daemonStatusOperation.GetStatusCallCount);
@@ -286,7 +288,7 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new StubUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new StubDaemonStatusOperation(DaemonStatusResult.Running(CreateSession("session-token")));
         var daemonPingInfoClient = new StubDaemonPingInfoClient(
-            nextException: new DaemonPingResponseException("failed"));
+            nextException: new InvalidOperationException("failed"));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -313,7 +315,7 @@ public sealed class StatusServiceTests
             new StatusDaemonObservationService(
                 daemonStatusOperation,
                 daemonPingInfoClient,
-                new DaemonReachabilityClassifier()));
+                new StubDaemonReachabilityClassifier()));
     }
 
     private static ProjectContext CreateContext ()
@@ -437,6 +439,14 @@ public sealed class StatusServiceTests
             }
 
             return ValueTask.FromResult(nextResult!);
+        }
+    }
+
+    private sealed class StubDaemonReachabilityClassifier : IDaemonReachabilityClassifier
+    {
+        public bool IsNotRunning (Exception exception)
+        {
+            return exception is SocketException;
         }
     }
 }

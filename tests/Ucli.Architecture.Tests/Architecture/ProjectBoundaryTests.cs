@@ -138,6 +138,18 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Verify_scope_detector_tracks_application_project_changes ()
+    {
+        var sourceText = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "detect-verify-scopes.sh"));
+        var applicationScopeOccurrences = sourceText.Split("src/Ucli.Application/*", StringSplitOptions.None).Length - 1;
+
+        Assert.True(
+            applicationScopeOccurrences >= 2,
+            "Application project changes must trigger both .NET verification and CLI package verification scopes.");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Application_source_does_not_reference_host_or_adapter_namespaces ()
     {
         var forbiddenNamespaceMarkers = new[]
@@ -424,15 +436,44 @@ public sealed class ProjectBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Request_use_case_tests_are_owned_by_application_test_project ()
+    public void Application_use_case_tests_are_owned_by_application_test_project ()
     {
-        var hostRequestUseCaseTestFiles = Directory
-            .EnumerateFiles(Path.Combine(RepositoryRoot, "tests", "Ucli.Tests", "Features", "Requests"), "*.cs", SearchOption.AllDirectories)
+        var hostUseCaseTestFiles = Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot, "tests", "Ucli.Tests"), "*.cs", SearchOption.AllDirectories)
             .Select(NormalizeRepositoryRelativePath)
             .Where(static relativePath => relativePath.Contains("/UseCases/", StringComparison.Ordinal))
             .ToArray();
 
-        Assert.Empty(hostRequestUseCaseTestFiles);
+        Assert.Empty(hostUseCaseTestFiles);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Cli_host_tests_do_not_directly_instantiate_application_use_case_services ()
+    {
+        var applicationUseCaseServiceTypeNames = EnumerateCSharpSourceFiles("src/Ucli.Application/Features")
+            .Where(static sourceFile => NormalizeRepositoryRelativePath(sourceFile).Contains("/UseCases/", StringComparison.Ordinal))
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(static typeName => typeName is not null && typeName.EndsWith("Service", StringComparison.Ordinal))
+            .Select(static typeName => typeName!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        var violations = new List<string>();
+        foreach (var sourceFile in EnumerateCSharpSourceFiles("tests/Ucli.Tests"))
+        {
+            var sourceText = File.ReadAllText(sourceFile);
+            foreach (var typeName in applicationUseCaseServiceTypeNames)
+            {
+                if (sourceText.Contains($"new {typeName}(", StringComparison.Ordinal)
+                    || sourceText.Contains($"class {typeName}Tests", StringComparison.Ordinal))
+                {
+                    violations.Add($"{NormalizeRepositoryRelativePath(sourceFile)} references Application use case service {typeName}.");
+                }
+            }
+        }
+
+        Assert.Empty(violations);
     }
 
     [Fact]

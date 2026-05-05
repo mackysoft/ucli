@@ -16,7 +16,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 
-namespace MackySoft.Ucli.Tests.Daemon;
+namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonCleanupServiceTests
 {

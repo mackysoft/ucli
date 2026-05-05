@@ -24,9 +24,8 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Shared.Execution.Process;
 
-namespace MackySoft.Ucli.Tests.Daemon;
+namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonStatusServiceTests
 {

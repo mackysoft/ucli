@@ -20,12 +20,9 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
-using MackySoft.Ucli.Shared.Execution.Process;
-using static MackySoft.Ucli.Tests.Helpers.Cli.CommandOptionNormalizationTestHelper;
+using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 
-namespace MackySoft.Ucli.Tests;
+namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class TestRunServiceTests
 {
