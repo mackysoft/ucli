@@ -92,7 +92,7 @@ is_unity_input() {
   local file="$1"
 
   case "${file}" in
-    .editorconfig|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/setup-nuget-cli.sh|scripts/test-unity.sh|scripts/update-local-shared-packages.sh|scripts/verify.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
+    .editorconfig|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/setup-nuget-cli.sh|scripts/test-unity.sh|scripts/test-unity-ci.sh|scripts/update-local-shared-packages.sh|scripts/verify.sh|src/Ucli.Unity/Ucli.Unity.slnx|src/Ucli.Unity/*.csproj|src/Ucli.Unity/Assets/*|src/Ucli.Unity/Packages/*|src/Ucli.Unity/ProjectSettings/*)
       return 0
       ;;
   esac

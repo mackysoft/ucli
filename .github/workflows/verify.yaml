@@ -210,7 +210,7 @@ jobs:
         id: unity_test
         continue-on-error: true
         run: |
-          bash scripts/test-unity.sh \
+          bash scripts/test-unity-ci.sh \
             --project-path "src/Ucli.Unity" \
             --unity-editor-path "${{ steps.unity_setup.outputs.unity-editor-path }}" \
             --assembly-name "MackySoft.Ucli.Unity.Tests.Editor" \
