@@ -79,7 +79,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
                     break;
                 }
 
-                return AssetLookupRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!);
+                return AssetLookupRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!.Value);
             }
 
             response = attemptResult.FetchResult.Response!;

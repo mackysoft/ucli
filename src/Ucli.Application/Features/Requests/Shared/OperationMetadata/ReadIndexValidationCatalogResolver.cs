@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -42,7 +43,7 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
         if (!persistedCatalogResult.IsSuccess)
         {
             return HandleSnapshotReadFailure(
-                persistedCatalogResult.ErrorCode!,
+                persistedCatalogResult.ErrorCode!.Value,
                 persistedCatalogResult.ErrorMessage!,
                 readIndexMode);
         }
@@ -84,15 +85,19 @@ internal sealed class ReadIndexValidationCatalogResolver : IReadIndexValidationC
     }
 
     private static ReadIndexValidationCatalogResolutionResult HandleSnapshotReadFailure (
-        string errorCode,
+        UcliErrorCode errorCode,
         string errorMessage,
         ReadIndexMode readIndexMode)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+        if (!errorCode.IsValid)
+        {
+            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
 
         if ((readIndexMode == ReadIndexMode.AllowStale)
-            && string.Equals(errorCode, IpcErrorCodes.ReadIndexBootstrapFailed, StringComparison.Ordinal))
+            && errorCode == IpcErrorCodes.ReadIndexBootstrapFailed)
         {
             return ReadIndexValidationCatalogResolutionResult.Success(
                 RequestStaticValidationCatalog.Unavailable,

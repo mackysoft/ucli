@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution;
+using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 
@@ -76,7 +77,7 @@ internal sealed record ValidateServiceResult
     /// <returns> The failed result. </returns>
     public static ValidateServiceResult Failure (
         string message,
-        string errorCode,
+        UcliErrorCode errorCode,
         ValidateExecutionOutput? output = null)
     {
         RequestServiceResultPolicy.ValidateFailureMessage(message);

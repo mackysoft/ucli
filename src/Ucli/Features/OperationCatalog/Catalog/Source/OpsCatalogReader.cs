@@ -53,7 +53,7 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         {
             return OpsCatalogFetchResult.Failure(
                 executionResult.Message,
-                executionResult.ErrorCode!);
+                executionResult.ErrorCode!.Value);
         }
 
         return CreateResultFromResponse(executionResult.Response!, "ops.read");

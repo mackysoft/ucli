@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
@@ -6,7 +7,7 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 internal sealed record AssetLookupRefreshResult (
     IpcIndexAssetsReadResponse? Response,
     string Message,
-    string? ErrorCode,
+    UcliErrorCode? ErrorCode,
     string? FallbackReason)
 {
     /// <summary> Gets a value indicating whether refresh succeeded. </summary>
@@ -28,7 +29,7 @@ internal sealed record AssetLookupRefreshResult (
     /// <summary> Creates a failed refresh result. </summary>
     public static AssetLookupRefreshResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new AssetLookupRefreshResult(
             Response: null,

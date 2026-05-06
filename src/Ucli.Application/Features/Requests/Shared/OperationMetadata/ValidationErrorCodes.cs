@@ -1,5 +1,7 @@
 using System.Reflection;
 
+using MackySoft.Ucli.Contracts;
+
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Defines machine-readable validation error codes for static request validation. </summary>
@@ -44,9 +46,9 @@ internal static class ValidationErrorCodes
     public const string EditStepInvalid = "EDIT_STEP_INVALID";
 
     /// <summary> Returns whether the specified code belongs to static request validation. </summary>
-    public static bool Contains (string code)
+    public static bool Contains (UcliErrorCode code)
     {
-        return !string.IsNullOrWhiteSpace(code) && AllCodes.Contains(code);
+        return code.IsValid && AllCodes.Contains(code.Value);
     }
 
     private static IReadOnlySet<string> CreateAllCodes ()

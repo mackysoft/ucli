@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
@@ -9,7 +10,7 @@ internal static class ExecutionErrorCodeMapper
     /// <summary> Converts one execution-error kind to the corresponding CLI contract error code. </summary>
     /// <param name="kind"> The execution-error kind. </param>
     /// <returns> The mapped machine-readable error code. </returns>
-    public static string ToCode (ExecutionErrorKind kind)
+    public static UcliErrorCode ToCode (ExecutionErrorKind kind)
     {
         return kind switch
         {

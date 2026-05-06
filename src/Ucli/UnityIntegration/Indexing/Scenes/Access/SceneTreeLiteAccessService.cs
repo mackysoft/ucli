@@ -109,7 +109,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (string.Equals(lookupResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (lookupResult.Error!.Code == IpcErrorCodes.InvalidArgument)
             {
                 return SceneTreeLiteReadResult.Failure(lookupResult.Error.Message, lookupResult.Error.Code);
             }
@@ -176,7 +176,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 "Scene-tree-lite read completed.");
         }
 
-        if (!string.Equals(freshnessResult.Error!.Code, IpcErrorCodes.ReadIndexFreshRequired, StringComparison.Ordinal))
+        if (freshnessResult.Error!.Code != IpcErrorCodes.ReadIndexFreshRequired)
         {
             return SceneTreeLiteReadResult.Failure(freshnessResult.Error.Message, freshnessResult.Error.Code);
         }
@@ -223,7 +223,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return SceneTreeLiteReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!);
+            return SceneTreeLiteReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
         }
 
         var response = refreshResult.Response!;

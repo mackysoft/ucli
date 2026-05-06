@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
 /// <summary> Represents one normalized internal ops catalog read result. </summary>
@@ -7,7 +9,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 internal sealed record OpsCatalogReadResult (
     OpsCatalogReadOutput? Output,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the catalog read succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -30,7 +32,7 @@ internal sealed record OpsCatalogReadResult (
     /// <returns> The failed result. </returns>
     public static OpsCatalogReadResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new OpsCatalogReadResult(null, message, errorCode);
     }

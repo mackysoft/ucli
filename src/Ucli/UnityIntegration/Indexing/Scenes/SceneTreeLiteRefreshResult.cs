@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
@@ -7,7 +8,7 @@ internal sealed record SceneTreeLiteRefreshResult (
     IpcIndexSceneTreeLiteReadResponse? Response,
     string? FallbackReason,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the refresh succeeded. </summary>
     public bool IsSuccess => Response is not null && ErrorCode is null;
@@ -24,7 +25,7 @@ internal sealed record SceneTreeLiteRefreshResult (
     /// <summary> Creates a failed refresh result. </summary>
     public static SceneTreeLiteRefreshResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new SceneTreeLiteRefreshResult(null, null, message, errorCode);
     }

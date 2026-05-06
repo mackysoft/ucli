@@ -280,7 +280,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
                 {
                     return UnityRequestExecutionResult.Failure(
                         readinessDecision.ErrorMessage!,
-                        readinessDecision.ErrorCode!);
+                        readinessDecision.ErrorCode!.Value);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -410,9 +410,9 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
             return false;
         }
 
-        return string.Equals(firstError.Code, IpcErrorCodes.EditorStarting, StringComparison.Ordinal)
-            || string.Equals(firstError.Code, IpcErrorCodes.EditorBusy, StringComparison.Ordinal)
-            || string.Equals(firstError.Code, IpcErrorCodes.EditorCompiling, StringComparison.Ordinal);
+        return firstError.Code == IpcErrorCodes.EditorStarting
+            || firstError.Code == IpcErrorCodes.EditorBusy
+            || firstError.Code == IpcErrorCodes.EditorCompiling;
     }
 
     private async ValueTask<ExecutionError?> VerifyUnityPluginWithinBudget (
@@ -474,7 +474,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
     private readonly record struct DaemonReadinessDecision (
         bool IsReady,
         bool IsFailure,
-        string? ErrorCode,
+        UcliErrorCode? ErrorCode,
         string? ErrorMessage)
     {
         public static DaemonReadinessDecision Ready ()
@@ -496,10 +496,14 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor
         }
 
         public static DaemonReadinessDecision Failure (
-            string errorCode,
+            UcliErrorCode errorCode,
             string errorMessage)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+            if (!errorCode.IsValid)
+            {
+                throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
+            }
+
             ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
             return new DaemonReadinessDecision(
                 IsReady: false,

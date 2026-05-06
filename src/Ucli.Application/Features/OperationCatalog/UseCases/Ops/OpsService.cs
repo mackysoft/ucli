@@ -46,7 +46,7 @@ internal sealed class OpsService : IOpsService
         {
             return OpsListServiceResult.Failure(
                 preflightResult.Message,
-                preflightResult.ErrorCode!);
+                preflightResult.ErrorCode!.Value);
         }
 
         var catalogResult = await catalogAccessService.Read(
@@ -57,7 +57,7 @@ internal sealed class OpsService : IOpsService
         {
             return OpsListServiceResult.Failure(
                 catalogResult.Message,
-                catalogResult.ErrorCode!);
+                catalogResult.ErrorCode!.Value);
         }
 
         return listResultMapper.Map(catalogResult.Output!);
@@ -84,7 +84,7 @@ internal sealed class OpsService : IOpsService
         {
             return OpsDescribeServiceResult.Failure(
                 preflightResult.Message,
-                preflightResult.ErrorCode!);
+                preflightResult.ErrorCode!.Value);
         }
 
         var catalogResult = await catalogAccessService.Read(
@@ -95,7 +95,7 @@ internal sealed class OpsService : IOpsService
         {
             return OpsDescribeServiceResult.Failure(
                 catalogResult.Message,
-                catalogResult.ErrorCode!);
+                catalogResult.ErrorCode!.Value);
         }
 
         return describeResultMapper.Map(catalogResult.Output!, input.OperationName);

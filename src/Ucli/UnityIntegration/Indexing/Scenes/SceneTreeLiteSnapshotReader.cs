@@ -51,7 +51,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 executionResult.Message,
-                executionResult.ErrorCode!);
+                executionResult.ErrorCode!.Value);
         }
 
         return CreateResultFromResponse(executionResult.Response!, "index.scene-tree-lite.read", scenePath);

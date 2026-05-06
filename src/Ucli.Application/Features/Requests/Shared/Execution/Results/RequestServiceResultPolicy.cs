@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 
@@ -89,7 +90,11 @@ internal static class RequestServiceResultPolicy
                 throw new ArgumentException("Failure errors must not contain null entries.", nameof(errors));
             }
 
-            ArgumentException.ThrowIfNullOrWhiteSpace(error.Code, nameof(errors));
+            if (!error.Code.IsValid)
+            {
+                throw new ArgumentException("Failure error code must not be empty.", nameof(errors));
+            }
+
             ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(errors));
             snapshot[i] = error;
         }
@@ -112,9 +117,9 @@ internal static class RequestServiceResultPolicy
         ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(error));
 
         return new OperationExecutionError(
-            ResolveErrorCode(string.IsNullOrWhiteSpace(errorCode)
-                ? ExecutionErrorCodeMapper.ToCode(error.Kind)
-                : errorCode),
+            UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
+                ? normalizedErrorCode
+                : ExecutionErrorCodeMapper.ToCode(error.Kind),
             error.Message,
             null);
     }
@@ -177,7 +182,11 @@ internal static class RequestServiceResultPolicy
                 throw new ArgumentException("Validation errors must not contain null entries.", nameof(validationErrors));
             }
 
-            ArgumentException.ThrowIfNullOrWhiteSpace(validationError.Code, nameof(validationErrors));
+            if (!validationError.Code.IsValid)
+            {
+                throw new ArgumentException("Validation error code must not be empty.", nameof(validationErrors));
+            }
+
             ArgumentException.ThrowIfNullOrWhiteSpace(validationError.Message, nameof(validationErrors));
             errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
         }
@@ -214,13 +223,13 @@ internal static class RequestServiceResultPolicy
         string? errorCode = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return ResolveOutcome(string.IsNullOrWhiteSpace(errorCode)
-            ? ExecutionErrorCodeMapper.ToCode(error.Kind)
-            : errorCode);
+        return ResolveOutcome(UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
+            ? normalizedErrorCode
+            : ExecutionErrorCodeMapper.ToCode(error.Kind));
     }
 
     /// <summary> Resolves the application outcome for one machine-readable error code. </summary>
-    public static ApplicationOutcome ResolveOutcome (string errorCode)
+    public static ApplicationOutcome ResolveOutcome (UcliErrorCode errorCode)
     {
         return IsInvalidArgumentErrorCode(ResolveErrorCode(errorCode))
             ? ApplicationOutcome.InvalidArgument
@@ -228,16 +237,24 @@ internal static class RequestServiceResultPolicy
     }
 
     /// <summary> Resolves the machine-readable error code used for request failures. </summary>
-    public static string ResolveErrorCode (string? errorCode)
+    public static UcliErrorCode ResolveErrorCode (string? errorCode)
     {
-        return string.IsNullOrWhiteSpace(errorCode)
-            ? ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError)
-            : errorCode;
+        return UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
+            ? normalizedErrorCode
+            : ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError);
     }
 
-    private static bool IsInvalidArgumentErrorCode (string errorCode)
+    /// <summary> Resolves the machine-readable error code used for request failures. </summary>
+    public static UcliErrorCode ResolveErrorCode (UcliErrorCode errorCode)
     {
-        if (string.Equals(errorCode, ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InvalidArgument), StringComparison.Ordinal))
+        return errorCode.IsValid
+            ? errorCode
+            : ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InternalError);
+    }
+
+    private static bool IsInvalidArgumentErrorCode (UcliErrorCode errorCode)
+    {
+        if (errorCode == ExecutionErrorCodeMapper.ToCode(ExecutionErrorKind.InvalidArgument))
         {
             return true;
         }
@@ -246,12 +263,12 @@ internal static class RequestServiceResultPolicy
             || IsPlanTokenValidationErrorCode(errorCode);
     }
 
-    private static bool IsPlanTokenValidationErrorCode (string errorCode)
+    private static bool IsPlanTokenValidationErrorCode (UcliErrorCode errorCode)
     {
-        return errorCode is PlanTokenRequiredCode
-            or PlanTokenInvalidCode
-            or PlanTokenExpiredCode
-            or PlanTokenRequestMismatchCode
-            or StateChangedSincePlanCode;
+        return errorCode == PlanTokenRequiredCode
+            || errorCode == PlanTokenInvalidCode
+            || errorCode == PlanTokenExpiredCode
+            || errorCode == PlanTokenRequestMismatchCode
+            || errorCode == StateChangedSincePlanCode;
     }
 }

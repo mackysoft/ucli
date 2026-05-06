@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
@@ -6,7 +7,7 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 internal sealed record AssetLookupSnapshotFetchResult (
     IpcIndexAssetsReadResponse? Response,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether fetch succeeded. </summary>
     public bool IsSuccess => Response is not null && ErrorCode is null;
@@ -24,7 +25,7 @@ internal sealed record AssetLookupSnapshotFetchResult (
     /// <summary> Creates a failed fetch result. </summary>
     public static AssetLookupSnapshotFetchResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new AssetLookupSnapshotFetchResult(
             Response: null,

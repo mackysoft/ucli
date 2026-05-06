@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -120,7 +121,7 @@ internal sealed record CommandResult (
         string command,
         string message,
         CliExitCode exitCode,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         var normalizedCommand = NormalizeCommand(command);
         var normalizedMessage = NormalizeMessage(message);

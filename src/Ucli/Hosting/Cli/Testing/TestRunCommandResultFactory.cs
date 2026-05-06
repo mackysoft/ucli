@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -56,10 +57,10 @@ internal static class TestRunCommandResultFactory
     /// <summary> Resolves one command error-code value with internal fallback. </summary>
     /// <param name="errorCode"> The source error code. </param>
     /// <returns> The source value when present; otherwise <c>INTERNAL_ERROR</c>. </returns>
-    private static string ResolveErrorCode (string? errorCode)
+    private static UcliErrorCode ResolveErrorCode (UcliErrorCode? errorCode)
     {
-        return string.IsNullOrWhiteSpace(errorCode)
+        return !errorCode.HasValue || !errorCode.Value.IsValid
             ? IpcErrorCodes.InternalError
-            : errorCode;
+            : errorCode.Value;
     }
 }

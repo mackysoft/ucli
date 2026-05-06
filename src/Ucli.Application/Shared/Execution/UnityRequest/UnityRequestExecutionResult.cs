@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts;
+
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
 /// <summary> Represents one Unity request execution result. </summary>
@@ -7,7 +9,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 internal sealed record UnityRequestExecutionResult (
     UnityRequestResponse? Response,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether request execution succeeded. </summary>
     public bool IsSuccess => Response is not null && ErrorCode is null;
@@ -31,7 +33,7 @@ internal sealed record UnityRequestExecutionResult (
     /// <returns> The failed request-execution result. </returns>
     public static UnityRequestExecutionResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode? errorCode)
     {
         return new UnityRequestExecutionResult(
             Response: null,

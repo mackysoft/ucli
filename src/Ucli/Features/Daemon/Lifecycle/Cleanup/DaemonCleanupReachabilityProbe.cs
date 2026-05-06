@@ -87,8 +87,8 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.Timeout);
         }
         catch (DaemonPingResponseException exception) when (
-            string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal)
-            || string.Equals(exception.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal))
+            exception.ErrorCode == IpcErrorCodes.SessionTokenInvalid
+            || exception.ErrorCode == IpcErrorCodes.SessionTokenRequired)
         {
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.SessionAuthenticationRejected);
         }

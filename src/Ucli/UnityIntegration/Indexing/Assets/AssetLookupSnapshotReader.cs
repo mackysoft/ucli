@@ -50,7 +50,7 @@ internal sealed class AssetLookupSnapshotReader : IAssetLookupSnapshotReader
         {
             return AssetLookupSnapshotFetchResult.Failure(
                 executionResult.Message,
-                executionResult.ErrorCode!);
+                executionResult.ErrorCode!.Value);
         }
 
         return CreateResultFromResponse(executionResult.Response!, "index.assets.read");

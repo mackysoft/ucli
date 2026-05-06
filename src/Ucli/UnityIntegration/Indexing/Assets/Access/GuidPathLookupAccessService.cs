@@ -125,7 +125,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (string.Equals(lookupResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (lookupResult.Error!.Code == IpcErrorCodes.InvalidArgument)
             {
                 return GuidPathLookupReadResult.Failure(
                     lookupResult.Error.Message,
@@ -233,7 +233,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return GuidPathLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!);
+            return GuidPathLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
         }
 
         var response = refreshResult.Response!;

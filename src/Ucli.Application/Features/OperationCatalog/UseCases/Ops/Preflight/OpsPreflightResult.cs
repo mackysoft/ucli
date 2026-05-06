@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
+using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 
@@ -9,7 +10,7 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Pref
 internal sealed record OpsPreflightResult (
     OpsPreflightContext? Context,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether preflight succeeded. </summary>
     public bool IsSuccess => Context is not null && ErrorCode is null;
@@ -29,7 +30,7 @@ internal sealed record OpsPreflightResult (
     /// <returns> The failed preflight result. </returns>
     public static OpsPreflightResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new OpsPreflightResult(null, message, errorCode);
     }

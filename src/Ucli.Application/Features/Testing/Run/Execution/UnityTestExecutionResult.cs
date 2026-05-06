@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts;
+
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 
 /// <summary> Represents one Unity test-execution result. </summary>
@@ -9,7 +11,7 @@ internal sealed record UnityTestExecutionResult (
     int? ProcessExitCode,
     UnityTestExecutionFailureKind? FailureKind,
     string? ErrorMessage,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether execution succeeded. </summary>
     public bool IsSuccess => ProcessExitCode.HasValue && FailureKind is null;
@@ -32,6 +34,12 @@ internal sealed record UnityTestExecutionResult (
         string errorMessage,
         string? errorCode = null)
     {
-        return new UnityTestExecutionResult(null, failureKind, errorMessage, errorCode);
+        return new UnityTestExecutionResult(
+            null,
+            failureKind,
+            errorMessage,
+            UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
+                ? normalizedErrorCode
+                : (UcliErrorCode?)null);
     }
 }

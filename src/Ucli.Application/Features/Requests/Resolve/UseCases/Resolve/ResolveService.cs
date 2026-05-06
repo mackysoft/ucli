@@ -130,12 +130,12 @@ internal sealed class ResolveService : IResolveService
             .ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
-            if (string.Equals(readResult.ErrorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (readResult.ErrorCode == IpcErrorCodes.InvalidArgument)
             {
                 return (
                     ResolveServiceResultFactory.FromIpcError(
                         requestId,
-                        new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                        new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
                         ReadIndexInfoFactory.Unity(readResult.Message)),
                     readResult.Message);
             }

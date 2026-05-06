@@ -1,10 +1,12 @@
+using MackySoft.Ucli.Contracts;
+
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 
 /// <summary> Represents one GUID-path lookup read result. </summary>
 internal sealed record GuidPathLookupReadResult (
     GuidPathLookupReadOutput? Output,
     string Message,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether the lookup read succeeded. </summary>
     public bool IsSuccess => Output is not null && ErrorCode is null;
@@ -21,7 +23,7 @@ internal sealed record GuidPathLookupReadResult (
     /// <summary> Creates a failed lookup-read result. </summary>
     public static GuidPathLookupReadResult Failure (
         string message,
-        string errorCode)
+        UcliErrorCode errorCode)
     {
         return new GuidPathLookupReadResult(null, message, errorCode);
     }

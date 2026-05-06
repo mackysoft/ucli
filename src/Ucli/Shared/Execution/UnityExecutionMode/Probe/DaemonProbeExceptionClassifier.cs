@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
@@ -16,10 +17,15 @@ internal static class DaemonProbeExceptionClassifier
 
         if (exception is DaemonPingResponseException pingResponseException)
         {
-            return string.Equals(pingResponseException.ErrorCode, IpcErrorCodes.SessionTokenRequired, StringComparison.Ordinal)
-                || string.Equals(pingResponseException.ErrorCode, IpcErrorCodes.SessionTokenInvalid, StringComparison.Ordinal);
+            return IsSessionTokenErrorCode(pingResponseException.ErrorCode);
         }
 
         return exception is SocketException;
+    }
+
+    private static bool IsSessionTokenErrorCode (UcliErrorCode? errorCode)
+    {
+        return errorCode == IpcErrorCodes.SessionTokenRequired
+            || errorCode == IpcErrorCodes.SessionTokenInvalid;
     }
 }

@@ -151,7 +151,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message));
         }
 
@@ -195,7 +195,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message));
         }
 

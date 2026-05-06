@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts;
+
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents the result of reading one persisted ops catalog. </summary>
@@ -10,14 +12,14 @@ internal sealed record PersistedOpsCatalogReadResult (
     IReadOnlyList<IndexOpEntryJsonContract>? Entries,
     DateTimeOffset? GeneratedAtUtc,
     IndexFreshness? Freshness,
-    string? ErrorCode,
+    UcliErrorCode? ErrorCode,
     string? ErrorMessage)
 {
     /// <summary> Gets a value indicating whether reading succeeded. </summary>
     public bool IsSuccess => Entries is not null
         && GeneratedAtUtc.HasValue
         && Freshness.HasValue
-        && string.IsNullOrWhiteSpace(ErrorCode)
+        && ErrorCode is null
         && string.IsNullOrWhiteSpace(ErrorMessage);
 
     /// <summary> Creates a successful persisted-catalog read result. </summary>
@@ -45,10 +47,14 @@ internal sealed record PersistedOpsCatalogReadResult (
     /// <param name="errorMessage"> The user-facing failure message. </param>
     /// <returns> The failed read result. </returns>
     public static PersistedOpsCatalogReadResult Failure (
-        string errorCode,
+        UcliErrorCode errorCode,
         string errorMessage)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
+        if (!errorCode.IsValid)
+        {
+            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
 
         return new PersistedOpsCatalogReadResult(

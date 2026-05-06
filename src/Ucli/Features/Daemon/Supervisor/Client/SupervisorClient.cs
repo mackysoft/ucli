@@ -268,12 +268,12 @@ internal sealed class SupervisorClient
                 $"Supervisor response failed with unexpected status: {status ?? "<null>"}.");
         }
 
-        if (string.Equals(firstError.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+        if (firstError.Code == IpcErrorCodes.InvalidArgument)
         {
             return ExecutionError.InvalidArgument(firstError.Message);
         }
 
-        if (string.Equals(firstError.Code, ExecutionErrorCodes.IpcTimeout, StringComparison.Ordinal))
+        if (firstError.Code == ExecutionErrorCodes.IpcTimeout)
         {
             return ExecutionError.Timeout(firstError.Message);
         }

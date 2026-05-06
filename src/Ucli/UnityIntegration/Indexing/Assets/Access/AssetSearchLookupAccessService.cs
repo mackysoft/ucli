@@ -76,7 +76,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
         {
-            if (string.Equals(lookupResult.Error!.Code, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (lookupResult.Error!.Code == IpcErrorCodes.InvalidArgument)
             {
                 return AssetSearchLookupReadResult.Failure(
                     lookupResult.Error.Message,
@@ -183,7 +183,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return AssetSearchLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!);
+            return AssetSearchLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
         }
 
         var response = refreshResult.Response!;

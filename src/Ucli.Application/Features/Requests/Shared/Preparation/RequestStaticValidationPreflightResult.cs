@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 
@@ -14,7 +15,7 @@ internal sealed record RequestStaticValidationPreflightResult (
     ReadIndexInfo? ReadIndex,
     IReadOnlyList<ValidationError> ValidationErrors,
     ExecutionError? Error,
-    string? ErrorCode)
+    UcliErrorCode? ErrorCode)
 {
     /// <summary> Gets a value indicating whether static-validation preflight succeeded. </summary>
     public bool IsSuccess => PreparedRequest is not null && ReadIndex is not null && ValidationErrors.Count == 0 && Error is null && ErrorCode is null;
@@ -84,8 +85,8 @@ internal sealed record RequestStaticValidationPreflightResult (
             ReadIndex: readIndex,
             ValidationErrors: Array.Empty<ValidationError>(),
             Error: error,
-            ErrorCode: string.IsNullOrWhiteSpace(errorCode)
-                ? ExecutionErrorCodeMapper.ToCode(error.Kind)
-                : errorCode);
+            ErrorCode: UcliErrorCode.TryCreate(errorCode, out var normalizedErrorCode)
+                ? normalizedErrorCode
+                : ExecutionErrorCodeMapper.ToCode(error.Kind));
     }
 }

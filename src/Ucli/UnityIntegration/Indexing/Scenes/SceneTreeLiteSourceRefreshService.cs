@@ -63,7 +63,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
             if (!fetchResult.IsSuccess)
             {
-                return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!);
+                return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!.Value);
             }
 
             var liveOnlyFallbackReason = SceneTreeLiteAccessUtilities.CombineFallbackReasons(
@@ -96,7 +96,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     break;
                 }
 
-                return SceneTreeLiteRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!);
+                return SceneTreeLiteRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!.Value);
             }
 
             response = attemptResult.FetchResult.Response!;

@@ -61,7 +61,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             .ConfigureAwait(false);
         if (!persistedCatalogResult.IsSuccess)
         {
-            if (string.Equals(persistedCatalogResult.ErrorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal))
+            if (persistedCatalogResult.ErrorCode == IpcErrorCodes.InvalidArgument)
             {
                 return OpsCatalogReadResult.Failure(
                     persistedCatalogResult.ErrorMessage!,
@@ -117,7 +117,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         {
             return OpsCatalogReadResult.Failure(
                 fetchResult.Message,
-                fetchResult.ErrorCode!);
+                fetchResult.ErrorCode!.Value);
         }
 
         var response = fetchResult.Response!;
