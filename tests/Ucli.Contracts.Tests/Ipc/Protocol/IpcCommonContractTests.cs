@@ -583,8 +583,8 @@ public sealed class IpcCommonContractTests
     [Trait("Size", "Small")]
     public void TestRunPlatformCodec_HasStableUnityStringValues ()
     {
-        Assert.Equal("EditMode", TestRunPlatformCodec.UnityEditMode);
-        Assert.Equal("PlayMode", TestRunPlatformCodec.UnityPlayMode);
+        Assert.Equal("editmode", TestRunPlatformCodec.UnityEditMode);
+        Assert.Equal("playmode", TestRunPlatformCodec.UnityPlayMode);
     }
 
     [Fact]
@@ -609,8 +609,8 @@ public sealed class IpcCommonContractTests
     [Trait("Size", "Small")]
     public void TestRunPlatformCodec_ToUnityValue_ReturnsExpectedLiterals ()
     {
-        Assert.Equal("EditMode", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.EditMode));
-        Assert.Equal("PlayMode", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.PlayMode));
+        Assert.Equal("editmode", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.EditMode));
+        Assert.Equal("playmode", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.PlayMode));
         Assert.Equal("Android", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.Player("Android")));
     }
 
