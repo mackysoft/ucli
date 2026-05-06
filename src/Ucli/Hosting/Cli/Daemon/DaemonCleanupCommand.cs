@@ -19,10 +19,10 @@ internal sealed class DaemonCleanupCommand
     /// <exception cref="ArgumentNullException"> Thrown when daemonCleanupService is null. </exception>
     public DaemonCleanupCommand (
         IDaemonCleanupService daemonCleanupService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.daemonCleanupService = daemonCleanupService ?? throw new ArgumentNullException(nameof(daemonCleanupService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the daemon cleanup command and emits the JSON result contract. </summary>

@@ -31,3 +31,4 @@ global using MackySoft.Ucli.Shared.Execution.ReadIndex;
 global using MackySoft.Ucli.Shared.Execution.ReadPostcondition;
 global using MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 global using MackySoft.Ucli.Shared.Git;
+global using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;

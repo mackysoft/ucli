@@ -22,10 +22,10 @@ internal sealed class QuerySceneTreeCommand
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public QuerySceneTreeCommand (
         IQueryService queryService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes <c>query scene tree</c> and emits the JSON result contract. </summary>

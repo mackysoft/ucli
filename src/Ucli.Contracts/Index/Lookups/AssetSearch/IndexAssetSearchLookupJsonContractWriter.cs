@@ -22,4 +22,17 @@ internal sealed class IndexAssetSearchLookupJsonContractWriter : IndexJsonContra
     {
         return entries == null ? null : IndexJsonOrderingPolicy.OrderAssetSearchEntries(entries);
     }
+
+    private static void WriteAssetSearchEntry (
+        Utf8JsonWriter writer,
+        IndexAssetSearchEntryJsonContract entry)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "assetPath", entry.AssetPath);
+        WriteNullableString(writer, "assetGuid", entry.AssetGuid);
+        WriteNullableString(writer, "name", entry.Name);
+        WriteNullableString(writer, "typeId", entry.TypeId);
+        WriteStringArray(writer, "searchTypeIds", entry.SearchTypeIds);
+        writer.WriteEndObject();
+    }
 }

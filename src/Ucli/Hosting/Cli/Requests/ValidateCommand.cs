@@ -23,11 +23,11 @@ internal sealed class ValidateCommand
     public ValidateCommand (
         IValidateService validateService,
         IRequestInputReader requestInputReader,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.validateService = validateService ?? throw new ArgumentNullException(nameof(validateService));
         this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the validate command and emits the JSON result contract. </summary>

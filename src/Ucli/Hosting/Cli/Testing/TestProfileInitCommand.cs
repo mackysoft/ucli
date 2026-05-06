@@ -18,10 +18,10 @@ internal sealed class TestProfileInitCommand
     /// <exception cref="ArgumentNullException"> Thrown when testProfileInitService is null. </exception>
     public TestProfileInitCommand (
         ITestProfileInitService testProfileInitService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.testProfileInitService = testProfileInitService ?? throw new ArgumentNullException(nameof(testProfileInitService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the test profile init command and emits the JSON result contract. </summary>

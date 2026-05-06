@@ -20,11 +20,11 @@ internal sealed class SkillsListCommand
     public SkillsListCommand (
         OfficialSkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the skills list command and emits the JSON result contract. </summary>

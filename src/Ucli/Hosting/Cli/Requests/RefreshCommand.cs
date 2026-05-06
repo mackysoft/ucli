@@ -19,10 +19,10 @@ internal sealed class RefreshCommand
     /// <exception cref="ArgumentNullException"> Thrown when refreshService is null. </exception>
     public RefreshCommand (
         IRefreshService refreshService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.refreshService = refreshService ?? throw new ArgumentNullException(nameof(refreshService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the refresh command and emits the JSON result contract. </summary>

@@ -33,7 +33,7 @@ public sealed class LogsUnityCommandTests
                 "stream-1:3",
                 cancellationToken);
             return LogsDaemonServiceResult.Success();
-        }));
+        }), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "json"));
 
@@ -65,7 +65,7 @@ public sealed class LogsUnityCommandTests
                 "stream-1:2",
                 cancellationToken);
             return LogsDaemonServiceResult.Success();
-        }));
+        }), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "text"));
 
@@ -79,7 +79,7 @@ public sealed class LogsUnityCommandTests
     [Trait("Size", "Small")]
     public async Task Unity_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
-        var command = new LogsUnityCommand(new ThrowingLogsUnityService());
+        var command = new LogsUnityCommand(new ThrowingLogsUnityService(), CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 

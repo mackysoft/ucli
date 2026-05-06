@@ -23,10 +23,10 @@ internal sealed class QueryGoDescribeCommand
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public QueryGoDescribeCommand (
         IQueryService queryService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes <c>query go describe</c> and emits the JSON result contract. </summary>

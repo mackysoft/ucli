@@ -154,7 +154,9 @@ public sealed class LogsDaemonServiceTests
     [Trait("Size", "Small")]
     public async Task DaemonCommand_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
-        var command = new MackySoft.Ucli.Hosting.Cli.Daemon.Logs.LogsDaemonCommand(new ThrowingLogsDaemonService());
+        var command = new MackySoft.Ucli.Hosting.Cli.Daemon.Logs.LogsDaemonCommand(
+            new ThrowingLogsDaemonService(),
+            CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 

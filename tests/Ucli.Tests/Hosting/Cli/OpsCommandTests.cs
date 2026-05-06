@@ -17,7 +17,7 @@ public sealed class OpsCommandTests
     public async Task List_MapsOptionsToOpsServiceInput ()
     {
         var service = new StubOpsService();
-        var command = new OpsListCommand(service);
+        var command = new OpsListCommand(service, CommandResultTestWriter.Create());
 
         await StandardOutputCapture.Execute(() => command.List(
             projectPath: "/repo/UnityProject",
@@ -40,7 +40,7 @@ public sealed class OpsCommandTests
     public async Task Describe_MapsOptionsToOpsServiceInput ()
     {
         var service = new StubOpsService();
-        var command = new OpsDescribeCommand(service);
+        var command = new OpsDescribeCommand(service, CommandResultTestWriter.Create());
 
         await StandardOutputCapture.Execute(() => command.Describe(
             operationName: "ucli.go.describe",
@@ -65,7 +65,7 @@ public sealed class OpsCommandTests
     public async Task List_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubOpsService();
-        var command = new OpsListCommand(service);
+        var command = new OpsListCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.List(
             mode: "unsupported",

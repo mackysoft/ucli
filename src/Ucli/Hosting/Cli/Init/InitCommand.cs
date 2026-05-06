@@ -18,10 +18,10 @@ internal sealed class InitCommand
     /// <exception cref="ArgumentNullException"> Thrown when initService is null. </exception>
     public InitCommand (
         IInitService initService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.initService = initService ?? throw new ArgumentNullException(nameof(initService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the init command and emits the JSON result contract. </summary>

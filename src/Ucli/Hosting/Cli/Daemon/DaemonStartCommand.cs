@@ -19,10 +19,10 @@ internal sealed class DaemonStartCommand
     /// <exception cref="ArgumentNullException"> Thrown when daemonStartService is null. </exception>
     public DaemonStartCommand (
         IDaemonStartService daemonStartService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.daemonStartService = daemonStartService ?? throw new ArgumentNullException(nameof(daemonStartService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the daemon start command and emits the JSON result contract. </summary>

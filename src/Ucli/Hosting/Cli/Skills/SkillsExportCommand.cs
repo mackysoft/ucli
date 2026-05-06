@@ -23,12 +23,12 @@ internal sealed class SkillsExportCommand
         OfficialSkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
         SkillExportService exportService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.exportService = exportService ?? throw new ArgumentNullException(nameof(exportService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the skills export command and emits the JSON result contract. </summary>

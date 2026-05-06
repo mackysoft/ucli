@@ -16,7 +16,7 @@ public sealed class TestProfileInitCommandTests
     {
         var service = new StubTestProfileInitService((_, _) => ValueTask.FromResult(TestProfileInitExecutionResult.Success(
             new TestProfileInitExecutionOutput("/repo/test.profile.json"))));
-        var command = new TestProfileInitCommand(service);
+        var command = new TestProfileInitCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         await StandardOutputCapture.Execute(() => command.Init(
@@ -36,7 +36,7 @@ public sealed class TestProfileInitCommandTests
     {
         var service = new StubTestProfileInitService((_, _) => ValueTask.FromResult(
             TestProfileInitExecutionResult.Failure(ExecutionError.InvalidArgument("profile path already exists."))));
-        var command = new TestProfileInitCommand(service);
+        var command = new TestProfileInitCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Init(
             outputPath: "/repo/test.profile.json",

@@ -18,4 +18,15 @@ internal sealed class IndexSceneTreeLiteLookupJsonContractWriter : IndexJsonCont
         WriteArray(writer, "roots", contract.Roots, WriteSceneTreeLiteNode);
         writer.WriteEndObject();
     }
+
+    private static void WriteSceneTreeLiteNode (
+        Utf8JsonWriter writer,
+        IndexSceneTreeLiteNodeJsonContract node)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "name", node.Name);
+        WriteNullableString(writer, "globalObjectId", node.GlobalObjectId);
+        WriteArray(writer, "children", node.Children, WriteSceneTreeLiteNode);
+        writer.WriteEndObject();
+    }
 }

@@ -24,12 +24,12 @@ internal sealed class SkillsInstallCommand
         OfficialSkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
         SkillInstallService installService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.installService = installService ?? throw new ArgumentNullException(nameof(installService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the skills install command and emits the JSON result contract. </summary>

@@ -19,10 +19,10 @@ internal sealed class OpsListCommand
     /// <exception cref="ArgumentNullException"> Thrown when opsService is null. </exception>
     public OpsListCommand (
         IOpsService opsService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.opsService = opsService ?? throw new ArgumentNullException(nameof(opsService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the ops list command and emits the JSON result contract. </summary>

@@ -19,10 +19,10 @@ internal sealed class DaemonStopCommand
     /// <exception cref="ArgumentNullException"> Thrown when daemonStopService is null. </exception>
     public DaemonStopCommand (
         IDaemonStopService daemonStopService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.daemonStopService = daemonStopService ?? throw new ArgumentNullException(nameof(daemonStopService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the daemon stop command and emits the JSON result contract. </summary>

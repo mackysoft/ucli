@@ -28,13 +28,13 @@ internal sealed class SkillsDoctorCommand
         SkillHostAdapterSet hostAdapters,
         SkillInstallTargetResolver targetResolver,
         SkillDoctorService doctorService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.targetResolver = targetResolver ?? throw new ArgumentNullException(nameof(targetResolver));
         this.doctorService = doctorService ?? throw new ArgumentNullException(nameof(doctorService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the skills doctor command and emits the JSON result contract. </summary>

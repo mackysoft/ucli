@@ -26,7 +26,7 @@ public sealed class ValidateCommandTests
                 GeneratedAtUtc: null,
                 FallbackReason: "readIndex disabled by mode.")),
             "Static validation passed.")));
-        var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Validate(
             projectPath: "/repo/UnityProject",
@@ -52,7 +52,7 @@ public sealed class ValidateCommandTests
     public async Task Validate_WhenReadIndexModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubValidateService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new ValidateCommand(service, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Validate(
             readIndexMode: "unsupported",

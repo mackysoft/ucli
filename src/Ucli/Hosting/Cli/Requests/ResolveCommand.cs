@@ -18,10 +18,10 @@ internal sealed class ResolveCommand
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public ResolveCommand (
         IResolveService resolveService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.resolveService = resolveService ?? throw new ArgumentNullException(nameof(resolveService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the resolve command and emits the JSON result contract. </summary>

@@ -29,12 +29,12 @@ internal sealed class PlanCommand
         IPlanService planService,
         IPlanCommandPreflightService planCommandPreflightService,
         IRequestInputReader requestInputReader,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.planService = planService ?? throw new ArgumentNullException(nameof(planService));
         this.planCommandPreflightService = planCommandPreflightService ?? throw new ArgumentNullException(nameof(planCommandPreflightService));
         this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the plan command and emits the JSON result contract. </summary>

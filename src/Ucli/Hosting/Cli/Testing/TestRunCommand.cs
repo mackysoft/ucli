@@ -21,10 +21,10 @@ internal sealed class TestRunCommand
     /// <exception cref="ArgumentNullException"> Thrown when testRunService is null. </exception>
     public TestRunCommand (
         ITestRunService testRunService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the test run command and emits the JSON result contract. </summary>

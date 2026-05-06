@@ -22,4 +22,39 @@ internal sealed class IndexTypesCatalogJsonContractWriter : IndexJsonContractWri
     {
         return entries == null ? null : IndexJsonOrderingPolicy.OrderTypeEntries(entries);
     }
+
+    private static void WriteTypeEntry (
+        Utf8JsonWriter writer,
+        IndexTypeEntryJsonContract entry)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "typeId", entry.TypeId);
+        WriteNullableString(writer, "displayName", entry.DisplayName);
+        WriteNullableString(writer, "namespace", entry.Namespace);
+        WriteNullableString(writer, "assemblyName", entry.AssemblyName);
+        WriteNullableString(writer, "baseTypeId", entry.BaseTypeId);
+        writer.WritePropertyName("flags");
+        WriteTypeFlags(writer, entry.Flags);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteTypeFlags (
+        Utf8JsonWriter writer,
+        IndexTypeFlagsJsonContract? flags)
+    {
+        if (flags == null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        writer.WriteStartObject();
+        writer.WriteBoolean("isAbstract", flags.IsAbstract);
+        writer.WriteBoolean("isGenericDefinition", flags.IsGenericDefinition);
+        writer.WriteBoolean("isUnityObject", flags.IsUnityObject);
+        writer.WriteBoolean("isComponent", flags.IsComponent);
+        writer.WriteBoolean("isScriptableObject", flags.IsScriptableObject);
+        writer.WriteBoolean("isSerializeReferenceCandidate", flags.IsSerializeReferenceCandidate);
+        writer.WriteEndObject();
+    }
 }

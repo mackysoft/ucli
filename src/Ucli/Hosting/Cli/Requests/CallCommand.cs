@@ -29,12 +29,12 @@ internal sealed class CallCommand
         ICallService callService,
         ICallCommandPreflightService callCommandPreflightService,
         IRequestInputReader requestInputReader,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.callService = callService ?? throw new ArgumentNullException(nameof(callService));
         this.callCommandPreflightService = callCommandPreflightService ?? throw new ArgumentNullException(nameof(callCommandPreflightService));
         this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the call command and emits the JSON result contract. </summary>

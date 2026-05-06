@@ -48,7 +48,7 @@ public sealed class CallCommandTests
                 ReadPostcondition: null),
             "uCLI call completed.")));
         var preflightService = new StubCallCommandPreflightService((_, _, _) => throw new InvalidOperationException("Preflight should not be called."));
-        var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
@@ -102,7 +102,7 @@ public sealed class CallCommandTests
                 OpResults: [],
                 Plan: null,
                 ReadPostcondition: null))));
-        var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new CallCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Call(
             mode: "unsupported",

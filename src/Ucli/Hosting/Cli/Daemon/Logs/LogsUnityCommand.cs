@@ -26,10 +26,10 @@ internal sealed class LogsUnityCommand
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public LogsUnityCommand (
         ILogsUnityService logsUnityService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the logs unity command. </summary>

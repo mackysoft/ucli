@@ -18,7 +18,7 @@ public sealed class DaemonCleanupCommandTests
                 CleanupStatus: DaemonCleanupStatus.Skipped,
                 SkipReason: DaemonCleanupSkipReason.UnsafeInvalidSession,
                 TimeoutMilliseconds: 3000)));
-        var command = new DaemonCleanupCommand(service);
+        var command = new DaemonCleanupCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Cleanup(

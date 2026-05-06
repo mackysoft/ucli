@@ -19,10 +19,10 @@ internal sealed class StatusCommand
     /// <exception cref="ArgumentNullException"> Thrown when statusService is null. </exception>
     public StatusCommand (
         IStatusService statusService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.statusService = statusService ?? throw new ArgumentNullException(nameof(statusService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the status command and emits the JSON result contract. </summary>

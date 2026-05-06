@@ -18,7 +18,7 @@ public sealed class InitCommandTests
             new InitExecutionOutput(
                 ConfigPath: "/repo/.ucli/config.json",
                 GitIgnorePath: "/repo/.ucli/.gitignore"))));
-        var command = new InitCommand(service);
+        var command = new InitCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         await StandardOutputCapture.Execute(() => command.Init(
@@ -36,7 +36,7 @@ public sealed class InitCommandTests
     {
         var service = new StubInitService((_, _) => ValueTask.FromResult(
             InitExecutionResult.Failure(ExecutionError.InvalidArgument("template files already exist."))));
-        var command = new InitCommand(service);
+        var command = new InitCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Init(
             force: false,

@@ -22,4 +22,14 @@ internal sealed class IndexGuidPathLookupJsonContractWriter : IndexJsonContractW
     {
         return entries == null ? null : IndexJsonOrderingPolicy.OrderGuidPathEntries(entries);
     }
+
+    private static void WriteGuidPathEntry (
+        Utf8JsonWriter writer,
+        IndexGuidPathEntryJsonContract entry)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "assetGuid", entry.AssetGuid);
+        WriteNullableString(writer, "assetPath", entry.AssetPath);
+        writer.WriteEndObject();
+    }
 }

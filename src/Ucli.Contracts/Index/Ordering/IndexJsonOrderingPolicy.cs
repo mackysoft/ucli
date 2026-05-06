@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Defines deterministic ordering for persisted read-index JSON arrays. </summary>
+/// <summary> Defines deterministic ordering for index JSON contracts and matching generated payloads. </summary>
 internal static class IndexJsonOrderingPolicy
 {
     /// <summary> Orders operation entries by operation name. </summary>

@@ -26,10 +26,4 @@ internal sealed class CommandResultWriter : ICommandResultWriter
         Console.Out.Write(jsonContractWriter.Write(result));
     }
 
-    /// <summary> Creates the default command-result writer used by direct command tests. </summary>
-    /// <returns> The default command-result writer. </returns>
-    public static ICommandResultWriter CreateDefault ()
-    {
-        return new CommandResultWriter(new CommandResultJsonContractWriter());
-    }
 }

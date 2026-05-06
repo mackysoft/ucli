@@ -19,10 +19,10 @@ internal sealed class DaemonStatusCommand
     /// <exception cref="ArgumentNullException"> Thrown when daemonStatusService is null. </exception>
     public DaemonStatusCommand (
         IDaemonStatusService daemonStatusService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.daemonStatusService = daemonStatusService ?? throw new ArgumentNullException(nameof(daemonStatusService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the daemon status command and emits the JSON result contract. </summary>

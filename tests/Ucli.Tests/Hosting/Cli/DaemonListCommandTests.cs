@@ -44,7 +44,7 @@ public sealed class DaemonListCommandTests
                 [
                     item,
                 ])));
-        var command = new DaemonListCommand(service);
+        var command = new DaemonListCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.List(

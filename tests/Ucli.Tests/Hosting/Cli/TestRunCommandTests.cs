@@ -21,7 +21,7 @@ public sealed class TestRunCommandTests
                 runId: "run-id",
                 artifactsDir: "/tmp/artifacts",
                 summaryJsonPath: "/tmp/artifacts/summary.json")));
-        var command = new TestRunCommand(service);
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         await StandardOutputCapture.Execute(() => command.Run(
@@ -85,7 +85,7 @@ public sealed class TestRunCommandTests
     public async Task Run_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new TestRunCommand(service);
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
             executionMode: "unsupported",
@@ -114,7 +114,7 @@ public sealed class TestRunCommandTests
     public async Task Run_WhenTestPlatformIsWhitespace_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubTestRunService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new TestRunCommand(service);
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Run(
             testPlatform: " ",

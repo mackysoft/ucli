@@ -26,10 +26,10 @@ internal sealed class LogsDaemonCommand
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public LogsDaemonCommand (
         ILogsDaemonService logsDaemonService,
-        ICommandResultWriter? commandResultWriter = null)
+        ICommandResultWriter commandResultWriter)
     {
         this.logsDaemonService = logsDaemonService ?? throw new ArgumentNullException(nameof(logsDaemonService));
-        this.commandResultWriter = commandResultWriter ?? CommandResultWriter.CreateDefault();
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the logs daemon command. </summary>
