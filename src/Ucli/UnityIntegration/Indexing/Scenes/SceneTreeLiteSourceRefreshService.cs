@@ -1,11 +1,12 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Index;
-using MackySoft.Ucli.UnityIntegration.Indexing.Scenes.Access;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 
@@ -24,18 +25,18 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         = "Failed to persist refreshed scene-tree-lite readIndex because retry snapshot read failed.";
 
     private readonly ISceneTreeLiteSnapshotReader snapshotReader;
-    private readonly ISceneTreeLiteStore store;
-    private readonly ISceneTreeLiteSourceHashCalculator sourceHashCalculator;
+    private readonly IReadIndexArtifactWriter artifactWriter;
+    private readonly IReadIndexSceneSourceHashProvider sceneSourceHashProvider;
 
     /// <summary> Initializes a new instance of the <see cref="SceneTreeLiteSourceRefreshService" /> class. </summary>
     public SceneTreeLiteSourceRefreshService (
         ISceneTreeLiteSnapshotReader snapshotReader,
-        ISceneTreeLiteStore store,
-        ISceneTreeLiteSourceHashCalculator sourceHashCalculator)
+        IReadIndexArtifactWriter artifactWriter,
+        IReadIndexSceneSourceHashProvider sceneSourceHashProvider)
     {
         this.snapshotReader = snapshotReader ?? throw new ArgumentNullException(nameof(snapshotReader));
-        this.store = store ?? throw new ArgumentNullException(nameof(store));
-        this.sourceHashCalculator = sourceHashCalculator ?? throw new ArgumentNullException(nameof(sourceHashCalculator));
+        this.artifactWriter = artifactWriter ?? throw new ArgumentNullException(nameof(artifactWriter));
+        this.sceneSourceHashProvider = sceneSourceHashProvider ?? throw new ArgumentNullException(nameof(sceneSourceHashProvider));
     }
 
     /// <inheritdoc />
@@ -66,7 +67,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                 return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!);
             }
 
-            var liveOnlyFallbackReason = SceneTreeLiteAccessUtilities.CombineFallbackReasons(
+            var liveOnlyFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
                 readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
                 null);
             return SceneTreeLiteRefreshResult.Success(fetchResult.Response!, liveOnlyFallbackReason);
@@ -90,7 +91,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             {
                 if (response != null)
                 {
-                    persistFailure = SceneTreeLiteAccessUtilities.CombineFallbackReasons(
+                    persistFailure = ReadIndexAccessUtilities.CombineFallbackReasons(
                         persistFailure,
                         $"{RetrySnapshotReadFailurePrefix} {attemptResult.FetchResult.Message}");
                     break;
@@ -107,7 +108,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             }
         }
 
-        var combinedFallbackReason = SceneTreeLiteAccessUtilities.CombineFallbackReasons(
+        var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
             readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
             persistFailure);
         return SceneTreeLiteRefreshResult.Success(response!, combinedFallbackReason);
@@ -125,7 +126,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var sourceHashBeforeRead = await sourceHashCalculator.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashBeforeRead = await sceneSourceHashProvider.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
         var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
         if (!fetchResult.IsSuccess)
         {
@@ -137,7 +138,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             return (fetchResult, SourceHashFailureMessage, false);
         }
 
-        var sourceHashAfterRead = await sourceHashCalculator.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashAfterRead = await sceneSourceHashProvider.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
         if (sourceHashAfterRead == null)
         {
             return (fetchResult, SourceHashFailureMessage, false);
@@ -150,7 +151,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
 
         try
         {
-            await store.Write(
+            await artifactWriter.WriteSceneTreeLite(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
                     fetchResult.Response!.GeneratedAtUtc,

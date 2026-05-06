@@ -1,19 +1,19 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
 /// <summary> Adapts persisted read-index support artifacts to the operation-catalog persistence seam. </summary>
 internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersistedOpsCatalogPersistenceArtifactsReader
 {
-    private readonly IIndexCatalogReader indexCatalogReader;
+    private readonly IReadIndexArtifactReader artifactReader;
 
     /// <summary> Initializes a new instance of the <see cref="PersistedOpsCatalogPersistenceArtifactsReader" /> class. </summary>
-    /// <param name="indexCatalogReader"> The persisted index reader dependency. </param>
-    public PersistedOpsCatalogPersistenceArtifactsReader (IIndexCatalogReader indexCatalogReader)
+    /// <param name="artifactReader"> The persisted read-index artifact reader dependency. </param>
+    public PersistedOpsCatalogPersistenceArtifactsReader (IReadIndexArtifactReader artifactReader)
     {
-        this.indexCatalogReader = indexCatalogReader ?? throw new ArgumentNullException(nameof(indexCatalogReader));
+        this.artifactReader = artifactReader ?? throw new ArgumentNullException(nameof(artifactReader));
     }
 
     /// <inheritdoc />
@@ -24,7 +24,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var manifestResult = await indexCatalogReader.ReadInputsManifest(
+        var manifestResult = await artifactReader.ReadInputsManifest(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
@@ -36,7 +36,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
                 HasPersistedAssetLookupArtifacts: true);
         }
 
-        var assetSearchLookupResult = await indexCatalogReader.ReadAssetSearchLookup(
+        var assetSearchLookupResult = await artifactReader.ReadAssetSearchLookup(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
@@ -48,7 +48,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
                 HasPersistedAssetLookupArtifacts: true);
         }
 
-        var guidPathLookupResult = await indexCatalogReader.ReadGuidPathLookup(
+        var guidPathLookupResult = await artifactReader.ReadGuidPathLookup(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 cancellationToken)
