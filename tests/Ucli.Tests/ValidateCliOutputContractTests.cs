@@ -56,7 +56,8 @@ public sealed class ValidateCliOutputContractTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("validate", "success.json"),
-            result.StdOut);
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
     }
 
     [Fact]
@@ -84,7 +85,8 @@ public sealed class ValidateCliOutputContractTests
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("validate", "static-validation-error.json"),
-            result.StdOut);
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
     }
 
     [Fact]

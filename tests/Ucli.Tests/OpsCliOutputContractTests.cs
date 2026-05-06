@@ -144,7 +144,8 @@ public sealed class OpsCliOutputContractTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("ops", "list-success.json"),
-            result.StdOut);
+            result.StdOut,
+            CliOutputGoldenFiles.NormalizeGeneratedAtUtc());
     }
 
     [Fact]

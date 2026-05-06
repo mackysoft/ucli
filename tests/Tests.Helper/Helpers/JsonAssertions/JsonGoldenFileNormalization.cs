@@ -1,11 +1,18 @@
 namespace MackySoft.Tests;
 
+using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Xunit.Sdk;
 
 internal sealed class JsonGoldenFileNormalization
 {
+    private static readonly string[] TimestampFormats =
+    [
+        "yyyy-MM-dd'T'HH:mm:sszzz",
+        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz",
+    ];
+
     private static readonly JsonSerializerOptions ReplacementJsonSerializerOptions = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -21,6 +28,19 @@ internal sealed class JsonGoldenFileNormalization
             token,
             static value => Guid.TryParseExact(value, "D", out _),
             "a GUID in D format");
+    }
+
+    public JsonGoldenFileNormalization NormalizeTimestampProperty (
+        string propertyName,
+        string token = "<timestamp>",
+        Func<DateTimeOffset, bool>? validateTimestamp = null,
+        string validationDescription = "an ISO-8601 timestamp")
+    {
+        return NormalizeStringProperty(
+            propertyName,
+            token,
+            value => TryValidateTimestamp(value, validateTimestamp),
+            validationDescription);
     }
 
     public JsonGoldenFileNormalization NormalizeStringProperty (
@@ -74,7 +94,7 @@ internal sealed class JsonGoldenFileNormalization
             if (actualOccurrenceCount != expectedOccurrenceCount)
             {
                 throw new XunitException(
-                    $"JSON string literal selected for normalization appears {actualOccurrenceCount} time(s), but {expectedOccurrenceCount} selected node(s) require normalization: {replacement.SourceValue}");
+                    $"JSON string literal selected for normalization appears {actualOccurrenceCount} time(s), but {expectedOccurrenceCount} selected node(s) require normalization. Token: {replacement.ReplacementValue}; source length: {replacement.SourceValue.Length}.");
             }
 
             foreach (var source in sourceCandidates)
@@ -122,6 +142,23 @@ internal sealed class JsonGoldenFileNormalization
 
                 break;
         }
+    }
+
+    private static bool TryValidateTimestamp (
+        string value,
+        Func<DateTimeOffset, bool>? validateTimestamp)
+    {
+        if (!DateTimeOffset.TryParseExact(
+            value,
+            TimestampFormats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var timestamp))
+        {
+            return false;
+        }
+
+        return validateTimestamp?.Invoke(timestamp) ?? true;
     }
 
     private static int CountOccurrences (
