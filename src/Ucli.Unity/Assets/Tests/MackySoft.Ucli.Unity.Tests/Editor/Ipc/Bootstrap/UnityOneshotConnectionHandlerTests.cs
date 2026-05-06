@@ -24,12 +24,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(IpcMethodNames.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest("tests")));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
-            using var stream = CreateStream(request);
+            using var stream = await CreateStream(request);
             var handledResult = await handler.Handle(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Ping));
-            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.False);
+            Assert.That(completionSignal.IsCompleted, Is.False);
         });
 
         [UnityTest]
@@ -40,12 +40,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
-            using var stream = CreateStream(request);
+            using var stream = await CreateStream(request);
             var handledResult = await handler.Handle(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
-            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.True);
+            Assert.That(completionSignal.IsCompleted, Is.True);
         });
 
         [UnityTest]
@@ -65,12 +65,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 });
             var handler = CreateHandler(request, errorResponse, completionSignal);
 
-            using var stream = CreateStream(request);
+            using var stream = await CreateStream(request);
             var handledResult = await handler.Handle(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
-            Assert.That(completionSignal.Wait(CancellationToken.None).IsCompleted, Is.True);
+            Assert.That(completionSignal.IsCompleted, Is.True);
         });
 
         private static UnityOneshotConnectionHandler CreateHandler (
@@ -85,16 +85,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 completionSignal);
         }
 
-        private static MemoryStream CreateStream (IpcRequest request)
+        private static async Task<MemoryStream> CreateStream (IpcRequest request)
         {
             var stream = new MemoryStream();
-            IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    request,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
+            await IpcFrameCodec.WriteModelAsync(
+                stream,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
             stream.Position = 0;
             return stream;
         }

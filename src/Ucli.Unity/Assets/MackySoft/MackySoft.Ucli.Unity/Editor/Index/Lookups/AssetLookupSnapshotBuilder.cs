@@ -59,8 +59,6 @@ namespace MackySoft.Ucli.Unity.Index
                     BuildSearchTypeIds(assetType)));
             }
 
-            snapshotEntries.Sort(static (x, y) => StringComparer.Ordinal.Compare(x.AssetPath, y.AssetPath));
-
             var assetSearchEntries = new IndexAssetSearchEntryJsonContract[snapshotEntries.Count];
             var guidPathEntries = new List<IndexGuidPathEntryJsonContract>(snapshotEntries.Count);
             for (var i = 0; i < snapshotEntries.Count; i++)
@@ -82,8 +80,8 @@ namespace MackySoft.Ucli.Unity.Index
 
             return new ValueTask<IpcIndexAssetsReadResponse>(new IpcIndexAssetsReadResponse(
                 GeneratedAtUtc: DateTimeOffset.UtcNow,
-                AssetSearchEntries: assetSearchEntries,
-                GuidPathEntries: guidPathEntries));
+                AssetSearchEntries: IndexJsonOrderingPolicy.OrderAssetSearchEntries(assetSearchEntries),
+                GuidPathEntries: IndexJsonOrderingPolicy.OrderGuidPathEntries(guidPathEntries)));
         }
 
         private static IReadOnlyList<string> BuildSearchTypeIds (Type assetType)

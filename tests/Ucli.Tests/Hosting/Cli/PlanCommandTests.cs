@@ -10,6 +10,7 @@ using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Input;
 using MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -41,7 +42,7 @@ public sealed class PlanCommandTests
                 PlanToken: "plan-token-1"),
             "uCLI plan completed.")));
         var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
-        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
@@ -103,7 +104,7 @@ public sealed class PlanCommandTests
                     fallbackReason: null),
                 PlanToken: null))));
         var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
-        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             projectPath: "/repo/UnityProject",
@@ -126,7 +127,7 @@ public sealed class PlanCommandTests
     {
         var service = new StubPlanService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var preflightService = new StubPlanCommandPreflightService((_, _, _, _) => throw new InvalidOperationException("Preflight should not be called."));
-        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             readIndexMode: "unsupported",
@@ -158,7 +159,7 @@ public sealed class PlanCommandTests
                     hit: false,
                     fallbackReason: "readIndex disabled by mode."),
                 PlanToken: null))));
-        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)));
+        var command = new PlanCommand(service, preflightService, new StubRequestInputReader(RequestInputReadResult.Success(DefaultRequestJson)), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Plan(
             timeout: "abc",

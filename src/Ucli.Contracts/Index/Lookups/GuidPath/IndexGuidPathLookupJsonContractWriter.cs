@@ -1,0 +1,34 @@
+using System.Text.Json;
+
+namespace MackySoft.Ucli.Contracts.Index;
+
+/// <summary> Writes <c>guid-path.lookup.json</c> contracts with a fixed public JSON shape. </summary>
+internal sealed class IndexGuidPathLookupJsonContractWriter : IndexJsonContractWriterBase<IndexGuidPathLookupJsonContract>
+{
+    /// <inheritdoc />
+    protected override void WriteCore (
+        Utf8JsonWriter writer,
+        IndexGuidPathLookupJsonContract contract)
+    {
+        writer.WriteStartObject();
+        WriteRootHeader(writer, contract.SchemaVersion, contract.GeneratedAtUtc);
+        WriteNullableString(writer, "sourceInputsHash", contract.SourceInputsHash);
+        WriteArray(writer, "entries", OrderEntriesOrNull(contract.Entries), WriteGuidPathEntry);
+        writer.WriteEndObject();
+    }
+
+    private static IReadOnlyList<IndexGuidPathEntryJsonContract>? OrderEntriesOrNull (IReadOnlyList<IndexGuidPathEntryJsonContract>? entries)
+    {
+        return entries == null ? null : IndexJsonOrderingPolicy.OrderGuidPathEntries(entries);
+    }
+
+    private static void WriteGuidPathEntry (
+        Utf8JsonWriter writer,
+        IndexGuidPathEntryJsonContract entry)
+    {
+        writer.WriteStartObject();
+        WriteNullableString(writer, "assetGuid", entry.AssetGuid);
+        WriteNullableString(writer, "assetPath", entry.AssetPath);
+        writer.WriteEndObject();
+    }
+}

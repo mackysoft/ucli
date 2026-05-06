@@ -15,22 +15,26 @@ internal sealed class SkillsDoctorCommand
     private readonly SkillHostAdapterSet hostAdapters;
     private readonly SkillInstallTargetResolver targetResolver;
     private readonly SkillDoctorService doctorService;
+    private readonly ICommandResultWriter commandResultWriter;
 
     /// <summary> Initializes a new instance of the <see cref="SkillsDoctorCommand" /> class. </summary>
     /// <param name="packageProvider"> The official SKILL package provider. </param>
     /// <param name="hostAdapters"> The supported host adapter set. </param>
     /// <param name="targetResolver"> The SKILL install target resolver. </param>
     /// <param name="doctorService"> The SKILL doctor service. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public SkillsDoctorCommand (
         OfficialSkillPackageProvider packageProvider,
         SkillHostAdapterSet hostAdapters,
         SkillInstallTargetResolver targetResolver,
-        SkillDoctorService doctorService)
+        SkillDoctorService doctorService,
+        ICommandResultWriter commandResultWriter)
     {
         this.packageProvider = packageProvider ?? throw new ArgumentNullException(nameof(packageProvider));
         this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
         this.targetResolver = targetResolver ?? throw new ArgumentNullException(nameof(targetResolver));
         this.doctorService = doctorService ?? throw new ArgumentNullException(nameof(doctorService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the skills doctor command and emits the JSON result contract. </summary>
@@ -58,7 +62,7 @@ internal sealed class SkillsDoctorCommand
             out var errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -68,7 +72,7 @@ internal sealed class SkillsDoctorCommand
             out errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -79,7 +83,7 @@ internal sealed class SkillsDoctorCommand
             out errorResult);
         if (errorResult is not null)
         {
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -87,7 +91,7 @@ internal sealed class SkillsDoctorCommand
         if (!targetResult.IsSuccess)
         {
             var targetErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsDoctor, targetResult.Failure!);
-            CommandResultWriter.WriteToStandardOutput(targetErrorResult);
+            commandResultWriter.WriteToStandardOutput(targetErrorResult);
             return targetErrorResult.ExitCode;
         }
 
@@ -95,7 +99,7 @@ internal sealed class SkillsDoctorCommand
         if (!packagesResult.IsSuccess)
         {
             var packageErrorResult = SkillsCommandResultFactory.CreateSkillFailure(UcliCommandNames.SkillsDoctor, packagesResult.Failure!);
-            CommandResultWriter.WriteToStandardOutput(packageErrorResult);
+            commandResultWriter.WriteToStandardOutput(packageErrorResult);
             return packageErrorResult.ExitCode;
         }
 
@@ -106,7 +110,7 @@ internal sealed class SkillsDoctorCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = SkillsCommandResultFactory.CreateDoctor(doctorResult, repositoryRoot!);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

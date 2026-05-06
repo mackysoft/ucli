@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Persistence;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
@@ -8,6 +9,21 @@ namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Persistence;
 internal sealed class FileOpsCatalogStore : IOpsCatalogStore
 {
     private const int SchemaVersion = 1;
+
+    private readonly IJsonContractWriter<IndexOpsCatalogJsonContract> opsCatalogWriter;
+
+    private readonly IJsonContractWriter<IndexInputsManifestJsonContract> inputsManifestWriter;
+
+    /// <summary> Initializes a new instance of the <see cref="FileOpsCatalogStore" /> class. </summary>
+    /// <param name="opsCatalogWriter"> The writer for <c>ops.catalog.json</c>. </param>
+    /// <param name="inputsManifestWriter"> The writer for <c>inputs/manifest.json</c>. </param>
+    public FileOpsCatalogStore (
+        IJsonContractWriter<IndexOpsCatalogJsonContract> opsCatalogWriter,
+        IJsonContractWriter<IndexInputsManifestJsonContract> inputsManifestWriter)
+    {
+        this.opsCatalogWriter = opsCatalogWriter ?? throw new ArgumentNullException(nameof(opsCatalogWriter));
+        this.inputsManifestWriter = inputsManifestWriter ?? throw new ArgumentNullException(nameof(inputsManifestWriter));
+    }
 
     /// <inheritdoc />
     public async ValueTask Write (
@@ -38,7 +54,7 @@ internal sealed class FileOpsCatalogStore : IOpsCatalogStore
 
         await FileUtilities.WriteAllTextAtomically(
                 opsCatalogPath,
-                IndexOpsCatalogJsonContractSerializer.Serialize(opsCatalog) + Environment.NewLine,
+                opsCatalogWriter.Write(opsCatalog),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -65,7 +81,7 @@ internal sealed class FileOpsCatalogStore : IOpsCatalogStore
             CombinedHash: manifestInputSnapshot.CombinedHash);
         await FileUtilities.WriteAllTextAtomically(
                 inputsManifestPath,
-                IndexInputsManifestJsonContractSerializer.Serialize(inputsManifest) + Environment.NewLine,
+                inputsManifestWriter.Write(inputsManifest),
                 cancellationToken)
             .ConfigureAwait(false);
     }

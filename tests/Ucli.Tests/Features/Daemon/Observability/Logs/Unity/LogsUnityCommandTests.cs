@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests.Logs;
 
@@ -33,7 +34,7 @@ public sealed class LogsUnityCommandTests
                 "stream-1:3",
                 cancellationToken);
             return LogsDaemonServiceResult.Success();
-        }));
+        }), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "json"));
 
@@ -65,7 +66,7 @@ public sealed class LogsUnityCommandTests
                 "stream-1:2",
                 cancellationToken);
             return LogsDaemonServiceResult.Success();
-        }));
+        }), CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Unity(format: "text"));
 
@@ -79,7 +80,7 @@ public sealed class LogsUnityCommandTests
     [Trait("Size", "Small")]
     public async Task Unity_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
-        var command = new LogsUnityCommand(new ThrowingLogsUnityService());
+        var command = new LogsUnityCommand(new ThrowingLogsUnityService(), CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
