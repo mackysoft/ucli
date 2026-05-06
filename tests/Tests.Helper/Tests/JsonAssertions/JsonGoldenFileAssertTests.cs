@@ -123,7 +123,7 @@ public sealed class JsonGoldenFileAssertTests
             }
 
             """,
-            JsonGoldenFileNormalization.Create().NormalizeRequestIds());
+            new JsonGoldenFileNormalization().NormalizeRequestIds());
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public sealed class JsonGoldenFileAssertTests
                 }
 
                 """,
-                JsonGoldenFileNormalization.Create().NormalizeRequestIds()));
+                new JsonGoldenFileNormalization().NormalizeRequestIds()));
 
         Assert.Contains("requestId", exception.Message, StringComparison.Ordinal);
         Assert.Contains("GUID", exception.Message, StringComparison.Ordinal);
@@ -182,35 +182,63 @@ public sealed class JsonGoldenFileAssertTests
             }
 
             """,
-            JsonGoldenFileNormalization.Create().NormalizePathPrefix(workspacePath, "<workspace>"));
+            new JsonGoldenFileNormalization().NormalizePathPrefix(workspacePath, "<workspace>"));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesFile_WithStringPropertyNormalization_ValidatesAndReplacesTimestamp ()
+    public void MatchesFile_WithDefaultEscapedPathPrefixNormalization_ReplacesToken ()
     {
-        using var scope = TestDirectories.CreateTempScope("json-golden-file-assert", "timestamp");
+        using var scope = TestDirectories.CreateTempScope("json-golden-file-assert", "escaped-path-prefix");
+        var workspacePath = scope.CreateDirectory("workspace");
+        var actualPath = Path.Combine(workspacePath, "Folder<Angle>", "config.json");
+        var actualPathLiteral = JsonSerializer.Serialize(actualPath);
         var goldenPath = scope.WriteFile(
             "expected.json",
             """
             {
-              "generatedAtUtc": "<timestamp>"
+              "path": "<workspace>/Folder<Angle>/config.json"
             }
             """);
 
         JsonGoldenFileAssert.MatchesFile(
             goldenPath,
-            """
+            $$"""
             {
-              "generatedAtUtc": "2026-03-06T00:00:00+00:00"
+              "path": {{actualPathLiteral}}
             }
 
             """,
-            JsonGoldenFileNormalization.Create().NormalizeStringProperty(
-                "generatedAtUtc",
-                "<timestamp>",
-                static value => DateTimeOffset.TryParse(value, out _),
-                "an ISO-8601 timestamp"));
+            new JsonGoldenFileNormalization().NormalizePathPrefix(workspacePath, "<workspace>"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesFile_WithSameLiteralOutsideTargetProperty_Throws ()
+    {
+        using var scope = TestDirectories.CreateTempScope("json-golden-file-assert", "same-literal-outside-target");
+        var goldenPath = scope.WriteFile(
+            "expected.json",
+            """
+            {
+              "requestId": "<requestId>",
+              "copy": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"
+            }
+            """);
+
+        var exception = Assert.Throws<XunitException>(
+            () => JsonGoldenFileAssert.MatchesFile(
+                goldenPath,
+                """
+                {
+                  "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                  "copy": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"
+                }
+
+                """,
+                new JsonGoldenFileNormalization().NormalizeRequestIds()));
+
+        Assert.Contains("selected for normalization", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

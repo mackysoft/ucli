@@ -12,18 +12,18 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunCommandTests
 {
-    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Run_MapsOptionsToServiceInputAndCancellationToken ()
     {
+        var artifactsDir = Path.Combine(Path.GetTempPath(), "ucli-test-run-artifacts");
+        var summaryJsonPath = Path.Combine(artifactsDir, "summary.json");
         var service = new StubTestRunService(
             (_, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
                 runId: "run-id",
-                artifactsDir: "/tmp/artifacts",
-                summaryJsonPath: "/tmp/artifacts/summary.json")));
+                artifactsDir: artifactsDir,
+                summaryJsonPath: summaryJsonPath)));
         var command = new TestRunCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -61,9 +61,9 @@ public sealed class TestRunCommandTests
         Assert.Equal(120, input.TimeoutMilliseconds);
         Assert.True(input.FailFast);
         JsonGoldenFileAssert.Matches(
-            Path.Combine(GoldenRoot, "test-run", "success.json"),
+            CliOutputGoldenFiles.GetPath("test-run", "success.json"),
             standardOutput,
-            JsonGoldenFileNormalization.Create().NormalizePathPrefix("/tmp/artifacts", "<artifacts>"));
+            new JsonGoldenFileNormalization().NormalizePathPrefix(artifactsDir, "<artifacts>"));
     }
 
     [Fact]

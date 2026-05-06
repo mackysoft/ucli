@@ -22,7 +22,7 @@
       "hit": true,
       "source": "index",
       "freshness": "probable",
-      "generatedAtUtc": "<timestamp>",
+      "generatedAtUtc": "2026-03-06T00:00:00+00:00",
       "fallbackReason": null
     }
   },

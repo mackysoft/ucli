@@ -5,8 +5,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunCliOutputContractTests
 {
-    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
-
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     [Fact]
@@ -151,7 +149,7 @@ public sealed class TestRunCliOutputContractTests
                 .IsNull("runId")
                 .IsNull("artifactsDir")
                 .IsNull("summaryJsonPath"));
-        JsonGoldenFileAssert.Matches(Path.Combine(GoldenRoot, "test-run", "invalid-mode.json"), result.StdOut);
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("test-run", "invalid-mode.json"), result.StdOut);
     }
 
     [Fact]

@@ -16,8 +16,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class PlanCommandTests
 {
-    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
-
     private const string DefaultRequestJson = """{"steps":[]}""";
 
     [Fact]
@@ -83,9 +81,9 @@ public sealed class PlanCommandTests
                     .HasBoolean("hit", false)
                     .HasString("fallbackReason", "readIndex disabled by mode.")));
         JsonGoldenFileAssert.Matches(
-            Path.Combine(GoldenRoot, "plan", "success.json"),
+            CliOutputGoldenFiles.GetPath("plan", "success.json"),
             standardOutput,
-            JsonGoldenFileNormalization.Create().NormalizeRequestIds());
+            new JsonGoldenFileNormalization().NormalizeRequestIds());
     }
 
     [Fact]

@@ -9,8 +9,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class OpsCliOutputContractTests
 {
-    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
-
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     [Fact]
@@ -143,31 +141,10 @@ public sealed class OpsCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.OpsList,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasArrayLength("operations", 2)
-                .HasProperty("operations", 0, operation => operation
-                    .HasString("name", UcliPrimitiveOperationNames.GoDescribe)
-                    .HasString("kind", "query")
-                    .HasString("policy", "safe"))
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", true)
-                    .HasBoolean("hit", true)
-                    .HasString("source", "index")
-                    .HasString("freshness", "probable")
-                    .IsNull("fallbackReason")));
         JsonGoldenFileAssert.Matches(
-            Path.Combine(GoldenRoot, "ops", "list-success.json"),
-            result.StdOut,
-            CreateGeneratedAtNormalization());
+            CliOutputGoldenFiles.GetPath("ops", "list-success.json"),
+            result.StdOut);
     }
 
     [Fact]
@@ -420,7 +397,7 @@ public sealed class OpsCliOutputContractTests
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
         Assert.Contains("Mode must be auto, daemon, or oneshot.", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
-        JsonGoldenFileAssert.Matches(Path.Combine(GoldenRoot, "ops", "list-invalid-mode.json"), result.StdOut);
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("ops", "list-invalid-mode.json"), result.StdOut);
     }
 
     [Fact]
@@ -547,12 +524,4 @@ public sealed class OpsCliOutputContractTests
                 UcliOperationPlanMode.ObservesLiveUnity));
     }
 
-    private static JsonGoldenFileNormalization CreateGeneratedAtNormalization ()
-    {
-        return JsonGoldenFileNormalization.Create().NormalizeStringProperty(
-            "generatedAtUtc",
-            "<timestamp>",
-            static value => DateTimeOffset.TryParse(value, out _),
-            "an ISO-8601 timestamp");
-    }
 }

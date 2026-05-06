@@ -6,8 +6,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class CliOutputContractTests
 {
-    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
-
     private const string ConfigFileName = "config.json";
 
     private const string GitIgnoreFileName = ".gitignore";
@@ -38,46 +36,19 @@ public sealed class CliOutputContractTests
             UcliContractConstants.CliOption.ProjectPath,
             unityProjectPath);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Status,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasString("daemonStatus", "notRunning")
-                .HasString("unityVersion", "6000.1.4f1")
-                .IsNull("serverVersion")
-                .IsNull("lifecycleState")
-                .IsNull("blockingReason")
-                .IsNull("compileState")
-                .IsNull("compileGeneration")
-                .IsNull("domainReloadGeneration")
-                .HasBoolean("canAcceptExecutionRequests", false)
-                .IsNull("runtime")
-                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultStatusMilliseconds));
-        JsonGoldenFileAssert.Matches(Path.Combine(GoldenRoot, "status", "success.json"), result.StdOut);
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("status", "success.json"), result.StdOut);
         FileSystemAssert.ForDirectory(ucliDirectoryPath).DoesNotExist();
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Medium")]
-    [InlineData(false, "init-success")]
-    [InlineData(true, "init-force-success")]
-    public async Task Init_ReturnsSuccessJsonContractAsSingleJson (bool force, string scopeName)
+    public async Task Init_ReturnsSuccessJsonContractAsSingleJson ()
     {
-        using var scope = TestDirectories.CreateTempScope("cli-output-contract", scopeName);
+        using var scope = TestDirectories.CreateTempScope("cli-output-contract", "init-success");
         var (workingDirectoryPath, _, localDirectoryPath, configPath, gitIgnorePath) = CreateInitTargetPaths(scope, "workspace");
-        if (force)
-        {
-            PrepareLegacyTemplateFiles(scope, configPath, gitIgnorePath);
-        }
 
-        var result = await RunInit(force, workingDirectoryPath);
+        var result = await RunInit(force: false, workingDirectoryPath);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -119,9 +90,9 @@ public sealed class CliOutputContractTests
             .GetString()!)
             .Exists();
         JsonGoldenFileAssert.Matches(
-            Path.Combine(GoldenRoot, "init", "success.json"),
+            CliOutputGoldenFiles.GetPath("init", "success.json"),
             result.StdOut,
-            JsonGoldenFileNormalization.Create().NormalizePathPrefix(workingDirectoryPath, "<workspace>"));
+            new JsonGoldenFileNormalization().NormalizePathPrefix(workingDirectoryPath, "<workspace>"));
 
         FileSystemAssert.ForDirectory(localDirectoryPath).DoesNotExist();
         FileSystemAssert.ForFile(configPath).Exists();
@@ -210,9 +181,9 @@ public sealed class CliOutputContractTests
         if (isConfigFile)
         {
             JsonGoldenFileAssert.Matches(
-                Path.Combine(GoldenRoot, "init", "existing-config-error.json"),
+                CliOutputGoldenFiles.GetPath("init", "existing-config-error.json"),
                 result.StdOut,
-                JsonGoldenFileNormalization.Create().NormalizePathPrefix(workingDirectoryPath, "<workspace>"));
+                new JsonGoldenFileNormalization().NormalizePathPrefix(workingDirectoryPath, "<workspace>"));
         }
     }
 
@@ -285,7 +256,7 @@ public sealed class CliOutputContractTests
             outputJson.RootElement,
             expectedCode: "INVALID_ARGUMENT");
         Assert.Contains("timeout", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
-        JsonGoldenFileAssert.Matches(Path.Combine(GoldenRoot, "status", "invalid-timeout.json"), result.StdOut);
+        JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("status", "invalid-timeout.json"), result.StdOut);
     }
 
     [Fact]

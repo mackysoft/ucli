@@ -8,8 +8,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class ValidateCliOutputContractTests
 {
-    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
-
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
     [Fact]
@@ -55,26 +53,10 @@ public sealed class ValidateCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Validate,
-            status: "ok",
-            exitCode: (int)CliExitCode.Success);
-        CommandResultAssert.HasNoErrors(outputJson.RootElement);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", true)
-                    .HasBoolean("hit", true)
-                    .HasString("source", "index")
-                    .HasString("freshness", "probable")
-                    .IsNull("fallbackReason")));
         JsonGoldenFileAssert.Matches(
-            Path.Combine(GoldenRoot, "validate", "success.json"),
-            result.StdOut,
-            CreateGeneratedAtNormalization());
+            CliOutputGoldenFiles.GetPath("validate", "success.json"),
+            result.StdOut);
     }
 
     [Fact]
@@ -99,27 +81,10 @@ public sealed class ValidateCliOutputContractTests
             UcliContractConstants.CliOption.ReadIndexMode,
             UcliContractConstants.Config.ReadIndexModeAllowStale);
 
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasStandardEnvelope(
-            outputJson.RootElement,
-            command: UcliCommandNames.Validate,
-            status: "error",
-            exitCode: (int)CliExitCode.InvalidArgument);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasProperty("readIndex", readIndex => readIndex
-                    .HasBoolean("used", true)
-                    .HasBoolean("hit", true)
-                    .HasString("source", "index")))
-            .HasProperty("errors", errors => errors
-                .HasArrayLength(1)
-                .HasIndex(0, error => error
-                    .HasString("code", "OPERATION_ARGS_INVALID")));
         JsonGoldenFileAssert.Matches(
-            Path.Combine(GoldenRoot, "validate", "static-validation-error.json"),
-            result.StdOut,
-            CreateGeneratedAtNormalization());
+            CliOutputGoldenFiles.GetPath("validate", "static-validation-error.json"),
+            result.StdOut);
     }
 
     [Fact]
@@ -216,15 +181,6 @@ public sealed class ValidateCliOutputContractTests
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {catalogPath}");
         Directory.CreateDirectory(directoryPath);
         File.WriteAllText(catalogPath, new IndexOpsCatalogJsonContractWriter().Write(contract));
-    }
-
-    private static JsonGoldenFileNormalization CreateGeneratedAtNormalization ()
-    {
-        return JsonGoldenFileNormalization.Create().NormalizeStringProperty(
-            "generatedAtUtc",
-            "<timestamp>",
-            static value => DateTimeOffset.TryParse(value, out _),
-            "an ISO-8601 timestamp");
     }
 
 }

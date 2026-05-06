@@ -14,11 +14,6 @@ internal sealed class JsonGoldenFileNormalization
     private readonly List<JsonGoldenPathPrefixRule> pathPrefixRules = [];
     private readonly List<JsonGoldenStringPropertyRule> stringPropertyRules = [];
 
-    public static JsonGoldenFileNormalization Create ()
-    {
-        return new JsonGoldenFileNormalization();
-    }
-
     public JsonGoldenFileNormalization NormalizeRequestIds (string token = "<requestId>")
     {
         return NormalizeStringProperty(
@@ -66,29 +61,98 @@ internal sealed class JsonGoldenFileNormalization
         ArgumentNullException.ThrowIfNull(jsonText);
 
         var replacements = new List<JsonGoldenTextReplacement>();
-        foreach (var rule in stringPropertyRules)
-        {
-            rule.Collect(root, replacements);
-        }
-
-        foreach (var rule in pathPrefixRules)
-        {
-            rule.Collect(root, replacements);
-        }
+        Collect(root, replacements);
 
         var normalizedText = jsonText;
-        foreach (var replacement in replacements.Distinct())
+        foreach (var replacementGroup in replacements.GroupBy(static replacement => replacement))
         {
-            normalizedText = normalizedText.Replace(
-                replacement.Source,
-                replacement.Replacement,
-                StringComparison.Ordinal);
+            var replacement = replacementGroup.Key;
+            var sourceCandidates = ToSourceJsonStringLiterals(replacement.SourceValue);
+            var replacementLiteral = ToReplacementJsonStringLiteral(replacement.ReplacementValue);
+            var expectedOccurrenceCount = replacementGroup.Count();
+            var actualOccurrenceCount = sourceCandidates.Sum(source => CountOccurrences(normalizedText, source));
+            if (actualOccurrenceCount != expectedOccurrenceCount)
+            {
+                throw new XunitException(
+                    $"JSON string literal selected for normalization appears {actualOccurrenceCount} time(s), but {expectedOccurrenceCount} selected node(s) require normalization: {replacement.SourceValue}");
+            }
+
+            foreach (var source in sourceCandidates)
+            {
+                normalizedText = normalizedText.Replace(
+                    source,
+                    replacementLiteral,
+                    StringComparison.Ordinal);
+            }
         }
 
         return normalizedText;
     }
 
-    private static string ToJsonStringLiteral (string value)
+    private void Collect (
+        JsonElement element,
+        List<JsonGoldenTextReplacement> replacements)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var property in element.EnumerateObject())
+                {
+                    foreach (var rule in stringPropertyRules)
+                    {
+                        rule.CollectPropertyValue(property, replacements);
+                    }
+
+                    Collect(property.Value, replacements);
+                }
+
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                {
+                    Collect(item, replacements);
+                }
+
+                break;
+            case JsonValueKind.String:
+                foreach (var rule in pathPrefixRules)
+                {
+                    rule.CollectStringValue(element.GetString(), replacements);
+                }
+
+                break;
+        }
+    }
+
+    private static int CountOccurrences (
+        string text,
+        string value)
+    {
+        var count = 0;
+        var startIndex = 0;
+        while (true)
+        {
+            var index = text.IndexOf(value, startIndex, StringComparison.Ordinal);
+            if (index < 0)
+            {
+                return count;
+            }
+
+            count++;
+            startIndex = index + value.Length;
+        }
+    }
+
+    private static string[] ToSourceJsonStringLiterals (string value)
+    {
+        var defaultLiteral = JsonSerializer.Serialize(value);
+        var relaxedLiteral = JsonSerializer.Serialize(value, ReplacementJsonSerializerOptions);
+        return string.Equals(defaultLiteral, relaxedLiteral, StringComparison.Ordinal)
+            ? [defaultLiteral]
+            : [defaultLiteral, relaxedLiteral];
+    }
+
+    private static string ToReplacementJsonStringLiteral (string value)
     {
         return JsonSerializer.Serialize(value, ReplacementJsonSerializerOptions);
     }
@@ -184,8 +248,8 @@ internal sealed class JsonGoldenFileNormalization
     }
 
     private readonly record struct JsonGoldenTextReplacement (
-        string Source,
-        string Replacement);
+        string SourceValue,
+        string ReplacementValue);
 
     private sealed record JsonGoldenStringPropertyRule (
         string PropertyName,
@@ -193,44 +257,21 @@ internal sealed class JsonGoldenFileNormalization
         Func<string, bool>? Validate,
         string ValidationDescription)
     {
-        public void Collect (
-            JsonElement element,
+        public void CollectPropertyValue (
+            JsonProperty property,
             List<JsonGoldenTextReplacement> replacements)
         {
-            switch (element.ValueKind)
+            if (!string.Equals(property.Name, PropertyName, StringComparison.Ordinal))
             {
-                case JsonValueKind.Object:
-                    foreach (var property in element.EnumerateObject())
-                    {
-                        if (string.Equals(property.Name, PropertyName, StringComparison.Ordinal))
-                        {
-                            CollectPropertyValue(property.Value, replacements);
-                        }
-
-                        Collect(property.Value, replacements);
-                    }
-
-                    break;
-                case JsonValueKind.Array:
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        Collect(item, replacements);
-                    }
-
-                    break;
+                return;
             }
-        }
 
-        private void CollectPropertyValue (
-            JsonElement value,
-            List<JsonGoldenTextReplacement> replacements)
-        {
-            if (value.ValueKind != JsonValueKind.String)
+            if (property.Value.ValueKind != JsonValueKind.String)
             {
                 throw new XunitException($"JSON property '{PropertyName}' must be a string to be normalized.");
             }
 
-            var text = value.GetString();
+            var text = property.Value.GetString();
             if (string.IsNullOrWhiteSpace(text))
             {
                 throw new XunitException($"JSON property '{PropertyName}' must not be empty.");
@@ -242,8 +283,8 @@ internal sealed class JsonGoldenFileNormalization
             }
 
             replacements.Add(new JsonGoldenTextReplacement(
-                ToJsonStringLiteral(text),
-                ToJsonStringLiteral(Token)));
+                text,
+                Token));
         }
     }
 
@@ -251,33 +292,7 @@ internal sealed class JsonGoldenFileNormalization
         IReadOnlyList<string> AbsolutePathPrefixes,
         string Token)
     {
-        public void Collect (
-            JsonElement element,
-            List<JsonGoldenTextReplacement> replacements)
-        {
-            switch (element.ValueKind)
-            {
-                case JsonValueKind.Object:
-                    foreach (var property in element.EnumerateObject())
-                    {
-                        Collect(property.Value, replacements);
-                    }
-
-                    break;
-                case JsonValueKind.Array:
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        Collect(item, replacements);
-                    }
-
-                    break;
-                case JsonValueKind.String:
-                    CollectStringValue(element.GetString(), replacements);
-                    break;
-            }
-        }
-
-        private void CollectStringValue (
+        public void CollectStringValue (
             string? value,
             List<JsonGoldenTextReplacement> replacements)
         {
@@ -292,8 +307,8 @@ internal sealed class JsonGoldenFileNormalization
             }
 
             replacements.Add(new JsonGoldenTextReplacement(
-                ToJsonStringLiteral(value),
-                ToJsonStringLiteral(replacementValue)));
+                value,
+                replacementValue));
         }
 
         private bool TryCreateReplacementValue (

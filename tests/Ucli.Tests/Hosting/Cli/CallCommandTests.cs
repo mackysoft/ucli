@@ -14,8 +14,6 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class CallCommandTests
 {
-    private const string GoldenRoot = "tests/Ucli.Tests/GoldenFiles/Json/CliOutput";
-
     private const string DefaultRequestJson = """{"steps":[]}""";
 
     [Fact]
@@ -93,9 +91,9 @@ public sealed class CallCommandTests
                     .HasArrayLength("opResults", 1)
                     .HasString("planToken", "plan-token-1")));
         JsonGoldenFileAssert.Matches(
-            Path.Combine(GoldenRoot, "call", "success.json"),
+            CliOutputGoldenFiles.GetPath("call", "success.json"),
             standardOutput,
-            JsonGoldenFileNormalization.Create().NormalizeRequestIds());
+            new JsonGoldenFileNormalization().NormalizeRequestIds());
     }
 
     [Fact]
