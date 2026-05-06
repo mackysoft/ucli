@@ -1,17 +1,11 @@
 using MackySoft.Ucli.Skills.Digests;
 using MackySoft.Ucli.Skills.Distribution;
 using MackySoft.Ucli.Skills.Doctor;
-using MackySoft.Ucli.Skills.Generation;
-using MackySoft.Ucli.Skills.Hosts.Claude;
-using MackySoft.Ucli.Skills.Hosts.Contracts;
-using MackySoft.Ucli.Skills.Hosts.Copilot;
-using MackySoft.Ucli.Skills.Hosts.OpenAi;
-using MackySoft.Ucli.Skills.Hosts.Registration;
+using MackySoft.Ucli.Skills.Hosts.Official;
 using MackySoft.Ucli.Skills.Installation;
 using MackySoft.Ucli.Skills.Installation.Validation;
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Materialization;
-using MackySoft.Ucli.Skills.Sources;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Hosting.Composition.Features;
@@ -27,16 +21,12 @@ internal static class SkillsServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<ISkillHostAdapter, ClaudeSkillHostAdapter>();
-        services.AddSingleton<ISkillHostAdapter, CopilotSkillHostAdapter>();
-        services.AddSingleton<ISkillHostAdapter, OpenAiSkillHostAdapter>();
-        services.AddSingleton<SkillHostAdapterSet>();
-        services.AddSingleton<BundledSkillDefinitionRootResolver>();
-        services.AddSingleton<SkillSourceDefinitionReader>();
+        services.AddSingleton(_ => OfficialSkillHostAdapters.CreateSet());
+        services.AddSingleton<BundledSkillPackageRootResolver>();
         services.AddSingleton<SkillDigestCalculator>();
         services.AddSingleton<SkillManifestJsonSerializer>();
         services.AddSingleton<SkillManifestValidator>();
-        services.AddSingleton<SkillPackageGenerationService>();
+        services.AddSingleton<CanonicalSkillPackageReader>();
         services.AddSingleton<OfficialSkillPackageProvider>();
         services.AddSingleton<SkillMaterializationService>();
         services.AddSingleton<SkillExportService>();

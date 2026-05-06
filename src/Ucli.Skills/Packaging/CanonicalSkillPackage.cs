@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Skills.Manifests;
 using MackySoft.Ucli.Skills.Shared;
 
-namespace MackySoft.Ucli.Skills.Generation;
+namespace MackySoft.Ucli.Skills.Packaging;
 
 /// <summary> Represents one canonical host-independent SKILL package. </summary>
 /// <param name="SkillName"> The skill name. </param>

@@ -1,9 +1,9 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Skills.Doctor;
-using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts.Registration;
 using MackySoft.Ucli.Skills.Installation;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;

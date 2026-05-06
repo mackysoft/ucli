@@ -1,5 +1,5 @@
-using MackySoft.Ucli.Skills.Generation;
 using MackySoft.Ucli.Skills.Hosts.Registration;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Materialization;
@@ -42,11 +42,21 @@ public sealed class SkillMaterializationService
         var adapter = adapterResult.Value!;
         var artifacts = adapter.BuildArtifacts(metadata);
         var files = new List<SkillPackageFile>();
+        var hostArtifactFilePaths = package.Manifest.HostArtifacts
+            .Select(static artifact => artifact.Path)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .ToHashSet(StringComparer.Ordinal);
+
         foreach (var file in package.Files)
         {
             if (string.Equals(file.RelativePath, "SKILL.md", StringComparison.Ordinal))
             {
                 files.Add(SkillPackageFile.Create(file.RelativePath, artifacts.Frontmatter + "\n" + file.Content));
+                continue;
+            }
+
+            if (hostArtifactFilePaths.Contains(file.RelativePath))
+            {
                 continue;
             }
 

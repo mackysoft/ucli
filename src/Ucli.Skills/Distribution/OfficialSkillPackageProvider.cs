@@ -1,37 +1,37 @@
-using MackySoft.Ucli.Skills.Generation;
+using MackySoft.Ucli.Skills.Packaging;
 using MackySoft.Ucli.Skills.Shared;
 
 namespace MackySoft.Ucli.Skills.Distribution;
 
-/// <summary> Provides official SKILL packages generated from bundled source definitions. </summary>
+/// <summary> Provides official SKILL packages from bundled generated package files. </summary>
 public sealed class OfficialSkillPackageProvider
 {
-    private readonly BundledSkillDefinitionRootResolver definitionRootResolver;
-    private readonly SkillPackageGenerationService generationService;
+    private readonly BundledSkillPackageRootResolver packageRootResolver;
+    private readonly CanonicalSkillPackageReader packageReader;
 
     /// <summary> Initializes a new instance of the <see cref="OfficialSkillPackageProvider" /> class. </summary>
-    /// <param name="definitionRootResolver"> The bundled SKILL definition root resolver. </param>
-    /// <param name="generationService"> The canonical package generation service. </param>
+    /// <param name="packageRootResolver"> The bundled generated SKILL package root resolver. </param>
+    /// <param name="packageReader"> The canonical package reader. </param>
     public OfficialSkillPackageProvider (
-        BundledSkillDefinitionRootResolver definitionRootResolver,
-        SkillPackageGenerationService generationService)
+        BundledSkillPackageRootResolver packageRootResolver,
+        CanonicalSkillPackageReader packageReader)
     {
-        this.definitionRootResolver = definitionRootResolver ?? throw new ArgumentNullException(nameof(definitionRootResolver));
-        this.generationService = generationService ?? throw new ArgumentNullException(nameof(generationService));
+        this.packageRootResolver = packageRootResolver ?? throw new ArgumentNullException(nameof(packageRootResolver));
+        this.packageReader = packageReader ?? throw new ArgumentNullException(nameof(packageReader));
     }
 
-    /// <summary> Gets all official SKILL packages from the bundled source definitions. </summary>
+    /// <summary> Gets all official SKILL packages from bundled generated package files. </summary>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The official canonical packages, or a source-resolution failure. </returns>
+    /// <returns> The official canonical packages, or a package-resolution failure. </returns>
     public async ValueTask<SkillOperationResult<IReadOnlyList<CanonicalSkillPackage>>> GetPackagesAsync (
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string definitionsRoot;
+        string packageRoot;
         try
         {
-            definitionsRoot = definitionRootResolver.Resolve();
+            packageRoot = packageRootResolver.Resolve();
         }
         catch (DirectoryNotFoundException ex)
         {
@@ -40,6 +40,6 @@ public sealed class OfficialSkillPackageProvider
                 ex.Message);
         }
 
-        return await generationService.GenerateAllAsync(definitionsRoot, cancellationToken).ConfigureAwait(false);
+        return await packageReader.ReadAllAsync(packageRoot, cancellationToken).ConfigureAwait(false);
     }
 }

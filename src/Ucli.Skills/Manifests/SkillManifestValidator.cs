@@ -32,6 +32,13 @@ public sealed class SkillManifestValidator
             return Failure("ucli-skill.json skillName must be a safe SKILL identifier.");
         }
 
+        if (string.IsNullOrWhiteSpace(manifest.DisplayName)
+            || string.IsNullOrWhiteSpace(manifest.Description)
+            || manifest.Description.Length > 1024)
+        {
+            return Failure("ucli-skill.json displayName and description must be valid.");
+        }
+
         if (!IsSha256Digest(manifest.ContentDigest))
         {
             return Failure("ucli-skill.json contentDigest must be a sha256 digest.");
