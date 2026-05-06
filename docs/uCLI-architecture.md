@@ -161,6 +161,7 @@ SKILL template、manifest、digest、host adapter、materialization、install / 
 - semantic value type、contract attribute、contract metadata DTO
 - public schema generator、contract attribute に基づく structural validation
 - JSON を共有 contract model へ読む internal contract reader
+- edit step contract を primitive operation contract へ対応づける共有 structural lowering helper
 - 公開 JSON 構造を維持するための最小 contract helper
 
 `Ucli.Contracts` に置かないものは次の通り。
@@ -171,6 +172,8 @@ SKILL template、manifest、digest、host adapter、materialization、install / 
 - UnityEngine / UnityEditor、Unity object 解決、operation handler、Unity lifecycle
 
 contract reader は `MackySoft.Ucli.Contracts.Ipc.ContractReading` に置く。reader は JSON の構造を contract model へ読む責務だけを持ち、application validation の判断、CLI 向け文言、Unity 実体解決を持たない。
+
+edit step lowering helper は `MackySoft.Ucli.Contracts.Ipc.EditSteps` に置く。helper は validated edit step contract から primitive operation name、structural target category、implicit save operation を導出する責務だけを持ち、operation catalog、readIndex、Unity object 解決、実行 lifecycle を持たない。
 
 既存の public 型が `MackySoft.Ucli.Contracts.Ipc.Validation` namespace で公開されている場合は、公開 API 維持のため旧 namespace に残す。新規 internal reader 型を旧 namespace へ追加してはならない。
 

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Contracts.Ipc.EditSteps;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
@@ -1029,8 +1030,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             string scenePath,
             SceneQuerySelectionEngine.QueryMatch match)
         {
+            var targetKind = match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component
+                ? IpcEditTargetKind.Component
+                : IpcEditTargetKind.GameObject;
+
             return new SelectionTarget(
-                match.TargetKind,
+                targetKind,
                 CreateSceneSelector(
                     scenePath,
                     match.HierarchyPath,

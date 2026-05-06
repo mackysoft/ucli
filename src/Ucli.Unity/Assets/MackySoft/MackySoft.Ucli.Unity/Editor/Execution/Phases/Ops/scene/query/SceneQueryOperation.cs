@@ -131,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < matches.Count; i++)
             {
                 payloadMatches[i] = new SceneQueryMatch(
-                    kind: matches[i].TargetKind == IpcEditTargetKind.Component ? "component" : "gameObject",
+                    kind: matches[i].TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component ? "component" : "gameObject",
                     hierarchyPath: matches[i].HierarchyPath,
                     componentType: matches[i].ComponentType);
             }

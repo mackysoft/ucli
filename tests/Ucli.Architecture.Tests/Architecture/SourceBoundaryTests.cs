@@ -102,6 +102,7 @@ public sealed class SourceBoundaryTests
         var sourceFiles = new[]
             {
                 "src/Ucli.Contracts/Ipc/ContractReading",
+                "src/Ucli.Contracts/Ipc/EditSteps",
                 "src/Ucli.Contracts/Ipc/Operations/Contracts/Schema",
                 "src/Ucli.Contracts/Ipc/Operations/Contracts/Validation",
                 "src/Ucli.Contracts/Ipc/Operations/Metadata/Generation",
@@ -241,6 +242,20 @@ public sealed class SourceBoundaryTests
 
         SourceBoundaryAssertions.AssertNoMarkersInCode(
             ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity"),
+            forbiddenMarkers);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Unity_operation_phases_do_not_reference_contract_edit_step_lowering_helpers ()
+    {
+        var forbiddenMarkers = new[]
+        {
+            "MackySoft.Ucli.Contracts.Ipc.EditSteps",
+        };
+
+        SourceBoundaryAssertions.AssertNoMarkersInCode(
+            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity/Editor/Execution/Phases"),
             forbiddenMarkers);
     }
 

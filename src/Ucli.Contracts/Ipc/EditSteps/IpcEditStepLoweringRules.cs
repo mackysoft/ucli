@@ -1,6 +1,7 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
-namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
+namespace MackySoft.Ucli.Contracts.Ipc.EditSteps;
 
 /// <summary> Defines shared structural lowering rules for public <c>kind:"edit"</c> steps. </summary>
 internal static class IpcEditStepLoweringRules

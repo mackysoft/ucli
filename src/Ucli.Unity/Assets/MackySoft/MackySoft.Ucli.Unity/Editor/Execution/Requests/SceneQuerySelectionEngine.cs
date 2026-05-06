@@ -251,10 +251,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     if (!RegisterMatch(
                             orderedMatches,
                             new QueryMatch(
-                                IpcEditTargetKind.GameObject,
+                                QueryTargetKind.GameObject,
                                 hierarchyPath,
                                 null,
-                                CreateCanonicalKey(scenePath, IpcEditTargetKind.GameObject, hierarchyPath, null)),
+                                CreateCanonicalKey(scenePath, QueryTargetKind.GameObject, hierarchyPath, null)),
                             out errorMessage))
                     {
                         return false;
@@ -332,10 +332,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             match = new QueryMatch(
-                IpcEditTargetKind.Component,
+                QueryTargetKind.Component,
                 hierarchyPath,
                 componentType,
-                CreateCanonicalKey(scenePath, IpcEditTargetKind.Component, hierarchyPath, componentType));
+                CreateCanonicalKey(scenePath, QueryTargetKind.Component, hierarchyPath, componentType));
             errorMessage = string.Empty;
             return true;
         }
@@ -388,7 +388,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
         private static string CreateCanonicalKey (
             string scenePath,
-            IpcEditTargetKind targetKind,
+            QueryTargetKind targetKind,
             string hierarchyPath,
             string? componentType)
         {
@@ -401,6 +401,16 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                    + hierarchyPath
                    + "\u001f"
                    + (componentType ?? string.Empty);
+        }
+
+        /// <summary> Defines match target categories produced by scene query resolution. </summary>
+        internal enum QueryTargetKind
+        {
+            /// <summary> A GameObject match. </summary>
+            GameObject,
+
+            /// <summary> A component match. </summary>
+            Component,
         }
 
         /// <summary>
@@ -433,7 +443,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         internal readonly struct QueryMatch
         {
             public QueryMatch (
-                IpcEditTargetKind targetKind,
+                QueryTargetKind targetKind,
                 string hierarchyPath,
                 string? componentType,
                 string canonicalKey)
@@ -444,7 +454,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 CanonicalKey = canonicalKey;
             }
 
-            public IpcEditTargetKind TargetKind { get; }
+            public QueryTargetKind TargetKind { get; }
 
             public string HierarchyPath { get; }
 

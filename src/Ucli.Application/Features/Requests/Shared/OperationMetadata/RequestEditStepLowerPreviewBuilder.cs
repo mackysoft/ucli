@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Contracts.Ipc.EditSteps;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
