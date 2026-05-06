@@ -90,7 +90,7 @@ public sealed class TestRunCliOutputContractTests
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
+            expectedCode: ProjectContextErrorCodes.ProjectPathNotFound);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .IsNull("result")
@@ -119,7 +119,7 @@ public sealed class TestRunCliOutputContractTests
             exitCode: (int)CliExitCode.InvalidArgument);
         CommandResultAssert.HasSingleError(
             outputJson.RootElement,
-            expectedCode: "INVALID_ARGUMENT");
+            expectedCode: ProjectContextErrorCodes.ProjectPathNotFound);
     }
 
     [Fact]
