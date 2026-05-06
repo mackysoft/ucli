@@ -6,7 +6,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/dotnet-common.sh"
 
 usage() {
-  echo "usage: bash scripts/code-quality.sh [--no-restore] [--solution <path>] <format|verify>" >&2
+  echo "usage: bash scripts/code-quality.sh [--no-restore] [--solution <path>] <format|verify> [--include <path>...]" >&2
 }
 
 if [ "$#" -lt 1 ]; then
@@ -17,6 +17,18 @@ fi
 restore=true
 mode=""
 solution_arg=""
+include_paths=()
+
+append_include_path() {
+  local include_path="$1"
+
+  if [ -z "$include_path" ]; then
+    usage
+    exit 2
+  fi
+
+  include_paths+=("$include_path")
+}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -54,6 +66,42 @@ if [ -z "$mode" ]; then
   exit 2
 fi
 
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --include)
+      shift
+      if [ "$#" -lt 1 ]; then
+        usage
+        exit 2
+      fi
+
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          --include|--include=*)
+            break
+            ;;
+          --*)
+            usage
+            exit 2
+            ;;
+          *)
+            append_include_path "$1"
+            shift
+            ;;
+        esac
+      done
+      ;;
+    --include=*)
+      append_include_path "${1#--include=}"
+      shift
+      ;;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+done
+
 solution="$(dotnet_resolve_solution "$solution_arg")"
 cd "$DOTNET_REPO_ROOT"
 
@@ -67,6 +115,11 @@ diagnostics=(
   IDE1006
 )
 
+format_scope_args=()
+if [ "${#include_paths[@]}" -gt 0 ]; then
+  format_scope_args=(--include "${include_paths[@]}")
+fi
+
 run_restore() {
   if [ "$restore" = true ]; then
     dotnet restore "$solution"
@@ -74,31 +127,22 @@ run_restore() {
 }
 
 run_format() {
-  dotnet format whitespace "$solution" --verbosity minimal --no-restore
-  dotnet format style "$solution" --diagnostics "${diagnostics[@]}" --verbosity minimal --no-restore
-  dotnet format whitespace "$solution" --verbosity minimal --no-restore
+  dotnet format style "$solution" "${format_scope_args[@]}" --diagnostics "${diagnostics[@]}" --verbosity minimal --no-restore
+  dotnet format whitespace "$solution" "${format_scope_args[@]}" --verbosity minimal --no-restore
 }
 
 run_format_verify() {
-  dotnet format whitespace "$solution" --verify-no-changes --verbosity minimal --no-restore
-  dotnet format style "$solution" --diagnostics "${diagnostics[@]}" --verify-no-changes --verbosity minimal --no-restore
+  dotnet format whitespace "$solution" "${format_scope_args[@]}" --verify-no-changes --verbosity minimal --no-restore
+  dotnet format style "$solution" "${format_scope_args[@]}" --diagnostics "${diagnostics[@]}" --verify-no-changes --verbosity minimal --no-restore
 }
 
 run_restore
 
 case "$mode" in
   format)
-    if [ "$#" -ne 0 ]; then
-      usage
-      exit 2
-    fi
     run_format
     ;;
   verify)
-    if [ "$#" -ne 0 ]; then
-      usage
-      exit 2
-    fi
     run_format_verify
     ;;
   *)
