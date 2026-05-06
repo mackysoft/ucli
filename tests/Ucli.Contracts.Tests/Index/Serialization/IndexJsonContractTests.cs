@@ -5,7 +5,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
-public sealed class IndexCatalogJsonContractSerializerTests
+public sealed class IndexJsonContractTests
 {
     [Fact]
     [Trait("Size", "Small")]
@@ -645,6 +645,181 @@ public sealed class IndexCatalogJsonContractSerializerTests
                       "inputs": null,
                       "resultContract": null,
                       "assurance": null
+                    }
+                  ]
+                }
+                """),
+            json);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IndexOpsCatalogJsonContractWriter_WritesOptionalOperationMetadata ()
+    {
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: "hash",
+            Entries:
+            [
+                new IndexOpEntryJsonContract(
+                    Name: "write.asset",
+                    Kind: "mutation",
+                    Policy: "safe",
+                    ArgsSchemaJson: """{"type":"object"}""",
+                    ResultSchemaJson: """{"$ref":"#/definitions/WriteResult"}""")
+                {
+                    Description = "Writes one asset.",
+                    Inputs =
+                    [
+                        new UcliOperationInputContract(
+                            name: "target",
+                            valueType: "object",
+                            description: "Target input.",
+                            constraints:
+                            [
+                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.AssetExists)
+                                {
+                                    AssetKind = UcliOperationAssetKindValues.Scene,
+                                },
+                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.ReferenceResolvable)
+                                {
+                                    TargetKind = UcliOperationReferenceTargetKindValues.GameObject,
+                                },
+                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.TypeAssignableTo)
+                                {
+                                    TypeKind = UcliOperationTypeKindValues.Component,
+                                },
+                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.SerializedProperty)
+                                {
+                                    Access = UcliOperationSerializedPropertyAccessValues.Write,
+                                },
+                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.Range)
+                                {
+                                    Min = 1.5,
+                                    Max = 3.5,
+                                },
+                            ],
+                            argsPath: "$.target",
+                            variants:
+                            [
+                                new UcliOperationInputVariantContract(
+                                    name: "byPath",
+                                    description: "Path selector.",
+                                    fields:
+                                    [
+                                        new UcliOperationInputVariantFieldContract(
+                                            name: "path",
+                                            argsPath: "$.target.path",
+                                            description: "Serialized path.",
+                                            constraints:
+                                            [
+                                                new UcliOperationInputConstraintContract(UcliOperationInputConstraintKindValues.NonEmpty),
+                                            ]),
+                                    ]),
+                            ]),
+                    ],
+                    ResultContract = new UcliOperationResultContract(
+                        emitted: true,
+                        resultType: "WriteResult",
+                        description: "Written result."),
+                    Assurance = new UcliOperationAssuranceContract(
+                        sideEffects:
+                        [
+                            UcliOperationSideEffectValues.WritesAsset,
+                        ],
+                        mayDirty: true,
+                        mayPersist: true,
+                        touchedKinds:
+                        [
+                            IpcExecuteTouchedResourceKindNames.Asset,
+                        ],
+                        planMode: UcliOperationPlanModeValues.MayCreatePreviewState),
+                },
+            ]);
+
+        var json = Write(contract);
+
+        AssertExactJson(
+            ExpectedJson(
+                """
+                {
+                  "schemaVersion": 1,
+                  "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+                  "sourceInputsHash": "hash",
+                  "entries": [
+                    {
+                      "name": "write.asset",
+                      "kind": "mutation",
+                      "policy": "safe",
+                      "argsSchemaJson": "{\u0022type\u0022:\u0022object\u0022}",
+                      "resultSchemaJson": "{\u0022$ref\u0022:\u0022#/definitions/WriteResult\u0022}",
+                      "description": "Writes one asset.",
+                      "inputs": [
+                        {
+                          "name": "target",
+                          "description": "Target input.",
+                          "valueType": "object",
+                          "constraints": [
+                            {
+                              "kind": "assetExists",
+                              "assetKind": "scene"
+                            },
+                            {
+                              "kind": "referenceResolvable",
+                              "targetKind": "gameObject"
+                            },
+                            {
+                              "kind": "typeAssignableTo",
+                              "typeKind": "component"
+                            },
+                            {
+                              "kind": "serializedProperty",
+                              "access": "write"
+                            },
+                            {
+                              "kind": "range",
+                              "min": 1.5,
+                              "max": 3.5
+                            }
+                          ],
+                          "argsPath": "$.target",
+                          "variants": [
+                            {
+                              "name": "byPath",
+                              "description": "Path selector.",
+                              "fields": [
+                                {
+                                  "name": "path",
+                                  "argsPath": "$.target.path",
+                                  "description": "Serialized path.",
+                                  "constraints": [
+                                    {
+                                      "kind": "nonEmpty"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "resultContract": {
+                        "emitted": true,
+                        "resultType": "WriteResult",
+                        "description": "Written result."
+                      },
+                      "assurance": {
+                        "sideEffects": [
+                          "writesAsset"
+                        ],
+                        "mayDirty": true,
+                        "mayPersist": true,
+                        "touchedKinds": [
+                          "asset"
+                        ],
+                        "planMode": "mayCreatePreviewState"
+                      }
                     }
                   ]
                 }
