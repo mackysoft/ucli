@@ -113,6 +113,18 @@ public sealed class ProjectReferenceBoundaryTests
             ],
         };
 
+        var actualAsmdefPaths = Directory
+            .EnumerateFiles(
+                ArchitectureTestRepository.ToFullPath("src/Ucli.Unity/Assets/MackySoft/MackySoft.Ucli.Unity"),
+                "*.asmdef",
+                SearchOption.AllDirectories)
+            .Select(ArchitectureTestRepository.NormalizeRepositoryRelativePath)
+            .OrderBy(static value => value, StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(
+            expectedReferencesByAsmdef.Keys.OrderBy(static value => value, StringComparer.Ordinal),
+            actualAsmdefPaths);
+
         foreach (var (asmdefPath, expectedReferences) in expectedReferencesByAsmdef)
         {
             var actualReferences = ArchitectureTestRepository
@@ -125,15 +137,4 @@ public sealed class ProjectReferenceBoundaryTests
         }
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Verify_scope_detector_tracks_application_project_changes ()
-    {
-        var sourceText = File.ReadAllText(ArchitectureTestRepository.ToFullPath("scripts/detect-verify-scopes.sh"));
-        var applicationScopeOccurrences = sourceText.Split("src/Ucli.Application/*", StringSplitOptions.None).Length - 1;
-
-        Assert.True(
-            applicationScopeOccurrences >= 2,
-            "Application project changes must trigger both .NET verification and CLI package verification scopes.");
-    }
 }

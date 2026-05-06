@@ -24,6 +24,43 @@ public sealed class SourceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Contracts_source_does_not_use_host_resource_or_cli_output_apis ()
+    {
+        var forbiddenSourceMarkers = new[]
+        {
+            "System.Diagnostics.Process",
+            "Process.Start(",
+            "new Process(",
+            "File.",
+            "Directory.",
+            "using System.IO;",
+            "global using System.IO;",
+            "System.IO.File",
+            "System.IO.Directory",
+            "System.IO.Path",
+            "Path.Combine(",
+            "Path.Get",
+            "Path.IsPath",
+            "Path.EndsInDirectorySeparator(",
+            "Environment.",
+            "System.Net.Sockets",
+            "System.Net.",
+            "SocketException",
+            "FileStream",
+            "FileInfo",
+            "DirectoryInfo",
+            "HttpClient",
+            "Console.",
+            "System.Console",
+        };
+
+        AssertNoMarkersInCode(
+            ArchitectureTestRepository.EnumerateCSharpSourceFiles("src/Ucli.Contracts"),
+            forbiddenSourceMarkers);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Application_source_does_not_reference_host_or_adapter_namespaces ()
     {
         var forbiddenNamespaceMarkers = new[]
@@ -51,6 +88,10 @@ public sealed class SourceBoundaryTests
             "new Process(",
             "File.",
             "Directory.",
+            "using System.IO;",
+            "global using System.IO;",
+            "System.IO.File",
+            "System.IO.Directory",
             "System.IO.Path",
             "Path.Combine(",
             "Path.Get",
@@ -71,6 +112,11 @@ public sealed class SourceBoundaryTests
             "ProcessOutputDrainMode",
             "ExecuteRequestPayloadFactory",
             "ReadIndexInfoTextCodec",
+            "Console.",
+            "System.Console",
+            "ConsoleAppFramework",
+            "Utf8JsonWriter",
+            "JsonWriterOptions",
             "class UserRequestJsonNormalizer",
             "new IpcExecuteRequest",
             "IpcExecuteRequest(",
@@ -272,12 +318,10 @@ public sealed class SourceBoundaryTests
     {
         var globalUsingsPath = ArchitectureTestRepository.ToFullPath("tests/Ucli.Tests/GlobalUsings.cs");
         var sourceText = ArchitectureTestRepository.ReadCSharpSourceWithoutCommentsAndStringLiterals(globalUsingsPath);
-        var importsApplicationUseCaseNamespace = sourceText
-            .Split('\n')
-            .Any(IsApplicationUseCaseImport);
+        var referencesApplicationUseCaseNamespace = ReferencesApplicationUseCaseNamespace(sourceText);
 
         Assert.False(
-            importsApplicationUseCaseNamespace,
+            referencesApplicationUseCaseNamespace,
             "CLI host tests must not import Application use case namespaces through global usings.");
     }
 
@@ -290,11 +334,9 @@ public sealed class SourceBoundaryTests
         foreach (var sourceFile in hostInfrastructureTestFiles)
         {
             var sourceText = ArchitectureTestRepository.ReadCSharpSourceWithoutCommentsAndStringLiterals(sourceFile);
-            var importsApplicationUseCaseNamespace = sourceText
-                .Split('\n')
-                .Any(IsApplicationUseCaseImport);
+            var referencesApplicationUseCaseNamespace = ReferencesApplicationUseCaseNamespace(sourceText);
             Assert.False(
-                importsApplicationUseCaseNamespace,
+                referencesApplicationUseCaseNamespace,
                 $"CLI host infrastructure tests must not import Application use case namespaces: {ArchitectureTestRepository.NormalizeRepositoryRelativePath(sourceFile)}");
         }
     }
@@ -414,11 +456,9 @@ public sealed class SourceBoundaryTests
         foreach (var sourceFile in hostAdapterFiles)
         {
             var sourceText = ArchitectureTestRepository.ReadCSharpSourceWithoutCommentsAndStringLiterals(sourceFile);
-            var importsApplicationUseCaseNamespace = sourceText
-                .Split('\n')
-                .Any(IsApplicationUseCaseImport);
+            var referencesApplicationUseCaseNamespace = ReferencesApplicationUseCaseNamespace(sourceText);
             Assert.False(
-                importsApplicationUseCaseNamespace,
+                referencesApplicationUseCaseNamespace,
                 $"Host adapter source must not import Application use case namespaces: {ArchitectureTestRepository.NormalizeRepositoryRelativePath(sourceFile)}");
         }
     }
@@ -567,49 +607,17 @@ public sealed class SourceBoundaryTests
 
     private static void AssertNoMarkersInCode (IEnumerable<string> sourceFiles, IReadOnlyCollection<string> forbiddenMarkers)
     {
-        var violations = new List<string>();
-        foreach (var sourceFile in sourceFiles)
-        {
-            var sourceText = ArchitectureTestRepository.ReadCSharpSourceWithoutCommentsAndStringLiterals(sourceFile);
-            AddMarkerViolations(violations, sourceFile, sourceText, forbiddenMarkers);
-        }
-
-        Assert.Empty(violations);
+        Assert.Empty(SourceMarkerDetector.FindMarkersInCode(sourceFiles, forbiddenMarkers));
     }
 
     private static void AssertNoRawMarkers (IEnumerable<string> sourceFiles, IReadOnlyCollection<string> forbiddenMarkers)
     {
-        var violations = new List<string>();
-        foreach (var sourceFile in sourceFiles)
-        {
-            var sourceText = File.ReadAllText(sourceFile);
-            AddMarkerViolations(violations, sourceFile, sourceText, forbiddenMarkers);
-        }
-
-        Assert.Empty(violations);
+        Assert.Empty(SourceMarkerDetector.FindRawMarkers(sourceFiles, forbiddenMarkers));
     }
 
-    private static void AddMarkerViolations (
-        List<string> violations,
-        string sourceFile,
-        string sourceText,
-        IReadOnlyCollection<string> forbiddenMarkers)
+    private static bool ReferencesApplicationUseCaseNamespace (string sourceText)
     {
-        foreach (var marker in forbiddenMarkers)
-        {
-            if (sourceText.Contains(marker, StringComparison.Ordinal))
-            {
-                violations.Add($"{ArchitectureTestRepository.NormalizeRepositoryRelativePath(sourceFile)} contains {marker}.");
-            }
-        }
-    }
-
-    private static bool IsApplicationUseCaseImport (string line)
-    {
-        var trimmedLine = line.TrimStart();
-        return (trimmedLine.StartsWith("using ", StringComparison.Ordinal)
-            || trimmedLine.StartsWith("global using ", StringComparison.Ordinal))
-            && trimmedLine.Contains("MackySoft.Ucli.Application.Features.", StringComparison.Ordinal)
-            && trimmedLine.Contains(".UseCases.", StringComparison.Ordinal);
+        const string prefix = "MackySoft.Ucli.Application.Features.";
+        return SourceMarkerDetector.ContainsQualifiedNameWithSegment(sourceText, prefix, ".UseCases.");
     }
 }
