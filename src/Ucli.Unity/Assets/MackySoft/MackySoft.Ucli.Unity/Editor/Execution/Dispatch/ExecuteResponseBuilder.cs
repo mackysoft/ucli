@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -60,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="context" /> or <paramref name="serializerOptions" /> is <see langword="null" />. </exception>
         public static IpcResponse CreateErrorResponse (
             ExecuteDispatchContext context,
-            string code,
+            UcliErrorCode code,
             string message,
             string? opId,
             JsonSerializerOptions serializerOptions)

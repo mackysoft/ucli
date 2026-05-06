@@ -1,8 +1,8 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -15,6 +15,40 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class UnityEditorReadinessGateTests
     {
         private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
+        private static readonly (string LifecycleState, string BlockingReason, UcliErrorCode ExpectedErrorCode, string ExpectedMessage)[] BlockedLifecycleStateCases =
+        {
+            (
+                IpcEditorLifecycleStateCodec.Starting,
+                IpcEditorBlockingReasonCodec.Startup,
+                EditorLifecycleErrorCodes.EditorStarting,
+                "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request."),
+            (
+                IpcEditorLifecycleStateCodec.Busy,
+                IpcEditorBlockingReasonCodec.Busy,
+                EditorLifecycleErrorCodes.EditorBusy,
+                "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
+            (
+                IpcEditorLifecycleStateCodec.Compiling,
+                IpcEditorBlockingReasonCodec.Compile,
+                EditorLifecycleErrorCodes.EditorCompiling,
+                "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request."),
+            (
+                IpcEditorLifecycleStateCodec.DomainReloading,
+                IpcEditorBlockingReasonCodec.DomainReload,
+                EditorLifecycleErrorCodes.EditorDomainReloading,
+                "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request."),
+            (
+                IpcEditorLifecycleStateCodec.Playmode,
+                IpcEditorBlockingReasonCodec.PlayMode,
+                EditorLifecycleErrorCodes.EditorPlaymode,
+                "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request."),
+            (
+                IpcEditorLifecycleStateCodec.ShuttingDown,
+                IpcEditorBlockingReasonCodec.Shutdown,
+                EditorLifecycleErrorCodes.EditorShuttingDown,
+                "Unity editor is shutting down and cannot accept execution requests."),
+        };
 
         [TestCase(IpcEditorLifecycleStateCodec.Starting, true)]
         [TestCase(IpcEditorLifecycleStateCodec.Busy, true)]
@@ -33,59 +67,29 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(actual, Is.EqualTo(expected));
         }
 
-        [TestCase(
-            IpcEditorLifecycleStateCodec.Starting,
-            IpcEditorBlockingReasonCodec.Startup,
-            EditorLifecycleErrorCodes.EditorStarting,
-            "Unity editor startup is still in progress. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
-        [TestCase(
-            IpcEditorLifecycleStateCodec.Busy,
-            IpcEditorBlockingReasonCodec.Busy,
-            EditorLifecycleErrorCodes.EditorBusy,
-            "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
-        [TestCase(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            EditorLifecycleErrorCodes.EditorCompiling,
-            "Unity editor is compiling scripts. Retry without --failFast or wait until lifecycleState=ready before executing request.")]
-        [TestCase(
-            IpcEditorLifecycleStateCodec.DomainReloading,
-            IpcEditorBlockingReasonCodec.DomainReload,
-            EditorLifecycleErrorCodes.EditorDomainReloading,
-            "Unity editor is reloading the AppDomain. Retry after lifecycleState=ready before executing request.")]
-        [TestCase(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            EditorLifecycleErrorCodes.EditorPlaymode,
-            "Unity editor is in Play Mode. Exit Play Mode and wait until lifecycleState=ready before executing request.")]
-        [TestCase(
-            IpcEditorLifecycleStateCodec.ShuttingDown,
-            IpcEditorBlockingReasonCodec.Shutdown,
-            EditorLifecycleErrorCodes.EditorShuttingDown,
-            "Unity editor is shutting down and cannot accept execution requests.")]
+        [Test]
         [Category("Size.Small")]
-        public void CreateBlockedResult_WhenLifecycleStateIsMapped_ReturnsExpectedError (
-            string lifecycleState,
-            string blockingReason,
-            string expectedErrorCode,
-            string expectedMessage)
+        public void CreateBlockedResult_WhenLifecycleStateIsMapped_ReturnsExpectedError ()
         {
-            var snapshot = new UnityEditorLifecycleSnapshot(
-                Runtime: IpcEditorRuntimeCodec.Batchmode,
-                LifecycleState: lifecycleState,
-                BlockingReason: blockingReason,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "2",
-                DomainReloadGeneration: "3",
-                CanAcceptExecutionRequests: false);
+            foreach (var testCase in BlockedLifecycleStateCases)
+            {
+                var snapshot = new UnityEditorLifecycleSnapshot(
+                    Runtime: IpcEditorRuntimeCodec.Batchmode,
+                    LifecycleState: testCase.LifecycleState,
+                    BlockingReason: testCase.BlockingReason,
+                    CompileState: IpcCompileStateCodec.Ready,
+                    CompileGeneration: "2",
+                    DomainReloadGeneration: "3",
+                    CanAcceptExecutionRequests: false);
 
-            var result = UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot);
+                var result = UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot);
 
-            Assert.That(result.IsReady, Is.False);
-            Assert.That(result.Snapshot, Is.EqualTo(snapshot));
-            Assert.That(result.Error, Is.Not.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(expectedErrorCode));
-            Assert.That(result.Error.Message, Is.EqualTo(expectedMessage));
+                Assert.That(result.IsReady, Is.False, testCase.LifecycleState);
+                Assert.That(result.Snapshot, Is.EqualTo(snapshot), testCase.LifecycleState);
+                Assert.That(result.Error, Is.Not.Null, testCase.LifecycleState);
+                Assert.That(result.Error!.Code, Is.EqualTo(testCase.ExpectedErrorCode), testCase.LifecycleState);
+                Assert.That(result.Error.Message, Is.EqualTo(testCase.ExpectedMessage), testCase.LifecycleState);
+            }
         }
 
         [Test]
