@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Ipc.Validation;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
@@ -131,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < matches.Count; i++)
             {
                 payloadMatches[i] = new SceneQueryMatch(
-                    kind: matches[i].TargetKind == IpcEditTargetKind.Component ? "component" : "gameObject",
+                    kind: matches[i].TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component ? "component" : "gameObject",
                     hierarchyPath: matches[i].HierarchyPath,
                     componentType: matches[i].ComponentType);
             }
