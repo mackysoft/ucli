@@ -49,18 +49,18 @@ public sealed class SkillInstallService
         var target = targetResult.Value!;
         var targetRoot = target.TargetRoot;
         var actions = new List<SkillInstallAction>();
-        foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
+        foreach (var package in packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.SkillName);
+            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(targetRoot, package.Manifest.SkillName);
             if (!skillDirectoryResult.IsSuccess)
             {
                 return SkillOperationResult<SkillInstallResult>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);
             }
 
             var skillDirectory = skillDirectoryResult.Value!;
-            var identity = new SkillInstallIdentity(target.Host, request.Scope, targetRoot, package.SkillName);
+            var identity = new SkillInstallIdentity(target.Host, request.Scope, targetRoot, package.Manifest.SkillName);
             if (Directory.Exists(skillDirectory))
             {
                 var existingResult = await ValidateExistingTargetAsync(package, skillDirectory, target.Host, cancellationToken).ConfigureAwait(false);

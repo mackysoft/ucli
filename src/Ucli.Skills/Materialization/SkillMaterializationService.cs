@@ -35,9 +35,9 @@ public sealed class SkillMaterializationService
         }
 
         var metadata = new Hosts.Contracts.SkillHostMetadata(
-            package.SkillName,
-            package.DisplayName,
-            package.Description);
+            package.Manifest.SkillName,
+            package.Manifest.DisplayName,
+            package.Manifest.Description);
 
         var adapter = adapterResult.Value!;
         var artifacts = adapter.BuildArtifacts(metadata);
@@ -81,7 +81,7 @@ public sealed class SkillMaterializationService
         }
 
         return SkillOperationResult<SkillMaterializedPackage>.Success(new SkillMaterializedPackage(
-            package.SkillName,
+            package.Manifest.SkillName,
             adapter.Descriptor.HostKey,
             files.OrderBy(static file => file.RelativePath, StringComparer.Ordinal).ToArray()));
     }

@@ -33,7 +33,7 @@ public sealed class SkillExportService
         cancellationToken.ThrowIfCancellationRequested();
 
         var fullOutputRoot = Path.GetFullPath(outputRoot);
-        foreach (var package in packages.OrderBy(static package => package.SkillName, StringComparer.Ordinal))
+        foreach (var package in packages.OrderBy(static package => package.Manifest.SkillName, StringComparer.Ordinal))
         {
             var materializedResult = materializationService.Materialize(package, host);
             if (!materializedResult.IsSuccess)
@@ -41,7 +41,7 @@ public sealed class SkillExportService
                 return SkillOperationResult<string>.FailureResult(materializedResult.Failure!.Code, materializedResult.Failure.Message);
             }
 
-            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(fullOutputRoot, package.SkillName);
+            var skillDirectoryResult = SkillPackagePathBoundary.ResolvePackageDirectory(fullOutputRoot, package.Manifest.SkillName);
             if (!skillDirectoryResult.IsSuccess)
             {
                 return SkillOperationResult<string>.FailureResult(skillDirectoryResult.Failure!.Code, skillDirectoryResult.Failure.Message);

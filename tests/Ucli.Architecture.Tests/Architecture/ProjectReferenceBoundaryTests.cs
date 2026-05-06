@@ -80,6 +80,24 @@ public sealed class ProjectReferenceBoundaryTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ToolProjects_reference_only_allowed_projects ()
+    {
+        var expectedReferencesByProject = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["tools/Ucli.SkillGenerator/Ucli.SkillGenerator.csproj"] =
+            [
+                "src/Ucli.Skills/Ucli.Skills.csproj",
+            ],
+        };
+
+        BoundaryAssertions.AssertAllowedItemsByPath(
+            expectedReferencesByProject,
+            ArchitectureTestRepository.EnumerateToolProjectFiles(),
+            ProjectFileReferenceReader.ReadProjectReferences);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void MsBuildImportFiles_do_not_define_project_references ()
     {
         var violations = ArchitectureTestRepository
