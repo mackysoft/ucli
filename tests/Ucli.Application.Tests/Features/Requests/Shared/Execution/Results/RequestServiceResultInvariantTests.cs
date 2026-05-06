@@ -271,6 +271,32 @@ public sealed class RequestServiceResultInvariantTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Failure_FromUnityRequestFailure_PreservesClassifiedOutcome ()
+    {
+        var failure = new UnityRequestFailure(
+            IpcErrorCodes.PlanTokenInvalid,
+            "Plan token is invalid.",
+            ApplicationOutcome.InvalidArgument);
+
+        var requestFailure = RequestServiceResultPolicy.FromUnityRequestFailure(failure);
+
+        Assert.Equal(IpcErrorCodes.PlanTokenInvalid, requestFailure.Error.Code);
+        Assert.Equal("Plan token is invalid.", requestFailure.Message);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, requestFailure.Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityRequestFailure_WhenOutcomeDoesNotMatchCode_Throws ()
+    {
+        Assert.ThrowsAny<ArgumentException>(() => new UnityRequestFailure(
+            IpcErrorCodes.InvalidArgument,
+            "Invalid argument.",
+            ApplicationOutcome.ToolError));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Failure_Errors_AreReturnedAsReadOnlySnapshot ()
     {
         var inputErrors = new List<OperationExecutionError>(CreateErrors());

@@ -196,7 +196,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
         public UnityRequestPayload? LastPayload { get; private set; }
 
         public UnityRequestExecutionResult Result { get; set; }
-            = UnityRequestExecutionResult.Failure("not configured", IpcErrorCodes.InternalError);
+            = UnityRequestExecutionResultTestFactory.Failure("not configured", IpcErrorCodes.InternalError);
 
         public ValueTask<UnityRequestExecutionResult> Execute (
             UcliCommand command,
