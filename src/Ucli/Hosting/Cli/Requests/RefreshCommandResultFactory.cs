@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
-using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -34,21 +32,12 @@ internal static class RefreshCommandResultFactory
                 payload: payload);
         }
 
-        var errors = new CommandError[executionResult.Errors.Count];
-        for (var i = 0; i < executionResult.Errors.Count; i++)
-        {
-            var error = executionResult.Errors[i];
-            errors[i] = new CommandError(error.Code, error.Message, error.OpId);
-        }
-
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.Refresh,
-            Status: IpcProtocol.StatusError,
-            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(executionResult.Outcome),
-            Message: executionResult.Message,
-            Payload: payload,
-            Errors: errors);
+        return RequestCommandFailureResultFactory.Create(
+            UcliCommandNames.Refresh,
+            executionResult.Message,
+            payload,
+            executionResult.Errors,
+            executionResult.Outcome);
     }
 
     /// <summary> Creates one command result for <c>refresh</c> from a normalized execution error. </summary>

@@ -105,7 +105,7 @@ internal sealed class PlanService : IPlanService
                 executionResult.ErrorCode,
                 executionResult.Message);
             return PlanServiceResult.Failure(
-                executionResult.Message,
+                error.Message,
                 [
                     error,
                 ],

@@ -46,7 +46,7 @@ internal static class ResolveServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, "uCLI resolve failed.");
+        var normalizedError = RequestServiceResultPolicy.NormalizeError(error, FailureMessage);
         return Failure(
             requestId,
             [],

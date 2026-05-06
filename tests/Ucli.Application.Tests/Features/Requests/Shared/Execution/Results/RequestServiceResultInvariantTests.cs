@@ -96,6 +96,63 @@ public sealed class RequestServiceResultInvariantTests
         AssertOutcomeMismatchThrows((errors, outcome) => OperationExecuteResultFactory.Failure(RequestId, [], errors, outcome));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WhenInvalidArgumentAndToolErrorsAreMixed_ResolvesToolError ()
+    {
+        var readIndex = CreateReadIndexInfo();
+        OperationExecutionError[] errors =
+        [
+            new OperationExecutionError(IpcErrorCodes.InvalidArgument, "Invalid argument.", null),
+            new OperationExecutionError(IpcErrorCodes.InternalError, "Internal error.", null),
+        ];
+
+        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(errors));
+        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.InvalidArgument));
+
+        var result = QueryServiceResultFactory.Failure(
+            "query assets find",
+            RequestId,
+            [],
+            errors,
+            ApplicationOutcome.ToolError,
+            "Query failed.",
+            readIndex);
+        Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WhenErrorCollectionContainsNull_Throws ()
+    {
+        var readIndex = CreateReadIndexInfo();
+        OperationExecutionError[] errors =
+        [
+            null!,
+        ];
+
+        Assert.ThrowsAny<ArgumentException>(() => RequestServiceResultPolicy.ResolveOutcome(errors));
+        Assert.ThrowsAny<ArgumentException>(() => PlanServiceResult.Failure("Plan failed.", errors, ApplicationOutcome.ToolError));
+        Assert.ThrowsAny<ArgumentException>(() => QueryServiceResultFactory.Failure("query assets find", RequestId, [], errors, ApplicationOutcome.ToolError, "Query failed.", readIndex));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WhenValidationErrorCollectionContainsNull_Throws ()
+    {
+        ValidationError[] validationErrors =
+        [
+            null!,
+        ];
+
+        Assert.ThrowsAny<ArgumentException>(() => RequestServiceResultPolicy.FromValidationErrors(validationErrors));
+        Assert.ThrowsAny<ArgumentException>(() => OperationExecuteResultFactory.FromValidationErrors(RequestId, validationErrors));
+        Assert.ThrowsAny<ArgumentException>(() => ValidateServiceResult.ValidationFailure(
+            new ValidateExecutionOutput(CreateReadIndexInfo()),
+            "Static validation failed.",
+            validationErrors));
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("", "Failure message.")]
@@ -175,8 +232,8 @@ public sealed class RequestServiceResultInvariantTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [MemberData(nameof(ValidationErrorCodeValues))]
-    public void ValidationErrorCodes_MapToInvalidArgumentOutcome (string errorCode)
+    [MemberData(nameof(InvalidArgumentErrorCodeValues))]
+    public void InvalidArgumentErrorCodes_MapToInvalidArgumentOutcome (string errorCode)
     {
         var validationError = new ValidationError(errorCode, "Validation failed.", "step-1");
 
@@ -198,6 +255,17 @@ public sealed class RequestServiceResultInvariantTests
             ]);
         Assert.Equal(ApplicationOutcome.InvalidArgument, validateResult.Outcome);
         Assert.Equal(errorCode, Assert.Single(validateResult.Errors).Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_FromTransportFailure_NormalizesBlankBoundaryMessage ()
+    {
+        var error = RequestServiceResultPolicy.FromTransportFailure(errorCode: "", message: "");
+
+        Assert.Equal(IpcErrorCodes.InternalError, error.Code);
+        Assert.Equal("Request execution failed.", error.Message);
+        Assert.Equal(ApplicationOutcome.ToolError, RequestServiceResultPolicy.ResolveOutcome(error.Code));
     }
 
     [Fact]
@@ -226,20 +294,29 @@ public sealed class RequestServiceResultInvariantTests
         ];
     }
 
-    public static TheoryData<string> ValidationErrorCodeValues ()
+    public static TheoryData<string> InvalidArgumentErrorCodeValues ()
     {
-        var data = new TheoryData<string>();
-        var fields = typeof(ValidationErrorCodes).GetFields(BindingFlags.Public | BindingFlags.Static);
-        for (var i = 0; i < fields.Length; i++)
+        return new TheoryData<string>
         {
-            var field = fields[i];
-            if (field is { IsLiteral: true, IsInitOnly: false, FieldType: var fieldType } && fieldType == typeof(string))
-            {
-                data.Add((string)field.GetRawConstantValue()!);
-            }
-        }
-
-        return data;
+            IpcErrorCodes.InvalidArgument,
+            IpcErrorCodes.PlanTokenRequired,
+            IpcErrorCodes.PlanTokenInvalid,
+            IpcErrorCodes.PlanTokenExpired,
+            IpcErrorCodes.PlanTokenRequestMismatch,
+            IpcErrorCodes.StateChangedSincePlan,
+            ValidationErrorCodes.ProtocolVersionMismatch,
+            ValidationErrorCodes.RequestIdInvalid,
+            ValidationErrorCodes.StepsRequired,
+            ValidationErrorCodes.StepIdRequired,
+            ValidationErrorCodes.StepIdDuplicated,
+            ValidationErrorCodes.StepKindRequired,
+            ValidationErrorCodes.StepKindInvalid,
+            ValidationErrorCodes.OperationNameRequired,
+            ValidationErrorCodes.OperationNotFound,
+            ValidationErrorCodes.OperationNotAllowed,
+            ValidationErrorCodes.OperationArgsInvalid,
+            ValidationErrorCodes.EditStepInvalid,
+        };
     }
 
     private static void AssertOutcomeMismatchThrows (

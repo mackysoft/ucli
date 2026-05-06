@@ -40,10 +40,6 @@ internal static class PlanExecutionOutputFactory
             return null;
         }
 
-        return new PlanExecutionOutput(
-            RequestId: preparedRequest.Request.RequestId,
-            OpResults: [],
-            ReadIndex: readIndex,
-            PlanToken: null);
+        return CreateBase(preparedRequest, readIndex);
     }
 }

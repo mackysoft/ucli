@@ -8,8 +8,6 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Operatio
 /// <summary> Creates normalized operation-execution results across fixed-operation workflows. </summary>
 internal static class OperationExecuteResultFactory
 {
-    private const string DefaultSuccessMessage = "Operation execution completed.";
-
     private const string DefaultFailureMessage = "Operation execution failed.";
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -64,18 +62,6 @@ internal static class OperationExecuteResultFactory
             RequestServiceResultPolicy.FromValidationErrors(validationErrors),
             ApplicationOutcome.InvalidArgument,
             failureMessage);
-    }
-
-    /// <summary> Creates one successful operation execution result. </summary>
-    /// <param name="requestId"> The request identifier. </param>
-    /// <param name="opResults"> The per-step execution results. </param>
-    /// <returns> The normalized operation execution result. </returns>
-    public static OperationExecuteResult Success (
-        string requestId,
-        IReadOnlyList<OperationExecutionOperationResult> opResults,
-        OperationExecutionReadPostcondition? readPostcondition = null)
-    {
-        return Success(requestId, opResults, DefaultSuccessMessage, readPostcondition);
     }
 
     /// <summary> Creates one successful operation execution result. </summary>

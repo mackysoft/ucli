@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
@@ -31,21 +30,12 @@ internal static class ValidateCommandResultFactory
                 payload: payload);
         }
 
-        var errors = new CommandError[serviceResult.Errors.Count];
-        for (var i = 0; i < serviceResult.Errors.Count; i++)
-        {
-            var error = serviceResult.Errors[i];
-            errors[i] = new CommandError(error.Code, error.Message, error.OpId);
-        }
-
-        return new CommandResult(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            Command: UcliCommandNames.Validate,
-            Status: IpcProtocol.StatusError,
-            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
-            Message: serviceResult.Message,
-            Payload: payload,
-            Errors: errors);
+        return RequestCommandFailureResultFactory.Create(
+            UcliCommandNames.Validate,
+            serviceResult.Message,
+            payload,
+            serviceResult.Errors,
+            serviceResult.Outcome);
     }
 
     /// <summary> Creates one invalid-execution command result for <c>validate</c>. </summary>

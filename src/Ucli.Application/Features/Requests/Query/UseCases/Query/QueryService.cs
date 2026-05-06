@@ -251,7 +251,7 @@ internal sealed class QueryService : IQueryService
                     error,
                 ],
                 RequestServiceResultPolicy.ResolveOutcome(error.Code),
-                executionResult.Message,
+                error.Message,
                 readIndex);
         }
 

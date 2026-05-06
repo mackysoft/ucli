@@ -438,6 +438,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.Equal(1, ipcRequestExecutor.CallCount);
         Assert.NotNull(result.Output);
         Assert.NotNull(result.Output!.Plan);
@@ -505,6 +506,7 @@ public sealed class CallServiceTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
+        Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.NotNull(result.Output);
         Assert.NotNull(result.Output!.Plan);
         Assert.Equal("issued-plan-token", result.Output.Plan!.PlanToken);
