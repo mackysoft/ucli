@@ -3,7 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Ipc.Validation;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 namespace MackySoft.Ucli.Unity.Execution.Requests
 {

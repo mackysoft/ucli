@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using MackySoft.Ucli.Contracts.Ipc.Validation;
+using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 #nullable enable
 
