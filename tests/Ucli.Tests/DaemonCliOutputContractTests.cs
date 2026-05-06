@@ -12,6 +12,8 @@ public sealed class DaemonCliOutputContractTests
 {
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
 
+    private const int StableDaemonListTimeoutMilliseconds = 10000;
+
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
@@ -237,11 +239,14 @@ public sealed class DaemonCliOutputContractTests
         await InitializeGitRepository(scope);
         var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(scope, "UnityProject");
 
-        var result = await CliProcessRunner.RunCommand(
+        var result = await CliProcessRunner.RunCommandWithWorkingDirectory(
+            scope.FullPath,
             UcliCommandNames.Daemon,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
-            unityProjectPath);
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            StableDaemonListTimeoutMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -254,7 +259,7 @@ public sealed class DaemonCliOutputContractTests
 
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonListMilliseconds)
+                .HasInt32("timeoutMilliseconds", StableDaemonListTimeoutMilliseconds)
                 .HasString("projectRelativePath", "UnityProject")
                 .HasBoolean("isComplete", true)
                 .IsNull("completionReason")
