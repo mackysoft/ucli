@@ -12,7 +12,13 @@ public sealed class FileIndexCatalogWriterTests
     public async Task Write_WhenInputsAreValid_CreatesExpectedCatalogPaths ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-index-catalog-writer", "success");
-        var writer = new FileIndexCatalogWriter();
+        var typesCatalogWriter = new IndexTypesCatalogJsonContractWriter();
+        var schemasCatalogWriter = new IndexSchemasCatalogJsonContractWriter();
+        var inputsManifestWriter = new IndexInputsManifestJsonContractWriter();
+        var writer = new FileIndexCatalogWriter(
+            typesCatalogWriter,
+            schemasCatalogWriter,
+            inputsManifestWriter);
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-04T00:00:00+00:00");
         var typesCatalog = new IndexTypesCatalogJsonContract(
             SchemaVersion: 1,
@@ -46,8 +52,15 @@ public sealed class FileIndexCatalogWriterTests
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.ErrorMessage);
-        Assert.True(File.Exists(UcliStoragePathResolver.ResolveTypesCatalogPath(scope.FullPath, "writer-fingerprint")));
-        Assert.True(File.Exists(UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, "writer-fingerprint")));
-        Assert.True(File.Exists(UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "writer-fingerprint")));
+        var typesCatalogPath = UcliStoragePathResolver.ResolveTypesCatalogPath(scope.FullPath, "writer-fingerprint");
+        var schemasCatalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, "writer-fingerprint");
+        var inputsManifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "writer-fingerprint");
+
+        Assert.True(File.Exists(typesCatalogPath));
+        Assert.True(File.Exists(schemasCatalogPath));
+        Assert.True(File.Exists(inputsManifestPath));
+        Assert.Equal(typesCatalogWriter.Write(typesCatalog), await File.ReadAllTextAsync(typesCatalogPath, CancellationToken.None));
+        Assert.Equal(schemasCatalogWriter.Write(schemasCatalog), await File.ReadAllTextAsync(schemasCatalogPath, CancellationToken.None));
+        Assert.Equal(inputsManifestWriter.Write(inputsManifest), await File.ReadAllTextAsync(inputsManifestPath, CancellationToken.None));
     }
 }

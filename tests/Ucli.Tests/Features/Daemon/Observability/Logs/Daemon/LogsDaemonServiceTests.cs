@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Daemon;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests.Logs;
 
@@ -154,7 +155,9 @@ public sealed class LogsDaemonServiceTests
     [Trait("Size", "Small")]
     public async Task DaemonCommand_WhenCancellationRequested_ReturnsSuccessExitCode ()
     {
-        var command = new MackySoft.Ucli.Hosting.Cli.Daemon.Logs.LogsDaemonCommand(new ThrowingLogsDaemonService());
+        var command = new MackySoft.Ucli.Hosting.Cli.Daemon.Logs.LogsDaemonCommand(
+            new ThrowingLogsDaemonService(),
+            CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 

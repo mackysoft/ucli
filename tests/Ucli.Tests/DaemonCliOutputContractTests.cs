@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -11,6 +12,8 @@ namespace MackySoft.Ucli.Tests;
 public sealed class DaemonCliOutputContractTests
 {
     private const string UnknownOptionMessage = "Argument '--unknown' is not recognized.";
+
+    private const int DaemonListContractTestTimeoutMilliseconds = 15000;
 
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(5);
 
@@ -241,7 +244,9 @@ public sealed class DaemonCliOutputContractTests
             UcliCommandNames.Daemon,
             UcliCommandNames.ListSubcommand,
             UcliContractConstants.CliOption.ProjectPath,
-            unityProjectPath);
+            unityProjectPath,
+            UcliContractConstants.CliOption.Timeout,
+            DaemonListContractTestTimeoutMilliseconds.ToString(CultureInfo.InvariantCulture));
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -254,7 +259,7 @@ public sealed class DaemonCliOutputContractTests
 
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasInt32("timeoutMilliseconds", UcliContractConstants.Config.IpcTimeoutDefaultDaemonListMilliseconds)
+                .HasInt32("timeoutMilliseconds", DaemonListContractTestTimeoutMilliseconds)
                 .HasString("projectRelativePath", "UnityProject")
                 .HasBoolean("isComplete", true)
                 .IsNull("completionReason")

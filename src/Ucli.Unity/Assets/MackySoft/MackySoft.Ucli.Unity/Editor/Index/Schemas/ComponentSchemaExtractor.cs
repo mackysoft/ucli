@@ -78,9 +78,7 @@ namespace MackySoft.Ucli.Unity.Index
                 return IndexSchemaExtractionResult.Empty();
             }
 
-            entries.Sort(static (x, y) =>
-                StringComparer.Ordinal.Compare(x.SchemaKey ?? string.Empty, y.SchemaKey ?? string.Empty));
-            return new IndexSchemaExtractionResult(entries, referencedTypes);
+            return new IndexSchemaExtractionResult(IndexJsonOrderingPolicy.OrderSchemaEntries(entries), referencedTypes);
         }
 
         private IndexSchemaEntryJsonContract TryExtractEntry (

@@ -13,10 +13,17 @@ internal sealed class QueryAssetsFindCommand
 
     private readonly IQueryService queryService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the <see cref="QueryAssetsFindCommand" /> class. </summary>
-    public QueryAssetsFindCommand (IQueryService queryService)
+    /// <param name="queryService"> The query workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public QueryAssetsFindCommand (
+        IQueryService queryService,
+        ICommandResultWriter commandResultWriter)
     {
         this.queryService = queryService ?? throw new ArgumentNullException(nameof(queryService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes <c>query assets find</c> and emits the JSON result contract. </summary>
@@ -54,7 +61,7 @@ internal sealed class QueryAssetsFindCommand
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetsFind, commonOptionsResult.Error!);
         }
 
         var operationRequestResult = QueryAssetsFindOperationRequestFactory.Create(
@@ -69,13 +76,14 @@ internal sealed class QueryAssetsFindCommand
             after);
         if (!operationRequestResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(UcliCommandNames.QueryAssetsFind, operationRequestResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetsFind, operationRequestResult.Error!);
         }
 
         return await QueryCommandExecutionHelper.Execute(
                 queryService,
                 commonOptionsResult.Options!,
                 operationRequestResult.Operation!,
+                commandResultWriter,
                 cancellationToken)
             .ConfigureAwait(false);
     }

@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -17,7 +18,7 @@ public sealed class ResolveCommandTests
     public async Task Resolve_UsesResolveServiceAndWritesCommandResult ()
     {
         var service = new StubResolveService((_, _) => ValueTask.FromResult(CreateSuccessResult()));
-        var command = new ResolveCommand(service);
+        var command = new ResolveCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
@@ -73,7 +74,7 @@ public sealed class ResolveCommandTests
     public async Task Resolve_WhenServiceFails_PreservesFailurePayloadAndErrors ()
     {
         var service = new StubResolveService((_, _) => ValueTask.FromResult(CreateFailureResult()));
-        var command = new ResolveCommand(service);
+        var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
@@ -108,7 +109,7 @@ public sealed class ResolveCommandTests
     public async Task Resolve_WhenSelectorIsNotExactlyOne_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new ResolveCommand(service);
+        var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
             assetGuid: "11111111111111111111111111111111",
@@ -132,7 +133,7 @@ public sealed class ResolveCommandTests
     public async Task Resolve_WhenReadIndexModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new ResolveCommand(service);
+        var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
@@ -151,7 +152,7 @@ public sealed class ResolveCommandTests
     public async Task Resolve_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new ResolveCommand(service);
+        var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
@@ -170,7 +171,7 @@ public sealed class ResolveCommandTests
     public async Task Resolve_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new ResolveCommand(service);
+        var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Resolve(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",

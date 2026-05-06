@@ -19,11 +19,17 @@ internal sealed class LogsDaemonCommand
 
     private readonly ILogsDaemonService logsDaemonService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the LogsDaemonCommand class. </summary>
     /// <param name="logsDaemonService"> The daemon-log orchestration service dependency. </param>
-    public LogsDaemonCommand (ILogsDaemonService logsDaemonService)
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public LogsDaemonCommand (
+        ILogsDaemonService logsDaemonService,
+        ICommandResultWriter commandResultWriter)
     {
         this.logsDaemonService = logsDaemonService ?? throw new ArgumentNullException(nameof(logsDaemonService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the logs daemon command. </summary>
@@ -67,7 +73,7 @@ internal sealed class LogsDaemonCommand
             if (!LogsOutputFormatCodec.TryParse(format, out var outputFormat, out var formatErrorMessage))
             {
                 var invalidFormatResult = CommandResult.InvalidArgument(UcliCommandNames.LogsDaemon, formatErrorMessage!);
-                CommandResultWriter.WriteToStandardOutput(invalidFormatResult);
+                commandResultWriter.WriteToStandardOutput(invalidFormatResult);
                 return invalidFormatResult.ExitCode;
             }
 
@@ -96,7 +102,7 @@ internal sealed class LogsDaemonCommand
             if (!serviceResult.IsSuccess)
             {
                 var commandResult = CommandResultFactory.FromExecutionError(UcliCommandNames.LogsDaemon, serviceResult.Error!);
-                CommandResultWriter.WriteToStandardOutput(commandResult);
+                commandResultWriter.WriteToStandardOutput(commandResult);
                 return commandResult.ExitCode;
             }
 

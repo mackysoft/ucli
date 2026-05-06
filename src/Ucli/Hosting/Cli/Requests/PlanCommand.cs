@@ -18,18 +18,23 @@ internal sealed class PlanCommand
 
     private readonly IRequestInputReader requestInputReader;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the PlanCommand class. </summary>
     /// <param name="planService"> The plan workflow service dependency. </param>
     /// <param name="planCommandPreflightService"> The command preflight dependency used to preserve the plan payload on option failures. </param>
     /// <param name="requestInputReader"> The CLI request-input reader dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     public PlanCommand (
         IPlanService planService,
         IPlanCommandPreflightService planCommandPreflightService,
-        IRequestInputReader requestInputReader)
+        IRequestInputReader requestInputReader,
+        ICommandResultWriter commandResultWriter)
     {
         this.planService = planService ?? throw new ArgumentNullException(nameof(planService));
         this.planCommandPreflightService = planCommandPreflightService ?? throw new ArgumentNullException(nameof(planCommandPreflightService));
         this.requestInputReader = requestInputReader ?? throw new ArgumentNullException(nameof(requestInputReader));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the plan command and emits the JSON result contract. </summary>
@@ -58,7 +63,7 @@ internal sealed class PlanCommand
             var errorResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.Plan,
                 normalizedReadIndexModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -79,7 +84,7 @@ internal sealed class PlanCommand
                 .ConfigureAwait(false);
             var failureResult = preflightResult.ToFailureResult(normalizedTimeoutResult.Error!);
             var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
-            CommandResultWriter.WriteToStandardOutput(commandFailureResult);
+            commandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;
         }
 
@@ -100,7 +105,7 @@ internal sealed class PlanCommand
                 .ConfigureAwait(false);
             var failureResult = preflightResult.ToFailureResult(normalizedModeResult.Error!);
             var commandFailureResult = PlanCommandResultFactory.Create(failureResult);
-            CommandResultWriter.WriteToStandardOutput(commandFailureResult);
+            commandResultWriter.WriteToStandardOutput(commandFailureResult);
             return commandFailureResult.ExitCode;
         }
 
@@ -121,15 +126,15 @@ internal sealed class PlanCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = PlanCommandResultFactory.Create(serviceResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 
-    private static int WriteRequestReadFailure (RequestInputReadResult requestInputReadResult)
+    private int WriteRequestReadFailure (RequestInputReadResult requestInputReadResult)
     {
         var failureResult = PlanFailureResultFactory.FromExecutionError(requestInputReadResult.Error!);
         var commandResult = PlanCommandResultFactory.Create(failureResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

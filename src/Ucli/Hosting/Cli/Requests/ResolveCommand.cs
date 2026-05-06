@@ -11,10 +11,17 @@ internal sealed class ResolveCommand
 {
     private readonly IResolveService resolveService;
 
+    private readonly ICommandResultWriter commandResultWriter;
+
     /// <summary> Initializes a new instance of the ResolveCommand class. </summary>
-    public ResolveCommand (IResolveService resolveService)
+    /// <param name="resolveService"> The resolve workflow service dependency. </param>
+    /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    public ResolveCommand (
+        IResolveService resolveService,
+        ICommandResultWriter commandResultWriter)
     {
         this.resolveService = resolveService ?? throw new ArgumentNullException(nameof(resolveService));
+        this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
     /// <summary> Executes the resolve command and emits the JSON result contract. </summary>
@@ -65,7 +72,7 @@ internal sealed class ResolveCommand
         if (!selectorResult.IsSuccess)
         {
             var errorResult = ResolveCommandResultFactory.CreateExecutionError(selectorResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -73,7 +80,7 @@ internal sealed class ResolveCommand
         if (!normalizedReadIndexModeResult.IsSuccess)
         {
             var errorResult = ResolveCommandResultFactory.CreateExecutionError(normalizedReadIndexModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -81,7 +88,7 @@ internal sealed class ResolveCommand
         if (!normalizedTimeoutResult.IsSuccess)
         {
             var errorResult = ResolveCommandResultFactory.CreateExecutionError(normalizedTimeoutResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -89,7 +96,7 @@ internal sealed class ResolveCommand
         if (!normalizedModeResult.IsSuccess)
         {
             var errorResult = ResolveCommandResultFactory.CreateExecutionError(normalizedModeResult.Error!);
-            CommandResultWriter.WriteToStandardOutput(errorResult);
+            commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
@@ -104,7 +111,7 @@ internal sealed class ResolveCommand
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = ResolveCommandResultFactory.Create(serviceResult);
-        CommandResultWriter.WriteToStandardOutput(commandResult);
+        commandResultWriter.WriteToStandardOutput(commandResult);
         return commandResult.ExitCode;
     }
 }

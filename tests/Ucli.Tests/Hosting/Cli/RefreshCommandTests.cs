@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -39,7 +40,7 @@ public sealed class RefreshCommandTests
     public async Task Refresh_UsesRefreshServiceAndWritesCommandResult ()
     {
         var service = new StubRefreshService((_, _) => ValueTask.FromResult(SuccessResult));
-        var command = new RefreshCommand(service);
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
@@ -103,7 +104,7 @@ public sealed class RefreshCommandTests
             Errors: [],
             Outcome: ApplicationOutcome.Success,
             ReadPostcondition: readPostcondition)));
-        var command = new RefreshCommand(service);
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
             projectPath: "/repo/UnityProject",
@@ -124,7 +125,7 @@ public sealed class RefreshCommandTests
     public async Task Refresh_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubRefreshService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new RefreshCommand(service);
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
             timeout: "abc",
@@ -147,7 +148,7 @@ public sealed class RefreshCommandTests
     public async Task Refresh_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubRefreshService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new RefreshCommand(service);
+        var command = new RefreshCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(
             mode: "unsupported",

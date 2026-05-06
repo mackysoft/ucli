@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -18,7 +19,7 @@ public sealed class DaemonCleanupCommandTests
                 CleanupStatus: DaemonCleanupStatus.Skipped,
                 SkipReason: DaemonCleanupSkipReason.UnsafeInvalidSession,
                 TimeoutMilliseconds: 3000)));
-        var command = new DaemonCleanupCommand(service);
+        var command = new DaemonCleanupCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Cleanup(

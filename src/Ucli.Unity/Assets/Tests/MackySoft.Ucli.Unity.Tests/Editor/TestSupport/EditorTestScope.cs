@@ -222,6 +222,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             if (prefabStage.scene.IsValid())
             {
+                if (EditorSceneManager.CloseScene(prefabStage.scene, removeScene: true))
+                {
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    return true;
+                }
+
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 return true;
             }
@@ -320,7 +326,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 throw new InvalidOperationException($"Tracked test asset could not be deleted: {assetPath}");
             }
 
-            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            // NOTE: AssetDatabase.DeleteAsset is the cleanup boundary here.
+            // A forced synchronous refresh can block batchmode tests while Unity compilation is active.
             assetPaths.Clear();
         }
 

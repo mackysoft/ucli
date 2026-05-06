@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -17,7 +18,7 @@ public sealed class QueryCommandTests
     public async Task AssetsFind_UsesQueryServiceAndWritesCommandResult ()
     {
         var service = new StubQueryService((_, _) => ValueTask.FromResult(CreateSuccessResult(UcliCommandNames.QueryAssetsFind)));
-        var command = new QueryAssetsFindCommand(service);
+        var command = new QueryAssetsFindCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
@@ -68,7 +69,7 @@ public sealed class QueryCommandTests
     public async Task AssetsFind_WhenServiceFails_PreservesFailurePayloadAndErrors ()
     {
         var service = new StubQueryService((_, _) => ValueTask.FromResult(CreateFailureResult(UcliCommandNames.QueryAssetsFind)));
-        var command = new QueryAssetsFindCommand(service);
+        var command = new QueryAssetsFindCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
             type: "UnityEngine.Material, UnityEngine.CoreModule",
@@ -102,7 +103,7 @@ public sealed class QueryCommandTests
     public async Task AssetsFind_WhenWindowOptionsConflict_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new QueryAssetsFindCommand(service);
+        var command = new QueryAssetsFindCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Find(
             type: "UnityEngine.Material, UnityEngine.CoreModule",
@@ -127,7 +128,7 @@ public sealed class QueryCommandTests
     public async Task GoDescribe_WhenTargetIsAmbiguous_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new QueryGoDescribeCommand(service);
+        var command = new QueryGoDescribeCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Describe(
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",

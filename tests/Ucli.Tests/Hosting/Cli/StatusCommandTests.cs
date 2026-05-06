@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Status;
+using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -27,7 +28,7 @@ public sealed class StatusCommandTests
                 CanAcceptExecutionRequests: false,
                 Runtime: null,
                 TimeoutMilliseconds: 1234))));
-        var command = new StatusCommand(service);
+        var command = new StatusCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 
         await StandardOutputCapture.Execute(() => command.Status(
@@ -46,7 +47,7 @@ public sealed class StatusCommandTests
     public async Task Status_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new StubStatusService((_, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new StatusCommand(service);
+        var command = new StatusCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Status(
             timeout: "abc",

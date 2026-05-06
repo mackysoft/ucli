@@ -455,7 +455,7 @@ public sealed class OpsCliOutputContractTests
         var directoryPath = Path.GetDirectoryName(catalogPath)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {catalogPath}");
         Directory.CreateDirectory(directoryPath);
-        File.WriteAllText(catalogPath, IndexOpsCatalogJsonContractSerializer.Serialize(contract));
+        File.WriteAllText(catalogPath, new IndexOpsCatalogJsonContractWriter().Write(contract));
     }
 
     private static IndexOpEntryJsonContract CreateDescribedEntry (
