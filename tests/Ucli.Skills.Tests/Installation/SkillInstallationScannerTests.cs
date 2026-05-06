@@ -113,7 +113,7 @@ public sealed class SkillInstallationScannerTests
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
-        File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "SKILL.md"), "\nInjected instruction.\n");
+        File.AppendAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "SKILL.md"), "\nInjected instruction.\n");
         var scanner = SkillTestData.CreateInstallationScanner();
 
         var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);
@@ -134,7 +134,7 @@ public sealed class SkillInstallationScannerTests
             new SkillInstallRequest(OpenAiSkillHostAdapter.HostKey, SkillScopeKind.Project, scope.FullPath),
             CancellationToken.None);
         Assert.True(installResult.IsSuccess, installResult.Failure?.Message);
-        File.WriteAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].SkillName, "references", "extra.md"), "# Extra\n");
+        File.WriteAllText(Path.Combine(installResult.Value!.TargetRoot, packages[0].Manifest.SkillName, "references", "extra.md"), "# Extra\n");
         var scanner = SkillTestData.CreateInstallationScanner();
 
         var scanResult = await scanner.ScanAsync(packages, installResult.Value.TargetRoot, OpenAiSkillHostAdapter.HostKey, CancellationToken.None);

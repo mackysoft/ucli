@@ -57,7 +57,7 @@ public sealed class SkillInstallationScanner
             return SkillOperationResult<IReadOnlyList<SkillInstalledSkill>>.Success(Array.Empty<SkillInstalledSkill>());
         }
 
-        var packageByName = packages.ToDictionary(static package => package.SkillName, StringComparer.Ordinal);
+        var packageByName = packages.ToDictionary(static package => package.Manifest.SkillName, StringComparer.Ordinal);
         var installedSkills = new List<SkillInstalledSkill>();
         foreach (var skillDirectory in Directory.EnumerateDirectories(fullTargetRoot).Order(StringComparer.Ordinal))
         {

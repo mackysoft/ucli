@@ -11,9 +11,13 @@ public sealed class SkillExportServiceTests
     public async Task ExportAsync_RejectsUnsafePackageName ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-skills", "export-unsafe-package");
-        var package = (await SkillTestData.GenerateOfficialPackagesAsync()).First() with
+        var generatedPackage = (await SkillTestData.GenerateOfficialPackagesAsync()).First();
+        var package = generatedPackage with
         {
-            SkillName = "../escape",
+            Manifest = generatedPackage.Manifest with
+            {
+                SkillName = "../escape",
+            },
         };
         var service = SkillTestData.CreateExportService();
 
@@ -35,7 +39,7 @@ public sealed class SkillExportServiceTests
         using var outputScope = TestDirectories.CreateTempScope("ucli-skills", "export-skill-symlink");
         using var outsideScope = TestDirectories.CreateTempScope("ucli-skills", "export-skill-symlink-outside");
         var packages = await SkillTestData.GenerateOfficialPackagesAsync();
-        var symlinkPath = Path.Combine(outputScope.FullPath, packages[0].SkillName);
+        var symlinkPath = Path.Combine(outputScope.FullPath, packages[0].Manifest.SkillName);
         try
         {
             Directory.CreateSymbolicLink(symlinkPath, outsideScope.FullPath);
