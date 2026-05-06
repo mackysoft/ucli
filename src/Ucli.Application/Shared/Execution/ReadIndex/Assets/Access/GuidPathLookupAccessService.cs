@@ -105,7 +105,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                     config,
                     mode,
                     timeout,
-                    readIndexMode,
                     "readIndex disabled by mode.",
                     resolver,
                     key,
@@ -114,8 +113,7 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
         }
 
         var lookupResult = await artifactReader.ReadGuidPathLookup(
-                project.RepositoryRoot,
-                project.ProjectFingerprint,
+                project,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
@@ -132,7 +130,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                     config,
                     mode,
                     timeout,
-                    readIndexMode,
                     lookupResult.Error.Message,
                     resolver,
                     key,
@@ -153,7 +150,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                     config,
                     mode,
                     timeout,
-                    readIndexMode,
                     readPostconditionEvaluation.FallbackReason!,
                     resolver,
                     key,
@@ -161,11 +157,10 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 .ConfigureAwait(false);
         }
 
-        var freshnessResult = await freshnessEvaluator.Evaluate(
-                project.UnityProjectRoot,
+        var freshnessResult = await freshnessEvaluator.Observe(
+                project,
                 IndexFreshnessTarget.GuidPathLookup,
                 lookupResult.Value!.SourceInputsHash,
-                ReadIndexMode.AllowStale,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)
@@ -196,7 +191,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 config,
                 mode,
                 timeout,
-                readIndexMode,
                 fallbackReason,
                 resolver,
                 key,
@@ -209,7 +203,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
         UcliConfig config,
         UnityExecutionModeValue mode,
         TimeSpan timeout,
-        ReadIndexMode readIndexMode,
         string fallbackReason,
         Func<IReadOnlyList<IndexGuidPathEntryJsonContract>, string, IndexGuidPathEntryJsonContract?> resolver,
         string key,
@@ -221,7 +214,6 @@ internal sealed class GuidPathLookupAccessService : IGuidPathLookupAccessService
                 UcliCommandIds.Resolve,
                 mode,
                 timeout,
-                readIndexMode,
                 fallbackReason,
                 failFast: false,
                 cancellationToken)

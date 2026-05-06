@@ -14,6 +14,7 @@ public sealed class FileReadIndexArtifactReaderTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-success");
         var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
@@ -40,7 +41,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadOpsCatalog(scope.FullPath, fingerprint, CancellationToken.None);
+        var result = await reader.ReadOpsCatalog(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -57,6 +58,7 @@ public sealed class FileReadIndexArtifactReaderTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "types-success");
         var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
         var contract = new IndexTypesCatalogJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
@@ -79,7 +81,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveTypesCatalogPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadTypesCatalog(scope.FullPath, fingerprint, CancellationToken.None);
+        var result = await reader.ReadTypesCatalog(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -95,8 +97,9 @@ public sealed class FileReadIndexArtifactReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "schemas-missing");
         var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
 
-        var result = await reader.ReadSchemasCatalog(scope.FullPath, "fingerprint", CancellationToken.None);
+        var result = await reader.ReadSchemasCatalog(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -110,10 +113,11 @@ public sealed class FileReadIndexArtifactReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "schemas-malformed-json");
         var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
         var catalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, "fingerprint");
         WriteText(catalogPath, "{");
 
-        var result = await reader.ReadSchemasCatalog(scope.FullPath, "fingerprint", CancellationToken.None);
+        var result = await reader.ReadSchemasCatalog(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -128,6 +132,7 @@ public sealed class FileReadIndexArtifactReaderTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "asset-search-success");
         var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
         var contract = new IndexAssetSearchLookupJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
@@ -148,7 +153,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint), Write(contract));
 
-        var result = await reader.ReadAssetSearchLookup(scope.FullPath, fingerprint, CancellationToken.None);
+        var result = await reader.ReadAssetSearchLookup(project, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -163,10 +168,11 @@ public sealed class FileReadIndexArtifactReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "guid-path-malformed");
         var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
         var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
         WriteText(lookupPath, "{");
 
-        var result = await reader.ReadGuidPathLookup(scope.FullPath, "fingerprint", CancellationToken.None);
+        var result = await reader.ReadGuidPathLookup(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -181,6 +187,7 @@ public sealed class FileReadIndexArtifactReaderTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-success");
         var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
         const string scenePath = "Assets/Scenes/Sample.unity";
         var contract = new IndexSceneTreeLiteLookupJsonContract(
             SchemaVersion: 1,
@@ -196,7 +203,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, scenePath), Write(contract));
 
-        var result = await reader.ReadSceneTreeLiteLookup(scope.FullPath, fingerprint, scenePath, CancellationToken.None);
+        var result = await reader.ReadSceneTreeLiteLookup(project, scenePath, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -213,6 +220,7 @@ public sealed class FileReadIndexArtifactReaderTests
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-mismatch");
         var reader = new FileReadIndexArtifactReader();
         const string fingerprint = "fingerprint";
+        var project = CreateProject(scope, fingerprint);
         const string requestedScenePath = "Assets/Scenes/Sample.unity";
         var contract = new IndexSceneTreeLiteLookupJsonContract(
             SchemaVersion: 1,
@@ -228,7 +236,7 @@ public sealed class FileReadIndexArtifactReaderTests
             ]);
         WriteText(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(scope.FullPath, fingerprint, requestedScenePath), Write(contract));
 
-        var result = await reader.ReadSceneTreeLiteLookup(scope.FullPath, fingerprint, requestedScenePath, CancellationToken.None);
+        var result = await reader.ReadSceneTreeLiteLookup(project, requestedScenePath, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -242,6 +250,7 @@ public sealed class FileReadIndexArtifactReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "inputs-incomplete-contract");
         var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
         var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
         WriteText(
             manifestPath,
@@ -260,7 +269,7 @@ public sealed class FileReadIndexArtifactReaderTests
             }
             """);
 
-        var result = await reader.ReadInputsManifest(scope.FullPath, "fingerprint", CancellationToken.None);
+        var result = await reader.ReadInputsManifest(project, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -276,6 +285,17 @@ public sealed class FileReadIndexArtifactReaderTests
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
         Directory.CreateDirectory(directoryPath);
         File.WriteAllText(path, contents);
+    }
+
+    private static ResolvedUnityProjectContext CreateProject (
+        TestDirectoryScope scope,
+        string fingerprint)
+    {
+        return new ResolvedUnityProjectContext(
+            UnityProjectRoot: scope.CreateDirectory("UnityProject"),
+            RepositoryRoot: scope.FullPath,
+            ProjectFingerprint: fingerprint,
+            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private static string Write (IndexOpsCatalogJsonContract contract)

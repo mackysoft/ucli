@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -46,7 +45,6 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
-        ReadIndexMode readIndexMode,
         string fallbackReason,
         bool failFast = false,
         CancellationToken cancellationToken = default)
@@ -92,7 +90,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         }
 
         var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
-            readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
+            fallbackReason,
             persistFailure);
         return AssetLookupRefreshResult.Success(response!, combinedFallbackReason);
     }
@@ -109,7 +107,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         cancellationToken.ThrowIfCancellationRequested();
 
         var snapshotBeforeRead = await inputFingerprintProvider.TryCompute(
-                project.UnityProjectRoot,
+                project,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -133,7 +131,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         }
 
         var snapshotAfterRead = await inputFingerprintProvider.TryCompute(
-                project.UnityProjectRoot,
+                project,
                 cancellationToken)
             .ConfigureAwait(false);
         if (snapshotAfterRead == null)

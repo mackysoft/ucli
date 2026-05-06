@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
@@ -29,7 +28,6 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
             "readIndex stale.",
             failFast: true,
@@ -67,7 +65,6 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            ReadIndexMode.AllowStale,
             "Assets/Scenes/Main.unity",
             "readIndex stale.",
             cancellationToken: CancellationToken.None);
@@ -101,7 +98,6 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            ReadIndexMode.AllowStale,
             "Packages/com.example/Scenes/Main.unity",
             "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
             cancellationToken: CancellationToken.None);
@@ -232,7 +228,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
         }
 
         public ValueTask<string?> TryCompute (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             string scenePath,
             CancellationToken cancellationToken = default)
         {

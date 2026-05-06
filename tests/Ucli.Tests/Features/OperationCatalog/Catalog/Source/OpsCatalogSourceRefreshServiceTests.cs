@@ -244,7 +244,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         public bool ThrowOnTryCompute { get; set; }
 
         public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -253,7 +253,7 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         }
 
         public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -5,7 +5,7 @@ internal interface IReadIndexSceneSourceHashProvider
 {
     /// <summary> Tries to compute one source hash for a scene-tree-lite lookup source. </summary>
     ValueTask<string?> TryCompute (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         string scenePath,
         CancellationToken cancellationToken = default);
 }

@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
-using MackySoft.Ucli.Contracts.Configuration;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 
@@ -31,8 +30,7 @@ internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSn
         ArgumentNullException.ThrowIfNull(unityProject);
 
         var opsCatalogResult = await artifactReader.ReadOpsCatalog(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
+                unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!opsCatalogResult.IsSuccess)
@@ -41,11 +39,10 @@ internal sealed class PersistedOpsCatalogSnapshotLoader : IPersistedOpsCatalogSn
         }
 
         var opsCatalog = opsCatalogResult.Value!;
-        var freshnessResult = await freshnessEvaluator.Evaluate(
-                unityProject.UnityProjectRoot,
+        var freshnessResult = await freshnessEvaluator.Observe(
+                unityProject,
                 IndexFreshnessTarget.OpsCatalog,
                 opsCatalog.SourceInputsHash,
-                ReadIndexMode.AllowStale,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)

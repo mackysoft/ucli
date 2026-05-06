@@ -115,7 +115,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
         cancellationToken.ThrowIfCancellationRequested();
 
         var coreSnapshot = await inputFingerprintProvider.TryComputeCore(
-                context.Context.UnityProject.UnityProjectRoot,
+                context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         if (coreSnapshot == null)
@@ -157,7 +157,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
         }
 
         var fullSnapshot = await inputFingerprintProvider.TryCompute(
-                context.Context.UnityProject.UnityProjectRoot,
+                context.Context.UnityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         return new OpsCatalogPersistenceInput(

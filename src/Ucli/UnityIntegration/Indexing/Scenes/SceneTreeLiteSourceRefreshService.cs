@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -46,7 +45,6 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
-        ReadIndexMode readIndexMode,
         string scenePath,
         string fallbackReason,
         bool failFast = false,
@@ -68,7 +66,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             }
 
             var liveOnlyFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
-                readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
+                fallbackReason,
                 null);
             return SceneTreeLiteRefreshResult.Success(fetchResult.Response!, liveOnlyFallbackReason);
         }
@@ -109,7 +107,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         }
 
         var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
-            readIndexMode == ReadIndexMode.Disabled ? "readIndex disabled by mode." : fallbackReason,
+            fallbackReason,
             persistFailure);
         return SceneTreeLiteRefreshResult.Success(response!, combinedFallbackReason);
     }
@@ -126,7 +124,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var sourceHashBeforeRead = await sceneSourceHashProvider.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashBeforeRead = await sceneSourceHashProvider.TryCompute(project, scenePath, cancellationToken).ConfigureAwait(false);
         var fetchResult = await snapshotReader.Read(project, config, command, mode, timeout, scenePath, failFast, cancellationToken).ConfigureAwait(false);
         if (!fetchResult.IsSuccess)
         {
@@ -138,7 +136,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             return (fetchResult, SourceHashFailureMessage, false);
         }
 
-        var sourceHashAfterRead = await sceneSourceHashProvider.TryCompute(project.UnityProjectRoot, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashAfterRead = await sceneSourceHashProvider.TryCompute(project, scenePath, cancellationToken).ConfigureAwait(false);
         if (sourceHashAfterRead == null)
         {
             return (fetchResult, SourceHashFailureMessage, false);

@@ -20,62 +20,108 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
 
     /// <inheritdoc />
     public async ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         IndexFreshnessTarget target,
         string? persistedSourceInputsHash,
         ReadIndexMode mode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (mode == ReadIndexMode.Disabled || string.IsNullOrWhiteSpace(persistedSourceInputsHash))
+        if (mode == ReadIndexMode.Disabled)
         {
             return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+        }
+
+        var observedResult = await Observe(unityProject, target, persistedSourceInputsHash, cancellationToken).ConfigureAwait(false);
+        if (!observedResult.IsSuccess)
+        {
+            return observedResult;
+        }
+
+        return IndexFreshnessPolicy.ApplyModeConstraint(mode, observedResult.Freshness);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IndexFreshnessEvaluationResult> Observe (
+        ResolvedUnityProjectContext unityProject,
+        IndexFreshnessTarget target,
+        string? persistedSourceInputsHash,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        if (string.IsNullOrWhiteSpace(persistedSourceInputsHash))
+        {
+            return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
         }
 
         if (UsesCoreInputSnapshot(target))
         {
-            var currentCoreSnapshot = await inputFingerprintProvider.TryComputeCore(projectRootPath, cancellationToken).ConfigureAwait(false);
+            var currentCoreSnapshot = await inputFingerprintProvider.TryComputeCore(unityProject, cancellationToken).ConfigureAwait(false);
             if (currentCoreSnapshot == null)
             {
-                return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+                return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
             }
 
             var coreFreshness = IndexHashFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentCoreSnapshot, target);
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, coreFreshness);
+            return IndexFreshnessEvaluationResult.Success(coreFreshness);
         }
 
-        var currentSnapshot = await inputFingerprintProvider.TryCompute(projectRootPath, cancellationToken).ConfigureAwait(false);
+        var currentSnapshot = await inputFingerprintProvider.TryCompute(unityProject, cancellationToken).ConfigureAwait(false);
         if (currentSnapshot == null)
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
         }
 
         var freshness = IndexHashFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentSnapshot, target);
-        return IndexFreshnessPolicy.ApplyModeConstraint(mode, freshness);
+        return IndexFreshnessEvaluationResult.Success(freshness);
     }
 
     /// <inheritdoc />
     public async ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         string scenePath,
         string? persistedSourceInputsHash,
         ReadIndexMode mode,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (mode == ReadIndexMode.Disabled || string.IsNullOrWhiteSpace(persistedSourceInputsHash))
+        if (mode == ReadIndexMode.Disabled)
         {
             return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
         }
 
-        var currentSourceHash = await sceneSourceHashProvider.TryCompute(projectRootPath, scenePath, cancellationToken).ConfigureAwait(false);
+        var observedResult = await ObserveSceneTreeLite(unityProject, scenePath, persistedSourceInputsHash, cancellationToken).ConfigureAwait(false);
+        if (!observedResult.IsSuccess)
+        {
+            return observedResult;
+        }
+
+        return IndexFreshnessPolicy.ApplyModeConstraint(mode, observedResult.Freshness);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (
+        ResolvedUnityProjectContext unityProject,
+        string scenePath,
+        string? persistedSourceInputsHash,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
+        if (string.IsNullOrWhiteSpace(persistedSourceInputsHash))
+        {
+            return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
+        }
+
+        var currentSourceHash = await sceneSourceHashProvider.TryCompute(unityProject, scenePath, cancellationToken).ConfigureAwait(false);
         if (currentSourceHash == null)
         {
-            return IndexFreshnessPolicy.ApplyModeConstraint(mode, IndexFreshness.Probable);
+            return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
         }
 
         var freshness = IndexHashFreshnessPolicy.EvaluateSceneTreeLiteFreshness(persistedSourceInputsHash, currentSourceHash);
-        return IndexFreshnessPolicy.ApplyModeConstraint(mode, freshness);
+        return IndexFreshnessEvaluationResult.Success(freshness);
     }
 
     private static bool UsesCoreInputSnapshot (IndexFreshnessTarget target)

@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using UnityExecutionModeValue = MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
@@ -15,7 +14,6 @@ internal interface ISceneTreeLiteSourceRefreshService
         UcliCommand command,
         UnityExecutionModeValue mode,
         TimeSpan timeout,
-        ReadIndexMode readIndexMode,
         string scenePath,
         string fallbackReason,
         bool failFast = false,

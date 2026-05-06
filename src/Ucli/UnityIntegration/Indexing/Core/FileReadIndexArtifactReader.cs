@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -11,18 +12,15 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
 {
     /// <summary> Reads one <c>ops.catalog.json</c> contract. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to catalog-read result. </returns>
     public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         return ReadContract(
-            storageRoot,
-            projectFingerprint,
+            unityProject,
             UcliStoragePathResolver.ResolveOpsCatalogPath,
             static json => IndexOpsCatalogJsonContractSerializer.Deserialize(json),
             static contract => IndexCatalogContractValidator.IsValidOpsCatalog(contract),
@@ -31,18 +29,15 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     }
 
     /// <summary> Reads one <c>types.catalog.json</c> contract. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to catalog-read result. </returns>
     public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         return ReadContract(
-            storageRoot,
-            projectFingerprint,
+            unityProject,
             UcliStoragePathResolver.ResolveTypesCatalogPath,
             static json => IndexTypesCatalogJsonContractSerializer.Deserialize(json),
             static contract => IndexCatalogContractValidator.IsValidTypesCatalog(contract),
@@ -51,18 +46,15 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     }
 
     /// <summary> Reads one <c>schemas.catalog.json</c> contract. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to catalog-read result. </returns>
     public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         return ReadContract(
-            storageRoot,
-            projectFingerprint,
+            unityProject,
             UcliStoragePathResolver.ResolveSchemasCatalogPath,
             static json => IndexSchemasCatalogJsonContractSerializer.Deserialize(json),
             static contract => IndexCatalogContractValidator.IsValidSchemasCatalog(contract),
@@ -71,18 +63,15 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     }
 
     /// <summary> Reads one <c>asset-search.lookup.json</c> contract. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
     public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         return ReadContract(
-            storageRoot,
-            projectFingerprint,
+            unityProject,
             UcliStoragePathResolver.ResolveAssetSearchLookupPath,
             static json => IndexAssetSearchLookupJsonContractSerializer.Deserialize(json),
             static contract => IndexCatalogContractValidator.IsValidAssetSearchLookup(contract),
@@ -91,18 +80,15 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     }
 
     /// <summary> Reads one <c>guid-path.lookup.json</c> contract. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
     public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         return ReadContract(
-            storageRoot,
-            projectFingerprint,
+            unityProject,
             UcliStoragePathResolver.ResolveGuidPathLookupPath,
             static json => IndexGuidPathLookupJsonContractSerializer.Deserialize(json),
             static contract => IndexCatalogContractValidator.IsValidGuidPathLookup(contract),
@@ -111,17 +97,17 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     }
 
     /// <summary> Reads one scene-tree-lite lookup contract for the specified scene path. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="scenePath"> The project-relative scene path represented by the lookup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
     public async ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         string scenePath,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(unityProject);
+
         if (string.IsNullOrWhiteSpace(scenePath))
         {
             return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
@@ -132,7 +118,10 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         string contractPath;
         try
         {
-            contractPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, scenePath);
+            contractPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
+                unityProject.RepositoryRoot,
+                unityProject.ProjectFingerprint,
+                scenePath);
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
@@ -171,18 +160,15 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     }
 
     /// <summary> Reads one <c>inputs/manifest.json</c> contract. </summary>
-    /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="projectFingerprint"> The project fingerprint value. </param>
+    /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to manifest-read result. </returns>
     public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         return ReadContract(
-            storageRoot,
-            projectFingerprint,
+            unityProject,
             UcliStoragePathResolver.ResolveIndexInputsManifestPath,
             static json => IndexInputsManifestJsonContractSerializer.Deserialize(json),
             static contract => IndexCatalogContractValidator.IsValidInputsManifest(contract),
@@ -191,8 +177,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     }
 
     private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContract<TContract> (
-        string storageRoot,
-        string projectFingerprint,
+        ResolvedUnityProjectContext unityProject,
         Func<string, string, string> pathResolver,
         Func<string, TContract?> deserialize,
         Func<TContract, bool> validator,
@@ -201,15 +186,16 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         where TContract : class
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(unityProject);
 
-        if (string.IsNullOrWhiteSpace(storageRoot))
+        if (string.IsNullOrWhiteSpace(unityProject.RepositoryRoot))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
                 IpcErrorCodes.InvalidArgument,
                 "Storage root path must not be empty.");
         }
 
-        if (string.IsNullOrWhiteSpace(projectFingerprint))
+        if (string.IsNullOrWhiteSpace(unityProject.ProjectFingerprint))
         {
             return ReadIndexArtifactReadResult<TContract>.Failure(
                 IpcErrorCodes.InvalidArgument,
@@ -219,7 +205,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         string contractPath;
         try
         {
-            contractPath = pathResolver(storageRoot, projectFingerprint);
+            contractPath = pathResolver(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {

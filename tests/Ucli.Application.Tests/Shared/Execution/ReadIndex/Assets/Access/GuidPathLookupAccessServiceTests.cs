@@ -14,7 +14,7 @@ public sealed class GuidPathLookupAccessServiceTests
     [Trait("Size", "Small")]
     public async Task TryResolveAssetGuid_WhenAllowStaleIndexExists_ReturnsIndexEntry ()
     {
-        var indexReader = new StubIndexCatalogReader
+        var indexReader = new StubReadIndexArtifactReader
         {
             GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
@@ -32,9 +32,10 @@ public sealed class GuidPathLookupAccessServiceTests
         };
         var refreshService = new StubAssetLookupSourceRefreshService();
         var service = new GuidPathLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
+        var project = CreateProject();
 
         var result = await service.TryResolveAssetGuid(
-            CreateProject(),
+            project,
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
@@ -46,13 +47,18 @@ public sealed class GuidPathLookupAccessServiceTests
         Assert.Equal("Assets/Data/Spawner.asset", result.Output!.Entry!.AssetPath);
         Assert.Equal(AssetLookupSource.Index, result.Output.AccessInfo.Source);
         Assert.Equal(0, refreshService.CallCount);
+        Assert.Equal(0, freshnessEvaluator.EvaluateCallCount);
+        Assert.Equal(1, freshnessEvaluator.ObserveCallCount);
+        Assert.Same(project, freshnessEvaluator.LastUnityProject);
+        Assert.Equal(IndexFreshnessTarget.GuidPathLookup, freshnessEvaluator.LastTarget);
+        Assert.Equal("guid-path-hash", freshnessEvaluator.LastPersistedSourceInputsHash);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryResolveAssetPath_WhenRequireFreshIndexIsStale_FallsBackToSource ()
     {
-        var indexReader = new StubIndexCatalogReader
+        var indexReader = new StubReadIndexArtifactReader
         {
             GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
@@ -114,7 +120,7 @@ public sealed class GuidPathLookupAccessServiceTests
     [Trait("Size", "Small")]
     public async Task TryResolveAssetGuid_WhenReadPostconditionStoreFails_FallsBackToSource ()
     {
-        var indexReader = new StubIndexCatalogReader
+        var indexReader = new StubReadIndexArtifactReader
         {
             GuidPathLookupResult = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Success(
                 new IndexGuidPathLookupJsonContract(
@@ -168,7 +174,7 @@ public sealed class GuidPathLookupAccessServiceTests
     public async Task TryResolveAssetPath_WhenPathIsOutsideAssets_ReturnsInvalidArgument ()
     {
         var service = new GuidPathLookupAccessService(
-            new StubIndexCatalogReader(),
+            new StubReadIndexArtifactReader(),
             new StubIndexFreshnessEvaluator(),
             new TestMutationReadPostconditionStore(),
             new StubAssetLookupSourceRefreshService());
@@ -178,7 +184,7 @@ public sealed class GuidPathLookupAccessServiceTests
             UcliConfig.CreateDefault(),
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
-            readIndexMode: ReadIndexMode.AllowStale,
+            readIndexMode: ReadIndexMode.RequireFresh,
             assetPath: "Packages/com.example/Test.asset");
 
         Assert.False(result.IsSuccess);
@@ -194,21 +200,20 @@ public sealed class GuidPathLookupAccessServiceTests
             PathSource: UnityProjectPathSource.CommandOption);
     }
 
-    private sealed class StubIndexCatalogReader : IReadIndexArtifactReader
+    private sealed class StubReadIndexArtifactReader : IReadIndexArtifactReader
     {
         public ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract> GuidPathLookupResult { get; set; }
             = ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>.Failure(IpcErrorCodes.ReadIndexBootstrapFailed, "missing");
 
-        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (string storageRoot, string projectFingerprint, string scenePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (string storageRoot, string projectFingerprint, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (ResolvedUnityProjectContext unityProject, string scenePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (ResolvedUnityProjectContext unityProject, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -221,22 +226,56 @@ public sealed class GuidPathLookupAccessServiceTests
         public IndexFreshnessEvaluationResult Result { get; set; }
             = IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh);
 
+        public int EvaluateCallCount { get; private set; }
+
+        public int ObserveCallCount { get; private set; }
+
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
+
+        public IndexFreshnessTarget LastTarget { get; private set; }
+
+        public string? LastPersistedSourceInputsHash { get; private set; }
+
         public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            string projectRoot,
+            ResolvedUnityProjectContext unityProject,
             IndexFreshnessTarget target,
             string? persistedSourceInputsHash,
             ReadIndexMode mode,
             CancellationToken cancellationToken = default)
         {
+            EvaluateCallCount++;
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(Result);
+            throw new NotSupportedException();
         }
 
         public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             string scenePath,
             string? persistedSourceInputsHash,
             ReadIndexMode mode,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IndexFreshnessEvaluationResult> Observe (
+            ResolvedUnityProjectContext unityProject,
+            IndexFreshnessTarget target,
+            string? persistedSourceInputsHash,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ObserveCallCount++;
+            LastUnityProject = unityProject;
+            LastTarget = target;
+            LastPersistedSourceInputsHash = persistedSourceInputsHash;
+            return ValueTask.FromResult(Result);
+        }
+
+        public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (
+            ResolvedUnityProjectContext unityProject,
+            string scenePath,
+            string? persistedSourceInputsHash,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
@@ -258,7 +297,6 @@ public sealed class GuidPathLookupAccessServiceTests
             UcliCommand command,
             UnityExecutionMode mode,
             TimeSpan timeout,
-            ReadIndexMode readIndexMode,
             string fallbackReason,
             bool failFast = false,
             CancellationToken cancellationToken = default)

@@ -13,7 +13,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
         var result = await evaluator.Evaluate(
-            "/repo/project",
+            CreateProject(),
             IndexFreshnessTarget.OpsCatalog,
             persistedSourceInputsHash: null,
             ReadIndexMode.AllowStale,
@@ -36,7 +36,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
         var result = await evaluator.Evaluate(
-            "/repo/project",
+            CreateProject(),
             IndexFreshnessTarget.OpsCatalog,
             "combined-hash",
             ReadIndexMode.AllowStale,
@@ -59,7 +59,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new StubReadIndexSceneSourceHashProvider());
 
         var result = await evaluator.Evaluate(
-            "/repo/project",
+            CreateProject(),
             IndexFreshnessTarget.AssetSearchLookup,
             "old-asset-search-hash",
             ReadIndexMode.AllowStale,
@@ -80,7 +80,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
             new StubReadIndexSceneSourceHashProvider());
 
         var result = await evaluator.Evaluate(
-            "/repo/project",
+            CreateProject(),
             IndexFreshnessTarget.OpsCatalog,
             "persisted-hash",
             ReadIndexMode.RequireFresh,
@@ -103,7 +103,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var evaluator = new ReadIndexFreshnessEvaluator(new StubReadIndexInputFingerprintProvider(), sceneHashProvider);
 
         var result = await evaluator.EvaluateSceneTreeLite(
-            "/repo/project",
+            CreateProject(),
             "Assets/Scenes/Main.unity",
             "scene-hash",
             ReadIndexMode.AllowStale,
@@ -125,7 +125,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var evaluator = new ReadIndexFreshnessEvaluator(new StubReadIndexInputFingerprintProvider(), sceneHashProvider);
 
         var result = await evaluator.EvaluateSceneTreeLite(
-            "/repo/project",
+            CreateProject(),
             "Assets/Scenes/Main.unity",
             "persisted-scene-hash",
             ReadIndexMode.RequireFresh,
@@ -135,6 +135,15 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         Assert.Equal(IndexFreshness.Stale, result.Freshness);
         Assert.NotNull(result.Error);
         Assert.Equal(IpcErrorCodes.ReadIndexFreshRequired, result.Error!.Code);
+    }
+
+    private static ResolvedUnityProjectContext CreateProject ()
+    {
+        return new ResolvedUnityProjectContext(
+            UnityProjectRoot: "/repo/UnityProject",
+            RepositoryRoot: "/repo",
+            ProjectFingerprint: "project-fingerprint",
+            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private static ReadIndexCoreInputHashSnapshot CreateCoreSnapshot (string combinedHash)
@@ -173,7 +182,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         public ReadIndexInputHashSnapshot? Snapshot { get; set; }
 
         public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -182,7 +191,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         }
 
         public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -198,7 +207,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         public string? SourceHash { get; set; }
 
         public ValueTask<string?> TryCompute (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             string scenePath,
             CancellationToken cancellationToken = default)
         {

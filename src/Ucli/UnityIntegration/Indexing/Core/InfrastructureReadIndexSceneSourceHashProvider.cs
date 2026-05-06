@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Infrastructure.Index;
 
@@ -16,10 +17,11 @@ internal sealed class InfrastructureReadIndexSceneSourceHashProvider : IReadInde
 
     /// <inheritdoc />
     public ValueTask<string?> TryCompute (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         string scenePath,
         CancellationToken cancellationToken = default)
     {
-        return sourceHashCalculator.TryCompute(projectRootPath, scenePath, cancellationToken);
+        ArgumentNullException.ThrowIfNull(unityProject);
+        return sourceHashCalculator.TryCompute(unityProject.UnityProjectRoot, scenePath, cancellationToken);
     }
 }

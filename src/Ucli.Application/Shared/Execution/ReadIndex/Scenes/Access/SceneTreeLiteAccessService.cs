@@ -77,7 +77,6 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     command,
                     mode,
                     timeout,
-                    readIndexMode,
                     normalizedScenePath,
                     depth,
                     "readIndex disabled by mode.",
@@ -94,7 +93,6 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     command,
                     mode,
                     timeout,
-                    readIndexMode,
                     normalizedScenePath,
                     depth,
                     "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
@@ -104,8 +102,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         }
 
         var lookupResult = await artifactReader.ReadSceneTreeLiteLookup(
-                project.RepositoryRoot,
-                project.ProjectFingerprint,
+                project,
                 normalizedScenePath,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -122,7 +119,6 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     command,
                     mode,
                     timeout,
-                    readIndexMode,
                     normalizedScenePath,
                     depth,
                     lookupResult.Error.Message,
@@ -146,7 +142,6 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                     command,
                     mode,
                     timeout,
-                    readIndexMode,
                     normalizedScenePath,
                     depth,
                     readPostconditionEvaluation.FallbackReason!,
@@ -155,14 +150,20 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 .ConfigureAwait(false);
         }
 
-        var freshnessResult = await freshnessEvaluator.EvaluateSceneTreeLite(
-                project.UnityProjectRoot,
+        var freshnessResult = await freshnessEvaluator.ObserveSceneTreeLite(
+                project,
                 normalizedScenePath,
                 lookupResult.Value!.SourceInputsHash,
-                readIndexMode,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (freshnessResult.IsSuccess)
+        if (!freshnessResult.IsSuccess)
+        {
+            return SceneTreeLiteReadResult.Failure(
+                freshnessResult.Error!.Message,
+                freshnessResult.Error.Code);
+        }
+
+        if (readIndexMode == ReadIndexMode.AllowStale || freshnessResult.Freshness == IndexFreshness.Fresh)
         {
             return SceneTreeLiteReadResult.Success(
                 new SceneTreeLiteReadOutput(
@@ -178,18 +179,12 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 "Scene-tree-lite read completed.");
         }
 
-        if (!string.Equals(freshnessResult.Error!.Code, IpcErrorCodes.ReadIndexFreshRequired, StringComparison.Ordinal))
-        {
-            return SceneTreeLiteReadResult.Failure(freshnessResult.Error.Message, freshnessResult.Error.Code);
-        }
-
         return await ReadFromSource(
                 project,
                 config,
                 command,
                 mode,
                 timeout,
-                readIndexMode,
                 normalizedScenePath,
                 depth,
                 $"Existing scene-tree-lite index freshness is '{SceneTreeLiteAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
@@ -204,7 +199,6 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         UcliCommand command,
         UnityExecutionModeValue mode,
         TimeSpan timeout,
-        ReadIndexMode readIndexMode,
         string normalizedScenePath,
         int? depth,
         string fallbackReason,
@@ -217,7 +211,6 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
                 command,
                 mode,
                 timeout,
-                readIndexMode,
                 normalizedScenePath,
                 fallbackReason,
                 failFast,

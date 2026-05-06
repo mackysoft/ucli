@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
@@ -25,8 +24,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
         ArgumentNullException.ThrowIfNull(unityProject);
 
         var manifestResult = await artifactReader.ReadInputsManifest(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
+                unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         if (manifestResult.IsSuccess)
@@ -37,8 +35,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
         }
 
         var assetSearchLookupResult = await artifactReader.ReadAssetSearchLookup(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
+                unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         if (assetSearchLookupResult.IsSuccess)
@@ -49,8 +46,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
         }
 
         var guidPathLookupResult = await artifactReader.ReadGuidPathLookup(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
+                unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
         return new PersistedOpsCatalogPersistenceArtifacts(

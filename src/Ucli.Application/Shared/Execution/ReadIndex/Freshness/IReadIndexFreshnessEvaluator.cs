@@ -7,17 +7,31 @@ internal interface IReadIndexFreshnessEvaluator
 {
     /// <summary> Evaluates freshness for one catalog or asset lookup artifact. </summary>
     ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         IndexFreshnessTarget target,
         string? persistedSourceInputsHash,
         ReadIndexMode mode,
         CancellationToken cancellationToken = default);
 
+    /// <summary> Observes freshness for one catalog or asset lookup artifact without applying read-index mode constraints. </summary>
+    ValueTask<IndexFreshnessEvaluationResult> Observe (
+        ResolvedUnityProjectContext unityProject,
+        IndexFreshnessTarget target,
+        string? persistedSourceInputsHash,
+        CancellationToken cancellationToken = default);
+
     /// <summary> Evaluates freshness for one scene-tree-lite artifact. </summary>
     ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         string scenePath,
         string? persistedSourceInputsHash,
         ReadIndexMode mode,
+        CancellationToken cancellationToken = default);
+
+    /// <summary> Observes freshness for one scene-tree-lite artifact without applying read-index mode constraints. </summary>
+    ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (
+        ResolvedUnityProjectContext unityProject,
+        string scenePath,
+        string? persistedSourceInputsHash,
         CancellationToken cancellationToken = default);
 }

@@ -30,8 +30,9 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var catalogResult = await reader.ReadOpsCatalog(scope.FullPath, "fingerprint", CancellationToken.None);
-        var manifestResult = await reader.ReadInputsManifest(scope.FullPath, "fingerprint", CancellationToken.None);
+        var project = CreateProject(scope, "fingerprint");
+        var catalogResult = await reader.ReadOpsCatalog(project, CancellationToken.None);
+        var manifestResult = await reader.ReadInputsManifest(project, CancellationToken.None);
 
         Assert.True(catalogResult.IsSuccess);
         Assert.True(manifestResult.IsSuccess);
@@ -77,9 +78,10 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var assetSearchResult = await reader.ReadAssetSearchLookup(scope.FullPath, "fingerprint", CancellationToken.None);
-        var guidPathResult = await reader.ReadGuidPathLookup(scope.FullPath, "fingerprint", CancellationToken.None);
-        var manifestResult = await reader.ReadInputsManifest(scope.FullPath, "fingerprint", CancellationToken.None);
+        var project = CreateProject(scope, "fingerprint");
+        var assetSearchResult = await reader.ReadAssetSearchLookup(project, CancellationToken.None);
+        var guidPathResult = await reader.ReadGuidPathLookup(project, CancellationToken.None);
+        var manifestResult = await reader.ReadInputsManifest(project, CancellationToken.None);
 
         Assert.True(assetSearchResult.IsSuccess);
         Assert.True(guidPathResult.IsSuccess);
@@ -115,9 +117,9 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
+        var project = CreateProject(scope, "fingerprint");
         var result = await reader.ReadSceneTreeLiteLookup(
-            scope.FullPath,
-            "fingerprint",
+            project,
             "Assets/Scenes/Main.unity",
             CancellationToken.None);
 
@@ -140,6 +142,17 @@ public sealed class FileReadIndexArtifactWriterTests
             new IndexGuidPathLookupJsonContractWriter(),
             new IndexSceneTreeLiteLookupJsonContractWriter(),
             new IndexInputsManifestJsonContractWriter());
+    }
+
+    private static ResolvedUnityProjectContext CreateProject (
+        TestDirectoryScope scope,
+        string fingerprint)
+    {
+        return new ResolvedUnityProjectContext(
+            UnityProjectRoot: scope.CreateDirectory("UnityProject"),
+            RepositoryRoot: scope.FullPath,
+            ProjectFingerprint: fingerprint,
+            PathSource: UnityProjectPathSource.CommandOption);
     }
 
     private static IndexOpEntryJsonContract CreateGoDescribeEntry ()

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Infrastructure.Index;
 
@@ -16,11 +17,12 @@ internal sealed class InfrastructureReadIndexInputFingerprintProvider : IReadInd
 
     /// <inheritdoc />
     public async ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var snapshot = await inputFingerprintCalculator.TryComputeCore(projectRootPath, cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(unityProject);
+        var snapshot = await inputFingerprintCalculator.TryComputeCore(unityProject.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
         return snapshot == null
             ? null
             : new ReadIndexCoreInputHashSnapshot(
@@ -33,11 +35,12 @@ internal sealed class InfrastructureReadIndexInputFingerprintProvider : IReadInd
 
     /// <inheritdoc />
     public async ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var snapshot = await inputFingerprintCalculator.TryCompute(projectRootPath, cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(unityProject);
+        var snapshot = await inputFingerprintCalculator.TryCompute(unityProject.UnityProjectRoot, cancellationToken).ConfigureAwait(false);
         return snapshot == null
             ? null
             : new ReadIndexInputHashSnapshot(

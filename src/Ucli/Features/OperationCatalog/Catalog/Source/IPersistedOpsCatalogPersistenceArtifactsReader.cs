@@ -1,4 +1,6 @@
-namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
+using MackySoft.Ucli.Application.Shared.Context.Project;
+
+namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Reads persisted read-index artifacts used when refreshing and persisting the ops catalog. </summary>
 internal interface IPersistedOpsCatalogPersistenceArtifactsReader

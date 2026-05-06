@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Assets;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -30,7 +29,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             failFast: true,
             cancellationToken: CancellationToken.None);
@@ -70,7 +68,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -107,7 +104,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -147,7 +143,6 @@ public sealed class AssetLookupSourceRefreshServiceTests
             UcliCommandIds.Query,
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1000),
-            readIndexMode: ReadIndexMode.AllowStale,
             fallbackReason: "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -311,14 +306,14 @@ public sealed class AssetLookupSourceRefreshServiceTests
         }
 
         public ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Core snapshot should not be computed in asset lookup refresh tests.");
         }
 
         public ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

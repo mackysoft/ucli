@@ -56,7 +56,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    readIndexMode,
                     normalizedQuery,
                     "readIndex disabled by mode.",
                     failFast,
@@ -65,8 +64,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         }
 
         var lookupResult = await artifactReader.ReadAssetSearchLookup(
-                project.RepositoryRoot,
-                project.ProjectFingerprint,
+                project,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!lookupResult.IsSuccess)
@@ -83,7 +81,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    readIndexMode,
                     normalizedQuery,
                     lookupResult.Error.Message,
                     failFast,
@@ -104,7 +101,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    readIndexMode,
                     normalizedQuery,
                     readPostconditionEvaluation.FallbackReason!,
                     failFast,
@@ -112,11 +108,10 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 .ConfigureAwait(false);
         }
 
-        var freshnessResult = await freshnessEvaluator.Evaluate(
-                project.UnityProjectRoot,
+        var freshnessResult = await freshnessEvaluator.Observe(
+                project,
                 IndexFreshnessTarget.AssetSearchLookup,
                 lookupResult.Value!.SourceInputsHash,
-                ReadIndexMode.AllowStale,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)
@@ -146,7 +141,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 config,
                 mode,
                 timeout,
-                readIndexMode,
                 normalizedQuery,
                 $"Existing asset-search index freshness is '{AssetLookupAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
                 failFast,
@@ -159,7 +153,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         UcliConfig config,
         UnityExecutionModeValue mode,
         TimeSpan timeout,
-        ReadIndexMode readIndexMode,
         AssetSearchLookupQuery normalizedQuery,
         string fallbackReason,
         bool failFast,
@@ -171,7 +164,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 UcliCommandIds.Query,
                 mode,
                 timeout,
-                readIndexMode,
                 fallbackReason,
                 failFast,
                 cancellationToken)

@@ -14,7 +14,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             IpcErrorCodes.ReadIndexBootstrapFailed,
             "Index contract file was not found: ops.catalog.json.");
         var loader = new PersistedOpsCatalogSnapshotLoader(
-            new StubIndexCatalogReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
+            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Failure(error)),
             new StubIndexFreshnessEvaluator(IndexFreshnessEvaluationResult.Success(IndexFreshness.Fresh)));
 
         var result = await loader.Load(CreateUnityProject(), CancellationToken.None);
@@ -34,10 +34,11 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
         var freshnessEvaluator = new StubIndexFreshnessEvaluator(
             IndexFreshnessEvaluationResult.Failure(IndexFreshness.Stale, error));
         var loader = new PersistedOpsCatalogSnapshotLoader(
-            new StubIndexCatalogReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
+            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
             freshnessEvaluator);
+        var unityProject = CreateUnityProject();
 
-        var result = await loader.Load(CreateUnityProject(), CancellationToken.None);
+        var result = await loader.Load(unityProject, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Same(error, result.Error);
@@ -46,25 +47,27 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Load_WhenDependenciesSucceed_ReturnsSnapshotAndUsesAllowStale ()
+    public async Task Load_WhenDependenciesSucceed_ReturnsSnapshotAndObservesFreshness ()
     {
         var freshnessEvaluator = new StubIndexFreshnessEvaluator(
             IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable));
         var loader = new PersistedOpsCatalogSnapshotLoader(
-            new StubIndexCatalogReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
+            new StubReadIndexArtifactReader(ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>.Success(CreateCatalog())),
             freshnessEvaluator);
+        var unityProject = CreateUnityProject();
 
-        var result = await loader.Load(CreateUnityProject(), CancellationToken.None);
+        var result = await loader.Load(unityProject, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Snapshot);
         Assert.Equal(IndexFreshness.Probable, result.Snapshot!.Freshness);
         Assert.Equal(DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"), result.Snapshot.GeneratedAtUtc);
         Assert.Single(result.Snapshot.Entries);
-        Assert.Equal(ReadIndexMode.AllowStale, freshnessEvaluator.LastMode);
-        Assert.Equal("/repo/UnityProject", freshnessEvaluator.LastProjectRoot);
+        Assert.Same(unityProject, freshnessEvaluator.LastUnityProject);
         Assert.Equal(IndexFreshnessTarget.OpsCatalog, freshnessEvaluator.LastTarget);
         Assert.Equal("source-hash", freshnessEvaluator.LastPersistedSourceInputsHash);
+        Assert.Equal(1, freshnessEvaluator.ObserveCallCount);
+        Assert.Equal(0, freshnessEvaluator.EvaluateCallCount);
     }
 
     private static ResolvedUnityProjectContext CreateUnityProject ()
@@ -92,18 +95,17 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             ]);
     }
 
-    private sealed class StubIndexCatalogReader : IReadIndexArtifactReader
+    private sealed class StubReadIndexArtifactReader : IReadIndexArtifactReader
     {
         private readonly ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult;
 
-        public StubIndexCatalogReader (ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult)
+        public StubReadIndexArtifactReader (ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract> opsCatalogResult)
         {
             this.opsCatalogResult = opsCatalogResult ?? throw new ArgumentNullException(nameof(opsCatalogResult));
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalog (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -111,40 +113,35 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalog (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalog (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookup (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookup (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookup (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             string scenePath,
             CancellationToken cancellationToken = default)
         {
@@ -152,8 +149,7 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
         }
 
         public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifest (
-            string storageRoot,
-            string projectFingerprint,
+            ResolvedUnityProjectContext unityProject,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
@@ -169,34 +165,56 @@ public sealed class PersistedOpsCatalogSnapshotLoaderTests
             this.result = result ?? throw new ArgumentNullException(nameof(result));
         }
 
-        public string? LastProjectRoot { get; private set; }
+        public ResolvedUnityProjectContext? LastUnityProject { get; private set; }
 
         public IndexFreshnessTarget LastTarget { get; private set; }
 
         public string? LastPersistedSourceInputsHash { get; private set; }
 
-        public ReadIndexMode LastMode { get; private set; }
+        public int ObserveCallCount { get; private set; }
+
+        public int EvaluateCallCount { get; private set; }
 
         public ValueTask<IndexFreshnessEvaluationResult> Evaluate (
-            string projectRoot,
+            ResolvedUnityProjectContext unityProject,
             IndexFreshnessTarget target,
             string? persistedSourceInputsHash,
             ReadIndexMode mode,
             CancellationToken cancellationToken = default)
         {
-            LastProjectRoot = projectRoot;
+            EvaluateCallCount++;
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IndexFreshnessEvaluationResult> Observe (
+            ResolvedUnityProjectContext unityProject,
+            IndexFreshnessTarget target,
+            string? persistedSourceInputsHash,
+            CancellationToken cancellationToken = default)
+        {
+            LastUnityProject = unityProject;
             LastTarget = target;
             LastPersistedSourceInputsHash = persistedSourceInputsHash;
-            LastMode = mode;
+            ObserveCallCount++;
             cancellationToken.ThrowIfCancellationRequested();
             return ValueTask.FromResult(result);
         }
 
         public ValueTask<IndexFreshnessEvaluationResult> EvaluateSceneTreeLite (
-            string projectRootPath,
+            ResolvedUnityProjectContext unityProject,
             string scenePath,
             string? persistedSourceInputsHash,
             ReadIndexMode mode,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLite (
+            ResolvedUnityProjectContext unityProject,
+            string scenePath,
+            string? persistedSourceInputsHash,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();

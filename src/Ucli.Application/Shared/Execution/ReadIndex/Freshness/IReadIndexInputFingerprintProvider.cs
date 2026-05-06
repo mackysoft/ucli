@@ -5,11 +5,11 @@ internal interface IReadIndexInputFingerprintProvider
 {
     /// <summary> Tries to compute one core input fingerprint snapshot. </summary>
     ValueTask<ReadIndexCoreInputHashSnapshot?> TryComputeCore (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 
     /// <summary> Tries to compute one full input fingerprint snapshot. </summary>
     ValueTask<ReadIndexInputHashSnapshot?> TryCompute (
-        string projectRootPath,
+        ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 }

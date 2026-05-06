@@ -114,7 +114,7 @@ internal static class SceneTreeLiteAccessUtilities
     private static bool HasUnsafePathSegments (string scenePath)
     {
         if (scenePath.StartsWith("/", StringComparison.Ordinal)
-            || IsWindowsRootedPath(scenePath))
+            || IsWindowsDriveQualifiedPath(scenePath))
         {
             return true;
         }
@@ -134,12 +134,11 @@ internal static class SceneTreeLiteAccessUtilities
         return false;
     }
 
-    private static bool IsWindowsRootedPath (string scenePath)
+    private static bool IsWindowsDriveQualifiedPath (string scenePath)
     {
-        return scenePath.Length >= 3
+        return scenePath.Length >= 2
             && IsAsciiLetter(scenePath[0])
-            && scenePath[1] == ':'
-            && (scenePath[2] == '/' || scenePath[2] == '\\');
+            && scenePath[1] == ':';
     }
 
     private static bool IsAsciiLetter (char value)
