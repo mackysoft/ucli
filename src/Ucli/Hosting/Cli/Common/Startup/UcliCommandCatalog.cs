@@ -59,6 +59,8 @@ internal static class UcliCommandCatalog
             new CommandLeafEntry(UcliCommandNames.ListSubcommand, UcliCommandNames.SkillsList),
             new CommandLeafEntry(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport),
             new CommandLeafEntry(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall),
+            new CommandLeafEntry(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate),
+            new CommandLeafEntry(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall),
             new CommandLeafEntry(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor),
         ],
         []);
@@ -152,6 +154,8 @@ internal static class UcliCommandCatalog
         app.Add<SkillsListCommand>("skills");
         app.Add<SkillsExportCommand>("skills");
         app.Add<SkillsInstallCommand>("skills");
+        app.Add<SkillsUpdateCommand>("skills");
+        app.Add<SkillsUninstallCommand>("skills");
         app.Add<SkillsDoctorCommand>("skills");
         app.Add<TestRunCommand>("test");
         app.Add<TestProfileInitCommand>("test profile");

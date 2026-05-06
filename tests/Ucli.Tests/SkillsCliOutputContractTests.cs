@@ -59,6 +59,8 @@ public sealed class SkillsCliOutputContractTests
     [InlineData(UcliCommandNames.ListSubcommand, UcliCommandNames.SkillsList)]
     [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task SkillsSubcommand_WithUnknownOption_ReturnsInvalidArgumentAsSingleJson (
         string subcommand,
@@ -161,6 +163,8 @@ public sealed class SkillsCliOutputContractTests
     [Trait("Size", "Medium")]
     [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task SkillsSubcommand_WithoutHost_ReturnsInvalidArgument (
         string subcommand,
@@ -205,6 +209,8 @@ public sealed class SkillsCliOutputContractTests
     [Theory]
     [Trait("Size", "Medium")]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task SkillsScopedSubcommand_WithoutScope_ReturnsInvalidArgument (
         string subcommand,
@@ -228,6 +234,8 @@ public sealed class SkillsCliOutputContractTests
     [Theory]
     [Trait("Size", "Medium")]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task SkillsScopedSubcommand_WithInvalidScope_ReturnsInvalidArgument (
         string subcommand,
@@ -252,6 +260,8 @@ public sealed class SkillsCliOutputContractTests
     [Trait("Size", "Medium")]
     [InlineData(UcliCommandNames.ExportSubcommand, UcliCommandNames.SkillsExport)]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task SkillsSubcommand_WithUnsupportedHost_ReturnsHostUnsupported (
         string subcommand,
@@ -343,9 +353,146 @@ public sealed class SkillsCliOutputContractTests
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetHostConflictCode);
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUpdate_WithProjectScope_CreatesThenNoOps ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-openai");
+        var repoRoot = scope.CreateDirectory("repo");
+
+        var created = await RunOpenAiUpdate(repoRoot);
+        var noOp = await RunOpenAiUpdate(repoRoot);
+
+        using var createdJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(created.StdOut);
+        Assert.Equal((int)CliExitCode.Success, created.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            createdJson.RootElement,
+            command: UcliCommandNames.SkillsUpdate,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(createdJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("host", "openai")
+                .HasString("scope", "project")
+                .HasString("repositoryRoot", repoRoot)
+                .HasValueKind("targetRoot", JsonValueKind.String)
+                .HasArrayLength("actions", ExpectedSkillNames.Length)
+                .HasInt32("createdCount", ExpectedSkillNames.Length)
+                .HasInt32("updatedCount", 0)
+                .HasInt32("noOpCount", 0)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "created")));
+
+        using var noOpJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(noOp.StdOut);
+        Assert.Equal((int)CliExitCode.Success, noOp.ExitCode);
+        JsonAssert.For(noOpJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasInt32("createdCount", 0)
+                .HasInt32("updatedCount", 0)
+                .HasInt32("noOpCount", ExpectedSkillNames.Length)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("action", "noOp")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUninstall_WithProjectScope_DeletesThenNoOps ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-openai");
+        var repoRoot = scope.CreateDirectory("repo");
+        var install = await RunOpenAiInstall(repoRoot);
+        Assert.Equal((int)CliExitCode.Success, install.ExitCode);
+
+        var deleted = await RunOpenAiUninstall(repoRoot);
+        var noOp = await RunOpenAiUninstall(repoRoot);
+
+        using var deletedJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(deleted.StdOut);
+        Assert.Equal((int)CliExitCode.Success, deleted.ExitCode);
+        CommandResultAssert.HasStandardEnvelope(
+            deletedJson.RootElement,
+            command: UcliCommandNames.SkillsUninstall,
+            status: "ok",
+            exitCode: (int)CliExitCode.Success);
+        JsonAssert.For(deletedJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasString("host", "openai")
+                .HasString("scope", "project")
+                .HasString("repositoryRoot", repoRoot)
+                .HasArrayLength("actions", ExpectedSkillNames.Length)
+                .HasInt32("deletedCount", ExpectedSkillNames.Length)
+                .HasInt32("noOpCount", 0)
+                .HasInt32("skippedUnmanagedCount", 0)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "deleted")));
+
+        using var noOpJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(noOp.StdOut);
+        Assert.Equal((int)CliExitCode.Success, noOp.ExitCode);
+        JsonAssert.For(noOpJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasInt32("deletedCount", 0)
+                .HasInt32("noOpCount", ExpectedSkillNames.Length)
+                .HasInt32("skippedUnmanagedCount", 0)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("action", "noOp")));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUninstall_WithUnmanagedOfficialDirectory_SkipsWithoutDeleting ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-unmanaged");
+        var repoRoot = scope.CreateDirectory("repo");
+        var unmanagedPath = Path.Combine(repoRoot, ".agents", "skills", ExpectedSkillNames[0], "SKILL.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(unmanagedPath)!);
+        await File.WriteAllTextAsync(unmanagedPath, "# Existing\n");
+
+        var result = await RunOpenAiUninstall(repoRoot);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        JsonAssert.For(outputJson.RootElement)
+            .HasProperty("payload", payload => payload
+                .HasInt32("deletedCount", 0)
+                .HasInt32("noOpCount", ExpectedSkillNames.Length - 1)
+                .HasInt32("skippedUnmanagedCount", 1)
+                .HasProperty("actions", 0, static action => action
+                    .HasString("skillName", ExpectedSkillNames[0])
+                    .HasString("action", "skippedUnmanaged")));
+        Assert.True(File.Exists(unmanagedPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsUninstall_DoesNotModifyOtherHostTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "uninstall-other-host");
+        var repoRoot = scope.CreateDirectory("repo");
+        var openAi = await RunOpenAiInstall(repoRoot);
+        var claude = await RunInstall(repoRoot, host: "claude", targetDir: null);
+        Assert.Equal((int)CliExitCode.Success, openAi.ExitCode);
+        Assert.Equal((int)CliExitCode.Success, claude.ExitCode);
+
+        var result = await RunOpenAiUninstall(repoRoot);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        using var openAiJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(openAi.StdOut);
+        using var claudeJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(claude.StdOut);
+        var openAiTargetRoot = openAiJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        var claudeTargetRoot = claudeJson.RootElement.GetProperty("payload").GetProperty("targetRoot").GetString()!;
+        foreach (var skillName in ExpectedSkillNames)
+        {
+            Assert.False(Directory.Exists(Path.Combine(openAiTargetRoot, skillName)), skillName);
+            Assert.True(Directory.Exists(Path.Combine(claudeTargetRoot, skillName)), skillName);
+        }
+    }
+
     [Theory]
     [Trait("Size", "Medium")]
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
+    [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
+    [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
     public async Task SkillsScopedSubcommand_WithTargetDirOutsideRepositoryRoot_ReturnsPathUnsafe (
         string subcommand,
@@ -462,6 +609,16 @@ public sealed class SkillsCliOutputContractTests
         return RunInstall(repoRoot, "openai", targetDir: null);
     }
 
+    private static Task<CommandExecutionResult> RunOpenAiUpdate (string repoRoot)
+    {
+        return RunScopedCommand(UcliCommandNames.UpdateSubcommand, repoRoot, "openai", "project", targetDir: null);
+    }
+
+    private static Task<CommandExecutionResult> RunOpenAiUninstall (string repoRoot)
+    {
+        return RunScopedCommand(UcliCommandNames.UninstallSubcommand, repoRoot, "openai", "project", targetDir: null);
+    }
+
     private static Task<CommandExecutionResult> RunInstall (
         string repoRoot,
         string host,
@@ -522,6 +679,8 @@ public sealed class SkillsCliOutputContractTests
         {
             UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--output", outputRoot],
             UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
+            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
             UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--scope", "project", "--repoRoot", repoRoot],
             _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
         };
@@ -537,6 +696,8 @@ public sealed class SkillsCliOutputContractTests
         {
             UcliCommandNames.ExportSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--output", outputRoot],
             UcliCommandNames.InstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            UcliCommandNames.UpdateSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
+            UcliCommandNames.UninstallSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
             UcliCommandNames.DoctorSubcommand => [UcliCommandNames.Skills, subcommand, "--host", "generic", "--scope", "project", "--repoRoot", repoRoot, "--targetDir", targetDir],
             _ => throw new ArgumentOutOfRangeException(nameof(subcommand), subcommand, "Unsupported skills subcommand."),
         };
