@@ -186,9 +186,8 @@ public sealed class ResolveCommandTests
 
     private static ResolveServiceResult CreateSuccessResult ()
     {
-        return new ResolveServiceResult(
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            OpResults:
+        return ResolveServiceResultFactory.Success(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             [
                 new OperationExecutionOperationResult(
                     OpId: "resolve",
@@ -204,9 +203,7 @@ public sealed class ResolveCommandTests
                     }),
                 },
             ],
-            Errors: [],
-            Outcome: ApplicationOutcome.Success,
-            ReadIndex: new ReadIndexInfo(
+            new ReadIndexInfo(
                 Used: true,
                 Hit: true,
                 Source: ReadIndexInfoSource.Index,
@@ -217,18 +214,17 @@ public sealed class ResolveCommandTests
 
     private static ResolveServiceResult CreateFailureResult ()
     {
-        return new ResolveServiceResult(
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            OpResults: [],
-            Errors:
+        return ResolveServiceResultFactory.Failure(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            [],
             [
                 new OperationExecutionError(
                     Code: IpcErrorCodes.InternalError,
                     Message: "Unity execution failed.",
                     OpId: "resolve"),
             ],
-            Outcome: ApplicationOutcome.ToolError,
-            ReadIndex: new ReadIndexInfo(
+            ApplicationOutcome.ToolError,
+            new ReadIndexInfo(
                 Used: true,
                 Hit: true,
                 Source: ReadIndexInfoSource.Index,

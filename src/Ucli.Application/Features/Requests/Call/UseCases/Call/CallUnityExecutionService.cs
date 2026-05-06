@@ -41,7 +41,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(input);
 
-        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.Request.RequestId);
+        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.Request.RequestId!);
         var effectivePlanToken = StringValueNormalizer.TrimToNull(input.PlanToken);
 
         if (input.WithPlan)
@@ -82,9 +82,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 RequestId: preparedRequest.Request.RequestId!,
                 OpResults: convertedPlanResponse.OpResults,
                 PlanToken: convertedPlanResponse.PlanToken);
-            baseOutput = baseOutput is null
-                ? null
-                : baseOutput with { Plan = planOutput };
+            baseOutput = baseOutput with { Plan = planOutput };
 
             if (!convertedPlanResponse.IsSuccess)
             {
@@ -143,22 +141,18 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         var convertedCallResponse = ExecuteResponseConverter.Convert(callExecutionResult.Response!);
-        var executionOutput = baseOutput is null
-            ? null
-            : baseOutput with
-            {
-                OpResults = convertedCallResponse.OpResults,
-                ReadPostcondition = convertedCallResponse.ReadPostcondition,
-            };
-        var postprocessedCallResponse = executionOutput == null
-            ? (Response: convertedCallResponse, PersistenceError: (OperationExecutionError?)null)
-            : await ExecuteResponseReadPostconditionProcessor.Persist(
-                    convertedCallResponse,
-                    mutationReadPostconditionStore,
-                    preparedRequest.UnityProject.RepositoryRoot,
-                    preparedRequest.UnityProject.ProjectFingerprint,
-                    cancellationToken)
-                .ConfigureAwait(false);
+        var executionOutput = baseOutput with
+        {
+            OpResults = convertedCallResponse.OpResults,
+            ReadPostcondition = convertedCallResponse.ReadPostcondition,
+        };
+        var postprocessedCallResponse = await ExecuteResponseReadPostconditionProcessor.Persist(
+                convertedCallResponse,
+                mutationReadPostconditionStore,
+                preparedRequest.UnityProject.RepositoryRoot,
+                preparedRequest.UnityProject.ProjectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
         convertedCallResponse = postprocessedCallResponse.Response;
         if (postprocessedCallResponse.PersistenceError != null)
         {
@@ -179,7 +173,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         }
 
         return CallServiceResult.Success(
-            executionOutput ?? throw new InvalidOperationException("Successful call execution must produce an output payload."),
+            executionOutput,
             "uCLI call completed.");
     }
 

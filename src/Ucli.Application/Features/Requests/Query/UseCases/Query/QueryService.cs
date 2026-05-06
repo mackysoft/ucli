@@ -241,7 +241,7 @@ internal sealed class QueryService : IQueryService
         if (!executionResult.IsSuccess)
         {
             var errorCode = ResolveErrorCode(executionResult.ErrorCode);
-            return QueryServiceResultFactory.Create(
+            return QueryServiceResultFactory.Failure(
                 operation.CommandName,
                 requestId,
                 [],
@@ -254,15 +254,22 @@ internal sealed class QueryService : IQueryService
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
-        return QueryServiceResultFactory.Create(
+        if (convertedResponse.IsSuccess)
+        {
+            return QueryServiceResultFactory.Success(
+                operation.CommandName,
+                requestId,
+                convertedResponse.OpResults,
+                readIndex);
+        }
+
+        return QueryServiceResultFactory.Failure(
             operation.CommandName,
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
             convertedResponse.Outcome,
-            convertedResponse.Errors.Count == 0
-                ? "uCLI query completed."
-                : ResolveFailureMessage(convertedResponse.Errors),
+            ResolveFailureMessage(convertedResponse.Errors),
             readIndex);
     }
 

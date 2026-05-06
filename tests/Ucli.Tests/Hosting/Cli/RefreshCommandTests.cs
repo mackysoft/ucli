@@ -12,9 +12,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class RefreshCommandTests
 {
-    private static readonly OperationExecuteResult SuccessResult = new(
-        RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-        OpResults:
+    private static readonly OperationExecuteResult SuccessResult = OperationExecuteResultFactory.Success(
+        "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
         [
             new OperationExecutionOperationResult(
                 OpId: "refresh",
@@ -29,10 +28,7 @@ public sealed class RefreshCommandTests
                         Path: "Assets/Example.txt",
                         Guid: null),
                 ]),
-        ],
-        Errors: [],
-        Outcome: ApplicationOutcome.Success,
-        ReadPostcondition: null);
+        ]);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -88,9 +84,8 @@ public sealed class RefreshCommandTests
                 Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
                 MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T01:02:03+00:00")),
         ]);
-        var service = new StubRefreshService((_, _) => ValueTask.FromResult(new OperationExecuteResult(
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            OpResults:
+        var service = new StubRefreshService((_, _) => ValueTask.FromResult(OperationExecuteResultFactory.Success(
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             [
                 new OperationExecutionOperationResult(
                     OpId: "refresh",
@@ -100,9 +95,7 @@ public sealed class RefreshCommandTests
                     Changed: true,
                     Touched: []),
             ],
-            Errors: [],
-            Outcome: ApplicationOutcome.Success,
-            ReadPostcondition: readPostcondition)));
+            readPostcondition)));
         var command = new RefreshCommand(service);
 
         var (exitCode, standardOutput) = await StandardOutputCapture.Execute(() => command.Refresh(

@@ -215,10 +215,9 @@ public sealed class QueryCommandTests
 
     private static QueryServiceResult CreateSuccessResult (string commandName)
     {
-        return new QueryServiceResult(
-            CommandName: commandName,
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            OpResults:
+        return QueryServiceResultFactory.Success(
+            commandName,
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
             [
                 new OperationExecutionOperationResult(
                     OpId: "assets.find",
@@ -234,10 +233,7 @@ public sealed class QueryCommandTests
                     }),
                 },
             ],
-            Errors: [],
-            Outcome: ApplicationOutcome.Success,
-            Message: "uCLI query completed.",
-            ReadIndex: new ReadIndexInfo(
+            new ReadIndexInfo(
                 Used: true,
                 Hit: true,
                 Source: ReadIndexInfoSource.Index,
@@ -248,20 +244,19 @@ public sealed class QueryCommandTests
 
     private static QueryServiceResult CreateFailureResult (string commandName)
     {
-        return new QueryServiceResult(
-            CommandName: commandName,
-            RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-            OpResults: [],
-            Errors:
+        return QueryServiceResultFactory.Failure(
+            commandName,
+            "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+            [],
             [
                 new OperationExecutionError(
                     Code: IpcErrorCodes.InternalError,
                     Message: "Unity execution failed.",
                     OpId: "assets.find"),
             ],
-            Outcome: ApplicationOutcome.ToolError,
-            Message: "Unity execution failed.",
-            ReadIndex: new ReadIndexInfo(
+            ApplicationOutcome.ToolError,
+            "Unity execution failed.",
+            new ReadIndexInfo(
                 Used: true,
                 Hit: true,
                 Source: ReadIndexInfoSource.Index,

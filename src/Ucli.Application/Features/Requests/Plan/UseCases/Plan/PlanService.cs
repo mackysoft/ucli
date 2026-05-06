@@ -58,7 +58,7 @@ internal sealed class PlanService : IPlanService
             .ConfigureAwait(false);
 
         var preparedRequest = requestStaticValidationPreflightResult.PreparedRequest;
-        var baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
+        var baseOutput = PlanExecutionOutputFactory.TryCreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex);
         if (requestStaticValidationPreflightResult.Error != null)
         {
             return PlanFailureResultFactory.FromExecutionError(
@@ -74,14 +74,8 @@ internal sealed class PlanService : IPlanService
                 baseOutput);
         }
 
-        if (preparedRequest == null)
-        {
-            throw new InvalidOperationException("Prepared request must be available when static-validation preflight succeeds.");
-        }
-        if (baseOutput == null)
-        {
-            throw new InvalidOperationException("Plan output must be available when static-validation preflight succeeds.");
-        }
+        preparedRequest = requestStaticValidationPreflightResult.PreparedRequest!;
+        baseOutput = PlanExecutionOutputFactory.CreateBase(preparedRequest, requestStaticValidationPreflightResult.ReadIndex!);
 
         var timeoutResolutionResult = IpcCommandTimeoutResolver.ResolveNormalized(
             input.TimeoutMilliseconds,

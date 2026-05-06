@@ -14,7 +14,7 @@ public sealed class RefreshServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_DelegatesToOperationExecuteServiceWithRefreshDefinition ()
     {
-        var operationExecuteService = new SpyOperationExecuteService(OperationExecuteResultFactory.Success());
+        var operationExecuteService = new SpyOperationExecuteService(RefreshTestResultFactory.Success());
         var service = new RefreshService(operationExecuteService);
 
         var result = await service.Execute(
@@ -65,16 +65,13 @@ public sealed class RefreshServiceTests
         }
     }
 
-    private static class OperationExecuteResultFactory
+    private static class RefreshTestResultFactory
     {
         public static OperationExecuteResult Success ()
         {
-            return new OperationExecuteResult(
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                OpResults: [],
-                Errors: [],
-                Outcome: ApplicationOutcome.Success,
-                ReadPostcondition: null);
+            return OperationExecuteResultFactory.Success(
+                "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+                []);
         }
     }
 }

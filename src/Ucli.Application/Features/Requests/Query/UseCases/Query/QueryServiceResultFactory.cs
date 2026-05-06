@@ -19,12 +19,10 @@ internal static class QueryServiceResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex)
     {
-        return Create(
+        return QueryServiceResult.Success(
             commandName,
             requestId,
             opResults,
-            [],
-            ApplicationOutcome.Success,
             SuccessMessage,
             readIndex);
     }
@@ -38,17 +36,15 @@ internal static class QueryServiceResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var errorCode = ExecutionErrorCodeMapper.ToCode(error.Kind);
-        return Create(
+        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        return Failure(
             commandName,
             requestId,
             [],
             [
-                new OperationExecutionError(errorCode, error.Message, null),
+                executionError,
             ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? ApplicationOutcome.InvalidArgument
-                : ApplicationOutcome.ToolError,
+            RequestServiceResultPolicy.ResolveOutcome(error),
             error.Message,
             readIndex ?? CreateUnityReadIndexInfo(fallbackReason: null));
     }
@@ -61,18 +57,19 @@ internal static class QueryServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(
+        var message = string.IsNullOrWhiteSpace(error.Message) ? FailureMessage : error.Message;
+        return Failure(
             commandName,
             requestId,
             [],
             [error],
             ExecuteResponseConverter.ResolveOutcome(error.Code),
-            string.IsNullOrWhiteSpace(error.Message) ? FailureMessage : error.Message,
+            message,
             readIndex);
     }
 
-    /// <summary> Creates one normalized typed-query service result. </summary>
-    public static QueryServiceResult Create (
+    /// <summary> Creates one failed typed-query result. </summary>
+    public static QueryServiceResult Failure (
         string commandName,
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
@@ -84,18 +81,16 @@ internal static class QueryServiceResultFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
-        ArgumentNullException.ThrowIfNull(errors);
-        ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentNullException.ThrowIfNull(readIndex);
 
-        return new QueryServiceResult(
-            CommandName: commandName,
-            RequestId: requestId,
-            OpResults: opResults,
-            Errors: errors,
-            Outcome: outcome,
-            Message: message,
-            ReadIndex: readIndex);
+        return QueryServiceResult.Failure(
+            commandName,
+            requestId,
+            opResults,
+            errors,
+            outcome,
+            message,
+            readIndex);
     }
 
     private static ReadIndexInfo CreateUnityReadIndexInfo (string? fallbackReason)

@@ -187,7 +187,7 @@ internal sealed class ResolveService : IResolveService
         if (!executionResult.IsSuccess)
         {
             var errorCode = ResolveErrorCode(executionResult.ErrorCode);
-            return ResolveServiceResultFactory.Create(
+            return ResolveServiceResultFactory.Failure(
                 requestId,
                 [],
                 [
@@ -198,7 +198,15 @@ internal sealed class ResolveService : IResolveService
         }
 
         var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
-        return ResolveServiceResultFactory.Create(
+        if (convertedResponse.IsSuccess)
+        {
+            return ResolveServiceResultFactory.Success(
+                requestId,
+                convertedResponse.OpResults,
+                readIndex);
+        }
+
+        return ResolveServiceResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,

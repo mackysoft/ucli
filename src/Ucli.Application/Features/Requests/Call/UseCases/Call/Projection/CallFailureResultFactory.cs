@@ -21,19 +21,13 @@ internal static class CallFailureResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
+        var executionError = RequestServiceResultPolicy.FromExecutionError(error, errorCode);
         return CallServiceResult.Failure(
             error.Message,
             [
-                new OperationExecutionError(
-                    string.IsNullOrWhiteSpace(errorCode)
-                        ? ExecutionErrorCodeMapper.ToCode(error.Kind)
-                        : errorCode,
-                    error.Message,
-                    null),
+                executionError,
             ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? ApplicationOutcome.InvalidArgument
-                : ApplicationOutcome.ToolError,
+            RequestServiceResultPolicy.ResolveOutcome(error),
             output);
     }
 
@@ -45,18 +39,9 @@ internal static class CallFailureResultFactory
         IReadOnlyList<ValidationError> validationErrors,
         CallExecutionOutput? output = null)
     {
-        ArgumentNullException.ThrowIfNull(validationErrors);
-
-        var errors = new OperationExecutionError[validationErrors.Count];
-        for (var i = 0; i < validationErrors.Count; i++)
-        {
-            var validationError = validationErrors[i];
-            errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
-        }
-
         return CallServiceResult.Failure(
             "Static validation failed.",
-            errors,
+            RequestServiceResultPolicy.FromValidationErrors(validationErrors),
             ApplicationOutcome.InvalidArgument,
             output);
     }

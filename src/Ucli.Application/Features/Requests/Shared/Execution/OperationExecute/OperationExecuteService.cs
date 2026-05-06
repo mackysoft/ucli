@@ -148,7 +148,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         if (!executionResult.IsSuccess)
         {
             var errorCode = ResolveErrorCode(executionResult.ErrorCode);
-            return OperationExecuteResultFactory.Create(
+            return OperationExecuteResultFactory.Failure(
                 requestId,
                 [],
                 [
@@ -166,7 +166,15 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             .ConfigureAwait(false);
         var convertedResponse = postprocessedResponse.Response;
 
-        return OperationExecuteResultFactory.Create(
+        if (convertedResponse.IsSuccess)
+        {
+            return OperationExecuteResultFactory.Success(
+                requestId,
+                convertedResponse.OpResults,
+                convertedResponse.ReadPostcondition);
+        }
+
+        return OperationExecuteResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
             convertedResponse.Errors,
@@ -220,7 +228,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
             var errorCode = ResolveErrorCode(executionResult.ErrorCode);
             return (
                 null,
-                OperationExecuteResultFactory.Create(
+                OperationExecuteResultFactory.Failure(
                     requestId,
                     [],
                     [
@@ -234,7 +242,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         {
             return (
                 null,
-                OperationExecuteResultFactory.Create(
+                OperationExecuteResultFactory.Failure(
                     requestId,
                     convertedResponse.OpResults,
                     convertedResponse.Errors,
@@ -245,7 +253,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         {
             return (
                 null,
-                OperationExecuteResultFactory.Create(
+                OperationExecuteResultFactory.Failure(
                     requestId,
                     convertedResponse.OpResults,
                     [

@@ -31,49 +31,21 @@ internal static class ValidateCommandResultFactory
                 payload: payload);
         }
 
-        if (serviceResult.HasValidationErrors)
+        var errors = new CommandError[serviceResult.Errors.Count];
+        for (var i = 0; i < serviceResult.Errors.Count; i++)
         {
-            var validationErrors = new CommandError[serviceResult.ValidationErrors.Count];
-            for (var i = 0; i < serviceResult.ValidationErrors.Count; i++)
-            {
-                var validationError = serviceResult.ValidationErrors[i];
-                validationErrors[i] = new CommandError(
-                    validationError.Code,
-                    validationError.Message,
-                    validationError.OpId);
-            }
-
-            return new CommandResult(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                Command: UcliCommandNames.Validate,
-                Status: IpcProtocol.StatusError,
-                ExitCode: (int)CliExitCode.InvalidArgument,
-                Message: serviceResult.Message,
-                Payload: payload,
-                Errors: validationErrors);
+            var error = serviceResult.Errors[i];
+            errors[i] = new CommandError(error.Code, error.Message, error.OpId);
         }
-
-        var errorCode = string.IsNullOrWhiteSpace(serviceResult.ErrorCode)
-            ? IpcErrorCodes.InternalError
-            : serviceResult.ErrorCode;
-        var exitCode = string.Equals(errorCode, IpcErrorCodes.InvalidArgument, StringComparison.Ordinal)
-            ? CliExitCode.InvalidArgument
-            : CliExitCode.ToolError;
 
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Validate,
             Status: IpcProtocol.StatusError,
-            ExitCode: (int)exitCode,
+            ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
             Message: serviceResult.Message,
             Payload: payload,
-            Errors:
-            [
-                new CommandError(
-                    errorCode,
-                    serviceResult.Message,
-                    null),
-            ]);
+            Errors: errors);
     }
 
     /// <summary> Creates one invalid-execution command result for <c>validate</c>. </summary>

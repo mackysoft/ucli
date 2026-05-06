@@ -1,23 +1,39 @@
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
+using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Application.Shared.Execution;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 
 /// <summary> Represents one normalized <c>validate</c> service result. </summary>
-/// <param name="Output"> The output payload when available. </param>
-/// <param name="Message"> The user-facing result message. </param>
-/// <param name="ErrorCode"> The machine-readable infrastructure failure code on failure; otherwise <see langword="null" />. </param>
-/// <param name="ValidationErrors"> The static validation errors; empty when validation succeeded or infrastructure failed. </param>
-internal sealed record ValidateServiceResult (
-    ValidateExecutionOutput? Output,
-    string Message,
-    string? ErrorCode,
-    IReadOnlyList<ValidationError> ValidationErrors)
+internal sealed record ValidateServiceResult
 {
-    /// <summary> Gets a value indicating whether the service execution succeeded without static validation errors. </summary>
-    public bool IsSuccess => ErrorCode is null && ValidationErrors.Count == 0;
+    private ValidateServiceResult (
+        ValidateExecutionOutput? output,
+        string message,
+        IReadOnlyList<OperationExecutionError> errors,
+        ApplicationOutcome outcome)
+    {
+        Output = output;
+        Message = message;
+        Errors = errors;
+        Outcome = outcome;
+    }
 
-    /// <summary> Gets a value indicating whether the service execution failed due to static validation errors. </summary>
-    public bool HasValidationErrors => ErrorCode is null && ValidationErrors.Count > 0;
+    /// <summary> Gets the output payload when available. </summary>
+    public ValidateExecutionOutput? Output { get; }
+
+    /// <summary> Gets the user-facing result message. </summary>
+    public string Message { get; }
+
+    /// <summary> Gets the machine-readable error list. </summary>
+    public IReadOnlyList<OperationExecutionError> Errors { get; }
+
+    /// <summary> Gets the application outcome associated with this result. </summary>
+    public ApplicationOutcome Outcome { get; }
+
+    /// <summary> Gets a value indicating whether the service execution succeeded without static validation errors. </summary>
+    public bool IsSuccess => Outcome == ApplicationOutcome.Success;
 
     /// <summary> Creates a successful service result. </summary>
     /// <param name="output"> The successful output. </param>
@@ -27,8 +43,12 @@ internal sealed record ValidateServiceResult (
         ValidateExecutionOutput output,
         string message)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        return new ValidateServiceResult(output, message, null, Array.Empty<ValidationError>());
+        RequestServiceResultPolicy.ValidateSuccessMessage(message);
+        return new ValidateServiceResult(
+            RequestServiceResultPolicy.RequireSuccessOutput(output, nameof(output)),
+            message,
+            RequestServiceResultPolicy.EmptyErrors,
+            ApplicationOutcome.Success);
     }
 
     /// <summary> Creates a service result that failed due to static validation errors. </summary>
@@ -41,8 +61,12 @@ internal sealed record ValidateServiceResult (
         string message,
         IReadOnlyList<ValidationError> validationErrors)
     {
-        ArgumentNullException.ThrowIfNull(validationErrors);
-        return new ValidateServiceResult(output, message, null, validationErrors);
+        var errors = RequestServiceResultPolicy.FromValidationErrors(validationErrors);
+        return new ValidateServiceResult(
+            output,
+            message,
+            RequestServiceResultPolicy.RequireFailureErrors(message, errors, ApplicationOutcome.InvalidArgument),
+            ApplicationOutcome.InvalidArgument);
     }
 
     /// <summary> Creates an infrastructure failure result. </summary>
@@ -56,6 +80,16 @@ internal sealed record ValidateServiceResult (
         ValidateExecutionOutput? output = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(errorCode);
-        return new ValidateServiceResult(output, message, errorCode, Array.Empty<ValidationError>());
+        var outcome = ExecuteResponseConverter.ResolveOutcome(errorCode);
+        return new ValidateServiceResult(
+            output,
+            message,
+            RequestServiceResultPolicy.RequireFailureErrors(
+                message,
+                [
+                    new OperationExecutionError(errorCode, message, null),
+                ],
+                outcome),
+            outcome);
     }
 }

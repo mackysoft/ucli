@@ -14,7 +14,7 @@ internal static class ResolveServiceResultFactory
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex)
     {
-        return Create(requestId, opResults, [], ApplicationOutcome.Success, readIndex);
+        return ResolveServiceResult.Success(requestId, opResults, readIndex);
     }
 
     /// <summary> Creates one failure result from a structured execution error. </summary>
@@ -25,16 +25,14 @@ internal static class ResolveServiceResultFactory
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var errorCode = ExecutionErrorCodeMapper.ToCode(error.Kind);
-        return Create(
+        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        return Failure(
             requestId,
             [],
             [
-                new OperationExecutionError(errorCode, error.Message, null),
+                executionError,
             ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? ApplicationOutcome.InvalidArgument
-                : ApplicationOutcome.ToolError,
+            RequestServiceResultPolicy.ResolveOutcome(error),
             readIndex ?? CreateUnityReadIndexInfo(fallbackReason: null));
     }
 
@@ -45,7 +43,7 @@ internal static class ResolveServiceResultFactory
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(
+        return Failure(
             requestId,
             [],
             [error],
@@ -53,8 +51,8 @@ internal static class ResolveServiceResultFactory
             readIndex);
     }
 
-    /// <summary> Creates one normalized resolve service result. </summary>
-    public static ResolveServiceResult Create (
+    /// <summary> Creates one failed resolve result. </summary>
+    public static ResolveServiceResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
@@ -63,15 +61,14 @@ internal static class ResolveServiceResultFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
-        ArgumentNullException.ThrowIfNull(errors);
         ArgumentNullException.ThrowIfNull(readIndex);
 
-        return new ResolveServiceResult(
-            RequestId: requestId,
-            OpResults: opResults,
-            Errors: errors,
-            Outcome: outcome,
-            ReadIndex: readIndex);
+        return ResolveServiceResult.Failure(
+            requestId,
+            opResults,
+            errors,
+            outcome,
+            readIndex);
     }
 
     private static ReadIndexInfo CreateUnityReadIndexInfo (string? fallbackReason)

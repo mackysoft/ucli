@@ -4,18 +4,34 @@ using MackySoft.Ucli.Application.Shared.Execution;
 namespace MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 
 /// <summary> Represents one normalized <c>plan</c> service result. </summary>
-/// <param name="Output"> The output payload when available. </param>
-/// <param name="Message"> The user-facing result message. </param>
-/// <param name="Errors"> The machine-readable error list. </param>
-/// <param name="Outcome"> The application outcome associated with this result. </param>
-internal sealed record PlanServiceResult (
-    PlanExecutionOutput? Output,
-    string Message,
-    IReadOnlyList<OperationExecutionError> Errors,
-    ApplicationOutcome Outcome)
+internal sealed record PlanServiceResult
 {
+    private PlanServiceResult (
+        PlanExecutionOutput? output,
+        string message,
+        IReadOnlyList<OperationExecutionError> errors,
+        ApplicationOutcome outcome)
+    {
+        Output = output;
+        Message = message;
+        Errors = errors;
+        Outcome = outcome;
+    }
+
+    /// <summary> Gets the output payload when available. </summary>
+    public PlanExecutionOutput? Output { get; }
+
+    /// <summary> Gets the user-facing result message. </summary>
+    public string Message { get; }
+
+    /// <summary> Gets the machine-readable error list. </summary>
+    public IReadOnlyList<OperationExecutionError> Errors { get; }
+
+    /// <summary> Gets the application outcome associated with this result. </summary>
+    public ApplicationOutcome Outcome { get; }
+
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
-    public bool IsSuccess => Errors.Count == 0;
+    public bool IsSuccess => Outcome == ApplicationOutcome.Success;
 
     /// <summary> Creates a successful service result. </summary>
     /// <param name="output"> The successful output. </param>
@@ -25,8 +41,12 @@ internal sealed record PlanServiceResult (
         PlanExecutionOutput output,
         string message)
     {
-        ArgumentNullException.ThrowIfNull(output);
-        return new PlanServiceResult(output, message, [], ApplicationOutcome.Success);
+        RequestServiceResultPolicy.ValidateSuccessMessage(message);
+        return new PlanServiceResult(
+            RequestServiceResultPolicy.RequireSuccessOutput(output, nameof(output)),
+            message,
+            RequestServiceResultPolicy.EmptyErrors,
+            ApplicationOutcome.Success);
     }
 
     /// <summary> Creates a failed service result. </summary>
@@ -41,7 +61,10 @@ internal sealed record PlanServiceResult (
         ApplicationOutcome outcome,
         PlanExecutionOutput? output = null)
     {
-        ArgumentNullException.ThrowIfNull(errors);
-        return new PlanServiceResult(output, message, errors, outcome);
+        return new PlanServiceResult(
+            output,
+            message,
+            RequestServiceResultPolicy.RequireFailureErrors(message, errors, outcome),
+            outcome);
     }
 }

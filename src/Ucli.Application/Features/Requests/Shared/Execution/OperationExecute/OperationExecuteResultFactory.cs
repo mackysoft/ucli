@@ -29,16 +29,14 @@ internal static class OperationExecuteResultFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(error);
 
-        var errorCode = ExecutionErrorCodeMapper.ToCode(error.Kind);
-        return Create(
+        var executionError = RequestServiceResultPolicy.FromExecutionError(error);
+        return Failure(
             requestId,
             [],
             [
-                new OperationExecutionError(errorCode, error.Message, null),
+                executionError,
             ],
-            error.Kind == ExecutionErrorKind.InvalidArgument
-                ? ApplicationOutcome.InvalidArgument
-                : ApplicationOutcome.ToolError);
+            RequestServiceResultPolicy.ResolveOutcome(error));
     }
 
     /// <summary> Creates one failure result from static validation errors. </summary>
@@ -50,29 +48,34 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<ValidationError> validationErrors)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        ArgumentNullException.ThrowIfNull(validationErrors);
 
-        var errors = new OperationExecutionError[validationErrors.Count];
-        for (var i = 0; i < validationErrors.Count; i++)
-        {
-            var validationError = validationErrors[i];
-            errors[i] = new OperationExecutionError(validationError.Code, validationError.Message, validationError.OpId);
-        }
-
-        return Create(
+        return Failure(
             requestId,
             [],
-            errors,
+            RequestServiceResultPolicy.FromValidationErrors(validationErrors),
             ApplicationOutcome.InvalidArgument);
     }
 
-    /// <summary> Creates one normalized operation execution result. </summary>
+    /// <summary> Creates one successful operation execution result. </summary>
+    /// <param name="requestId"> The request identifier. </param>
+    /// <param name="opResults"> The per-step execution results. </param>
+    /// <returns> The normalized operation execution result. </returns>
+    public static OperationExecuteResult Success (
+        string requestId,
+        IReadOnlyList<OperationExecutionOperationResult> opResults,
+        OperationExecutionReadPostcondition? readPostcondition = null)
+    {
+        return OperationExecuteResult.Success(requestId, opResults, readPostcondition);
+    }
+
+    /// <summary> Creates one failed operation execution result. </summary>
     /// <param name="requestId"> The request identifier. </param>
     /// <param name="opResults"> The per-step execution results. </param>
     /// <param name="errors"> The machine-readable error list. </param>
     /// <param name="outcome"> The associated application outcome. </param>
+    /// <param name="readPostcondition"> The emitted mutation read-postcondition payload. </param>
     /// <returns> The normalized operation execution result. </returns>
-    public static OperationExecuteResult Create (
+    public static OperationExecuteResult Failure (
         string requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<OperationExecutionError> errors,
@@ -81,13 +84,12 @@ internal static class OperationExecuteResultFactory
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
-        ArgumentNullException.ThrowIfNull(errors);
 
-        return new OperationExecuteResult(
-            RequestId: requestId,
-            OpResults: opResults,
-            Errors: errors,
-            Outcome: outcome,
-            ReadPostcondition: readPostcondition);
+        return OperationExecuteResult.Failure(
+            requestId,
+            opResults,
+            errors,
+            outcome,
+            readPostcondition);
     }
 }
