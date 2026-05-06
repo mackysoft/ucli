@@ -80,6 +80,7 @@ public sealed class ProjectContextResolverTests
         Assert.Null(result.Context);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Equal(ProjectContextErrorCodes.ProjectPathNotFound, error.Code);
     }
 
     [Fact]
@@ -118,6 +119,8 @@ public sealed class ProjectContextResolverTests
         Assert.True(result.IsSuccess);
         var context = Assert.IsType<ProjectContext>(result.Context);
         Assert.Equal(unityProjectPath, context.UnityProject.UnityProjectRoot);
+        Assert.Equal(UnityProjectPathSource.EnvironmentVariable, context.UnityProject.PathSource);
+        Assert.Equal(UcliEnvironmentVariableNames.ProjectPath, context.UnityProject.PathSourceLabel);
     }
 
     private static ProjectContextResolver CreateResolver (
@@ -125,8 +128,9 @@ public sealed class ProjectContextResolverTests
         UcliConfigStore? configStore = null)
     {
         return new ProjectContextResolver(
-            new UnityProjectResolver(new ProjectPathInputResolver(new StubEnvironmentVariableReader(
-                environmentVariables ?? new Dictionary<string, string?>(StringComparer.Ordinal)))),
+            new ProjectPathInputResolver(new StubEnvironmentVariableReader(
+                environmentVariables ?? new Dictionary<string, string?>(StringComparer.Ordinal))),
+            new UnityProjectResolver(),
             configStore ?? new UcliConfigStore());
     }
 }

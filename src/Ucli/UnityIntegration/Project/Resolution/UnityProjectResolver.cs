@@ -12,39 +12,32 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
     private const string ProjectSettingsDirectoryName = "ProjectSettings";
     private const string ProjectVersionFileName = "ProjectVersion.txt";
 
-    private readonly IProjectPathInputResolver projectPathInputResolver;
-
     /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
-    /// <param name="projectPathInputResolver"> The project-path input resolver dependency. </param>
-    public UnityProjectResolver (IProjectPathInputResolver projectPathInputResolver)
+    public UnityProjectResolver ()
     {
-        this.projectPathInputResolver = projectPathInputResolver ?? throw new ArgumentNullException(nameof(projectPathInputResolver));
     }
 
-    /// <summary> Resolves UnityProject context from command options and validates required project markers. </summary>
-    /// <param name="projectPath"> The optional <c>--projectPath</c> value. When <see langword="null" />, empty, or whitespace, the current working directory is used. </param>
+    /// <summary> Resolves UnityProject context from a selected project-path candidate and validates required project markers. </summary>
+    /// <param name="projectPathCandidate"> The selected but not yet normalized project-path candidate. </param>
     /// <returns> The resolution result containing either a validated UnityProject context or a structured error. </returns>
-    public UnityProjectResolutionResult Resolve (string? projectPath)
+    public UnityProjectResolutionResult Resolve (ProjectPathCandidate projectPathCandidate)
     {
-        var resolvedProjectPath = projectPathInputResolver.Resolve(projectPath);
-        var pathSource = string.IsNullOrWhiteSpace(resolvedProjectPath)
-            ? UnityProjectPathSource.CurrentDirectory
-            : UnityProjectPathSource.CommandOption;
-        var pathCandidate = pathSource == UnityProjectPathSource.CurrentDirectory
-            ? Environment.CurrentDirectory
-            : resolvedProjectPath!;
-        var fullPathResult = PathNormalizer.TryNormalizeFullPath(pathCandidate);
+        ArgumentNullException.ThrowIfNull(projectPathCandidate);
+
+        var fullPathResult = PathNormalizer.TryNormalizeFullPath(projectPathCandidate.Path);
         if (!fullPathResult.IsSuccess)
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                "UnityProject path is invalid: Path format is invalid."));
+                "UnityProject path is invalid: Path format is invalid.",
+                ProjectContextErrorCodes.ProjectPathInvalidFormat));
         }
 
         var unityProjectRoot = fullPathResult.FullPath!;
         if (!Directory.Exists(unityProjectRoot))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject path does not exist: {unityProjectRoot}"));
+                $"UnityProject path does not exist: {unityProjectRoot}",
+                ProjectContextErrorCodes.ProjectPathNotFound));
         }
 
         var projectVersionPath = Path.Combine(
@@ -54,7 +47,8 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         if (!File.Exists(projectVersionPath))
         {
             return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
-                $"UnityProject is invalid. Missing file: {projectVersionPath}"));
+                $"UnityProject is invalid. Missing file: {projectVersionPath}",
+                ProjectContextErrorCodes.UnityProjectMarkerMissing));
         }
 
         var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
@@ -63,6 +57,7 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
             UnityProjectRoot: unityProjectRoot,
             RepositoryRoot: repositoryRoot,
             ProjectFingerprint: projectFingerprint,
-            PathSource: pathSource));
+            PathSource: projectPathCandidate.Source,
+            PathSourceLabel: projectPathCandidate.SourceLabel));
     }
 }
